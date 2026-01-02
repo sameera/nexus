@@ -1,5 +1,5 @@
 ---
-description: Generate an Epic and User Stories document from a natural language feature description.
+description: Generate an Epic and User Stories document from a natural language capability description within a Feature.
 ---
 
 ## User Input
@@ -12,77 +12,124 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-The text the user typed after `/epic.generate` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
+The text the user typed after the slash command **is** the capability/epic description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
 
-Given that feature description, do this:
+Given that capability description, do this:
 
-1. **Generate a concise filename** (kebab-case) for the document:
+1. **Locate and validate the Feature context**:
 
-    - Analyze the feature description and extract the most meaningful keywords
-    - Create a 2-5 word filename that captures the essence of the feature
-    - Use noun or action-noun format (e.g., "user-authentication", "payment-processing", "analytics-dashboard")
-    - Preserve technical terms and acronyms (OAuth2, API, JWT, etc.)
-    - Append `-epic.md` suffix to the filename
-    - Examples:
-        - "I want to add user authentication" → `user-authentication-epic.md`
-        - "Implement OAuth2 integration for the API" → `oauth2-api-integration-epic.md`
-        - "Create a dashboard for analytics" → `analytics-dashboard-epic.md`
-        - "Fix payment processing timeout bug" → `payment-timeout-fix-epic.md`
+    a. **Find the Feature README.md**:
 
-2. **Determine the save location**:
+    - Check if the user referenced a README.md file in their prompt
+    - OR check if there's a currently open file in the IDE named `README.md`
+    - OR check if there's a currently open file in the IDE and look for `README.md` in the same directory
 
-    a. Check if there's a currently open file in the IDE:
+    b. **Validate the Feature Brief**:
 
-    - If YES: Save the document to the **same folder** as the currently open file
-    - If NO: Save to `docs/features` folder at the repository root
+    - Read the README.md file and parse its YAML frontmatter
+    - **Required**: The frontmatter MUST contain a `feature` attribute
+    - Extract the feature name from the `feature` attribute value
 
-    b. Create the target directory if it doesn't exist:
+    c. **Handle validation failure**:
 
-    ```bash
-    mkdir -p "<target-directory>"
+    ```
+    ❌ **Cannot proceed**: No valid Feature context found.
+
+    This command must be executed within a Feature. Ensure one of the following:
+    1. Reference a Feature's README.md file in your prompt (e.g., "@README.md")
+    2. Have the Feature's README.md open in your IDE
+    3. Have any file open within a Feature directory that contains a README.md
+
+    The README.md must have YAML frontmatter with a `feature` attribute:
+    ---
+    feature: "Your Feature Name"
+    ---
     ```
 
-    c. Construct the full file path: `<target-directory>/<filename>-epic.md`
+    - **Do not proceed** if validation fails
 
-3. **Parse and analyze the feature description**:
+    d. **Store the feature directory path** for later use (the directory containing README.md)
+
+2. **Generate a concise epic folder name** (kebab-case):
+
+    - Analyze the capability description and extract the most meaningful keywords
+    - Create a 2-5 word name that captures the essence of the capability
+    - Use noun or action-noun format (e.g., "space-scoped-tags", "private-user-tags", "tag-inheritance")
+    - Preserve technical terms and acronyms (OAuth2, API, JWT, etc.)
+    - **Do NOT** add any prefix or suffix — the sequential generator will handle prefixing
+    - Examples:
+        - "Tags should be available to all users in a space" → `space-scoped-tags`
+        - "Allow users to have private tags not visible to others" → `private-user-tags`
+        - "Implement tag inheritance from parent spaces" → `tag-inheritance`
+        - "Add bulk tag operations for administrators" → `bulk-tag-operations`
+
+3. **Create the Epic directory using sequential-name-generator**:
+
+    a. Use the `sequential-name-generator` skill to generate the folder name:
+
+    ```bash
+    python scripts/next_sequential_name.py "<feature-directory>" "<epic-name>"
+    ```
+
+    - `<feature-directory>` is the directory containing the Feature's README.md
+    - `<epic-name>` is the kebab-case name generated in step 2 (no extension = folder mode)
+
+    b. The script will return a name like `03-space-scoped-tags`
+
+    c. Create the epic directory:
+
+    ```bash
+    mkdir -p "<feature-directory>/<sequential-epic-folder>"
+    ```
+
+    d. The epic document will be saved as `epic.md` inside this directory:
+    `<feature-directory>/<sequential-epic-folder>/epic.md`
+
+4. **Parse and analyze the capability description**:
 
     Follow this execution flow:
 
     1. Parse user description from Input
-        - If empty: ERROR "No feature description provided"
+        - If empty: ERROR "No capability description provided"
     2. Extract key concepts from description
         - Identify: actors/personas, goals, actions, data, constraints, business value
+        - Consider the parent Feature context for consistency
     3. For unclear aspects:
         - Make informed guesses based on context and industry standards
         - Only mark with [NEEDS CLARIFICATION: specific question] if:
-            - The choice significantly impacts feature scope or user experience
+            - The choice significantly impacts epic scope or user experience
             - Multiple reasonable interpretations exist with different implications
             - No reasonable default exists
         - **LIMIT: Maximum 3 [NEEDS CLARIFICATION] markers total**
         - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
-    4. Decompose the feature into logical user stories
+    4. Decompose the capability into logical user stories
         - Each story should be independently deliverable
         - Stories should follow the INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)
     5. Define acceptance criteria for each story
         - Each criterion must be testable and unambiguous
-        - Use Given/When/Then format where appropriate
     6. Return: SUCCESS (epic document ready)
 
-4. **Write the Epic document** using the following structure:
+5. **Write the Epic document** using the following structure:
 
 ```markdown
+---
+feature: "[Feature Name from README.md]"
+epic: "[Epic Name]"
+created: [Current date in YYYY-MM-DD format]
+status: draft
+---
+
 # Epic: [Epic Title]
 
 ## Overview
 
-**Epic Name**: [Concise name for the epic]
-**Created**: [Current date in YYYY-MM-DD format]
-**Status**: Draft
-**Owner**: [Leave as TBD]
+**Feature**: [Feature Name - link to ../README.md]
+**Epic Name**: [Concise name for the epic/capability]
+**Owner**: TBD
 
 ### Description
 
-[2-3 paragraph description of the epic explaining WHAT the feature does and WHY it matters to users/business. Focus on value delivery, not implementation.]
+[2-3 paragraph description of the epic explaining WHAT the capability does and WHY it matters to users/business. Focus on value delivery, not implementation. Reference how this capability extends or modifies the parent Feature.]
 
 ### Business Value
 
@@ -160,10 +207,11 @@ Given that feature description, do this:
 
 ### Related Documents
 
+-   [../README.md](../README.md) - Parent Feature Brief
 -   [Links to related specs, designs, or documentation]
 ```
 
-5. **Story Decomposition Guidelines**:
+6. **Story Decomposition Guidelines**:
 
     When breaking down the epic into user stories:
 
@@ -194,7 +242,7 @@ Given that feature description, do this:
     - Follow with enhancement stories (validations, notifications)
     - End with polish stories (UI refinements, edge cases)
 
-6. **Quality Validation**: After writing the initial document, validate against these criteria:
+7. **Quality Validation**: After writing the initial document, validate against these criteria:
 
     a. **Epic Level**:
 
@@ -202,6 +250,7 @@ Given that feature description, do this:
     - [ ] Success metrics are measurable and technology-agnostic
     - [ ] Scope is clearly bounded with explicit out-of-scope items
     - [ ] No implementation details (languages, frameworks, APIs)
+    - [ ] Properly linked to parent Feature
 
     b. **Story Level**:
 
@@ -216,7 +265,7 @@ Given that feature description, do this:
     - If items fail: Update the document to address issues before saving
     - If [NEEDS CLARIFICATION] markers remain (max 3): Present to user using the clarification format below
 
-7. **Handle Clarifications** (if any remain):
+8. **Handle Clarifications** (if any remain):
 
     For each clarification needed (max 3), present options:
 
@@ -238,8 +287,9 @@ Given that feature description, do this:
 
     After receiving answers, update the document and remove [NEEDS CLARIFICATION] markers.
 
-8. **Report completion** with:
-    - Full file path where document was saved
+9. **Report completion** with:
+    - Feature name and link to Feature README
+    - Full file path where epic document was saved
     - Epic summary (name, story count)
     - Any clarifications needed before the epic is considered complete
     - Suggested next steps
@@ -254,6 +304,7 @@ Given that feature description, do this:
 -   Avoid **HOW** to implement (no tech stack, APIs, code structure)
 -   Written for product owners, stakeholders, and developers to align on scope
 -   Each story should be a conversation starter, not a complete specification
+-   Maintain consistency with the parent Feature's context and terminology
 
 ### Acceptance Criteria Best Practices
 
@@ -266,11 +317,13 @@ Given that feature description, do this:
 
 When creating this document from a user prompt:
 
-1. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
-2. **Document assumptions**: Record reasonable defaults in the Assumptions section
-3. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers
-4. **Think like a product owner**: Every story should answer "what value does this deliver?"
-5. **Think like a tester**: Every acceptance criterion should be verifiable
+1. **Validate Feature context first**: Always ensure you have a valid Feature before proceeding
+2. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
+3. **Document assumptions**: Record reasonable defaults in the Assumptions section
+4. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers
+5. **Think like a product owner**: Every story should answer "what value does this deliver?"
+6. **Think like a tester**: Every acceptance criterion should be verifiable
+7. **Maintain Feature coherence**: Ensure the epic aligns with and extends the parent Feature
 
 **Examples of reasonable defaults** (don't ask about these):
 
@@ -287,6 +340,17 @@ When creating this document from a user prompt:
 -   Compliance or regulatory requirements
 -   Performance requirements for high-scale features
 
-```
+### Directory Structure Example
 
+After running this command for a "Tagging" feature:
+
+```
+docs/features/tagging/
+├── README.md                      # Feature Brief (feature: "Tagging")
+├── 01-space-scoped-tags/
+│   └── epic.md                    # First epic
+├── 02-private-user-tags/
+│   └── epic.md                    # Second epic (this command creates)
+└── 03-tag-inheritance/
+    └── epic.md                    # Third epic (future)
 ```
