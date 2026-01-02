@@ -68,7 +68,7 @@ fi
 echo -e "${GREEN}Successfully cloned nexus repository${NC}"
 
 # Step 3: Copy contents from nexus/.claude to current repo's .claude
-SOURCE_DIR="$TEMP_DIR/nexus/.claude"
+SOURCE_DIR="$TEMP_DIR/nexus/claude/.claude"
 
 if [ ! -d "$SOURCE_DIR" ]; then
     echo -e "${RED}Error: .claude directory not found in nexus repository${NC}"
