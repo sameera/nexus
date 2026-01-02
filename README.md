@@ -2,7 +2,7 @@
 
 ```
 product
-    |_ context.md                   // High-level product context for the agents.
+    |_ context.md               // High-level product context for the agents.
 system
     |_ standards
     |   |_ api_patterns.md
