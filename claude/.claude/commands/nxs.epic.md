@@ -116,16 +116,11 @@ Given that capability description, do this:
 feature: "[Feature Name from README.md]"
 epic: "[Epic Name]"
 created: [Current date in YYYY-MM-DD format]
+type: enhancement
 status: draft
 ---
 
 # Epic: [Epic Title]
-
-## Overview
-
-**Feature**: [Feature Name - link to ../README.md]
-**Epic Name**: [Concise name for the epic/capability]
-**Owner**: TBD
 
 ### Description
 
