@@ -68,7 +68,7 @@ Given that capability description, do this:
     a. Use the `sequential-name-generator` skill to generate the folder name:
 
     ```bash
-    python scripts/next_sequential_name.py "<feature-directory>" "<epic-name>"
+    python ./scripts/next_sequential_name.py "<feature-directory>" "<epic-name>"
     ```
 
     - `<feature-directory>` is the directory containing the Feature's README.md

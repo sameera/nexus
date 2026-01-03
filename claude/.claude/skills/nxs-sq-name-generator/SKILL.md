@@ -10,7 +10,7 @@ Generate the next sequential file or folder name given a path and target name.
 ## Usage
 
 ```bash
-python scripts/next_sequential_name.py <path> <target_name>
+python ./scripts/next_sequential_name.py <path> <target_name>
 ```
 
 **Arguments:**
@@ -24,15 +24,15 @@ python scripts/next_sequential_name.py <path> <target_name>
 
 ```bash
 # Files: Given 01-setup.md, 02-init.md, 04-teardown.md exist
-python scripts/next_sequential_name.py ./docs cleanup.md
+python ./scripts/next_sequential_name.py ./docs cleanup.md
 # Output: 05-cleanup.md
 
 # Folders: Given 01-chapter, 02-chapter exist
-python scripts/next_sequential_name.py ./book chapter
+python ./scripts/next_sequential_name.py ./book chapter
 # Output: 03-chapter
 
 # Empty directory
-python scripts/next_sequential_name.py ./empty notes.md
+python ./scripts/next_sequential_name.py ./empty notes.md
 # Output: 01-notes.md
 ```
 

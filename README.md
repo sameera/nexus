@@ -16,11 +16,15 @@ docs
 Add the following to your CLAUDE.md
 
 ```markdown
-# Path Conventions
+# Project Structure
 
-All paths prefixed with `$PROJECT/` refer to the repository root (the directory containing this CLAUDE.md file).
+This repository root contains:
 
-When you see `$PROJECT/path/to/file`, resolve it relative to the repository root.
+-   `CLAUDE.md` (this file)
+-   `system/standards/` - shared standards and configurations
+-   `.claude/commands/` - slash commands
+
+When any command or agent references paths under `system/`, `docs/`, or `scripts/`, treat them as relative to this repository root, not as absolute filesystem paths.
 ```
 
 # Updating

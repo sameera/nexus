@@ -34,7 +34,7 @@ Before analyzing the HLD, create a GitHub issue for the parent epic:
 1. Locate the `epic.md` file in the same directory as the HLD file
 2. Apply the `nxs-gh-create-epic` skill by running:
     ```bash
-    python scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+    python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
     ```
 3. Verify the `epic.md` frontmatter now contains a `link` attribute (e.g., `link: "#42"`)
 4. Extract and store the issue number from the `link` attribute for use in task generation
@@ -161,7 +161,7 @@ parent: { epic_issue_number }
 
 ## 6. Generate Summary
 
-Create `tasks/README.md` containing:
+Create `./tasks/README.md` containing:
 
 -   Parent epic issue reference
 -   Total task count
@@ -176,7 +176,7 @@ After generating all task files, create GitHub issues for each task:
 
 1. Apply the `nxs-gh-create-task` skill by running:
     ```bash
-    python scripts/create_gh_issues.py "<path-to-tasks-folder>"
+    python ./scripts/create_gh_issues.py "<path-to-tasks-folder>"
     ```
 2. This will:
     - Create a GitHub issue for each `TASK-{EPIC}.{NN}.md` file
@@ -188,7 +188,7 @@ After generating all task files, create GitHub issues for each task:
 
 -   **DO NOT** search for HLD files - use the provided context or arguments only
 -   **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
--   **DO NOT** use labels other than those defined in `/system/standards/task-labels.md`
+-   **DO NOT** use labels other than those defined in `docs/system/standards/task-labels.md`
 -   **DO** make reasonable assumptions and document them
 -   **DO** prefer smaller tasks over larger ones when uncertain
 -   **DO** ensure the first task creates a buildable/runnable skeleton
@@ -208,7 +208,7 @@ After generating all task files, create GitHub issues for each task:
     - The `parent` attribute set to the epic issue number
     - Labels from the approved set only
 9. Generate the summary README
-10. Run `nxs-gh-create-task` on the `tasks/` folder to create GitHub issues
+10. Run `nxs-gh-create-task` on the `./tasks/` folder to create GitHub issues
 11. Report completion with:
     - Epic issue URL
     - Task count and their issue URLs

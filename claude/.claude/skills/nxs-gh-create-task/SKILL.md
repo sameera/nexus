@@ -10,7 +10,7 @@ Create GitHub issues from TASK-???.md files in a target folder.
 ## Usage
 
 ```bash
-python scripts/create_gh_issues.py <target_folder> [--dry-run]
+python ./scripts/create_gh_issues.py <target_folder> [--dry-run]
 ```
 
 **Arguments:**
@@ -59,8 +59,8 @@ Task body content goes here. This becomes the issue body.
 
 ```bash
 # Preview what will be created
-python scripts/create_gh_issues.py ./tasks --dry-run
+python ./scripts/create_gh_issues.py ./tasks --dry-run
 
 # Create the issues
-python scripts/create_gh_issues.py ./tasks
+python ./scripts/create_gh_issues.py ./tasks
 ```

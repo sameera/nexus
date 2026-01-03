@@ -18,18 +18,18 @@ Create a GitHub issue from an Epic document's content and link it back to the ep
 2. **Run the script** to create the issue and update frontmatter:
 
 ```bash
-python scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
 ```
 
 Use `-y` flag to skip confirmation if a link already exists:
 
 ```bash
-python scripts/nxs_gh_create_epic.py -y "<path-to-epic.md>"
+python ./scripts/nxs_gh_create_epic.py -y "<path-to-epic.md>"
 ```
 
 ## Script Behavior
 
-The script (`scripts/nxs_gh_create_epic.py`):
+The script (`./scripts/nxs_gh_create_epic.py`):
 
 1. Parses YAML frontmatter for `epic` (title) and `type` (label, defaults to "epic")
 2. Creates temp file with markdown body (frontmatter stripped)
