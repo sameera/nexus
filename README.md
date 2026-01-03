@@ -21,7 +21,7 @@ Add the following to your CLAUDE.md
 This repository root contains:
 
 -   `CLAUDE.md` (this file)
--   `system/standards/` - shared standards and configurations
+-   `docs/system/standards/` - shared standards and configurations
 -   `.claude/commands/` - slash commands
 
 When any command or agent references paths under `system/`, `docs/`, or `scripts/`, treat them as relative to this repository root, not as absolute filesystem paths.

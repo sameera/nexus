@@ -92,14 +92,14 @@ Create a `tasks/` subfolder in the same directory as the HLD file.
 
 ### Label Requirements
 
-**MANDATORY**: Read `$PROJECT/docs/system/standards/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
+**MANDATORY**: Read `docs/system/standards/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
 
 **Label assignment rules** (after reading the labels file):
 
 -   Use 1-3 labels per task based on work areas involved
 -   Choose the primary architectural label first (e.g. `infrastructure`, `backend`, `frontend`, `database`)
 -   Add secondary labels (like `performance` or `integration`) when applicable
--   **DO NOT** use any label not defined in `$PROJECT/system/standards/task-labels.md`
+-   **DO NOT** use any label not defined in `docs/system/standards/task-labels.md`
 
 ### Task Numbering
 

@@ -16,7 +16,7 @@ Trust the documentation as your primary source of truth.
 
 ### Step 1: Product Context Analysis
 
-**Read**: `$PROJECT/docs/product/context.md`
+**Read**: `docs/product/context.md`
 **Extract**:
 
 -   Product vision and user problems being solved
@@ -24,7 +24,7 @@ Trust the documentation as your primary source of truth.
 -   Business constraints and priorities
 -   Success metrics and KPIs
 
-**Read**: `$PROJECT/docs/features/README.md`
+**Read**: `docs/features/README.md`
 **Extract**:
 
 -   Feature inventory and current state
@@ -41,7 +41,7 @@ Trust the documentation as your primary source of truth.
 
 ### Step 2: Architectural Context Analysis
 
-**Read**: All relevant files in `$PROJECT/docs/system/`
+**Read**: All relevant files in `docs/system/`
 **Extract**:
 
 -   **Technology Stack**: Languages, frameworks, databases, caches, message queues
@@ -81,7 +81,7 @@ Trust the documentation as your primary source of truth.
 
 **When to use**:
 
--   Request fits existing patterns documented in `$PROJECT/docs/features/`
+-   Request fits existing patterns documented in `docs/features/`
 -   No new architectural components needed
 -   Clear precedent exists in similar features
 -   Low risk: non-critical path, easily reversible, well-understood domain
@@ -89,7 +89,7 @@ Trust the documentation as your primary source of truth.
 **Process**:
 
 1. Read relevant feature docs to identify the pattern
-2. Skim `$PROJECT/docs/system/` for any constraints or conventions
+2. Skim `docs/system/` for any constraints or conventions
 3. Provide recommendation based on documented approach
 
 **Output**: Brief assessment with S/M complexity and clear recommendation
@@ -187,7 +187,7 @@ Trust the documentation as your primary source of truth.
 -   **Long-Term Burden**: Ongoing maintenance, upgrade paths, operational overhead
 -   **Pattern Consistency**: Follows existing conventions or introduces new ones?
 -   **Cleanup Opportunities**: Can we reduce existing debt while building this?
--   **Documentation Needs**: What requires updates in `$PROJECT/docs/system/`?
+-   **Documentation Needs**: What requires updates in `docs/system/`?
 -   **Knowledge Distribution**: Bus factor considerations
 
 ### 6. Security & Reliability
