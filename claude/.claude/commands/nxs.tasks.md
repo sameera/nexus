@@ -76,12 +76,32 @@ Each task MUST include a low-level design section covering:
 
 Create a `tasks/` subfolder in the same directory as the HLD file.
 
+### Label Requirements
+
+**Read `/system/standards/task-labels.md` before assigning labels.** Only use labels defined in that file:
+
+| Label            | Use For                                          |
+| ---------------- | ------------------------------------------------ |
+| `infrastructure` | Database setup, CI/CD, build tooling, deployment |
+| `backend`        | API endpoints, Fastify handlers, service logic   |
+| `frontend`       | React components, client-side logic, UI          |
+| `database`       | Schema, indexes, PL/pgSQL functions, triggers    |
+| `performance`    | Optimization, caching, query tuning              |
+| `integration`    | Cross-layer work, end-to-end flows               |
+
+**Label assignment rules:**
+
+-   Use 1-3 labels per task based on work areas involved
+-   Choose the primary architectural label (`infrastructure`, `backend`, `frontend`, `database`)
+-   Add `performance` or `integration` as secondary labels when applicable
+-   **DO NOT** invent labels not in the standards file
+
 Generate one file per task named `TASK-{NNN}.md` with this structure:
 
 ````markdown
 ---
 title: "TASK-{NNN}: {Concise title}"
-labels: [{ category }, { component }]
+labels: [backend, database]
 parent: { epic_issue_number }
 ---
 
@@ -153,6 +173,7 @@ After generating all task files, create GitHub issues for each task:
 # Constraints
 
 -   **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
+-   **DO NOT** use labels other than those defined in `/system/standards/task-labels.md`
 -   **DO** make reasonable assumptions and document them
 -   **DO** prefer smaller tasks over larger ones when uncertain
 -   **DO** ensure the first task creates a buildable/runnable skeleton
@@ -162,12 +183,15 @@ After generating all task files, create GitHub issues for each task:
 
 1. Run `nxs-gh-create-epic` on the `epic.md` file in the HLD directory
 2. Extract the epic issue number from the updated `epic.md` frontmatter
-3. Read the HLD file
-4. Create the `tasks/` directory
-5. Generate all task files with the `parent` attribute set to the epic issue number
-6. Generate the summary README
-7. Run `nxs-gh-create-task` on the `tasks/` folder to create GitHub issues
-8. Report completion with:
+3. Read `/system/standards/task-labels.md` to load valid labels
+4. Read the HLD file
+5. Create the `tasks/` directory
+6. Generate all task files with:
+    - The `parent` attribute set to the epic issue number
+    - Labels from the approved set only
+7. Generate the summary README
+8. Run `nxs-gh-create-task` on the `tasks/` folder to create GitHub issues
+9. Report completion with:
     - Epic issue URL
     - Task count and their issue URLs
     - Suggested first tasks to parallelize
