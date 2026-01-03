@@ -96,11 +96,20 @@ Create a `tasks/` subfolder in the same directory as the HLD file.
 -   Add `performance` or `integration` as secondary labels when applicable
 -   **DO NOT** invent labels not in the standards file
 
-Generate one file per task named `TASK-{NNN}.md` with this structure:
+### Task Numbering
+
+Task numbers follow the format `TASK-{EPIC}.{NN}` where:
+
+-   `{EPIC}` is the parent epic's GitHub issue number
+-   `{NN}` is a zero-padded sequential number starting from 01
+
+For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01`, `TASK-23.02`, `TASK-23.03`, etc.
+
+Generate one file per task named `TASK-{EPIC}.{NN}.md` with this structure:
 
 ````markdown
 ---
-title: "TASK-{NNN}: {Concise title}"
+title: "TASK-{EPIC}.{NN}: {Concise title}"
 labels: [backend, database]
 parent: { epic_issue_number }
 ---
@@ -111,8 +120,8 @@ parent: { epic_issue_number }
 
 ## Dependencies
 
--   Blocked by: {TASK-XXX, TASK-YYY or "None"}
--   Blocks: {TASK-ZZZ or "None"}
+-   Blocked by: {TASK-{EPIC}.{NN}, TASK-{EPIC}.{NN} or "None"}
+-   Blocks: {TASK-{EPIC}.{NN} or "None"}
 
 ## Low-Level Design
 
@@ -143,7 +152,7 @@ parent: { epic_issue_number }
 {X hours - Y hours}
 ````
 
-**Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task to the parent epic issue.
+**Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task issue to the parent epic issue.
 
 ## 6. Generate Summary
 
@@ -165,7 +174,7 @@ After generating all task files, create GitHub issues for each task:
     python scripts/create_gh_issues.py "<path-to-tasks-folder>"
     ```
 2. This will:
-    - Create a GitHub issue for each `TASK-???.md` file
+    - Create a GitHub issue for each `TASK-{EPIC}.{NN}.md` file
     - Apply the labels from frontmatter
     - Link each task issue to the parent epic via the `parent` attribute
 3. Report the created issue URLs
@@ -187,6 +196,7 @@ After generating all task files, create GitHub issues for each task:
 4. Read the HLD file
 5. Create the `tasks/` directory
 6. Generate all task files with:
+    - Task numbers in format `TASK-{EPIC}.{NN}` (e.g., `TASK-23.01`, `TASK-23.02`)
     - The `parent` attribute set to the epic issue number
     - Labels from the approved set only
 7. Generate the summary README
