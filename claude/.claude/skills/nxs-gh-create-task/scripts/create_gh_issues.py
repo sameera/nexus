@@ -51,7 +51,7 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
 
 def find_task_files(target_folder: str) -> list[Path]:
     """Find all TASK-???.md files in the target folder."""
-    pattern = os.path.join(target_folder, "TASK-???.md")
+    pattern = os.path.join(target_folder, "TASK-*.md")
     files = glob.glob(pattern)
     return sorted([Path(f) for f in files])
 
