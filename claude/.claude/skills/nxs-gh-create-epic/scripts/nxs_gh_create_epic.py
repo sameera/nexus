@@ -2,16 +2,19 @@
 """
 nxs_gh_create_epic.py
 
-Creates a GitHub issue from an Epic document and updates its frontmatter with the issue link.
+Creates a GitHub issue from an Epic document, adds it to the repository's project,
+and updates its frontmatter with the issue link.
 
 Usage: python nxs_gh_create_epic.py <path-to-epic.md>
 
 Prerequisites:
     - GitHub CLI (gh) must be installed and authenticated
+    - For project integration: gh auth login --scopes 'project'
     - Must be run from within a git repository connected to GitHub
 """
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
@@ -128,6 +131,97 @@ def update_frontmatter_with_link(content: str, issue_num: str) -> str:
     return "\n".join(lines)
 
 
+def get_repo_project_id() -> str | None:
+    """Get the node ID of the first project associated with the current repository.
+    
+    Returns:
+        The project node ID (e.g., "PVT_kwHOABC123") or None if no project found.
+    """
+    query = """
+    query {
+        repository(owner: "{owner}", name: "{repo}") {
+            projectsV2(first: 1) {
+                nodes {
+                    id
+                    title
+                }
+            }
+        }
+    }
+    """
+    
+    cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
+    
+    result = run_command(cmd)
+    if result.returncode != 0:
+        warn(f"Error fetching repository projects: {result.stderr}")
+        return None
+    
+    try:
+        data = json.loads(result.stdout)
+        nodes = data.get("data", {}).get("repository", {}).get("projectsV2", {}).get("nodes", [])
+        if nodes:
+            project = nodes[0]
+            print(f"📊 Found project: {project.get('title', 'Unknown')}")
+            return project.get("id")
+        return None
+    except json.JSONDecodeError as e:
+        warn(f"Error parsing project response: {e}")
+        return None
+
+
+def get_issue_id(issue_number: str) -> str | None:
+    """Get the GitHub GraphQL node ID for an issue.
+    
+    Args:
+        issue_number: The issue number
+        
+    Returns:
+        The GraphQL node ID (e.g., "I_kwDOABC123") or None if not found.
+    """
+    cmd = ["gh", "issue", "view", issue_number, "--json", "id", "--jq", ".id"]
+    
+    result = run_command(cmd)
+    if result.returncode != 0:
+        warn(f"Error getting issue ID: {result.stderr}")
+        return None
+    
+    return result.stdout.strip()
+
+
+def add_issue_to_project(project_id: str, issue_id: str) -> bool:
+    """Add an issue to a project using the GraphQL API.
+    
+    Args:
+        project_id: The project's node ID (e.g., "PVT_kwHOABC123")
+        issue_id: The issue's node ID (e.g., "I_kwDOABC123")
+        
+    Returns:
+        True if successful, False otherwise.
+    """
+    mutation = f"""
+    mutation {{
+        addProjectV2ItemById(input: {{
+            projectId: "{project_id}",
+            contentId: "{issue_id}"
+        }}) {{
+            item {{
+                id
+            }}
+        }}
+    }}
+    """
+    
+    cmd = ["gh", "api", "graphql", "-f", f"query={mutation}"]
+    
+    result = run_command(cmd)
+    if result.returncode != 0:
+        warn(f"Error adding issue to project: {result.stderr}")
+        return False
+    
+    return True
+
+
 def create_github_issue(title: str, label: str, body_file: Path) -> tuple[str, str]:
     """
     Create a GitHub issue and return (issue_url, issue_number).
@@ -172,6 +266,11 @@ def main() -> int:
         "-y", "--yes",
         action="store_true",
         help="Skip confirmation if link already exists"
+    )
+    parser.add_argument(
+        "--no-project",
+        action="store_true",
+        help="Skip adding the issue to the repository's project"
     )
 
     args = parser.parse_args()
@@ -223,6 +322,14 @@ def main() -> int:
         error("No content found after frontmatter")
         return 1
 
+    # Get project ID unless disabled
+    project_id = None
+    if not args.no_project:
+        print("🔍 Looking for repository project...")
+        project_id = get_repo_project_id()
+        if not project_id:
+            warn("No project found for repository, issue will not be added to a project")
+
     # Create temp file with body content
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as tmp:
         tmp.write(body)
@@ -232,6 +339,15 @@ def main() -> int:
         print("🚀 Creating GitHub issue...")
 
         issue_url, issue_num = create_github_issue(epic_title, epic_type, temp_file)
+
+        # Add to project if available
+        if project_id:
+            issue_id = get_issue_id(issue_num)
+            if issue_id:
+                if add_issue_to_project(project_id, issue_id):
+                    print("📊 Added to project")
+                else:
+                    warn("Failed to add issue to project")
 
         print("📝 Updating epic frontmatter with link...")
 
@@ -247,6 +363,8 @@ def main() -> int:
         print(f"   Title:  {epic_title}")
         print(f"   Label:  {epic_type}")
         print(f"   URL:    {issue_url}")
+        if project_id:
+            print(f"   Project: Added ✓")
         print()
         print(f'   Epic frontmatter updated with: link: "#{issue_num}"')
 
