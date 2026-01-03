@@ -8,8 +8,22 @@ Act as an experienced senior engineer performing technical decomposition and tas
 
 # Context
 
--   **HLD Source**: The file open in the editor OR the file path provided in arguments
+-   **HLD Source**: Resolved in priority order:
+    1. Explicit file path provided in `$ARGUMENTS`
+    2. The file currently open in the editor (passed as context)
 -   **User Input**: $ARGUMENTS
+
+# Input Resolution
+
+**CRITICAL**: Do NOT search for HLD files. Resolve the HLD source as follows:
+
+1. **If `$ARGUMENTS` contains a file path**: Use that path directly
+2. **If a file is provided in context** (open in editor): Use that file as the HLD
+3. **Otherwise**: Stop and ask the user to either:
+    - Open the HLD file in their editor and re-run the command, OR
+    - Provide the file path as an argument: `/nxs.tasks path/to/HLD.md`
+
+**Never** run `find`, `ls`, or search commands to locate HLD files.
 
 # Workflow
 
@@ -78,23 +92,14 @@ Create a `tasks/` subfolder in the same directory as the HLD file.
 
 ### Label Requirements
 
-**Read `/system/standards/task-labels.md` before assigning labels.** Only use labels defined in that file:
+**MANDATORY**: Read `$PROJECT/docs/system/standards/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
 
-| Label            | Use For                                          |
-| ---------------- | ------------------------------------------------ |
-| `infrastructure` | Database setup, CI/CD, build tooling, deployment |
-| `backend`        | API endpoints, Fastify handlers, service logic   |
-| `frontend`       | React components, client-side logic, UI          |
-| `database`       | Schema, indexes, PL/pgSQL functions, triggers    |
-| `performance`    | Optimization, caching, query tuning              |
-| `integration`    | Cross-layer work, end-to-end flows               |
-
-**Label assignment rules:**
+**Label assignment rules** (after reading the labels file):
 
 -   Use 1-3 labels per task based on work areas involved
--   Choose the primary architectural label (`infrastructure`, `backend`, `frontend`, `database`)
--   Add `performance` or `integration` as secondary labels when applicable
--   **DO NOT** invent labels not in the standards file
+-   Choose the primary architectural label first (e.g. `infrastructure`, `backend`, `frontend`, `database`)
+-   Add secondary labels (like `performance` or `integration`) when applicable
+-   **DO NOT** use any label not defined in `$PROJECT/system/standards/task-labels.md`
 
 ### Task Numbering
 
@@ -181,6 +186,7 @@ After generating all task files, create GitHub issues for each task:
 
 # Constraints
 
+-   **DO NOT** search for HLD files - use the provided context or arguments only
 -   **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
 -   **DO NOT** use labels other than those defined in `/system/standards/task-labels.md`
 -   **DO** make reasonable assumptions and document them
@@ -190,18 +196,20 @@ After generating all task files, create GitHub issues for each task:
 
 # Execution
 
-1. Run `nxs-gh-create-epic` on the `epic.md` file in the HLD directory
-2. Extract the epic issue number from the updated `epic.md` frontmatter
-3. Read `/system/standards/task-labels.md` to load valid labels
-4. Read the HLD file
-5. Create the `tasks/` directory
-6. Generate all task files with:
+1. **Resolve HLD file** (see Input Resolution above - do not search)
+2. If no HLD file can be resolved, stop and ask user to specify one
+3. Run `nxs-gh-create-epic` on the `epic.md` file in the HLD directory
+4. Extract the epic issue number from the updated `epic.md` frontmatter
+5. Read `/system/standards/task-labels.md` to load valid labels
+6. Read the HLD file
+7. Create the `tasks/` directory
+8. Generate all task files with:
     - Task numbers in format `TASK-{EPIC}.{NN}` (e.g., `TASK-23.01`, `TASK-23.02`)
     - The `parent` attribute set to the epic issue number
     - Labels from the approved set only
-7. Generate the summary README
-8. Run `nxs-gh-create-task` on the `tasks/` folder to create GitHub issues
-9. Report completion with:
+9. Generate the summary README
+10. Run `nxs-gh-create-task` on the `tasks/` folder to create GitHub issues
+11. Report completion with:
     - Epic issue URL
     - Task count and their issue URLs
     - Suggested first tasks to parallelize

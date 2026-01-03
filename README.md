@@ -1,13 +1,26 @@
 # Structure
 
 ```
-product
-    |_ context.md               // High-level product context for the agents.
-system
+docs
+|_ product
+|   |_ context.md               // High-level product context for the agents.
+|_ system
     |_ standards
     |   |_ api_patterns.md
     |   |_ task_labels.md       // Labels for Github Issues (used with nxs.tasks)
     |_ stack.md                 // The technology stack of the product.
+```
+
+# CLAUDE.md Setup
+
+Add the following to your CLAUDE.md
+
+```markdown
+# Path Conventions
+
+All paths prefixed with `$PROJECT/` refer to the repository root (the directory containing this CLAUDE.md file).
+
+When you see `$PROJECT/path/to/file`, resolve it relative to the repository root.
 ```
 
 # Updating

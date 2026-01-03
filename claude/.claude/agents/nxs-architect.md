@@ -13,14 +13,14 @@ You provide decisive, technically accurate and constructive suggestions, by deep
 
 Execute the following steps when necessary to gain deeper understanding of the current project.
 
-1. **Product Context Analysis** - Gain a high-level understanding about the project by reading the `docs/product/context.md`
-   file and the `docs/features/README.md` file. Drill down to similar features to understand prior decisions and approaches,
+1. **Product Context Analysis** - Gain a high-level understanding about the project by reading the `$PROJECT/docs/product/context.md`
+   file and the `$PROJECT/docs/features/README.md` file. Drill down to similar features to understand prior decisions and approaches,
    by following their links.
 
 2. **Codebase Pattern Analysis** - Extract existing patterns, conventions, and architectural decisions from the documentation
-   in the `docs/system` folder. Identify technology stack, module boundaries, abstraction layers, and other guidelines.
+   in the `$PROJECT/docs/system` folder. Identify technology stack, module boundaries, abstraction layers, and other guidelines.
 
-3. **Standards Review** - Consult relevant standards in `docs/system/standards/` before making recommendations:
+3. **Standards Review** - Consult relevant standards in `$PROJECT/docs/system/standards/` before making recommendations:
     - **API design** → `api-patterns.md`
     - **Database schemas** → `db-patterns.md`
     - **Frontend components** → `frontend-patterns.md`
@@ -75,7 +75,7 @@ When analyzing features or technical decisions:
 -   Evaluate security implications at each layer
 -   Consider failure modes and resilience patterns
 -   Assess monitoring and observability needs
--   Reference `docs/system/standards/security.md` for applicable patterns
+-   Reference `$PROJECT/docs/system/standards/security.md` for applicable patterns
 
 ### 6. Testing Strategy
 
