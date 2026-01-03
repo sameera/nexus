@@ -13,7 +13,21 @@ Act as an experienced senior engineer performing technical decomposition and tas
 
 # Workflow
 
-## 1. Load & Analyze HLD
+## 1. Create Epic Issue
+
+Before analyzing the HLD, create a GitHub issue for the parent epic:
+
+1. Locate the `epic.md` file in the same directory as the HLD file
+2. Apply the `nxs-gh-create-epic` skill by running:
+    ```bash
+    python scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+    ```
+3. Verify the `epic.md` frontmatter now contains a `link` attribute (e.g., `link: "#42"`)
+4. Extract and store the issue number from the `link` attribute for use in task generation
+
+If no `epic.md` exists in the HLD directory, warn the user and proceed without a parent issue.
+
+## 2. Load & Analyze HLD
 
 Read the High-Level Design document and extract:
 
@@ -24,7 +38,7 @@ Read the High-Level Design document and extract:
 -   Non-functional requirements (performance, security, etc.)
 -   Technology stack and constraints
 
-## 2. Decompose into Tasks
+## 3. Decompose into Tasks
 
 Apply these decomposition rules:
 
@@ -48,7 +62,7 @@ Apply these decomposition rules:
 5. **Integration** - External services, cross-component wiring
 6. **Polish** - Error handling improvements, logging, documentation
 
-## 3. Generate Low-Level Design per Task
+## 4. Generate Low-Level Design per Task
 
 Each task MUST include a low-level design section covering:
 
@@ -58,7 +72,7 @@ Each task MUST include a low-level design section covering:
 -   **Acceptance criteria** - specific, testable conditions
 -   **Implementation hints** - algorithms, patterns, or gotchas
 
-## 4. Output Format
+## 5. Output Format
 
 Create a `tasks/` subfolder in the same directory as the HLD file.
 
@@ -68,6 +82,7 @@ Generate one file per task named `TASK-{NNN}.md` with this structure:
 ---
 title: "TASK-{NNN}: {Concise title}"
 labels: [{ category }, { component }]
+parent: { epic_issue_number }
 ---
 
 ## Summary
@@ -108,34 +123,32 @@ labels: [{ category }, { component }]
 {X hours - Y hours}
 ````
 
-Additionally, generate `tasks/create-issues.sh`:
+**Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task to the parent epic issue.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# TASK-001
-gh issue create \
-    --title "TASK-001: {title}" \
-    --body-file "$SCRIPT_DIR/TASK-001.md" \
-    --label "{labels}"
-
-# Continue for all tasks...
-
-echo "✅ All issues created"
-```
-
-## 5. Generate Summary
+## 6. Generate Summary
 
 Create `tasks/README.md` containing:
 
+-   Parent epic issue reference
 -   Total task count
 -   Dependency graph (text-based or mermaid)
 -   Suggested implementation order
 -   Parallelization opportunities
 -   Estimated total effort range
+
+## 7. Create Task Issues
+
+After generating all task files, create GitHub issues for each task:
+
+1. Apply the `nxs-gh-create-task` skill by running:
+    ```bash
+    python scripts/create_gh_issues.py "<path-to-tasks-folder>"
+    ```
+2. This will:
+    - Create a GitHub issue for each `TASK-???.md` file
+    - Apply the labels from frontmatter
+    - Link each task issue to the parent epic via the `parent` attribute
+3. Report the created issue URLs
 
 # Constraints
 
@@ -147,9 +160,14 @@ Create `tasks/README.md` containing:
 
 # Execution
 
-1. Read the HLD file
-2. Create the `tasks/` directory
-3. Generate all task files following the format above
-4. Generate the shell script for batch issue creation
-5. Generate the summary README
-6. Report completion with task count and suggested first tasks to parallelize
+1. Run `nxs-gh-create-epic` on the `epic.md` file in the HLD directory
+2. Extract the epic issue number from the updated `epic.md` frontmatter
+3. Read the HLD file
+4. Create the `tasks/` directory
+5. Generate all task files with the `parent` attribute set to the epic issue number
+6. Generate the summary README
+7. Run `nxs-gh-create-task` on the `tasks/` folder to create GitHub issues
+8. Report completion with:
+    - Epic issue URL
+    - Task count and their issue URLs
+    - Suggested first tasks to parallelize
