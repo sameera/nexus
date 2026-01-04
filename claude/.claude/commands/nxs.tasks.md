@@ -119,14 +119,14 @@ The template uses `{{VARIABLE}}` placeholders. Replace each with:
 
 ### Label Requirements
 
-**MANDATORY**: Read `docs/system/standards/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
+**MANDATORY**: Read `docs/system/delivery/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
 
 **Label assignment rules** (after reading the labels file):
 
 -   Use 1-3 labels per task based on work areas involved
 -   Choose the primary architectural label first (e.g. `infrastructure`, `backend`, `frontend`, `database`)
 -   Add secondary labels (like `performance` or `integration`) when applicable
--   **DO NOT** use any label not defined in `docs/system/standards/task-labels.md`
+-   **DO NOT** use any label not defined in `docs/system/delivery/task-labels.md`
 
 ### Task Numbering
 
@@ -168,7 +168,7 @@ After generating all task files, create GitHub issues for each task:
 
 -   **DO NOT** search for HLD files - use the provided context or arguments only
 -   **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
--   **DO NOT** use labels other than those defined in `docs/system/standards/task-labels.md`
+-   **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
 -   **DO** make reasonable assumptions and document them
 -   **DO** prefer smaller tasks over larger ones when uncertain
 -   **DO** ensure the first task creates a buildable/runnable skeleton
@@ -209,7 +209,7 @@ This ensures the project name is configured once and persists across all future 
 
 1. **Resolve HLD file** (see Input Resolution above - do not search)
 2. If no HLD file can be resolved, stop and ask user to specify one
-3. **Load task template** from `.claude/templates/task-template.md`
+3. **Load task template** from `docs/system/delivery/task-template.md`
     - If missing, warn user and use default structure
 4. **Resolve PROJECT configuration**:
     - If template contains literal `{{PROJECT}}`:
@@ -228,7 +228,7 @@ This ensures the project name is configured once and persists across all future 
 -   If no `epic.md` exists, warn the user and proceed without a parent issue
 
 6. **Extract epic issue number** from the updated `epic.md` frontmatter `link` attribute
-7. **Read labels** from `docs/system/standards/task-labels.md` to load valid labels
+7. **Read labels** from `docs/system/delivery/task-labels.md` to load valid labels
 8. **Read the HLD file** and perform decomposition analysis
 9. **Create the `tasks/` directory** in the same location as the HLD file
 10. **Generate all task files** using the loaded template with:
