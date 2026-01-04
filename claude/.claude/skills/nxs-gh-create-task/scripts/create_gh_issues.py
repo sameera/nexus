@@ -2,7 +2,7 @@
 """
 Create GitHub issues from TASK-???.md files in a target folder.
 
-Extracts frontmatter (title, label, parent), creates GitHub issues,
+Extracts frontmatter (title, label, parent, project), creates GitHub issues,
 assigns parent issues, and adds issues to a project using gh CLI.
 """
 
@@ -54,6 +54,200 @@ def find_task_files(target_folder: str) -> list[Path]:
     pattern = os.path.join(target_folder, "TASK-*.md")
     files = glob.glob(pattern)
     return sorted([Path(f) for f in files])
+
+
+def get_project_id_by_name(project_name: str) -> str | None:
+    """Get the node ID of a project by its name.
+    
+    The project_name can be in format:
+    - "owner/project-number" (e.g., "my-org/1")
+    - "project-number" (uses current repo's owner)
+    - "project-title" (searches by title)
+    
+    Args:
+        project_name: The project identifier
+        
+    Returns:
+        The project node ID (e.g., "PVT_kwHOABC123") or None if not found.
+    """
+    # Parse project name to extract owner and number/title
+    if "/" in project_name:
+        owner, project_ref = project_name.rsplit("/", 1)
+    else:
+        # Get owner from current repo
+        try:
+            result = subprocess.run(
+                ["gh", "repo", "view", "--json", "owner", "--jq", ".owner.login"],
+                capture_output=True, text=True, check=True
+            )
+            owner = result.stdout.strip()
+            project_ref = project_name
+        except subprocess.CalledProcessError as e:
+            print(f"Error getting repo owner: {e.stderr}", file=sys.stderr)
+            return None
+
+    # Try to parse as a number for project lookup
+    try:
+        project_number = int(project_ref)
+        return get_project_id_by_number(owner, project_number)
+    except ValueError:
+        # Not a number, try to find project by title
+        return get_project_id_by_title(owner, project_ref)
+
+
+def get_project_id_by_number(owner: str, project_number: int) -> str | None:
+    """Get the node ID of a project by owner and number.
+    
+    Args:
+        owner: The organization or user login
+        project_number: The project number
+        
+    Returns:
+        The project node ID or None if not found.
+    """
+    # Query for project by number (try org first)
+    query = """
+    query($owner: String!, $number: Int!) {
+        organization(login: $owner) {
+            projectV2(number: $number) {
+                id
+                title
+            }
+        }
+    }
+    """
+    
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-F", f"number={project_number}"
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        data = json.loads(result.stdout)
+        project = data.get("data", {}).get("organization", {}).get("projectV2")
+        if project:
+            print(f"Found project: {project.get('title', 'Unknown')}")
+            return project.get("id")
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        pass  # Try user query below
+    
+    # If org query fails, try user query
+    query = """
+    query($owner: String!, $number: Int!) {
+        user(login: $owner) {
+            projectV2(number: $number) {
+                id
+                title
+            }
+        }
+    }
+    """
+    
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-F", f"number={project_number}"
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        data = json.loads(result.stdout)
+        project = data.get("data", {}).get("user", {}).get("projectV2")
+        if project:
+            print(f"Found project: {project.get('title', 'Unknown')}")
+            return project.get("id")
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        print(f"Error fetching project by number: {e}", file=sys.stderr)
+    
+    return None
+
+
+def get_project_id_by_title(owner: str, title: str) -> str | None:
+    """Get the node ID of a project by searching for its title.
+    
+    Args:
+        owner: The organization or user login
+        title: The project title to search for
+        
+    Returns:
+        The project node ID or None if not found.
+    """
+    # Try org first
+    query = """
+    query($owner: String!, $title: String!) {
+        organization(login: $owner) {
+            projectsV2(first: 100, query: $title) {
+                nodes {
+                    id
+                    title
+                }
+            }
+        }
+    }
+    """
+    
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-f", f"title={title}"
+    ]
+    
+    nodes = []
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        data = json.loads(result.stdout)
+        nodes = data.get("data", {}).get("organization", {}).get("projectsV2", {}).get("nodes", [])
+    except (subprocess.CalledProcessError, json.JSONDecodeError):
+        pass  # Try user query below
+    
+    # If org query fails or returns no results, try user query
+    if not nodes:
+        query = """
+        query($owner: String!, $title: String!) {
+            user(login: $owner) {
+                projectsV2(first: 100, query: $title) {
+                    nodes {
+                        id
+                        title
+                    }
+                }
+            }
+        }
+        """
+        
+        cmd = [
+            "gh", "api", "graphql",
+            "-f", f"query={query}",
+            "-f", f"owner={owner}",
+            "-f", f"title={title}"
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            data = json.loads(result.stdout)
+            nodes = data.get("data", {}).get("user", {}).get("projectsV2", {}).get("nodes", [])
+        except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+            print(f"Error searching for project by title: {e}", file=sys.stderr)
+            return None
+    
+    if not nodes:
+        return None
+    
+    # Find exact match first
+    for node in nodes:
+        if node.get("title", "").lower() == title.lower():
+            print(f"Found project: {node.get('title', 'Unknown')}")
+            return node.get("id")
+    
+    # If no exact match, use first result
+    project = nodes[0]
+    print(f"Found project: {project.get('title', 'Unknown')}")
+    return project.get("id")
 
 
 def get_repo_project_id() -> str | None:
@@ -224,12 +418,34 @@ def assign_parent_issue(child_issue_number: str, parent_issue_ref: str) -> bool:
         return False
 
 
-def process_task_file(task_file: Path, project_id: str | None = None) -> bool:
+def resolve_project_id(project_attr: str | None, repo_project_id: str | None) -> str | None:
+    """Resolve the project ID to use for an issue.
+    
+    Args:
+        project_attr: The project attribute from frontmatter (may be None)
+        repo_project_id: The fallback repo project ID (may be None)
+        
+    Returns:
+        The project node ID to use, or None if no project should be used.
+    """
+    if project_attr:
+        # Use explicitly specified project from frontmatter
+        project_id = get_project_id_by_name(project_attr)
+        if not project_id:
+            print(f"  Warning: Project '{project_attr}' not found", file=sys.stderr)
+        return project_id
+    else:
+        # Fall back to repo project
+        return repo_project_id
+
+
+def process_task_file(task_file: Path, repo_project_id: str | None = None, skip_project: bool = False) -> bool:
     """Process a single TASK file and create a GitHub issue.
     
     Args:
         task_file: Path to the TASK-???.md file
-        project_id: Optional project node ID to add the issue to
+        repo_project_id: Fallback project node ID from repository (used if frontmatter has no project)
+        skip_project: If True, skip adding to any project
     
     Returns:
         True if successful, False otherwise.
@@ -242,6 +458,7 @@ def process_task_file(task_file: Path, project_id: str | None = None) -> bool:
     title = frontmatter.get("title", "")
     labels = frontmatter.get("labels", [])
     parent = frontmatter.get("parent", "")
+    project_attr = frontmatter.get("project", "")
     
     # Ensure labels is a list
     if isinstance(labels, str):
@@ -268,14 +485,16 @@ def process_task_file(task_file: Path, project_id: str | None = None) -> bool:
         
         issue_number = extract_issue_number(issue_url)
         
-        # Add to project if specified
-        if project_id and issue_number:
-            issue_id = get_issue_id(issue_number)
-            if issue_id:
-                if add_issue_to_project(project_id, issue_id):
-                    print(f"  Added to project")
-                else:
-                    print(f"  Warning: Failed to add issue to project", file=sys.stderr)
+        # Add to project unless skipped
+        if not skip_project and issue_number:
+            project_id = resolve_project_id(project_attr if project_attr else None, repo_project_id)
+            if project_id:
+                issue_id = get_issue_id(issue_number)
+                if issue_id:
+                    if add_issue_to_project(project_id, issue_id):
+                        print(f"  Added to project")
+                    else:
+                        print(f"  Warning: Failed to add issue to project", file=sys.stderr)
         
         # If there's a parent, assign it
         if parent and issue_number:
@@ -307,7 +526,7 @@ def main():
     parser.add_argument(
         "--no-project",
         action="store_true",
-        help="Skip adding issues to the repository's project"
+        help="Skip adding issues to any project"
     )
     
     args = parser.parse_args()
@@ -326,13 +545,13 @@ def main():
     
     print(f"Found {len(task_files)} task file(s)")
     
-    # Get project ID unless disabled
-    project_id = None
+    # Get fallback repo project ID unless disabled
+    repo_project_id = None
     if not args.no_project and not args.dry_run:
-        print("Looking for repository project...")
-        project_id = get_repo_project_id()
-        if not project_id:
-            print("No project found for repository, issues will not be added to a project")
+        print("Looking for repository project (fallback)...")
+        repo_project_id = get_repo_project_id()
+        if not repo_project_id:
+            print("No repository project found (will use frontmatter project if specified)")
     
     if args.dry_run:
         print("\nDry run - would process:")
@@ -342,12 +561,13 @@ def main():
             labels = fm.get("labels", [])
             if isinstance(labels, str):
                 labels = [labels] if labels else []
-            print(f"  {f.name}: title='{fm.get('title', 'N/A')}', labels={labels}, parent='{fm.get('parent', 'N/A')}'")
+            project = fm.get("project", "(auto)")
+            print(f"  {f.name}: title='{fm.get('title', 'N/A')}', labels={labels}, parent='{fm.get('parent', 'N/A')}', project='{project}'")
         sys.exit(0)
     
     success_count = 0
     for task_file in task_files:
-        if process_task_file(task_file, project_id):
+        if process_task_file(task_file, repo_project_id, skip_project=args.no_project):
             success_count += 1
     
     print(f"\nProcessed {success_count}/{len(task_files)} task files successfully")

@@ -90,6 +90,33 @@ Each task MUST include a low-level design section covering:
 
 Create a `tasks/` subfolder in the same directory as the HLD file.
 
+### Template Location
+
+Task files are generated using the template at `docs/system/delivery/task-template.md`.
+
+**Before generating tasks**, read this template file to understand the output format. Users may customize this template — always use the current version, never a cached or assumed structure.
+
+### Template Variables
+
+The template uses `{{VARIABLE}}` placeholders. Replace each with:
+
+| Variable                   | Description                                        |
+| -------------------------- | -------------------------------------------------- |
+| `{{EPIC}}`                 | Parent epic's GitHub issue number                  |
+| `{{SEQ}}`                  | Zero-padded sequence number (01, 02, etc.)         |
+| `{{TITLE}}`                | Concise task title                                 |
+| `{{LABELS}}`               | Comma-separated labels from approved set           |
+| `{{PARENT}}`               | Epic issue reference (e.g., `#42`)                 |
+| `{{SUMMARY}}`              | One paragraph describing the task                  |
+| `{{BLOCKED_BY}}`           | Task dependencies or "None"                        |
+| `{{BLOCKS}}`               | Tasks this unblocks or "None"                      |
+| `{{FILES}}`                | Bulleted list of files with purposes               |
+| `{{INTERFACES}}`           | Key type definitions or signatures                 |
+| `{{IMPLEMENTATION_NOTES}}` | Algorithms, patterns, edge cases                   |
+| `{{ACCEPTANCE_CRITERIA}}`  | Bulleted checklist items                           |
+| `{{EFFORT_ESTIMATE}}`      | Time range (e.g., "2-4 hours")                     |
+| `{{PROJECT}}`              | GitHub project name (auto-configured on first run) |
+
 ### Label Requirements
 
 **MANDATORY**: Read `docs/system/standards/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
@@ -109,53 +136,6 @@ Task numbers follow the format `TASK-{EPIC}.{NN}` where:
 -   `{NN}` is a zero-padded sequential number starting from 01
 
 For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01`, `TASK-23.02`, `TASK-23.03`, etc.
-
-Generate one file per task named `TASK-{EPIC}.{NN}.md` with this structure:
-
-````markdown
----
-title: "TASK-{EPIC}.{NN}: {Concise title}"
-labels: [backend, database]
-parent: { epic_issue_number }
----
-
-## Summary
-
-{One paragraph describing what this task accomplishes}
-
-## Dependencies
-
--   Blocked by: {TASK-{EPIC}.{NN}, TASK-{EPIC}.{NN} or "None"}
--   Blocks: {TASK-{EPIC}.{NN} or "None"}
-
-## Low-Level Design
-
-### Files
-
--   `path/to/file.ts` - {purpose}
--   `path/to/other.ts` - {purpose}
-
-### Interfaces/Types
-
-```typescript
-// Key type definitions or function signatures
-```
-
-### Implementation Notes
-
-{Specific guidance: algorithms, patterns, edge cases, integration points}
-
-## Acceptance Criteria
-
--   [ ] {Specific, testable criterion}
--   [ ] {Another criterion}
--   [ ] All existing tests pass
--   [ ] New functionality has test coverage (if applicable)
-
-## Estimated Effort
-
-{X hours - Y hours}
-````
 
 **Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task issue to the parent epic issue.
 
@@ -194,22 +174,76 @@ After generating all task files, create GitHub issues for each task:
 -   **DO** ensure the first task creates a buildable/runnable skeleton
 -   **DO** use the tech stack specified in the HLD; infer from context if not explicit
 
+### Project Configuration (One-Time Setup)
+
+The `{{PROJECT}}` variable is handled differently from other template variables:
+
+1. **On first run**: When the template contains the literal string `{{PROJECT}}`:
+
+    - Stop and prompt the user:
+        > "This appears to be the first time running task generation for this project.
+        > Which GitHub project should issues be created under?
+        > (e.g., `my-org/my-repo` or just `my-repo` if using default org)"
+    - After receiving the project name, **update the template file directly**, replacing `{{PROJECT}}` with the provided value
+    - Confirm the update to the user before proceeding
+
+2. **On subsequent runs**: The template already contains the actual project name—use it directly without prompting.
+
+**Example transformation:**
+
+Before (first run):
+
+```yaml
+project: "{{PROJECT}}"
+```
+
+After user provides "acme-corp/backend-api":
+
+```yaml
+project: "acme-corp/backend-api"
+```
+
+This ensures the project name is configured once and persists across all future task generations.
+
 # Execution
 
 1. **Resolve HLD file** (see Input Resolution above - do not search)
 2. If no HLD file can be resolved, stop and ask user to specify one
-3. Run `nxs-gh-create-epic` on the `epic.md` file in the HLD directory
-4. Extract the epic issue number from the updated `epic.md` frontmatter
-5. Read `/system/standards/task-labels.md` to load valid labels
-6. Read the HLD file
-7. Create the `tasks/` directory
-8. Generate all task files with:
+3. **Load task template** from `.claude/templates/task-template.md`
+    - If missing, warn user and use default structure
+4. **Resolve PROJECT configuration**:
+    - If template contains literal `{{PROJECT}}`:
+        - Prompt user: "Which GitHub project should issues be created under? (e.g., `my-org/my-repo`)"
+        - Update the template file, replacing `{{PROJECT}}` with the provided value
+        - Confirm the configuration update to the user
+    - Extract the configured project name from the template for use in subsequent steps
+5. **Create Epic issue**:
+    - Locate the `epic.md` file in the same directory as the HLD file
+    - Run the `nxs-gh-create-epic` skill, passing the project name:
+
+```bash
+     python ./scripts/nxs_gh_create_epic.py --project "<PROJECT>" "<path-to-epic.md>"
+```
+
+-   If no `epic.md` exists, warn the user and proceed without a parent issue
+
+6. **Extract epic issue number** from the updated `epic.md` frontmatter `link` attribute
+7. **Read labels** from `docs/system/standards/task-labels.md` to load valid labels
+8. **Read the HLD file** and perform decomposition analysis
+9. **Create the `tasks/` directory** in the same location as the HLD file
+10. **Generate all task files** using the loaded template with:
     - Task numbers in format `TASK-{EPIC}.{NN}` (e.g., `TASK-23.01`, `TASK-23.02`)
     - The `parent` attribute set to the epic issue number
+    - The `project` value from the template
     - Labels from the approved set only
-9. Generate the summary README
-10. Run `nxs-gh-create-task` on the `./tasks/` folder to create GitHub issues
-11. Report completion with:
-    - Epic issue URL
-    - Task count and their issue URLs
-    - Suggested first tasks to parallelize
+11. **Generate the summary README** at `./tasks/README.md`
+12. **Create task issues** by running:
+
+```bash
+    python ./scripts/create_gh_issues.py --project "<PROJECT>" "<path-to-tasks-folder>"
+```
+
+13. **Report completion** with:
+    -   Epic issue URL
+    -   Task count and their issue URLs
+    -   Suggested first tasks to parallelize

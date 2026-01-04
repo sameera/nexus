@@ -2,10 +2,10 @@
 """
 nxs_gh_create_epic.py
 
-Creates a GitHub issue from an Epic document, adds it to the repository's project,
+Creates a GitHub issue from an Epic document, adds it to a GitHub project,
 and updates its frontmatter with the issue link.
 
-Usage: python nxs_gh_create_epic.py <path-to-epic.md>
+Usage: python nxs_gh_create_epic.py [--project "<project-name>"] <path-to-epic.md>
 
 Prerequisites:
     - GitHub CLI (gh) must be installed and authenticated
@@ -119,7 +119,7 @@ def update_frontmatter_with_link(content: str, issue_num: str) -> str:
         error("Could not find frontmatter boundaries")
         return content
 
-    link_value = f"link: \"#{issue_num}\""
+    link_value = f'link: "#{issue_num}"'
 
     if link_line_idx != -1:
         # Update existing link
@@ -129,6 +129,179 @@ def update_frontmatter_with_link(content: str, issue_num: str) -> str:
         lines.insert(frontmatter_end_idx, link_value)
 
     return "\n".join(lines)
+
+
+def get_project_id_by_name(project_name: str) -> str | None:
+    """Get the node ID of a project by its name.
+    
+    The project_name can be in format:
+    - "owner/project-number" (e.g., "my-org/1")
+    - "project-number" (uses current repo's owner)
+    
+    Args:
+        project_name: The project identifier
+        
+    Returns:
+        The project node ID (e.g., "PVT_kwHOABC123") or None if not found.
+    """
+    # Parse project name to extract owner and number
+    if "/" in project_name:
+        owner, project_num = project_name.rsplit("/", 1)
+    else:
+        # Get owner from current repo
+        result = run_command(["gh", "repo", "view", "--json", "owner", "--jq", ".owner.login"])
+        if result.returncode != 0:
+            warn(f"Error getting repo owner: {result.stderr}")
+            return None
+        owner = result.stdout.strip()
+        project_num = project_name
+
+    # Try to parse as a number for project lookup
+    try:
+        project_number = int(project_num)
+    except ValueError:
+        # Not a number, try to find project by title
+        return get_project_id_by_title(owner, project_num)
+
+    # Query for project by number
+    query = """
+    query($owner: String!, $number: Int!) {
+        organization(login: $owner) {
+            projectV2(number: $number) {
+                id
+                title
+            }
+        }
+    }
+    """
+    
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-F", f"number={project_number}"
+    ]
+    
+    result = run_command(cmd)
+    
+    # If org query fails, try user query
+    if result.returncode != 0 or "organization" not in result.stdout:
+        query = """
+        query($owner: String!, $number: Int!) {
+            user(login: $owner) {
+                projectV2(number: $number) {
+                    id
+                    title
+                }
+            }
+        }
+        """
+        cmd = [
+            "gh", "api", "graphql",
+            "-f", f"query={query}",
+            "-f", f"owner={owner}",
+            "-F", f"number={project_number}"
+        ]
+        result = run_command(cmd)
+    
+    if result.returncode != 0:
+        warn(f"Error fetching project: {result.stderr}")
+        return None
+    
+    try:
+        data = json.loads(result.stdout)
+        # Check both org and user responses
+        project = (
+            data.get("data", {}).get("organization", {}).get("projectV2") or
+            data.get("data", {}).get("user", {}).get("projectV2")
+        )
+        if project:
+            print(f"📊 Found project: {project.get('title', 'Unknown')}")
+            return project.get("id")
+        return None
+    except json.JSONDecodeError as e:
+        warn(f"Error parsing project response: {e}")
+        return None
+
+
+def get_project_id_by_title(owner: str, title: str) -> str | None:
+    """Get the node ID of a project by searching for its title.
+    
+    Args:
+        owner: The organization or user login
+        title: The project title to search for
+        
+    Returns:
+        The project node ID or None if not found.
+    """
+    query = """
+    query($owner: String!, $title: String!) {
+        organization(login: $owner) {
+            projectsV2(first: 100, query: $title) {
+                nodes {
+                    id
+                    title
+                }
+            }
+        }
+    }
+    """
+    
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-f", f"title={title}"
+    ]
+    
+    result = run_command(cmd)
+    
+    # If org query fails, try user query
+    if result.returncode != 0:
+        query = """
+        query($owner: String!, $title: String!) {
+            user(login: $owner) {
+                projectsV2(first: 100, query: $title) {
+                    nodes {
+                        id
+                        title
+                    }
+                }
+            }
+        }
+        """
+        cmd = [
+            "gh", "api", "graphql",
+            "-f", f"query={query}",
+            "-f", f"owner={owner}",
+            "-f", f"title={title}"
+        ]
+        result = run_command(cmd)
+    
+    if result.returncode != 0:
+        warn(f"Error searching for project: {result.stderr}")
+        return None
+    
+    try:
+        data = json.loads(result.stdout)
+        nodes = (
+            data.get("data", {}).get("organization", {}).get("projectsV2", {}).get("nodes", []) or
+            data.get("data", {}).get("user", {}).get("projectsV2", {}).get("nodes", [])
+        )
+        # Find exact match
+        for node in nodes:
+            if node.get("title", "").lower() == title.lower():
+                print(f"📊 Found project: {node.get('title', 'Unknown')}")
+                return node.get("id")
+        # If no exact match, use first result
+        if nodes:
+            project = nodes[0]
+            print(f"📊 Found project: {project.get('title', 'Unknown')}")
+            return project.get("id")
+        return None
+    except json.JSONDecodeError as e:
+        warn(f"Error parsing project response: {e}")
+        return None
 
 
 def get_repo_project_id() -> str | None:
@@ -268,9 +441,15 @@ def main() -> int:
         help="Skip confirmation if link already exists"
     )
     parser.add_argument(
+        "--project",
+        type=str,
+        default=None,
+        help="GitHub project to add the issue to (e.g., 'my-org/1' or 'my-project-title'). If omitted, auto-discovers from repository."
+    )
+    parser.add_argument(
         "--no-project",
         action="store_true",
-        help="Skip adding the issue to the repository's project"
+        help="Skip adding the issue to any project"
     )
 
     args = parser.parse_args()
@@ -322,13 +501,21 @@ def main() -> int:
         error("No content found after frontmatter")
         return 1
 
-    # Get project ID unless disabled
+    # Resolve project ID
     project_id = None
     if not args.no_project:
-        print("🔍 Looking for repository project...")
-        project_id = get_repo_project_id()
-        if not project_id:
-            warn("No project found for repository, issue will not be added to a project")
+        if args.project:
+            # Use explicitly provided project
+            print(f"🔍 Looking up project: {args.project}")
+            project_id = get_project_id_by_name(args.project)
+            if not project_id:
+                warn(f"Project '{args.project}' not found, issue will not be added to a project")
+        else:
+            # Auto-discover from repository
+            print("🔍 Looking for repository project...")
+            project_id = get_repo_project_id()
+            if not project_id:
+                warn("No project found for repository, issue will not be added to a project")
 
     # Create temp file with body content
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as tmp:
@@ -364,7 +551,7 @@ def main() -> int:
         print(f"   Label:  {epic_type}")
         print(f"   URL:    {issue_url}")
         if project_id:
-            print(f"   Project: Added ✓")
+            print("   Project: Added ✓")
         print()
         print(f'   Epic frontmatter updated with: link: "#{issue_num}"')
 

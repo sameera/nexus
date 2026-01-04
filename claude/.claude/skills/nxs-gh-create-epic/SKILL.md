@@ -21,10 +21,28 @@ Create a GitHub issue from an Epic document's content and link it back to the ep
 python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
 ```
 
-Use `-y` flag to skip confirmation if a link already exists:
+### Optional Flags
+
+| Flag                 | Description                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `--project "<name>"` | Specify the GitHub project to add the issue to (e.g., `my-org/my-project`). If omitted, auto-discovers from repository. |
+| `-y`, `--yes`        | Skip confirmation if a link already exists                                                                              |
+| `--no-project`       | Skip adding the issue to any project                                                                                    |
+
+### Examples
 
 ```bash
+# Basic usage (auto-discovers project from repo)
+python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+
+# Specify target project explicitly
+python ./scripts/nxs_gh_create_epic.py --project "acme-corp/backend-roadmap" "<path-to-epic.md>"
+
+# Skip confirmation for existing links
 python ./scripts/nxs_gh_create_epic.py -y "<path-to-epic.md>"
+
+# Create issue without adding to any project
+python ./scripts/nxs_gh_create_epic.py --no-project "<path-to-epic.md>"
 ```
 
 ## Script Behavior
@@ -35,8 +53,9 @@ The script (`./scripts/nxs_gh_create_epic.py`):
 2. Creates temp file with markdown body (frontmatter stripped)
 3. Executes `gh issue create --title "<epic>" --label "<type>" --body-file <temp>`
 4. Extracts issue number from returned URL
-5. Updates frontmatter with `link: "#<issue-number>"`
-6. Cleans up temp file
+5. Adds the issue to the specified project (or auto-discovered project)
+6. Updates frontmatter with `link: "#<issue-number>"`
+7. Cleans up temp file
 
 ## Expected Frontmatter
 
@@ -61,3 +80,4 @@ After execution, `link: "#123"` is added to frontmatter.
 | `label does not exist`  | Create label in GitHub or use existing label |
 | `not a git repository`  | Navigate to project root                     |
 | `No 'epic' field found` | Add `epic: "Title"` to frontmatter           |
+| `Project not found`     | Verify project name or use `--no-project`    |

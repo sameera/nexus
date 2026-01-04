@@ -51,10 +51,26 @@ Please provide a GitHub issue number to implement.
 
 **When `nxs-dev` asks a question or presents options:**
 
-```
-🔄 AGENT CHECKPOINT
+Present the checkpoint using clear, well-formatted output that is easy to read:
 
-<reproduce the agent's question/options exactly as presented>
+1. **Use a clear checkpoint header** with the 🔄 emoji
+2. **Preserve the semantic meaning** of the agent's question/options
+3. **Format for readability**: Use proper markdown structure, numbered options, and visual separation
+4. **For multiple-choice questions**: Present options as a numbered list so the user can respond with just a number
+
+Example format:
+
+```
+🔄 **AGENT CHECKPOINT**
+
+<context or issue summary in clear prose>
+
+**Options:**
+1. <Option A description>
+2. <Option B description>
+3. <Option C description>
+
+Which option would you like? (Enter 1, 2, or 3)
 ```
 
 Then **STOP** and wait for user response. Pass their answer back to the agent verbatim.
@@ -160,7 +176,7 @@ Delegate to the implementation agent:
 
 You are a **relay**, not a participant. Your responsibilities:
 
-1. **Surface all agent output** to the user exactly as presented
+1. **Surface all agent output** to the user in a well-formatted, readable manner
 2. **Pass all user responses** to the agent exactly as given
 3. **Do not interpret, summarize, or answer** on anyone's behalf
 4. **Resume orchestration only** when agent reports "Implementation Complete"
@@ -175,15 +191,13 @@ You are a **relay**, not a participant. Your responsibilities:
 
 **You say:**
 
-```
-🔄 AGENT CHECKPOINT
+🔄 **AGENT CHECKPOINT**
 
-The agent is on `main` and requests a branch name before proceeding.
+The agent is currently on `main` and needs a feature branch before proceeding.
 
-Agent's suggestion: `feat/add-user-caching`
+**Suggested branch name:** `feat/add-user-caching`
 
-What branch name would you like to use?
-```
+What branch name would you like to use? (Press Enter to accept the suggestion, or type a different name)
 
 **Then STOP. Wait for user response. Pass it to the agent verbatim.**
 
@@ -195,13 +209,11 @@ What branch name would you like to use?
 
 **You say:**
 
-```
-🔄 AGENT CHECKPOINT
+🔄 **AGENT CHECKPOINT**
 
-Chunk 1 complete. Tests passing.
+✅ **Chunk 1 complete** — all tests passing.
 
-Proceed to Chunk 2?
-```
+Ready to proceed to Chunk 2?
 
 **Then STOP. Wait. Relay response.**
 
@@ -217,19 +229,18 @@ Proceed to Chunk 2?
 
 **You say:**
 
-```
-🔄 AGENT CHECKPOINT
+🔄 **AGENT CHECKPOINT**
 
-⚠️ IMPLEMENTATION BLOCKED
+⚠️ **Implementation Blocked**
 
-Issue: Design references `UserCache` class but it doesn't exist
+The design references a `UserCache` class, but it doesn't exist in the codebase.
 
-Options:
-A) Create new `UserCache` class
-B) Use existing `CacheService` instead
+**Options:**
 
-Which option should the agent take?
-```
+1. Create a new `UserCache` class
+2. Use the existing `CacheService` instead
+
+Which approach should the agent take? (Enter 1 or 2)
 
 **Then STOP. Wait. Relay response.**
 
@@ -239,7 +250,23 @@ Which option should the agent take?
 
 **Only enter this phase when `nxs-dev` reports "Implementation Complete" with a final summary.**
 
-### 5a. Post Comment to GitHub Issue
+### 5a. Commit All Changes
+
+Stage and commit all implementation changes:
+
+```bash
+git add -A
+git commit -m "<issue title>" -m "Implements #<issue-number>"
+```
+
+**Example:**
+
+```bash
+git add -A
+git commit -m "Add user caching layer for improved performance" -m "Implements #123"
+```
+
+### 5b. Post Comment to GitHub Issue
 
 Extract the implementation summary and post it:
 
@@ -252,7 +279,7 @@ gh issue comment <issue-number> --body "## Implementation Summary
 *Implemented via Claude Code*"
 ```
 
-### 5b. Evaluate Closure Eligibility
+### 5c. Evaluate Closure Eligibility
 
 **Close the issue automatically if ALL conditions are met:**
 
@@ -300,7 +327,7 @@ If any `gh` command fails:
 
 If `nxs-dev` halts with an implementation blocker:
 
--   Surface the blocker to the user exactly as presented
+-   Surface the blocker to the user in a clear, formatted manner
 -   Do NOT attempt to resolve design-level issues yourself
 -   Wait for user decision, then relay to agent
 
@@ -323,6 +350,7 @@ If the agent completes some chunks but stops:
 
 Title: <issue title>
 Branch: <branch name from agent>
+Commit: <commit hash>
 Status: Implemented and closed
 
 Files Changed: <count>
@@ -338,6 +366,7 @@ Comment posted: <link to comment>
 
 Title: <issue title>
 Branch: <branch name>
+Commit: <commit hash>
 Status: Requires manual review
 
 Blocking Items:
@@ -361,3 +390,5 @@ Next steps: <recommended actions>
 7. **Skipping the comment** — Always post implementation summary to the issue
 8. **Swallowing errors** — Surface all failures clearly with context
 9. **Paraphrasing user intent** — Pass user responses verbatim to agent
+10. **Skipping the commit** — Always commit changes before closing the issue
+11. **Raw agent output** — Format checkpoints for readability; don't dump raw text

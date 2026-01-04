@@ -2,13 +2,13 @@
 
 ```
 docs
-|_ product
-|   |_ context.md               // High-level product context for the agents.
-|_ system
-    |_ standards
-    |   |_ api_patterns.md
-    |   |_ task_labels.md       // Labels for Github Issues (used with nxs.tasks)
-    |_ stack.md                 // The technology stack of the product.
+├── product
+|   ├── context.md               // High-level product context for the agents.
+└── system
+    ├── standards
+    |   ├── api_patterns.md
+    |   ├── task_labels.md       // Labels for Github Issues (used with nxs.tasks)
+    └── stack.md                 // The technology stack of the product.
 ```
 
 # CLAUDE.md Setup
