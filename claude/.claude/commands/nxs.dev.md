@@ -1,5 +1,5 @@
 ---
-name: nxs.go
+name: nxs.dev
 description: Fetch a GitHub issue and implement it via the nxs-dev agent. Posts implementation summary and closes issue on success.
 arg: Issue number (required) - e.g., "123" or "#123"
 tools: Bash, Read, Task
@@ -20,8 +20,8 @@ If `$ARGUMENTS` is empty, missing, or not a valid issue number:
 ```
 ❌ ISSUE NUMBER REQUIRED
 
-Usage: /nxs.go <issue-number>
-Example: /nxs.go 123
+Usage: /nxs.dev <issue-number>
+Example: /nxs.dev 123
 
 Please provide a GitHub issue number to implement.
 ```
