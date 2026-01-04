@@ -67,7 +67,7 @@ Apply these decomposition rules:
 
 **Sequencing**: Identify dependencies and order tasks so each can be implemented without forward references to incomplete work.
 
-**Task Categories**:
+**Task Categories** (used for phasing):
 
 1. **Infrastructure/Setup** - Project scaffolding, CI/CD, environment config
 2. **Data Layer** - Models, migrations, repositories
@@ -139,18 +139,7 @@ For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01
 
 **Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task issue to the parent epic issue.
 
-## 6. Generate Summary
-
-Create `./tasks/README.md` containing:
-
--   Parent epic issue reference
--   Total task count
--   Dependency graph (text-based or mermaid)
--   Suggested implementation order
--   Parallelization opportunities
--   Estimated total effort range
-
-## 7. Create Task Issues
+## 6. Create Task Issues
 
 After generating all task files, create GitHub issues for each task:
 
@@ -162,7 +151,59 @@ After generating all task files, create GitHub issues for each task:
     - Create a GitHub issue for each `TASK-{EPIC}.{NN}.md` file
     - Apply the labels from frontmatter
     - Link each task issue to the parent epic via the `parent` attribute
-3. Report the created issue URLs
+3. Generate `./tasks.md` with the following structure:
+
+```markdown
+# {Epic Title}
+
+**Epic**: {GitHub issue link}
+
+## Tasks
+
+### Phase 1: Infrastructure/Setup
+
+-   [#101](link) - TASK-{EPIC}.01: {Title}
+-   [#102](link) - TASK-{EPIC}.02: {Title}
+
+### Phase 2: Data Layer
+
+-   [#103](link) - TASK-{EPIC}.03: {Title}
+
+{Continue for each applicable phase...}
+
+## Task Dependency Graph
+
+\`\`\`mermaid
+{Dependency flowchart}
+\`\`\`
+
+## Parallelization Opportunities
+
+{Tasks that can be worked on simultaneously}
+
+## Effort Estimate
+
+{Total estimated effort range}
+```
+
+Group tasks into phases based on the Task Categories defined in Step 3. Only include phases that have tasks assigned to them.
+
+## 7. Update Epic
+
+After generating `tasks.md`, update the `epic.md` file:
+
+1. Locate or create an `## Implementation Plan` section in `epic.md` immediately after the `## Open Questions` section.
+2. Add a relative link to the generated `tasks.md` file:
+
+    ```markdown
+    ## Implementation Plan
+
+    See [tasks.md](./tasks.md) for the detailed task breakdown and dependency graph.
+    ```
+
+## 8. Cleanup
+
+After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated, delete the `tasks/` subfolder and all its contents.
 
 # Constraints
 
@@ -236,14 +277,15 @@ This ensures the project name is configured once and persists across all future 
     - The `parent` attribute set to the epic issue number
     - The `project` value from the template
     - Labels from the approved set only
-11. **Generate the summary README** at `./tasks/README.md`
-12. **Create task issues** by running:
+11. **Create task issues** by running:
 
 ```bash
     python ./scripts/create_gh_issues.py --project "<PROJECT>" "<path-to-tasks-folder>"
 ```
 
-13. **Report completion** with:
+12. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 6 for format)
+13. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
+14. **Delete the `tasks/` subfolder** and all its contents
+15. **Report completion** with:
     -   Epic issue URL
-    -   Task count and their issue URLs
-    -   Suggested first tasks to parallelize
+    -   Path to generated `tasks.md`
