@@ -1,7 +1,3 @@
-I'll revise the README to incorporate these critical missing elements and sharpen the thesis language. Here's an updated version:
-
----
-
 # Nexus
 
 **A System of Intentional Friction for the Age of AI Agents**
