@@ -85,7 +85,29 @@ Given that capability description, do this:
     d. The epic document will be saved as `epic.md` inside this directory:
     `<feature-directory>/<sequential-epic-folder>/epic.md`
 
-4. **Parse and analyze the capability description**:
+4. **Handle external plan files** (if referenced):
+
+    If the user referenced a Claude Code planning mode document or any file outside the repository:
+
+    a. **Check for HLD.md in the epic directory**:
+
+    - If `HLD.md` does NOT exist in `<feature-directory>/<sequential-epic-folder>/`:
+        - Copy the external file to `<feature-directory>/<sequential-epic-folder>/HLD.md`
+        - This becomes the High-Level Design document for reference
+
+    b. **If HLD.md already exists**:
+
+    - Copy the external file to `<feature-directory>/<sequential-epic-folder>/` with its original filename
+        - For example: `plan-2026-01-08.md`, `design-notes.md`, etc.
+
+    c. **Never link to files outside the repository**:
+
+    - ❌ NEVER use paths like `~/.claude/plans/...`
+    - ❌ NEVER use absolute paths outside the repository
+    - ✅ ALWAYS copy external files into the repository
+    - ✅ ONLY link to repository-relative paths in documentation
+
+5. **Parse and analyze the capability description**:
 
     Follow this execution flow:
 
@@ -109,7 +131,7 @@ Given that capability description, do this:
         - Each criterion must be testable and unambiguous
     6. Return: SUCCESS (epic document ready)
 
-5. **Write the Epic document** using the following structure:
+6. **Write the Epic document** using the following structure:
 
 ```markdown
 ---
@@ -203,10 +225,10 @@ status: draft
 ### Related Documents
 
 -   [../README.md](../README.md) - Parent Feature Brief
--   [Links to related specs, designs, or documentation]
+-   [Links to related specs, designs, or documentation] - MUST adhere to guidelines in section `4.c` - Never link to **local files** outside the repository.
 ```
 
-6. **Story Decomposition Guidelines**:
+7. **Story Decomposition Guidelines**:
 
     When breaking down the epic into user stories:
 
@@ -237,7 +259,7 @@ status: draft
     - Follow with enhancement stories (validations, notifications)
     - End with polish stories (UI refinements, edge cases)
 
-7. **Quality Validation**: After writing the initial document, validate against these criteria:
+8. **Quality Validation**: After writing the initial document, validate against these criteria:
 
     a. **Epic Level**:
 
@@ -260,7 +282,7 @@ status: draft
     - If items fail: Update the document to address issues before saving
     - If [NEEDS CLARIFICATION] markers remain (max 3): Present to user using the clarification format below
 
-8. **Handle Clarifications** (if any remain):
+9. **Handle Clarifications** (if any remain):
 
     For each clarification needed (max 3), present options:
 
@@ -282,7 +304,7 @@ status: draft
 
     After receiving answers, update the document and remove [NEEDS CLARIFICATION] markers.
 
-9. **Report completion** with:
+10. **Report completion** with:
     - Feature name and link to Feature README
     - Full file path where epic document was saved
     - Epic summary (name, story count)
