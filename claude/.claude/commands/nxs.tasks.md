@@ -139,9 +139,45 @@ For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01
 
 **Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task issue to the parent epic issue.
 
-## 6. Create Task Issues
+## 6. Review Checkpoint
 
-After generating all task files, create GitHub issues for each task:
+**STOP AND WAIT** for user confirmation before creating GitHub issues.
+
+1. **Present a summary** to the user:
+
+    - Number of tasks generated
+    - List of task files with their titles (e.g., `TASK-23.01: Setup project scaffolding`)
+    - Path to the `tasks/` folder for review
+    - Reminder of the phasing/dependency structure
+
+2. **Prompt the user**:
+
+    > "I've generated **{N} task files** in `{path-to-tasks-folder}/`.
+    >
+    > **Generated tasks:**
+    > {numbered list of task files with titles}
+    >
+    > Please review the task files and make any necessary edits before I create GitHub issues.
+    >
+    > When you're ready, reply with one of:
+    >
+    > - **`continue`** — Create GitHub issues for all tasks
+    > - **`skip 03, 05`** — Create issues excluding specified task numbers
+    > - **`abort`** — Cancel issue creation (task files will be preserved)"
+
+3. **Wait for explicit user input** — do NOT proceed automatically.
+
+4. **Handle user response**:
+    - **`continue`**: Proceed to Step 7 with all tasks
+    - **`skip [numbers]`**: Mark specified tasks for exclusion, then proceed to Step 7 with remaining tasks
+    - **`abort`**: Stop execution entirely. Inform user that:
+        - Task files remain in `tasks/` folder for manual handling
+        - They can re-run `/nxs.tasks` later or manually create issues
+        - Exit without further action
+
+## 7. Create Task Issues
+
+After receiving user confirmation to proceed, create GitHub issues for each approved task:
 
 1. Apply the `nxs-gh-create-task` skill by running:
     ```bash
@@ -188,7 +224,7 @@ After generating all task files, create GitHub issues for each task:
 
 Group tasks into phases based on the Task Categories defined in Step 3. Only include phases that have tasks assigned to them.
 
-## 7. Update Epic
+## 8. Update Epic
 
 After generating `tasks.md`, update the `epic.md` file:
 
@@ -201,7 +237,7 @@ After generating `tasks.md`, update the `epic.md` file:
     See [tasks.md](./tasks.md) for the detailed task breakdown and dependency graph.
     ```
 
-## 8. Cleanup
+## 9. Cleanup
 
 After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated, delete the `tasks/` subfolder and all its contents.
 
@@ -210,6 +246,7 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 -   **DO NOT** search for HLD files - use the provided context or arguments only
 -   **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
 -   **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
+-   **DO NOT** proceed past the Review Checkpoint without explicit user confirmation
 -   **DO** make reasonable assumptions and document them
 -   **DO** prefer smaller tasks over larger ones when uncertain
 -   **DO** ensure the first task creates a buildable/runnable skeleton
@@ -277,15 +314,23 @@ This ensures the project name is configured once and persists across all future 
     - The `parent` attribute set to the epic issue number
     - The `project` value from the template
     - Labels from the approved set only
-11. **Create task issues** by running:
+11. **REVIEW CHECKPOINT — STOP AND WAIT**:
+    - Present the summary of generated tasks to the user
+    - Display the prompt asking for `continue`, `skip [numbers]`, or `abort`
+    - **Do not proceed until user responds**
+    - Handle the response:
+        - `continue` → Proceed to step 12
+        - `skip [numbers]` → Exclude specified tasks, proceed to step 12
+        - `abort` → Stop execution, preserve task files, exit
+12. **Create task issues** by running:
 
 ```bash
     python ./scripts/create_gh_issues.py --project "<PROJECT>" "<path-to-tasks-folder>"
 ```
 
-12. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 6 for format)
-13. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
-14. **Delete the `tasks/` subfolder** and all its contents
-15. **Report completion** with:
+13. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 7 for format)
+14. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
+15. **Delete the `tasks/` subfolder** and all its contents
+16. **Report completion** with:
     -   Epic issue URL
     -   Path to generated `tasks.md`
