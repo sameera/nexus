@@ -139,43 +139,157 @@ For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01
 
 **Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task issue to the parent epic issue.
 
-## 6. Review Checkpoint
+## 6. Run Consistency Analysis & Auto-Remediation
+
+**MANDATORY**: After generating all task files, run consistency analysis and automatically fix what can be remediated.
+
+### 6a. Run Analysis
+
+Invoke `/nxs.analyze {epic-directory}` to check for:
+
+-   Coverage gaps (epic stories or HLD components without implementing tasks)
+-   Logical inconsistencies between epic intent and tasks
+-   Technical inconsistencies between HLD and task LLDs
+-   Inter-task inconsistencies (circular deps, conflicts, terminology drift)
+-   Superfluous task breakdowns (tasks that should be consolidated)
+
+The analysis creates `tasks/task-review.md` with findings categorized by:
+
+-   Severity: CRITICAL / HIGH / MEDIUM / LOW
+-   Remediation type: AUTO (can be fixed programmatically) / MANUAL (requires user judgment)
+
+### 6b. Auto-Remediate Findings
+
+After analysis completes, automatically fix all `AUTO`-classified findings:
+
+#### Superfluous Task Consolidation
+
+For each superfluous task identified:
+
+1. **Barrel/Export-only tasks** (e.g., "Export tag types via index.ts"):
+
+    - Read the superfluous task's file list and acceptance criteria
+    - Append the export statements to the **Files to create/modify** section of the originating task
+    - Add "Export public API via barrel file" to the originating task's acceptance criteria
+    - Delete the superfluous task file
+
+2. **Verification-only tasks** (e.g., "Run tag service tests"):
+
+    - Read the verification task's acceptance criteria
+    - Append verification steps to the source task's acceptance criteria (e.g., "All tests pass", "Lint checks pass")
+    - Delete the verification task file
+
+3. **Effort < 1 hour tasks**:
+    - Identify the task it's `blocked_by` (preferred) or the first task it `blocks`
+    - Merge all content (files, interfaces, acceptance criteria, implementation notes) into the target task
+    - Update the target task's effort estimate accordingly
+    - Delete the merged task file
+
+#### Dependency Chain Updates
+
+After merging tasks:
+
+1. Update `blocked_by` references in remaining tasks to point to the merge target
+2. Update `blocks` references in remaining tasks to remove deleted task IDs
+3. Ensure no dangling references exist
+
+#### Task Renumbering
+
+After deletions, renumber remaining tasks to maintain sequential order:
+
+1. Rename task files: `TASK-{EPIC}.01.md`, `TASK-{EPIC}.02.md`, etc.
+2. Update task IDs in frontmatter
+3. Update all `blocked_by` and `blocks` references to use new IDs
+
+#### Terminology Normalization
+
+For terminology drift findings:
+
+1. Identify the canonical term from `HLD.md` (e.g., `userId` not `userID`, `userUUID`, `user_id`)
+2. Replace all variant terms across task files with the canonical term
+3. Apply to: titles, summaries, file paths, interface definitions, acceptance criteria
+
+### 6c. Update task-review.md
+
+After auto-remediation, update `tasks/task-review.md`:
+
+1. Move all remediated findings to the **Auto-Remediated ✅** section
+2. Mark each with `[x]` and document the action taken
+3. Update the **Summary** table:
+    - Decrement issue counts for remediated items
+    - Update "Tasks Analyzed" count if tasks were merged/deleted
+4. Update the **Superfluous Tasks** table with "✅ Auto-merged" status
+5. Recalculate coverage percentages if task mappings changed
+6. Update **Recommended Actions** to reflect only remaining manual issues
+
+### 6d. Capture Metrics for Review Checkpoint
+
+After remediation, capture:
+
+-   Original finding counts (before remediation)
+-   Auto-remediated count
+-   Remaining manual issue counts (CRITICAL/HIGH/MEDIUM/LOW)
+-   Tasks merged/deleted count
+-   Final task count
+-   Coverage percentages
+
+## 7. Review Checkpoint
 
 **STOP AND WAIT** for user confirmation before creating GitHub issues.
 
 1. **Present a summary** to the user:
 
-    - Number of tasks generated
+    - Number of tasks generated (after any merges)
     - List of task files with their titles (e.g., `TASK-23.01: Setup project scaffolding`)
     - Path to the `tasks/` folder for review
     - Reminder of the phasing/dependency structure
+    - **Auto-remediation summary** (what was fixed)
+    - **Remaining manual issues**
 
 2. **Prompt the user**:
 
-    > "I've generated **{N} task files** in `{path-to-tasks-folder}/`.
+    > "I've generated **{N} task files** in `{path-to-tasks-folder}/` and performed consistency analysis.
     >
-    > **Generated tasks:**
+    > **Auto-Remediation Applied**:
+    >
+    > - {X} superfluous tasks merged (see `task-review.md` for details)
+    > - {Y} terminology inconsistencies normalized
+    > - Tasks renumbered to maintain sequence
+    >
+    > **Final Tasks**:
     > {numbered list of task files with titles}
     >
-    > Please review the task files and make any necessary edits before I create GitHub issues.
+    > **Remaining Issues** (require manual review):
     >
-    > When you're ready, reply with one of:
+    > - {critical} critical, {high} high, {medium} medium, {low} low
+    > - User story coverage: {X}%
+    > - HLD component coverage: {X}%
+    >
+    > See `tasks/task-review.md` for full analysis.
+    >
+    > {If critical > 0: "⛔ **CRITICAL ISSUES FOUND** — Strongly recommend resolving before proceeding."}
+    > {If critical == 0 && high > 0: "⚠️ **HIGH priority issues found** — Review recommended."}
+    > {If critical == 0 && high == 0: "✅ **No blocking issues** — Safe to proceed."}
+    >
+    > Please review the task files and `task-review.md`, then reply with one of:
     >
     > - **`continue`** — Create GitHub issues for all tasks
     > - **`skip 03, 05`** — Create issues excluding specified task numbers
-    > - **`abort`** — Cancel issue creation (task files will be preserved)"
+    > - **`abort`** — Cancel issue creation to address findings (task files preserved)"
 
 3. **Wait for explicit user input** — do NOT proceed automatically.
 
 4. **Handle user response**:
-    - **`continue`**: Proceed to Step 7 with all tasks
-    - **`skip [numbers]`**: Mark specified tasks for exclusion, then proceed to Step 7 with remaining tasks
+    - **`continue`**: Proceed to Step 8 with all tasks
+    - **`skip [numbers]`**: Mark specified tasks for exclusion, then proceed to Step 8 with remaining tasks
     - **`abort`**: Stop execution entirely. Inform user that:
         - Task files remain in `tasks/` folder for manual handling
+        - `task-review.md` contains the findings to address (including auto-remediation log)
+        - They can re-run `/nxs.analyze` after making edits to re-validate
         - They can re-run `/nxs.tasks` later or manually create issues
         - Exit without further action
 
-## 7. Create Task Issues
+## 8. Create Task Issues
 
 After receiving user confirmation to proceed, create GitHub issues for each approved task:
 
@@ -224,7 +338,7 @@ After receiving user confirmation to proceed, create GitHub issues for each appr
 
 Group tasks into phases based on the Task Categories defined in Step 3. Only include phases that have tasks assigned to them.
 
-## 8. Update Epic
+## 9. Update Epic
 
 After generating `tasks.md`, update the `epic.md` file:
 
@@ -237,9 +351,9 @@ After generating `tasks.md`, update the `epic.md` file:
     See [tasks.md](./tasks.md) for the detailed task breakdown and dependency graph.
     ```
 
-## 9. Cleanup
+## 10. Cleanup
 
-After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated, delete the `tasks/` subfolder and all its contents.
+After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated, delete the `tasks/` subfolder and all its contents (including `task-review.md`).
 
 # Constraints
 
@@ -247,6 +361,7 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 -   **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
 -   **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
 -   **DO NOT** proceed past the Review Checkpoint without explicit user confirmation
+-   **DO NOT** skip the consistency analysis or auto-remediation steps
 -   **DO** make reasonable assumptions and document them
 -   **DO** prefer smaller tasks over larger ones when uncertain
 -   **DO** ensure the first task creates a buildable/runnable skeleton
@@ -314,23 +429,47 @@ This ensures the project name is configured once and persists across all future 
     - The `parent` attribute set to the epic issue number
     - The `project` value from the template
     - Labels from the approved set only
-11. **REVIEW CHECKPOINT — STOP AND WAIT**:
-    - Present the summary of generated tasks to the user
+11. **Run consistency analysis**:
+    - Invoke `/nxs.analyze {epic-directory}`
+    - Wait for analysis to complete and `task-review.md` to be generated
+12. **Auto-remediate findings**:
+    - Parse `task-review.md` for AUTO-classified findings
+    - For each superfluous task:
+        - Merge content into target task (files, acceptance criteria, implementation notes)
+        - Delete superfluous task file
+        - Update dependency references in remaining tasks
+    - For terminology drift:
+        - Identify canonical terms from HLD
+        - Normalize across all task files
+    - Renumber remaining tasks sequentially
+    - Update `task-review.md`:
+        - Move remediated items to "Auto-Remediated ✅" section
+        - Update summary counts
+        - Recalculate coverage if task mappings changed
+13. **Capture final metrics**:
+    - Auto-remediated count
+    - Remaining manual issues (CRITICAL/HIGH/MEDIUM/LOW)
+    - Final task count
+    - Coverage percentages
+14. **REVIEW CHECKPOINT — STOP AND WAIT**:
+    - Present the summary of tasks AND auto-remediation actions to the user
+    - Present remaining manual issues
     - Display the prompt asking for `continue`, `skip [numbers]`, or `abort`
+    - Include severity indicators (⛔/⚠️/✅) based on REMAINING manual issues only
     - **Do not proceed until user responds**
     - Handle the response:
-        - `continue` → Proceed to step 12
-        - `skip [numbers]` → Exclude specified tasks, proceed to step 12
-        - `abort` → Stop execution, preserve task files, exit
-12. **Create task issues** by running:
+        - `continue` → Proceed to step 15
+        - `skip [numbers]` → Exclude specified tasks, proceed to step 15
+        - `abort` → Stop execution, preserve task files and `task-review.md`, inform user they can run `/nxs.analyze` again after edits, exit
+15. **Create task issues** by running:
 
 ```bash
     python ./scripts/create_gh_issues.py --project "<PROJECT>" "<path-to-tasks-folder>"
 ```
 
-13. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 7 for format)
-14. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
-15. **Delete the `tasks/` subfolder** and all its contents
-16. **Report completion** with:
+16. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 8 for format)
+17. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
+18. **Delete the `tasks/` subfolder** and all its contents (including `task-review.md`)
+19. **Report completion** with:
     -   Epic issue URL
     -   Path to generated `tasks.md`
