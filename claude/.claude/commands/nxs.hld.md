@@ -3,7 +3,7 @@ name: nxs-hld
 description: Generate a High Level Design Document from an epic specification. Invoke for: new feature epics, major refactoring initiatives, system integrations, or any work requiring architectural planning before implementation.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash
-model: opus
+model: inherit
 ---
 
 # Role & Context
