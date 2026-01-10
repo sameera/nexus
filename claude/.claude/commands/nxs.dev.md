@@ -41,6 +41,7 @@ Please provide a GitHub issue number to implement.
 -   Which implementation option to choose (when agent presents A/B/C)
 -   Resolution of design ambiguities or gaps
 -   Approval to proceed to next chunk
+-   Approval to commit changes (pre-commit review)
 -   Any question the agent explicitly asks
 
 ### Decisions you CAN make autonomously:
@@ -57,8 +58,24 @@ Present the checkpoint using clear, well-formatted output that is easy to read:
 2. **Preserve the semantic meaning** of the agent's question/options
 3. **Format for readability**: Use proper markdown structure, numbered options, and visual separation
 4. **For multiple-choice questions**: Present options as a numbered list so the user can respond with just a number
+5. **For simple confirmations**: Use a rich button-style UI (see below)
 
-Example format:
+### Simple Y/N Confirmation Prompts
+
+For checkpoints that only require a "yes/proceed" confirmation (e.g., chunk approvals, commit approvals), use this compact format:
+
+```
+🔄 **CHECKPOINT**
+
+<context summary>... proceed?
+
+[✅ Yes (y)]
+[❌ No  (n)]
+```
+
+This provides a clear visual call-to-action with simple single-character responses.
+
+### Example format for multiple-choice:
 
 ```
 🔄 **AGENT CHECKPOINT**
@@ -209,11 +226,12 @@ What branch name would you like to use? (Press Enter to accept the suggestion, o
 
 **You say:**
 
-🔄 **AGENT CHECKPOINT**
+🔄 **CHECKPOINT: Chunk Complete**
 
-✅ **Chunk 1 complete** — all tests passing.
+✅ **Chunk 1 complete** — all tests passing. Proceed to Chunk 2?
 
-Ready to proceed to Chunk 2?
+[✅ Yes (y)]
+[❌ No (n)]
 
 **Then STOP. Wait. Relay response.**
 
@@ -250,7 +268,75 @@ Which approach should the agent take? (Enter 1 or 2)
 
 **Only enter this phase when `nxs-dev` reports "Implementation Complete" with a final summary.**
 
-### 5a. Commit All Changes
+### 5a. Pre-Commit Review Checkpoint
+
+**Before committing any changes, present a checkpoint for the user to review:**
+
+First, gather the changes:
+
+```bash
+git status --short
+git diff --stat
+```
+
+Then present the review checkpoint:
+
+```
+🔄 **CHECKPOINT: Pre-Commit Review**
+
+The implementation is complete. Please review the changes before committing.
+
+**Files Changed:**
+<output of git status --short>
+
+**Summary:**
+<output of git diff --stat>
+
+To see full details, you can run:
+- `git diff` — view all changes
+- `git diff <filename>` — view changes to a specific file
+
+Commit these changes?
+
+[✅ Commit Changes (y)]
+[❌ Cancel Commit  (n)]
+[📄 Show Full Diff (d)]
+```
+
+**STOP. Wait for user confirmation before proceeding.**
+
+**If user replies "d":**
+
+```bash
+git diff
+```
+
+Show the output, then re-present the commit confirmation:
+
+```
+Commit these changes?
+
+[✅ Commit Changes (y)]
+[❌ Cancel Commit  (n)]
+```
+
+**If user cancels (n/no):**
+
+```
+⚠️ Commit cancelled by user.
+
+Changes remain staged but uncommitted. The issue will not be closed.
+You can manually commit later with:
+  git add -A && git commit -m "<message>"
+```
+
+**STOP. Do not proceed to commenting or closing the issue.**
+
+**If user confirms (y/yes):**
+
+Proceed to step 5b.
+
+### 5b. Commit All Changes
 
 Stage and commit all implementation changes:
 
@@ -266,7 +352,7 @@ git add -A
 git commit -m "Add user caching layer for improved performance" -m "Implements #123"
 ```
 
-### 5b. Post Comment to GitHub Issue
+### 5c. Post Comment to GitHub Issue
 
 Extract the implementation summary and post it:
 
@@ -279,7 +365,7 @@ gh issue comment <issue-number> --body "## Implementation Summary
 *Implemented via Claude Code*"
 ```
 
-### 5c. Evaluate Closure Eligibility
+### 5d. Evaluate Closure Eligibility
 
 **Close the issue automatically if ALL conditions are met:**
 
@@ -392,3 +478,5 @@ Next steps: <recommended actions>
 9. **Paraphrasing user intent** — Pass user responses verbatim to agent
 10. **Skipping the commit** — Always commit changes before closing the issue
 11. **Raw agent output** — Format checkpoints for readability; don't dump raw text
+12. **Committing without review** — Always checkpoint before commit to allow user review
+13. **Proceeding after cancel** — If user cancels at any checkpoint, respect the decision
