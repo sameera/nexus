@@ -260,4 +260,5 @@ Generate a complete High Level Design Document following the structure above. Th
 
 **Before finalizing**: Verify the design adheres to the Architectural Principles listed above. Flag any compromises explicitly.
 
-Save the document as `docs/{epic-name}/HLD.md` where {epic-name} is derived from the epic title.
+Save the document as `HLD.md` in the same folder as the `epic.md` file.
+If no epic file was provided when invoking this command, save the file in `docs/{epic-name}/` where {epic-name} is derived from the epic title.
