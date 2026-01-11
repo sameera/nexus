@@ -228,6 +228,19 @@ Given that capability description, do this:
 
 7. **Write the Epic document** using the following structure:
 
+    **IMPORTANT - Absolute Path Linking**: All `.md` file links in the document MUST use absolute GitHub URLs. Use the `nxs-abs-doc-path` skill to convert relative paths:
+
+    ```bash
+    python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "<relative-path-from-repo-root>"
+    ```
+
+    Example:
+
+    ```bash
+    python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md"
+    # Output: https://github.com/sameera/awzm/tree/main/docs/features/tagging/README.md
+    ```
+
 ```markdown
 ---
 feature: "[Feature Name from README.md]"
@@ -340,9 +353,11 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 ### Related Documents
 
--   [../README.md](../README.md) - Parent Feature Brief
--   [Links to related epics if part of a decomposition]
--   [Links to related specs, designs, or documentation] - MUST adhere to guidelines in section `5.c` - Never link to **local files** outside the repository.
+-   [Parent Feature Brief](ABSOLUTE_URL_TO_PARENT_README) - Parent Feature Brief
+-   [Links to related epics if part of a decomposition - USE ABSOLUTE URLs]
+-   [Links to related specs, designs, or documentation - USE ABSOLUTE URLs]
+
+**Note**: All document links must be absolute GitHub URLs generated via `nxs-abs-doc-path` skill. Never use relative paths like `../README.md`.
 ```
 
 8. **Story Decomposition Guidelines**:
@@ -386,6 +401,7 @@ estimated_duration: "[X days/weeks - likely case from architect]"
     - [ ] No implementation details (languages, frameworks, APIs)
     - [ ] Properly linked to parent Feature
     - [ ] Complexity assessment included in appendix
+    - [ ] **All .md links use absolute GitHub URLs** (not relative paths)
 
     b. **Story Level**:
 
@@ -423,7 +439,7 @@ estimated_duration: "[X days/weeks - likely case from architect]"
     After receiving answers, update the document and remove [NEEDS CLARIFICATION] markers.
 
 11. **Report completion** with:
-    - Feature name and link to Feature README
+    - Feature name and link to Feature README (using absolute URL)
     - Full file path where epic document was saved
     - Epic summary (name, story count, complexity rating)
     - Any clarifications needed before the epic is considered complete
@@ -441,6 +457,35 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 -   Written for product owners, stakeholders, and developers to align on scope
 -   Each story should be a conversation starter, not a complete specification
 -   Maintain consistency with the parent Feature's context and terminology
+-   **All .md file links MUST use absolute GitHub URLs** (use `nxs-abs-doc-path` skill)
+
+### Absolute Path Linking
+
+All markdown document links in generated epics MUST be absolute GitHub URLs, not relative paths.
+
+**Why?**
+
+-   Ensures links work regardless of where the document is viewed (GitHub, local, exported PDFs)
+-   Provides consistent navigation experience
+-   Avoids broken links when documents are moved or referenced from different contexts
+
+**How?**
+Use the `nxs-abs-doc-path` skill to convert relative paths:
+
+```bash
+# Convert a single path
+python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md"
+
+# Convert multiple paths at once
+python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md" "docs/system/delivery/task-labels.md"
+```
+
+The script reads the `docRoot` from `docs/system/delivery/config.json` and constructs the full URL.
+
+**Example transformation:**
+
+-   Input: `../README.md` or `docs/features/tagging/README.md`
+-   Output: `https://github.com/sameera/awzm/tree/main/docs/features/tagging/README.md`
 
 ### Right-Sizing Philosophy
 
@@ -471,6 +516,7 @@ When creating this document from a user prompt:
 7. **Think like a product owner**: Every story should answer "what value does this deliver?"
 8. **Think like a tester**: Every acceptance criterion should be verifiable
 9. **Maintain Feature coherence**: Ensure the epic aligns with and extends the parent Feature
+10. **Use absolute URLs**: Always run `nxs-abs-doc-path` skill for any .md file links
 
 **Examples of reasonable defaults** (don't ask about these):
 
