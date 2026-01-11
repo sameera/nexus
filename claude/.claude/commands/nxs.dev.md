@@ -69,8 +69,8 @@ For checkpoints that only require a "yes/proceed" confirmation (e.g., chunk appr
 
 <context summary>... proceed?
 
-[✅ Yes (y)]
-[❌ No  (n)]
+1.✅ Yes (y)
+2.❌ No  (n)
 ```
 
 This provides a clear visual call-to-action with simple single-character responses.
@@ -230,8 +230,8 @@ What branch name would you like to use? (Press Enter to accept the suggestion, o
 
 ✅ **Chunk 1 complete** — all tests passing. Proceed to Chunk 2?
 
-[✅ Yes (y)]
-[❌ No (n)]
+1.✅ Yes (y)
+2.❌ No (n)
 
 **Then STOP. Wait. Relay response.**
 
@@ -298,9 +298,9 @@ To see full details, you can run:
 
 Commit these changes?
 
-[✅ Commit Changes (y)]
-[❌ Cancel Commit  (n)]
-[📄 Show Full Diff (d)]
+1.✅ Commit Changes (y)
+2.❌ Cancel Commit  (n)
+3.📄 Show Full Diff (d)
 ```
 
 **STOP. Wait for user confirmation before proceeding.**
@@ -316,8 +316,8 @@ Show the output, then re-present the commit confirmation:
 ```
 Commit these changes?
 
-[✅ Commit Changes (y)]
-[❌ Cancel Commit  (n)]
+1.✅ Commit Changes (y)
+2.❌ Cancel Commit  (n)
 ```
 
 **If user cancels (n/no):**
