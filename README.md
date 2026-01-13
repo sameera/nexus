@@ -176,7 +176,7 @@ Nexus is in active development. We're building this in the open because we think
 
 ## Getting Started
 
-_(Installation and usage documentation coming soon)_
+[How this works](how-to-nexus.md)
 
 ---
 
