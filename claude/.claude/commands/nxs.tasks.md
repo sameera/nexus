@@ -8,10 +8,10 @@ Act as an experienced senior engineer performing technical decomposition and tas
 
 # Context
 
--   **HLD Source**: Resolved in priority order:
+- **HLD Source**: Resolved in priority order:
     1. Explicit file path provided in `$ARGUMENTS`
     2. The file currently open in the editor (passed as context)
--   **User Input**: $ARGUMENTS
+- **User Input**: $ARGUMENTS
 
 # Input Resolution
 
@@ -45,12 +45,12 @@ If no `epic.md` exists in the HLD directory, warn the user and proceed without a
 
 Read the High-Level Design document and extract:
 
--   System components and their responsibilities
--   Data models and relationships
--   API contracts/interfaces
--   Integration points
--   Non-functional requirements (performance, security, etc.)
--   Technology stack and constraints
+- System components and their responsibilities
+- Data models and relationships
+- API contracts/interfaces
+- Integration points
+- Non-functional requirements (performance, security, etc.)
+- Technology stack and constraints
 
 ## 3. Decompose into Tasks
 
@@ -60,10 +60,10 @@ Apply these decomposition rules:
 
 **Consistency Rule**: After completing any task, the system must be in a valid state:
 
--   All tests pass
--   Build succeeds
--   No broken UI elements or dead endpoints
--   No unhandled errors in implemented paths
+- All tests pass
+- Build succeeds
+- No broken UI elements or dead endpoints
+- No unhandled errors in implemented paths
 
 **Sequencing**: Identify dependencies and order tasks so each can be implemented without forward references to incomplete work.
 
@@ -80,11 +80,11 @@ Apply these decomposition rules:
 
 Each task MUST include a low-level design section covering:
 
--   **Files to create/modify** with exact paths
--   **Key interfaces/types** to implement (signatures, not full implementation)
--   **Dependencies** on other tasks (by task number)
--   **Acceptance criteria** - specific, testable conditions
--   **Implementation hints** - algorithms, patterns, or gotchas
+- **Files to create/modify** with exact paths
+- **Key interfaces/types** to implement (signatures, not full implementation)
+- **Dependencies** on other tasks (by task number)
+- **Acceptance criteria** - specific, testable conditions
+- **Implementation hints** - algorithms, patterns, or gotchas
 
 ## 5. Output Format
 
@@ -100,23 +100,23 @@ Task files are generated using the template at `docs/system/delivery/task-templa
 
 The template uses `{{VARIABLE}}` placeholders. Replace each with:
 
-| Variable                   | Description                                        |
-| -------------------------- | -------------------------------------------------- |
-| `{{EPIC}}`                 | Parent epic's GitHub issue number                  |
-| `{{SEQ}}`                  | Zero-padded sequence number (01, 02, etc.)         |
-| `{{TITLE}}`                | Concise task title                                 |
-| `{{LABELS}}`               | Comma-separated labels from approved set           |
-| `{{PARENT}}`               | Epic issue reference (e.g., `#42`)                 |
-| `{{SUMMARY}}`              | One paragraph describing the task                  |
-| `{{BLOCKED_BY}}`           | Task dependencies or "None"                        |
-| `{{BLOCKS}}`               | Tasks this unblocks or "None"                      |
-| `{{FILES}}`                | Bulleted list of files with purposes               |
-| `{{INTERFACES}}`           | Key type definitions or signatures                 |
-| `{{IMPLEMENTATION_NOTES}}` | Algorithms, patterns, edge cases                   |
-| `{{ACCEPTANCE_CRITERIA}}`  | Bulleted checklist items                           |
-| `{{EFFORT_ESTIMATE}}`      | Time range (e.g., "2-4 hours")                     |
-| `{{PROJECT}}`              | GitHub project name (auto-configured on first run) |
-| `{{WORKSPACE_PATH}}`       | Git worktree path: `../<repo-name>-<epic-issue-number>` |
+| Variable                   | Description                                                        |
+| -------------------------- | ------------------------------------------------------------------ |
+| `{{EPIC}}`                 | Parent epic's GitHub issue number                                  |
+| `{{SEQ}}`                  | Zero-padded sequence number (01, 02, etc.)                         |
+| `{{TITLE}}`                | Concise task title                                                 |
+| `{{LABELS}}`               | Comma-separated labels from approved set                           |
+| `{{PARENT}}`               | Epic issue reference (e.g., `#42`)                                 |
+| `{{SUMMARY}}`              | One paragraph describing the task                                  |
+| `{{BLOCKED_BY}}`           | Task dependencies or "None"                                        |
+| `{{BLOCKS}}`               | Tasks this unblocks or "None"                                      |
+| `{{FILES}}`                | Bulleted list of files with purposes                               |
+| `{{INTERFACES}}`           | Key type definitions or signatures                                 |
+| `{{IMPLEMENTATION_NOTES}}` | Algorithms, patterns, edge cases                                   |
+| `{{ACCEPTANCE_CRITERIA}}`  | Bulleted checklist items                                           |
+| `{{EFFORT_ESTIMATE}}`      | Time range (e.g., "2-4 hours")                                     |
+| `{{PROJECT}}`              | GitHub project name (auto-configured on first run)                 |
+| `{{WORKSPACE_PATH}}`       | Git worktree path: `../<repo-name>-worktrees/<epic-issue-number>`  |
 | `{{BRANCH}}`               | Git branch: `<feat\|bug>/<epic-issue-number>-<concise-epic-title>` |
 
 ### Git Workspace Variables
@@ -125,16 +125,16 @@ These variables are derived once per epic and remain constant across all tasks:
 
 **`{{WORKSPACE_PATH}}`**
 
--   Format: `../<repo-name>-<epic-issue-number>`
--   Derive `<repo-name>` from the current repository name
--   Example: For repo `nexus` and epic `#42` → `../nexus-42`
+- Format: `../<repo-name>-worktrees/<epic-issue-number>`
+- Derive `<repo-name>` from the current repository name
+- Example: For repo `nexus` and epic `#42` → `../nexus-42`
 
 **`{{BRANCH}}`**
 
--   Format: `<type>/<epic-issue-number>-<concise-epic-title>`
--   `<type>`: Check epic labels — use `bug` if the epic has a `bug` label, otherwise use `feat`
--   `<concise-epic-title>`: Kebab-case the epic title (lowercase, spaces to hyphens, remove special characters)
--   Example: Feature epic #42 "User Authentication Flow" → `feat/42-user-authentication-flow`
+- Format: `<type>/<epic-issue-number>-<concise-epic-title>`
+- `<type>`: Check epic labels — use `bug` if the epic has a `bug` label, otherwise use `feat`
+- `<concise-epic-title>`: Kebab-case the epic title (lowercase, spaces to hyphens, remove special characters)
+- Example: Feature epic #42 "User Authentication Flow" → `feat/42-user-authentication-flow`
 
 ### Label Requirements
 
@@ -142,17 +142,17 @@ These variables are derived once per epic and remain constant across all tasks:
 
 **Label assignment rules** (after reading the labels file):
 
--   Use 1-3 labels per task based on work areas involved
--   Choose the primary architectural label first (e.g. `infrastructure`, `backend`, `frontend`, `database`)
--   Add secondary labels (like `performance` or `integration`) when applicable
--   **DO NOT** use any label not defined in `docs/system/delivery/task-labels.md`
+- Use 1-3 labels per task based on work areas involved
+- Choose the primary architectural label first (e.g. `infrastructure`, `backend`, `frontend`, `database`)
+- Add secondary labels (like `performance` or `integration`) when applicable
+- **DO NOT** use any label not defined in `docs/system/delivery/task-labels.md`
 
 ### Task Numbering
 
 Task numbers follow the format `TASK-{EPIC}.{NN}` where:
 
--   `{EPIC}` is the parent epic's GitHub issue number
--   `{NN}` is a zero-padded sequential number starting from 01
+- `{EPIC}` is the parent epic's GitHub issue number
+- `{NN}` is a zero-padded sequential number starting from 01
 
 For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01`, `TASK-23.02`, `TASK-23.03`, etc.
 
@@ -166,16 +166,16 @@ For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01
 
 Invoke `/nxs.analyze {epic-directory}` to check for:
 
--   Coverage gaps (epic stories or HLD components without implementing tasks)
--   Logical inconsistencies between epic intent and tasks
--   Technical inconsistencies between HLD and task LLDs
--   Inter-task inconsistencies (circular deps, conflicts, terminology drift)
--   Superfluous task breakdowns (tasks that should be consolidated)
+- Coverage gaps (epic stories or HLD components without implementing tasks)
+- Logical inconsistencies between epic intent and tasks
+- Technical inconsistencies between HLD and task LLDs
+- Inter-task inconsistencies (circular deps, conflicts, terminology drift)
+- Superfluous task breakdowns (tasks that should be consolidated)
 
 The analysis creates `tasks/task-review.md` with findings categorized by:
 
--   Severity: CRITICAL / HIGH / MEDIUM / LOW
--   Remediation type: AUTO (can be fixed programmatically) / MANUAL (requires user judgment)
+- Severity: CRITICAL / HIGH / MEDIUM / LOW
+- Remediation type: AUTO (can be fixed programmatically) / MANUAL (requires user judgment)
 
 ### 6b. Auto-Remediate Findings
 
@@ -186,14 +186,12 @@ After analysis completes, automatically fix all `AUTO`-classified findings:
 For each superfluous task identified:
 
 1. **Barrel/Export-only tasks** (e.g., "Export tag types via index.ts"):
-
     - Read the superfluous task's file list and acceptance criteria
     - Append the export statements to the **Files to create/modify** section of the originating task
     - Add "Export public API via barrel file" to the originating task's acceptance criteria
     - Delete the superfluous task file
 
 2. **Verification-only tasks** (e.g., "Run tag service tests"):
-
     - Read the verification task's acceptance criteria
     - Append verification steps to the source task's acceptance criteria (e.g., "All tests pass", "Lint checks pass")
     - Delete the verification task file
@@ -245,19 +243,18 @@ After auto-remediation, update `tasks/task-review.md`:
 
 After remediation, capture:
 
--   Original finding counts (before remediation)
--   Auto-remediated count
--   Remaining manual issue counts (CRITICAL/HIGH/MEDIUM/LOW)
--   Tasks merged/deleted count
--   Final task count
--   Coverage percentages
+- Original finding counts (before remediation)
+- Auto-remediated count
+- Remaining manual issue counts (CRITICAL/HIGH/MEDIUM/LOW)
+- Tasks merged/deleted count
+- Final task count
+- Coverage percentages
 
 ## 7. Review Checkpoint
 
 **STOP AND WAIT** for user confirmation before creating GitHub issues.
 
 1. **Present a summary** to the user:
-
     - Number of tasks generated (after any merges)
     - List of task files with their titles (e.g., `TASK-23.01: Setup project scaffolding`)
     - Path to the `tasks/` folder for review
@@ -331,12 +328,12 @@ After receiving user confirmation to proceed, create GitHub issues for each appr
 
 ### Phase 1: Infrastructure/Setup
 
--   [#101](link) - TASK-{EPIC}.01: {Title}
--   [#102](link) - TASK-{EPIC}.02: {Title}
+- [#101](link) - TASK-{EPIC}.01: {Title}
+- [#102](link) - TASK-{EPIC}.02: {Title}
 
 ### Phase 2: Data Layer
 
--   [#103](link) - TASK-{EPIC}.03: {Title}
+- [#103](link) - TASK-{EPIC}.03: {Title}
 
 {Continue for each applicable phase...}
 
@@ -376,22 +373,21 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 
 # Constraints
 
--   **DO NOT** search for HLD files - use the provided context or arguments only
--   **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
--   **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
--   **DO NOT** proceed past the Review Checkpoint without explicit user confirmation
--   **DO NOT** skip the consistency analysis or auto-remediation steps
--   **DO** make reasonable assumptions and document them
--   **DO** prefer smaller tasks over larger ones when uncertain
--   **DO** ensure the first task creates a buildable/runnable skeleton
--   **DO** use the tech stack specified in the HLD; infer from context if not explicit
+- **DO NOT** search for HLD files - use the provided context or arguments only
+- **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
+- **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
+- **DO NOT** proceed past the Review Checkpoint without explicit user confirmation
+- **DO NOT** skip the consistency analysis or auto-remediation steps
+- **DO** make reasonable assumptions and document them
+- **DO** prefer smaller tasks over larger ones when uncertain
+- **DO** ensure the first task creates a buildable/runnable skeleton
+- **DO** use the tech stack specified in the HLD; infer from context if not explicit
 
 ### Project Configuration (One-Time Setup)
 
 The `{{PROJECT}}` variable is handled differently from other template variables:
 
 1. **On first run**: When the template contains the literal string `{{PROJECT}}`:
-
     - Stop and prompt the user:
         > "This appears to be the first time running task generation for this project.
         > Which GitHub project should issues be created under?
@@ -437,7 +433,7 @@ This ensures the project name is configured once and persists across all future 
      python ./scripts/nxs_gh_create_epic.py --project "<PROJECT>" "<path-to-epic.md>"
 ```
 
--   If no `epic.md` exists, warn the user and proceed without a parent issue
+- If no `epic.md` exists, warn the user and proceed without a parent issue
 
 6. **Extract epic issue number** from the updated `epic.md` frontmatter `link` attribute
 7. **Read labels** from `docs/system/delivery/task-labels.md` to load valid labels
@@ -490,5 +486,5 @@ This ensures the project name is configured once and persists across all future 
 17. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
 18. **Delete the `tasks/` subfolder** and all its contents (including `task-review.md`)
 19. **Report completion** with:
-    -   Epic issue URL
-    -   Path to generated `tasks.md`
+    - Epic issue URL
+    - Path to generated `tasks.md`
