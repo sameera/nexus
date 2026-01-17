@@ -177,6 +177,10 @@ Look for this pattern in the issue body:
 ```bash
 # Check if worktree already exists
 git worktree list | grep -q "<worktree-path>" || git worktree add <worktree-path> -b <branch-name>
+
+# Sync environment files if worktree was created or already exists
+# (Follow the logic in Step 2c: Sync Environment Files)
+
 ```
 
 - Track the workspace info for use in agent handoff and post-implementation phases
@@ -221,13 +225,38 @@ Which approach? (1/2/3)
 - **Option 2**: Create branch in-place: `git checkout -b <branch-name>`
 - **Option 3**: Ask for custom values, then create accordingly
 
-```bash
+````bash
 # For worktree (options 1 or 3)
 git worktree add <worktree-path> -b <branch-name>
 
+### Step 2c: Sync Environment Files (Worktree Only)
+
+If a worktree was created, sync local environment files (e.g., `.env`) to the new workspace.
+
+1.  **Check for saved patterns**: Search `GEMINI.md` for a "Project Environment Patterns" section.
+2.  **Discover if needed**: If no saved patterns exist, run:
+    ```bash
+    python3 gemini/.gemini/skills/nxs-env-sync/scripts/detect_env_patterns.py
+    ```
+3.  **Confirm with user**: Present the patterns (saved or detected) to the user.
+    ```
+    🔄 **CHECKPOINT: Environment Sync**
+
+    The following local environment files will be copied to the new worktree:
+    - <pattern 1>
+    - <pattern 2>
+
+    Proceed with sync? (y/n)
+    ```
+4.  **Memorize**: If these were newly detected patterns, save them to `GEMINI.md` under `## Project Environment Patterns`.
+5.  **Execute Sync**: Run the copy script:
+    ```bash
+    python3 gemini/.gemini/skills/copy_dev_env.py <worktree-path> --mode export --patterns <patterns>
+    ```
+
 # For in-place (option 2)
 git checkout -b <branch-name>
-```
+````
 
 **If already on a feature branch:**
 
