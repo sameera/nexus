@@ -10,8 +10,8 @@ DEFAULT_PATTERNS = [
     ".env",
     ".env.*",
     ".claude/settings.local.json",
-    "*/.env",      # .env in immediate subfolders
-    "*/.env.*"     # .env.* in immediate subfolders
+    "**/.env",      # .env in any subfolder
+    "**/.env.*"     # .env.* in any subfolder
 ]
 
 
