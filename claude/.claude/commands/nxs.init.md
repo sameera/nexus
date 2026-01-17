@@ -10,13 +10,13 @@ Follow these phases in order:
 
 1. Check if `CLAUDE.md` exists in the project root
 2. If it doesn't exist, ask the user:
-   
-   > "This project doesn't have a CLAUDE.md file. I recommend running `/init` first to generate baseline documentation. Would you like to:
-   > 
-   > 1. **Run `/init` first** (recommended)
-   > 2. **Proceed without CLAUDE.md**
-   > 
-   > Please respond with 1 or 2."
+
+    > "This project doesn't have a CLAUDE.md file. I recommend running `/init` first to generate baseline documentation. Would you like to:
+    >
+    > 1. **Run `/init` first** (recommended)
+    > 2. **Proceed without CLAUDE.md**
+    >
+    > Please respond with 1 or 2."
 
 3. If user chooses 1, stop and instruct them to run `/init` first
 4. If user chooses 2 or CLAUDE.md exists, continue
@@ -33,6 +33,7 @@ Analyze the project to identify:
 6. **Build Tools**: Vite, Webpack, Nx, Gradle, Maven, etc.
 
 Look for configuration files like:
+
 - `package.json`, `tsconfig.json`, `nx.json`, `turbo.json`
 - `pyproject.toml`, `setup.py`, `requirements.txt`
 - `Cargo.toml`, `go.mod`, `pom.xml`, `build.gradle`
@@ -47,11 +48,12 @@ If you cannot determine key information from the codebase, ask the user **up to 
 >
 > 1. [Question about unclear aspect]
 > 2. [Question about unclear aspect]
-> ...
+>    ...
 >
 > Please answer each numbered question. Skip any that don't apply.
 
 **Only ask questions for information you truly cannot determine.** Potential topics:
+
 - Tech stack confirmation (if detection is uncertain)
 - Database system (if not evident)
 - Authentication mechanism
@@ -86,6 +88,7 @@ last_updated: [DATE]
 # Technology Stack
 
 ## Frontend
+
 - **Framework**: [e.g., React 18.x]
 - **Language**: [e.g., TypeScript 5.x]
 - **State Management**: [if applicable]
@@ -93,18 +96,22 @@ last_updated: [DATE]
 - **Build Tool**: [e.g., Vite]
 
 ## Backend
+
 - **Framework**: [e.g., Fastify 4.x]
 - **Language**: [e.g., TypeScript 5.x]
 - **Authentication**: [e.g., JWT, OAuth]
 
 ## Database
+
 - **Primary**: [e.g., PostgreSQL 16]
 
 ## Infrastructure
+
 - **Hosting**: [e.g., AWS, Vercel]
 - **CI/CD**: [e.g., GitHub Actions]
 
 ## Development
+
 - **Package Manager**: [e.g., pnpm]
 - **Code Quality**: [e.g., ESLint, Prettier]
 - **Testing**: [e.g., Vitest, Playwright]
@@ -113,6 +120,7 @@ last_updated: [DATE]
 #### 4.2 Create `docs/system/README.md`
 
 Create a navigation index that:
+
 - Links to all documentation files
 - Provides brief descriptions and "when to consult" guidance for each
 - References the main CLAUDE.md
@@ -121,11 +129,13 @@ Create a navigation index that:
 #### 4.3 Create Standards Files
 
 **Use your judgment** to determine what standards files this project needs based on:
+
 - The technology stack you documented in `stack.md`
 - Patterns you observe in the codebase
 - Complexity and size of the project
 
 **Examples of standards files you might create** (illustrative, not prescriptive):
+
 - API patterns and conventions
 - Database schema and patterns
 - Testing standards
@@ -136,12 +146,14 @@ Create a navigation index that:
 - Deployment patterns
 
 **For each file you create:**
+
 1. Document actual patterns found in the codebase
 2. Include real code examples from the project (with file paths)
 3. Provide actionable guidance for developers and AI agents
 4. Link to related documentation
 
 **Do NOT create files for:**
+
 - Patterns that don't exist in this project
 - Generic best practices not reflected in the code
 - Hypothetical or aspirational standards
@@ -153,12 +165,12 @@ After generating documentation:
 1. **Identify content to move**: Find detailed sections now better covered in standards files
 2. **Replace with links**: Add a "Technical Patterns and Standards" section linking to `docs/system/`
 3. **Keep in CLAUDE.md**:
-   - Project description
-   - Development commands
-   - High-level architecture overview
-   - Import path mappings
-   - Environment setup
-   - Recent changes
+    - Project description
+    - Development commands
+    - High-level architecture overview
+    - Import path mappings
+    - Environment setup
+    - Recent changes
 
 ### Phase 6: Summary
 
@@ -168,15 +180,18 @@ Output a completion summary:
 ## Documentation Generation Complete ✓
 
 ### Created Files:
+
 - `docs/system/README.md` - Documentation index
 - `docs/system/stack.md` - Technology stack
 - `docs/system/standards/[file].md` - [Brief description]
-...
+  ...
 
 ### Updated Files:
+
 - `CLAUDE.md` - Refactored to link to new documentation
 
 ### Next Steps:
+
 1. Review generated documentation for accuracy
 2. Add project-specific details as needed
 3. Commit changes to version control
