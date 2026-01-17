@@ -36,19 +36,19 @@ Please provide a GitHub issue number to implement.
 
 ### Decisions that MUST pass through to the user:
 
--   Branch name selection
--   Whether to proceed on `main` branch
--   Which implementation option to choose (when agent presents A/B/C)
--   Resolution of design ambiguities or gaps
--   Approval to proceed to next chunk
--   Approval to commit changes (pre-commit review)
--   Any question the agent explicitly asks
+- Branch name selection
+- Whether to proceed on `main` branch
+- Which implementation option to choose (when agent presents A/B/C)
+- Resolution of design ambiguities or gaps
+- Approval to proceed to next chunk
+- Approval to commit changes (pre-commit review)
+- Any question the agent explicitly asks
 
 ### Decisions you CAN make autonomously:
 
--   GitHub API calls (fetch, comment, close)
--   Formatting the issue content for handoff
--   Determining if closure criteria are met (based on factual agent output)
+- GitHub API calls (fetch, comment, close)
+- Formatting the issue content for handoff
+- Determining if closure criteria are met (based on factual agent output)
 
 **When `nxs-dev` asks a question or presents options:**
 
@@ -69,8 +69,8 @@ For checkpoints that only require a "yes/proceed" confirmation (e.g., chunk appr
 
 <context summary>... proceed?
 
-1.✅ Yes (y)
-2.❌ No  (n)
+-   ✅ Yes (y)
+-   ❌ No  (n)
 ```
 
 This provides a clear visual call-to-action with simple single-character responses.
@@ -94,11 +94,11 @@ Then **STOP** and wait for user response. Pass their answer back to the agent ve
 
 **NEVER:**
 
--   Answer on the user's behalf
--   Suggest a "reasonable default" and proceed without asking
--   Assume what the user would want
--   Intercept or shortcut agent ↔ user dialogue
--   Paraphrase user decisions—pass them through exactly
+- Answer on the user's behalf
+- Suggest a "reasonable default" and proceed without asking
+- Assume what the user would want
+- Intercept or shortcut agent ↔ user dialogue
+- Paraphrase user decisions—pass them through exactly
 
 ---
 
@@ -112,14 +112,14 @@ gh issue view <issue-number> --json number,title,body,url,state --jq '.'
 
 **If the issue doesn't exist or fetch fails:**
 
--   Report the error clearly
--   STOP execution
+- Report the error clearly
+- STOP execution
 
 **If issue state is "CLOSED":**
 
--   Inform the user the issue is already closed
--   Ask if they want to proceed anyway (reopen scenario)
--   Wait for explicit confirmation
+- Inform the user the issue is already closed
+- Ask if they want to proceed anyway (reopen scenario)
+- Wait for explicit confirmation
 
 ---
 
@@ -135,8 +135,8 @@ From the fetched issue body, identify:
 
 **Only read the HLD if:**
 
--   The issue explicitly references an HLD link/path AND
--   The LLD has clear gaps that prevent implementation
+- The issue explicitly references an HLD link/path AND
+- The LLD has clear gaps that prevent implementation
 
 **HLD location pattern**: Look for paths like `docs/features/**/HLD.md` or explicit links.
 
@@ -230,8 +230,8 @@ What branch name would you like to use? (Press Enter to accept the suggestion, o
 
 ✅ **Chunk 1 complete** — all tests passing. Proceed to Chunk 2?
 
-1.✅ Yes (y)
-2.❌ No (n)
+- ✅ Yes (y)
+- ❌ No (n)
 
 **Then STOP. Wait. Relay response.**
 
@@ -298,9 +298,9 @@ To see full details, you can run:
 
 Commit these changes?
 
-1.✅ Commit Changes (y)
-2.❌ Cancel Commit  (n)
-3.📄 Show Full Diff (d)
+-   ✅ Commit Changes (y)
+-   ❌ Cancel Commit  (n)
+-   📄 Show Full Diff (d)
 ```
 
 **STOP. Wait for user confirmation before proceeding.**
@@ -316,8 +316,8 @@ Show the output, then re-present the commit confirmation:
 ```
 Commit these changes?
 
-1.✅ Commit Changes (y)
-2.❌ Cancel Commit  (n)
+-   ✅ Commit Changes (y)
+-   ❌ Cancel Commit  (n)
 ```
 
 **If user cancels (n/no):**
@@ -369,10 +369,10 @@ gh issue comment <issue-number> --body "## Implementation Summary
 
 **Close the issue automatically if ALL conditions are met:**
 
--   ✅ All tests pass (confirmed in agent summary)
--   ✅ No unresolved blockers flagged by agent
--   ✅ No observations marked as requiring user action
--   ✅ No pending follow-up items that block closure (e.g., required migrations)
+- ✅ All tests pass (confirmed in agent summary)
+- ✅ No unresolved blockers flagged by agent
+- ✅ No observations marked as requiring user action
+- ✅ No pending follow-up items that block closure (e.g., required migrations)
 
 **If eligible, close:**
 
@@ -413,17 +413,17 @@ If any `gh` command fails:
 
 If `nxs-dev` halts with an implementation blocker:
 
--   Surface the blocker to the user in a clear, formatted manner
--   Do NOT attempt to resolve design-level issues yourself
--   Wait for user decision, then relay to agent
+- Surface the blocker to the user in a clear, formatted manner
+- Do NOT attempt to resolve design-level issues yourself
+- Wait for user decision, then relay to agent
 
 ### Partial Completion
 
 If the agent completes some chunks but stops:
 
--   Still post a comment with partial progress
--   Do NOT close the issue
--   Clearly indicate incomplete state
+- Still post a comment with partial progress
+- Do NOT close the issue
+- Clearly indicate incomplete state
 
 ---
 
