@@ -14,6 +14,11 @@ project: {{PROJECT}}
 -   Blocked by: {{BLOCKED_BY}}
 -   Blocks: {{BLOCKS}}
 
+## Git Workspace
+
+-   Worktree: `{{WORKSPACE_PATH}}`
+-   Branch: `{{BRANCH}}`
+
 ## Low-Level Design
 
 ### Files

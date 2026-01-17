@@ -116,6 +116,25 @@ The template uses `{{VARIABLE}}` placeholders. Replace each with:
 | `{{ACCEPTANCE_CRITERIA}}`  | Bulleted checklist items                           |
 | `{{EFFORT_ESTIMATE}}`      | Time range (e.g., "2-4 hours")                     |
 | `{{PROJECT}}`              | GitHub project name (auto-configured on first run) |
+| `{{WORKSPACE_PATH}}`       | Git worktree path: `../<repo-name>-<epic-issue-number>` |
+| `{{BRANCH}}`               | Git branch: `<feat\|bug>/<epic-issue-number>-<concise-epic-title>` |
+
+### Git Workspace Variables
+
+These variables are derived once per epic and remain constant across all tasks:
+
+**`{{WORKSPACE_PATH}}`**
+
+-   Format: `../<repo-name>-<epic-issue-number>`
+-   Derive `<repo-name>` from the current repository name
+-   Example: For repo `nexus` and epic `#42` → `../nexus-42`
+
+**`{{BRANCH}}`**
+
+-   Format: `<type>/<epic-issue-number>-<concise-epic-title>`
+-   `<type>`: Check epic labels — use `bug` if the epic has a `bug` label, otherwise use `feat`
+-   `<concise-epic-title>`: Kebab-case the epic title (lowercase, spaces to hyphens, remove special characters)
+-   Example: Feature epic #42 "User Authentication Flow" → `feat/42-user-authentication-flow`
 
 ### Label Requirements
 
