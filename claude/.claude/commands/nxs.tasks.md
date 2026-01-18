@@ -409,9 +409,15 @@ After generating `tasks.md`, update the `epic.md` file:
     See [tasks.md](./tasks.md) for the detailed task breakdown and dependency graph.
     ```
 
-## 10. Cleanup
+## 10. Next Steps
 
-After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated, delete the `tasks/` subfolder and all its contents (including `task-review.md`).
+After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated:
+
+1. Inform the user that the task breakdown is complete
+2. Remind them to run `/nxs.close` when implementation is finished to:
+    - Generate a Post-Implementation Report (PIR.md)
+    - Close the epic's GitHub issue
+    - Clean up the `tasks/` subfolder
 
 # Constraints
 
@@ -544,7 +550,7 @@ This ensures the project name is configured once and persists across all future 
 
 17. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 8 for format)
 18. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
-19. **Delete the `tasks/` subfolder** and all its contents (including `task-review.md`)
-20. **Report completion** with:
+19. **Report completion** with:
     - Epic issue URL
     - Path to generated `tasks.md`
+    - Reminder to run `/nxs.close {path-to-epic.md}` when implementation is complete
