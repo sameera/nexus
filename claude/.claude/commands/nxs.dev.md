@@ -203,7 +203,7 @@ You're currently on `main`. I recommend working in an isolated worktree so your 
 **Issue**: #<number> - <title>
 
 **Suggested setup:**
-- Worktree path: `../<repo-name>-issue-<number>/`
+- Worktree path: `../<repo-name>-worktrees/<issue-number>`
 - Branch: `feat/issue-<number>-<slug>` (derived from issue title)
 
 **Options:**
@@ -237,11 +237,13 @@ If a worktree was created (options 1 or 3), sync local environment files to the 
 1.  **Check for saved patterns**: Search `CLAUDE.md` (at project root) for a "Project Environment Patterns" section.
 
 2.  **Discover if needed**: If no saved patterns exist, run:
+
     ```bash
     python3 claude/.claude/skills/nxs-env-sync/scripts/detect_env_patterns.py
     ```
 
 3.  **Confirm with user**: Present the patterns (saved or detected) to the user.
+
     ```
     🔄 **CHECKPOINT: Environment Sync**
 
@@ -254,18 +256,22 @@ If a worktree was created (options 1 or 3), sync local environment files to the 
 
 4.  **Memorize**: If these were newly detected patterns, save them to `CLAUDE.md` under `## Project Environment Patterns`.
     - If `CLAUDE.md` does not exist, create it with:
-      ```markdown
-      # Claude Project Context
 
-      This file stores project-specific context and memories for Claude Code.
+        ```markdown
+        # Claude Project Context
 
-      ## Project Environment Patterns
-      - <pattern 1>
-      - <pattern 2>
-      ```
+        This file stores project-specific context and memories for Claude Code.
+
+        ## Project Environment Patterns
+
+        - <pattern 1>
+        - <pattern 2>
+        ```
+
     - If `CLAUDE.md` exists but lacks the section, append the section.
 
 5.  **Execute Sync**: Run the copy script:
+
     ```bash
     python3 claude/.claude/skills/nxs-env-sync/scripts/copy_dev_env.py <worktree-path> --mode export --patterns <patterns>
     ```
@@ -273,6 +279,7 @@ If a worktree was created (options 1 or 3), sync local environment files to the 
 6.  **Report result**: Show what was copied/skipped.
 
 **If user declines sync (n):**
+
 ```
 ⏭️ Environment sync skipped. You can manually copy files later or run:
   python3 claude/.claude/skills/nxs-env-sync/scripts/copy_dev_env.py <worktree-path> --mode export
