@@ -158,7 +158,24 @@ find docs/features -name "HLD.md" -o -name "hld.md" 2>/dev/null
 
 **Before invoking the agent, establish the workspace.** The orchestrator owns workspace setup, not the agent.
 
-### Step 1: Check Issue for Workspace Config
+### Step 1: Check Current Branch
+
+First, determine if workspace setup is needed at all:
+
+```bash
+git branch --show-current
+```
+
+**If already on a feature branch (not `main` or `master`):**
+
+- Use in-place mode automatically (no prompt needed)
+- Continue using the current branch (do not create a new branch or worktree)
+- Set `WORKSPACE_MODE="in-place"`, `WORKSPACE_PATH` to current directory, `WORKSPACE_BRANCH` to current branch
+- **SKIP to Phase 3** — no workspace setup needed
+
+**If on `main` or `master`:** Continue to Step 2.
+
+### Step 2: Check Issue for Workspace Config
 
 Look for this pattern in the issue body:
 
@@ -179,21 +196,15 @@ Look for this pattern in the issue body:
 git worktree list | grep -q "<worktree-path>" || git worktree add <worktree-path> -b <branch-name>
 ```
 
-- If worktree was created, proceed to **Step 2c** (Environment Sync)
+- If worktree was created, proceed to **Step 4** (Environment Sync)
 - Track the workspace info for use in agent handoff and post-implementation phases
 - **Skip to Phase 3** after environment sync (no workspace prompt needed)
 
-### Step 2: If Workspace Config NOT Found
+**If NOT found:** Continue to Step 3.
 
-Check the current branch:
+### Step 3: Prompt User for Workspace Setup
 
-```bash
-git branch --show-current
-```
-
-**If on `main` (or another protected branch):**
-
-Present a workspace checkpoint to the user:
+**This step only runs if on `main`/`master` AND no `## Git Workspace` section exists in the issue.**
 
 ```
 🔄 **CHECKPOINT: Workspace Setup**
@@ -230,7 +241,7 @@ git worktree add <worktree-path> -b <branch-name>
 git checkout -b <branch-name>
 ```
 
-### Step 2c: Sync Environment Files (Worktree Only)
+### Step 4: Sync Environment Files (Worktree Only)
 
 If a worktree was created (options 1 or 3), sync local environment files to the new workspace.
 
@@ -285,13 +296,7 @@ If a worktree was created (options 1 or 3), sync local environment files to the 
   python3 claude/.claude/skills/nxs-env-sync/scripts/copy_dev_env.py <worktree-path> --mode export
 ```
 
-**If already on a feature branch:**
-
-- Use in-place mode automatically (no prompt needed)
-- Continue using the current branch (do not create a new branch)
-- Track the current branch name
-
-### Step 3: Track Workspace Info
+### Step 5: Track Workspace Info
 
 After workspace setup, store these values for later use:
 
