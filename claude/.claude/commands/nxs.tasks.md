@@ -76,15 +76,56 @@ Apply these decomposition rules:
 5. **Integration** - External services, cross-component wiring
 6. **Polish** - Error handling improvements, logging, documentation
 
-## 4. Generate Low-Level Design per Task
+## 4. Generate Low-Level Design per Task via Architect
 
-Each task MUST include a low-level design section covering:
+For each task identified in Step 3, invoke the `nxs-architect` agent to generate a detailed LLD with documented decisions.
 
-- **Files to create/modify** with exact paths
-- **Key interfaces/types** to implement (signatures, not full implementation)
-- **Dependencies** on other tasks (by task number)
-- **Acceptance criteria** - specific, testable conditions
-- **Implementation hints** - algorithms, patterns, or gotchas
+### Architect Invocation
+
+```
+Invoke: nxs-architect
+Topic: Low-Level Design for TASK-{EPIC}.{SEQ}: {TASK_TITLE}
+Context:
+  - HLD Path: {path to HLD.md}
+  - Task Category: {Infrastructure|Data Layer|Core Logic|API/Interface|Integration|Polish}
+  - Task Summary: {summary from decomposition}
+  - Dependencies: Blocked by {X}, Blocks {Y}
+  - Labels: {assigned labels}
+Request:
+  - Determine analysis depth (Quick for simple tasks, Medium for standard, Deep for complex)
+  - Identify files to create/modify with exact paths following project structure
+  - Define interfaces/types needed (TypeScript signatures)
+  - Document key technical decisions for this task with:
+    - The decision made
+    - Rationale explaining WHY this decision was made
+    - Alternatives considered and why they were rejected
+  - Recommend implementation approach and patterns from docs/system/standards/
+  - Identify task-specific technical risks and edge cases
+  - Ensure alignment with HLD architecture and data model
+```
+
+### Output Mapping
+
+Map the architect's response to template variables:
+
+| Architect Output                         | Template Variable         | Format                                           |
+| ---------------------------------------- | ------------------------- | ------------------------------------------------ |
+| Files section                            | `{{FILES}}`               | Bulleted list of files with purposes             |
+| Interfaces/Types section                 | `{{INTERFACES}}`          | TypeScript code block                            |
+| Key Decisions section                    | `{{KEY_DECISIONS}}`       | Table with Decision, Rationale, Alternatives     |
+| Implementation Notes + Risks + Edge Cases| `{{IMPLEMENTATION_NOTES}}`| Combined notes                                   |
+
+### Fallback Handling
+
+If architect invocation fails for a task:
+
+1. Log a warning indicating architect analysis unavailable
+2. Generate minimal LLD:
+    - Files: Infer from task title and category
+    - Interfaces: `// Design pending - consult HLD`
+    - Key Decisions: "Decisions pending architect review"
+    - Notes: "Consult HLD for implementation guidance. Manual LLD review recommended."
+3. Flag task for manual review in the Review Checkpoint
 
 ## 5. Output Format
 
@@ -112,6 +153,7 @@ The template uses `{{VARIABLE}}` placeholders. Replace each with:
 | `{{BLOCKS}}`               | Tasks this unblocks or "None"                                      |
 | `{{FILES}}`                | Bulleted list of files with purposes                               |
 | `{{INTERFACES}}`           | Key type definitions or signatures                                 |
+| `{{KEY_DECISIONS}}`        | Table of architectural decisions with rationale and alternatives   |
 | `{{IMPLEMENTATION_NOTES}}` | Algorithms, patterns, edge cases                                   |
 | `{{ACCEPTANCE_CRITERIA}}`  | Bulleted checklist items                                           |
 | `{{EFFORT_ESTIMATE}}`      | Time range (e.g., "2-4 hours")                                     |
@@ -378,10 +420,14 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 - **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
 - **DO NOT** proceed past the Review Checkpoint without explicit user confirmation
 - **DO NOT** skip the consistency analysis or auto-remediation steps
+- **DO NOT** skip architect invocation for LLD generation unless it fails
 - **DO** make reasonable assumptions and document them
 - **DO** prefer smaller tasks over larger ones when uncertain
 - **DO** ensure the first task creates a buildable/runnable skeleton
 - **DO** use the tech stack specified in the HLD; infer from context if not explicit
+- **DO** pass sufficient HLD context (architecture, data model, relevant standards) to the architect
+- **DO** use fallback LLD generation if architect fails, and flag for manual review
+- **DO** ensure each task documents key decisions with rationale and alternatives considered
 
 ### Project Configuration (One-Time Setup)
 
@@ -438,16 +484,30 @@ This ensures the project name is configured once and persists across all future 
 6. **Extract epic issue number** from the updated `epic.md` frontmatter `link` attribute
 7. **Read labels** from `docs/system/delivery/task-labels.md` to load valid labels
 8. **Read the HLD file** and perform decomposition analysis
-9. **Create the `tasks/` directory** in the same location as the HLD file
-10. **Generate all task files** using the loaded template with:
+9. **Generate LLD per task via architect**:
+    - For each task from decomposition:
+        a. Prepare architect invocation with:
+            - HLD path and relevant sections (architecture, data model, API design)
+            - Task summary, category, and dependencies
+            - Assigned labels
+        b. Invoke `nxs-architect` with LLD generation request (see Step 4 for invocation format)
+        c. Parse architect response and map to template variables:
+            - Files → `{{FILES}}`
+            - Interfaces/Types → `{{INTERFACES}}`
+            - Key Decisions → `{{KEY_DECISIONS}}`
+            - Implementation Notes → `{{IMPLEMENTATION_NOTES}}`
+        d. If architect fails: use fallback LLD and add to manual-review list
+10. **Create the `tasks/` directory** in the same location as the HLD file
+11. **Generate all task files** using the loaded template with:
     - Task numbers in format `TASK-{EPIC}.{NN}` (e.g., `TASK-23.01`, `TASK-23.02`)
     - The `parent` attribute set to the epic issue number
     - The `project` value from the template
     - Labels from the approved set only
-11. **Run consistency analysis**:
+    - Architect-generated LLD content (Files, Interfaces, Key Decisions, Implementation Notes)
+12. **Run consistency analysis**:
     - Invoke `/nxs.analyze {epic-directory}`
     - Wait for analysis to complete and `task-review.md` to be generated
-12. **Auto-remediate findings**:
+13. **Auto-remediate findings**:
     - Parse `task-review.md` for AUTO-classified findings
     - For each superfluous task:
         - Merge content into target task (files, acceptance criteria, implementation notes)
@@ -461,30 +521,30 @@ This ensures the project name is configured once and persists across all future 
         - Move remediated items to "Auto-Remediated ✅" section
         - Update summary counts
         - Recalculate coverage if task mappings changed
-13. **Capture final metrics**:
+14. **Capture final metrics**:
     - Auto-remediated count
     - Remaining manual issues (CRITICAL/HIGH/MEDIUM/LOW)
     - Final task count
     - Coverage percentages
-14. **REVIEW CHECKPOINT — STOP AND WAIT**:
+15. **REVIEW CHECKPOINT — STOP AND WAIT**:
     - Present the summary of tasks AND auto-remediation actions to the user
     - Present remaining manual issues
     - Display the prompt asking for `continue`, `skip [numbers]`, or `abort`
     - Include severity indicators (⛔/⚠️/✅) based on REMAINING manual issues only
     - **Do not proceed until user responds**
     - Handle the response:
-        - `continue` → Proceed to step 15
-        - `skip [numbers]` → Exclude specified tasks, proceed to step 15
+        - `continue` → Proceed to step 16
+        - `skip [numbers]` → Exclude specified tasks, proceed to step 16
         - `abort` → Stop execution, preserve task files and `task-review.md`, inform user they can run `/nxs.analyze` again after edits, exit
-15. **Create task issues** by running:
+16. **Create task issues** by running:
 
 ```bash
     python ./scripts/create_gh_issues.py --project "<PROJECT>" "<path-to-tasks-folder>"
 ```
 
-16. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 8 for format)
-17. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
-18. **Delete the `tasks/` subfolder** and all its contents (including `task-review.md`)
-19. **Report completion** with:
+17. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 8 for format)
+18. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
+19. **Delete the `tasks/` subfolder** and all its contents (including `task-review.md`)
+20. **Report completion** with:
     - Epic issue URL
     - Path to generated `tasks.md`

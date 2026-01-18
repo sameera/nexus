@@ -26,9 +26,14 @@ project: {{PROJECT}}
 {{FILES}}
 
 ### Interfaces/Types
+
 ```typescript
 {{INTERFACES}}
 ```
+
+### Key Decisions
+
+{{KEY_DECISIONS}}
 
 ### Implementation Notes
 
