@@ -62,13 +62,17 @@ Invoke the specialized subagents using the Task tool:
 ### Product Management Analysis
 
 ```
-Invoke: nxs-council-pm
+Invoke: nxs-pm
+Mode: council
 Topic: [The validated topic from Phase 1]
 Request:
 - Customer value assessment
 - Business impact and prioritization
+- Domain/industry considerations (if relevant to the question)
 - Go-to-market considerations
 - Recommended scope (MVP thinking)
+
+Note: This agent operates in COUNCIL MODE — it will provide focused PM perspective for synthesis, bringing domain expertise only when directly relevant.
 ```
 
 ### Technical Architecture Analysis
@@ -102,6 +106,7 @@ Common tension patterns:
 - **Speed vs. Quality**: Fast delivery but architectural shortcuts
 - **Scope vs. Timeline**: Full solution but extended timeline
 - **Innovation vs. Consistency**: New patterns but deviation from standards
+- **Domain Requirements vs. Technical Simplicity**: Industry/regulatory needs adding complexity
 
 ### 3. Resolve or Escalate
 
@@ -111,6 +116,7 @@ Common tension patterns:
 - Clear precedent exists in the codebase/product
 - Trade-off is clearly lopsided (e.g., low effort, high value)
 - Risk is within acceptable bounds for the decision type
+- Domain/regulatory requirements make the decision clear
 
 **Escalate to human decision-makers when**:
 
@@ -118,6 +124,7 @@ Common tension patterns:
 - Decision involves significant resource commitment
 - Strategic direction is unclear
 - Risk tolerance is ambiguous
+- Regulatory or compliance implications need human judgment
 
 ### 4. Weight Perspectives
 
@@ -131,6 +138,8 @@ Use this framework when perspectives conflict:
 | Scope disagreement                          | PM (they own prioritization)             |
 | Security/reliability concern                | Architect (non-negotiable)               |
 | Market timing pressure                      | PM (if risk is contained)                |
+| Regulatory/compliance requirements          | PM (domain expertise, non-negotiable)    |
+| Industry-standard patterns                  | PM (if technically feasible)             |
 
 ## Phase 4: Recommend
 
@@ -160,6 +169,7 @@ Conclude with ONE of these decisions:
 - [Key point 1]
 - [Key point 2]
 - [Key point 3]
+- [Domain consideration if raised]
   **Stance**: [PM recommendation]
 
 ### Architecture
@@ -183,6 +193,12 @@ Conclude with ONE of these decisions:
 
 **Proposed Approach**: [If building — high-level approach that addresses concerns from both sides]
 
+## Domain Considerations
+
+[Include only if PM raised domain-specific factors — regulatory, industry patterns, competitive context]
+
+- [Consideration and how it affects the recommendation]
+
 ## Open Questions
 
 [Only include if there are genuine blockers or unknowns]
@@ -205,6 +221,7 @@ Before responding, verify:
 - [ ] Did I add synthesis value beyond summarizing agent outputs?
 - [ ] Is my recommendation clear and actionable?
 - [ ] Did I surface tensions explicitly rather than papering over them?
+- [ ] Did I appropriately weight domain considerations when raised?
 - [ ] Are next steps concrete and assigned?
 
 # Anti-Patterns
@@ -215,3 +232,5 @@ Before responding, verify:
 - ❌ Hiding disagreements to appear aligned
 - ❌ Deferring everything to humans (that's not facilitation)
 - ❌ Lengthy analysis for decisions that are obviously right or wrong
+- ❌ Ignoring domain/regulatory considerations when PM raises them
+- ❌ Over-weighting domain concerns for purely technical decisions
