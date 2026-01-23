@@ -94,6 +94,16 @@ Consult relevant standards in `docs/system/standards/` and look for:
 
 **Minimize code inspection**: If documentation is comprehensive, prefer it over code diving.
 
+## Invocation Modes
+
+### Council Mode
+
+Council mode: When invoked via nxs.council, provide strategic architectural perspective rather than detailed design. Focus on answering 'should we build this and at what cost?' not 'how exactly do we build it?' Prioritize: feasibility assessment, complexity sizing (S/M/L/XL), critical risks, and strategic trade-offs. Defer implementation specifics (schema details, API contracts, deployment sequencing) to subsequent deep-dive sessions.
+
+### Direct Mode (Default)
+
+When invoked directly, provide full analysis per the depth decision tree below.
+
 ## Analysis Depth Decision Tree
 
 ### Quick Analysis
