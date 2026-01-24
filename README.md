@@ -24,12 +24,12 @@ We're not bottlenecked on typing anymore. We're bottlenecked on understanding, e
 
 The real costs:
 
--   **Skipped understanding** - The reflective pause that used to exist _before_ coding has vanished. You used to think through the problem, sketch the architecture, consider tradeoffs. Now you prompt and review. The understanding never forms.
--   **Judgment outsourcing** - AI agents don't just type for you. They decide for you. Architecture, abstractions, error handling, edge cases - these decisions still get made, just implicitly, buried in generated code you inherit but didn't reason about.
--   **Cognitive bankruptcy** - Every AI-generated line is a small tax on your mental model. Multiply that by thousands of lines, and you're bankrupt before you ship. You can't own what you don't understand.
--   **Fragmented teams** - It's not just individual confusion. AI acceleration silently fragments collective mental models. Everyone is moving fast, no one is aligned. Misalignment now scales faster than ever.
--   **False velocity** - You move fast today, then slow to a crawl tomorrow when debugging, extending, or explaining a system you never truly reasoned about. The apparent savings were an illusion.
--   **Compounding correction costs** - The asymmetry is brutal: generation is cheap, comprehension is expensive, and correction is catastrophic. You trade minutes of execution speed for hours of debugging and weeks of maintenance nightmares. The code works _now_. But the developer who maintains it six months from now (spoiler: it's you) will be reverse-engineering their own product.
+- **Skipped understanding** - The reflective pause that used to exist _before_ coding has vanished. You used to think through the problem, sketch the architecture, consider tradeoffs. Now you prompt and review. The understanding never forms.
+- **Judgment outsourcing** - AI agents don't just type for you. They decide for you. Architecture, abstractions, error handling, edge cases - these decisions still get made, just implicitly, buried in generated code you inherit but didn't reason about.
+- **Cognitive bankruptcy** - Every AI-generated line is a small tax on your mental model. Multiply that by thousands of lines, and you're bankrupt before you ship. You can't own what you don't understand.
+- **Fragmented teams** - It's not just individual confusion. AI acceleration silently fragments collective mental models. Everyone is moving fast, no one is aligned. Misalignment now scales faster than ever.
+- **False velocity** - You move fast today, then slow to a crawl tomorrow when debugging, extending, or explaining a system you never truly reasoned about. The apparent savings were an illusion.
+- **Compounding correction costs** - The asymmetry is brutal: generation is cheap, comprehension is expensive, and correction is catastrophic. You trade minutes of execution speed for hours of debugging and weeks of maintenance nightmares. The code works _now_. But the developer who maintains it six months from now (spoiler: it's you) will be reverse-engineering their own product.
 
 **This is not a problem that discipline alone will solve.** Existing development practices collapse under near-zero generation cost. You cannot self-regulate in the presence of unlimited acceleration. The incentives are too strong, the friction too low, and the consequences too delayed.
 
@@ -69,24 +69,20 @@ Nexus flips the AI development workflow:
 The system enforces:
 
 1. **Specification-First Development**
-
     - Write the spec. Make the tradeoffs explicit. Surface the disagreements. Earn the understanding.
     - _Then_ let AI generate the implementation.
 
 2. **Bounded Generation**
-
     - No 2,000-line file dumps.
     - AI generates code in manageable, reviewable chunks that map to spec sections.
     - You understand each piece before moving to the next.
 
 3. **Human Judgment Checkpoints**
-
     - Architectural decisions require human approval.
     - AI proposes, you decide.
     - Judgment cannot be delegated.
 
 4. **Team Alignment Gates**
-
     - Specs must be reviewed and approved before implementation begins.
     - Buy-in is structural, not aspirational.
     - Misalignment is caught early, not discovered in production.
@@ -127,12 +123,12 @@ Same code ships. Different journey. Different outcome. **You, and the team, unde
 
 Nexus is for developers who:
 
--   Realize that acceleration without understanding is just accumulating debt
--   Want to move fast _without_ becoming strangers in their own codebases
--   Believe that thinking clearly is more valuable than typing quickly
--   Maintain the software they write (so, all of us)
--   Understand that the real leverage is in the architecture, not the lines of code
--   Are tired of inheriting decisions they never made
+- Realize that acceleration without understanding is just accumulating debt
+- Want to move fast _without_ becoming strangers in their own codebases
+- Believe that thinking clearly is more valuable than typing quickly
+- Maintain the software they write (so, all of us)
+- Understand that the real leverage is in the architecture, not the lines of code
+- Are tired of inheriting decisions they never made
 
 If you're happy letting AI agents run wild and dealing with the consequences later, Nexus isn't for you.
 
@@ -144,9 +140,9 @@ This is not another think piece about "using AI responsibly."
 
 Something fundamental has changed. We are living through a **structural shift in software economics**:
 
--   Generation cost: near zero
--   Comprehension cost: unchanged
--   Correction cost: exponentially higher
+- Generation cost: near zero
+- Comprehension cost: unchanged
+- Correction cost: exponentially higher
 
 Traditional development practices assumed generation was expensive. They optimized for reducing typing, reducing duplication, reducing ceremony. Those assumptions no longer hold.
 
@@ -174,9 +170,10 @@ Nexus helps you do that.
 
 Nexus is in active development. We're building this in the open because we think this problem matters, and we're not the only ones who've noticed it.
 
-## Getting Started
+## Read the Docs
 
 [How this works](how-to-nexus.md)
+[User docs](user-docs/README.md)
 
 ---
 
@@ -204,9 +201,9 @@ Add the following to your CLAUDE.md
 
 This repository root contains:
 
--   `CLAUDE.md` (this file)
--   `docs/system/standards/` - shared standards and configurations
--   `.claude/commands/` - slash commands
+- `CLAUDE.md` (this file)
+- `docs/system/standards/` - shared standards and configurations
+- `.claude/commands/` - slash commands
 
 When any command or agent references paths under `system/`, `docs/`, or `scripts/`, treat them as relative to this repository root, not as absolute filesystem paths.
 ```
