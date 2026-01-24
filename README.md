@@ -2,6 +2,12 @@
 
 **A System of Intentional Friction for the Age of AI Agents**
 
+## Quick Reference
+
+[How this works](how-to-nexus.md)
+
+[User docs](user-docs/README.md)
+
 ## The Problem We're Not Talking About
 
 You've felt it.
@@ -168,14 +174,7 @@ Nexus helps you do that.
 
 ## Status
 
-Nexus is in active development. We're building this in the open because we think this problem matters, and we're not the only ones who've noticed it.
-
-## Read the Docs
-
-[How this works](how-to-nexus.md)
-[User docs](user-docs/README.md)
-
----
+## Nexus is in active development. We're building this in the open because we think this problem matters, and we're not the only ones who've noticed it.
 
 **Built with the conviction that slow is smooth, and smooth is fast - but only when you understand what you're building.**
 
