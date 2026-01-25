@@ -78,54 +78,25 @@ Apply these decomposition rules:
 
 ## 4. Generate Low-Level Design per Task via Architect
 
-For each task identified in Step 3, invoke the `nxs-architect` agent to generate a detailed LLD with documented decisions.
-
-### Architect Invocation
+For each task identified in Step 3, invoke `nxs-architect` to generate a detailed LLD:
 
 ```
 Invoke: nxs-architect
 Topic: Low-Level Design for TASK-{EPIC}.{SEQ}: {TASK_TITLE}
-Context:
-  - HLD Path: {path to HLD.md}
-  - Task Category: {Infrastructure|Data Layer|Core Logic|API/Interface|Integration|Polish}
-  - Task Summary: {summary from decomposition}
-  - Dependencies: Blocked by {X}, Blocks {Y}
-  - Labels: {assigned labels}
+Context: [HLD path, task category, summary, dependencies, labels]
 Request:
-  - Determine analysis depth (Quick for simple tasks, Medium for standard, Deep for complex)
-  - Identify files to create/modify with exact paths following project structure
-  - Define interfaces/types needed (TypeScript signatures)
-  - Document key technical decisions for this task with:
-    - The decision made
-    - Rationale explaining WHY this decision was made
-    - Alternatives considered and why they were rejected
-  - Recommend implementation approach and patterns from docs/system/standards/
-  - Identify task-specific technical risks and edge cases
-  - Ensure alignment with HLD architecture and data model
+  - Determine analysis depth (Quick/Medium/Deep)
+  - Identify files to create/modify
+  - Define interfaces/types
+  - Document key decisions with rationale and alternatives
+  - Recommend implementation patterns from docs/system/standards/
+  - Identify risks and edge cases
+  - Ensure HLD alignment
 ```
 
-### Output Mapping
+Map architect response to template variables: Files → `{{FILES}}`, Interfaces → `{{INTERFACES}}`, Decisions → `{{KEY_DECISIONS}}`, Notes/Risks → `{{IMPLEMENTATION_NOTES}}`.
 
-Map the architect's response to template variables:
-
-| Architect Output                         | Template Variable         | Format                                           |
-| ---------------------------------------- | ------------------------- | ------------------------------------------------ |
-| Files section                            | `{{FILES}}`               | Bulleted list of files with purposes             |
-| Interfaces/Types section                 | `{{INTERFACES}}`          | TypeScript code block                            |
-| Key Decisions section                    | `{{KEY_DECISIONS}}`       | Table with Decision, Rationale, Alternatives     |
-| Implementation Notes + Risks + Edge Cases| `{{IMPLEMENTATION_NOTES}}`| Combined notes                                   |
-
-### Fallback Handling
-
-If architect invocation fails for a task:
-
-1. Log a warning indicating architect analysis unavailable
-2. Generate minimal LLD:
-    - Files: Infer from task title and category
-    - Interfaces: `// Design pending - consult HLD`
-    - Key Decisions: "Decisions pending architect review"
-    - Notes: "Consult HLD for implementation guidance. Manual LLD review recommended."
-3. Flag task for manual review in the Review Checkpoint
+**Fallback**: If architect fails, use minimal LLD with placeholder content and flag task for manual review.
 
 ## 5. Output Format
 
@@ -139,44 +110,12 @@ Task files are generated using the template at `docs/system/delivery/task-templa
 
 ### Template Variables
 
-The template uses `{{VARIABLE}}` placeholders. Replace each with:
+The template uses `{{VARIABLE}}` placeholders. See the template file header at `docs/system/delivery/task-template.md` for complete variable documentation.
 
-| Variable                   | Description                                                        |
-| -------------------------- | ------------------------------------------------------------------ |
-| `{{EPIC}}`                 | Parent epic's GitHub issue number                                  |
-| `{{SEQ}}`                  | Zero-padded sequence number (01, 02, etc.)                         |
-| `{{TITLE}}`                | Concise task title                                                 |
-| `{{LABELS}}`               | Comma-separated labels from approved set                           |
-| `{{PARENT}}`               | Epic issue reference (e.g., `#42`)                                 |
-| `{{SUMMARY}}`              | One paragraph describing the task                                  |
-| `{{BLOCKED_BY}}`           | Task dependencies or "None"                                        |
-| `{{BLOCKS}}`               | Tasks this unblocks or "None"                                      |
-| `{{FILES}}`                | Bulleted list of files with purposes                               |
-| `{{INTERFACES}}`           | Key type definitions or signatures                                 |
-| `{{KEY_DECISIONS}}`        | Table of architectural decisions with rationale and alternatives   |
-| `{{IMPLEMENTATION_NOTES}}` | Algorithms, patterns, edge cases                                   |
-| `{{ACCEPTANCE_CRITERIA}}`  | Bulleted checklist items                                           |
-| `{{EFFORT_ESTIMATE}}`      | Time range (e.g., "2-4 hours")                                     |
-| `{{PROJECT}}`              | GitHub project name (auto-configured on first run)                 |
-| `{{WORKSPACE_PATH}}`       | Git worktree path: `../<repo-name>-worktrees/<epic-issue-number>`  |
-| `{{BRANCH}}`               | Git branch: `<feat\|bug>/<epic-issue-number>-<concise-epic-title>` |
-
-### Git Workspace Variables
-
-These variables are derived once per epic and remain constant across all tasks:
-
-**`{{WORKSPACE_PATH}}`**
-
-- Format: `../<repo-name>-worktrees/<epic-issue-number>`
-- Derive `<repo-name>` from the current repository name
-- Example: For repo `nexus` and epic `#42` → `../nexus-42`
-
-**`{{BRANCH}}`**
-
-- Format: `<type>/<epic-issue-number>-<concise-epic-title>`
-- `<type>`: Check epic labels — use `bug` if the epic has a `bug` label, otherwise use `feat`
-- `<concise-epic-title>`: Kebab-case the epic title (lowercase, spaces to hyphens, remove special characters)
-- Example: Feature epic #42 "User Authentication Flow" → `feat/42-user-authentication-flow`
+**Key runtime-derived variables**:
+- `{{WORKSPACE_PATH}}`: Git worktree path format `../<repo-name>-worktrees/<epic-issue-number>`
+- `{{BRANCH}}`: Git branch format `<feat|bug>/<epic-issue-number>-<kebab-case-title>`
+  - Use `bug` type if epic has bug label, otherwise `feat`
 
 ### Label Requirements
 
@@ -202,150 +141,31 @@ For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01
 
 ## 6. Run Consistency Analysis & Auto-Remediation
 
-**MANDATORY**: After generating all task files, run consistency analysis and automatically fix what can be remediated.
+**MANDATORY**: After generating task files, run `/nxs.analyze {epic-directory} --remediate` to:
+1. Identify coverage gaps, inconsistencies, and superfluous tasks
+2. Automatically fix AUTO-classified findings: merge superfluous tasks (barrel/export-only, verification-only, <1hr effort), normalize terminology, renumber sequentially, update dependencies
+3. Generate `tasks/task-review.md` with remediation log and remaining manual issues
+4. Capture metrics: remediated count, remaining issues (CRITICAL/HIGH/MEDIUM/LOW), final task count, coverage %
 
-### 6a. Run Analysis
-
-Invoke `/nxs.analyze {epic-directory}` to check for:
-
-- Coverage gaps (epic stories or HLD components without implementing tasks)
-- Logical inconsistencies between epic intent and tasks
-- Technical inconsistencies between HLD and task LLDs
-- Inter-task inconsistencies (circular deps, conflicts, terminology drift)
-- Superfluous task breakdowns (tasks that should be consolidated)
-
-The analysis creates `tasks/task-review.md` with findings categorized by:
-
-- Severity: CRITICAL / HIGH / MEDIUM / LOW
-- Remediation type: AUTO (can be fixed programmatically) / MANUAL (requires user judgment)
-
-### 6b. Auto-Remediate Findings
-
-After analysis completes, automatically fix all `AUTO`-classified findings:
-
-#### Superfluous Task Consolidation
-
-For each superfluous task identified:
-
-1. **Barrel/Export-only tasks** (e.g., "Export tag types via index.ts"):
-    - Read the superfluous task's file list and acceptance criteria
-    - Append the export statements to the **Files to create/modify** section of the originating task
-    - Add "Export public API via barrel file" to the originating task's acceptance criteria
-    - Delete the superfluous task file
-
-2. **Verification-only tasks** (e.g., "Run tag service tests"):
-    - Read the verification task's acceptance criteria
-    - Append verification steps to the source task's acceptance criteria (e.g., "All tests pass", "Lint checks pass")
-    - Delete the verification task file
-
-3. **Effort < 1 hour tasks**:
-    - Identify the task it's `blocked_by` (preferred) or the first task it `blocks`
-    - Merge all content (files, interfaces, acceptance criteria, implementation notes) into the target task
-    - Update the target task's effort estimate accordingly
-    - Delete the merged task file
-
-#### Dependency Chain Updates
-
-After merging tasks:
-
-1. Update `blocked_by` references in remaining tasks to point to the merge target
-2. Update `blocks` references in remaining tasks to remove deleted task IDs
-3. Ensure no dangling references exist
-
-#### Task Renumbering
-
-After deletions, renumber remaining tasks to maintain sequential order:
-
-1. Rename task files: `TASK-{EPIC}.01.md`, `TASK-{EPIC}.02.md`, etc.
-2. Update task IDs in frontmatter
-3. Update all `blocked_by` and `blocks` references to use new IDs
-
-#### Terminology Normalization
-
-For terminology drift findings:
-
-1. Identify the canonical term from `HLD.md` (e.g., `userId` not `userID`, `userUUID`, `user_id`)
-2. Replace all variant terms across task files with the canonical term
-3. Apply to: titles, summaries, file paths, interface definitions, acceptance criteria
-
-### 6c. Update task-review.md
-
-After auto-remediation, update `tasks/task-review.md`:
-
-1. Move all remediated findings to the **Auto-Remediated ✅** section
-2. Mark each with `[x]` and document the action taken
-3. Update the **Summary** table:
-    - Decrement issue counts for remediated items
-    - Update "Tasks Analyzed" count if tasks were merged/deleted
-4. Update the **Superfluous Tasks** table with "✅ Auto-merged" status
-5. Recalculate coverage percentages if task mappings changed
-6. Update **Recommended Actions** to reflect only remaining manual issues
-
-### 6d. Capture Metrics for Review Checkpoint
-
-After remediation, capture:
-
-- Original finding counts (before remediation)
-- Auto-remediated count
-- Remaining manual issue counts (CRITICAL/HIGH/MEDIUM/LOW)
-- Tasks merged/deleted count
-- Final task count
-- Coverage percentages
+See `/nxs.analyze` command documentation for detailed remediation logic.
 
 ## 7. Review Checkpoint
 
-**STOP AND WAIT** for user confirmation before creating GitHub issues.
+**MANDATORY STOP** — Wait for user confirmation before creating GitHub issues.
 
-1. **Present a summary** to the user:
-    - Number of tasks generated (after any merges)
-    - List of task files with their titles (e.g., `TASK-23.01: Setup project scaffolding`)
-    - Path to the `tasks/` folder for review
-    - Reminder of the phasing/dependency structure
-    - **Auto-remediation summary** (what was fixed)
-    - **Remaining manual issues**
+Present summary: {N} tasks generated in `{path}/tasks/`, auto-remediation applied ({X} tasks merged, {Y} terminology fixes), remaining issues ({critical}/{high}/{medium}/{low}), coverage ({X}%). See `task-review.md` for full analysis.
 
-2. **Prompt the user**:
+Display severity indicator:
+- Critical > 0: "⛔ **CRITICAL ISSUES** — Resolve before proceeding"
+- High > 0: "⚠️ **HIGH priority issues** — Review recommended"
+- Otherwise: "✅ **No blocking issues**"
 
-    > "I've generated **{N} task files** in `{path-to-tasks-folder}/` and performed consistency analysis.
-    >
-    > **Auto-Remediation Applied**:
-    >
-    > - {X} superfluous tasks merged (see `task-review.md` for details)
-    > - {Y} terminology inconsistencies normalized
-    > - Tasks renumbered to maintain sequence
-    >
-    > **Final Tasks**:
-    > {numbered list of task files with titles}
-    >
-    > **Remaining Issues** (require manual review):
-    >
-    > - {critical} critical, {high} high, {medium} medium, {low} low
-    > - User story coverage: {X}%
-    > - HLD component coverage: {X}%
-    >
-    > See `tasks/task-review.md` for full analysis.
-    >
-    > {If critical > 0: "⛔ **CRITICAL ISSUES FOUND** — Strongly recommend resolving before proceeding."}
-    > {If critical == 0 && high > 0: "⚠️ **HIGH priority issues found** — Review recommended."}
-    > {If critical == 0 && high == 0: "✅ **No blocking issues** — Safe to proceed."}
-    >
-    > Please review the task files and `task-review.md`, then reply with one of:
-    >
-    > - **`continue`** — Create GitHub issues for all tasks
-    > - **`skip 03, 05`** — Create issues excluding specified task numbers
-    > - **`abort`** — Cancel issue creation to address findings (task files preserved)"
+Prompt: "Review task files and `task-review.md`, then reply: `continue` (create all issues) | `skip 03, 05` (exclude specified) | `abort` (cancel to address findings)"
 
-3. **Wait for explicit user input** — do NOT proceed automatically.
-
-4. **Handle user response**:
-    - **`continue`**: Proceed to Step 8 with all tasks
-    - **`skip [numbers]`**: Mark specified tasks for exclusion, then proceed to Step 8 with remaining tasks
-    - **`abort`**: Stop execution entirely. Inform user that:
-        - Task files remain in `tasks/` folder for manual handling
-        - `task-review.md` contains the findings to address (including auto-remediation log)
-        - They can re-run `/nxs.analyze` after making edits to re-validate
-        - They can re-run `/nxs.tasks` later or manually create issues
-        - Exit without further action
+**Handle response**:
+- `continue`: Proceed to Step 8
+- `skip [numbers]`: Exclude specified, proceed to Step 8
+- `abort`: Preserve files, inform user they can re-run `/nxs.analyze` or `/nxs.tasks`, exit
 
 ## 8. Create Task Issues
 
@@ -421,136 +241,11 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 
 # Constraints
 
-- **DO NOT** search for HLD files - use the provided context or arguments only
-- **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
-- **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
-- **DO NOT** proceed past the Review Checkpoint without explicit user confirmation
-- **DO NOT** skip the consistency analysis or auto-remediation steps
-- **DO NOT** skip architect invocation for LLD generation unless it fails
-- **DO** make reasonable assumptions and document them
-- **DO** prefer smaller tasks over larger ones when uncertain
-- **DO** ensure the first task creates a buildable/runnable skeleton
-- **DO** use the tech stack specified in the HLD; infer from context if not explicit
-- **DO** pass sufficient HLD context (architecture, data model, relevant standards) to the architect
-- **DO** use fallback LLD generation if architect fails, and flag for manual review
-- **DO** ensure each task documents key decisions with rationale and alternatives considered
+**Critical Rules**:
+- **DO NOT** search for HLD files - use provided context/arguments only
+- **DO NOT** use labels other than those in `docs/system/delivery/task-labels.md`
+- **MANDATORY STOP** at Review Checkpoint - require explicit user confirmation
+- Prefer smaller tasks over larger when uncertain
+- Ensure first task creates buildable/runnable skeleton
 
-### Project Configuration (One-Time Setup)
-
-The `{{PROJECT}}` variable is handled differently from other template variables:
-
-1. **On first run**: When the template contains the literal string `{{PROJECT}}`:
-    - Stop and prompt the user:
-        > "This appears to be the first time running task generation for this project.
-        > Which GitHub project should issues be created under?
-        > (e.g., `my-org/my-repo` or just `my-repo` if using default org)"
-    - After receiving the project name, **update the template file directly**, replacing `{{PROJECT}}` with the provided value
-    - Confirm the update to the user before proceeding
-
-2. **On subsequent runs**: The template already contains the actual project name—use it directly without prompting.
-
-**Example transformation:**
-
-Before (first run):
-
-```yaml
-project: "{{PROJECT}}"
-```
-
-After user provides "acme-corp/backend-api":
-
-```yaml
-project: "acme-corp/backend-api"
-```
-
-This ensures the project name is configured once and persists across all future task generations.
-
-# Execution
-
-1. **Resolve HLD file** (see Input Resolution above - do not search)
-2. If no HLD file can be resolved, stop and ask user to specify one
-3. **Load task template** from `docs/system/delivery/task-template.md`
-    - If missing, warn user and use default structure
-4. **Resolve PROJECT configuration**:
-    - If template contains literal `{{PROJECT}}`:
-        - Prompt user: "Which GitHub project should issues be created under? (e.g., `my-org/my-repo`)"
-        - Update the template file, replacing `{{PROJECT}}` with the provided value
-        - Confirm the configuration update to the user
-    - Extract the configured project name from the template for use in subsequent steps
-5. **Create Epic issue**:
-    - Locate the `epic.md` file in the same directory as the HLD file
-    - Run the `nxs-gh-create-epic` skill, passing the project name:
-
-```bash
-     python ./scripts/nxs_gh_create_epic.py --project "<PROJECT>" "<path-to-epic.md>"
-```
-
-- If no `epic.md` exists, warn the user and proceed without a parent issue
-
-6. **Extract epic issue number** from the updated `epic.md` frontmatter `link` attribute
-7. **Read labels** from `docs/system/delivery/task-labels.md` to load valid labels
-8. **Read the HLD file** and perform decomposition analysis
-9. **Generate LLD per task via architect**:
-    - For each task from decomposition:
-        a. Prepare architect invocation with:
-            - HLD path and relevant sections (architecture, data model, API design)
-            - Task summary, category, and dependencies
-            - Assigned labels
-        b. Invoke `nxs-architect` with LLD generation request (see Step 4 for invocation format)
-        c. Parse architect response and map to template variables:
-            - Files → `{{FILES}}`
-            - Interfaces/Types → `{{INTERFACES}}`
-            - Key Decisions → `{{KEY_DECISIONS}}`
-            - Implementation Notes → `{{IMPLEMENTATION_NOTES}}`
-        d. If architect fails: use fallback LLD and add to manual-review list
-10. **Create the `tasks/` directory** in the same location as the HLD file
-11. **Generate all task files** using the loaded template with:
-    - Task numbers in format `TASK-{EPIC}.{NN}` (e.g., `TASK-23.01`, `TASK-23.02`)
-    - The `parent` attribute set to the epic issue number
-    - The `project` value from the template
-    - Labels from the approved set only
-    - Architect-generated LLD content (Files, Interfaces, Key Decisions, Implementation Notes)
-12. **Run consistency analysis**:
-    - Invoke `/nxs.analyze {epic-directory}`
-    - Wait for analysis to complete and `task-review.md` to be generated
-13. **Auto-remediate findings**:
-    - Parse `task-review.md` for AUTO-classified findings
-    - For each superfluous task:
-        - Merge content into target task (files, acceptance criteria, implementation notes)
-        - Delete superfluous task file
-        - Update dependency references in remaining tasks
-    - For terminology drift:
-        - Identify canonical terms from HLD
-        - Normalize across all task files
-    - Renumber remaining tasks sequentially
-    - Update `task-review.md`:
-        - Move remediated items to "Auto-Remediated ✅" section
-        - Update summary counts
-        - Recalculate coverage if task mappings changed
-14. **Capture final metrics**:
-    - Auto-remediated count
-    - Remaining manual issues (CRITICAL/HIGH/MEDIUM/LOW)
-    - Final task count
-    - Coverage percentages
-15. **REVIEW CHECKPOINT — STOP AND WAIT**:
-    - Present the summary of tasks AND auto-remediation actions to the user
-    - Present remaining manual issues
-    - Display the prompt asking for `continue`, `skip [numbers]`, or `abort`
-    - Include severity indicators (⛔/⚠️/✅) based on REMAINING manual issues only
-    - **Do not proceed until user responds**
-    - Handle the response:
-        - `continue` → Proceed to step 16
-        - `skip [numbers]` → Exclude specified tasks, proceed to step 16
-        - `abort` → Stop execution, preserve task files and `task-review.md`, inform user they can run `/nxs.analyze` again after edits, exit
-16. **Create task issues** by running:
-
-```bash
-    python ./scripts/create_gh_issues.py --project "<PROJECT>" "<path-to-tasks-folder>"
-```
-
-17. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 8 for format)
-18. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
-19. **Report completion** with:
-    - Epic issue URL
-    - Path to generated `tasks.md`
-    - Reminder to run `/nxs.close {path-to-epic.md}` when implementation is complete
+**Project Configuration**: On first run, if template contains `{{PROJECT}}`, prompt user for GitHub project name (e.g., `org/repo`), update template file directly, then proceed. On subsequent runs, use existing value.

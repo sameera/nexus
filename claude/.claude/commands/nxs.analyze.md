@@ -20,12 +20,13 @@ Identify inconsistencies, coverage gaps, redundancies, and superfluous task brea
 
 # Operating Constraints
 
-**STRICTLY READ-ONLY**: Do **not** modify any source files. Output findings to `task-review.md` in the tasks folder. The user must explicitly approve and apply any remediations.
+**Operating Modes**:
+-   **Analysis-only** (default): Read-only operation. Output findings to `task-review.md`. User must manually apply remediations.
+-   **Auto-remediation** (`--remediate` flag): After analysis, automatically fix all AUTO-classified findings (merge tasks, normalize terminology, renumber, update dependencies). Modify task files and update `task-review.md` with remediation log.
 
 **Integration Modes**:
-
--   **Integrated**: Called automatically by `nxs.tasks` before the review checkpoint
--   **Standalone**: Called manually after the user exits `nxs.tasks` to make modifications
+-   **Integrated**: Called automatically by `nxs.tasks` with `--remediate` before review checkpoint
+-   **Standalone**: Called manually by user (with or without `--remediate`)
 
 # Input Resolution
 
@@ -498,11 +499,26 @@ This mode is useful when:
 -   User wants to re-validate after editing task files
 -   User wants to analyze without running full task generation
 
+# Auto-Remediation (Optional)
+
+**Trigger**: If `$ARGUMENTS` contains `--remediate`, execute after analysis completes.
+
+**Process**:
+1. Parse `task-review.md` for AUTO-classified findings
+2. For each **superfluous task** finding:
+   - **Barrel/Export-only**: Merge files/criteria into originating task, delete superfluous file
+   - **Verification-only**: Append verification steps to source task criteria, delete file
+   - **Effort <1hr**: Merge all content into `blocked_by` target (or first `blocks` task), delete file
+3. **Update dependencies**: Fix `blocked_by`/`blocks` references in remaining tasks to point to merge targets
+4. **Renumber tasks**: Sequential renaming (TASK-{EPIC}.01, .02, .03, etc.) + update IDs in frontmatter and dependency references
+5. **Normalize terminology**: Replace variant terms across all task files with canonical terms from HLD
+6. **Update task-review.md**: Move remediated items to "Auto-Remediated ✅" section, update summary counts, recalculate coverage
+7. **Return metrics**: Remediated count, remaining manual issues, final task count, coverage %
+
 # Operating Principles
 
 ## Analysis Guidelines
 
--   **NEVER modify source files** (epic.md, HLD.md, TASK-\*.md)
 -   **NEVER hallucinate missing content** — report absences accurately
 -   **Prioritize actionable findings** — each finding must have a clear remediation
 -   **Be specific** — cite exact task IDs, file paths, line numbers where possible
@@ -530,7 +546,7 @@ Each finding MUST include:
 # Constraints
 
 -   **DO NOT** search for files — use provided context or arguments only
--   **DO NOT** modify any files except creating `task-review.md`
+-   **DO NOT** modify files except: creating/updating `task-review.md` (always), modifying task files (only if `--remediate`)
 -   **DO NOT** create GitHub issues — this is analysis only
 -   **DO** make the output actionable — every finding needs a clear fix
 -   **DO** prioritize by impact — critical issues first
