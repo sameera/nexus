@@ -1,7 +1,7 @@
 ---
 name: nxs.dev
-description: Fetch a GitHub issue and implement it via the nxs-dev agent. Posts implementation summary and closes issue on success.
-arg: Issue number (required) - e.g., "123" or "#123"
+description: Fetch a GitHub issue and implement it via the nxs-dev agent. Posts implementation summary and closes issue on success. Supports --yolo flag for auto-approval mode.
+arg: Issue number (required) - e.g., "123" or "#123". Optional: --yolo flag for auto-approval mode.
 tools: Bash, Read
 ---
 
@@ -11,17 +11,62 @@ You are an orchestration layer that fetches GitHub issues and delegates implemen
 
 ---
 
+## YOLO Mode Detection
+
+**First, check if `$ARGUMENTS` contains `--yolo` flag and extract the issue number:**
+
+Determine YOLO mode and extract issue number:
+- If `$ARGUMENTS` contains `--yolo`, set `YOLO_MODE=true` and extract the issue number from remaining args
+- Otherwise, set `YOLO_MODE=false` and use `$ARGUMENTS` as the issue number
+
+Example parsing logic:
+```
+YOLO_MODE=false
+ISSUE_NUMBER=""
+
+# Check for --yolo flag
+if [[ "$ARGUMENTS" == *"--yolo"* ]]; then
+  YOLO_MODE=true
+  # Extract issue number (remove --yolo flag and clean up)
+  ISSUE_NUMBER=$(echo "$ARGUMENTS" | sed 's/--yolo//g' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr -d '#')
+else
+  ISSUE_NUMBER=$(echo "$ARGUMENTS" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr -d '#')
+fi
+```
+
+**If `YOLO_MODE=true`:**
+
+Report at the start:
+
+```
+⚡ YOLO MODE ENABLED ⚡
+
+Auto-approvals active for:
+- Workspace setup (creates worktree if on main)
+- Environment sync (no confirmation)
+- Chunk progressions (auto-proceed)
+- Commit operations (no pre-commit review)
+- Worktree cleanup (auto-keep)
+
+Technical decisions still require your input.
+```
+
+---
+
 ## CRITICAL: Input Validation
 
 **You MUST have an issue number to proceed.**
 
-If `$ARGUMENTS` is empty, missing, or not a valid issue number:
+If `ISSUE_NUMBER` is empty, missing, or not a valid issue number:
 
 ```
 ❌ ISSUE NUMBER REQUIRED
 
 Usage: /nxs.dev <issue-number>
+   or: /nxs.dev --yolo <issue-number>
+
 Example: /nxs.dev 123
+Example: /nxs.dev --yolo 123  (auto-approve all checkpoints)
 
 Please provide a GitHub issue number to implement.
 ```
@@ -107,10 +152,10 @@ Then **STOP** and wait for user response. Pass their answer back to the agent ve
 
 ## Phase 1: Fetch the Issue
 
-Extract the issue number from `$ARGUMENTS` (strip leading `#` if present):
+Use the `ISSUE_NUMBER` variable extracted during YOLO mode detection:
 
 ```bash
-gh issue view <issue-number> --json number,title,body,url,state --jq '.'
+gh issue view "$ISSUE_NUMBER" --json number,title,body,url,state --jq '.'
 ```
 
 **If the issue doesn't exist or fetch fails:**
@@ -206,6 +251,42 @@ git worktree list | grep -q "<worktree-path>" || git worktree add <worktree-path
 
 **This step only runs if on `main`/`master` AND no `## Git Workspace` section exists in the issue.**
 
+**If `YOLO_MODE=true`:** Auto-create worktree (Option 1) without prompting:
+
+```bash
+# Auto-generate paths
+REPO_NAME=$(basename $(git rev-parse --show-toplevel))
+ISSUE_SLUG=$(echo "<issue-title>" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | cut -c1-50)
+WORKTREE_PATH="../${REPO_NAME}-worktrees/<issue-number>"
+BRANCH_NAME="feat/issue-<issue-number>-${ISSUE_SLUG}"
+
+# Check for branch conflict
+if git show-ref --verify --quiet "refs/heads/${BRANCH_NAME}"; then
+  # Branch exists - STILL PROMPT USER even in YOLO mode
+  echo "⚠️ **CHECKPOINT: Branch Conflict** (YOLO mode paused)"
+  echo ""
+  echo "The suggested branch \`${BRANCH_NAME}\` already exists."
+  echo ""
+  echo "**Options:**"
+  echo "1. Use existing branch (checkout in worktree)"
+  echo "2. Create with suffix: \`${BRANCH_NAME}-v2\`"
+  echo "3. Custom branch name"
+  echo ""
+  echo "Which option? (1/2/3)"
+  # WAIT for user response, then proceed based on choice
+else
+  # No conflict - auto-create
+  git worktree add "$WORKTREE_PATH" -b "$BRANCH_NAME"
+  echo ""
+  echo "🚀 YOLO Mode: Auto-created worktree"
+  echo "- Path: \`$WORKTREE_PATH\`"
+  echo "- Branch: \`$BRANCH_NAME\`"
+  echo ""
+fi
+```
+
+**If `YOLO_MODE=false`:** Present standard prompt:
+
 ```
 🔄 **CHECKPOINT: Workspace Setup**
 
@@ -253,7 +334,17 @@ If a worktree was created (options 1 or 3), sync local environment files to the 
     python3 claude/.claude/skills/nxs-env-sync/scripts/detect_env_patterns.py
     ```
 
-3.  **Confirm with user**: Present the patterns (saved or detected) to the user.
+3.  **Confirm with user**:
+
+    **If `YOLO_MODE=true`:** Auto-proceed without confirmation:
+
+    ```
+    🚀 YOLO Mode: Auto-syncing environment files
+    - <pattern 1>
+    - <pattern 2>
+    ```
+
+    **If `YOLO_MODE=false`:** Present the patterns (saved or detected) to the user:
 
     ```
     🔄 **CHECKPOINT: Environment Sync**
@@ -308,7 +399,37 @@ After workspace setup, store these values for later use:
 
 ## Phase 3: Prepare Handoff to nxs-dev
 
-Format the issue for the agent, **including workspace info**:
+Format the issue for the agent, **including workspace info and YOLO mode flag if applicable**:
+
+**If `YOLO_MODE=true`:**
+
+```markdown
+## GitHub Issue #<number>: <title>
+
+**URL**: <issue-url>
+
+**Workspace**: `<WORKSPACE_PATH>` (branch: `<WORKSPACE_BRANCH>`)
+
+**⚡ YOLO MODE ENABLED**: Auto-approve all chunk progression checkpoints. Present only technical decisions requiring human judgment.
+
+### Description
+
+<issue body - preserve formatting>
+
+### Extracted LLD Guidelines
+
+<parsed LLD section or "See issue body above">
+
+### Acceptance Criteria
+
+<bulleted list of acceptance criteria>
+
+### HLD Reference
+
+<path to HLD if read, otherwise "Not required - LLD is sufficient">
+```
+
+**If `YOLO_MODE=false`:**
 
 ```markdown
 ## GitHub Issue #<number>: <title>
@@ -334,7 +455,7 @@ Format the issue for the agent, **including workspace info**:
 <path to HLD if read, otherwise "Not required - LLD is sufficient">
 ```
 
-**Note**: The `**Workspace**` line tells the agent where to execute all file operations. The agent will NOT prompt for workspace setup.
+**Note**: The `**Workspace**` line tells the agent where to execute all file operations. The agent will NOT prompt for workspace setup. The YOLO MODE flag tells both you and the agent to auto-approve standard checkpoints.
 
 ---
 
@@ -350,13 +471,13 @@ Delegate to the implementation agent:
 
 **Important**: The agent expects workspace info in the handoff. It will NOT prompt for worktree setup.
 
-### Your Role During Agent Execution: TRANSPARENT PASSTHROUGH
+### Your Role During Agent Execution: TRANSPARENT PASSTHROUGH (with YOLO Auto-Approval)
 
 You are a **relay**, not a participant. Your responsibilities:
 
 1. **Surface all agent output** to the user in a well-formatted, readable manner
 2. **Pass all user responses** to the agent exactly as given
-3. **Do not interpret, summarize, or answer** on anyone's behalf
+3. **Do not interpret, summarize, or answer** on anyone's behalf (UNLESS in YOLO mode for standard checkpoints)
 4. **Use the workspace path you established in Phase 2b** for post-implementation phases
 5. **Resume orchestration only** when agent reports "Implementation Complete"
 
@@ -364,18 +485,37 @@ You are a **relay**, not a participant. Your responsibilities:
 
 ### Example: Chunk Approval
 
+**If `YOLO_MODE=true`:**
+
+**Agent says:**
+
+> Chunk 1 complete. Tests passing. Proceed to Chunk 2?
+
+**You do NOT present this to the user. Instead:**
+
+1. Immediately respond to agent: `yes`
+2. Report to user (info only, no wait):
+
+```
+✅ Auto-approved: Chunk 1 complete, proceeding to Chunk 2 (YOLO mode)
+```
+
+**If `YOLO_MODE=false`:**
+
 **Agent says:**
 
 > Chunk 1 complete. Tests passing. Proceed to Chunk 2?
 
 **You say:**
 
+```
 🔄 **CHECKPOINT: Chunk Complete**
 
 ✅ **Chunk 1 complete** — all tests passing. Proceed to Chunk 2?
 
 - ✅ Yes (y)
 - ❌ No (n)
+```
 
 **Then STOP. Wait. Relay response.**
 
@@ -389,8 +529,28 @@ You are a **relay**, not a participant. Your responsibilities:
 > A) Create new `UserCache` class
 > B) Use existing `CacheService` instead
 
-**You say:**
+**You say (SAME for both YOLO and normal mode - technical decisions ALWAYS need user input):**
 
+**If `YOLO_MODE=true`:**
+
+```
+🔄 **CHECKPOINT** (YOLO mode paused - technical decision required)
+
+⚠️ **Implementation Blocked**
+
+The design references a `UserCache` class, but it doesn't exist in the codebase.
+
+**Options:**
+
+1. Create a new `UserCache` class
+2. Use the existing `CacheService` instead
+
+Which approach should the agent take? (Enter 1 or 2)
+```
+
+**If `YOLO_MODE=false`:**
+
+```
 🔄 **AGENT CHECKPOINT**
 
 ⚠️ **Implementation Blocked**
@@ -403,6 +563,7 @@ The design references a `UserCache` class, but it doesn't exist in the codebase.
 2. Use the existing `CacheService` instead
 
 Which approach should the agent take? (Enter 1 or 2)
+```
 
 **Then STOP. Wait. Relay response.**
 
@@ -425,7 +586,37 @@ Which approach should the agent take? (Enter 1 or 2)
 
 ### 5a. Pre-Commit Review Checkpoint
 
-**Before committing any changes, present a checkpoint for the user to review:**
+**If `YOLO_MODE=true`:** Auto-commit without review:
+
+```bash
+# Gather changes for reporting
+if [ "$WORKSPACE_MODE" = "worktree" ]; then
+  FILES_CHANGED=$(cd "$WORKSPACE_PATH" && git status --short | wc -l)
+  (cd "$WORKSPACE_PATH" && git add -A && git commit -m "<issue-title>" -m "Implements #<issue-number>")
+  COMMIT_HASH=$(cd "$WORKSPACE_PATH" && git rev-parse --short HEAD)
+else
+  FILES_CHANGED=$(git status --short | wc -l)
+  git add -A && git commit -m "<issue-title>" -m "Implements #<issue-number>"
+  COMMIT_HASH=$(git rev-parse --short HEAD)
+fi
+```
+
+Report:
+
+```
+🚀 YOLO Mode: Auto-committed changes
+- Commit: <commit-hash>
+- Files changed: <count>
+
+To review changes later:
+  cd <workspace-path> && git show HEAD
+```
+
+**Proceed directly to step 5b.**
+
+---
+
+**If `YOLO_MODE=false`:** Present review checkpoint before committing:
 
 First, gather the changes (from within the worktree if applicable):
 
@@ -500,7 +691,9 @@ Proceed to step 5b.
 
 ### 5b. Commit All Changes
 
-Stage and commit all implementation changes (from within the worktree if applicable):
+**If `YOLO_MODE=true`:** Skip this step (already committed in 5a).
+
+**If `YOLO_MODE=false`:** Stage and commit all implementation changes (from within the worktree if applicable):
 
 ```bash
 # If using worktree
@@ -513,12 +706,28 @@ git add -A && git commit -m "<issue title>" -m "Implements #<issue-number>"
 **Example:**
 
 ```bash
-(cd ../myrepo-issue-123 && git add -A && git commit -m "Add user caching layer for improved performance" -m "Implements #123")
+(cd ../myrepo-worktrees/123 && git add -A && git commit -m "Add user caching layer for improved performance" -m "Implements #123")
 ```
 
 ### 5c. Post Comment to GitHub Issue
 
 Extract the implementation summary and post it:
+
+**If `YOLO_MODE=true`:**
+
+```bash
+gh issue comment <issue-number> --body "## Implementation Summary
+
+<agent's final summary - include files changed, tests added, and any observations>
+
+**Branch**: \`<branch-name>\`
+**Mode**: YOLO (auto-approved)
+
+---
+*Implemented via Claude Code (YOLO mode)*"
+```
+
+**If `YOLO_MODE=false`:**
 
 ```bash
 gh issue comment <issue-number> --body "## Implementation Summary
@@ -565,7 +774,26 @@ Manual review required before closing.
 
 ### 5e. Worktree Cleanup Checkpoint
 
-**If a worktree was used**, present a cleanup checkpoint regardless of whether the issue was closed:
+**If a worktree was used**, handle cleanup based on YOLO mode:
+
+**If `YOLO_MODE=true`:** Auto-keep worktree (no prompt):
+
+```
+✅ YOLO Mode: Worktree kept for further work
+- Location: `<worktree-path>`
+- Branch: `<branch-name>`
+
+Next steps:
+- Create PR: cd <worktree-path> && gh pr create
+- Review changes: cd <worktree-path> && git show HEAD
+- Remove worktree: git worktree remove <worktree-path>
+```
+
+**Rationale**: In YOLO mode, we assume rapid iteration and keep worktrees for follow-up work or PR creation.
+
+---
+
+**If `YOLO_MODE=false`:** Present cleanup checkpoint regardless of whether the issue was closed:
 
 > **Note**: If the issue was NOT closed (due to blockers or follow-up items), mention that the worktree remains available for further work or manual resolution.
 
@@ -658,6 +886,30 @@ If worktree creation fails:
 
 ### On Successful Completion
 
+**If `YOLO_MODE=true`:**
+
+```
+✅ ISSUE #<number> COMPLETE (YOLO MODE)
+
+Title: <issue title>
+Worktree: <worktree-path> (kept for further work) (or "In-place")
+Branch: <branch-name>
+Commit: <commit hash>
+Status: Implemented and closed
+
+Files Changed: <count>
+Tests Added: <count>
+
+Comment posted: <link to comment>
+
+Next steps:
+- Create PR: cd <worktree-path> && gh pr create
+- Review changes: cd <worktree-path> && git show HEAD
+- Remove worktree: git worktree remove <worktree-path>
+```
+
+**If `YOLO_MODE=false`:**
+
 ```
 ✅ ISSUE #<number> COMPLETE
 
@@ -674,6 +926,27 @@ Comment posted: <link to comment>
 ```
 
 ### On Completion with Caveats
+
+**If `YOLO_MODE=true`:**
+
+```
+⚠️ ISSUE #<number> IMPLEMENTED (YOLO MODE - not closed)
+
+Title: <issue title>
+Worktree: <worktree-path> (kept for further work) (or "In-place")
+Branch: <branch-name>
+Commit: <commit hash>
+Status: Requires manual review
+
+Blocking Items:
+- <item 1>
+- <item 2>
+
+Comment posted: <link to comment>
+Next steps: <recommended actions>
+```
+
+**If `YOLO_MODE=false`:**
 
 ```
 ⚠️ ISSUE #<number> IMPLEMENTED (not closed)
@@ -698,17 +971,20 @@ Next steps: <recommended actions>
 
 1. **Proceeding without issue number** — Never assume or prompt for issue details manually
 2. **Reading HLD unnecessarily** — Trust the LLD unless explicitly insufficient
-3. **Answering for the user** — NEVER respond to agent questions on user's behalf
+3. **Answering for the user** — NEVER respond to agent questions on user's behalf (EXCEPT in YOLO mode for standard checkpoints)
 4. **Prompting when issue has workspace config** — If `## Git Workspace` section exists, use it without asking
-5. **Intercepting chunk approvals** — Every checkpoint goes to the user
+5. **Intercepting chunk approvals** — Every checkpoint goes to the user (UNLESS in YOLO mode)
 6. **Closing issues with open blockers** — Only close when fully complete
 7. **Skipping the comment** — Always post implementation summary to the issue
 8. **Swallowing errors** — Surface all failures clearly with context
 9. **Paraphrasing user intent** — Pass user responses verbatim to agent
 10. **Skipping the commit** — Always commit changes before closing the issue
 11. **Raw agent output** — Format checkpoints for readability; don't dump raw text
-12. **Committing without review** — Always checkpoint before commit to allow user review
+12. **Committing without review** — Always checkpoint before commit to allow user review (UNLESS in YOLO mode)
 13. **Proceeding after cancel** — If user cancels at any checkpoint, respect the decision
 14. **Forgetting worktree context** — Track and use the correct worktree path for all post-implementation commands
-15. **Auto-cleaning worktrees** — Always ask before removing worktrees
+15. **Auto-cleaning worktrees** — Always ask before removing worktrees (UNLESS in YOLO mode, where we auto-keep)
 16. **Delegating workspace setup to agent** — Orchestrator owns workspace setup; agent expects it pre-configured
+17. **Auto-approving technical decisions in YOLO mode** — Design choices, implementation approach A/B/C, branch conflicts ALWAYS require user input, even in YOLO mode
+18. **Forgetting YOLO context** — Tag all auto-approvals with "YOLO mode" labels when in YOLO mode
+19. **Using wrong mode for GitHub fetch** — Always use `<issue-number>` not `ISSUE_NUMBER` variable when calling gh commands
