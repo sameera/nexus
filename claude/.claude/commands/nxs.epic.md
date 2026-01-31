@@ -19,13 +19,11 @@ Given that capability description, do this:
 1. **Locate and validate the Feature context**:
 
     a. **Find the Feature README.md**:
-
     - Check if the user referenced a README.md file in their prompt
     - OR check if there's a currently open file in the IDE named `README.md`
     - OR check if there's a currently open file in the IDE and look for `README.md` in the same directory
 
     b. **Validate the Feature Brief**:
-
     - Read the README.md file and parse its YAML frontmatter
     - **Required**: The frontmatter MUST contain a `feature` attribute
     - Extract the feature name from the `feature` attribute value
@@ -52,10 +50,10 @@ Given that capability description, do this:
 
 2. **Right-Size Assessment** (MANDATORY GATE):
 
-    Before generating any epic content, invoke the `nxs-council-architect` agent to assess the scope:
+    Before generating any epic content, invoke the `nxs-architect` agent to assess the scope:
 
     ```
-    Invoke: nxs-council-architect
+    Invoke: nxs-architect
     Topic: Complexity assessment for proposed epic
     Context: [The capability description from user input]
     Request:
@@ -87,7 +85,7 @@ Given that capability description, do this:
 
     ### Architect's Analysis
 
-    [Summary of complexity drivers from nxs-council-architect]
+    [Summary of complexity drivers from nxs-architect]
 
     ### Proposed Decomposition
 
@@ -115,15 +113,12 @@ Given that capability description, do this:
     c. **MANDATORY STOP**: Do NOT proceed until the user explicitly selects option 1, 2, or 3.
 
     d. **Handle user choice**:
-
     - **Option 1 (Reduced scope)**:
-
         - Use only the first sub-epic scope for generation
         - Note deferred scope in "Out of Scope" section
         - Add deferred items to "Related Documents" or "Future Work" appendix
 
     - **Option 2 (Multiple epics)**:
-
         - Generate separate epic documents for each sub-epic
         - Each gets its own sequential folder (e.g., `01-sub-epic-a/`, `02-sub-epic-b/`)
         - Link the epics to each other in "Related Documents"
@@ -140,13 +135,11 @@ Given that capability description, do this:
     e. **Minimum viable epic check** (for decomposition):
 
     When breaking into multiple epics, validate each sub-epic has sufficient work:
-
     - Each sub-epic MUST be estimated at **>4 days** of work
     - If a sub-epic is <4 days, merge it with an adjacent epic
     - Rationale: Epics smaller than 4 days should likely be user stories within a larger epic
 
 3. **Generate a concise epic folder name** (kebab-case):
-
     - Analyze the capability description and extract the most meaningful keywords
     - Create a 2-5 word name that captures the essence of the capability
     - Use noun or action-noun format (e.g., "space-scoped-tags", "private-user-tags", "tag-inheritance")
@@ -185,18 +178,15 @@ Given that capability description, do this:
     If the user referenced a Claude Code planning mode document or any file outside the repository:
 
     a. **Check for HLD.md in the epic directory**:
-
     - If `HLD.md` does NOT exist in `<feature-directory>/<sequential-epic-folder>/`:
         - Copy the external file to `<feature-directory>/<sequential-epic-folder>/HLD.md`
         - This becomes the High-Level Design document for reference
 
     b. **If HLD.md already exists**:
-
     - Copy the external file to `<feature-directory>/<sequential-epic-folder>/` with its original filename
         - For example: `plan-2026-01-08.md`, `design-notes.md`, etc.
 
     c. **Never link to files outside the repository**:
-
     - ❌ NEVER use paths like `~/.claude/plans/...`
     - ❌ NEVER use absolute paths outside the repository
     - ✅ ALWAYS copy external files into the repository
@@ -205,7 +195,6 @@ Given that capability description, do this:
 6. **Parse and analyze the capability description**:
 
     Follow this execution flow:
-
     1. Parse user description from Input
         - If empty: ERROR "No capability description provided"
     2. Extract key concepts from description
@@ -288,9 +277,9 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 #### Acceptance Criteria
 
--   [ ] **Given** [precondition], **when** [action], **then** [expected result]
--   [ ] **Given** [precondition], **when** [action], **then** [expected result]
--   [ ] [Additional criteria as needed]
+- [ ] **Given** [precondition], **when** [action], **then** [expected result]
+- [ ] **Given** [precondition], **when** [action], **then** [expected result]
+- [ ] [Additional criteria as needed]
 
 #### Notes
 
@@ -312,14 +301,14 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 ## Assumptions
 
--   [List reasonable assumptions made during story creation]
--   [Document defaults chosen for unspecified details]
+- [List reasonable assumptions made during story creation]
+- [Document defaults chosen for unspecified details]
 
 ## Out of Scope
 
--   [Explicitly list what is NOT included in this epic]
--   [Helps prevent scope creep]
--   [If Option 1 was chosen, list deferred scope here with reference to future epic]
+- [Explicitly list what is NOT included in this epic]
+- [Helps prevent scope creep]
+- [If Option 1 was chosen, list deferred scope here with reference to future epic]
 
 ## Open Questions
 
@@ -331,7 +320,7 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 ### Complexity Assessment
 
-**Assessed by**: nxs-council-architect
+**Assessed by**: nxs-architect
 **Rating**: [S/M/L/XL]
 **Timeline Estimates**:
 | Scenario | Duration | Assumptions |
@@ -342,8 +331,8 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 **Complexity Drivers**:
 
--   [Key factor 1 from architect analysis]
--   [Key factor 2 from architect analysis]
+- [Key factor 1 from architect analysis]
+- [Key factor 2 from architect analysis]
 
 ### Glossary
 
@@ -353,9 +342,9 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 ### Related Documents
 
--   [Parent Feature Brief](ABSOLUTE_URL_TO_PARENT_README) - Parent Feature Brief
--   [Links to related epics if part of a decomposition - USE ABSOLUTE URLs]
--   [Links to related specs, designs, or documentation - USE ABSOLUTE URLs]
+- [Parent Feature Brief](ABSOLUTE_URL_TO_PARENT_README) - Parent Feature Brief
+- [Links to related epics if part of a decomposition - USE ABSOLUTE URLs]
+- [Links to related specs, designs, or documentation - USE ABSOLUTE URLs]
 
 **Note**: All document links must be absolute GitHub URLs generated via `nxs-abs-doc-path` skill. Never use relative paths like `../README.md`.
 ```
@@ -365,14 +354,12 @@ estimated_duration: "[X days/weeks - likely case from architect]"
     When breaking down the epic into user stories:
 
     a. **Identify natural boundaries**:
-
     - Different user actions or workflows
     - Different data entities being manipulated
     - Different permission levels or user types
     - Core functionality vs. enhancements
 
     b. **Apply story splitting patterns**:
-
     - Split by user persona (admin vs. regular user)
     - Split by workflow step (create, read, update, delete)
     - Split by data variation (simple case vs. edge cases)
@@ -380,13 +367,11 @@ estimated_duration: "[X days/weeks - likely case from architect]"
     - Split by business rule (basic validation vs. complex rules)
 
     c. **Story sizing guidance**:
-
     - Each story should be completable in 1-3 days of work
     - If a story seems larger, consider splitting further
     - Aim for 3-8 stories per epic (adjust based on complexity)
 
     d. **Story ordering**:
-
     - Place foundational stories first (data models, core CRUD)
     - Follow with enhancement stories (validations, notifications)
     - End with polish stories (UI refinements, edge cases)
@@ -394,7 +379,6 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 9. **Quality Validation**: After writing the initial document, validate against these criteria:
 
     a. **Epic Level**:
-
     - [ ] Clear business value articulated
     - [ ] Success metrics are measurable and technology-agnostic
     - [ ] Scope is clearly bounded with explicit out-of-scope items
@@ -404,7 +388,6 @@ estimated_duration: "[X days/weeks - likely case from architect]"
     - [ ] **All .md links use absolute GitHub URLs** (not relative paths)
 
     b. **Story Level**:
-
     - [ ] Each story follows "As a... I want... So that..." format
     - [ ] Each story delivers independent user value
     - [ ] Acceptance criteria are testable and unambiguous
@@ -412,7 +395,6 @@ estimated_duration: "[X days/weeks - likely case from architect]"
     - [ ] Stories are ordered logically for development
 
     c. **Handle Validation Results**:
-
     - If items fail: Update the document to address issues before saving
     - If [NEEDS CLARIFICATION] markers remain (max 3): Present to user using the clarification format below
 
@@ -452,12 +434,12 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 ### Quick Guidelines
 
--   Focus on **WHAT** users need and **WHY** (business value)
--   Avoid **HOW** to implement (no tech stack, APIs, code structure)
--   Written for product owners, stakeholders, and developers to align on scope
--   Each story should be a conversation starter, not a complete specification
--   Maintain consistency with the parent Feature's context and terminology
--   **All .md file links MUST use absolute GitHub URLs** (use `nxs-abs-doc-path` skill)
+- Focus on **WHAT** users need and **WHY** (business value)
+- Avoid **HOW** to implement (no tech stack, APIs, code structure)
+- Written for product owners, stakeholders, and developers to align on scope
+- Each story should be a conversation starter, not a complete specification
+- Maintain consistency with the parent Feature's context and terminology
+- **All .md file links MUST use absolute GitHub URLs** (use `nxs-abs-doc-path` skill)
 
 ### Absolute Path Linking
 
@@ -465,9 +447,9 @@ All markdown document links in generated epics MUST be absolute GitHub URLs, not
 
 **Why?**
 
--   Ensures links work regardless of where the document is viewed (GitHub, local, exported PDFs)
--   Provides consistent navigation experience
--   Avoids broken links when documents are moved or referenced from different contexts
+- Ensures links work regardless of where the document is viewed (GitHub, local, exported PDFs)
+- Provides consistent navigation experience
+- Avoids broken links when documents are moved or referenced from different contexts
 
 **How?**
 Use the `nxs-abs-doc-path` skill to convert relative paths:
@@ -484,8 +466,8 @@ The script reads the `docRoot` from `docs/system/delivery/config.json` and const
 
 **Example transformation:**
 
--   Input: `../README.md` or `docs/features/tagging/README.md`
--   Output: `https://github.com/sameera/awzm/tree/main/docs/features/tagging/README.md`
+- Input: `../README.md` or `docs/features/tagging/README.md`
+- Output: `https://github.com/sameera/awzm/tree/main/docs/features/tagging/README.md`
 
 ### Right-Sizing Philosophy
 
@@ -498,17 +480,17 @@ The goal of right-sizing is to ensure:
 
 ### Acceptance Criteria Best Practices
 
--   Use Given/When/Then format for complex scenarios
--   Keep criteria atomic (one testable condition per item)
--   Include happy path and key edge cases
--   Avoid implementation language ("the API should...", "the database must...")
+- Use Given/When/Then format for complex scenarios
+- Keep criteria atomic (one testable condition per item)
+- Include happy path and key edge cases
+- Avoid implementation language ("the API should...", "the database must...")
 
 ### For AI Generation
 
 When creating this document from a user prompt:
 
 1. **Validate Feature context first**: Always ensure you have a valid Feature before proceeding
-2. **Assess complexity early**: Invoke nxs-council-architect before generating content
+2. **Assess complexity early**: Invoke nxs-architect before generating content
 3. **Respect the gate**: NEVER proceed past right-sizing prompt without user input
 4. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
 5. **Document assumptions**: Record reasonable defaults in the Assumptions section
@@ -520,18 +502,18 @@ When creating this document from a user prompt:
 
 **Examples of reasonable defaults** (don't ask about these):
 
--   Standard CRUD operations for data management features
--   Basic validation (required fields, format validation)
--   Standard error handling with user-friendly messages
--   Responsive design for web features
--   Basic accessibility compliance
+- Standard CRUD operations for data management features
+- Basic validation (required fields, format validation)
+- Standard error handling with user-friendly messages
+- Responsive design for web features
+- Basic accessibility compliance
 
 **Common areas that MAY need clarification** (only if critical):
 
--   User roles and permission boundaries
--   Integration with external systems
--   Compliance or regulatory requirements
--   Performance requirements for high-scale features
+- User roles and permission boundaries
+- Integration with external systems
+- Compliance or regulatory requirements
+- Performance requirements for high-scale features
 
 ### Directory Structure Example
 
