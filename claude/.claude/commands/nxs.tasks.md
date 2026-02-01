@@ -1,5 +1,6 @@
 ---
 description: Break down a High-Level Design into implementable GitHub issues
+tools: Read, Write, Glob, Grep, Task, Skill
 ---
 
 # Role
@@ -32,10 +33,7 @@ Act as an experienced senior engineer performing technical decomposition and tas
 Before analyzing the HLD, create a GitHub issue for the parent epic:
 
 1. Locate the `epic.md` file in the same directory as the HLD file
-2. Apply the `nxs-gh-create-epic` skill by running:
-    ```bash
-    python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
-    ```
+2. Invoke the `nxs-gh-create-epic` skill with the path to the epic.md file as an argument
 3. Verify the `epic.md` frontmatter now contains a `link` attribute (e.g., `link: "#42"`)
 4. Extract and store the issue number from the `link` attribute for use in task generation
 
@@ -171,10 +169,7 @@ Prompt: "Review task files and `task-review.md`, then reply: `continue` (create 
 
 After receiving user confirmation to proceed, create GitHub issues for each approved task:
 
-1. Apply the `nxs-gh-create-task` skill by running:
-    ```bash
-    python ./scripts/create_gh_issues.py "<path-to-tasks-folder>"
-    ```
+1. Invoke the `nxs-gh-create-task` skill with the path to the tasks folder as an argument
 2. This will:
     - Create a GitHub issue for each `TASK-{EPIC}.{NN}.md` file
     - Apply the labels from frontmatter
