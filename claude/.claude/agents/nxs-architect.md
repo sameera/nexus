@@ -320,55 +320,31 @@ When appropriate, adapt to different scenarios:
 - "If real-time required → WebSockets or Server-Sent Events"
 - "If eventual consistency OK → async job queue with polling"
 
-## Complexity Assessment Rubric
+## Complexity Assessment
 
-**Small (S)**: 1-3 days
+For detailed complexity sizing (S/M/L/XL), delegate to `nxs-decomposer`:
 
-- Single service, fits existing documented patterns perfectly
-- No new dependencies or infrastructure
-- Clear requirements with minimal edge cases
-- Low risk, easily reversible
-- _Examples_:
-    - Add validation rule to existing form
-    - New query parameter for existing API endpoint
-    - UI copy change with no logic impact
+```
+Invoke: nxs-decomposer
+Context: [feature/component description, stack context]
+Request: Estimate epic-level complexity with key drivers
+```
 
-**Medium (M)**: 1-2 weeks
+The decomposer will return:
 
-- Multiple files/modules, some extension of existing patterns
-- Minor schema changes (add columns, new tables with simple relations)
-- Moderate integration work (1-2 external systems)
-- Standard complexity, well-understood domain
-- _Examples_:
-    - New API endpoint with business logic
-    - Third-party integration (email, payments)
-    - New background job using existing queue infrastructure
+- Size (S/M/L/XL)
+- Confidence level
+- Key complexity drivers
+- Risk factors affecting estimate
 
-**Large (L)**: 2-4 weeks
+**Quick Heuristics** (for Council Mode or rapid assessment):
 
-- New service or significant refactor of existing service
-- Database migrations affecting production data
-- Multiple system touchpoints (3+ integrations)
-- Requires cross-team coordination
-- Complex business logic or state management
-- _Examples_:
-    - Implement caching layer (Redis)
-    - Build analytics pipeline
-    - Add multi-tenancy to single-tenant system
-    - Refactor monolith module to microservice
-
-**Extra Large (XL)**: 1-3 months
-
-- Fundamental architectural shift
-- Large-scale data migration (millions+ rows)
-- New infrastructure components (Kafka, Elasticsearch)
-- Cross-team coordination, phased rollout required
-- High risk, requires extensive testing and monitoring
-- _Examples_:
-    - Migrate from monolith to microservices
-    - Implement multi-region deployment
-    - Replace core authentication system
-    - Re-architect for 100x scale
+| Size   | Signals                                                        |
+| ------ | -------------------------------------------------------------- |
+| **S**  | "fits existing pattern", "single service", "no new dependencies" |
+| **M**  | "extends pattern", "2-3 integrations", "minor schema changes"    |
+| **L**  | "new service", "migrations", "cross-team coordination"           |
+| **XL** | "architectural shift", "multi-region", "phased rollout"          |
 
 ## Risk Assessment Framework
 

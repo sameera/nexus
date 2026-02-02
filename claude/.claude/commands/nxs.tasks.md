@@ -1,5 +1,6 @@
 ---
 description: Break down a High-Level Design into implementable GitHub issues
+model: sonnet
 tools: Read, Write, Glob, Grep, Task, Skill
 ---
 
@@ -52,27 +53,26 @@ Read the High-Level Design document and extract:
 
 ## 3. Decompose into Tasks
 
-Apply these decomposition rules:
+Delegate HLD decomposition to `nxs-decomposer`:
 
-**Size Constraint**: Each task must be completable by one engineer in ≤2 days. If larger, decompose further.
+1. Invoke `nxs-decomposer` with:
+    - HLD file path
+    - Epic issue number from Step 1
+    - Request: "Decompose into implementation tasks"
 
-**Consistency Rule**: After completing any task, the system must be in a valid state:
+2. The decomposer will return structured JSON with:
+    - Sequenced tasks (≤2 days each, effort-sized)
+    - Phase/category assignments (Infrastructure, Data Layer, Core Logic, API, Integration, Polish)
+    - Dependency relationships (blocked_by/blocks)
+    - Mermaid dependency graph
+    - Parallelization opportunities
 
-- All tests pass
-- Build succeeds
-- No broken UI elements or dead endpoints
-- No unhandled errors in implemented paths
+3. Validate response:
+    - All tasks have required fields (sequence, title, category, summary, effort, labels)
+    - Dependencies form valid DAG (no cycles)
+    - No task exceeds M size (≤2 days)
 
-**Sequencing**: Identify dependencies and order tasks so each can be implemented without forward references to incomplete work.
-
-**Task Categories** (used for phasing):
-
-1. **Infrastructure/Setup** - Project scaffolding, CI/CD, environment config
-2. **Data Layer** - Models, migrations, repositories
-3. **Core Logic** - Services, business rules, utilities
-4. **API/Interface** - Endpoints, handlers, validation
-5. **Integration** - External services, cross-component wiring
-6. **Polish** - Error handling improvements, logging, documentation
+**Fallback**: If decomposer fails or returns invalid JSON, report error and stop.
 
 ## 4. Generate Low-Level Design per Task via Architect
 
@@ -111,9 +111,10 @@ Task files are generated using the template at `docs/system/delivery/task-templa
 The template uses `{{VARIABLE}}` placeholders. See the template file header at `docs/system/delivery/task-template.md` for complete variable documentation.
 
 **Key runtime-derived variables**:
+
 - `{{WORKSPACE_PATH}}`: Git worktree path format `../<repo-name>-worktrees/<epic-issue-number>`
 - `{{BRANCH}}`: Git branch format `<feat|bug>/<epic-issue-number>-<kebab-case-title>`
-  - Use `bug` type if epic has bug label, otherwise `feat`
+    - Use `bug` type if epic has bug label, otherwise `feat`
 
 ### Label Requirements
 
@@ -140,6 +141,7 @@ For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01
 ## 6. Run Consistency Analysis & Auto-Remediation
 
 **MANDATORY**: After generating task files, run `/nxs.analyze {epic-directory} --remediate` to:
+
 1. Identify coverage gaps, inconsistencies, and superfluous tasks
 2. Automatically fix AUTO-classified findings: merge superfluous tasks (barrel/export-only, verification-only, <1hr effort), normalize terminology, renumber sequentially, update dependencies
 3. Generate `tasks/task-review.md` with remediation log and remaining manual issues
@@ -154,6 +156,7 @@ See `/nxs.analyze` command documentation for detailed remediation logic.
 Present summary: {N} tasks generated in `{path}/tasks/`, auto-remediation applied ({X} tasks merged, {Y} terminology fixes), remaining issues ({critical}/{high}/{medium}/{low}), coverage ({X}%). See `task-review.md` for full analysis.
 
 Display severity indicator:
+
 - Critical > 0: "⛔ **CRITICAL ISSUES** — Resolve before proceeding"
 - High > 0: "⚠️ **HIGH priority issues** — Review recommended"
 - Otherwise: "✅ **No blocking issues**"
@@ -161,6 +164,7 @@ Display severity indicator:
 Prompt: "Review task files and `task-review.md`, then reply: `continue` (create all issues) | `skip 03, 05` (exclude specified) | `abort` (cancel to address findings)"
 
 **Handle response**:
+
 - `continue`: Proceed to Step 8
 - `skip [numbers]`: Exclude specified, proceed to Step 8
 - `abort`: Preserve files, inform user they can re-run `/nxs.analyze` or `/nxs.tasks`, exit
@@ -237,6 +241,7 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 # Constraints
 
 **Critical Rules**:
+
 - **DO NOT** search for HLD files - use provided context/arguments only
 - **DO NOT** use labels other than those in `docs/system/delivery/task-labels.md`
 - **MANDATORY STOP** at Review Checkpoint - require explicit user confirmation

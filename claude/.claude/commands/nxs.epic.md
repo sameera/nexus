@@ -50,10 +50,10 @@ Given that capability description, do this:
 
 2. **Right-Size Assessment** (MANDATORY GATE):
 
-    Before generating any epic content, invoke the `nxs-architect` agent to assess the scope:
+    Before generating any epic content, invoke the `nxs-decomposer` agent to assess the scope:
 
     ```
-    Invoke: nxs-architect
+    Invoke: nxs-decomposer
     Topic: Complexity assessment for proposed epic
     Context: [The capability description from user input]
     Request:
@@ -85,7 +85,7 @@ Given that capability description, do this:
 
     ### Architect's Analysis
 
-    [Summary of complexity drivers from nxs-architect]
+    [Summary of complexity drivers from nxs-decomposer]
 
     ### Proposed Decomposition
 
@@ -320,7 +320,7 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
 ### Complexity Assessment
 
-**Assessed by**: nxs-architect
+**Assessed by**: nxs-decomposer
 **Rating**: [S/M/L/XL]
 **Timeline Estimates**:
 | Scenario | Duration | Assumptions |
@@ -490,7 +490,7 @@ The goal of right-sizing is to ensure:
 When creating this document from a user prompt:
 
 1. **Validate Feature context first**: Always ensure you have a valid Feature before proceeding
-2. **Assess complexity early**: Invoke nxs-architect before generating content
+2. **Assess complexity early**: Invoke nxs-decomposer before generating content
 3. **Respect the gate**: NEVER proceed past right-sizing prompt without user input
 4. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
 5. **Document assumptions**: Record reasonable defaults in the Assumptions section
