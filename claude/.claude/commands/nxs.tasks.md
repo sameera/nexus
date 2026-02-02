@@ -140,14 +140,45 @@ For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01
 
 ## 6. Run Consistency Analysis & Auto-Remediation
 
-**MANDATORY**: After generating task files, run `/nxs.analyze {epic-directory} --remediate` to:
+**MANDATORY**: After generating task files, invoke the `nxs-analyzer` agent to validate consistency.
+
+```
+Invoke: nxs-analyzer
+Context:
+  - Epic directory: {epic-directory}
+  - Mode: auto-remediate
+Request:
+  - Run consistency analysis on epic.md, HLD.md, and tasks/*.md
+  - Apply auto-remediation for AUTO-classified findings
+  - Generate tasks/task-review.md
+  - Return metrics summary
+```
+
+The agent will:
 
 1. Identify coverage gaps, inconsistencies, and superfluous tasks
 2. Automatically fix AUTO-classified findings: merge superfluous tasks (barrel/export-only, verification-only, <1hr effort), normalize terminology, renumber sequentially, update dependencies
 3. Generate `tasks/task-review.md` with remediation log and remaining manual issues
-4. Capture metrics: remediated count, remaining issues (CRITICAL/HIGH/MEDIUM/LOW), final task count, coverage %
+4. Return metrics: remediated count, remaining issues (CRITICAL/HIGH/MEDIUM/LOW), final task count, coverage %
 
-See `/nxs.analyze` command documentation for detailed remediation logic.
+**Expected Response** (JSON):
+
+```json
+{
+    "task_review_path": "tasks/task-review.md",
+    "metrics": {
+        "total_findings": N,
+        "auto_remediated": N,
+        "remaining": { "critical": N, "high": N, "medium": N, "low": N },
+        "coverage": { "user_stories": N, "hld_components": N, "nfrs": N },
+        "final_task_count": N
+    },
+    "remediation_applied": { "tasks_merged": N, "terminology_fixes": N },
+    "blocking_issues": boolean
+}
+```
+
+Use these metrics in the Review Checkpoint (Step 7).
 
 ## 7. Review Checkpoint
 
