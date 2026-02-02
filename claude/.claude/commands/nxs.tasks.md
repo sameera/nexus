@@ -17,15 +17,42 @@ Act as an experienced senior engineer performing technical decomposition and tas
 
 # Input Resolution
 
-**CRITICAL**: Do NOT search for HLD files. Resolve the HLD source as follows:
+**CRITICAL**: Do NOT search for HLD files. Resolve the input source as follows:
 
-1. **If `$ARGUMENTS` contains a file path**: Use that path directly
-2. **If a file is provided in context** (open in editor): Use that file as the HLD
-3. **Otherwise**: Stop and ask the user to either:
+1. **If `$ARGUMENTS` contains a path to `task-review.md`**: Treat as **resume mode** — skip to Step 7
+2. **If `$ARGUMENTS` contains a file path to HLD.md**: Use that path directly
+3. **If a file is provided in context** (open in editor): Use that file as the HLD
+4. **Otherwise**: Stop and ask the user to either:
     - Open the HLD file in their editor and re-run the command, OR
     - Provide the file path as an argument: `/nxs.tasks path/to/HLD.md`
+    - Resume from review: `/nxs.tasks path/to/tasks/task-review.md`
 
 **Never** run `find`, `ls`, or search commands to locate HLD files.
+
+# Resume Mode
+
+When `task-review.md` is provided as input, the command enters **resume mode** to continue from a previous session that stopped at the Review Checkpoint.
+
+## Validation
+
+1. **Verify directory structure**:
+    - Parent directory (of `tasks/`) must contain `epic.md` with `link` attribute (GitHub issue number)
+    - Parent directory must contain `HLD.md`
+    - `tasks/` folder must contain `TASK-*.md` files
+    - If any missing, report error and exit with guidance
+
+2. **Extract epic context**:
+    - Parse `epic.md` frontmatter for `link` attribute → extract issue number
+    - Count existing `TASK-*.md` files in `tasks/` folder
+
+3. **Parse task-review.md for metrics**:
+    - Extract summary metrics (tasks merged, terminology fixes)
+    - Extract severity counts (critical/high/medium/low remaining issues)
+    - Extract coverage percentages if available
+
+4. **Skip to Step 7** (Review Checkpoint) with reconstructed metrics
+
+5. **On user approval**, proceed to Step 8 (Create GitHub Issues)
 
 # Workflow
 
@@ -184,7 +211,12 @@ Use these metrics in the Review Checkpoint (Step 7).
 
 **MANDATORY STOP** — Wait for user confirmation before creating GitHub issues.
 
+**For fresh runs** (steps 1-6 completed):
 Present summary: {N} tasks generated in `{path}/tasks/`, auto-remediation applied ({X} tasks merged, {Y} terminology fixes), remaining issues ({critical}/{high}/{medium}/{low}), coverage ({X}%). See `task-review.md` for full analysis.
+
+**For resume mode** (task-review.md provided):
+Present summary: "Resuming from previous session. {N} task files found in `{path}/tasks/`."
+Parse and display metrics from `task-review.md` (remediation stats, remaining issues, coverage).
 
 Display severity indicator:
 
@@ -194,7 +226,7 @@ Display severity indicator:
 
 Prompt: "Review task files and `task-review.md`, then reply: `continue` (create all issues) | `skip 03, 05` (exclude specified) | `abort` (cancel to address findings)"
 
-**Handle response**:
+**Handle response** (same for both modes):
 
 - `continue`: Proceed to Step 8
 - `skip [numbers]`: Exclude specified, proceed to Step 8
