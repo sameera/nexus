@@ -172,36 +172,66 @@ clear_state() {
 # Workspace Management Functions
 #------------------------------------------------------------------------------
 
-create_worktree() {
+setup_workspace_from_issue() {
     local issue_number="$1"
-    local branch_name="issue-${issue_number}"
-    local worktree_path="${WORKTREE_BASE}/nexus-${branch_name}"
+    local issue_title="$2"
+    local issue_body="$3"
 
-    # Check if worktree already exists
-    if [ -d "$worktree_path" ]; then
-        # Check if it's for the same branch
-        local existing_branch
-        existing_branch=$(git -C "$worktree_path" branch --show-current 2>/dev/null || echo "")
-        
-        if [ "$existing_branch" = "$branch_name" ]; then
-            warn "Worktree already exists at $worktree_path, reusing..."
-            echo "$worktree_path"
-            return 0
-        else
-            die "Directory exists but is not the expected worktree: $worktree_path"
-        fi
+    local script_path="${REPO_ROOT}/claude/.claude/skills/nxs-workspace-setup/scripts/setup_workspace.py"
+
+    if [ ! -f "$script_path" ]; then
+        die "Workspace setup script not found: $script_path"
     fi
 
-    # Check if branch already exists
-    if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
-        info "Branch ${branch_name} exists, creating worktree from it..."
-        git worktree add "$worktree_path" "$branch_name"
-    else
-        info "Creating new branch ${branch_name} from main..."
-        git worktree add -b "$branch_name" "$worktree_path" main
-    fi
+    # Call the Python script which handles:
+    # 1. Parsing ## Git Workspace section from issue body
+    # 2. Reusing existing worktrees
+    # 3. Creating new worktrees with proper naming
+    local result
+    result=$(python3 "$script_path" \
+        --issue-number "$issue_number" \
+        --issue-title "$issue_title" \
+        --issue-body "$issue_body" \
+        --yolo-mode "true") || die "Workspace setup script failed"
 
-    echo "$worktree_path"
+    # Parse JSON result
+    local action_taken
+    action_taken=$(echo "$result" | jq -r '.action_taken')
+
+    local workspace_path
+    workspace_path=$(echo "$result" | jq -r '.workspace_path')
+
+    local workspace_branch
+    workspace_branch=$(echo "$result" | jq -r '.workspace_branch')
+
+    case "$action_taken" in
+        "reused")
+            warn "Reusing existing worktree at $workspace_path"
+            ;;
+        "created")
+            success "Created worktree at $workspace_path (branch: $workspace_branch)"
+            ;;
+        "skipped")
+            info "Already on feature branch $workspace_branch, using current directory"
+            workspace_path=$(pwd)
+            ;;
+        "conflict")
+            local conflict_msg
+            conflict_msg=$(echo "$result" | jq -r '.checkpoint_data.message')
+            die "Branch conflict: $conflict_msg. Please resolve manually."
+            ;;
+        "error")
+            local error_msg
+            error_msg=$(echo "$result" | jq -r '.checkpoint_data.message')
+            die "Workspace setup failed: $error_msg"
+            ;;
+        *)
+            die "Unexpected action_taken: $action_taken"
+            ;;
+    esac
+
+    # Return JSON for caller to parse
+    echo "$result"
 }
 
 revert_worktree() {
@@ -272,29 +302,30 @@ commit_and_close() {
     local worktree_path="$1"
     local issue_number="$2"
     local issue_title="$3"
-    
+    local branch_name="$4"
+
     info "Staging changes..."
     (cd "$worktree_path" && git add -A)
-    
+
     # Check if there are changes to commit
     if (cd "$worktree_path" && git diff --cached --quiet); then
         warn "No changes to commit"
         return 0
     fi
-    
+
     info "Committing changes..."
     local commit_msg="feat: implement #${issue_number} - ${issue_title}"
     (cd "$worktree_path" && git commit -m "$commit_msg")
-    
+
     local commit_hash
     commit_hash=$(cd "$worktree_path" && git rev-parse --short HEAD)
     success "Committed: $commit_hash"
-    
+
     # Post implementation comment
     info "Posting implementation summary to GitHub..."
     local comment="## Implementation Complete
 
-Implemented in commit \`${commit_hash}\` on branch \`issue-${issue_number}\`.
+Implemented in commit \`${commit_hash}\` on branch \`${branch_name}\`.
 
 ### Changes
 $(cd "$worktree_path" && git diff --name-only HEAD~1 | sed 's/^/- /')
@@ -354,22 +385,25 @@ process_issue() {
     
     success "Fetched: $issue_title"
     
-    # Phase 2: Create or revert worktree
+    # Phase 2: Create or revert worktree using workspace setup script
+    local workspace_result
     local worktree_path
-    local branch_name="issue-${issue_number}"
-    
+    local branch_name
+
     if [ "$is_resume" = "true" ]; then
-        worktree_path="${WORKTREE_BASE}/nexus-${branch_name}"
+        # For resume, call setup which will reuse existing worktree
+        info "Resuming workspace..."
+        workspace_result=$(setup_workspace_from_issue "$issue_number" "$issue_title" "$issue_body")
+        worktree_path=$(echo "$workspace_result" | jq -r '.workspace_path')
+        branch_name=$(echo "$workspace_result" | jq -r '.workspace_branch')
         revert_worktree "$worktree_path"
-        # Ensure worktree exists (might have been cleaned up)
-        if [ ! -d "$worktree_path" ]; then
-            worktree_path=$(create_worktree "$issue_number")
-        fi
     else
         info "Setting up workspace..."
-        worktree_path=$(create_worktree "$issue_number")
+        workspace_result=$(setup_workspace_from_issue "$issue_number" "$issue_title" "$issue_body")
+        worktree_path=$(echo "$workspace_result" | jq -r '.workspace_path')
+        branch_name=$(echo "$workspace_result" | jq -r '.workspace_branch')
     fi
-    success "Workspace ready: $worktree_path"
+    success "Workspace ready: $worktree_path (branch: $branch_name)"
     
     # Phase 3: Sync environment
     sync_environment "$worktree_path"
@@ -409,7 +443,7 @@ EOF
     
     # Phase 6: Commit and close
     header "Shipping Implementation"
-    commit_and_close "$worktree_path" "$issue_number" "$issue_title"
+    commit_and_close "$worktree_path" "$issue_number" "$issue_title" "$branch_name"
     
     # Update state: mark success
     update_state_success "$issue_number"
