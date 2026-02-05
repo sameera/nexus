@@ -17,9 +17,9 @@
 | [/nxs.init](commands/nxs-init.md)       | Bootstrap project documentation structure       | None                    |
 | [/nxs.epic](commands/nxs-epic.md)       | Create product specification with user stories  | Feature README.md       |
 | [/nxs.hld](commands/nxs-hld.md)         | Generate high-level technical design            | epic.md                 |
-| [/nxs.tasks](commands/nxs-tasks.md)     | Decompose HLD into implementation tasks         | HLD.md                  |
+| [/nxs.tasks](commands/nxs-tasks.md)     | Decompose HLD into implementation tasks (supports resume mode) | HLD.md or task-review.md |
 | [/nxs.dev](commands/nxs-dev.md)         | Implement GitHub issue with test-first workflow | GitHub issue            |
-| [/nxs.analyze](commands/nxs-analyze.md) | Validate epic/HLD/task consistency              | epic.md, HLD.md, tasks/ |
+| [/nxs.analyze](commands/nxs-analyze.md) | Validate epic/HLD/task consistency (supports --remediate) | epic.md, HLD.md, tasks/ |
 | [/nxs.close](commands/nxs-close.md)     | Generate post-implementation review             | epic.md with link       |
 | [/nxs.council](commands/nxs-council.md) | Multi-perspective epic review                   | epic.md                 |
 
@@ -44,9 +44,14 @@
 
 ### Reference
 
-- [Agents](reference/agents.md) - Specialized AI agents powering Nexus commands
-- [Skills](reference/skills.md) - Reusable automation components
-- [Templates](reference/templates.md) - Document structure and variables
+**Agents** - Specialized AI agents powering Nexus commands:
+- **nxs-decomposer**: Work breakdown and estimation specialist. Transforms HLDs into tasks, assesses epic complexity (S/M/L/XL), sequences dependencies.
+- **nxs-architect**: Technical architecture expert. Generates LLDs, validates standards conformance, provides design guidance.
+- **nxs-analyzer**: Consistency and completeness validator. Detects coverage gaps, identifies superfluous tasks, auto-remediates common issues.
+
+**Skills** - Reusable automation components (e.g., `nxs-gh-create-task`, `nxs-env-sync`, `nxs-workspace-setup`)
+
+**Templates** - Document structure in `docs/system/delivery/` (task-template.md, task-labels.md)
 
 ## The Nexus Workflow
 
@@ -126,9 +131,12 @@ project/
 │   │           ├── README.md (Feature specification)
 │   │           ├── epic.md (Generated user stories)
 │   │           ├── HLD.md (Generated design)
+│   │           ├── tasks.md (Task summary with dependency graph)
 │   │           └── tasks/
 │   │               ├── TASK-{EPIC}.01.md
-│   │               └── ...
+│   │               ├── TASK-{EPIC}.02.md
+│   │               ├── task-review.md (Consistency analysis)
+│   │               └── .scratchpad/ (Intermediate data for debugging)
 │   └── system/
 │       ├── stack.md
 │       ├── standards/

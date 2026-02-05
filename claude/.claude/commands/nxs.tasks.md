@@ -1,7 +1,7 @@
 ---
 description: Break down a High-Level Design into implementable GitHub issues
 model: sonnet
-tools: Read, Write, Glob, Grep, Task, Skill
+tools: Read, Write, Glob, Grep, Task, Skill, Bash
 ---
 
 # Role
@@ -50,9 +50,9 @@ When `task-review.md` is provided as input, the command enters **resume mode** t
     - Extract severity counts (critical/high/medium/low remaining issues)
     - Extract coverage percentages if available
 
-4. **Skip to Step 7** (Review Checkpoint) with reconstructed metrics
+4. **Skip to Step 6** (Review Checkpoint) with reconstructed metrics
 
-5. **On user approval**, proceed to Step 8 (Create GitHub Issues)
+5. **On user approval**, proceed to Step 7 (Create GitHub Issues)
 
 # Workflow
 
@@ -101,71 +101,89 @@ Delegate HLD decomposition to `nxs-decomposer`:
 
 **Fallback**: If decomposer fails or returns invalid JSON, report error and stop.
 
-## 4. Generate Low-Level Design per Task via Architect
+## 4. Generate Task Files
 
-For each task identified in Step 3, invoke `nxs-architect` to generate a detailed LLD:
+Generate task files by invoking the architect for LLD content, then running the task generation script.
+
+### 4.1 Generate LLD Content
+
+For each task from the decomposer, invoke `nxs-architect` in LLD-elaboration mode:
 
 ```
 Invoke: nxs-architect
-Topic: Low-Level Design for TASK-{EPIC}.{SEQ}: {TASK_TITLE}
-Context: [HLD path, task category, summary, dependencies, labels]
+Mode: LLD-elaboration (HLD is authoritative)
+Topic: Low-Level Design for TASK-{epic_number}.{sequence}: {title}
+HLD Content: [relevant sections from HLD]
+Task Context:
+  - Category: {category}
+  - Summary: {summary}
+  - Blocked by: {blocked_by}
+  - Blocks: {blocks}
 Request:
-  - Determine analysis depth (Quick/Medium/Deep)
-  - Identify files to create/modify
-  - Define interfaces/types
-  - Document key decisions with rationale and alternatives
-  - Recommend implementation patterns from docs/system/standards/
-  - Identify risks and edge cases
-  - Ensure HLD alignment
+  - FILES: List files to create/modify with purposes
+  - INTERFACES: Key TypeScript interfaces/types
+  - KEY_DECISIONS: Table of decisions with rationale (extract from HLD)
+  - IMPLEMENTATION_NOTES: Patterns, edge cases, testing guidance
+  - ACCEPTANCE_CRITERIA: Checklist items for this specific task
 ```
 
-Map architect response to template variables: Files → `{{FILES}}`, Interfaces → `{{INTERFACES}}`, Decisions → `{{KEY_DECISIONS}}`, Notes/Risks → `{{IMPLEMENTATION_NOTES}}`.
+Store each architect response in the task object as `architect_response`.
 
-**Fallback**: If architect fails, use minimal LLD with placeholder content and flag task for manual review.
+### 4.2 Prepare Input JSON
 
-## 5. Output Format
+Assemble all data into a JSON structure:
 
-Create a `tasks/` subfolder in the same directory as the HLD file.
+```json
+{
+  "epic_number": {epic issue number from Step 1},
+  "epic_title": "{epic title from epic.md}",
+  "epic_type": "{enhancement|bug from epic.md}",
+  "output_dir": "{HLD directory}/tasks",
+  "tasks": [
+    {
+      "sequence": 1,
+      "title": "Task title",
+      "category": "Category",
+      "summary": "One paragraph summary",
+      "effort": "S",
+      "labels": ["frontend"],
+      "blocked_by": [],
+      "blocks": [2, 3],
+      "architect_response": "### Files\n\n- `path/to/file.ts`..."
+    }
+  ]
+}
+```
 
-### Template Location
+Write this JSON to a temporary file (e.g., `/tmp/tasks-input-{epic_number}.json`).
 
-Task files are generated using the template at `docs/system/delivery/task-template.md`.
+### 4.3 Run Generation Script
 
-**Before generating tasks**, read this template file to understand the output format. Users may customize this template — always use the current version, never a cached or assumed structure.
+Execute the task file generation script:
 
-### Template Variables
+```bash
+python .claude/skills/nxs-generate-tasks/scripts/generate_task_files.py /tmp/tasks-input-{epic_number}.json
+```
 
-The template uses `{{VARIABLE}}` placeholders. See the template file header at `docs/system/delivery/task-template.md` for complete variable documentation.
+### Expected Response
 
-**Key runtime-derived variables**:
+```json
+{
+  "status": "success",
+  "tasks_generated": N,
+  "output_dir": "path/to/tasks",
+  "files": ["TASK-7.01.md", "TASK-7.02.md", ...],
+  "fallbacks_used": N
+}
+```
 
-- `{{WORKSPACE_PATH}}`: Git worktree path format `../<repo-name>-worktrees/<epic-issue-number>`
-- `{{BRANCH}}`: Git branch format `<feat|bug>/<epic-issue-number>-<kebab-case-title>`
-    - Use `bug` type if epic has bug label, otherwise `feat`
+### Error Handling
 
-### Label Requirements
+- If architect fails for a task, set `architect_response` to `null` (script uses fallbacks)
+- If script returns error, report to user and stop
+- If `fallbacks_used > 0`, warn user that some tasks have placeholder LLD content
 
-**MANDATORY**: Read `docs/system/delivery/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
-
-**Label assignment rules** (after reading the labels file):
-
-- Use 1-3 labels per task based on work areas involved
-- Choose the primary architectural label first (e.g. `infrastructure`, `backend`, `frontend`, `database`)
-- Add secondary labels (like `performance` or `integration`) when applicable
-- **DO NOT** use any label not defined in `docs/system/delivery/task-labels.md`
-
-### Task Numbering
-
-Task numbers follow the format `TASK-{EPIC}.{NN}` where:
-
-- `{EPIC}` is the parent epic's GitHub issue number
-- `{NN}` is a zero-padded sequential number starting from 01
-
-For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01`, `TASK-23.02`, `TASK-23.03`, etc.
-
-**Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task issue to the parent epic issue.
-
-## 6. Run Consistency Analysis & Auto-Remediation
+## 5. Run Consistency Analysis & Auto-Remediation
 
 **MANDATORY**: After generating task files, invoke the `nxs-analyzer` agent to validate consistency.
 
@@ -205,13 +223,13 @@ The agent will:
 }
 ```
 
-Use these metrics in the Review Checkpoint (Step 7).
+Use these metrics in the Review Checkpoint (Step 6).
 
-## 7. Review Checkpoint
+## 6. Review Checkpoint
 
 **MANDATORY STOP** — Wait for user confirmation before creating GitHub issues.
 
-**For fresh runs** (steps 1-6 completed):
+**For fresh runs** (steps 1-5 completed):
 Present summary: {N} tasks generated in `{path}/tasks/`, auto-remediation applied ({X} tasks merged, {Y} terminology fixes), remaining issues ({critical}/{high}/{medium}/{low}), coverage ({X}%). See `task-review.md` for full analysis.
 
 **For resume mode** (task-review.md provided):
@@ -228,11 +246,11 @@ Prompt: "Review task files and `task-review.md`, then reply: `continue` (create 
 
 **Handle response** (same for both modes):
 
-- `continue`: Proceed to Step 8
-- `skip [numbers]`: Exclude specified, proceed to Step 8
+- `continue`: Proceed to Step 7
+- `skip [numbers]`: Exclude specified, proceed to Step 7
 - `abort`: Preserve files, inform user they can re-run `/nxs.analyze` or `/nxs.tasks`, exit
 
-## 8. Create Task Issues
+## 7. Create Task Issues
 
 After receiving user confirmation to proceed, create GitHub issues for each approved task:
 
@@ -278,7 +296,7 @@ After receiving user confirmation to proceed, create GitHub issues for each appr
 
 Group tasks into phases based on the Task Categories defined in Step 3. Only include phases that have tasks assigned to them.
 
-## 9. Update Epic
+## 8. Update Epic
 
 After generating `tasks.md`, update the `epic.md` file:
 
@@ -291,7 +309,7 @@ After generating `tasks.md`, update the `epic.md` file:
     See [tasks.md](./tasks.md) for the detailed task breakdown and dependency graph.
     ```
 
-## 10. Next Steps
+## 9. Next Steps
 
 After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated:
 
@@ -306,7 +324,7 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 **Critical Rules**:
 
 - **DO NOT** search for HLD files - use provided context/arguments only
-- **DO NOT** use labels other than those in `docs/system/delivery/task-labels.md`
+- **DO NOT** explore the codebase - the HLD is authoritative
 - **MANDATORY STOP** at Review Checkpoint - require explicit user confirmation
 - Prefer smaller tasks over larger when uncertain
 - Ensure first task creates buildable/runnable skeleton
