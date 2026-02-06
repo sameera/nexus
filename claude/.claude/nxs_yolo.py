@@ -270,6 +270,12 @@ class WorkspaceManager:
 
         success("Worktree reverted to clean state")
 
+    def _detect_package_manager(self, worktree_path: Path) -> str:
+        """Detect the package manager used by the project."""
+        if (worktree_path / "pnpm-lock.yaml").exists():
+            return "pnpm"
+        return "npm"
+
     def sync_environment(self, worktree_path: Path) -> None:
         """Sync environment in the worktree."""
         info(f"Syncing environment in {worktree_path}...")
@@ -282,11 +288,15 @@ class WorkspaceManager:
                 with gitignore.open("a") as f:
                     f.write("\n.tmp/\n")
 
-        # Check for package.json and run npm install
+        # Check for package.json and run the appropriate package manager
         package_json = worktree_path / "package.json"
         if package_json.exists():
-            run_command(["npm", "install", "--silent"], cwd=worktree_path)
-            success("npm dependencies installed")
+            pm = self._detect_package_manager(worktree_path)
+            if pm == "pnpm":
+                run_command(["pnpm", "install", "--silent"], cwd=worktree_path)
+            else:
+                run_command(["npm", "install", "--silent"], cwd=worktree_path)
+            success(f"{pm} dependencies installed")
 
         # Check for .env.example and create .env if needed
         env_example = worktree_path / ".env.example"
