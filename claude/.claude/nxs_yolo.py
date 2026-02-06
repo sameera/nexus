@@ -199,7 +199,6 @@ class WorkspaceManager:
         self.repo_root = repo_root
         self.setup_script = (
             repo_root
-            / "claude"
             / ".claude"
             / "skills"
             / "nxs-workspace-setup"
