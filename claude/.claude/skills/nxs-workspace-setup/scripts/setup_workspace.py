@@ -98,7 +98,7 @@ def parse_workspace_config(issue_body: str) -> Optional[Tuple[str, str]]:
 
     Looks for pattern:
     ## Git Workspace
-    - Worktree: <path>
+    - Worktree: `<path>`
     - Branch: `<branch-name>`
 
     Args:
@@ -108,7 +108,7 @@ def parse_workspace_config(issue_body: str) -> Optional[Tuple[str, str]]:
         Tuple of (worktree_path, branch_name) or None if not found
     """
     # Look for Git Workspace section
-    workspace_pattern = r'## Git Workspace\s*\n\s*-\s*Worktree:\s*([^\n]+)\s*\n\s*-\s*Branch:\s*`([^`]+)`'
+    workspace_pattern = r'## Git Workspace\s*\n\s*-\s*Worktree:\s*`([^`]+)`\s*\n\s*-\s*Branch:\s*`([^`]+)`'
     match = re.search(workspace_pattern, issue_body, re.MULTILINE)
 
     if match:
@@ -279,6 +279,19 @@ def setup_workspace(
                     "type": "env_sync_confirm",
                     "message": "Worktree created from issue config. Sync environment files?",
                     "worktree_path": str(Path(worktree_path).resolve())
+                }
+            }
+        else:
+            return {
+                "workspace_path": None,
+                "workspace_branch": None,
+                "workspace_mode": None,
+                "action_taken": "error",
+                "env_sync_performed": False,
+                "checkpoint_required": False,
+                "checkpoint_data": {
+                    "type": "error",
+                    "message": f"Failed to create worktree at '{worktree_path}' with branch '{branch_name}' (from issue config)"
                 }
             }
 
