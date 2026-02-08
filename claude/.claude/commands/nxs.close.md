@@ -171,8 +171,9 @@ I'm about to close epic "{Epic Title}" (#{issue-number}).
 Actions to be performed:
 1. PIR.md generated at `{epic-directory}/PIR.md`
 2. epic.md updated with PIR link in Related Documents
-3. Close GitHub issue #{issue-number}
-4. Delete `{epic-directory}/tasks/` folder ({N} files)
+3. Post PIR comment on GitHub issue #{issue-number}
+4. Close GitHub issue #{issue-number}
+5. Delete `{epic-directory}/tasks/` folder ({N} files)
 
 Files to be deleted:
 {List of files in tasks/ folder}
@@ -199,9 +200,20 @@ Proceed with closing the epic?
     ```
 - **`r` or `review`**: Display the generated PIR.md content, then re-present the confirmation prompt
 
-## 6. Close GitHub Issue
+## 6. Post PIR Comment and Close GitHub Issue
 
-Close the epic's GitHub issue:
+Post a comment with the PIR link on the GitHub issue, then close it:
+
+```bash
+gh issue comment {issue-number} --body "## Post-Implementation Report
+
+The PIR for this epic is available at:
+[Post-Implementation Report]({ABSOLUTE_URL_TO_PIR})"
+```
+
+Where `{ABSOLUTE_URL_TO_PIR}` is the URL generated in Step 4 via `nxs-abs-doc-path`.
+
+Then close the issue:
 
 ```bash
 gh issue close {issue-number} --reason completed
@@ -274,7 +286,8 @@ Run `/nxs.tasks` first to create and link the GitHub issue.
 GitHub CLI Error: {error message}
 
 The PIR.md has been generated and epic.md updated.
-Please manually close the issue:
+Please manually post the PIR comment and close the issue:
+  gh issue comment {issue-number} --body "[Post-Implementation Report]({PIR_URL})"
   gh issue close {issue-number} --reason completed
 
 Then delete the tasks folder:
@@ -318,12 +331,19 @@ You may want to manually enhance PIR.md with implementation specifics.
     - List files to be deleted
     - Wait for explicit user confirmation
     - Handle response (proceed, abort, or review)
-12. **Close GitHub issue** via:
+12. **Post PIR comment** on GitHub issue via:
+    ```bash
+    gh issue comment {issue-number} --body "## Post-Implementation Report
+
+    The PIR for this epic is available at:
+    [Post-Implementation Report]({ABSOLUTE_URL_TO_PIR})"
+    ```
+13. **Close GitHub issue** via:
     ```bash
     gh issue close {issue-number} --reason completed
     ```
-13. **Delete tasks/ subfolder** via:
+14. **Delete tasks/ subfolder** via:
     ```bash
     rm -rf "{epic-directory}/tasks/"
     ```
-14. **Report completion** with summary and links
+15. **Report completion** with summary and links
