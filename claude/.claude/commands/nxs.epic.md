@@ -420,13 +420,84 @@ estimated_duration: "[X days/weeks - likely case from architect]"
 
     After receiving answers, update the document and remove [NEEDS CLARIFICATION] markers.
 
-11. **Report completion** with:
+11. **Epic Creation Confirmation** (MANDATORY STOP):
+
+    After validation and clarifications are resolved, present a summary of the epic(s) and confirm GitHub issue creation.
+
+    a. **Build epic summary table**:
+
+    For each epic document generated (single epic or multiple from Option 2):
+
+    ```markdown
+    ## Epic(s) Ready for GitHub Issue Creation
+
+    | # | Epic | Complexity | Duration | File |
+    |---|------|-----------|----------|------|
+    | 1 | [Epic Title] | [S/M] | [X days] | `<path-to-epic.md>` |
+    | 2 | [Epic Title 2] | [S/M] | [X days] | `<path-to-epic2.md>` |
+
+    **Feature**: [Feature Name]
+
+    ---
+
+    **Create GitHub issues for these epic(s)?**
+
+    | Option | Action |
+    |--------|--------|
+    | **yes** | Create GitHub issues and commit epic files |
+    | **no** | Skip issue creation (you can create them later via `/nxs.tasks`) |
+
+    **Your choice**: _[yes/no]_
+    ```
+
+    b. **MANDATORY STOP**: Do NOT proceed until the user explicitly responds.
+
+    c. **Handle user choice**:
+    - **`yes`**: Proceed to Step 12 (Create GitHub Issues)
+    - **`no`**: Skip Steps 12 and 13, proceed directly to Step 14 (Report Completion). Note in the report that GitHub issues were not created and the user can create them later.
+
+12. **Create GitHub Issues**:
+
+    For each epic document generated, invoke the `nxs-gh-create-epic` skill:
+
+    ```bash
+    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+    ```
+
+    a. **For multiple epics** (Option 2 - right-sizing):
+    - Invoke the skill once per epic document, in sequential order
+    - Each invocation creates a separate GitHub issue and updates that epic's frontmatter with `link: "#<issue-number>"`
+
+    b. **Verify success**:
+    - After each invocation, confirm the `epic.md` frontmatter now contains a `link` attribute
+    - If the skill fails: Report the error to the user and stop. Do not proceed to commit.
+
+    c. **Collect results**:
+    - Store the issue number and URL for each epic for the completion report
+
+13. **Commit Epic Files**:
+
+    After all GitHub issues are created successfully, commit the epic files to git:
+
+    ```bash
+    git add <path-to-epic.md> [<path-to-additional-epic.md> ...]
+    git commit -m "epics: <Feature Name>"
+    ```
+
+    - Include ALL `epic.md` files generated in this session (they now contain `link` attributes)
+    - The `<Feature Name>` comes from the Feature README.md frontmatter `feature` attribute
+    - If the commit fails (e.g., no changes or hook failure), report the error but do not stop the workflow
+
+14. **Report completion** with:
     - Feature name and link to Feature README (using absolute URL)
     - Full file path where epic document was saved
     - Epic summary (name, story count, complexity rating)
+    - **GitHub issue link(s)** for each epic (if created), e.g., `Epic: [Epic Title](#<issue-number>)`
     - Any clarifications needed before the epic is considered complete
-    - If multiple epics were generated (Option 2), list all with their paths
-    - Suggested next steps
+    - If multiple epics were generated (Option 2), list all with their paths **and issue links**
+    - Suggested next steps:
+        - If issues were created: "Run `/nxs.hld` on an epic to generate the High-Level Design"
+        - If issues were NOT created: "Run `/nxs.tasks` when ready — it will create the GitHub issue if needed"
 
 ---
 
@@ -499,6 +570,7 @@ When creating this document from a user prompt:
 8. **Think like a tester**: Every acceptance criterion should be verifiable
 9. **Maintain Feature coherence**: Ensure the epic aligns with and extends the parent Feature
 10. **Use absolute URLs**: Always run `nxs-abs-doc-path` skill for any .md file links
+11. **Create GitHub issues on confirmation**: After user approves, invoke `nxs-gh-create-epic` skill for each epic and commit files
 
 **Examples of reasonable defaults** (don't ask about these):
 

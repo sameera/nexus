@@ -50,22 +50,33 @@ When `task-review.md` is provided as input, the command enters **resume mode** t
     - Extract severity counts (critical/high/medium/low remaining issues)
     - Extract coverage percentages if available
 
-4. **Skip to Step 6** (Review Checkpoint) with reconstructed metrics
+4. **Skip to Step 7** (Review Checkpoint) with reconstructed metrics
 
-5. **On user approval**, proceed to Step 7 (Create GitHub Issues)
+5. **On user approval**, proceed to Step 8 (Create Task Issues)
 
 # Workflow
 
-## 1. Create Epic Issue
+## 1. Resolve Epic Issue
 
-Before analyzing the HLD, create a GitHub issue for the parent epic:
+Before analyzing the HLD, ensure a GitHub issue exists for the parent epic:
 
 1. Locate the `epic.md` file in the same directory as the HLD file
-2. Invoke the `nxs-gh-create-epic` skill with the path to the epic.md file as an argument
-3. Verify the `epic.md` frontmatter now contains a `link` attribute (e.g., `link: "#42"`)
-4. Extract and store the issue number from the `link` attribute for use in task generation
+2. Parse the `epic.md` YAML frontmatter and check for a `link` attribute
 
-If no `epic.md` exists in the HLD directory, warn the user and proceed without a parent issue.
+    a. **If `link` exists** (e.g., `link: "#42"`):
+    - Extract the issue number from the `link` value
+    - Log: `Epic issue already exists: #{issue-number} — skipping creation`
+    - Store the issue number for use in task generation
+
+    b. **If `link` is missing**:
+    - Invoke the `nxs-gh-create-epic` skill:
+      ```bash
+      python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+      ```
+    - Verify the `epic.md` frontmatter now contains a `link` attribute
+    - Extract and store the issue number from the `link` attribute for use in task generation
+
+3. If no `epic.md` exists in the HLD directory, warn the user and proceed without a parent issue.
 
 ## 2. Load & Analyze HLD
 
@@ -78,7 +89,69 @@ Read the High-Level Design document and extract:
 - Non-functional requirements (performance, security, etc.)
 - Technology stack and constraints
 
-## 3. Decompose into Tasks
+## 3. Epic Scope Validation
+
+After loading the HLD, validate the current epic's scope against sibling epics in the same feature directory.
+
+1. **Identify sibling epics**:
+    - Determine the parent feature directory (parent of the current epic's directory)
+    - Scan for other `*/epic.md` files in sibling directories (e.g., `01-epic-a/epic.md`, `02-epic-b/epic.md`)
+    - If no sibling epics exist, skip this step entirely
+
+2. **Load sibling epic context**:
+    - For each sibling epic, parse:
+        - Frontmatter: `epic` (title), `link` (issue number, if exists), `complexity`, `status`
+        - User Stories section: story titles and high-level scope
+        - Out of Scope section
+
+3. **Cross-reference HLD scope with sibling epics**:
+    - Compare the HLD's scope (Requirements Analysis, Architecture Overview) against sibling epic scopes
+    - Check for:
+        - **Scope overlap**: HLD addresses functionality already covered by a sibling epic's user stories
+        - **Superfluous siblings**: A sibling epic's scope is entirely subsumed by the current HLD
+        - **Scope drift**: The HLD significantly expands beyond the current epic's user stories into sibling territory
+
+4. **If no scope issues detected**, proceed to Step 4.
+
+5. **If scope issues detected**, present findings to the user:
+
+    ```markdown
+    ## Epic Scope Validation Findings
+
+    The HLD for **[Current Epic Title]** has scope implications for sibling epics:
+
+    | Finding | Affected Epic | Details |
+    |---------|--------------|---------|
+    | [Overlap/Superfluous/Drift] | [Sibling Epic Title] (#[issue-number]) | [Description] |
+
+    ### Recommended Actions
+
+    | # | Action | Impact |
+    |---|--------|--------|
+    | 1 | [e.g., "Close #45 (02-private-tags) as superfluous"] | [Scope fully covered by current HLD] |
+    | 2 | [e.g., "Modify 03-tag-inheritance epic to exclude X"] | [Reduces overlap] |
+    | 3 | No changes — proceed as-is | [Accept overlap] |
+
+    **Your choice**: _[approve actions / modify / skip]_
+    ```
+
+    **MANDATORY STOP**: Do NOT proceed until the user responds.
+
+6. **Handle user response**:
+
+    a. **Approve actions**: Execute the recommended actions:
+    - **Close superfluous epic issues**: For each epic to close that has a `link` attribute:
+      ```bash
+      gh issue close {issue-number} --reason "not planned" --comment "Closed as superfluous: scope fully covered by #{current-epic-issue-number} ([Current Epic Title]). Determined during HLD/task planning."
+      ```
+    - **Modify epic documents**: Update the affected `epic.md` files (adjust scope, out-of-scope sections, user stories as needed)
+    - **Record modifications**: Store a list of all modifications made (affected epic titles, issue numbers, description of changes) for use in Step 7 (Review Checkpoint)
+
+    b. **Modify**: User provides alternative actions. Execute those instead and record modifications.
+
+    c. **Skip**: Proceed without changes. Log that scope validation was performed but no action was taken.
+
+## 4. Decompose into Tasks
 
 Delegate HLD decomposition to `nxs-decomposer`:
 
@@ -101,11 +174,11 @@ Delegate HLD decomposition to `nxs-decomposer`:
 
 **Fallback**: If decomposer fails or returns invalid JSON, report error and stop.
 
-## 4. Generate Task Files
+## 5. Generate Task Files
 
 Generate task files by invoking the architect for LLD content, then running the task generation script.
 
-### 4.1 Generate LLD Content
+### 5.1 Generate LLD Content
 
 For each task from the decomposer, invoke `nxs-architect` in LLD-elaboration mode:
 
@@ -129,7 +202,7 @@ Request:
 
 Store each architect response in the task object as `architect_response`.
 
-### 4.2 Prepare Input JSON
+### 5.2 Prepare Input JSON
 
 Assemble all data into a JSON structure:
 
@@ -157,7 +230,7 @@ Assemble all data into a JSON structure:
 
 Write this JSON to a temporary file (e.g., `/tmp/tasks-input-{epic_number}.json`).
 
-### 4.3 Run Generation Script
+### 5.3 Run Generation Script
 
 Execute the task file generation script:
 
@@ -183,7 +256,7 @@ python .claude/skills/nxs-generate-tasks/scripts/generate_task_files.py /tmp/tas
 - If script returns error, report to user and stop
 - If `fallbacks_used > 0`, warn user that some tasks have placeholder LLD content
 
-## 5. Run Consistency Analysis & Auto-Remediation
+## 6. Run Consistency Analysis & Auto-Remediation
 
 **MANDATORY**: After generating task files, invoke the `nxs-analyzer` agent to validate consistency.
 
@@ -223,13 +296,13 @@ The agent will:
 }
 ```
 
-Use these metrics in the Review Checkpoint (Step 6).
+Use these metrics in the Review Checkpoint (Step 7).
 
-## 6. Review Checkpoint
+## 7. Review Checkpoint
 
 **MANDATORY STOP** — Wait for user confirmation before creating GitHub issues.
 
-**For fresh runs** (steps 1-5 completed):
+**For fresh runs** (steps 1-6 completed):
 Present summary: {N} tasks generated in `{path}/tasks/`, auto-remediation applied ({X} tasks merged, {Y} terminology fixes), remaining issues ({critical}/{high}/{medium}/{low}), coverage ({X}%). See `task-review.md` for full analysis.
 
 **For resume mode** (task-review.md provided):
@@ -246,11 +319,35 @@ Prompt: "Review task files and `task-review.md`, then reply: `continue` (create 
 
 **Handle response** (same for both modes):
 
-- `continue`: Proceed to Step 7
-- `skip [numbers]`: Exclude specified, proceed to Step 7
+- `continue`: Proceed to post-approval actions, then Step 8
+- `skip [numbers]`: Exclude specified, proceed to post-approval actions, then Step 8
 - `abort`: Preserve files, inform user they can re-run `/nxs.analyze` or `/nxs.tasks`, exit
 
-## 7. Create Task Issues
+**Post-approval epic modification handling** (only if Step 3 resulted in in-place epic modifications — skip this if epics were only closed, since those already received a comment at close time):
+
+After user confirms `continue` or `skip`:
+
+1. **Comment on modified epic issues**: For each epic that was modified (not closed) in Step 3:
+   ```bash
+   gh issue comment {issue-number} --body "## Epic Modified During Task Planning
+
+   **Modified by**: Task planning for #{current-epic-issue-number}
+   **Date**: {YYYY-MM-DD}
+
+   ### Changes Made
+   {description of scope changes made to this epic}
+
+   ### Reason
+   {explanation of why the modification was needed, referencing HLD analysis}"
+   ```
+
+2. **Commit modified epic files**:
+   ```bash
+   git add <path-to-modified-epic.md> [<additional-modified-epics> ...]
+   git commit -m "epics: scope adjustments from task planning for #{current-epic-issue-number}"
+   ```
+
+## 8. Create Task Issues
 
 After receiving user confirmation to proceed, create GitHub issues for each approved task:
 
@@ -294,9 +391,9 @@ After receiving user confirmation to proceed, create GitHub issues for each appr
 {Total estimated effort range}
 ```
 
-Group tasks into phases based on the Task Categories defined in Step 3. Only include phases that have tasks assigned to them.
+Group tasks into phases based on the Task Categories defined in Step 4. Only include phases that have tasks assigned to them.
 
-## 8. Update Epic
+## 9. Update Epic
 
 After generating `tasks.md`, update the `epic.md` file:
 
@@ -309,7 +406,7 @@ After generating `tasks.md`, update the `epic.md` file:
     See [tasks.md](./tasks.md) for the detailed task breakdown and dependency graph.
     ```
 
-## 9. Next Steps
+## 10. Next Steps
 
 After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated:
 
@@ -325,6 +422,9 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 
 - **DO NOT** search for HLD files - use provided context/arguments only
 - **DO NOT** explore the codebase - the HLD is authoritative
+- **DO NOT** create a new epic issue if `epic.md` already has a `link` attribute in frontmatter
+- **DO** check sibling epics for scope overlap before decomposing tasks
+- **DO** use `gh issue close --reason "not planned"` (not `--reason completed`) when closing superfluous epics
 - **MANDATORY STOP** at Review Checkpoint - require explicit user confirmation
 - Prefer smaller tasks over larger when uncertain
 - Ensure first task creates buildable/runnable skeleton
