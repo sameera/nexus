@@ -41,6 +41,7 @@
 - [Project Structure](configuration/project-structure.md) - Required folders and naming conventions
 - [Required Files](configuration/required-files.md) - Essential configuration and templates
 - [Customization](configuration/customization.md) - Tailoring Nexus to your project
+- [GitHub Project](configuration/github-project.md) - Configuring GitHub Project integration for issues
 
 ### Reference
 

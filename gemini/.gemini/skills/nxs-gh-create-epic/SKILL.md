@@ -25,7 +25,7 @@ python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
 
 | Flag                 | Description                                                                                                             |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `--project "<name>"` | Specify the GitHub project to add the issue to (e.g., `my-org/my-project`). If omitted, auto-discovers from repository. |
+| `--project "<name>"` | Specify the GitHub project to add the issue to (e.g., `my-org/my-project`). If omitted, reads from `docs/system/delivery/config.json`, then auto-discovers from repository. |
 | `-y`, `--yes`        | Skip confirmation if a link already exists                                                                              |
 | `--no-project`       | Skip adding the issue to any project                                                                                    |
 

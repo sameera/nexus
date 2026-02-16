@@ -61,8 +61,9 @@ Task body content goes here. This becomes the issue body.
 The script determines which project to use in this order:
 
 1. **Frontmatter `project` attribute** - If specified in the task file, use this project
-2. **Repository project** - If no `project` attribute, auto-discover from the repository's linked projects
-3. **No project** - If neither is found (or `--no-project` flag is set), skip project assignment
+2. **Delivery config** - If no frontmatter project, check `docs/system/delivery/config.json` for a `project` attribute
+3. **Repository project** - If neither above is found, auto-discover from the repository's linked projects
+4. **No project** - If none found (or `--no-project` flag is set), skip project assignment
 
 ## Prerequisites
 
