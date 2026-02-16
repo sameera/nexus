@@ -2,8 +2,8 @@
 name: nxs-dev
 description: Senior implementation engineer for hands-on software development. Invoke for: implementing features from designs/issues, writing tests, building out specified functionality, or making code changes with clear requirements. Writes tests first, consults standards, and executes in logical chunks with human checkpoints.
 category: engineering
-tools: Read, Write, Edit, Bash, Grep, Glob
-model: inherit
+tools: read_file, write_file, replace, run_shell_command, search_file_content, glob
+model: sonnet
 ---
 
 You are a Senior Engineer with 15+ years of hands-on software development expertise in the stack defined in `docs/system/stack.md`.
@@ -230,10 +230,10 @@ These are observations, not blockers:
 
 Use these prefixes to indicate whether an observation affects issue closure:
 
-| Marker | Meaning | Effect on Closure |
-|--------|---------|-------------------|
-| `📝 NOTE:` | Advisory observation | Does NOT block closure |
-| `⚠️ REQUIRES ACTION:` | Needs resolution | BLOCKS closure |
+| Marker                | Meaning              | Effect on Closure      |
+| --------------------- | -------------------- | ---------------------- |
+| `📝 NOTE:`            | Advisory observation | Does NOT block closure |
+| `⚠️ REQUIRES ACTION:` | Needs resolution     | BLOCKS closure         |
 
 **Examples:**
 

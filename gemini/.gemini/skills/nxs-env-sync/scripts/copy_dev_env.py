@@ -9,29 +9,30 @@ from typing import List
 DEFAULT_PATTERNS = [
     ".env",
     ".env.*",
-    ".claude/settings.local.json",
-    "*/.env",      # .env in immediate subfolders
-    "*/.env.*"     # .env.* in immediate subfolders
+    ".gemini/settings.local.json",
+    "**/.env",      # .env in any subfolder
+    "**/.env.*"     # .env.* in any subfolder
 ]
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Copy essential local dev files (e.g., .env) between git worktrees/directories."
     )
-    
+
     parser.add_argument(
         "other_path",
         type=Path,
         help="The path to the other worktree/directory to copy to or from."
     )
-    
+
     parser.add_argument(
         "--mode",
         choices=["import", "export"],
         required=True,
         help="Direction of copy: 'import' (from OTHER to CURRENT) or 'export' (from CURRENT to OTHER)."
     )
-    
+
     parser.add_argument(
         "--patterns",
         nargs="+",
@@ -47,9 +48,10 @@ def parse_arguments():
 
     return parser.parse_args()
 
+
 def main():
     args = parse_arguments()
-    
+
     # Resolve paths
     current_path = Path.cwd()
     other_path = args.other_path.resolve()
@@ -72,7 +74,7 @@ def main():
 
     # Combine patterns
     patterns = DEFAULT_PATTERNS + args.patterns
-    
+
     files_copied = 0
     files_skipped = 0
 
@@ -102,7 +104,7 @@ def main():
             continue
 
         print(f"[COPY] {rel_path}")
-        
+
         if not args.dry_run:
             try:
                 # Ensure parent directory exists in destination
@@ -117,6 +119,7 @@ def main():
         print(f"Dry run complete. Found {len(files_to_process)} candidate(s).")
     else:
         print(f"Complete. Copied: {files_copied}, Skipped: {files_skipped}")
+
 
 if __name__ == "__main__":
     main()

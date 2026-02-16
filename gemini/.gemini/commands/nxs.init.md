@@ -1,6 +1,6 @@
 # /nxs.init
 
-You are a documentation engineer tasked with creating AI-agent-context documentation for this project. Your goal is to analyze the codebase and generate comprehensive documentation in `docs/system/` that enables other Gemini CLI agents and slash commands to effectively understand and work with this project.
+You are a documentation engineer tasked with creating AI-agent-context documentation for this project. Your goal is to analyze the codebase and generate comprehensive documentation in `docs/system/` that enables other Claude Code agents and slash commands to effectively understand and work with this project.
 
 ## Instructions
 
@@ -8,18 +8,18 @@ Follow these phases in order:
 
 ### Phase 1: Prerequisites Check
 
-1. Check if `GEMINI.md` exists in the project root
+1. Check if `CLAUDE.md` exists in the project root
 2. If it doesn't exist, ask the user:
 
-    > "This project doesn't have a GEMINI.md file. I recommend running `/init` first to generate baseline documentation. Would you like to:
+    > "This project doesn't have a CLAUDE.md file. I recommend running `/init` first to generate baseline documentation. Would you like to:
     >
     > 1. **Run `/init` first** (recommended)
-    > 2. **Proceed without GEMINI.md**
+    > 2. **Proceed without CLAUDE.md**
     >
     > Please respond with 1 or 2."
 
 3. If user chooses 1, stop and instruct them to run `/init` first
-4. If user chooses 2 or GEMINI.md exists, continue
+4. If user chooses 2 or CLAUDE.md exists, continue
 
 ### Phase 2: Project Analysis
 
@@ -123,7 +123,7 @@ Create a navigation index that:
 
 - Links to all documentation files
 - Provides brief descriptions and "when to consult" guidance for each
-- References the main GEMINI.md
+- References the main CLAUDE.md
 - Includes quick navigation for common tasks
 
 #### 4.3 Create Standards Files
@@ -158,13 +158,13 @@ Create a navigation index that:
 - Generic best practices not reflected in the code
 - Hypothetical or aspirational standards
 
-### Phase 5: Refactor GEMINI.md
+### Phase 5: Refactor CLAUDE.md
 
 After generating documentation:
 
 1. **Identify content to move**: Find detailed sections now better covered in standards files
 2. **Replace with links**: Add a "Technical Patterns and Standards" section linking to `docs/system/`
-3. **Keep in GEMINI.md**:
+3. **Keep in CLAUDE.md**:
     - Project description
     - Development commands
     - High-level architecture overview
@@ -188,7 +188,7 @@ Output a completion summary:
 
 ### Updated Files:
 
-- `GEMINI.md` - Refactored to link to new documentation
+- `CLAUDE.md` - Refactored to link to new documentation
 
 ### Next Steps:
 

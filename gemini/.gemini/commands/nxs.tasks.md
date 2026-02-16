@@ -1,5 +1,7 @@
 ---
 description: Break down a High-Level Design into implementable GitHub issues
+model: sonnet
+tools: read_file, write_file, glob, search_file_content, delegate_to_agent, activate_skill, run_shell_command
 ---
 
 # Role
@@ -15,31 +17,66 @@ Act as an experienced senior engineer performing technical decomposition and tas
 
 # Input Resolution
 
-**CRITICAL**: Do NOT search for HLD files. Resolve the HLD source as follows:
+**CRITICAL**: Do NOT search for HLD files. Resolve the input source as follows:
 
-1. **If `$ARGUMENTS` contains a file path**: Use that path directly
-2. **If a file is provided in context** (open in editor): Use that file as the HLD
-3. **Otherwise**: Stop and ask the user to either:
+1. **If `$ARGUMENTS` contains a path to `task-review.md`**: Treat as **resume mode** — skip to Step 7
+2. **If `$ARGUMENTS` contains a file path to HLD.md**: Use that path directly
+3. **If a file is provided in context** (open in editor): Use that file as the HLD
+4. **Otherwise**: Stop and ask the user to either:
     - Open the HLD file in their editor and re-run the command, OR
     - Provide the file path as an argument: `/nxs.tasks path/to/HLD.md`
+    - Resume from review: `/nxs.tasks path/to/tasks/task-review.md`
 
 **Never** run `find`, `ls`, or search commands to locate HLD files.
 
+# Resume Mode
+
+When `task-review.md` is provided as input, the command enters **resume mode** to continue from a previous session that stopped at the Review Checkpoint.
+
+## Validation
+
+1. **Verify directory structure**:
+    - Parent directory (of `tasks/`) must contain `epic.md` with `link` attribute (GitHub issue number)
+    - Parent directory must contain `HLD.md`
+    - `tasks/` folder must contain `TASK-*.md` files
+    - If any missing, report error and exit with guidance
+
+2. **Extract epic context**:
+    - Parse `epic.md` frontmatter for `link` attribute → extract issue number
+    - Count existing `TASK-*.md` files in `tasks/` folder
+
+3. **Parse task-review.md for metrics**:
+    - Extract summary metrics (tasks merged, terminology fixes)
+    - Extract severity counts (critical/high/medium/low remaining issues)
+    - Extract coverage percentages if available
+
+4. **Skip to Step 7** (Review Checkpoint) with reconstructed metrics
+
+5. **On user approval**, proceed to Step 8 (Create Task Issues)
+
 # Workflow
 
-## 1. Create Epic Issue
+## 1. Resolve Epic Issue
 
-Before analyzing the HLD, create a GitHub issue for the parent epic:
+Before analyzing the HLD, ensure a GitHub issue exists for the parent epic:
 
 1. Locate the `epic.md` file in the same directory as the HLD file
-2. Apply the `nxs-gh-create-epic` skill by running:
-    ```bash
-    python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
-    ```
-3. Verify the `epic.md` frontmatter now contains a `link` attribute (e.g., `link: "#42"`)
-4. Extract and store the issue number from the `link` attribute for use in task generation
+2. Parse the `epic.md` YAML frontmatter and check for a `link` attribute
 
-If no `epic.md` exists in the HLD directory, warn the user and proceed without a parent issue.
+    a. **If `link` exists** (e.g., `link: "#42"`):
+    - Extract the issue number from the `link` value
+    - Log: `Epic issue already exists: #{issue-number} — skipping creation`
+    - Store the issue number for use in task generation
+
+    b. **If `link` is missing**:
+    - Invoke the `nxs-gh-create-epic` skill:
+      ```bash
+      python ./.gemini/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+      ```
+    - Verify the `epic.md` frontmatter now contains a `link` attribute
+    - Extract and store the issue number from the `link` attribute for use in task generation
+
+3. If no `epic.md` exists in the HLD directory, warn the user and proceed without a parent issue.
 
 ## 2. Load & Analyze HLD
 
@@ -52,267 +89,269 @@ Read the High-Level Design document and extract:
 - Non-functional requirements (performance, security, etc.)
 - Technology stack and constraints
 
-## 3. Decompose into Tasks
+## 3. Epic Scope Validation
 
-Apply these decomposition rules:
+After loading the HLD, validate the current epic's scope against sibling epics in the same feature directory.
 
-**Size Constraint**: Each task must be completable by one engineer in ≤2 days. If larger, decompose further.
+1. **Identify sibling epics**:
+    - Determine the parent feature directory (parent of the current epic's directory)
+    - Scan for other `*/epic.md` files in sibling directories (e.g., `01-epic-a/epic.md`, `02-epic-b/epic.md`)
+    - If no sibling epics exist, skip this step entirely
 
-**Consistency Rule**: After completing any task, the system must be in a valid state:
+2. **Load sibling epic context**:
+    - For each sibling epic, parse:
+        - Frontmatter: `epic` (title), `link` (issue number, if exists), `complexity`, `status`
+        - User Stories section: story titles and high-level scope
+        - Out of Scope section
 
-- All tests pass
-- Build succeeds
-- No broken UI elements or dead endpoints
-- No unhandled errors in implemented paths
+3. **Cross-reference HLD scope with sibling epics**:
+    - Compare the HLD's scope (Requirements Analysis, Architecture Overview) against sibling epic scopes
+    - Check for:
+        - **Scope overlap**: HLD addresses functionality already covered by a sibling epic's user stories
+        - **Superfluous siblings**: A sibling epic's scope is entirely subsumed by the current HLD
+        - **Scope drift**: The HLD significantly expands beyond the current epic's user stories into sibling territory
 
-**Sequencing**: Identify dependencies and order tasks so each can be implemented without forward references to incomplete work.
+4. **If no scope issues detected**, proceed to Step 4.
 
-**Task Categories** (used for phasing):
+5. **If scope issues detected**, present findings to the user:
 
-1. **Infrastructure/Setup** - Project scaffolding, CI/CD, environment config
-2. **Data Layer** - Models, migrations, repositories
-3. **Core Logic** - Services, business rules, utilities
-4. **API/Interface** - Endpoints, handlers, validation
-5. **Integration** - External services, cross-component wiring
-6. **Polish** - Error handling improvements, logging, documentation
+    ```markdown
+    ## Epic Scope Validation Findings
 
-## 4. Generate Low-Level Design per Task
+    The HLD for **[Current Epic Title]** has scope implications for sibling epics:
 
-Each task MUST include a low-level design section covering:
+    | Finding | Affected Epic | Details |
+    |---------|--------------|---------|
+    | [Overlap/Superfluous/Drift] | [Sibling Epic Title] (#[issue-number]) | [Description] |
 
-- **Files to create/modify** with exact paths
-- **Key interfaces/types** to implement (signatures, not full implementation)
-- **Dependencies** on other tasks (by task number)
-- **Acceptance criteria** - specific, testable conditions
-- **Implementation hints** - algorithms, patterns, or gotchas
+    ### Recommended Actions
 
-## 5. Output Format
+    | # | Action | Impact |
+    |---|--------|--------|
+    | 1 | [e.g., "Close #45 (02-private-tags) as superfluous"] | [Scope fully covered by current HLD] |
+    | 2 | [e.g., "Modify 03-tag-inheritance epic to exclude X"] | [Reduces overlap] |
+    | 3 | No changes — proceed as-is | [Accept overlap] |
 
-Create a `tasks/` subfolder in the same directory as the HLD file.
+    **Your choice**: _[approve actions / modify / skip]_
+    ```
 
-### Template Location
+    **MANDATORY STOP**: Do NOT proceed until the user responds.
 
-Task files are generated using the template at `docs/system/delivery/task-template.md`.
+6. **Handle user response**:
 
-**Before generating tasks**, read this template file to understand the output format. Users may customize this template — always use the current version, never a cached or assumed structure.
+    a. **Approve actions**: Execute the recommended actions:
+    - **Close superfluous epic issues**: For each epic to close that has a `link` attribute:
+      ```bash
+      gh issue close {issue-number} --reason "not planned" --comment "Closed as superfluous: scope fully covered by #{current-epic-issue-number} ([Current Epic Title]). Determined during HLD/task planning."
+      ```
+    - **Modify epic documents**: Update the affected `epic.md` files (adjust scope, out-of-scope sections, user stories as needed)
+    - **Record modifications**: Store a list of all modifications made (affected epic titles, issue numbers, description of changes) for use in Step 7 (Review Checkpoint)
 
-### Template Variables
+    b. **Modify**: User provides alternative actions. Execute those instead and record modifications.
 
-The template uses `{{VARIABLE}}` placeholders. Replace each with:
+    c. **Skip**: Proceed without changes. Log that scope validation was performed but no action was taken.
 
-| Variable                   | Description                                                        |
-| -------------------------- | ------------------------------------------------------------------ |
-| `{{EPIC}}`                 | Parent epic's GitHub issue number                                  |
-| `{{SEQ}}`                  | Zero-padded sequence number (01, 02, etc.)                         |
-| `{{TITLE}}`                | Concise task title                                                 |
-| `{{LABELS}}`               | Comma-separated labels from approved set                           |
-| `{{PARENT}}`               | Epic issue reference (e.g., `#42`)                                 |
-| `{{SUMMARY}}`              | One paragraph describing the task                                  |
-| `{{BLOCKED_BY}}`           | Task dependencies or "None"                                        |
-| `{{BLOCKS}}`               | Tasks this unblocks or "None"                                      |
-| `{{FILES}}`                | Bulleted list of files with purposes                               |
-| `{{INTERFACES}}`           | Key type definitions or signatures                                 |
-| `{{IMPLEMENTATION_NOTES}}` | Algorithms, patterns, edge cases                                   |
-| `{{ACCEPTANCE_CRITERIA}}`  | Bulleted checklist items                                           |
-| `{{EFFORT_ESTIMATE}}`      | Time range (e.g., "2-4 hours")                                     |
-| `{{PROJECT}}`              | GitHub project name (auto-configured on first run)                 |
-| `{{WORKSPACE_PATH}}`       | Git worktree path: `../<repo-name>-worktrees/<epic-issue-number>`  |
-| `{{BRANCH}}`               | Git branch: `<feat\|bug>/<epic-issue-number>-<concise-epic-title>` |
+## 4. Decompose into Tasks
 
-### Git Workspace Variables
+Delegate HLD decomposition to `nxs-decomposer`:
 
-These variables are derived once per epic and remain constant across all tasks:
+1. Invoke `nxs-decomposer` with:
+    - HLD file path
+    - Epic issue number from Step 1
+    - Request: "Decompose into implementation tasks"
 
-**`{{WORKSPACE_PATH}}`**
+2. The decomposer will return structured JSON with:
+    - Sequenced tasks (≤2 days each, effort-sized)
+    - Phase/category assignments (Infrastructure, Data Layer, Core Logic, API, Integration, Polish)
+    - Dependency relationships (blocked_by/blocks)
+    - Mermaid dependency graph
+    - Parallelization opportunities
 
-- Format: `../<repo-name>-worktrees/<epic-issue-number>`
-- Derive `<repo-name>` from the current repository name
-- Example: For repo `nexus` and epic `#42` → `../nexus-42`
+3. Validate response:
+    - All tasks have required fields (sequence, title, category, summary, effort, labels)
+    - Dependencies form valid DAG (no cycles)
+    - No task exceeds M size (≤2 days)
 
-**`{{BRANCH}}`**
+**Fallback**: If decomposer fails or returns invalid JSON, report error and stop.
 
-- Format: `<type>/<epic-issue-number>-<concise-epic-title>`
-- `<type>`: Check epic labels — use `bug` if the epic has a `bug` label, otherwise use `feat`
-- `<concise-epic-title>`: Kebab-case the epic title (lowercase, spaces to hyphens, remove special characters)
-- Example: Feature epic #42 "User Authentication Flow" → `feat/42-user-authentication-flow`
+## 5. Generate Task Files
 
-### Label Requirements
+Generate task files by invoking the architect for LLD content, then running the task generation script.
 
-**MANDATORY**: Read `docs/system/delivery/task-labels.md` to get the list of valid labels. Do not assume or guess labels—the file is the single source of truth.
+### 5.1 Generate LLD Content
 
-**Label assignment rules** (after reading the labels file):
+For each task from the decomposer, invoke `nxs-architect` in LLD-elaboration mode:
 
-- Use 1-3 labels per task based on work areas involved
-- Choose the primary architectural label first (e.g. `infrastructure`, `backend`, `frontend`, `database`)
-- Add secondary labels (like `performance` or `integration`) when applicable
-- **DO NOT** use any label not defined in `docs/system/delivery/task-labels.md`
+```
+Invoke: nxs-architect
+Mode: LLD-elaboration (HLD is authoritative)
+Topic: Low-Level Design for TASK-{epic_number}.{sequence}: {title}
+HLD Content: [relevant sections from HLD]
+Task Context:
+  - Category: {category}
+  - Summary: {summary}
+  - Blocked by: {blocked_by}
+  - Blocks: {blocks}
+Request:
+  - FILES: List files to create/modify with purposes
+  - INTERFACES: Key TypeScript interfaces/types
+  - KEY_DECISIONS: Table of decisions with rationale (extract from HLD)
+  - IMPLEMENTATION_NOTES: Patterns, edge cases, testing guidance
+  - ACCEPTANCE_CRITERIA: Checklist items for this specific task
+```
 
-### Task Numbering
+Store each architect response in the task object as `architect_response`.
 
-Task numbers follow the format `TASK-{EPIC}.{NN}` where:
+### 5.2 Prepare Input JSON
 
-- `{EPIC}` is the parent epic's GitHub issue number
-- `{NN}` is a zero-padded sequential number starting from 01
+Assemble all data into a JSON structure:
 
-For example, if the epic issue number is 23, tasks would be numbered `TASK-23.01`, `TASK-23.02`, `TASK-23.03`, etc.
+```json
+{
+  "epic_number": {epic issue number from Step 1},
+  "epic_title": "{epic title from epic.md}",
+  "epic_type": "{enhancement|bug from epic.md}",
+  "output_dir": "{HLD directory}/tasks",
+  "tasks": [
+    {
+      "sequence": 1,
+      "title": "Task title",
+      "category": "Category",
+      "summary": "One paragraph summary",
+      "effort": "S",
+      "labels": ["frontend"],
+      "blocked_by": [],
+      "blocks": [2, 3],
+      "architect_response": "### Files\n\n- `path/to/file.ts`..."
+    }
+  ]
+}
+```
 
-**Important**: The `parent` frontmatter attribute MUST be set to the epic's issue number extracted from the `epic.md` `link` attribute in Step 1 (e.g., `parent: #42`). This links each task issue to the parent epic issue.
+Write this JSON to a temporary file (e.g., `/tmp/tasks-input-{epic_number}.json`).
+
+### 5.3 Run Generation Script
+
+Execute the task file generation script:
+
+```bash
+python .gemini/skills/nxs-generate-tasks/scripts/generate_task_files.py /tmp/tasks-input-{epic_number}.json
+```
+
+### Expected Response
+
+```json
+{
+  "status": "success",
+  "tasks_generated": N,
+  "output_dir": "path/to/tasks",
+  "files": ["TASK-7.01.md", "TASK-7.02.md", ...],
+  "fallbacks_used": N
+}
+```
+
+### Error Handling
+
+- If architect fails for a task, set `architect_response` to `null` (script uses fallbacks)
+- If script returns error, report to user and stop
+- If `fallbacks_used > 0`, warn user that some tasks have placeholder LLD content
 
 ## 6. Run Consistency Analysis & Auto-Remediation
 
-**MANDATORY**: After generating all task files, run consistency analysis and automatically fix what can be remediated.
+**MANDATORY**: After generating task files, invoke the `nxs-analyzer` agent to validate consistency.
 
-### 6a. Run Analysis
+```
+Invoke: nxs-analyzer
+Context:
+  - Epic directory: {epic-directory}
+  - Mode: auto-remediate
+Request:
+  - Run consistency analysis on epic.md, HLD.md, and tasks/*.md
+  - Apply auto-remediation for AUTO-classified findings
+  - Generate tasks/task-review.md
+  - Return metrics summary
+```
 
-Invoke `/nxs.analyze {epic-directory}` to check for:
+The agent will:
 
-- Coverage gaps (epic stories or HLD components without implementing tasks)
-- Logical inconsistencies between epic intent and tasks
-- Technical inconsistencies between HLD and task LLDs
-- Inter-task inconsistencies (circular deps, conflicts, terminology drift)
-- Superfluous task breakdowns (tasks that should be consolidated)
+1. Identify coverage gaps, inconsistencies, and superfluous tasks
+2. Automatically fix AUTO-classified findings: merge superfluous tasks (barrel/export-only, verification-only, <1hr effort), normalize terminology, renumber sequentially, update dependencies
+3. Generate `tasks/task-review.md` with remediation log and remaining manual issues
+4. Return metrics: remediated count, remaining issues (CRITICAL/HIGH/MEDIUM/LOW), final task count, coverage %
 
-The analysis creates `tasks/task-review.md` with findings categorized by:
+**Expected Response** (JSON):
 
-- Severity: CRITICAL / HIGH / MEDIUM / LOW
-- Remediation type: AUTO (can be fixed programmatically) / MANUAL (requires user judgment)
+```json
+{
+    "task_review_path": "tasks/task-review.md",
+    "metrics": {
+        "total_findings": N,
+        "auto_remediated": N,
+        "remaining": { "critical": N, "high": N, "medium": N, "low": N },
+        "coverage": { "user_stories": N, "hld_components": N, "nfrs": N },
+        "final_task_count": N
+    },
+    "remediation_applied": { "tasks_merged": N, "terminology_fixes": N },
+    "blocking_issues": boolean
+}
+```
 
-### 6b. Auto-Remediate Findings
-
-After analysis completes, automatically fix all `AUTO`-classified findings:
-
-#### Superfluous Task Consolidation
-
-For each superfluous task identified:
-
-1. **Barrel/Export-only tasks** (e.g., "Export tag types via index.ts"):
-    - Read the superfluous task's file list and acceptance criteria
-    - Append the export statements to the **Files to create/modify** section of the originating task
-    - Add "Export public API via barrel file" to the originating task's acceptance criteria
-    - Delete the superfluous task file
-
-2. **Verification-only tasks** (e.g., "Run tag service tests"):
-    - Read the verification task's acceptance criteria
-    - Append verification steps to the source task's acceptance criteria (e.g., "All tests pass", "Lint checks pass")
-    - Delete the verification task file
-
-3. **Effort < 1 hour tasks**:
-    - Identify the task it's `blocked_by` (preferred) or the first task it `blocks`
-    - Merge all content (files, interfaces, acceptance criteria, implementation notes) into the target task
-    - Update the target task's effort estimate accordingly
-    - Delete the merged task file
-
-#### Dependency Chain Updates
-
-After merging tasks:
-
-1. Update `blocked_by` references in remaining tasks to point to the merge target
-2. Update `blocks` references in remaining tasks to remove deleted task IDs
-3. Ensure no dangling references exist
-
-#### Task Renumbering
-
-After deletions, renumber remaining tasks to maintain sequential order:
-
-1. Rename task files: `TASK-{EPIC}.01.md`, `TASK-{EPIC}.02.md`, etc.
-2. Update task IDs in frontmatter
-3. Update all `blocked_by` and `blocks` references to use new IDs
-
-#### Terminology Normalization
-
-For terminology drift findings:
-
-1. Identify the canonical term from `HLD.md` (e.g., `userId` not `userID`, `userUUID`, `user_id`)
-2. Replace all variant terms across task files with the canonical term
-3. Apply to: titles, summaries, file paths, interface definitions, acceptance criteria
-
-### 6c. Update task-review.md
-
-After auto-remediation, update `tasks/task-review.md`:
-
-1. Move all remediated findings to the **Auto-Remediated ✅** section
-2. Mark each with `[x]` and document the action taken
-3. Update the **Summary** table:
-    - Decrement issue counts for remediated items
-    - Update "Tasks Analyzed" count if tasks were merged/deleted
-4. Update the **Superfluous Tasks** table with "✅ Auto-merged" status
-5. Recalculate coverage percentages if task mappings changed
-6. Update **Recommended Actions** to reflect only remaining manual issues
-
-### 6d. Capture Metrics for Review Checkpoint
-
-After remediation, capture:
-
-- Original finding counts (before remediation)
-- Auto-remediated count
-- Remaining manual issue counts (CRITICAL/HIGH/MEDIUM/LOW)
-- Tasks merged/deleted count
-- Final task count
-- Coverage percentages
+Use these metrics in the Review Checkpoint (Step 7).
 
 ## 7. Review Checkpoint
 
-**STOP AND WAIT** for user confirmation before creating GitHub issues.
+**MANDATORY STOP** — Wait for user confirmation before creating GitHub issues.
 
-1. **Present a summary** to the user:
-    - Number of tasks generated (after any merges)
-    - List of task files with their titles (e.g., `TASK-23.01: Setup project scaffolding`)
-    - Path to the `tasks/` folder for review
-    - Reminder of the phasing/dependency structure
-    - **Auto-remediation summary** (what was fixed)
-    - **Remaining manual issues**
+**For fresh runs** (steps 1-6 completed):
+Present summary: {N} tasks generated in `{path}/tasks/`, auto-remediation applied ({X} tasks merged, {Y} terminology fixes), remaining issues ({critical}/{high}/{medium}/{low}), coverage ({X}%). See `task-review.md` for full analysis.
 
-2. **Prompt the user**:
+**For resume mode** (task-review.md provided):
+Present summary: "Resuming from previous session. {N} task files found in `{path}/tasks/`."
+Parse and display metrics from `task-review.md` (remediation stats, remaining issues, coverage).
 
-    > "I've generated **{N} task files** in `{path-to-tasks-folder}/` and performed consistency analysis.
-    >
-    > **Auto-Remediation Applied**:
-    >
-    > - {X} superfluous tasks merged (see `task-review.md` for details)
-    > - {Y} terminology inconsistencies normalized
-    > - Tasks renumbered to maintain sequence
-    >
-    > **Final Tasks**:
-    > {numbered list of task files with titles}
-    >
-    > **Remaining Issues** (require manual review):
-    >
-    > - {critical} critical, {high} high, {medium} medium, {low} low
-    > - User story coverage: {X}%
-    > - HLD component coverage: {X}%
-    >
-    > See `tasks/task-review.md` for full analysis.
-    >
-    > {If critical > 0: "⛔ **CRITICAL ISSUES FOUND** — Strongly recommend resolving before proceeding."}
-    > {If critical == 0 && high > 0: "⚠️ **HIGH priority issues found** — Review recommended."}
-    > {If critical == 0 && high == 0: "✅ **No blocking issues** — Safe to proceed."}
-    >
-    > Please review the task files and `task-review.md`, then reply with one of:
-    >
-    > - **`continue`** — Create GitHub issues for all tasks
-    > - **`skip 03, 05`** — Create issues excluding specified task numbers
-    > - **`abort`** — Cancel issue creation to address findings (task files preserved)"
+Display severity indicator:
 
-3. **Wait for explicit user input** — do NOT proceed automatically.
+- Critical > 0: "⛔ **CRITICAL ISSUES** — Resolve before proceeding"
+- High > 0: "⚠️ **HIGH priority issues** — Review recommended"
+- Otherwise: "✅ **No blocking issues**"
 
-4. **Handle user response**:
-    - **`continue`**: Proceed to Step 8 with all tasks
-    - **`skip [numbers]`**: Mark specified tasks for exclusion, then proceed to Step 8 with remaining tasks
-    - **`abort`**: Stop execution entirely. Inform user that:
-        - Task files remain in `tasks/` folder for manual handling
-        - `task-review.md` contains the findings to address (including auto-remediation log)
-        - They can re-run `/nxs.analyze` after making edits to re-validate
-        - They can re-run `/nxs.tasks` later or manually create issues
-        - Exit without further action
+Prompt: "Review task files and `task-review.md`, then reply: `continue` (create all issues) | `skip 03, 05` (exclude specified) | `abort` (cancel to address findings)"
+
+**Handle response** (same for both modes):
+
+- `continue`: Proceed to post-approval actions, then Step 8
+- `skip [numbers]`: Exclude specified, proceed to post-approval actions, then Step 8
+- `abort`: Preserve files, inform user they can re-run `/nxs.analyze` or `/nxs.tasks`, exit
+
+**Post-approval epic modification handling** (only if Step 3 resulted in in-place epic modifications — skip this if epics were only closed, since those already received a comment at close time):
+
+After user confirms `continue` or `skip`:
+
+1. **Comment on modified epic issues**: For each epic that was modified (not closed) in Step 3:
+   ```bash
+   gh issue comment {issue-number} --body "## Epic Modified During Task Planning
+
+   **Modified by**: Task planning for #{current-epic-issue-number}
+   **Date**: {YYYY-MM-DD}
+
+   ### Changes Made
+   {description of scope changes made to this epic}
+
+   ### Reason
+   {explanation of why the modification was needed, referencing HLD analysis}"
+   ```
+
+2. **Commit modified epic files**:
+   ```bash
+   git add <path-to-modified-epic.md> [<additional-modified-epics> ...]
+   git commit -m "epics: scope adjustments from task planning for #{current-epic-issue-number}"
+   ```
 
 ## 8. Create Task Issues
 
 After receiving user confirmation to proceed, create GitHub issues for each approved task:
 
-1. Apply the `nxs-gh-create-task` skill by running:
-    ```bash
-    python ./scripts/create_gh_issues.py "<path-to-tasks-folder>"
-    ```
+1. Invoke the `nxs-gh-create-task` skill with the path to the tasks folder as an argument
 2. This will:
     - Create a GitHub issue for each `TASK-{EPIC}.{NN}.md` file
     - Apply the labels from frontmatter
@@ -352,7 +391,7 @@ After receiving user confirmation to proceed, create GitHub issues for each appr
 {Total estimated effort range}
 ```
 
-Group tasks into phases based on the Task Categories defined in Step 3. Only include phases that have tasks assigned to them.
+Group tasks into phases based on the Task Categories defined in Step 4. Only include phases that have tasks assigned to them.
 
 ## 9. Update Epic
 
@@ -367,124 +406,27 @@ After generating `tasks.md`, update the `epic.md` file:
     See [tasks.md](./tasks.md) for the detailed task breakdown and dependency graph.
     ```
 
-## 10. Cleanup
+## 10. Next Steps
 
-After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated, delete the `tasks/` subfolder and all its contents (including `task-review.md`).
+After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is updated:
+
+1. Inform the user that the task breakdown is complete
+2. Remind them to run `/nxs.close` when implementation is finished to:
+    - Generate a Post-Implementation Report (PIR.md)
+    - Close the epic's GitHub issue
+    - Clean up the `tasks/` subfolder
 
 # Constraints
 
-- **DO NOT** search for HLD files - use the provided context or arguments only
-- **DO NOT** ask clarifying questions unless the HLD is fundamentally incomplete
-- **DO NOT** use labels other than those defined in `docs/system/delivery/task-labels.md`
-- **DO NOT** proceed past the Review Checkpoint without explicit user confirmation
-- **DO NOT** skip the consistency analysis or auto-remediation steps
-- **DO** make reasonable assumptions and document them
-- **DO** prefer smaller tasks over larger ones when uncertain
-- **DO** ensure the first task creates a buildable/runnable skeleton
-- **DO** use the tech stack specified in the HLD; infer from context if not explicit
+**Critical Rules**:
 
-### Project Configuration (One-Time Setup)
+- **DO NOT** search for HLD files - use provided context/arguments only
+- **DO NOT** explore the codebase - the HLD is authoritative
+- **DO NOT** create a new epic issue if `epic.md` already has a `link` attribute in frontmatter
+- **DO** check sibling epics for scope overlap before decomposing tasks
+- **DO** use `gh issue close --reason "not planned"` (not `--reason completed`) when closing superfluous epics
+- **MANDATORY STOP** at Review Checkpoint - require explicit user confirmation
+- Prefer smaller tasks over larger when uncertain
+- Ensure first task creates buildable/runnable skeleton
 
-The `{{PROJECT}}` variable is handled differently from other template variables:
-
-1. **On first run**: When the template contains the literal string `{{PROJECT}}`:
-    - Stop and prompt the user:
-        > "This appears to be the first time running task generation for this project.
-        > Which GitHub project should issues be created under?
-        > (e.g., `my-org/my-repo` or just `my-repo` if using default org)"
-    - After receiving the project name, **update the template file directly**, replacing `{{PROJECT}}` with the provided value
-    - Confirm the update to the user before proceeding
-
-2. **On subsequent runs**: The template already contains the actual project name—use it directly without prompting.
-
-**Example transformation:**
-
-Before (first run):
-
-```yaml
-project: "{{PROJECT}}"
-```
-
-After user provides "acme-corp/backend-api":
-
-```yaml
-project: "acme-corp/backend-api"
-```
-
-This ensures the project name is configured once and persists across all future task generations.
-
-# Execution
-
-1. **Resolve HLD file** (see Input Resolution above - do not search)
-2. If no HLD file can be resolved, stop and ask user to specify one
-3. **Load task template** from `docs/system/delivery/task-template.md`
-    - If missing, warn user and use default structure
-4. **Resolve PROJECT configuration**:
-    - If template contains literal `{{PROJECT}}`:
-        - Prompt user: "Which GitHub project should issues be created under? (e.g., `my-org/my-repo`)"
-        - Update the template file, replacing `{{PROJECT}}` with the provided value
-        - Confirm the configuration update to the user
-    - Extract the configured project name from the template for use in subsequent steps
-5. **Create Epic issue**:
-    - Locate the `epic.md` file in the same directory as the HLD file
-    - Run the `nxs-gh-create-epic` skill, passing the project name:
-
-```bash
-     python ./scripts/nxs_gh_create_epic.py --project "<PROJECT>" "<path-to-epic.md>"
-```
-
-- If no `epic.md` exists, warn the user and proceed without a parent issue
-
-6. **Extract epic issue number** from the updated `epic.md` frontmatter `link` attribute
-7. **Read labels** from `docs/system/delivery/task-labels.md` to load valid labels
-8. **Read the HLD file** and perform decomposition analysis
-9. **Create the `tasks/` directory** in the same location as the HLD file
-10. **Generate all task files** using the loaded template with:
-    - Task numbers in format `TASK-{EPIC}.{NN}` (e.g., `TASK-23.01`, `TASK-23.02`)
-    - The `parent` attribute set to the epic issue number
-    - The `project` value from the template
-    - Labels from the approved set only
-11. **Run consistency analysis**:
-    - Invoke `/nxs.analyze {epic-directory}`
-    - Wait for analysis to complete and `task-review.md` to be generated
-12. **Auto-remediate findings**:
-    - Parse `task-review.md` for AUTO-classified findings
-    - For each superfluous task:
-        - Merge content into target task (files, acceptance criteria, implementation notes)
-        - Delete superfluous task file
-        - Update dependency references in remaining tasks
-    - For terminology drift:
-        - Identify canonical terms from HLD
-        - Normalize across all task files
-    - Renumber remaining tasks sequentially
-    - Update `task-review.md`:
-        - Move remediated items to "Auto-Remediated ✅" section
-        - Update summary counts
-        - Recalculate coverage if task mappings changed
-13. **Capture final metrics**:
-    - Auto-remediated count
-    - Remaining manual issues (CRITICAL/HIGH/MEDIUM/LOW)
-    - Final task count
-    - Coverage percentages
-14. **REVIEW CHECKPOINT — STOP AND WAIT**:
-    - Present the summary of tasks AND auto-remediation actions to the user
-    - Present remaining manual issues
-    - Display the prompt asking for `continue`, `skip [numbers]`, or `abort`
-    - Include severity indicators (⛔/⚠️/✅) based on REMAINING manual issues only
-    - **Do not proceed until user responds**
-    - Handle the response:
-        - `continue` → Proceed to step 15
-        - `skip [numbers]` → Exclude specified tasks, proceed to step 15
-        - `abort` → Stop execution, preserve task files and `task-review.md`, inform user they can run `/nxs.analyze` again after edits, exit
-15. **Create task issues** by running:
-
-```bash
-    python ./scripts/create_gh_issues.py --project "<PROJECT>" "<path-to-tasks-folder>"
-```
-
-16. **Generate `./tasks.md`** with tasks grouped by phase (see Workflow Step 8 for format)
-17. **Update `epic.md`** with an `## Implementation Plan` section linking to `tasks.md`
-18. **Delete the `tasks/` subfolder** and all its contents (including `task-review.md`)
-19. **Report completion** with:
-    - Epic issue URL
-    - Path to generated `tasks.md`
+**Project Configuration**: On first run, if template contains `{{PROJECT}}`, prompt user for GitHub project name (e.g., `org/repo`), update template file directly, then proceed. On subsequent runs, use existing value.

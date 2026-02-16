@@ -67,8 +67,45 @@ fi
 
 echo -e "${GREEN}Successfully cloned nexus repository${NC}"
 
-# Step 3: Copy contents from nexus/gemini/.gemini to current repo's .gemini
-SOURCE_DIR="$TEMP_DIR/nexus/gemini/.gemini"
+# Step 3: Check for updates and migrate if necessary
+CLAUDE_DIR="$TEMP_DIR/nexus/claude/.claude"
+GEMINI_DIR="$TEMP_DIR/nexus/gemini/.gemini"
+MIGRATION_SCRIPT="$TEMP_DIR/nexus/gemini/migrate_claude_to_gemini.py"
+
+if [ -d "$CLAUDE_DIR" ] && [ -d "$GEMINI_DIR" ]; then
+    echo -e "${YELLOW}Checking for updates in .claude vs .gemini...${NC}"
+    
+    # Get last commit times
+    LAST_CLAUDE_COMMIT=$(git -C "$TEMP_DIR/nexus" log -1 --format=%ct -- "claude/.claude")
+    LAST_GEMINI_COMMIT=$(git -C "$TEMP_DIR/nexus" log -1 --format=%ct -- "gemini/.gemini")
+    
+    # Default to 0 if empty (shouldn't happen in valid repo)
+    LAST_CLAUDE_COMMIT=${LAST_CLAUDE_COMMIT:-0}
+    LAST_GEMINI_COMMIT=${LAST_GEMINI_COMMIT:-0}
+
+    if [ "$LAST_CLAUDE_COMMIT" -gt "$LAST_GEMINI_COMMIT" ]; then
+        echo -e "${YELLOW}Claude changes detected (newer than Gemini). Running migration...${NC}"
+        
+        if [ -f "$MIGRATION_SCRIPT" ]; then
+            # Run migration in the temp directory
+            # We use the python from the environment
+            python3 "$MIGRATION_SCRIPT" --source "$CLAUDE_DIR" --dest "$GEMINI_DIR"
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}Error: Migration failed${NC}"
+                exit 1
+            fi
+            echo -e "${GREEN}Migration successful${NC}"
+        else
+            echo -e "${RED}Warning: Migration script not found in repo at $MIGRATION_SCRIPT. Skipping migration.${NC}"
+        fi
+    else
+        echo -e "${GREEN}Gemini is up to date with Claude (or newer). No migration needed.${NC}"
+    fi
+fi
+
+# Step 4: Copy contents from nexus/gemini/.gemini to current repo's .gemini
+SOURCE_DIR="$GEMINI_DIR"
 
 if [ ! -d "$SOURCE_DIR" ]; then
     echo -e "${RED}Error: .gemini directory not found in nexus repository${NC}"
