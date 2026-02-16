@@ -2,6 +2,8 @@
 
 **A System of Intentional Friction for the Age of AI Agents**
 
+[![Watch the video](https://img.youtube.com/vi/FFHqTUzRT_o/0.jpg)](https://www.youtube.com/watch?v=FFHqTUzRT_o)
+
 ## Quick Reference
 
 [How this works](how-to-nexus.md)
