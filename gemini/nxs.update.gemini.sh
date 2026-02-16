@@ -70,7 +70,15 @@ echo -e "${GREEN}Successfully cloned nexus repository${NC}"
 # Step 3: Check for updates and migrate if necessary
 CLAUDE_DIR="$TEMP_DIR/nexus/claude/.claude"
 GEMINI_DIR="$TEMP_DIR/nexus/gemini/.gemini"
-MIGRATION_SCRIPT="$TEMP_DIR/nexus/gemini/migrate_claude_to_gemini.py"
+MIGRATION_SCRIPT="$GEMINI_DIR/migrate_claude_to_gemini.py"
+
+# Ensure migration script is available locally if missing
+if [ ! -f "$REPO_ROOT/.gemini/migrate_claude_to_gemini.py" ] && [ -f "$MIGRATION_SCRIPT" ]; then
+    echo -e "${YELLOW}Migration script not found in .gemini. Bootstrapping...${NC}"
+    mkdir -p "$REPO_ROOT/.gemini"
+    cp "$MIGRATION_SCRIPT" "$REPO_ROOT/.gemini/"
+    echo -e "${GREEN}Migration script bootstrapped.${NC}"
+fi
 
 if [ -d "$CLAUDE_DIR" ] && [ -d "$GEMINI_DIR" ]; then
     echo -e "${YELLOW}Checking for updates in .claude vs .gemini...${NC}"

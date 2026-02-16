@@ -27,8 +27,19 @@ TOOL_MAPPING = {
 def clean_destination(dest_dir):
     if dest_dir.exists():
         print(f"Cleaning {dest_dir}...")
-        shutil.rmtree(dest_dir)
-    dest_dir.mkdir(parents=True, exist_ok=True)
+        # If we are running from within the destination, don't delete the whole directory
+        # as it would delete the script itself while it's running.
+        script_path = Path(__file__).resolve()
+        
+        for item in dest_dir.iterdir():
+            if item.resolve() == script_path:
+                continue
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+    else:
+        dest_dir.mkdir(parents=True, exist_ok=True)
 
 def copy_files(source_dir, dest_dir):
     print(f"Copying from {source_dir} to {dest_dir}...")
