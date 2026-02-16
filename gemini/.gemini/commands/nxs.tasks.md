@@ -429,4 +429,4 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 - Prefer smaller tasks over larger when uncertain
 - Ensure first task creates buildable/runnable skeleton
 
-**Project Configuration**: On first run, if template contains `{{PROJECT}}`, prompt user for GitHub project name (e.g., `org/repo`), update template file directly, then proceed. On subsequent runs, use existing value.
+**Project Configuration**: On first run, if `docs/system/delivery/config.json` does not contain a `project` attribute, prompt user for GitHub project name (e.g., `org/repo`), add it to `config.json`, then proceed. On subsequent runs, use existing value. The `generate_task_files.py` script reads `project` from this config file to populate the `{{PROJECT}}` template variable.

@@ -219,6 +219,25 @@ def validate_labels(
     return warnings
 
 
+def read_project_from_config(project_root: Path) -> str:
+    """Read the GitHub project name from delivery config.
+
+    Looks for docs/system/delivery/config.json and returns the 'project'
+    value, or empty string if not found.
+    """
+    config_path = project_root / "docs" / "system" / "delivery" / "config.json"
+
+    if not config_path.exists():
+        return ""
+
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+        return config.get("project", "")
+    except (json.JSONDecodeError, OSError):
+        return ""
+
+
 def compute_workspace_path(epic_number: int, repo_name: str) -> str:
     """Generate git worktree path.
 
@@ -297,6 +316,7 @@ def generate_task_content(
     epic_title: str,
     epic_type: str,
     repo_name: str,
+    project: str,
     task: dict,
 ) -> tuple[str, bool]:
     """Generate content for a single task file.
@@ -324,6 +344,7 @@ def generate_task_content(
         "WORKSPACE_PATH": compute_workspace_path(epic_number, repo_name),
         "BRANCH": compute_branch_name(epic_type, epic_number, epic_title),
         "EFFORT_ESTIMATE": EFFORT_MAP.get(task.get("effort", "M"), task.get("effort", "TBD")),
+        "PROJECT": project,
     }
 
     # Add architect sections with fallbacks
@@ -357,6 +378,9 @@ def generate_task_files(
 
     # Derive repo name from project root directory name
     repo_name = project_root.name
+
+    # Read GitHub project from delivery config
+    project = read_project_from_config(project_root)
 
     # Make output_dir absolute if relative
     if not output_dir.is_absolute():
@@ -397,6 +421,7 @@ def generate_task_files(
             epic_title=epic_title,
             epic_type=epic_type,
             repo_name=repo_name,
+            project=project,
             task=task,
         )
 

@@ -131,6 +131,37 @@ def update_frontmatter_with_link(content: str, issue_num: str) -> str:
     return "\n".join(lines)
 
 
+def find_project_root(start_path: Path) -> Path:
+    """Find the project root by looking for CLAUDE.md, .gemini, or .git."""
+    current = start_path.resolve()
+
+    while current != current.parent:
+        if (current / "CLAUDE.md").exists() or (current / ".gemini").exists() or (current / ".git").exists():
+            return current
+        current = current.parent
+
+    return Path.cwd()
+
+
+def read_project_from_config(project_root: Path) -> str:
+    """Read the GitHub project name from delivery config.
+
+    Looks for docs/system/delivery/config.json and returns the 'project'
+    value, or empty string if not found.
+    """
+    config_path = project_root / "docs" / "system" / "delivery" / "config.json"
+
+    if not config_path.exists():
+        return ""
+
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+        return config.get("project", "")
+    except (json.JSONDecodeError, OSError):
+        return ""
+
+
 def get_project_id_by_name(project_name: str) -> str | None:
     """Get the node ID of a project by its name.
     
@@ -501,7 +532,7 @@ def main() -> int:
         error("No content found after frontmatter")
         return 1
 
-    # Resolve project ID
+    # Resolve project ID (priority: --project flag > config.json > repo auto-discovery)
     project_id = None
     if not args.no_project:
         if args.project:
@@ -511,11 +542,21 @@ def main() -> int:
             if not project_id:
                 warn(f"Project '{args.project}' not found, issue will not be added to a project")
         else:
-            # Auto-discover from repository
-            print("🔍 Looking for repository project...")
-            project_id = get_repo_project_id()
+            # Check delivery config for project name
+            project_root = find_project_root(epic_file)
+            config_project = read_project_from_config(project_root)
+            if config_project:
+                print(f"🔍 Looking up project from config: {config_project}")
+                project_id = get_project_id_by_name(config_project)
+                if not project_id:
+                    warn(f"Project '{config_project}' from config.json not found, falling back to auto-discovery")
+
             if not project_id:
-                warn("No project found for repository, issue will not be added to a project")
+                # Auto-discover from repository
+                print("🔍 Looking for repository project...")
+                project_id = get_repo_project_id()
+                if not project_id:
+                    warn("No project found for repository, issue will not be added to a project")
 
     # Create temp file with body content
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as tmp:

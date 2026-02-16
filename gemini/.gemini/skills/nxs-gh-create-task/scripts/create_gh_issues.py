@@ -418,13 +418,47 @@ def assign_parent_issue(child_issue_number: str, parent_issue_ref: str) -> bool:
         return False
 
 
-def resolve_project_id(project_attr: str | None, repo_project_id: str | None) -> str | None:
+def find_project_root(start_path: Path) -> Path:
+    """Find the project root by looking for .gemini or .git."""
+    current = start_path.resolve()
+
+    while current != current.parent:
+        if (current / ".gemini").exists() or (current / ".git").exists():
+            return current
+        current = current.parent
+
+    return Path.cwd()
+
+
+def read_project_from_config(project_root: Path) -> str:
+    """Read the GitHub project name from delivery config.
+
+    Looks for docs/system/delivery/config.json and returns the 'project'
+    value, or empty string if not found.
+    """
+    config_path = project_root / "docs" / "system" / "delivery" / "config.json"
+
+    if not config_path.exists():
+        return ""
+
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+        return config.get("project", "")
+    except (json.JSONDecodeError, OSError):
+        return ""
+
+
+def resolve_project_id(project_attr: str | None, config_project_id: str | None, repo_project_id: str | None) -> str | None:
     """Resolve the project ID to use for an issue.
-    
+
+    Priority: frontmatter project > config.json project > repo auto-discovery.
+
     Args:
         project_attr: The project attribute from frontmatter (may be None)
+        config_project_id: The project ID resolved from config.json (may be None)
         repo_project_id: The fallback repo project ID (may be None)
-        
+
     Returns:
         The project node ID to use, or None if no project should be used.
     """
@@ -434,19 +468,28 @@ def resolve_project_id(project_attr: str | None, repo_project_id: str | None) ->
         if not project_id:
             print(f"  Warning: Project '{project_attr}' not found", file=sys.stderr)
         return project_id
+    elif config_project_id:
+        # Fall back to config.json project
+        return config_project_id
     else:
         # Fall back to repo project
         return repo_project_id
 
 
-def process_task_file(task_file: Path, repo_project_id: str | None = None, skip_project: bool = False) -> bool:
+def process_task_file(
+    task_file: Path,
+    config_project_id: str | None = None,
+    repo_project_id: str | None = None,
+    skip_project: bool = False,
+) -> bool:
     """Process a single TASK file and create a GitHub issue.
-    
+
     Args:
         task_file: Path to the TASK-???.md file
-        repo_project_id: Fallback project node ID from repository (used if frontmatter has no project)
+        config_project_id: Project node ID from config.json (used if frontmatter has no project)
+        repo_project_id: Fallback project node ID from repository auto-discovery
         skip_project: If True, skip adding to any project
-    
+
     Returns:
         True if successful, False otherwise.
     """
@@ -487,7 +530,7 @@ def process_task_file(task_file: Path, repo_project_id: str | None = None, skip_
         
         # Add to project unless skipped
         if not skip_project and issue_number:
-            project_id = resolve_project_id(project_attr if project_attr else None, repo_project_id)
+            project_id = resolve_project_id(project_attr if project_attr else None, config_project_id, repo_project_id)
             if project_id:
                 issue_id = get_issue_id(issue_number)
                 if issue_id:
@@ -545,14 +588,25 @@ def main():
     
     print(f"Found {len(task_files)} task file(s)")
     
+    # Resolve project from config.json (priority between frontmatter and repo auto-discovery)
+    config_project_id = None
+    if not args.no_project and not args.dry_run:
+        project_root = find_project_root(Path(target_folder))
+        config_project = read_project_from_config(project_root)
+        if config_project:
+            print(f"Looking up project from config: {config_project}")
+            config_project_id = get_project_id_by_name(config_project)
+            if not config_project_id:
+                print(f"Warning: Project '{config_project}' from config.json not found", file=sys.stderr)
+
     # Get fallback repo project ID unless disabled
     repo_project_id = None
     if not args.no_project and not args.dry_run:
         print("Looking for repository project (fallback)...")
         repo_project_id = get_repo_project_id()
         if not repo_project_id:
-            print("No repository project found (will use frontmatter project if specified)")
-    
+            print("No repository project found (will use frontmatter or config project if available)")
+
     if args.dry_run:
         print("\nDry run - would process:")
         for f in task_files:
@@ -564,10 +618,10 @@ def main():
             project = fm.get("project", "(auto)")
             print(f"  {f.name}: title='{fm.get('title', 'N/A')}', labels={labels}, parent='{fm.get('parent', 'N/A')}', project='{project}'")
         sys.exit(0)
-    
+
     success_count = 0
     for task_file in task_files:
-        if process_task_file(task_file, repo_project_id, skip_project=args.no_project):
+        if process_task_file(task_file, config_project_id, repo_project_id, skip_project=args.no_project):
             success_count += 1
     
     print(f"\nProcessed {success_count}/{len(task_files)} task files successfully")
