@@ -162,6 +162,25 @@ def read_project_from_config(project_root: Path) -> str:
         return ""
 
 
+def read_epic_type_from_config(project_root: Path) -> str:
+    """Read the default epic issue type from delivery config.
+
+    Looks for docs/system/delivery/config.json and returns the 'epicType'
+    value, or empty string if not found.
+    """
+    config_path = project_root / "docs" / "system" / "delivery" / "config.json"
+
+    if not config_path.exists():
+        return ""
+
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+        return config.get("epicType", "")
+    except (json.JSONDecodeError, OSError):
+        return ""
+
+
 def get_project_id_by_name(project_name: str) -> str | None:
     """Get the node ID of a project by its name.
     
@@ -426,17 +445,112 @@ def add_issue_to_project(project_id: str, issue_id: str) -> bool:
     return True
 
 
-def create_github_issue(title: str, label: str, body_file: Path) -> tuple[str, str]:
+def get_repo_issue_type_id(type_name: str) -> str | None:
+    """Look up the GraphQL node ID for a named issue type in the current repository.
+
+    Returns the type ID string, or None if the type is not found or the query fails.
+    """
+    result = run_command(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])
+    if result.returncode != 0:
+        warn(f"Could not determine repository name: {result.stderr}")
+        return None
+
+    name_with_owner = result.stdout.strip()
+    if "/" not in name_with_owner:
+        warn(f"Unexpected repository name format: {name_with_owner}")
+        return None
+    owner, repo = name_with_owner.split("/", 1)
+
+    query = """
+    query($owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+            issueTypes(first: 50) {
+                nodes {
+                    id
+                    name
+                }
+            }
+        }
+    }
+    """
+
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-f", f"repo={repo}",
+    ]
+    result = run_command(cmd)
+    if result.returncode != 0:
+        warn(f"Could not fetch repository issue types: {result.stderr}")
+        return None
+
+    try:
+        data = json.loads(result.stdout)
+        nodes = (
+            data.get("data", {})
+                .get("repository", {})
+                .get("issueTypes", {})
+                .get("nodes", [])
+        )
+        for node in nodes:
+            if node.get("name", "").lower() == type_name.lower():
+                return node.get("id")
+        return None
+    except json.JSONDecodeError as e:
+        warn(f"Error parsing issue types response: {e}")
+        return None
+
+
+def set_issue_type(issue_id: str, type_id: str) -> bool:
+    """Set the issue type on a GitHub issue via the updateIssue GraphQL mutation.
+
+    Returns True if successful, False otherwise.
+    """
+    mutation = """
+    mutation($issueId: ID!, $typeId: ID!) {
+        updateIssue(input: {id: $issueId, issueTypeId: $typeId}) {
+            issue {
+                number
+                issueType {
+                    name
+                }
+            }
+        }
+    }
+    """
+
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={mutation}",
+        "-f", f"issueId={issue_id}",
+        "-f", f"typeId={type_id}",
+    ]
+    result = run_command(cmd)
+    if result.returncode != 0:
+        warn(f"Error setting issue type: {result.stderr}")
+        return False
+    return True
+
+
+def create_github_issue(
+    title: str,
+    body_file: Path,
+    fallback_label: str | None = None,
+) -> tuple[str, str]:
     """
     Create a GitHub issue and return (issue_url, issue_number).
-    Raises RuntimeError on failure.
+
+    When fallback_label is provided it is passed as --label (used when no
+    issue type was resolved). Raises RuntimeError on failure.
     """
     cmd = [
         "gh", "issue", "create",
         "--title", title,
-        "--label", label,
-        "--body-file", str(body_file)
+        "--body-file", str(body_file),
     ]
+    if fallback_label:
+        cmd.extend(["--label", fallback_label])
 
     result = run_command(cmd)
 
@@ -509,11 +623,18 @@ def main() -> int:
         print('  epic: "Your Epic Title"')
         return 1
 
-    # Extract type for label (optional, defaults to "epic")
-    epic_type = frontmatter.get("type", "")
-    if not epic_type:
-        epic_type = "epic"
-        warn("No 'type' field in frontmatter, using default label: epic")
+    # Resolve issue type (priority: frontmatter 'type' > config.json 'epicType').
+    # If neither is set, fall back to adding the "enhancement" label instead.
+    issue_type: str | None = frontmatter.get("type", "") or None
+    fallback_label: str | None = None
+    if not issue_type:
+        config_root = find_project_root(epic_file)
+        issue_type = read_epic_type_from_config(config_root) or None
+        if issue_type:
+            print(f"🏷️  No 'type' in frontmatter, using epicType from config.json: {issue_type}")
+        else:
+            fallback_label = "enhancement"
+            warn("No 'type' in frontmatter or config.json, falling back to label: enhancement")
 
     # Check if link already exists
     existing_link = frontmatter.get("link", "")
@@ -525,7 +646,10 @@ def main() -> int:
             return 0
 
     print(f"📋 Epic Title: {epic_title}")
-    print(f"🏷️  Label: {epic_type}")
+    if issue_type:
+        print(f"🏷️  Type: {issue_type}")
+    else:
+        print(f"🏷️  Label (fallback): {fallback_label}")
 
     # Verify we have body content
     if not body.strip():
@@ -566,16 +690,34 @@ def main() -> int:
     try:
         print("🚀 Creating GitHub issue...")
 
-        issue_url, issue_num = create_github_issue(epic_title, epic_type, temp_file)
+        issue_url, issue_num = create_github_issue(
+            epic_title, temp_file, fallback_label=fallback_label
+        )
+
+        # Fetch the issue node ID once — needed for both project and type operations
+        issue_id: str | None = None
+        if project_id or issue_type:
+            issue_id = get_issue_id(issue_num)
 
         # Add to project if available
         if project_id:
-            issue_id = get_issue_id(issue_num)
             if issue_id:
                 if add_issue_to_project(project_id, issue_id):
                     print("📊 Added to project")
                 else:
                     warn("Failed to add issue to project")
+
+        # Set GitHub issue type when resolved from frontmatter or config
+        if issue_type:
+            print(f"🏷️  Setting issue type: {issue_type}...")
+            type_id = get_repo_issue_type_id(issue_type)
+            if type_id:
+                if issue_id and set_issue_type(issue_id, type_id):
+                    print(f"🏷️  Issue type set: {issue_type}")
+                else:
+                    warn(f"Failed to set issue type '{issue_type}' on issue #{issue_num}")
+            else:
+                warn(f"Issue type '{issue_type}' not found in repository — type not set")
 
         print("📝 Updating epic frontmatter with link...")
 
@@ -589,7 +731,10 @@ def main() -> int:
         print()
         print(f"   Issue:  #{issue_num}")
         print(f"   Title:  {epic_title}")
-        print(f"   Label:  {epic_type}")
+        if issue_type:
+            print(f"   Type:   {issue_type}")
+        else:
+            print(f"   Label:  {fallback_label}")
         print(f"   URL:    {issue_url}")
         if project_id:
             print("   Project: Added ✓")

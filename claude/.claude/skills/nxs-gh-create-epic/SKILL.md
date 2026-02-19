@@ -49,13 +49,20 @@ python ./scripts/nxs_gh_create_epic.py --no-project "<path-to-epic.md>"
 
 The script (`./scripts/nxs_gh_create_epic.py`):
 
-1. Parses YAML frontmatter for `epic` (title) and `type` (label, defaults to "epic")
-2. Creates temp file with markdown body (frontmatter stripped)
-3. Executes `gh issue create --title "<epic>" --label "<type>" --body-file <temp>`
-4. Extracts issue number from returned URL
-5. Adds the issue to the specified project (or auto-discovered project)
-6. Updates frontmatter with `link: "#<issue-number>"`
-7. Cleans up temp file
+1. Parses YAML frontmatter for `epic` (title) and `type` (issue type name)
+2. Resolves the GitHub issue type with the following priority:
+   1. `type` field in the epic's YAML frontmatter
+   2. `epicType` field in `docs/system/delivery/config.json`
+   3. Falls back to adding the `enhancement` **label** if neither is set
+3. Creates temp file with markdown body (frontmatter stripped)
+4. Executes `gh issue create --title "<epic>" --body-file <temp>`
+   (adds `--label "enhancement"` only when falling back)
+5. Extracts issue number from returned URL
+6. Adds the issue to the specified project (or auto-discovered project)
+7. If an issue type was resolved, queries the repository's available issue types,
+   matches by name, and calls the `updateIssue` GraphQL mutation to set it
+8. Updates frontmatter with `link: "#<issue-number>"`
+9. Cleans up temp file
 
 ## Expected Frontmatter
 
@@ -65,7 +72,7 @@ feature: "Feature Name"
 epic: "Epic Title" # Required - becomes issue title
 created: 2025-01-02
 status: draft
-type: enhancement # Optional - becomes GitHub label (default: "epic")
+type: Task # Optional - set as GitHub issue type; falls back to config.json epicType, then "enhancement" label
 ---
 ```
 
