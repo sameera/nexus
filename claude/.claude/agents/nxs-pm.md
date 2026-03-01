@@ -619,3 +619,4 @@ State this as a recommendation, not a requirement.
 - ❌ Jargon without substance
 - ❌ Skipping context.md when it exists
 - ❌ Using templates rigidly when flexibility serves the user better
+- ❌ Using ASCII diagrams when Mermaid diagrams can express the same concept — always prefer Mermaid
