@@ -172,7 +172,9 @@ When `--remediate` mode is enabled, automatically fix AUTO-classified findings.
     "remediation_applied": {
         "tasks_merged": 3,
         "terminology_fixes": 5,
-        "tasks_renumbered": true
+        "tasks_renumbered": true,
+        "iterations": 2,
+        "converged": true
     },
     "status": "success",
     "blocking_issues": false
@@ -241,12 +243,29 @@ G. Duplicate & Redundancy Detection — same files/components/endpoints in multi
 
 ### Step 6: Apply Auto-Remediation (if enabled)
 
-If `--remediate` flag is set:
+If `--remediate` flag is set, run remediation in a **convergence loop** (max 3 iterations):
 
-1. Execute remediation for all AUTO-classified findings
-2. Update affected task files
-3. Renumber tasks sequentially
-4. Update task-review.md with remediation log
+**Why loop**: Remediation actions (merges, renumbering) can expose new AUTO-fixable issues — e.g., a merge may create a broken `blocked_by` reference, or renumbering may reveal a new terminology mismatch.
+
+**Each iteration**:
+
+1. Execute remediation for all current AUTO-classified findings
+2. Update affected task files (merge source into target, delete source file)
+3. Update `blocked_by`/`blocks` references in remaining tasks
+4. Renumber tasks sequentially
+5. Normalize terminology to HLD canonical terms
+6. Re-run detection passes **A, D, F, G** only (those affected by structural changes):
+   - **A**: Epic ↔ Task Coverage Gaps
+   - **D**: Task ↔ Task Logical Inconsistencies (circular deps, broken references, terminology)
+   - **F**: Superfluous Task Detection
+   - **G**: Duplicate & Redundancy Detection
+
+**Loop exit conditions**:
+
+- **Stable**: No new AUTO-classified findings after re-run → exit, set `converged: true`
+- **Limit reached**: After 3 iterations, exit with warning and set `converged: false`; list remaining AUTO findings as MANUAL for human review
+
+Track total `iterations` and `converged` status in output metrics.
 
 ### Step 7: Generate task-review.md
 

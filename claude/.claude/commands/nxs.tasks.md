@@ -93,15 +93,15 @@ Read the High-Level Design document and extract:
 
 After loading the HLD, validate the current epic's scope against sibling epics in the same feature directory.
 
-1. **Identify sibling epics**:
+1. **Identify sibling epics** (path scan only — do NOT read any files yet):
     - Determine the parent feature directory (parent of the current epic's directory)
-    - Scan for other `*/epic.md` files in sibling directories (e.g., `01-epic-a/epic.md`, `02-epic-b/epic.md`)
-    - If no sibling epics exist, skip this step entirely
+    - List `*/epic.md` paths in sibling directories (e.g., `01-epic-a/epic.md`, `02-epic-b/epic.md`)
+    - **If the list is empty → skip this step entirely and proceed to Step 4**
 
-2. **Load sibling epic context**:
+2. **Load sibling epic context** (only reached if siblings exist):
     - For each sibling epic, parse:
-        - Frontmatter: `epic` (title), `link` (issue number, if exists), `complexity`, `status`
-        - User Stories section: story titles and high-level scope
+        - Frontmatter only: `epic` (title), `link` (issue number, if exists), `complexity`, `status`
+        - User Stories section: story titles only (not full body)
         - Out of Scope section
 
 3. **Cross-reference HLD scope with sibling epics**:
@@ -210,13 +210,13 @@ For each task from the decomposer output, in sequence order:
 Invoke: nxs-architect
 Mode: LLD-elaboration (HLD is authoritative)
 Topic: Low-Level Design for TASK-{epic_number}.{sequence}: {title}
-HLD Content: [relevant sections from HLD]
+HLD Content: [only the sections directly relevant to this task's category and summary]
 Task Context:
   - Category: {category}
   - Summary: {summary}
   - Blocked by: {blocked_by}
   - Blocks: {blocks}
-Request:
+Request: Return ONLY these five sections as structured markdown — no preamble, no summary prose:
   - FILES: List files to create/modify with purposes (must be ≥3 files or contain meaningful logic)
   - INTERFACES: Key TypeScript interfaces/types
   - KEY_DECISIONS: Table of decisions with rationale (extract from HLD)
@@ -254,9 +254,9 @@ Request:
 python .claude/skills/nxs-generate-tasks/scripts/generate_task_files.py /tmp/task-input-{epic_number}-{seq:02d}.json
 ```
 
-**Step D — Confirm and report**: On success, log `✓ TASK-{epic_number}.{seq:02d}.md written`. On failure, report error and stop.
+**Step D — Confirm, report, and release**: On success, log `✓ TASK-{epic_number}.{seq:02d}.md written`, then **release** the architect response and JSON blob from working memory — the content is now on disk and no longer needed. On failure, report error and stop.
 
-Repeat Steps A–D for every task before proceeding to Step 6.
+Repeat Steps A–D for every task before proceeding to Step 6. **Do not retain prior iterations' architect responses between tasks.**
 
 ### Error Handling
 
