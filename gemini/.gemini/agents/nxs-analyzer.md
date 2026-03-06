@@ -109,21 +109,21 @@ When `--remediate` mode is enabled, automatically fix AUTO-classified findings.
 
 **Required Context** (provided by invoker):
 
-- `epic_directory`: Path to epic directory containing epic.md, HLD.md, tasks/
+- `epic_directory`: Path to epic directory containing *epic.md, *hld.md, tasks/
 - `remediate`: Boolean flag for auto-remediation mode (default: false)
 
 **Required Files** (in epic_directory):
 
-| File       | Location                           | Required |
-| ---------- | ---------------------------------- | -------- |
-| `epic.md`  | `{epic-directory}/epic.md`         | Yes      |
-| `HLD.md`   | `{epic-directory}/HLD.md`          | Yes      |
-| Task files | `{epic-directory}/tasks/TASK-*.md` | Yes      |
+| File       | Location                            | Required |
+| ---------- | ----------------------------------- | -------- |
+| `*epic.md` | `{epic-directory}/*epic.md` (glob)  | Yes      |
+| `*hld.md`  | `{epic-directory}/*hld.md` (glob)   | Yes      |
+| Task files | `{epic-directory}/tasks/TASK-*.md`  | Yes      |
 
 **Abort Conditions**:
 
-- Missing `epic.md` → Report: "Run `/nxs.epic` first"
-- Missing `HLD.md` → Report: "Run `/nxs.hld` first"
+- Missing `*epic.md` → Report: "Run `/nxs.epic` first"
+- Missing `*hld.md` → Report: "Run `/nxs.hld` first"
 - Missing `tasks/` → Report: "Run `/nxs.tasks` first"
 
 ## Output Contract
@@ -175,11 +175,11 @@ When `--remediate` mode is enabled, automatically fix AUTO-classified findings.
 
 Load only sections needed for analysis:
 
-**From `epic.md`**:
+**From `*epic.md`**:
 
 - Frontmatter, User Stories, Business Value, Success Metrics, Dependencies, Assumptions, Out of Scope
 
-**From `HLD.md`**:
+**From `*hld.md`**:
 
 - Executive Summary, Complexity Assessment, System Context, Requirements Analysis, Architecture Overview, Data Model, API Design, Security, Implementation Phases, Risk Assessment, Testing Strategy, Success Criteria
 
@@ -257,7 +257,7 @@ Context:
   - Epic directory: {epic-directory}
   - Mode: auto-remediate
 Request:
-  - Run consistency analysis on epic.md, HLD.md, and tasks/*.md
+  - Run consistency analysis on *epic.md, *hld.md, and tasks/*.md
   - Apply auto-remediation for AUTO-classified findings
   - Generate tasks/task-review.md
   - Return metrics summary

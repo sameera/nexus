@@ -550,7 +550,7 @@ python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagg
 python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md" "docs/system/delivery/task-labels.md"
 ```
 
-The script reads the `docRoot` from `docs/system/delivery/config.json` and constructs the full URL.
+The script reads the docs root from `docs/system/delivery/config.yml` (`cross-ref.docs-root`) or `docs/system/delivery/config.json` (`docRoot`) and constructs the full URL. `config.yml` takes precedence when both exist.
 
 **Example transformation:**
 

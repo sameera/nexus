@@ -35,7 +35,7 @@ If `scope_context_path` is provided:
 
 1. Read `scope-context.json`
 2. Extract and memorize:
-    - `epic_out_of_scope`: Items explicitly excluded in epic.md
+    - `epic_out_of_scope`: Items explicitly excluded in *epic.md
     - `hld_out_of_scope`: Technical items excluded in HLD
     - `technical_constraints`: Limitations that affect decomposition
 

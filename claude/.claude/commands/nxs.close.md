@@ -18,10 +18,10 @@ Act as a technical documentation specialist performing post-implementation docum
 **CRITICAL**: Do NOT search for epic files. Resolve the epic source as follows:
 
 1. **If `$ARGUMENTS` contains a file path**: Use that path directly
-2. **If a file is provided in context** (open in editor): Use that file as the epic.md
+2. **If a file is provided in context** (open in editor): Use that file as the `*epic.md`
 3. **Otherwise**: Stop and ask the user to either:
-    - Open the epic.md file in their editor and re-run the command, OR
-    - Provide the file path as an argument: `/nxs.close path/to/epic.md`
+    - Open the `*epic.md` file in their editor and re-run the command, OR
+    - Provide the file path as an argument: `/nxs.close path/to/{N}-epic.md`
 
 **Never** run `find`, `ls`, or search commands to locate epic files.
 
@@ -31,7 +31,7 @@ Act as a technical documentation specialist performing post-implementation docum
 
 Before proceeding, validate that the epic is ready for closure:
 
-1. **Read and parse epic.md frontmatter** to extract:
+1. **Read and parse `*epic.md` frontmatter** to extract:
     - `epic`: The epic title
     - `link`: The GitHub issue reference (e.g., `"#123"`)
     - `feature`: The parent feature name
@@ -43,7 +43,7 @@ Before proceeding, validate that the epic is ready for closure:
         ```
         Cannot close epic: No GitHub issue linked.
 
-        The epic.md frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
+        The `*epic.md` frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
         This is typically added when the epic issue is created via `/nxs.tasks`.
         ```
 
@@ -69,7 +69,7 @@ If `tasks/` subfolder exists:
 
 ## 3. Generate Post-Implementation Report (PIR.md)
 
-Create `PIR.md` in the same directory as `epic.md`.
+Create `PIR.md` in the same directory as `*epic.md`.
 
 ### PIR Template
 
@@ -88,7 +88,7 @@ type: post-implementation-report
 
 ## Epic Objectives Achieved
 
-{For each user story in epic.md, a brief statement of how it was addressed}
+{For each user story in *epic.md, a brief statement of how it was addressed}
 
 | Objective | Implementation Summary |
 |-----------|----------------------|
@@ -147,7 +147,7 @@ type: post-implementation-report
     python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "{epic-directory}/PIR.md"
     ```
 
-2. **Locate the `### Related Documents` section** in epic.md:
+2. **Locate the `### Related Documents` section** in `*epic.md`:
     - Search for `### Related Documents` heading
     - If not found, search for `## Related Documents`
     - If still not found, create it before the closing `---` or at the end of the Appendix
@@ -170,7 +170,7 @@ I'm about to close epic "{Epic Title}" (#{issue-number}).
 
 Actions to be performed:
 1. PIR.md generated at `{epic-directory}/PIR.md`
-2. epic.md updated with PIR link in Related Documents
+2. `*epic.md` updated with PIR link in Related Documents
 3. Post PIR comment on GitHub issue #{issue-number}
 4. Close GitHub issue #{issue-number}
 5. Delete `{epic-directory}/tasks/` folder ({N} files)
@@ -252,7 +252,7 @@ Summary:
 - {Brief summary from PIR executive summary}
 
 Related Documents:
-- Epic: {absolute URL to epic.md}
+- Epic: {absolute URL to *epic.md}
 - PIR: {absolute URL to PIR.md}
 - HLD: {absolute URL to HLD.md if exists}
 ```
@@ -266,7 +266,7 @@ Related Documents:
 - **DO NOT** include detailed code snippets in PIR.md
 - **DO** verify the epic has a linked GitHub issue before proceeding
 - **DO** generate absolute URLs using the `nxs-abs-doc-path` skill
-- **DO** preserve epic.md, HLD.md, and tasks.md (only delete tasks/ folder)
+- **DO** preserve `*epic.md`, `*HLD.md`, and tasks.md (only delete tasks/ folder)
 - **DO** handle already-closed issues gracefully
 
 # Error Handling
@@ -276,7 +276,7 @@ Related Documents:
 ```
 Cannot close epic: No GitHub issue linked.
 
-The epic.md frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
+The `*epic.md` frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
 Run `/nxs.tasks` first to create and link the GitHub issue.
 ```
 
@@ -285,7 +285,7 @@ Run `/nxs.tasks` first to create and link the GitHub issue.
 ```
 GitHub CLI Error: {error message}
 
-The PIR.md has been generated and epic.md updated.
+The PIR.md has been generated and `*epic.md` updated.
 Please manually post the PIR comment and close the issue:
   gh issue comment {issue-number} --body "[Post-Implementation Report]({PIR_URL})"
   gh issue close {issue-number} --reason completed
@@ -300,7 +300,7 @@ Then delete the tasks folder:
 Notice: No task files found in tasks/ folder.
 
 Proceeding with minimal PIR generation. The report will contain:
-- Epic objectives (from epic.md)
+- Epic objectives (from *epic.md)
 - Placeholder for implementation details
 
 You may want to manually enhance PIR.md with implementation specifics.
@@ -308,24 +308,24 @@ You may want to manually enhance PIR.md with implementation specifics.
 
 # Execution
 
-1. **Resolve epic.md file** (see Input Resolution above - do not search)
-2. If no epic.md can be resolved, stop and ask user to specify one
+1. **Resolve `*epic.md` file** (see Input Resolution above - do not search)
+2. If no `*epic.md` can be resolved, stop and ask user to specify one
 3. **Validate epic state**:
     - Parse frontmatter and extract `link` attribute
     - If missing, stop with clear error
 4. **Extract issue number** from `link` attribute (e.g., `"#123"` -> `123`)
-5. **Locate tasks/ subfolder** in same directory as epic.md
+5. **Locate tasks/ subfolder** in same directory as `*epic.md`
 6. **Read all task files** and extract relevant sections:
     - Task titles and summaries
     - Key Decisions tables
     - Implementation Notes
-7. **Read epic.md user stories** to map objectives to implementations
+7. **Read `*epic.md` user stories** to map objectives to implementations
 8. **Generate PIR.md** using the template and extracted content
 9. **Generate absolute URL** for PIR.md using `nxs-abs-doc-path` skill:
     ```bash
     python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "{repo-relative-path-to-PIR.md}"
     ```
-10. **Update epic.md** Related Documents section with PIR link
+10. **Update `*epic.md`** Related Documents section with PIR link
 11. **CONFIRMATION CHECKPOINT - STOP AND WAIT**:
     - Present summary of actions to be performed
     - List files to be deleted

@@ -81,7 +81,7 @@ You will receive a **GitHub issue** containing:
 
 **Trust the issue.** Do NOT proactively read `docs/features/` documentation unless there is a clear gap in the information provided.
 
-When you must consult secondary sources (`docs/features/README.md`, `epic.md`, etc.):
+When you must consult secondary sources (`docs/features/README.md`, `*epic.md`, etc.):
 
 1. Read only what's necessary to resolve the specific gap
 2. Summarize your understanding to the user

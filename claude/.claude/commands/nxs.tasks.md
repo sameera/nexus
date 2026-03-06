@@ -20,11 +20,11 @@ Act as an experienced senior engineer performing technical decomposition and tas
 **CRITICAL**: Do NOT search for HLD files. Resolve the input source as follows:
 
 1. **If `$ARGUMENTS` contains a path to `task-review.md`**: Treat as **resume mode** — skip to Step 7
-2. **If `$ARGUMENTS` contains a file path to HLD.md**: Use that path directly
+2. **If `$ARGUMENTS` contains a file path to an HLD file (e.g., `42-hld.md`)**: Use that path directly
 3. **If a file is provided in context** (open in editor): Use that file as the HLD
 4. **Otherwise**: Stop and ask the user to either:
     - Open the HLD file in their editor and re-run the command, OR
-    - Provide the file path as an argument: `/nxs.tasks path/to/HLD.md`
+    - Provide the file path as an argument: `/nxs.tasks path/to/{issue}-hld.md`
     - Resume from review: `/nxs.tasks path/to/tasks/task-review.md`
 
 **Never** run `find`, `ls`, or search commands to locate HLD files.
@@ -37,7 +37,7 @@ When `task-review.md` is provided as input, the command enters **resume mode** t
 
 1. **Verify directory structure**:
     - Parent directory (of `tasks/`) must contain a file matching `*epic.md` with `link` attribute (GitHub issue number)
-    - Parent directory must contain `HLD.md`
+    - Parent directory must contain a file matching `*hld.md`
     - `tasks/` folder must contain `TASK-*.md` files
     - If any missing, report error and exit with guidance
 
@@ -275,7 +275,7 @@ Context:
   - Epic directory: {epic-directory}
   - Mode: auto-remediate
 Request:
-  - Run consistency analysis on epic.md, HLD.md, and tasks/*.md
+  - Run consistency analysis on *epic.md, *hld.md, and tasks/*.md
   - Apply auto-remediation for AUTO-classified findings
   - Generate tasks/task-review.md
   - Return metrics summary
@@ -452,4 +452,4 @@ After all GitHub issues are created, `tasks.md` is generated, and `epic.md` is u
 - Prefer smaller tasks over larger when uncertain
 - Ensure first task creates buildable/runnable skeleton
 
-**Project Configuration**: On first run, if `docs/system/delivery/config.json` does not contain a `project` attribute, prompt user for GitHub project name (e.g., `org/repo`), add it to `config.json`, then proceed. On subsequent runs, use existing value. The `generate_task_files.py` script reads `project` from this config file to populate the `{{PROJECT}}` template variable.
+**Project Configuration**: On first run, if neither `docs/system/delivery/config.yml` (field: `github.project`) nor `docs/system/delivery/config.json` (field: `project`) contains a project attribute, prompt user for GitHub project name (e.g., `org/repo`), add it to the appropriate config file, then proceed. On subsequent runs, use existing value. The `generate_task_files.py` script reads `project` from this config to populate the `{{PROJECT}}` template variable. `config.yml` takes precedence over `config.json` when both exist.
