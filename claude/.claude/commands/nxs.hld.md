@@ -228,9 +228,10 @@ Generate a complete High Level Design Document following the structure above. Th
 **Determine the output filename:**
 
 1. Locate the `*epic.md` file in the same directory where the HLD will be saved
-2. Parse its YAML frontmatter for the `link` attribute (e.g., `link: "#42"`)
-3. If `link` exists, extract the issue number (e.g., `42`) and name the file `{issue-number}-hld.md` (e.g., `42-hld.md`)
-4. If no `link` attribute exists (epic not yet linked to GitHub), name the file `HLD.md`
+2. Check if the epic filename has a numeric prefix (e.g., `04-epic.md` → prefix `04`)
+3. If a prefix exists, name the file `{prefix}-hld.md` (e.g., `04-hld.md`)
+4. If no prefix exists, parse the YAML frontmatter for the `link` attribute (e.g., `link: "#42"`), extract the issue number, and name the file `{issue-number}-hld.md` (e.g., `42-hld.md`)
+5. If neither a prefix nor a `link` attribute exists, name the file `HLD.md`
 
 Save the document with the determined filename in the same folder as the `*epic.md` file.
 If no epic file was provided when invoking this command, save the file in `docs/{epic-name}/` where {epic-name} is derived from the epic title.
