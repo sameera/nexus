@@ -42,7 +42,7 @@ You are a Senior QA Engineer with 10+ years of experience in test strategy, qual
 ```
 Epic file: <path>
 Task files: <list of TASK-*.md paths, or "none">
-Output directory: <epic-folder>/qa/
+Epic folder: <epic-folder>
 Epic number: <number>
 ```
 
@@ -76,7 +76,7 @@ Present the coverage plan to the user:
 
 Stories: <N>
 Test cases to generate: <N>
-Output: <output-directory>/QA-<epic>.md
+Metadata: <epic-folder>/qa_issues.json
 
 | # | TC | Story/Topic | Test Type | Priority |
 |---|-----|-------------|-----------|----------|
@@ -249,9 +249,8 @@ Next: /nxs.qa --mode verify --epic-path <epic-path>
 
 ```
 Epic file: <path>
-QA issue metadata: <epic-folder>/qa_issues.json
 Auto-start dev server: true|false
-Report output: <path>
+Report output: dist/qa/<epic-folder-name>/QA-REPORT-<timestamp>.md
 ```
 
 ## Workflow

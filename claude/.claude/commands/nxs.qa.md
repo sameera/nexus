@@ -169,9 +169,8 @@ Next step: run comprehensive QA validation:
 
 Pass to the agent:
 - Epic file path
-- List of QA case GitHub issue IDs
 - `auto_start` flag value
-- Report output path: `<epic-folder>/qa/QA-REPORT-<YYYYMMDD-HHmmss>.md`
+- Report output path: `dist/qa/<epic-folder-name>/QA-REPORT-<YYYYMMDD-HHmmss>.md` (where `<epic-folder>` is the basename of the epic folder, e.g. `01-login`)
 
 ### Step 3: Invoke nxs-qa Agent (Verify Mode)
 
@@ -179,9 +178,8 @@ Pass to the agent:
 @nxs-qa You are performing the Verify phase of the QA workflow.
 
 Epic file: <epic-path>
-QA issues: <list of issue IDs>
 Auto-start dev server: <true|false>
-Report output: <epic-folder>/qa/QA-REPORT-<timestamp>.md
+Report output: dist/qa/<epic-folder-name>/QA-REPORT-<timestamp>.md
 
 Perform comprehensive QA validation: functional testing against every spec, OWASP Top 10 security checks, performance measurement, permissions/RBAC validation, monkey testing, and accessibility. Use Playwright MCP tools for all browser interactions. Continue on failures — never abort early. Generate a full report at the end.
 ```
