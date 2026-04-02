@@ -43,39 +43,33 @@ Example: /nxs.dev 123
 
 ---
 
-## User Agency Boundaries
+## Common Procedures
 
-**You are an orchestrator, NOT a proxy decision-maker.**
+### User Agency & Checkpoints
 
-### Decisions requiring user input:
-| Decision | YOLO Mode |
-|----------|-----------|
-| Branch conflict resolution | Always interactive |
-| Implementation options (A/B/C) | Always interactive |
-| Design ambiguities or gaps | Always interactive |
-| Any explicit agent question | Always interactive |
-| Chunk approval | Auto-approved |
-| Pre-commit review | Auto-approved |
-| Worktree cleanup | Auto-keep |
+**You are an orchestrator, NOT proxy decision-maker.**
 
-### Checkpoint Format
+| Decision | YOLO Mode | Handler |
+|----------|-----------|---------|
+| Branch conflict resolution | Always interactive | See: Phase 2b, Phase 5 |
+| Implementation options (A/B/C) | Always interactive | Agent → you → user |
+| Design ambiguities or gaps | Always interactive | Agent → you → user |
+| Any explicit agent question | Always interactive | Agent → you → user |
+| Chunk approval | Auto-approved | Phase 4: passthrough |
+| Pre-commit review | Auto-approved | Phase 5: `/nxs-ship` |
+| Worktree cleanup | Auto-keep in YOLO | Phase 5: `/nxs-ship` |
 
-Present all checkpoints using this template:
-```
-🔄 **CHECKPOINT**
+**Checkpoint format:** Present all checkpoints as `🔄 **CHECKPOINT**`, context summary, options (numbered), then **STOP** and wait for user response. Pass answers back verbatim.
 
-<context summary>
+### Error Handling
 
-**Options:**
-1. <Option A>
-2. <Option B>
+All errors (GitHub, agent, skill) follow this pattern:
+1. Show exact error message
+2. Provide remediation steps
+3. Do NOT resolve design-level issues yourself
+4. Wait for user decision, relay to agent
 
-Which option? (Enter number, or type response)
-```
-
-Then **STOP** and wait for user response. Pass their answer back to the agent verbatim.
-
-**NEVER** answer on the user's behalf or assume defaults.
+For GitHub CLI failures specifically: check `gh auth status` and provide auth troubleshooting steps.
 
 ---
 
@@ -101,21 +95,34 @@ From the issue body, identify:
 
 ---
 
+## Phase 2a: QA Case Validation
+
+Before workspace setup, verify that QA cases exist for this epic:
+1. Identify epic folder path from issue body or for related HLD.
+2. Check for local metadata `docs/features/<feature>/<epic>/qa_issues.json`.
+3. If missing, look for `qa-test-case` issue references in PR/task metadata or issue body.
+4. If still missing, run:
+```bash
+git fetch origin
+git checkout origin/main -- <epic-folder>
+```
+then re-check.
+5. If no QA data is found, prompt user:
+   - `Run /nxs.qa --mode design --epic-path <epic-folder>`
+   - `Proceed with current task anyway`
+   - `Abort and prepare QA cases manually`
+
+**Developer Note**: QA test cases define the expected behavior and edge cases for this task. Review these cases during implementation to ensure your solution covers all test scenarios and improves code quality. Passing these test cases is essential for task completion.
+
+---
+
 ## Phase 2b: Workspace Setup
 
 Delegate to `nxs-workspace-setup` skill before invoking the agent.
 
 **Invoke skill with**: issue number, title, body, YOLO mode flag
 
-**Handle checkpoints based on type:**
-
-| Checkpoint Type | Action |
-|-----------------|--------|
-| `workspace_choice` | Present options to user, re-invoke with choice |
-| `branch_conflict` | Present to user (even in YOLO mode), re-invoke with choice |
-| `env_sync_confirm` | Prompt user, then invoke `nxs-env-sync` if approved |
-| `env_sync_yolo` | Auto-invoke `nxs-env-sync` without prompt |
-| `error` | Report failure, suggest remediation |
+**Handle checkpoints:** See "Common Procedures" section above. Skill returns checkpoint types: `workspace_choice`, `branch_conflict`, `env_sync_confirm`, `env_sync_yolo`, `error`. Re-invoke with user decision or report failure.
 
 **Store results**: `WORKSPACE_PATH`, `WORKSPACE_BRANCH`, `WORKSPACE_MODE`
 
@@ -143,9 +150,14 @@ Format the issue for the agent:
 ### Acceptance Criteria
 <bulleted list of acceptance criteria>
 
+### QA Test Cases
+<Include key test cases from qa_issues.json or related QA issues. These define expected behavior and edge cases to validate during implementation.>
+
 ### HLD Reference
 <path to HLD if read, otherwise "Not required - LLD is sufficient">
 ```
+
+**Important**: Include QA test cases in the handoff so the developer considers them during implementation. These test cases define success criteria and help ensure comprehensive code coverage.
 
 ---
 
@@ -174,13 +186,7 @@ Delegate to `nxs-ship` skill.
 
 **Extract from agent summary**: implementation text, test results, files changed
 
-**Handle checkpoints based on type:**
-
-| Checkpoint Type | Action |
-|-----------------|--------|
-| `pre_commit_review` | Show diff, get approval, commit (auto in YOLO) |
-| `worktree_cleanup` | Prompt remove/keep (auto-keep in YOLO) |
-| `error` | Report failure, suggest remediation |
+**Handle checkpoints:** See "Common Procedures" section above. Skill returns `pre_commit_review`, `worktree_cleanup`, or `error`. Re-invoke with user decision or report failure.
 
 See [nxs-ship SKILL.md](../skills/nxs-ship/SKILL.md) for detailed checkpoint schemas.
 
@@ -207,23 +213,6 @@ Blockers:
 
 Manual review required.
 ```
-
----
-
-## Error Handling
-
-### GitHub CLI Failures
-1. Show exact error
-2. Check: `gh auth status`
-3. Provide remediation steps
-
-### Agent Blockers
-- Surface to user in formatted manner
-- Do NOT resolve design-level issues yourself
-- Wait for user decision, relay to agent
-
-### Skill Errors
-Skills report errors via `checkpoint_data.type: "error"`. Display message and suggest remediation.
 
 ---
 

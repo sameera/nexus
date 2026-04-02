@@ -17,6 +17,7 @@ docs/
 │   ├── nxs-hld.md                             ← Create technical design
 │   ├── nxs-tasks.md                           ← Decompose into tasks
 │   ├── nxs-dev.md                             ← Implement GitHub issue
+│   ├── nxs-qa.md                              ← Design/implement/verify QA
 │   ├── nxs-analyze.md                         ← Validate consistency
 │   ├── nxs-close.md                           ← Generate PIR
 │   └── nxs-council.md                         ← Multi-perspective review
@@ -57,7 +58,7 @@ docs/
 - Understanding generated artifacts
 - Complete example scenario
 
-### 3. Command Reference (8 files)
+### 3. Command Reference (9 files)
 
 Each command documented with:
 - Purpose and when to use
@@ -103,6 +104,13 @@ Each command documented with:
 - Test-first workflow
 - Pre-commit review
 - Issue closure workflow
+
+#### [nxs-qa.md](docs/commands/nxs-qa.md)
+- QA test case design
+- Automated test implementation
+- Full quality assurance validation
+- Design, implement, and verify modes
+- Test coverage planning
 
 #### [nxs-analyze.md](docs/commands/nxs-analyze.md)
 - Consistency validation

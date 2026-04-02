@@ -49,7 +49,13 @@ Break HLD into independently reviewable 1-2 day tasks.
 - **Output:** `tasks/TASK-{EPIC}.{SEQ}.md` files with LLDs, `tasks.md` summary with dependency graph
 - **Task numbering:** `TASK-42.01`, `TASK-42.02`, etc. (Epic #42, Task 1, Task 2, ...)
 
-### 5. `/nxs.dev` - Implement Individual Task
+### 5. `/nxs.qa --mode design` - Design Test Cases
+Prepare test strategy and create test case specifications as GitHub issues.
+- **Requires:** `tasks` completed and epic context present
+- **Process:** Reads epic/tasks, presents QA coverage plan for approval, creates `qa-test-case` GH issues, writes `<epic-folder>/qa_issues.json`
+- **Output:** GH issue list (label `qa-test-case`), `docs/features/<epic>/qa_issues.json`, test coverage plan
+
+### 6. `/nxs.dev` - Implement Individual Task
 Implement one GitHub issue at a time with test-first development.
 - **Requires:** GitHub issue number as input
 - **Process:** Delegates to `nxs-dev` agent (Sonnet model)
@@ -61,7 +67,19 @@ Implement one GitHub issue at a time with test-first development.
 - **Worktree mode (recommended):** Creates isolated workspace at `../{repo-name}-{epic-number}`
 - **In-place mode (alternative):** Branches off current worktree
 
-### 6. `/nxs.analyze` - Validate Consistency
+### 7. `/nxs.qa --mode implement` - Implement and Test
+Write and execute automated tests against implementation code.
+- **Requires:** Implementation complete, test case GH issues (from step 5) present
+- **Process:** Reads QA specs and implementation code, writes and runs Playwright/integration tests in approved chunks, fixes failures until all pass
+- **Output:** Automated test suite, test execution logs, bug reports for failures
+
+### 8. `/nxs.qa --mode verify` - Comprehensive QA Validation
+Perform full quality assurance across all dimensions.
+- **Requires:** Implementation and automated tests complete
+- **Process:** Performs full QA validation (functional, OWASP security, performance, permissions, monkey testing, accessibility) using Playwright MCP and writes comprehensive QA report
+- **Output:** QA report with validation results, security findings, performance metrics, accessibility report
+
+### 9. `/nxs.analyze` - Validate Consistency
 Catch inconsistencies between epic intent, HLD design, and task decomposition.
 - **Checks:**
   - Coverage gaps (user stories without tasks, HLD components without tasks)
@@ -72,18 +90,19 @@ Catch inconsistencies between epic intent, HLD design, and task decomposition.
 - **Auto-remediation:** Merges barrel-only tasks, normalizes canonical terms, renumbers after deletions
 - **Output:** `tasks/task-review.md` with findings summary and remediation log
 
-### 7. `/nxs.close` - Generate Post-Implementation Report
+### 10. `/nxs.close` - Generate Post-Implementation Report
 Document key decisions and archive task files.
-- **Requires:** Completed epic with implemented tasks
+- **Requires:** Completed epic with implemented tasks and QA validation
 - **Output:** `PIR.md` (Post-Implementation Report) consolidating task decisions and lessons learned
 - **Actions:** Closes GitHub epic issue, archives task files
 
-### 8. `/nxs.council` - Multi-Perspective Review
+### 11. `/nxs.council` - Multi-Perspective Review
 Facilitate cross-functional decision-making with PM and Architecture perspectives.
 - **Modes:**
   - Quick Council: Single-agent analysis for simple decisions
   - Full Council: Multi-agent analysis for decisions requiring 1+ weeks
 - **Agents:** `nxs-council-pm` (product perspective), `nxs-council-architect` (technical perspective)
+- **Note:** Can be invoked at any point in the workflow for decisions requiring cross-functional alignment
 
 ## Key Architecture Concepts
 
@@ -92,6 +111,7 @@ Facilitate cross-functional decision-making with PM and Architecture perspective
 - **`nxs-dev`** (Sonnet): Senior Implementation Engineer for test-first development
 - **`nxs-council-pm`** (Inherit): Product Manager for business perspective
 - **`nxs-council-architect`** (Inherit): Technical Architect for complexity assessment
+- **`nxs-qa`** (Sonnet): Senior QA Engineer for test specification, automated test implementation, and comprehensive verification
 
 ### Reusable Skills
 Located in `claude/.claude/skills/`:

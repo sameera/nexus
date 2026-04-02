@@ -176,7 +176,7 @@ Nexus helps you do that.
 
 ## Status
 
-## Nexus is in active development. We're building this in the open because we think this problem matters, and we're not the only ones who've noticed it.
+Nexus is in active development. We're building this in the open because we think this problem matters, and we're not the only ones who've noticed it.
 
 **Built with the conviction that slow is smooth, and smooth is fast - but only when you understand what you're building.**
 
