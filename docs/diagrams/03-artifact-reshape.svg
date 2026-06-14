@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+<rect x="0" y="0" width="800" height="600" fill="#ffffff"/>
+<text x="196.0" y="36.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#1e1e1e" text-anchor="start">Reshaping the Artifacts</text>
+<text x="236.0" y="57.8" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#757575" text-anchor="start">Generation is cheap. Judgment is not.</text>
+<rect x="40.0" y="74.0" width="300.0" height="30.0" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" opacity="1.00"/>
+<text x="190.0" y="91.7" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">BEFORE — generated ahead of judgment</text>
+<rect x="460.0" y="74.0" width="300.0" height="30.0" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="610.0" y="91.7" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">AFTER — forcing functions only</text>
+<rect x="40.0" y="120.0" width="300.0" height="56.0" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" opacity="1.00"/>
+<text x="190.0" y="151.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#1e1e1e" text-anchor="middle">16-section HLD</text>
+<polyline points="344.0,148.0 456.0,148.0" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="446.0,152.6 456.0,148.0 446.0,143.4" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="384.4" y="137.6" width="31.2" height="18.2" fill="#ffffff" opacity="0.85"/>
+<text x="400.0" y="149.2" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#1e1e1e" text-anchor="middle">slim</text>
+<rect x="460.0" y="120.0" width="300.0" height="56.0" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="610.0" y="151.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#1e1e1e" text-anchor="middle">Focused decision record</text>
+<rect x="40.0" y="188.0" width="300.0" height="56.0" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" opacity="1.00"/>
+<text x="190.0" y="218.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">Per-task LLDs (files / types)</text>
+<polyline points="344.0,216.0 456.0,216.0" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="446.0,220.6 456.0,216.0 446.0,211.4" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="388.3" y="205.6" width="23.4" height="18.2" fill="#ffffff" opacity="0.85"/>
+<text x="400.0" y="217.2" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#1e1e1e" text-anchor="middle">cut</text>
+<rect x="460.0" y="188.0" width="300.0" height="56.0" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="610.0" y="219.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#1e1e1e" text-anchor="middle">Task index + slim issues</text>
+<rect x="40.0" y="256.0" width="300.0" height="56.0" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" opacity="1.00"/>
+<text x="190.0" y="287.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#1e1e1e" text-anchor="middle">Prose PIR</text>
+<polyline points="344.0,284.0 456.0,284.0" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="446.0,288.6 456.0,284.0 446.0,279.4" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="384.4" y="273.6" width="31.2" height="18.2" fill="#ffffff" opacity="0.85"/>
+<text x="400.0" y="285.2" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#1e1e1e" text-anchor="middle">slim</text>
+<rect x="460.0" y="256.0" width="300.0" height="56.0" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="610.0" y="286.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">Close record + LibraryDelta</text>
+<rect x="40.0" y="324.0" width="300.0" height="56.0" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" opacity="1.00"/>
+<text x="190.0" y="354.7" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">Glossary + 3-scenario estimates</text>
+<polyline points="344.0,352.0 456.0,352.0" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="446.0,356.6 456.0,352.0 446.0,347.4" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="384.4" y="341.6" width="31.2" height="18.2" fill="#ffffff" opacity="0.85"/>
+<text x="400.0" y="353.2" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#1e1e1e" text-anchor="middle">move</text>
+<rect x="460.0" y="324.0" width="300.0" height="56.0" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="610.0" y="354.7" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">aliases: + rating in frontmatter</text>
+<rect x="40.0" y="392.0" width="300.0" height="56.0" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" opacity="1.00"/>
+<text x="190.0" y="422.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">Persisted task-review.md</text>
+<polyline points="344.0,420.0 456.0,420.0" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="446.0,424.6 456.0,420.0 446.0,415.4" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="388.3" y="409.6" width="23.4" height="18.2" fill="#ffffff" opacity="0.85"/>
+<text x="400.0" y="421.2" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#1e1e1e" text-anchor="middle">cut</text>
+<rect x="460.0" y="392.0" width="300.0" height="56.0" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="610.0" y="423.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#1e1e1e" text-anchor="middle">Inline consistency gate</text>
+<rect x="40.0" y="478.0" width="720.0" height="74.0" rx="12" fill="#fff3bf" stroke="#f59e0b" stroke-width="2" opacity="1.00"/>
+<text x="400.0" y="508.6" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">THE RAZOR: every artifact is a forcing function for a human decision</text>
+<text x="400.0" y="527.3" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">OR machine-consumed per the library contract  —  else it is cut.</text>
+</svg>

@@ -1,0 +1,21 @@
+body {
+    font-size: 1.1em;
+    max-width: 1200px;
+}
+
+strong {
+    color: #7dcfff;
+    font-weight: bold;
+}
+
+em {
+    color: #bb9af7;
+    font-style: italic;
+}
+
+strong em,
+em strong {
+    color: #7dcfff;
+    font-weight: bold;
+    font-style: italic;
+}
