@@ -1,2 +1,3 @@
 .claude/plans/lexical-squishing-meteor.md
 __pycache__/
+tmp/**

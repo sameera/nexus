@@ -1,8 +1,10 @@
-# Nexus knowledge library (machine-consumable)
+# Nexus concept store (machine-consumable)
 
 This directory is the **machine knowledge surface** for Nexus — distilled, retrievable
-knowledge intended for AI tooling that informs Product Management spec generation and
-architectural design. See [`../decisions/0001-refactor-direction.md`](../decisions/0001-refactor-direction.md).
+concept pages (one concept per file) intended for AI tooling that informs Product
+Management spec generation and architectural design. Schema and emission contract:
+[`../decisions/0003-concept-schema.md`](../decisions/0003-concept-schema.md). See also
+[`../decisions/0001-refactor-direction.md`](../decisions/0001-refactor-direction.md).
 
 ## Rules
 

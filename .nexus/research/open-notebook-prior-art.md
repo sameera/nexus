@@ -3,8 +3,8 @@
 **Status:** Research note. No decisions made here.
 **Date:** 2026-06-10
 **Relates to:** [`0001-refactor-direction.md`](../decisions/0001-refactor-direction.md),
-[`0003-library-schema.md`](../decisions/0003-library-schema.md)
-**Mirror:** committed as note `017` in `~/projects/awzm-notes/brainstorms/library/nexus/`
+[`0003-concept-schema.md`](../decisions/0003-concept-schema.md)
+**Mirror:** committed as note `017` in `~/projects/awzm-notes/brainstorms/concept store/nexus/`
 (commit `8e69541`); if the copies diverge, reconcile against the later commit.
 **Primary use:** input for the **distiller / bootstrap design conversation** (the build work
 0003 §10 explicitly left out of scope). Read this when that conversation opens.
@@ -17,7 +17,7 @@
 `~/projects/open-notebook`) is an open-source NotebookLM alternative: multi-modal sources →
 extracted text → AI-distilled "insights" → embeddings → synthesized answers. Stripped of its
 product framing it is a shipped, working **distillation pipeline**, which makes it useful
-prior art for System B. Analyzed 2026-06-10 against the frozen library schema (0003).
+prior art for System B. Analyzed 2026-06-10 against the frozen concept schema (0003).
 
 Architecture in one line: FastAPI + LangGraph state machines + SurrealDB (graph + vectors),
 with all prompt engineering externalized to Jinja templates (`prompts/`), and three distinct
@@ -48,7 +48,7 @@ distiller/bootstrap — open-notebook = liftable material), and what was **burne
 1. **Write-time distillation vs. read-time synthesis as separate primitives.**
    Open-notebook's sharpest design idea — Transformations (write-time, structured, stored)
    vs. Ask (read-time, synthesized, ephemeral) as distinct tools — is structurally the same
-   wall 0003 §8.1 builds: library *writes* only at close; design-time concept use is *reads*.
+   wall 0003 §8.1 builds: concept store *writes* only at close; design-time concept use is *reads*.
    They arrived from the UX side, we from the over-generation side. Independent convergence;
    the separation is load-bearing.
 2. **Distilled knowledge as independently-addressable records.** Their `SourceInsight` is a
@@ -73,7 +73,7 @@ These map onto exactly the machinery 0003 left undesigned.
    `{name, title, description, prompt, apply_default}` — stored as a record and executed by a
    trivial one-node graph. The distiller's emission step should take the same shape: a small
    set of named, versioned prompt templates that take the close record and produce
-   `LibraryDelta`s (0003 §8.2). Reviewable, diffable, swappable without touching pipeline
+   `ConceptDelta`s (0003 §8.2). Reviewable, diffable, swappable without touching pipeline
    code. Likely one recipe per delta field family (behavioral delta; invariants
    asserted/retired; integration changes; the why) rather than one monolithic
    "distill everything" prompt.
@@ -132,8 +132,9 @@ worked through 2026-06-10:
   greps — a decent query expander, i.e. poor-man's semantic search paid in query-time tokens
   instead of write-time infrastructure. And the corpus is the concept inventory of *one*
   system (~10² genuine concepts); thousands of pages is more likely distiller
-  over-generation — the JSONata disease itself — than a real retrieval-tech gap. Diagnose
-  curation failure before reaching for an index.
+  [over-generation](../concepts/speculative-over-generation.md) — the anti-pattern System B
+  exists to avoid, not a real retrieval-tech gap. Diagnose curation failure before reaching
+  for an index.
 - **The reversal is cheap and schema-compatible — and is *not* open-notebook's bill.** Their
   stack exists because they embed unbounded raw documents. 0003's pages are ≤400 words and
   embed whole: the retrofit is a derived sidecar (one page-level embedding per file,
@@ -167,13 +168,13 @@ Vector search over uncurated, contradictory insight blobs returns well-ranked co
 
 ## 5. Footnote: interface point with the awzm-notes coaching track
 
-The coaching product (awzm-notes `brainstorms/library/nexus/` notes 015–016, the openly-a-bot
+The coaching product (awzm-notes `brainstorms/concept store/nexus/` notes 015–016, the openly-a-bot
 scope coach) is **not built here**, but has one interface point with System B: a coach asking "you
 said two days — but this touches auth and session, have you scoped those?" needs exactly the
 blast-radius retrieval `touches:` provides. Open-notebook's source-chat (private conversation
 grounded on one artifact + its distilled insights, with context indicators showing what was
 loaded) is the closest shipped analog to the coach's shape. If that product is ever built, it
-is a *reader* of the library through the same grep-native contract — no new System B
+is a *reader* of the concept store through the same grep-native contract — no new System B
 machinery. Observation only; the product line stays in awzm-notes.
 
 ---

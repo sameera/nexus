@@ -4,12 +4,12 @@
 **Date:** 2026-06-11
 **Relates to:** [`0001-refactor-direction.md`](../decisions/0001-refactor-direction.md),
 [`0002-pipeline-audit.md`](../decisions/0002-pipeline-audit.md) (schema gaps G1/G2),
-[`0003-library-schema.md`](../decisions/0003-library-schema.md)
+[`0003-concept-schema.md`](../decisions/0003-concept-schema.md)
 **Companion:** [`open-notebook-prior-art.md`](open-notebook-prior-art.md) — that analysis
 supplied the distiller's *prompt layer* (recipes as data, house-style preamble, bulk replay);
 this one supplies the *mechanism and curation layer*. Read both when the distiller
 conversation opens.
-**Mirror:** committed as note `018` in `~/projects/awzm-notes/brainstorms/library/nexus/`
+**Mirror:** committed as note `018` in `~/projects/awzm-notes/brainstorms/concept store/nexus/`
 (commit `ffad159`); if the copies diverge, reconcile against the later commit.
 **Primary use:** input for the **distiller / bootstrap design conversation** (the build work
 0003 §10 explicitly left out of scope).
@@ -61,7 +61,7 @@ resolves two of the 0002 audit's open schema gaps, and contributes one System-A 
    independent convergence from both directions.
 2. **Raw → curated two-layer split, promotion only by curation.** Their KNOWLEDGE README:
    *"Harvesters elsewhere in MEMORY/ propose candidates that get promoted into here only
-   after curation."* The docs/-vs-library wall (0001 Decision 1), arrived at from the
+   after curation."* The docs/-vs-concept-store wall (0001 Decision 1), arrived at from the
    memory-hygiene side instead of the over-generation side.
 3. **Append-only history with tombstones; never renumber.** Their hardest-won ISA gotcha:
    *"ID-stability is the cornerstone... never re-number on edit,"* dropped items get a
@@ -87,7 +87,7 @@ open-notebook note's prompt-layer findings don't cover.
 
 1. **Harvest-queue staging — candidates never write directly.** Their miner *"writes to
    `_harvest-queue/` for review — never directly to KNOWLEDGE/"*; promotion is an explicit
-   curation step. For the distiller: stage `LibraryDelta`s (0003 §8.2) in a queue at close,
+   curation step. For the distiller: stage `ConceptDelta`s (0003 §8.2) in a queue at close,
    apply only after review. This turns 0003 §8.3's hard boundary from agent discipline into
    a structural gate — the same shape-conversion the open-notebook note §1.4 praised (schema
    over prompt-pleading), applied to the *write path*.
@@ -108,26 +108,34 @@ open-notebook note's prompt-layer findings don't cover.
    implementation shape for the PM invariant-conflict gate (0003 §2.2): grep the new
    epic's terms against `aliases:`/invariants for candidate pages, model checks only those.
 5. **The ripple pass exposes an unspecified rule in 0003.** When PAI ingests a note, it
-   updates *reverse-direction* links on related notes. Our `LibraryDelta` carries
+   updates *reverse-direction* links on related notes. Our `ConceptDelta` carries
    `touches_added` for the emitting concept, but 0003 never says whether the touched page
    gets a reciprocal update. Without a symmetry (or explicit asymmetry) rule, blast-radius
    grep (`rg 'touches:.*\bX\b'`) silently under-reports. Not decided here — flagged as a
    rule the distiller design must specify (likely: a real interaction is bidirectional, so
    one delta fans out to a reciprocal edit in the same emission).
 6. **Queue hygiene by expiry.** Unreviewed seedlings expire after 90 days. Staged
-   `LibraryDelta`s that nobody promotes should expire too — a curation queue that only grows
-   is the JSONata pattern relocated, not removed.
+   `ConceptDelta`s that nobody promotes should expire too — a curation queue that only grows
+   is [speculative over-generation](../concepts/speculative-over-generation.md) relocated, not removed.
 
 ---
 
-## 3. Resolves the 0002 audit's open schema gaps G1 and G2
+## 3. Informs the 0002 audit's schema gaps G1 and G2
+
+> **Authoritative outcome (do not read this section as the decision).** G1–G4 were resolved in
+> [`0002 §b`](../decisions/0002-pipeline-audit.md) on 2026-06-19, *after* this note. The owner
+> overrode both PAI-suggested defaults below: **G1** → a `docs/system/delivery/lessons/` folder,
+> one file per lesson (not Gotchas-in-command-docs, not a single ledger); **G2** → **relax** the cap to carry the refuted *viable*
+> alternative, bounded by a viability guardrail (not "format, not cap relaxation"). PAI's
+> contribution survives as the compatible *shape/format*, not the home or the cap stance. See
+> [`0004 C1/C3`](../decisions/0004-implementation-plan.md).
 
 - **G1 — process/delivery lessons.** PAI keeps these *out* of the knowledge graph entirely:
   a separate LEARNING tier, and — most effectively — per-skill **"Gotchas"** sections, which
   they call *"the highest-information-density part"* of a skill. The pattern: process
   knowledge attaches to the *process artifact it improves* (for us: the command docs,
   `docs/system/standards/` delivery pages), never to concept pages. Confirms the audit's
-  "declare it out of library scope" instinct and supplies the concrete home.
+  "declare it out of concept-store scope" instinct and supplies the concrete home.
 - **G2 — alternatives considered.** Their changelog entry format is four mandatory pieces —
   *conjectured / refuted-by / learned / criterion-now* — and the tooling *"refuses to write
   a partial."* A terse, disciplined shape that captures the dead end without prose sprawl.
@@ -181,7 +189,7 @@ Two separable takeaways:
    dedicated audit skill (BitterPillEngineering: *"would a smarter model make this
    unnecessary?"*, verdicts CUT/RESOLVE/MERGE/SHARPEN/KEEP) to fight its own bloat, and ship
    a release literally titled "Lean and Mean" deleting 68% of its top-level directories.
-   This is the JSONata pattern at toolkit scale. Transfer: the 0001 razor must be a
+   This is [speculative over-generation](../concepts/speculative-over-generation.md) at toolkit scale. Transfer: the 0001 razor must be a
    **recurring audit with a named test and fixed verdict categories**, not the one-time
    0002 pass — or the rebuilt pipeline re-bloats the same way.
 4. **Generated MOC indexes.** PAI regenerates per-domain index dashboards on every write —
@@ -196,7 +204,8 @@ PAI changes nothing in the frozen schema — it raises confidence in it. Its con
 the unbuilt half, complementary to the open-notebook note: open-notebook supplied the
 distiller's *prompt layer*; PAI supplies the *mechanism and curation layer* — deterministic
 code with a staged candidate queue and incremental state, two-stage contradiction checking,
-queue expiry, and bootstrap-as-replay precedents. It resolves the audit's G1/G2 gaps with
-field-tested answers, contributes one System-A idea (tier-scaled artifact shape,
+queue expiry, and bootstrap-as-replay precedents. It *informed* the audit's G1/G2 gaps with
+field-tested answers (the owner later decided both differently — see §3 note), contributes one
+System-A idea (tier-scaled artifact shape,
 whitelist-gated), and flags exactly one rule for the distiller design to specify:
 `touches:` reciprocity.

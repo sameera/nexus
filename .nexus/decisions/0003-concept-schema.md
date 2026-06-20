@@ -1,12 +1,19 @@
-# 0003 — Library page schema & emission contract (System B)
+# 0003 — Concept page schema & emission contract (System B)
 
 **Status:** Decided (schema + contract). Distiller/build mechanism not started.
+**Amended by:** [`0006`](./0006-queue-distillation-handoff.md) — §8.1 (close = *emission*, not
+write), §8.2 (`ConceptDelta` is the distiller's internal/output shape, not a System-A emission),
+§9.1 (B infers the concept mapping from diff + queued artifacts; A no longer pre-produces it).
+The page schema (§2) is unchanged.
+**Amended by:** [`0002 §b`](./0002-pipeline-audit.md) G2 (2026-06-19) — §8.2
+`decision_log_entry.body` cap relaxed to carry the refuted viable alternative, with a
+viability guardrail.
 **Date:** 2026-06-10
 **Builds on:** [`0001-refactor-direction.md`](./0001-refactor-direction.md) (Decisions 1–3, 5).
 **Reconciles with:** the pipeline audit (sibling decision record, the System-A half of the
 artifact contract). See [§7](#7-emission-contract) for the handoff surface.
 
-This record defines what `.nexus/library/` holds — the schema of a distilled knowledge
+This record defines what `.nexus/concepts/` holds — the schema of a distilled concept
 page — and the *shape* and *triggers* of what System A emits to populate it. It does **not**
 design the distiller, the bootstrap, or any update mechanism (Decision 5: freeze the
 interface first, build against it later).
@@ -39,11 +46,18 @@ surface; the body is loaded only after a grep hit decides the page is relevant.
 
 | Field | Retrieval need it serves | Notes |
 |---|---|---|
-| `concept` | **Direct addressing.** Agent knows the concept name → `read .nexus/library/<concept>.md`. Equals the filename. | kebab-case slug, ≤3 words. The key. |
+| `title` | **Human-readable label on the grep surface.** A readable catalog (`rg '^title:'`) and candidate-surfacing to a human without loading bodies; carries the real display name when the slug is an abbreviation (`auth` → "Authentication"). | Title-case string; mirrors the body H1. The *key* is the filename (= slug), not this field. |
 | `aliases` | **Synonym findability.** PM/architect greps a term that isn't the canonical name ("org lookup" → `org-resolution`). Without it the page is invisible to natural phrasing. | flat list of strings. |
-| `touches` | **Blast radius.** Architect designing a change to X greps `touches:` across the library to find every page that names X — the no-graph substitute for an adjacency edge. | flat list of concept slugs. Mirrors *Integration Points* body section exactly. Non-transitive (see [§4](#4-the-touches-field-and-the-no-topology-line)). |
+| `touches` | **Blast radius.** Architect designing a change to X greps `touches:` across the concept store to find every page that names X — the no-graph substitute for an adjacency edge. | flat list of concept slugs. Mirrors *Integration Points* body section exactly. Non-transitive (see [§4](#4-the-touches-field-and-the-no-topology-line)). |
 | `last_updated_by` | **Provenance hop.** From a page, jump to the originating epic to recover full context the page necessarily compressed away. The page-level "git blame." | A provenance reference (see [§2.4](#24-provenance-references-single--and-multi-repo)): `"#<issue>"`, `"<owner>/<repo>#<issue>"`, `"bootstrap"`, or `"manual"`. |
 | `status` | **Validity filter.** Architect must not design against a removed subsystem; grep can exclude `status: deprecated` cheaply. | `active` (default) \| `deprecated`. |
+
+**Why there is no `id`/slug frontmatter field.** The filename *is* the slug and the page's
+key — `read .nexus/concepts/<slug>.md`. Copying that slug into frontmatter would be derived
+state in a non-derived store (the same objection [§7](#7-index-question--resolved-no-generated-index)
+raises against a generated index) and a drift surface (rename the file and the frontmatter
+silently lies), for zero retrieval gain `glob` doesn't already provide. The page is addressed
+by filename; `title` is the readable label, not an identifier.
 
 **Deliberately deferred (not in the core schema):** a per-page confidence/verification flag
 (was `verification:` in the archived wiki schema). Trust calibration is a real retrieval
@@ -56,11 +70,11 @@ verification mechanism exists to set it.
 
 | Section | Retrieval need it serves | Cap |
 |---|---|---|
-| `# <Display Name>` + **Summary** (lead, ≤3 sentences) | **The grep hit.** The agent decides whether to load the rest of the page from the Summary *alone*. This is the single highest-leverage field for keeping volume retrievable. Lead with the most distinctive sentence; write as if returned alone. | part of body cap |
+| `# <Display Name>` (mirrors `title:`) + **Summary** (lead, ≤3 sentences) | **The grep hit.** The agent decides whether to load the rest of the page from the Summary *alone*. This is the single highest-leverage field for keeping volume retrievable. Lead with the most distinctive sentence; write as if returned alone. | part of body cap |
 | `## How It Works` | **Current behavior**, so PM/architect extends it instead of restating it, and designs against what the system actually does. Behavioral, domain-term prose — no file paths, no type/function names (they rot; code is the source of that truth). | ≤180 words |
 | `## Key Invariants` | **Hard constraints** the new spec/design must preserve. Consumed by the PM invariant-conflict gate and the architect's conformance pass. The highest-value field for the design consumer. | ≤7, numbered, one sentence each |
 | `## Integration Points` | **Blast radius, in prose** — one sentence per neighboring concept on the *nature* of the interaction. The readable form of `touches:`; the set must equal `touches:`. | within body cap |
-| `## Decision Log` | **The why.** Recover the rationale behind past decisions so a new design doesn't relitigate or contradict them. This is the durable judgment that *cannot be regenerated from code* (0001 Decision 3) — the reason the library is git-tracked, not derived. | **uncapped, append-only** |
+| `## Decision Log` | **The why.** Recover the rationale behind past decisions so a new design doesn't relitigate or contradict them. This is the durable judgment that *cannot be regenerated from code* (0001 Decision 3) — the reason the concept store is git-tracked, not derived. | **uncapped, append-only** |
 
 **Body word cap: 400 words, excluding frontmatter and the Decision Log.** Rationale: the
 body is the "current truth" retrieval target and N of them get loaded per task — it must
@@ -88,7 +102,7 @@ The Decision Log is **append-only and immutable**:
 
 Rationale: the log is the one artifact in the whole system that cannot be reconstructed from
 code (0001 Decision 3). Destroying its history defeats System B's entire purpose. This is
-the narrow, library-scoped application of 0001's deferred "immutable decision records" idea.
+the narrow, concept-store-scoped application of 0001's deferred "immutable decision records" idea.
 
 ### 2.4 Provenance references (single- and multi-repo)
 
@@ -99,17 +113,17 @@ provenance hop breaks. It breaks worst in the Decision Log, where one shared con
 
 A provenance reference is therefore one of two grep-native forms:
 
-- `#<issue>` — issue in the library's **home repo**; the terse single-repo default.
+- `#<issue>` — issue in the concept store's **home repo**; the terse single-repo default.
 - `<owner>/<repo>#<issue>` — fully-qualified; used for any cross-repo reference.
 
 **Resolution rule:** an unqualified `#n` resolves against a single declared *home repo* for
-the library; a qualified `<owner>/<repo>#n` overrides it. This is GitHub's own cross-repo
+the concept store; a qualified `<owner>/<repo>#n` overrides it. This is GitHub's own cross-repo
 issue syntax, so no new resolver is needed (`gh issue view <owner>/<repo>#n`, or build the
 URL deterministically), it stays greppable (`rg 'backend#114'`), and single-repo pages stay
 short. The full URL form is rejected as noise.
 
 This hardens the *reference*. It does **not** decide the larger multi-repo questions — where
-the library physically lives (per-repo vs. one shared library aggregating N code repos vs.
+the concept store physically lives (per-repo vs. one shared concept store aggregating N code repos vs.
 submodule) and whether `touches:` may cross repos. Those are architecture decisions 0001 did
 not take on; see [§10](#10-out-of-scope-here).
 
@@ -117,11 +131,11 @@ not take on; see [§10](#10-out-of-scope-here).
 
 ## 3. Example page
 
-A complete page, `.nexus/library/org-resolution.md`:
+A complete page, `.nexus/concepts/org-resolution.md`:
 
 ```markdown
 ---
-concept: "org-resolution"
+title: "Org Resolution"
 aliases: ["organization lookup", "org matching", "tenant resolution"]
 touches: ["auth", "session", "space-membership"]
 last_updated_by: "#114"
@@ -199,19 +213,20 @@ words; the Decision Log adds history without counting against the cap.
 
 ## 5. Keying & retrieval
 
-**Naming.** `<concept-slug>.md`, kebab-case, identical to frontmatter `concept:`. Flat
-directory — `.nexus/library/*.md` — so `glob` is trivial and there is no nesting to walk.
-Deprecated pages move to `.nexus/library/_archive/` so active grep stays signal-dense (see
+**Naming.** `<concept-slug>.md`, kebab-case (the kebab-case of `title:`). The filename is the
+key — there is no frontmatter slug field that restates it. Flat
+directory — `.nexus/concepts/*.md` — so `glob` is trivial and there is no nesting to walk.
+Deprecated pages move to `.nexus/concepts/_archive/` so active grep stays signal-dense (see
 [§6](#6-volume-stance)).
 
 **Four retrieval paths, all grep/glob/read:**
 
 | Need | Query |
 |---|---|
-| Known concept → page | `read .nexus/library/<slug>.md` |
-| Term / synonym → concept | `rg -i '^(concept\|aliases):.*<term>' .nexus/library/*.md` then read the hit's Summary |
-| Blast radius (what touches X) | `rg 'touches:.*\b<X>\b' .nexus/library/*.md` |
-| Cross-cutting / unknown phrasing | `rg -i '<phrase>' .nexus/library/` (full-text) |
+| Known concept → page | `read .nexus/concepts/<slug>.md` |
+| Term / synonym → concept | `rg -i '^(title\|aliases):.*<term>' .nexus/concepts/*.md` (and match filenames: `ls .nexus/concepts/ \| rg -i '<term>'`) then read the hit's Summary |
+| Blast radius (what touches X) | `rg 'touches:.*\b<X>\b' .nexus/concepts/*.md` |
+| Cross-cutting / unknown phrasing | `rg -i '<phrase>' .nexus/concepts/` (full-text) |
 
 **Relevance ranking** (when an artifact references many candidates): rank by name/alias hits
 in the input artifact, then `touches:` overlap. This is a grep-count sort, not a model.
@@ -219,7 +234,7 @@ in the input artifact, then `touches:` overlap. This is a grep-count sort, not a
 **Forward declaration.** A brief/epic/HLD may carry a `concepts:` reading list in its own
 frontmatter naming the pages an agent should load — the cheap, authoritative path. Grep is
 the fallback when that list is absent or incomplete. (The reading-list field lives on
-System-A artifacts, not on library pages; it is noted here only because it is the primary
+System-A artifacts, not on concept pages; it is noted here only because it is the primary
 retrieval entry point.)
 
 ---
@@ -239,7 +254,7 @@ by construction, not by restraint:
 4. **`_archive/` for deprecated concepts.** Dead concepts leave the active grep space so
    volume of history never dilutes live hits. They remain searchable when explicitly needed.
 5. **Decision Log volume is contained.** Logs grow unbounded but live *inside* an
-   already-selected page; the cross-page grep targets (`concept`/`aliases`/`touches`/
+   already-selected page; the cross-page grep targets (filename/`title`/`aliases`/`touches`/
    Summary/Invariants) are not log prose, so log growth doesn't pollute discovery. Entries
    are date+issue headed so an agent skims headers rather than re-reading the whole log.
 
@@ -258,14 +273,15 @@ concurrent workflows."*
 
 **Decision: drop the generated index. Adopt v2's stance.** Reasons:
 
-1. **Conflict magnet.** The library is git-tracked and shared across worktree-per-epic
+1. **Conflict magnet.** The concept store is git-tracked and shared across worktree-per-epic
    isolation (0001; the brainstorm valued this). A single regenerated contents file is the
    *one* file every concurrent distill run rewrites — guaranteed merge conflicts on the
    highest-traffic artifact, for no retrieval gain.
 2. **Redundant.** Its only job — "list the concepts" — is already served by
-   `glob .nexus/library/*.md` and `rg '^concept:' .nexus/library/`, both always-current.
+   `glob .nexus/concepts/*.md` (the slugs) and `rg '^title:' .nexus/concepts/` (readable
+   names), both always-current.
    The index duplicates frontmatter that is already the grep surface.
-3. **It's derived state in a non-derived store.** 0001 Decision 3 says the library holds
+3. **It's derived state in a non-derived store.** 0001 Decision 3 says the concept store holds
    judgment that *can't* be regenerated. A file that *is* regenerated-on-every-close invites
    the "do not hand-edit, your changes will be overwritten" friction and staleness the rest
    of the design avoids.
@@ -277,11 +293,12 @@ concurrent workflows."*
 
 | Index job | Replacement (no artifact) |
 |---|---|
-| "What concepts exist?" | `glob .nexus/library/*.md` |
-| "One-line summary of each" | `rg '^concept:' -A0` + read Summary lines |
+| "What concepts exist?" | `glob .nexus/concepts/*.md` |
+| "What concepts exist (readable)?" | `rg '^title:' .nexus/concepts/*.md` |
+| "One-line summary of each" | `glob .nexus/concepts/*.md` + read each Summary line |
 | Concept → issue blame | `last_updated_by` frontmatter, per page |
 
-The directory's existing static [`README.md`](../library/README.md) stays — but as a
+The directory's existing static [`README.md`](../concepts/README.md) stays — but as a
 **hand-written usage/rules doc that documents these queries**, not a regenerated table of
 contents. The distinction is load-bearing: a rarely-changing usage guide is not a conflict
 magnet; a per-close-regenerated contents listing is. Keep the former, reject the latter.
@@ -293,31 +310,32 @@ magnet; a per-close-regenerated contents listing is. Keep the former, reject the
 What System A hands System B, in what shape, at which triggers. **Shape and triggers only** —
 the distiller that produces this is later build work (0001 Decision 5).
 
-### 8.1 Triggers (when A writes to the library)
+### 8.1 Triggers (when A writes to the concept store)
 
 | Trigger | Cadence | Role |
 |---|---|---|
-| **Epic close** (`/nxs.close`) | Steady state, per epic | The authoritative write. The library reflects *shipped* truth, so the single write point is close — not design-time. |
-| **Bootstrap** | One-time, per repo adoption | Seeds the library from existing history. Same emission shape, run in bulk. |
+| **Epic close** (`/nxs.close`) | Steady state, per epic | The authoritative write. The concept store reflects *shipped* truth, so the single write point is close — not design-time. |
+| **Bootstrap** | One-time, per repo adoption | Seeds the concept store from existing history. Same emission shape, run in bulk. |
 | **Manual curation** | Ad hoc | Human-authored page or edit. Same shape; `last_updated_by: "manual"`. |
 
 **Single steady-state write trigger = close.** Design-time concept references
-(`/nxs.hld` naming concepts) are *reads*, not writes — the library records outcomes, not
+(`/nxs.hld` naming concepts) are *reads*, not writes — the concept store records outcomes, not
 intentions. An invariant a design deliberately overturns is recorded when the epic that
-overturns it *closes*, not when it is proposed. This keeps writes few and the library
+overturns it *closes*, not when it is proposed. This keeps writes few and the concept store
 free of speculative state.
 
-### 8.2 Emission shape — the per-concept library delta
+### 8.2 Emission shape — the per-concept ConceptDelta
 
 At a trigger, System A hands System B a list of deltas, **one per affected concept**:
 
 ```
-LibraryDelta {
-  concept:            <slug>                 # → filename / frontmatter `concept`
+ConceptDelta {
+  concept:            <slug>                 # the page key = filename (no slug frontmatter)
   action:             create | update | retire
   source:             "#<issue>"             # → last_updated_by + Decision Log attribution
   date:               YYYY-MM-DD
 
+  title_delta:        <text | null>          # → frontmatter `title` + body H1; required on create, null = unchanged
   summary_delta:      <text | null>          # new/changed Summary; null = unchanged
   how_it_works_delta: <text | null>          # changed behavior; null = unchanged
   invariants_added:   [ <sentence>, ... ]
@@ -327,7 +345,7 @@ LibraryDelta {
 
   decision_log_entry: {                       # REQUIRED for every create/update/retire
     title: <short>,                           # e.g. "Session claim becomes authoritative"
-    body:  <1–3 sentences — the WHY>          # the rationale, not the what
+    body:  <the WHY + the refuted viable alternative>   # see G2 amendment below
   }
 }
 ```
@@ -335,16 +353,27 @@ LibraryDelta {
 Semantics binding the shape to [§2.3](#23-append-only--decision-log-semantics-warranted):
 
 - **Every non-noop delta carries exactly one `decision_log_entry`.** A delta with no
-  rationale is malformed — the *why* is the point of the library.
+  rationale is malformed — the *why* is the point of the concept store.
+- **`decision_log_entry.body` — the why *plus the road not taken* (G2 amendment, 0002 §b,
+  2026-06-19).** The earlier 1–3-sentence cap is **relaxed**: the body admits the genuinely
+  considered alternative and why it lost — that pairing is the anti-relitigation payload
+  ([§1](#1-anchor--who-reads-these-pages-and-for-what)) and the original cap made the
+  relocation lossy. **Viability guardrail:** record an alternative *only if it was genuinely
+  viable* — one a competent engineer might have chosen, rejected on a real trade-off, never a
+  first-glance strawman; if none existed, state only the why. The guardrail is what bounds the
+  relaxation so it does not reopen [speculative over-generation](../concepts/speculative-over-generation.md).
+  (Per [0006](./0006-queue-distillation-handoff.md), this `decision_log_entry` is the
+  *distiller's* output shape; the guardrail therefore binds B's recipe, and the human-side
+  source is the decision record's Key Decisions section — 0004 A0/C1.)
 - **`retire`** sets `status: deprecated` and moves the page to `_archive/`; it does not
   delete. **`invariants_retired`** strikes through in place; it does not delete.
 - A concept touched by an epic with **no behavioral change** produces **no delta** (not an
   empty one) — incidental touches don't write. This keeps the log free of "we looked at this
   and nothing changed" noise.
 
-### 8.3 What the library will **not** accept (the hard boundary)
+### 8.3 What the concept store will **not** accept (the hard boundary)
 
-Mirrors 0001 Decision 1 — the two stores never share an artifact. The library **rejects**,
+Mirrors 0001 Decision 1 — the two stores never share an artifact. The concept store **rejects**,
 and the emission contract must never carry:
 
 - Human-judgment-forcing prose, status, task lists, sprint/iteration framing → these belong
@@ -352,23 +381,23 @@ and the emission contract must never carry:
 - Code, file paths, type/function names, API/schema specs → regenerable from source.
 - Speculative or design-time-only claims not yet shipped.
 
-A pipeline stage emitting any of the above *into the library* is a review violation, the
+A pipeline stage emitting any of the above *into the concept store* is a review violation, the
 same way a machine artifact in `docs/` is.
 
 ---
 
 ## 9. Assumptions about System A — reconciliation surface
 
-The sibling pipeline audit is marking cut content "→ relocate to library." This schema
-defines what the library **can** hold; these are the assumptions the audit must reconcile
+The sibling pipeline audit is marking cut content "→ relocate to concept store." This schema
+defines what the concept store **can** hold; these are the assumptions the audit must reconcile
 against. **Surfaced, not blocking** (0001 Decision 5 sequences the audit and this schema as
 two halves of one contract):
 
 1. **A produces, at close, a structured list of which concepts an epic created / changed /
-   retired** — not free prose. "Relocate to library" must resolve to per-concept
-   `LibraryDelta`s ([§8.2](#82-emission-shape--the-per-concept-library-delta)), not to a
+   retired** — not free prose. "Relocate to concept store" must resolve to per-concept
+   `ConceptDelta`s ([§8.2](#82-emission-shape--the-per-concept-conceptdelta)), not to a
    pasted document. If the audit finds content worth keeping but can't attribute it to a
-   concept, it isn't library material.
+   concept, it isn't concept store material.
 2. **For each concept, A can supply a one-line behavioral delta, asserted/retired
    invariants, integration changes, and a one-sentence rationale (the why)** with an issue
    number for provenance. These are the receiving fields; the audit's job is to confirm the
@@ -378,13 +407,13 @@ two halves of one contract):
    the slimmed HLD's invariants/constraints → **Key Invariants**; the close record's key
    decisions → **Decision Log**; the design's affected-subsystems → **touches / Integration
    Points**. If the audit relocates those specific fragments, they have receiving fields. If
-   it tries to relocate *prose narrative*, that's the boundary in [§8.3](#83-what-the-library-will-not-accept-the-hard-boundary) — route to `docs/` or drop.
+   it tries to relocate *prose narrative*, that's the boundary in [§8.3](#83-what-the-concept-store-will-not-accept-the-hard-boundary) — route to `docs/` or drop.
 4. **Bootstrap can derive the same shape in bulk from existing artifacts.** Not designed
    here; flagged so the audit knows the one-time seeding path consumes the identical
    contract.
 
 If any of these assumptions is false after the audit lands, the gap is in the *emission
-shape* ([§8.2](#82-emission-shape--the-per-concept-library-delta)), and that table is the
+shape* ([§8.2](#82-emission-shape--the-per-concept-conceptdelta)), and that table is the
 thing to amend — the page schema ([§2](#2-page-schema)) is downstream of it and should not
 need to move.
 
@@ -398,7 +427,7 @@ Per 0001 Decision 5 and the bounded-deliverable instruction — **schema + contr
 - The bootstrap pipeline.
 - Any `update-index.ts`-style tooling (rejected in [§7](#7-index-question--resolved-no-generated-index) regardless).
 - Per-page verification/confidence machinery (deferred, [§2.1](#21-frontmatter-required-unless-noted)).
-- **Multi-repo library topology** — where a shared library physically lives across N code
+- **Multi-repo concept store topology** — where a shared concept store physically lives across N code
   repos, and whether `touches:` may cross repos. The provenance-reference encoding
   ([§2.4](#24-provenance-references-single--and-multi-repo)) is forward-compatible with it,
   but the location/sharing decision is unmade (it was v2's deferred Phase 4; 0001 did not

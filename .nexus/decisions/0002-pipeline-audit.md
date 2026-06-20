@@ -3,15 +3,22 @@
 **Status:** Audit complete. Classification only — replacement artifacts are not designed here.
 **Date:** 2026-06-10
 **Builds on:** [`0001-refactor-direction.md`](./0001-refactor-direction.md) (the razor, Decisions 1 & 4).
-**Reconciles with:** [`0003-library-schema.md`](./0003-library-schema.md) (fixed input; "→ library" entries below name its actual receiving fields).
+**Reconciles with:** [`0003-concept-schema.md`](./0003-concept-schema.md) (fixed input; "→ concept store" entries below name its actual receiving fields).
 
-**The razor (0001):** every output is either a forcing function for a decision a human must
-make (→ `docs/`, lean) or it is agent scaffolding (→ cut from the human surface; relocate to
-`.nexus/library/` only if it has a receiving field in 0003, fed at a 0003 trigger).
+**The razor (0001), sharpened — two independent tests decide each output's fate.**
+(1) *Forcing function* — does the output exist to make a human stop and decide? This justifies
+generating it and halting on it, nothing more. (2) *Persistence* — does a downstream human
+reader consume the committed *result* of that decision? Only this earns a place in `docs/`
+(lean). A forcing function is an interaction, spent once answered: it routinely passes (1) and
+fails (2), in which case it survives as an interactive gate and writes **no file** (right-sizing
+gate, council, consistency check). What persists in `docs/` is never the forcing function — it
+is the committed judgment a later reader still needs. Everything else is agent scaffolding → cut
+from the human surface; relocate to `.nexus/concepts/` only if it has a receiving field in 0003,
+fed at a 0003 trigger.
 
-**Library mechanics (0003), applied throughout:** the single steady-state write trigger is
-**epic close** (§8.1) — design-time content never writes to the library directly; it survives
-into the close record and is emitted there as per-concept `LibraryDelta`s (§8.2). §8.3 hard-rejects
+**Concept store mechanics (0003), applied throughout:** the single steady-state write trigger is
+**epic close** (§8.1) — design-time content never writes to the concept store directly; it survives
+into the close record and is emitted there as per-concept `ConceptDelta`s (§8.2). §8.3 hard-rejects
 code, file paths, type names, API/schema specs, and speculative design-time claims — those are
 **cut with no relocation, deliberately** (not schema gaps).
 
@@ -24,18 +31,18 @@ Evidence base: `claude/.claude/commands/*.md`, `claude/.claude/agents/*.md`,
 
 Source: `claude/.claude/commands/nxs.init.md`.
 
-| Artifact | Output | Verdict | → library | Rationale |
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | `docs/system/stack.md` | Technology stack | **keep** | — | Human-maintained ground truth; consumed by design and engineers. Not generated speculation. |
-| `docs/system/standards/*.md` | Project standards | **keep** | — | Codified judgment; forces conformance decisions. 0003 §2.2 explicitly names it the home for file paths / code patterns the library rejects. |
-| `docs/system/README.md` | Navigation index | **cut** | — | Generated contents listing; same reasoning 0003 §7 used to kill the library index — glob and CLAUDE.md links already serve it, and it goes stale. |
+| `docs/system/standards/*.md` | Project standards | **keep** | — | Codified judgment; forces conformance decisions. 0003 §2.2 explicitly names it the home for file paths / code patterns the concept store rejects. |
+| `docs/system/README.md` | Navigation index | **cut** | — | Generated contents listing; same reasoning 0003 §7 used to kill the concept index — glob and CLAUDE.md links already serve it, and it goes stale. |
 | `CLAUDE.md` refactor | Link-out edits | **keep** | — | Operational hygiene, not a pipeline artifact. |
 
 ## 2. `/nxs.product-context` — product context file
 
 Source: `claude/.claude/commands/nxs.product-context.md`.
 
-| Artifact | Output | Verdict | → library | Rationale |
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | `docs/product/context.md` | Personas, strategy, anti-goals, metrics, compliance | **keep** | — (rejected by 0003 §8.3: human-judgment prose) | Already self-policing — the command's own section table cuts everything agents don't query. Human-validated product judgment; canonical home for personas (see epic slim below). |
 
@@ -45,7 +52,7 @@ Sources: `claude/.claude/commands/nxs.epic.md`, `claude/.claude/agents/nxs-decom
 (Note: CLAUDE.md says this invokes `nxs-council-architect`; the command actually invokes
 `nxs-decomposer` — the stub agents are deprecated. Doc drift, flagged for cleanup.)
 
-| Artifact | Output | Verdict | → library | Rationale |
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | Right-sizing gate (interactive) | L/XL decomposition prompt, MANDATORY STOP | **keep** | — | The clearest forcing function in the pipeline, and the early over-generation brake 0001 wants. It is an interaction, not a file — keep the gate. |
 | `epic.md` · frontmatter | feature, complexity, status, link | **keep** | — | Grep surface for the pipeline; carries the GH linkage. Candidate spot for 0003 §5's `concepts:` reading list (a read aid, not a write). |
@@ -54,23 +61,24 @@ Sources: `claude/.claude/commands/nxs.epic.md`, `claude/.claude/agents/nxs-decom
 | `epic.md` · Out of Scope / Assumptions / Dependencies / Open Questions | Scope boundary, defaults, ≤3 clarifications | **keep** | — | Scope brake + forced validation of defaults. The clarification limit is good existing discipline. |
 | `epic.md` · User Personas table | Persona/goals table | **slim** | — | Re-tabulates `docs/product/context.md` personas. Survives: only epic-specific persona deviations; otherwise reference context.md. |
 | `epic.md` · Appendix: Complexity Assessment | S–XL + best/likely/worst table + drivers | **slim** | — | The gate already forced the decision; rating + drivers in frontmatter survive. The three-scenario timeline table is speculative precision — cut. Design-time estimates are rejected by §8.3, no relocation. |
-| `epic.md` · Appendix: Glossary | Term/definition table | **cut** | **`aliases:`** frontmatter on the concept pages the terms name, fed at **epic close** via the concept's `LibraryDelta` | Canonical terms are exactly 0003's synonym-findability need. Terms naming a durable shipped concept relocate; epic-local nonce terms drop. |
-| GitHub epic issue | Issue via `nxs-gh-create-epic` | **keep** | (it *is* the provenance target: `last_updated_by`, Decision Log attribution per 0003 §2.4) | Tracking surface and the anchor every library provenance reference points at. |
-| Folder rename / commit choreography | `{N}-epic-name/` renames | **keep** | — | Convention, not an artifact. |
+| `epic.md` · Appendix: Glossary | Term/definition table | **cut** | **`aliases:`** frontmatter on the concept pages the terms name, fed at **epic close** via the concept's `ConceptDelta` | Canonical terms are exactly 0003's synonym-findability need. Terms naming a durable shipped concept relocate; epic-local nonce terms drop. |
+| GitHub epic issue | Issue via `nxs-gh-create-epic` | **keep** | (it *is* the provenance target: `last_updated_by`, Decision Log attribution per 0003 §2.4) | Tracking surface and the anchor every concept-store provenance reference points at. |
+| Folder rename / commit choreography | `{N}-epic-name/` renames | **~~keep~~ superseded** | — | ~~Convention, not an artifact.~~ Superseded by [0005 §1](./0005-transient-artifact-storage.md) / [0006](./0006-queue-distillation-handoff.md): the `<local-id>` model (random key at `/nxs.epic` time) replaces the numbered folder — planning artifacts live in `.nexus/queue/<branch>/<local-id>/`, decoupled from the GH issue ID. No rename convention remains. |
 
 ## 4. `/nxs.hld` — high-level design (16 sections)
 
 Sources: `claude/.claude/commands/nxs.hld.md`, `claude/.claude/agents/nxs-architect.md`.
-This is the JSONata pattern's epicenter (0001). The mineable conclusion — 16 sections → a
-**focused decision record** — is confirmed by this breakdown. All "→ library" entries here
+This is the epicenter of [speculative over-generation](../concepts/speculative-over-generation.md)
+(0001). The mineable conclusion — 16 sections → a
+**focused decision record** — is confirmed by this breakdown. All "→ concept store" entries here
 flow through the **close record** and emit at the close trigger, never at design time (0003 §8.1).
 
-| Section | Verdict | → library (via close) | Rationale |
+| Section | Verdict | → concept store (via close) | Rationale |
 |---|---|---|---|
 | 1. Executive Summary | **slim** | — | Survives as the 2–3 sentence lead of the decision record. |
 | 2. Complexity Assessment | **cut** | — | Duplicates the epic appendix and the decomposer's gate output. Pure scaffolding. |
-| 3. System Context | **cut** | `touches_added/removed` + Integration Points deltas | Re-describes current system state — which is precisely what the library *supplies as reads* (0003 §1). The HLD should consume library pages here, not regenerate them. Integration *changes* emit at close. |
-| 4. Requirements Analysis | **slim** | NFR constraints → `invariants_added` | Survives: ⚠️ NEEDS CLARIFICATION items (forcing) and NFR constraints (e.g., latency budgets — these are invariants). Functional restatement of epic stories is duplication — cut. |
+| 3. System Context | **cut** | `touches_added/removed` + Integration Points deltas | Re-describes current system state — which is precisely what the concept store *supplies as reads* (0003 §1). The HLD should consume concept pages here, not regenerate them. Integration *changes* emit at close. |
+| 4. Requirements Analysis | **slim** | per-concept NFR constraints → `invariants_added`; cross-cutting NFR budgets → `docs/system/standards/` (G4) | Survives: ⚠️ NEEDS CLARIFICATION items (forcing) and NFR constraints. Per-concept ones (e.g., a latency budget on one subsystem) are invariants; system-wide budgets not attributable to one concept route to standards, not a synthetic concept page (see G4 resolution). Functional restatement of epic stories is duplication — cut. |
 | 5. Architecture Overview | **slim** | behavioral outcome → `how_it_works_delta` | Survives: the chosen approach in a few sentences (+ diagram only if load-bearing). The frontend/API/data layer-by-layer boilerplate is template-filling — cut. |
 | 6. Data Model Strategy | **cut** | — (rejected, §8.3: schema specs regenerable from source) | Entity/index/migration detail is the engineer's (0001 Decision 4). Exception: durable data *invariants* (e.g., identifier formats — cf. 0003 §3 example) → `invariants_added`. |
 | 7. API Design Strategy | **cut** | — (rejected, §8.3: API specs) | Engineer's domain; rots against source. |
@@ -93,7 +101,15 @@ Sources: `claude/.claude/commands/nxs.tasks.md`, `claude/.claude/agents/nxs-deco
 `claude/.claude/agents/nxs-architect.md` (LLD mode), `common/docs/system/delivery/task-template.md`,
 `claude/.claude/skills/nxs-generate-tasks/`, `claude/.claude/skills/nxs-gh-create-task/`.
 
-| Artifact | Output | Verdict | → library | Rationale |
+**Decomposition driver (added later by [0004](./0004-implementation-plan.md)):** this audit classifies
+artifact *fate*; it does not define what decomposition is *driven by*. 0004 fixes that: tasks are
+story-driven, not HLD-driven. Every task carries a required `story_ref` (M:N — no task without a story
+parent), each epic story is tagged `story_type: user | system`, and the analyze gate enforces
+traceability (every task→story, every story→≥1 task; `user` stories need an observable behavioral AC,
+`system` stories a measurable one). "Verifiable" holds for every task; direct user value is required
+only of `user` stories. Read the §5 verdicts below through that lens.
+
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | Epic Scope Validation (Step 3, interactive) | Sibling-epic overlap check, MANDATORY STOP | **keep** | — | Forcing function: a scope decision only the human can make. Interaction, not a file. |
 | `tasks/TASK-{E}.{NN}.md` · Summary, Dependencies, Acceptance Criteria, effort | Per-task scope contract | **slim** | — | Survives — but folded into the task index and the GH issue body, not as per-task files (0001 mineable: "task index, drop per-task LLDs"). |
@@ -115,7 +131,7 @@ Sources: `claude/.claude/commands/nxs.qa.md`, `claude/.claude/agents/nxs-qa.md`,
 engineer's side of 0001 Decision 4's boundary. The whole stage is a relocation-out-of-Nexus
 candidate, not just its artifacts.
 
-| Artifact | Output | Verdict | → library | Rationale |
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | `qa-test-case` GitHub issues (design mode) | Per-scenario test specs | **cut** | — | Re-describes epic acceptance criteria as test scenarios — derivable from the AC the epic already keeps. Testing strategy belongs to the engineer. |
 | `<epic-folder>/qa_issues.json` | Issue-ID metadata | **cut** | — | Machine glue for the cut stage. |
@@ -131,7 +147,7 @@ Sources: `claude/.claude/commands/nxs.dev.md`, `claude/.claude/commands/nxs.yolo
 **Stage-level flag:** this stage *is* the code-generation engine 0001 Decision 4 says Nexus is
 not. Strongest cut candidate in the pipeline — implementation is left to engineers as they see fit.
 
-| Artifact | Output | Verdict | → library | Rationale |
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | Worktree / branch / env-sync | Workspace via skills | **cut** | — | Engineer tooling. May survive as standalone utilities outside the pipeline, but they are not Nexus artifacts. |
 | Implementation code + tests | The feature | **cut** (out of scope) | — | Never was a Nexus artifact; the repo owns it. |
@@ -142,20 +158,20 @@ not. Strongest cut candidate in the pipeline — implementation is left to engin
 
 Sources: `claude/.claude/commands/nxs.analyze.md`, `claude/.claude/agents/nxs-analyzer.md`.
 
-| Artifact | Output | Verdict | → library | Rationale |
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | Consistency findings + severity gate | Coverage gaps, scope drift, CRITICAL/HIGH block indicator | **slim** | — | The *check* is a real forcing function (it blocks issue creation on drift the human must resolve). Survives as an inline checkpoint report. |
 | `tasks/task-review.md` (persisted) | Full findings file | **cut** | — | Same verdict as in §5: deterministic, regenerable, stale the moment tasks change. |
-| Auto-remediation (merges, renumbering, terminology) | Edits to task files | **slim** | — | Mostly machinery for over-generated LLD tasks — largely obsolete once per-task LLDs are cut. Terminology normalization survives (feeds clean `concept`/`aliases` naming downstream). |
+| Auto-remediation (merges, renumbering, terminology) | Edits to task files | **slim** | — | Mostly machinery for over-generated LLD tasks — largely obsolete once per-task LLDs are cut. Terminology normalization survives (feeds clean `title`/`aliases` naming downstream). |
 
 ## 9. `/nxs.close` — epic closure
 
 Source: `claude/.claude/commands/nxs.close.md`.
-**This is the library's single steady-state emission point (0003 §8.1).** The slimmed close
-artifact must produce the per-concept `LibraryDelta` list — that is the reconciliation
+**This is the concept store's single steady-state emission point (0003 §8.1).** The slimmed close
+artifact must produce the per-concept `ConceptDelta` list — that is the reconciliation
 obligation 0003 §9.1–9.2 places on this audit, and the classification below satisfies it.
 
-| Artifact | Output | Verdict | → library (the `LibraryDelta` fields, 0003 §8.2) | Rationale |
+| Artifact | Output | Verdict | → concept store (the `ConceptDelta` fields, 0003 §8.2) | Rationale |
 |---|---|---|---|---|
 | `PIR.md` · Executive Summary | Prose outcome narrative | **cut** | — (prose narrative rejected, §8.3) | "Drop prose PIRs" (0001 mineable). |
 | `PIR.md` · Epic Objectives Achieved | Story→implementation table | **cut** | — | Re-describes the epic plus closed-issue states; regenerable from GH. |
@@ -164,7 +180,7 @@ obligation 0003 §9.1–9.2 places on this audit, and the classification below s
 | `PIR.md` · Files Changed | Key file list | **cut** | — (rejected, §8.3; regenerable from git) | Deliberate no-relocation. |
 | `PIR.md` · Testing Summary | Coverage overview | **cut** | — | Regenerable; engineer's. |
 | `PIR.md` · Future Considerations | Deferred scope, debt, recommendations | **slim** | — (speculative; rejected §8.3) | Forward-looking judgment a human must re-triage — stays on the human surface. See schema gap G3 for where. |
-| **Net: close record** | Key decisions + per-concept deltas (concepts created/changed/retired, invariants ±, touches ±) + deferred-scope pointer | **slim** (replaces PIR.md) | **emits the full `LibraryDelta` list** — confirms 0003 §9 assumptions 1–3 hold | Structured, attributable to concepts, with issue provenance — not pasted prose. |
+| **Net: close record** | Key decisions + per-concept deltas (concepts created/changed/retired, invariants ±, touches ±) + deferred-scope pointer | **slim** (replaces PIR.md) | **emits the full `ConceptDelta` list** — confirms 0003 §9 assumptions 1–3 hold | Structured, attributable to concepts, with issue provenance — not pasted prose. |
 | GH PIR comment + issue close | Comment + `gh issue close` | **keep** | — | Provenance anchor (`last_updated_by` points here). |
 | `tasks/` deletion | `rm -rf tasks/` | **keep** (mostly moot) | — | With per-task LLD files cut, there is little left to delete. |
 
@@ -173,7 +189,7 @@ obligation 0003 §9.1–9.2 places on this audit, and the classification below s
 Sources: `claude/.claude/commands/nxs.council.md`, `claude/.claude/agents/nxs-pm.md`,
 deprecated stubs `nxs-council-pm.md` / `nxs-council-architect.md`.
 
-| Artifact | Output | Verdict | → library | Rationale |
+| Artifact | Output | Verdict | → concept store | Rationale |
 |---|---|---|---|---|
 | Council synthesis (conversational) | Perspectives, tensions, Build Now/Later/Differently/Don't recommendation | **keep** | — (a shipped council decision's rationale reaches the Decision Log via the epic that implements it, at close) | A pure judgment forcing function — it exists to put a decision in front of a human. Writes no file by default; correct as-is. |
 | `docs/decisions/*.md` (nxs-pm standalone) | Decision records | **keep** | — | Human judgment surface, exactly where 0001 Decision 1 puts it. |
@@ -183,7 +199,8 @@ deprecated stubs `nxs-council-pm.md` / `nxs-council-architect.md`.
 
 ## (a) Summary — System A's lean artifact set
 
-What remains in `docs/` after the cuts, every item a forcing function:
+What remains in `docs/` after the cuts — every item a committed decision *output* a downstream
+human reader consumes (not the forcing function itself, which is transient and writes no file):
 
 1. **Product & system ground truth** (human-maintained): `docs/product/context.md`,
    `docs/system/stack.md`, `docs/system/standards/*.md`.
@@ -197,7 +214,7 @@ What remains in `docs/` after the cuts, every item a forcing function:
    No per-task LLD files. Scope-validation and consistency checks survive as interactive gates,
    not persisted reports.
 6. **Close record** (replaces PIR.md) — key decisions + per-concept deltas + deferred-scope
-   pointer. This is the artifact that emits `LibraryDelta`s into `.nexus/library/` at close,
+   pointer. This is the artifact that emits `ConceptDelta`s into `.nexus/concepts/` at close,
    satisfying 0003 §9's assumptions.
 7. **GitHub issues** (epic + tasks) as the tracking and provenance surface.
 8. **Council decision records** in `docs/decisions/`, ad hoc.
@@ -211,21 +228,56 @@ and the prose PIR. Workspace/ship tooling may live on as engineer utilities outs
 Content the audit wanted to relocate but the 0003 schema cannot hold as written. Per 0003 §9,
 if any of these is accepted, the amendment lands in the emission shape (§8.2), not the page schema.
 
+**Resolved 2026-06-19** — all four accepted; resolutions inline below. Only **G2** amends 0003
+(§8.2 cap + guardrail; capture-side guidance lives in the A0 templates / distiller recipe);
+**G1 / G3 / G4** are System-A homes that leave the 0003 page schema untouched.
+
 - **G1 — Process/delivery lessons.** PIR-era "lessons learned" of the process kind
   (estimate-vs-actual, decomposition lessons, "we always underestimate migrations") would
-  inform PM estimation — but library pages are *system-concept* knowledge; there is no field
+  inform PM estimation — but concept pages are *system-concept* knowledge; there is no field
   and no concept to attribute process knowledge to (§9.1 test fails). Either declare it
-  out of library scope or give it a separate home; do not force it into concept pages.
+  out of concept-store scope or give it a separate home; do not force it into concept pages.
+  **Resolved — out of concept-store scope, separate home.** Process/delivery lessons are declared
+  out of concept-store scope (they fail §9.1; never forced onto concept pages) and given a
+  `docs/system/delivery/lessons/` folder — **one file per lesson**
+  (`<YYYY-MM-DD>-<slug>.md`, frontmatter carrying the source epic issue for provenance),
+  written by `/nxs.close`. One-file-per-lesson, *not* a single ledger, for the same reason the
+  concept store is one-concept-per-file ([0003 §6](./0003-concept-schema.md)): each close *adds a
+  file* rather than appending to a shared one — merge-conflict-free across concurrent
+  epics/worktrees, the contention the queue model ([0006](./0006-queue-distillation-handoff.md))
+  and the dropped index (0003 §7) both avoid. PM reads via `glob`/`rg` over the folder. Sits
+  beside the other delivery-process docs (`task-labels.md`); consumed by PM
+  estimation/decomposition. System-A artifact only — 0003 unchanged.
 - **G2 — Alternatives considered.** HLD §10's "Alternatives Considered" column is precisely
   the anti-relitigation material 0003 §1 names as a retrieval need, but `decision_log_entry.body`
   is capped at 1–3 sentences ("the why"). Reconcile: either the why is defined to include the
   rejected alternative, or the cap is slightly relaxed. Currently the relocation is lossy.
+  **Resolved — relax the cap, with a viability guardrail.** `decision_log_entry.body` is
+  extended to admit the rejected alternative and why it lost, not just the chosen why — that
+  pairing is the anti-relitigation payload §1 wants. Guardrail (the fix for what made the old
+  mandatory "Alternatives Considered" worthless — agents padding it with strawmen): record an
+  alternative **only if it was genuinely viable** — one a competent engineer might actually have
+  chosen, rejected on a real trade-off, not at first glance. If no such alternative existed, omit
+  the field; never manufacture one to fill the slot. Amendment lands in
+  [0003 §8.2](./0003-concept-schema.md) (the relaxed cap + guardrail — now the *distiller's*
+  output shape per [0006](./0006-queue-distillation-handoff.md)); the capture-side guidance
+  lands in the A0 decision-record-template (the human records the road not taken) and the
+  distiller recipe ([0004 C1](./0004-implementation-plan.md)).
 - **G3 — Deferred scope.** PIR "Future Considerations" is rejected by §8.3 (speculative) —
   correctly — but with the prose PIR cut it has no durable home anywhere. This is a System-A
-  artifact question (next-epic brief / feature backlog), not a library change; flagged so it
+  artifact question (next-epic brief / feature backlog), not a concept-store change; flagged so it
   isn't silently dropped.
+  **Resolved — feature backlog.** Deferred scope routes to an append-only
+  `docs/features/<feature>/backlog.md` — the feature's re-triage queue, and the input the next
+  `/nxs.epic` reads. The close record keeps only a pointer to it; the substance lands where the
+  next planning cycle picks it up. §8.3 upheld — speculative forward prose stays off concept
+  pages; this is a System-A home, not a concept-store change.
 - **G4 — Cross-cutting NFR budgets.** System-wide constraints not attributable to one concept
   (e.g., a global "page load < 2s" budget from HLD NFRs / QA verify targets) fail §9.1's
   per-concept attribution test. Key Invariants are per-concept; a synthetic `performance`
   concept page would be inventing schema. Reconcile: either bless cross-cutting concept pages
   or route these to `docs/system/standards/`.
+  **Resolved — route to standards.** Cross-cutting NFR budgets go to `docs/system/standards/`
+  (e.g., a performance-budget standard), not a synthetic `performance` concept page. Per-concept
+  Key Invariants stay per-concept; system-wide budgets that fail §9.1 attribution are standards.
+  No new schema — 0003 unchanged.
