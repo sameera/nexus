@@ -1,17 +1,11 @@
 # 0003 — Concept page schema & emission contract (System B)
 
 **Status:** Decided (schema + contract). Distiller/build mechanism not started.
-**Amended by:** [`0006`](./0006-queue-distillation-handoff.md) — §8.1 (close = *emission*, not
-write), §8.2 (`ConceptDelta` is the distiller's internal/output shape, not a System-A emission),
-§9.1 (B infers the concept mapping from diff + queued artifacts; A no longer pre-produces it).
-The page schema (§2) is unchanged.
-**Amended by:** [`0002 §b`](./0002-pipeline-audit.md) G2 (2026-06-19) — §8.2
-`decision_log_entry.body` cap relaxed to carry the refuted viable alternative, with a
-viability guardrail.
 **Date:** 2026-06-10
 **Builds on:** [`0001-refactor-direction.md`](./0001-refactor-direction.md) (Decisions 1–3, 5).
 **Reconciles with:** the pipeline audit (sibling decision record, the System-A half of the
 artifact contract). See [§7](#7-emission-contract) for the handoff surface.
+**Amendment history:** see [`decision-log.md`](./decision-log.md).
 
 This record defines what `.nexus/concepts/` holds — the schema of a distilled concept
 page — and the *shape* and *triggers* of what System A emits to populate it. It does **not**
@@ -219,6 +213,34 @@ directory — `.nexus/concepts/*.md` — so `glob` is trivial and there is no ne
 Deprecated pages move to `.nexus/concepts/_archive/` so active grep stays signal-dense (see
 [§6](#6-volume-stance)).
 
+**Slug uniqueness is an invariant of the store.** Because the slug *is* the key
+([§2.1](#21-frontmatter-required-unless-noted) — there is no separate `id` field) and every
+reference is a bare slug (`touches:`, `[link](slug.md)`, the `concepts:` reading list), the
+addressing model assumes **one slug → exactly one active page, globally**. A collision is not
+cosmetic: it gives `touches:` false blast radius (one `rg` hit serves two meanings), makes one
+of the two concepts unaddressable, and — worst — merges two unrelated **append-only Decision
+Logs** into one page — damage the immutability rule
+([§2.3](#23-append-only--decision-log-semantics-warranted)) then makes durable, since the entries
+can no longer be cleanly torn apart. The flat namespace ([above](#5-keying--retrieval)) buys move-stability (re-scope
+without breaking links — the edge over path-as-identity) and *owes* this guarantee as its price;
+moving hierarchy into a future `domain:`/dotted-slug field would sidestep path-coupling but
+**inherit** the same uniqueness constraint.
+
+**Enforced at emission, not by a linter.** The store has a single producer (the distiller, via
+the ConceptDelta contract, [§8.2](#82-emission-shape--the-per-concept-conceptdelta)), so
+uniqueness is a *write-time precondition*, not a post-hoc scan — consistent with the no-machinery
+stance ([§7](#7-index-question--resolved-no-generated-index)). A `create` delta whose `concept:`
+collides with an existing **active** slug is malformed; it must resolve one of two ways:
+
+- **Same concept** → the delta is an `update` of the existing page (append a Decision Log entry),
+  never a silent overwrite ([§2.3](#23-append-only--decision-log-semantics-warranted)).
+- **Different concept** → the new page takes a distinguishing slug (e.g. `session-auth` vs
+  `session-therapy`); the colliding name is disambiguated, not clobbered.
+
+Across repos (the shared concept store of [§2.4](#24-provenance-references-single--and-multi-repo)/[§10](#10-out-of-scope-here)),
+slugs are unique within the store's single resolution scope — `auth` from two code repos is the
+canonical collision, and the multi-repo location decision (§10) must preserve this property.
+
 **Four retrieval paths, all grep/glob/read:**
 
 | Need | Query |
@@ -314,7 +336,7 @@ the distiller that produces this is later build work (0001 Decision 5).
 
 | Trigger | Cadence | Role |
 |---|---|---|
-| **Epic close** (`/nxs.close`) | Steady state, per epic | The authoritative write. The concept store reflects *shipped* truth, so the single write point is close — not design-time. |
+| **Epic close** (`/nxs.close`) | Steady state, per epic | Emits the *why* (human prose) into the queue (0006). The *authoritative write* is the distiller's **distillation-PR merge** ([`0007`](./0007-delta-in-pr-merge-apply.md)), not close itself. The concept store reflects *shipped* truth, so the write lands post-merge — not design-time. |
 | **Bootstrap** | One-time, per repo adoption | Seeds the concept store from existing history. Same emission shape, run in bulk. |
 | **Manual curation** | Ad hoc | Human-authored page or edit. Same shape; `last_updated_by: "manual"`. |
 
@@ -326,39 +348,96 @@ free of speculative state.
 
 ### 8.2 Emission shape — the per-concept ConceptDelta
 
-At a trigger, System A hands System B a list of deltas, **one per affected concept**:
+At a trigger, the distiller produces a list of deltas, **one per affected concept** (per
+[`0006`](./0006-queue-distillation-handoff.md), B infers these post-merge from the diff + queued
+artifacts; the ConceptDelta is B's output shape, not an A emission). Per
+[`0007`](./0007-delta-in-pr-merge-apply.md), these deltas land in a **reviewed distillation-PR**
+against the concept store rather than a direct write to main — same shape, gated apply.
 
-```
-ConceptDelta {
-  concept:            <slug>                 # the page key = filename (no slug frontmatter)
-  action:             create | update | retire
-  source:             "#<issue>"             # → last_updated_by + Decision Log attribution
-  date:               YYYY-MM-DD
+**Stored/serialized form: a markdown page-patch, *not* JSON.** A ConceptDelta is written in
+the **same idiom as the page it mutates** ([§2](#2-page-schema)) — YAML frontmatter for the
+scalar and slug-list fields, headed markdown sections for the prose fields. This is
+deliberate:
 
-  title_delta:        <text | null>          # → frontmatter `title` + body H1; required on create, null = unchanged
-  summary_delta:      <text | null>          # new/changed Summary; null = unchanged
-  how_it_works_delta: <text | null>          # changed behavior; null = unchanged
-  invariants_added:   [ <sentence>, ... ]
-  invariants_retired: [ { text, reason }, ... ]   # struck-through + logged, never deleted
-  touches_added:      [ <slug>, ... ]
-  touches_removed:    [ <slug>, ... ]
+- The prose fields (Summary, How It Works, the Decision Log body) are **fragments destined for
+  a markdown page.** JSON would force them through an escaping layer (`\n`, `\"`) that the
+  consumer immediately unescapes straight back into markdown — pure token cost, and a known
+  invalid-output surface for the LLM that authors the delta, for zero gain.
+- Frontmatter still carries the genuinely structured fields (the `action` enum, slug lists)
+  where a parseable container earns its place.
+- Defining the delta in its stored form removes the "is this a struct or JSON?" ambiguity:
+  what is shown below is what is written.
 
-  decision_log_entry: {                       # REQUIRED for every create/update/retire
-    title: <short>,                           # e.g. "Session claim becomes authoritative"
-    body:  <the WHY + the refuted viable alternative>   # see G2 amendment below
-  }
-}
+The delta carries an explicit `concept:` because, unlike a page, it is **not yet addressed by
+filename** — `concept:` tells the applier which file to create/patch. It is the one place the
+slug appears as data ([§2.1](#21-frontmatter-required-unless-noted) explains why a *page* has
+no slug field; a free-standing delta is the exception that needs it).
+
+**Frontmatter fields** (omit any optional field that is unchanged):
+
+| Field | Required | Maps to / notes |
+|---|---|---|
+| `concept` | always | page key = target filename |
+| `action` | always | `create` \| `update` \| `retire` |
+| `source` | always | `"#<issue>"` → `last_updated_by` + Decision Log attribution ([§2.4](#24-provenance-references-single--and-multi-repo)) |
+| `date` | always | `YYYY-MM-DD` |
+| `title` | create only | → frontmatter `title` + body H1; omit on update when unchanged |
+| `touches_added` | optional | list of slugs; omit if none |
+| `touches_removed` | optional | list of slugs; omit if none |
+
+**Body sections** (omit the whole section when the field is unchanged — see the omission rule
+below):
+
+| Section | Carries | Notes |
+|---|---|---|
+| `## Summary` | new/changed Summary | prose |
+| `## How It Works` | changed behavior | prose |
+| `## Invariants Added` | asserted invariants | numbered list, one sentence each |
+| `## Invariants Retired` | retired invariants | `- ~~<invariant>~~ — <reason>`; struck through + logged, never deleted |
+| `## Decision Log Entry` | the why | **required for every create/update/retire**; `### <short title>` then the body |
+
+**Example** — the `#114` delta that produced the Decision Log entry in the [§3](#3-example-page)
+example page (only changed fields appear; Summary, title, and touches are unchanged so they are
+omitted):
+
+```markdown
+---
+concept: org-resolution
+action: update
+source: "#114"
+date: 2026-06-09
+---
+
+## How It Works
+
+Resolution now prefers the signed session claim; the host subdomain is used only for the
+pre-auth landing case. Downstream code never re-resolves.
+
+## Invariants Retired
+
+- ~~The host subdomain is the authoritative resolution source.~~ — Multi-domain customers
+  broke host-based resolution.
+
+## Decision Log Entry
+
+### Session claim becomes authoritative
+Multi-domain customers broke host-based resolution. Resolution now prefers the signed session
+claim; host is retained only for the pre-auth landing page. The considered alternative —
+per-customer host-alias tables keyed on subdomain — was rejected: it kept the leak-prone host
+as the source of truth and pushed tenant config into DNS-shaped state.
 ```
 
 Semantics binding the shape to [§2.3](#23-append-only--decision-log-semantics-warranted):
 
-- **Every non-noop delta carries exactly one `decision_log_entry`.** A delta with no
+- **Every non-noop delta carries exactly one `## Decision Log Entry`.** A delta with no
   rationale is malformed — the *why* is the point of the concept store.
-- **`decision_log_entry.body` — the why *plus the road not taken* (G2 amendment, 0002 §b,
-  2026-06-19).** The earlier 1–3-sentence cap is **relaxed**: the body admits the genuinely
-  considered alternative and why it lost — that pairing is the anti-relitigation payload
-  ([§1](#1-anchor--who-reads-these-pages-and-for-what)) and the original cap made the
-  relocation lossy. **Viability guardrail:** record an alternative *only if it was genuinely
+- **Omission means *unchanged*, never *clear*.** An absent frontmatter field or body section
+  is "no change to this field." There is no empty/clear operation — a retirement is an explicit
+  `action: retire` or a struck-through `## Invariants Retired` entry, not an omission.
+- **`decision_log_entry.body` — the why *plus the road not taken*.** The body admits the
+  genuinely considered alternative and why it lost (not just the chosen why) — that pairing is
+  the anti-relitigation payload ([§1](#1-anchor--who-reads-these-pages-and-for-what)).
+  **Viability guardrail:** record an alternative *only if it was genuinely
   viable* — one a competent engineer might have chosen, rejected on a real trade-off, never a
   first-glance strawman; if none existed, state only the why. The guardrail is what bounds the
   relaxation so it does not reopen [speculative over-generation](../concepts/speculative-over-generation.md).
@@ -393,11 +472,12 @@ defines what the concept store **can** hold; these are the assumptions the audit
 against. **Surfaced, not blocking** (0001 Decision 5 sequences the audit and this schema as
 two halves of one contract):
 
-1. **A produces, at close, a structured list of which concepts an epic created / changed /
-   retired** — not free prose. "Relocate to concept store" must resolve to per-concept
-   `ConceptDelta`s ([§8.2](#82-emission-shape--the-per-concept-conceptdelta)), not to a
-   pasted document. If the audit finds content worth keeping but can't attribute it to a
-   concept, it isn't concept store material.
+1. **The distiller produces a structured list of which concepts an epic created / changed /
+   retired** — not free prose. Per [0006](./0006-queue-distillation-handoff.md), System A emits
+   human prose; B infers the per-concept `ConceptDelta`s
+   ([§8.2](#82-emission-shape--the-per-concept-conceptdelta)) post-merge from the diff + queued
+   artifacts. "Relocate to concept store" resolves to those deltas, not to a pasted document.
+   If content worth keeping can't be attributed to a concept, it isn't concept store material.
 2. **For each concept, A can supply a one-line behavioral delta, asserted/retired
    invariants, integration changes, and a one-sentence rationale (the why)** with an issue
    number for provenance. These are the receiving fields; the audit's job is to confirm the

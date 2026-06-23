@@ -4,6 +4,7 @@
 **Date:** 2026-06-10
 **Builds on:** [`0001-refactor-direction.md`](./0001-refactor-direction.md) (the razor, Decisions 1 & 4).
 **Reconciles with:** [`0003-concept-schema.md`](./0003-concept-schema.md) (fixed input; "→ concept store" entries below name its actual receiving fields).
+**Amendment history:** see [`decision-log.md`](./decision-log.md).
 
 **The razor (0001), sharpened — two independent tests decide each output's fate.**
 (1) *Forcing function* — does the output exist to make a human stop and decide? This justifies
@@ -63,7 +64,7 @@ Sources: `claude/.claude/commands/nxs.epic.md`, `claude/.claude/agents/nxs-decom
 | `epic.md` · Appendix: Complexity Assessment | S–XL + best/likely/worst table + drivers | **slim** | — | The gate already forced the decision; rating + drivers in frontmatter survive. The three-scenario timeline table is speculative precision — cut. Design-time estimates are rejected by §8.3, no relocation. |
 | `epic.md` · Appendix: Glossary | Term/definition table | **cut** | **`aliases:`** frontmatter on the concept pages the terms name, fed at **epic close** via the concept's `ConceptDelta` | Canonical terms are exactly 0003's synonym-findability need. Terms naming a durable shipped concept relocate; epic-local nonce terms drop. |
 | GitHub epic issue | Issue via `nxs-gh-create-epic` | **keep** | (it *is* the provenance target: `last_updated_by`, Decision Log attribution per 0003 §2.4) | Tracking surface and the anchor every concept-store provenance reference points at. |
-| Folder rename / commit choreography | `{N}-epic-name/` renames | **~~keep~~ superseded** | — | ~~Convention, not an artifact.~~ Superseded by [0005 §1](./0005-transient-artifact-storage.md) / [0006](./0006-queue-distillation-handoff.md): the `<local-id>` model (random key at `/nxs.epic` time) replaces the numbered folder — planning artifacts live in `.nexus/queue/<branch>/<local-id>/`, decoupled from the GH issue ID. No rename convention remains. |
+| Folder rename / commit choreography | `{N}-epic-name/` renames | **cut** | — | The `<local-id>` model (random key at `/nxs.epic` time, per [0005](./0005-transient-artifact-storage.md)/[0006](./0006-queue-distillation-handoff.md)) replaces the numbered folder: planning artifacts live in `.nexus/queue/<branch>/<local-id>/`, decoupled from the GH issue ID. No rename convention remains. |
 
 ## 4. `/nxs.hld` — high-level design (16 sections)
 
@@ -101,7 +102,7 @@ Sources: `claude/.claude/commands/nxs.tasks.md`, `claude/.claude/agents/nxs-deco
 `claude/.claude/agents/nxs-architect.md` (LLD mode), `common/docs/system/delivery/task-template.md`,
 `claude/.claude/skills/nxs-generate-tasks/`, `claude/.claude/skills/nxs-gh-create-task/`.
 
-**Decomposition driver (added later by [0004](./0004-implementation-plan.md)):** this audit classifies
+**Decomposition driver (per [0004](./0004-implementation-plan.md)):** this audit classifies
 artifact *fate*; it does not define what decomposition is *driven by*. 0004 fixes that: tasks are
 story-driven, not HLD-driven. Every task carries a required `story_ref` (M:N — no task without a story
 parent), each epic story is tagged `story_type: user | system`, and the analyze gate enforces
@@ -228,31 +229,34 @@ and the prose PIR. Workspace/ship tooling may live on as engineer utilities outs
 Content the audit wanted to relocate but the 0003 schema cannot hold as written. Per 0003 §9,
 if any of these is accepted, the amendment lands in the emission shape (§8.2), not the page schema.
 
-**Resolved 2026-06-19** — all four accepted; resolutions inline below. Only **G2** amends 0003
-(§8.2 cap + guardrail; capture-side guidance lives in the A0 templates / distiller recipe);
-**G1 / G3 / G4** are System-A homes that leave the 0003 page schema untouched.
+All four are accepted; the resolution follows each gap. Only **G2** amends 0003 (§8.2 cap +
+guardrail; capture-side guidance lives in the A0 templates / distiller recipe); **G1 / G3 / G4**
+are System-A homes that leave the 0003 page schema untouched.
 
 - **G1 — Process/delivery lessons.** PIR-era "lessons learned" of the process kind
   (estimate-vs-actual, decomposition lessons, "we always underestimate migrations") would
   inform PM estimation — but concept pages are *system-concept* knowledge; there is no field
   and no concept to attribute process knowledge to (§9.1 test fails). Either declare it
   out of concept-store scope or give it a separate home; do not force it into concept pages.
-  **Resolved — out of concept-store scope, separate home.** Process/delivery lessons are declared
+  **Decision: out of concept-store scope, separate home.** Process/delivery lessons are declared
   out of concept-store scope (they fail §9.1; never forced onto concept pages) and given a
-  `docs/system/delivery/lessons/` folder — **one file per lesson**
+  `docs/delivery/lessons/` folder — **one file per lesson**
   (`<YYYY-MM-DD>-<slug>.md`, frontmatter carrying the source epic issue for provenance),
   written by `/nxs.close`. One-file-per-lesson, *not* a single ledger, for the same reason the
   concept store is one-concept-per-file ([0003 §6](./0003-concept-schema.md)): each close *adds a
   file* rather than appending to a shared one — merge-conflict-free across concurrent
   epics/worktrees, the contention the queue model ([0006](./0006-queue-distillation-handoff.md))
-  and the dropped index (0003 §7) both avoid. PM reads via `glob`/`rg` over the folder. Sits
-  beside the other delivery-process docs (`task-labels.md`); consumed by PM
-  estimation/decomposition. System-A artifact only — 0003 unchanged.
+  and the dropped index (0003 §7) both avoid. PM reads via `glob`/`rg` over the folder.
+  Home is `docs/delivery/` — a **top-level peer of `system/`, not a child of it**: `system/`
+  holds *system-concept* knowledge (what the product is — stack, standards), and these lessons
+  are explicitly **not** that (the §9.1 failure that evicted them from the concept store is the
+  same reason they don't belong under `system/`). Consumed by PM estimation/decomposition.
+  System-A artifact only — 0003 unchanged.
 - **G2 — Alternatives considered.** HLD §10's "Alternatives Considered" column is precisely
   the anti-relitigation material 0003 §1 names as a retrieval need, but `decision_log_entry.body`
   is capped at 1–3 sentences ("the why"). Reconcile: either the why is defined to include the
   rejected alternative, or the cap is slightly relaxed. Currently the relocation is lossy.
-  **Resolved — relax the cap, with a viability guardrail.** `decision_log_entry.body` is
+  **Decision: relax the cap, with a viability guardrail.** `decision_log_entry.body` is
   extended to admit the rejected alternative and why it lost, not just the chosen why — that
   pairing is the anti-relitigation payload §1 wants. Guardrail (the fix for what made the old
   mandatory "Alternatives Considered" worthless — agents padding it with strawmen): record an
@@ -267,7 +271,7 @@ if any of these is accepted, the amendment lands in the emission shape (§8.2), 
   correctly — but with the prose PIR cut it has no durable home anywhere. This is a System-A
   artifact question (next-epic brief / feature backlog), not a concept-store change; flagged so it
   isn't silently dropped.
-  **Resolved — feature backlog.** Deferred scope routes to an append-only
+  **Decision: feature backlog.** Deferred scope routes to an append-only
   `docs/features/<feature>/backlog.md` — the feature's re-triage queue, and the input the next
   `/nxs.epic` reads. The close record keeps only a pointer to it; the substance lands where the
   next planning cycle picks it up. §8.3 upheld — speculative forward prose stays off concept
@@ -277,7 +281,7 @@ if any of these is accepted, the amendment lands in the emission shape (§8.2), 
   per-concept attribution test. Key Invariants are per-concept; a synthetic `performance`
   concept page would be inventing schema. Reconcile: either bless cross-cutting concept pages
   or route these to `docs/system/standards/`.
-  **Resolved — route to standards.** Cross-cutting NFR budgets go to `docs/system/standards/`
+  **Decision: route to standards.** Cross-cutting NFR budgets go to `docs/system/standards/`
   (e.g., a performance-budget standard), not a synthetic `performance` concept page. Per-concept
   Key Invariants stay per-concept; system-wide budgets that fail §9.1 attribution are standards.
   No new schema — 0003 unchanged.

@@ -1,6 +1,8 @@
 # 0006 — Queue-based distillation handoff
 
-**Status:** Decided.
+**Status:** Decided. **Amended by [`0007`](./0007-delta-in-pr-merge-apply.md)** — the distiller's
+apply is routed through a reviewed distillation-PR instead of a direct write to main. Everything
+here (synthesis in B, A-dumb/B-smart, queue surface, drain triggers, two-store framing) stands.
 **Date:** 2026-06-14
 **Builds on:** [`0001-refactor-direction.md`](./0001-refactor-direction.md) (two-store split, D2/D3),
 [`0003-concept-schema.md`](./0003-concept-schema.md) (page schema + emission contract),

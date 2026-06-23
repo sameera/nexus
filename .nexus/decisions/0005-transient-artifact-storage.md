@@ -93,7 +93,7 @@ This keeps `docs/` free of any machine block, even a human-gated one.
 | `docs/product/context.md`                            | Personas, strategy, anti-goals                      |
 | `docs/features/<name>/README.md`                     | Feature brief — human-authored input to `/nxs.epic` |
 | `docs/features/<name>/backlog.md`                    | Deferred scope, append-only — `/nxs.close` appends, next `/nxs.epic` re-triages (0002 §b G3) |
-| `docs/system/delivery/lessons/*.md`                  | Process/delivery lessons — one file per lesson, `/nxs.close` adds a file (0002 §b G1) |
+| `docs/delivery/lessons/*.md`                         | Process/delivery lessons — one file per lesson, `/nxs.close` adds a file (0002 §b G1; home moved out of `system/` 2026-06-22) |
 | `docs/decisions/*.md`                                | Council decision records, ad hoc                    |
 
 The GitHub epic issue and GH close comment are the permanent human-readable record of what
