@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Response style
+
+Write for a technical user who wants clarity, not flair.
+Use short, plain sentences.
+Keep explanations concise.
+Break complex ideas into steps.
+Avoid unnecessary adjectives, metaphors, and filler.
+Use common words instead of fancy words when both mean the same thing.
+
 ## Project Overview
 
 **Nexus** is a Spec Driven Development toolkit designed to rebalance software development in the age of AI agents. It introduces intentional friction at key decision points to enforce judgment before code generation, preventing the accumulation of AI-generated technical debt.
@@ -15,13 +24,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Nexus enforces a sequential workflow with human checkpoints at each phase:
 
 ### 1. `/nxs.init` - Bootstrap Project Documentation
+
 Initialize project-specific documentation and standards.
+
 - Generates `docs/system/stack.md` (technology stack)
 - Creates `docs/system/standards/*.md` (project-specific standards)
 - Sets up documentation structure
 
 ### 2. `/nxs.epic` - Generate User Stories and Epics
+
 Transform fuzzy capability descriptions into clear, bounded epics.
+
 - **Requires:** Feature README.md with `feature` frontmatter attribute
 - **Process:** Invokes `nxs-council-architect` for complexity assessment (S/M/L/XL)
 - **Right-sizing gate:** Epics > 10 days force decomposition or scope reduction
@@ -29,84 +42,103 @@ Transform fuzzy capability descriptions into clear, bounded epics.
 - **Naming:** Sequential directories (`01-epic-name/`, `02-epic-name/`, etc.)
 
 ### 3. `/nxs.hld` - Create High-Level Design
+
 Generate architectural blueprint before implementation.
+
 - **Requires:** `epic.md` in current or selected directory
 - **Process:** Delegates to `nxs-architect` agent (Opus model) for comprehensive design analysis
 - **Output:** `HLD.md` with 16 sections (Executive Summary, Complexity Assessment, System Context, Architecture Overview, Requirements Analysis, Data Model, API Design Strategy, Security, Technical Debt, Risk Assessment, Implementation Phases, Testing Strategy, Success Criteria, etc.)
 - **Standards conformance:** Automatically checks against `docs/system/standards/*.md`
 
 ### 4. `/nxs.tasks` - Decompose into GitHub Issues
+
 Break HLD into independently reviewable 1-2 day tasks.
+
 - **Requires:** `HLD.md` in current epic directory
 - **Process:**
-  1. Parses HLD and decomposes into logical tasks
-  2. Invokes `nxs-architect` for per-task Low-Level Design (LLD)
-  3. Creates parent epic GitHub issue via `nxs-gh-create-epic` skill
-  4. Runs `/nxs.analyze` for consistency validation
-  5. Auto-remediates findings (merges superfluous tasks, normalizes terminology)
-  6. **Review checkpoint:** Presents task breakdown for user approval
-  7. Creates GitHub issues for all approved tasks
+    1. Parses HLD and decomposes into logical tasks
+    2. Invokes `nxs-architect` for per-task Low-Level Design (LLD)
+    3. Creates parent epic GitHub issue via `nxs-gh-create-epic` skill
+    4. Runs `/nxs.analyze` for consistency validation
+    5. Auto-remediates findings (merges superfluous tasks, normalizes terminology)
+    6. **Review checkpoint:** Presents task breakdown for user approval
+    7. Creates GitHub issues for all approved tasks
 - **Output:** `tasks/TASK-{EPIC}.{SEQ}.md` files with LLDs, `tasks.md` summary with dependency graph
 - **Task numbering:** `TASK-42.01`, `TASK-42.02`, etc. (Epic #42, Task 1, Task 2, ...)
 
 ### 5. `/nxs.qa --mode design` - Design Test Cases
+
 Prepare test strategy and create test case specifications as GitHub issues.
+
 - **Requires:** `tasks` completed and epic context present
 - **Process:** Reads epic/tasks, presents QA coverage plan for approval, creates `qa-test-case` GH issues, writes `<epic-folder>/qa_issues.json`
 - **Output:** GH issue list (label `qa-test-case`), `docs/features/<epic>/qa_issues.json`, test coverage plan
 
 ### 6. `/nxs.dev` - Implement Individual Task
+
 Implement one GitHub issue at a time with test-first development.
+
 - **Requires:** GitHub issue number as input
 - **Process:** Delegates to `nxs-dev` agent (Sonnet model)
 - **Workflow:**
-  1. Sets up git worktree (or in-place branch): `feat/{epic-number}-{concise-title}`
-  2. Syncs environment files via `nxs-env-sync` skill
-  3. Implements task following LLD with human checkpoints before commits
-  4. Posts implementation summary and closes issue on success
+    1. Sets up git worktree (or in-place branch): `feat/{epic-number}-{concise-title}`
+    2. Syncs environment files via `nxs-env-sync` skill
+    3. Implements task following LLD with human checkpoints before commits
+    4. Posts implementation summary and closes issue on success
 - **Worktree mode (recommended):** Creates isolated workspace at `../{repo-name}-{epic-number}`
 - **In-place mode (alternative):** Branches off current worktree
 
 ### 7. `/nxs.qa --mode implement` - Implement and Test
+
 Write and execute automated tests against implementation code.
+
 - **Requires:** Implementation complete, test case GH issues (from step 5) present
 - **Process:** Reads QA specs and implementation code, writes and runs Playwright/integration tests in approved chunks, fixes failures until all pass
 - **Output:** Automated test suite, test execution logs, bug reports for failures
 
 ### 8. `/nxs.qa --mode verify` - Comprehensive QA Validation
+
 Perform full quality assurance across all dimensions.
+
 - **Requires:** Implementation and automated tests complete
 - **Process:** Performs full QA validation (functional, OWASP security, performance, permissions, monkey testing, accessibility) using Playwright MCP and writes comprehensive QA report
 - **Output:** QA report with validation results, security findings, performance metrics, accessibility report
 
 ### 9. `/nxs.analyze` - Validate Consistency
+
 Catch inconsistencies between epic intent, HLD design, and task decomposition.
+
 - **Checks:**
-  - Coverage gaps (user stories without tasks, HLD components without tasks)
-  - Logical inconsistencies (design mismatch with stories)
-  - Technical inconsistencies (HLD vs task LLDs)
-  - Superfluous/redundant tasks
-  - Terminology drift
+    - Coverage gaps (user stories without tasks, HLD components without tasks)
+    - Logical inconsistencies (design mismatch with stories)
+    - Technical inconsistencies (HLD vs task LLDs)
+    - Superfluous/redundant tasks
+    - Terminology drift
 - **Auto-remediation:** Merges barrel-only tasks, normalizes canonical terms, renumbers after deletions
 - **Output:** `tasks/task-review.md` with findings summary and remediation log
 
 ### 10. `/nxs.close` - Generate Post-Implementation Report
+
 Document key decisions and archive task files.
+
 - **Requires:** Completed epic with implemented tasks and QA validation
 - **Output:** `PIR.md` (Post-Implementation Report) consolidating task decisions and lessons learned
 - **Actions:** Closes GitHub epic issue, archives task files
 
 ### 11. `/nxs.council` - Multi-Perspective Review
+
 Facilitate cross-functional decision-making with PM and Architecture perspectives.
+
 - **Modes:**
-  - Quick Council: Single-agent analysis for simple decisions
-  - Full Council: Multi-agent analysis for decisions requiring 1+ weeks
+    - Quick Council: Single-agent analysis for simple decisions
+    - Full Council: Multi-agent analysis for decisions requiring 1+ weeks
 - **Agents:** `nxs-council-pm` (product perspective), `nxs-council-architect` (technical perspective)
 - **Note:** Can be invoked at any point in the workflow for decisions requiring cross-functional alignment
 
 ## Key Architecture Concepts
 
 ### Specialized Agents
+
 - **`nxs-architect`** (Opus): Staff/Principal Engineer for HLD/LLD generation and standards conformance
 - **`nxs-dev`** (Sonnet): Senior Implementation Engineer for test-first development
 - **`nxs-council-pm`** (Inherit): Product Manager for business perspective
@@ -114,7 +146,9 @@ Facilitate cross-functional decision-making with PM and Architecture perspective
 - **`nxs-qa`** (Sonnet): Senior QA Engineer for test specification, automated test implementation, and comprehensive verification
 
 ### Reusable Skills
+
 Located in `claude/.claude/skills/`:
+
 - **`nxs-gh-create-task`** / **`nxs-gh-create-epic`**: GitHub issue creation from frontmatter
 - **`nxs-env-sync`**: Environment file syncing to worktrees
 - **`nxs-workspace-setup`**: Automated git workspace setup (worktree creation, branch management, env sync coordination)
@@ -149,26 +183,33 @@ docs/
 ## Development Workflow Principles
 
 ### Right-Sizing Gate
+
 Epics assessed as Large (L) or Extra Large (XL) trigger decomposition:
+
 - **Option 1:** Generate reduced scope (first sub-epic only, defer remainder)
 - **Option 2:** Generate multiple right-sized epics (all sub-epics)
 - **Option 3:** Proceed with warning (not recommended)
 
 ### Consistency Rule
+
 After completing any task, the system must be in a valid state:
+
 - All tests pass
 - Build succeeds (if applicable)
 - No broken UI elements or dead endpoints
 - No unhandled errors in implemented paths
 
 ### Auto-Remediation
+
 After task generation, `/nxs.analyze` automatically:
+
 - **Merges superfluous tasks:** Barrel/export-only tasks → merged into source task
 - **Normalizes terminology:** Identifies canonical terms from HLD and updates all task files
 - **Updates dependencies:** Fixes `blocked_by` and `blocks` references after merges
 - **Renumbers tasks:** Sequential numbering after deletions
 
 ### Worktree vs In-Place Branching
+
 - **Worktree mode (recommended):** Isolated workspace, cleaner environment syncing
 - **In-place mode:** Faster setup, shares environment with main worktree
 - **Branch naming:** `feat/{epic-number}-{concise-epic-title}`
@@ -178,17 +219,20 @@ After task generation, `/nxs.analyze` automatically:
 To update Nexus commands/agents/skills from the upstream repository:
 
 **Linux/Mac:**
+
 ```bash
 chmod +x ./claude/nxs.update.claude.sh
 ./claude/nxs.update.claude.sh
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 ./claude/nxs.update.claude.ps1
 ```
 
 **Requirements:**
+
 - Clean git working directory (no uncommitted changes in `.claude/`)
 - Script only overwrites `nxs`-prefixed files, preserves custom additions
 
@@ -202,18 +246,22 @@ chmod +x ./claude/nxs.update.claude.sh
 ## Project Context
 
 ### Path Conventions
+
 When commands or agents reference paths under `system/`, `docs/`, or `scripts/`, treat them as relative to this repository root, not as absolute filesystem paths.
 
 ### Standards Template
+
 Use `common/docs/system/standards/_template.md` as the template for creating project-specific standards. Standards should include: Overview, Principles, Standards (rules with rationale/examples/exceptions), Patterns, Checklist, Anti-Patterns, References, and Changelog.
 
 ### Task Frontmatter
+
 Task files use YAML frontmatter with:
+
 ```yaml
 ---
 title: "TASK-{EPIC}.{SEQ}: {TITLE}"
-labels: [backend, performance]  # From docs/system/delivery/task-labels.md
+labels: [backend, performance] # From docs/system/delivery/task-labels.md
 parent: #{EPIC_ISSUE_NUMBER}    # Links to epic GitHub issue
-project: "org/repo"             # GitHub project for issue creation
+project: "org/repo" # GitHub project for issue creation
 ---
 ```
