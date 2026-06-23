@@ -1,91 +1,62 @@
-# 0005 — Transient artifact storage: `.nexus/.temp/`
+# 0005 — Transient artifact storage: path scheme + `.nexus/` location
 
-**Status:** Decided — **§2, §4, §5, §6 superseded by [`0006`](./0006-queue-distillation-handoff.md)**
-(`.temp` + `staged` collapse into one committed `.nexus/queue/` folder).
-**Date:** 2026-06-14
+**Status:** Largely superseded. The storage *model* (`.nexus/.temp/` gitignored, deleted at
+close; `.nexus/staged/<id>.json` durable delta) is replaced by
+[`0006`](./0006-queue-distillation-handoff.md) — one committed `.nexus/queue/<branch>/<local-id>/`
+folder, drained and deleted by the distiller. This file is **trimmed to the parts 0006 reused
+but did not re-justify**: why the transient surface lives under `.nexus/` (vs an external dir or
+a worktree), the `<branch>/<local-id>` path scheme and its runtime discovery, and the narrowing
+of `docs/` to permanent human artifacts only.
+**Date:** 2026-06-14, trimmed 2026-06-23.
 **Builds on:** [`0001-refactor-direction.md`](./0001-refactor-direction.md) (two-store split),
-[`0002-pipeline-audit.md`](./0002-pipeline-audit.md) (transient vs durable classification),
-[`0004-implementation-plan.md`](./0004-implementation-plan.md) (Phase A1 artifact shape, close BLOCKER).
+[`0002-pipeline-audit.md`](./0002-pipeline-audit.md) (transient vs durable classification).
+**Superseded in part by:** [`0006`](./0006-queue-distillation-handoff.md) (§2, §3, §4, §5 of the
+original; the queue is committed, not gitignored, and there is no staged sidecar).
 
 ---
 
-## Decision
+## 1. Why the transient surface lives under `.nexus/` (still standing)
 
-Pipeline artifacts that are **transient by lifecycle** (epic, decision record, task index,
-close record) live in `.nexus/.temp/<branch>/<local-id>/` — gitignored, never committed to
-the source repo, deleted by `/nxs.close` when the epic concludes.
+0006's committed queue is a sibling folder under `.nexus/`. That *location* choice — not the
+gitignore/commit status, which 0006 reversed — comes from here and is not re-argued upstream.
+Three options were evaluated:
 
-**This supersedes the implicit 0004 assumption that these files live in `docs/`.**
-
-`docs/` is now reserved exclusively for _permanent_ human artifacts. The transient pipeline
-workspace is a third surface, distinct from both `docs/` (permanent human) and
-`.nexus/concepts/` (machine knowledge).
-
----
-
-## Why `.nexus/.temp/` over the alternatives
-
-Three alternatives were evaluated:
-
-|                         | NWD (external dir)                        | Git worktree                  | `.nexus/.temp/`          |
+|                         | NWD (external dir)                        | Git worktree                  | `.nexus/` sibling folder |
 | ----------------------- | ----------------------------------------- | ----------------------------- | ------------------------ |
 | Config required         | Yes (`~/.nexus/config.json` + `wip.json`) | None                          | None                     |
-| Files enter git objects | No                                        | Yes (orphan branch)           | No                       |
 | Library access          | Absolute path to source repo              | Cross-worktree path           | Sibling dir, relative    |
-| Cleanup                 | Manual delete                             | `worktree remove + branch -d` | `rm -rf` in `/nxs.close` |
+| Cleanup                 | Manual delete                             | `worktree remove + branch -d` | `rm -rf` (one path)      |
 | Path resolution         | Config + wip.json lookup                  | `git worktree list`           | `git branch` + glob      |
 
-`.nexus/.temp/` wins on simplicity: zero config, no git ceremony, library access is a
-relative sibling read, cleanup is one `rm -rf`. The only meaningful tradeoff vs. the
-worktree approach is no optional commit history on planning artifacts — acceptable for the
-single-operator transient model.
+The `.nexus/` sibling folder wins on simplicity: zero config, no git ceremony, library access
+is a relative sibling read, discovery is `git branch` + glob. This verdict is independent of
+whether the folder is committed — it picks the *location*. 0006 keeps the location and flips the
+commit decision (the queue is committed so it travels to main for the distiller; see 0006 §why).
 
----
+> The original table also had a "files enter git objects: No" row favoring the gitignored
+> `.temp`. That distinction is **moot** under 0006: the queue is committed deliberately.
 
-## Key decisions
+## 2. Path scheme and discovery (still standing)
 
-### 1. Path: `.nexus/.temp/<branch>/<local-id>/`
+The surface is `.nexus/<surface>/<branch>/<local-id>/` (0006's surface is `queue/`):
 
-`<owner>/<repo>` levels dropped — implicit in the source repo. `<branch>` gives
-human-readable organisation. `<local-id>` is a random key generated at `/nxs.epic` time —
-it handles multiple concurrent epics on the same branch and decouples the folder from the
-GitHub issue ID, which does not exist yet at epic creation.
+- `<owner>/<repo>` levels are dropped — implicit in the source repo.
+- `<branch>` gives human-readable organisation.
+- `<local-id>` is a random key generated at `/nxs.epic` time. It handles multiple concurrent
+  epics on the same branch and **decouples the folder from the GitHub issue ID**, which does not
+  exist yet at epic creation.
 
-**Discovery at command runtime:** `git branch --show-current` + `glob .nexus/.temp/<branch>/*/`.
-Common case (one epic per branch) returns exactly one match. Multiple matches prompt the
+**Discovery at command runtime:** `git branch --show-current` + `glob .nexus/<surface>/<branch>/*/`.
+The common case (one epic per branch) returns exactly one match; multiple matches prompt the
 user to select.
 
-### 2. `.nexus/.temp/` is gitignored from init
+## 3. `docs/` narrowed to permanent human artifacts (still standing)
 
-`/nxs.init` writes the entry to `.gitignore`. Mandatory, not optional — a bare `git add .`
-must never stage planning artifacts.
-
-### 3. All transient artifacts deleted at close
-
-`/nxs.close` deletes `.nexus/.temp/<branch>/<local-id>/` as its final step, after:
-
-1. The close record has been reviewed and approved by the human.
-2. The `ConceptDelta` block has been written to `.nexus/staged/<local-id>.json`.
-3. The GH epic comment has been posted and the issue closed.
-
-### 4. Staged `ConceptDelta`s go to `.nexus/staged/<local-id>.json`
-
-The staged delta is **not** transient — it is the durable output System B's distiller (B1)
-consumes. It is committed to the feature branch and travels to main with the PR. This
-resolves the BLOCKER from 0004 (close emission durability): the delta is written before the
-temp folder is deleted.
-
-### 5. Close record is also transient
-
-The close record (key decisions + `ConceptDelta` block) lives in
-`.nexus/.temp/<branch>/<local-id>/close-record.md`. The human gates the delta at the close
-review from this temp file. After approval the `ConceptDelta` moves to `.nexus/staged/` and
-the GH comment captures the human-readable summary. The file is then deleted with the rest
-of temp.
-
-This keeps `docs/` free of any machine block, even a human-gated one.
-
-### 6. `docs/` scope narrowed to permanent human artifacts
+`docs/` is reserved exclusively for *permanent* human artifacts — overriding the implicit 0004
+assumption that pipeline planning files lived there. The transient pipeline workspace is a third
+surface, distinct from `docs/` (permanent human) and `.nexus/concepts/` (machine knowledge).
+0006 keeps this narrowing; it only reverses the original "leaves no trace in the committed tree"
+goal (the queue is now committed, then deleted on distill).
 
 | Path                                                 | Content                                             |
 | ---------------------------------------------------- | --------------------------------------------------- |
@@ -96,6 +67,15 @@ This keeps `docs/` free of any machine block, even a human-gated one.
 | `docs/delivery/lessons/*.md`                         | Process/delivery lessons — one file per lesson, `/nxs.close` adds a file (0002 §b G1; home moved out of `system/` 2026-06-22) |
 | `docs/decisions/*.md`                                | Council decision records, ad hoc                    |
 
-The GitHub epic issue and GH close comment are the permanent human-readable record of what
-was specced and what shipped. The transient pipeline workspace (temp) leaves no trace in the
-committed tree.
+The GitHub epic issue and GH close comment are the permanent human-readable record of what was
+specced and what shipped.
+
+---
+
+## Superseded (see 0006)
+
+- **`.nexus/.temp/` gitignored, deleted at close** → committed `.nexus/queue/`, deleted by the
+  distiller on consume (history-recoverable).
+- **`.nexus/staged/<local-id>.json` durable `ConceptDelta`** → removed. System A emits no
+  machine artifact; the distiller (B) constructs deltas from the committed queue + diff.
+- **Close record carrying a `ConceptDelta` block** → close record is human prose only.
