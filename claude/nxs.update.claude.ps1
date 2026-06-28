@@ -92,11 +92,11 @@ try {
     Write-Green "Files copied:"
     Get-ChildItem -Path "$claudePath" | Format-Table -AutoSize
 
-    # Step 4: Seed project templates into .nexus/templates (seed-if-absent; never clobber a tuned copy)
+    # Step 4: Seed project templates into .nexus/config/templates (seed-if-absent; never clobber a tuned copy)
     $TEMPLATES_SRC = Join-Path $TEMP_DIR "nexus/common/templates"
     if (Test-Path $TEMPLATES_SRC) {
-        Write-Yellow "Seeding .nexus/templates (only missing files)..."
-        $templatesDest = Join-Path $REPO_ROOT ".nexus/templates"
+        Write-Yellow "Seeding .nexus/config/templates (only missing files)..."
+        $templatesDest = Join-Path $REPO_ROOT ".nexus/config/templates"
         if (-not (Test-Path $templatesDest)) {
             New-Item -ItemType Directory -Path $templatesDest -Force | Out-Null
         }

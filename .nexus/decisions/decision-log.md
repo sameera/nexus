@@ -8,6 +8,21 @@ themselves (0005–0007) keep their own status banners.
 
 Most recent first.
 
+## 2026-06-28 — templates nested under the config surface (`.nexus/config/templates/`)
+
+The template home moves **`.nexus/templates/` → `.nexus/config/templates/`**, superseding the
+2026-06-26 sibling-folder decision (0004 A0). Templates and the per-project delivery config now
+share **one** `.nexus/config/` surface rather than two siblings under `.nexus/`: templates live in
+`.nexus/config/templates/`, the label set (`task-labels.md`, `config.*`) directly under
+`.nexus/config/`. **Rationale:** both are per-project, committed Nexus state with the same
+lifecycle; collapsing them to a single surface keeps `.nexus/`'s top level to the three role-distinct
+stores (`queue/` committed-transient, `concepts/` machine, `config/` per-project config) instead of a
+fourth near-duplicate. The seed-if-absent contract is unchanged — the install/update scripts still
+copy the `common/templates/` master, only the destination path changes. Touches 0004 A0 (home +
+seeding paragraphs, C0a seed step, exit criteria), 0005 §("further `.nexus/` surfaces"), `nxs.setup`,
+the `nxs.update.{claude,gemini}.{sh,ps1}` seed step, `gemini/.gemini/commands/nxs.init.md`, and the
+CLAUDE.md Standards Template pointer.
+
 ## 2026-06-28 — 0004 A1: `nxs.init` + `nxs.product-context` merged into `nxs.setup`
 
 The two bootstrap commands collapse into one **`/nxs.setup`** command backed by a new

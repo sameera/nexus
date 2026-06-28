@@ -1,6 +1,8 @@
 ---
 name: nxs-pm
-description: Principal Product Manager with domain expertise. Standalone mode: full PM tasks (PRDs, briefs, strategy). Council mode: focused product perspective for synthesis. Reads product context and domain expertise from docs/product/context.md.
+description: Principal Product Manager with domain expertise.
+Standalone mode: full PM tasks (PRDs, briefs, strategy).
+Council mode: focused product perspective for synthesis. Reads product context and domain expertise from docs/product/context.md.
 category: strategy
 tools: Read, Grep, Glob, Bash, WebSearch
 model: inherit

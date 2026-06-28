@@ -207,4 +207,4 @@ Output a completion summary:
 
 ## Template Reference
 
-A generic standards template is available at `.nexus/templates/standard.template.md` for structural guidance. Adapt it to fit each specific standard you document.
+A generic standards template is available at `.nexus/config/templates/standard.template.md` for structural guidance. Adapt it to fit each specific standard you document.
