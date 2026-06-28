@@ -252,7 +252,7 @@ When commands or agents reference paths under `system/`, `docs/`, or `scripts/`,
 
 ### Standards Template
 
-Use `common/templates/standard.template.md` (the tool-agnostic master; seeded into a project at `.nexus/templates/standard.template.md`) as the template for creating project-specific standards. Standards should include: Overview, Principles, Standards (rules with rationale/examples/exceptions), Patterns, Checklist, Anti-Patterns, References, and Changelog.
+Use `common/templates/standard.template.md` (the tool-agnostic master; seeded into a project at `.nexus/config/templates/standard.template.md`) as the template for creating project-specific standards. A standard is a **ledger of decisions, not a catalog of patterns** — record only what an agent cannot recover by reading the code itself, and point to the code rather than pasting it. Standards should include: Overview, Decisions (canonical choice with rationale + exemplar path + exceptions), Prohibitions, Budgets (cross-cutting NFRs), and Checklist.
 
 ### Task Frontmatter
 

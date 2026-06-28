@@ -75,9 +75,11 @@ see A2 exit). Durability is automatic: the entry is committed, not staged into a
 **Depends on:** nothing (0002/0003 frozen). **Must complete before A1** — the commands are
 rewritten to _generate against_ these specs, so the specs are the real contract surface.
 
-These are blank templates + their filling rules. **Home (amended 2026-06-26, reverses the
-2026-06-21 `claude/.claude/nexus/templates/` decision): `.nexus/templates/`** — a per-project
-surface alongside `.nexus/queue/` and `.nexus/concepts/`. Templates are **tool-agnostic** (one
+These are blank templates + their filling rules. **Home (amended 2026-06-28 to nest under the
+config surface — supersedes the 2026-06-26 `.nexus/templates/` decision, which had reversed the
+2026-06-21 `claude/.claude/nexus/templates/` decision): `.nexus/config/templates/`** — the
+`templates/` subdirectory of the per-project `.nexus/config/` surface (which also holds the label
+set), a sibling of `.nexus/queue/` and `.nexus/concepts/`. Templates are **tool-agnostic** (one
 copy, read by both the Claude and Gemini commands — content is identical across agents) and
 **project-tunable** (committed; a project may adjust its own templates). The prior home treated
 them as install plumbing version-locked to the tool, but they are neither tool-specific nor
@@ -89,27 +91,28 @@ Claude↔Gemini template mirror into a single copy. _Still not_ `common/docs/sys
 
 **Seeding — Checkpoint C0a — DECIDED (2026-06-26): the install script seeds.** The install only
 `cp -rf`s `claude/.claude/` → project `.claude/` (verified in `nxs.update.claude.sh`), so a
-`.nexus/templates/` home needs an explicit seed step. **Decided:** the toolkit ships one
+`.nexus/config/templates/` home needs an explicit seed step. **Decided:** the toolkit ships one
 tool-agnostic master set at **`common/templates/`** (repo-root master, kept off the cluttered
 root). `common/` being outside the `cp -rf` install path is irrelevant here — the seed step reads
 the master from the **clone** (`$TEMP_DIR/nexus/common/templates/`), not the install copy. The
 install/update script (both `nxs.update.claude.sh` and `nxs.update.gemini.sh`) copies it to
-`.nexus/templates/` **only when absent** (never clobbering a tuned copy). This removes template files from `.claude/`/`.gemini/`
+`.nexus/config/templates/` **only when absent** (never clobbering a tuned copy). This removes template files from `.claude/`/`.gemini/`
 entirely. **Consequence (accepted):** the seeding owner shifts from `/nxs.setup` to the install
 script — setup cannot read a master that no longer ships into `.claude/`. (Rejected fallback:
 read-only master at `.claude/nexus/templates/` + `/nxs.setup` copy — it leaves one pristine
 `.claude/` copy, defeating the de-pollution goal.)
 
 Project-customizable delivery _config_ (`task-labels.md`, `config.*`) is the **same per-project
-lifecycle** as templates. **DECIDED (2026-06-26): home is `.nexus/config/`** — it follows
-templates out of the tool namespace so all per-project Nexus data sits under `.nexus/` and the
-update script can't clobber tuned config. Unlike templates, config is **not a copied master**:
+lifecycle** as templates. **DECIDED (2026-06-26): home is `.nexus/config/`** — all
+per-project Nexus data sits under `.nexus/` and the update script can't clobber tuned config.
+Templates share this surface (`.nexus/config/templates/`, amended 2026-06-28); the label set sits
+directly under `.nexus/config/`. Unlike templates, config is **not a copied master**:
 `/nxs.setup` generates project-specific content (the label set) directly into `.nexus/config/`, so
 setup stays its seeder. No command logic yet.
 
 **Deliverables — create:**
 
-- `common/templates/decision-record-template.md` (tool-agnostic master; seeded to `.nexus/templates/`) — replaces the 16-section HLD.
+- `common/templates/decision-record-template.md` (tool-agnostic master; seeded to `.nexus/config/templates/`) — replaces the 16-section HLD.
   Sections (0002 §4 net): Summary lead (1, slimmed) · Chosen Approach (5, slimmed) ·
   Key Decisions + rationale (10, **core** — each decision records the refuted _viable_
   alternative + why it lost, under the C1/G2 guardrail: no strawmen; omit if none existed) ·
@@ -138,7 +141,7 @@ setup stays its seeder. No command logic yet.
   summary + AC + dependencies — the GH issue body shape.
 - `common/docs/system/standards/_template.md` → `common/templates/standard.template.md` — same
   relocation (it is a tool-agnostic template too). The `nxs.setup` reference to
-  `templates/standard.template.md` resolves to the seeded `.nexus/templates/standard.template.md`
+  `templates/standard.template.md` resolves to the seeded `.nexus/config/templates/standard.template.md`
   (commands read templates from the seeded project copy, not the master). Update the CLAUDE.md
   "Standards Template" pointer to match.
 
@@ -156,7 +159,7 @@ setup stays its seeder. No command logic yet.
 
 **Exit criteria:** the template masters exist under `common/templates/` (single tool-agnostic copy —
 no per-tool mirror; the C9 template-mirror obligation is dropped) and the seed path to
-`.nexus/templates/` is settled (C0a); C1–C7 resolved and reflected in them; the close-record template is human
+`.nexus/config/templates/` is settled (C0a); C1–C7 resolved and reflected in them; the close-record template is human
 prose only (no `ConceptDelta` block, 0006); each decision-record section is annotated with the
 `ConceptDelta` field B will derive from it (proves B's mining contract is satisfiable from the
 committed artifacts before any command is touched).
@@ -171,7 +174,7 @@ committed artifacts before any command is touched).
 
 | File                     | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Per 0002 |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `nxs.setup.md`           | **Create (replaces `nxs.init` + `nxs.product-context`).** One guided bootstrap command. The command orchestrates the technical phases; the interactive product-context interview is delegated to the new **`nxs-setup` skill** (below). Technical detection is **confirm-only** (auto-detect the stack; ask only when genuinely ambiguous, batched). Cut the generated `docs/system/README.md` navigation index (§1). Keep stack/standards/CLAUDE.md edits. Scaffold the G1 `docs/delivery/lessons/` folder (with a README documenting the one-file-per-lesson convention) and the G4 NFR-budget home under `docs/system/standards/` (C3/C4). **Seed `.nexus/config/task-labels.md`** with the project's label set (relocated from `common/docs/system/delivery/`; the `nxs.tasks`/decomposer label path updates to `.nexus/config/`). **Templates are _not_ setup-seeded (C0a)** — the install/update script seeds `.nexus/templates/`; setup seeds only the project-generated config. **Queue surface (0006):** `.nexus/queue/` is **committed, not gitignored** — setup does _not_ add a `.nexus/` ignore for it (reverses 0005 §2); only genuinely local scratch, if any, is ignored. **Product context (§2):** invoke the `nxs-setup` skill to run the ≤5-question interview that writes `docs/product/context.md`; personas are canonical there (epic references, doesn't re-tabulate). **Old `nxs.init` + `nxs.product-context` deleted** (merge; see decision-log 2026-06-28). | §1, §2   |
+| `nxs.setup.md`           | **Create (replaces `nxs.init` + `nxs.product-context`).** One guided bootstrap command. The command orchestrates the technical phases; the interactive product-context interview is delegated to the new **`nxs-setup` skill** (below). Technical detection is **confirm-only** (auto-detect the stack; ask only when genuinely ambiguous, batched). Cut the generated `docs/system/README.md` navigation index (§1). Keep stack/standards/CLAUDE.md edits. Scaffold the G1 `docs/delivery/lessons/` folder (with a README documenting the one-file-per-lesson convention) and the G4 NFR-budget home under `docs/system/standards/` (C3/C4). **Seed `.nexus/config/task-labels.md`** with the project's label set (relocated from `common/docs/system/delivery/`; the `nxs.tasks`/decomposer label path updates to `.nexus/config/`). **Templates are _not_ setup-seeded (C0a)** — the install/update script seeds `.nexus/config/templates/`; setup seeds only the project-generated config. **Queue surface (0006):** `.nexus/queue/` is **committed, not gitignored** — setup does _not_ add a `.nexus/` ignore for it (reverses 0005 §2); only genuinely local scratch, if any, is ignored. **Product context (§2):** invoke the `nxs-setup` skill to run the ≤5-question interview that writes `docs/product/context.md`; personas are canonical there (epic references, doesn't re-tabulate). **Old `nxs.init` + `nxs.product-context` deleted** (merge; see decision-log 2026-06-28). | §1, §2   |
 | `nxs.epic.md`            | **Modify** — slim. Keep right-sizing gate (the early over-generation brake), stories/AC, value, success metrics, scope/assumptions/open-questions. Slim persona table to deviations-only. Cut the three-scenario timeline table; rating+drivers to frontmatter. Add `concepts:` reading-list frontmatter field (defined now, _consumed_ in B3). Glossary terms that name durable concepts route to `aliases:` at close, not stored in the epic. Add `story_type: user \| system` to each story: `user` = behavioral AC observable by an end-user; `system` = measurable technical AC (metric, threshold, contract assertion). Both are first-class; `story_type` determines what the analyze gate checks at the AC level, not whether traceability applies. **Writes into `.nexus/queue/<branch>/<local-id>/`** (0006).                                                                                                                                                                                     | §3       |
 | `nxs.hld.md`             | **Rewrite** — emits the focused **decision record** (A0 template) into the queue, not the 16-section HLD. Consumes concept pages for System Context instead of regenerating them (in B3 this read goes live; until then it is a manual/README-driven read).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | §4       |
 | `nxs.tasks.md`           | **Rewrite** — emits the **task index** (into the queue) + slim GH issues. Drop per-task LLD generation entirely. Keep the interactive Epic Scope Validation gate.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | §5       |
@@ -220,14 +223,14 @@ committed artifacts before any command is touched).
   `.claude/` and **do not prune**; deleted commands/agents/skills will linger on existing
   installs. Add an explicit removal step for the cut `nxs.*`-prefixed files, or document
   manual cleanup. (ADDRESS risk.) **Also add the C0a seed step:** copy the toolkit's
-  `common/templates/` master → `.nexus/templates/` **only when absent** (seed, never clobber a tuned
+  `common/templates/` master → `.nexus/config/templates/` **only when absent** (seed, never clobber a tuned
   copy). Same step added to `nxs.update.gemini.sh` — both seed the same tool-agnostic path.
 
 ### Gemini mirror — Checkpoint C9 — **DECIDED: defer**
 
 `gemini/.gemini/` is a full structural mirror (same commands/agents/skills) with its own
 `nxs.update.gemini.sh`. **Templates are now exempt from the mirror** (A0, 2026-06-26): they are
-tool-agnostic, seeded once to `.nexus/templates/`, so there is no `gemini/.gemini/nexus/templates/`
+tool-agnostic, seeded once to `.nexus/config/templates/`, so there is no `gemini/.gemini/nexus/templates/`
 copy to keep in sync — only the gemini update script's C0a seed step. **Decided: defer the
 remaining mirror (commands/agents/skills) until the Claude side stabilizes through A2.** Reapply the same deletes/rewrites to `gemini/.gemini/` as one batch in Phase C, after
 the Claude side is pilot-validated — rewriting both in lockstep doubles the churn while the

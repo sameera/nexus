@@ -92,13 +92,13 @@ else
     exit 1
 fi
 
-# Step 4: Seed project templates into .nexus/templates (seed-if-absent; never clobber a tuned copy)
+# Step 4: Seed project templates into .nexus/config/templates (seed-if-absent; never clobber a tuned copy)
 TEMPLATES_SRC="$TEMP_DIR/nexus/common/templates"
 if [ -d "$TEMPLATES_SRC" ]; then
-    echo -e "${YELLOW}Seeding .nexus/templates (only missing files)...${NC}"
-    mkdir -p "$REPO_ROOT/.nexus/templates"
+    echo -e "${YELLOW}Seeding .nexus/config/templates (only missing files)...${NC}"
+    mkdir -p "$REPO_ROOT/.nexus/config/templates"
     # cp -n = no-clobber: copies a template only if the project does not already have it
-    cp -n "$TEMPLATES_SRC"/* "$REPO_ROOT/.nexus/templates/" 2>/dev/null || true
+    cp -n "$TEMPLATES_SRC"/* "$REPO_ROOT/.nexus/config/templates/" 2>/dev/null || true
     echo -e "${GREEN}Templates seeded (existing project copies left untouched)${NC}"
 fi
 
