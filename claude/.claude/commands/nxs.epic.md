@@ -74,10 +74,11 @@ against existing patterns.
 
 | Size | Duration | Characteristics |
 | ---- | -------- | --------------- |
-| **S** | 1–3 days | Single service, existing patterns, no new infra, low risk |
-| **M** | 1–2 weeks | Multiple files, minor schema changes, 1–2 integrations |
-| **L** | 2–4 weeks | New service / major refactor, migrations, 3+ integrations, cross-team |
-| **XL** | 1–3 months | Architectural shift, large migrations, new infra, phased rollout |
+| **S** | 1–2 days | Single service, existing patterns, no new infra, low risk |
+| **M** | 3–5 days | Multiple files, minor schema changes, 1–2 integrations |
+| **L** | 1–2 weeks | New service / major refactor, migrations, 3+ integrations, cross-team |
+| **XL** | 2–4 weeks | Architectural shift, large migrations, new infra, phased rollout |
+| **XXL** | 1–3 months | Feature-scale program — multiple architectural shifts or workstreams |
 
 Weigh distinct components, data entities, integration points, non-trivial NFRs (security,
 performance, observability), and known unknowns. Record the rating and its **drivers** — they go
@@ -87,30 +88,51 @@ Interpret:
 
 | Assessment | Action |
 | --- | --- |
-| **S** (1–3 days) / **M** (1–2 weeks) | Proceed to Phase 3 — generate the full epic. |
-| **L** (2–4 weeks) / **XL** (1–3 months) | Present the assessment + proposed split, then **MANDATORY STOP** for a choice. |
+| **S** (1–2 days) / **M** (3–5 days) | Proceed to Phase 3 — generate the full epic. |
+| **L** (1–2 weeks) | **Soft gate.** Fits a sprint but fills it with no slack for overruns. Present the assessment + utilization-risk warning, then **MANDATORY STOP**: proceed only on explicit confirmation, with decomposition offered as the safer alternative. |
+| **XL** (2–4 weeks) / **XXL** (1–3 months) | Present the assessment + proposed split, then **MANDATORY STOP** for a choice. XXL is feature-scale — recommend feature-level planning over a single epic. |
 
-When **L/XL**, decompose the capability into right-sized functional goals using the rules below,
-then present the assessment and the proposed split.
+When **L/XL/XXL**, decompose the capability into right-sized functional goals using the rules below,
+then present the assessment and the proposed split. For **L** the split is the *alternative*; for
+**XL/XXL** it is the *expectation*.
 
-### Decomposition (L/XL only)
+### Decomposition (L/XL/XXL)
 
 - Split by **functional goal** — a shippable, independently reviewable slice of capability. Never
   split by layer (no "backend goal" + "frontend goal").
-- **Each goal must be ≤ M.** Split further if a goal still reads L/XL; if one genuinely cannot
-  drop below M, mark it `M` — it re-sizes when promoted.
+- **Each goal must be ≤ M.** Split further if a goal still reads L or larger; if one genuinely
+  cannot drop below M, mark it `M` — it re-sizes when promoted.
 - Give each goal: a kebab-case **slug**, a one-line **goal**, an **S/M estimate**, **blocked_by**
   ordering (foundational goals first, referenced by slug), and **candidate user-story group
   titles** (titles only — no acceptance criteria).
 - Prefer the fewest viable goals. A clean L often splits into 2–3 goals, not 6. Do not pad.
 
-Then offer:
+Then offer. Use the variant matching the assessed size.
+
+**L (soft gate — fills the sprint):**
+
+```markdown
+## ⚠️ Fills the sprint — no slack
+
+Assessed **L** (1–2 weeks). This fits a sprint but consumes it entirely, leaving no
+buffer for overruns or the unexpected. Proceeding is allowed but risky.
+
+**How would you like to proceed?**
+
+| Option | Action |
+|--------|--------|
+| **proceed** | Generate the full epic at this scope. Adds a utilization-risk banner. |
+| **split** | (safer) Decompose into the right-sized goals below and write them as stubs. |
+```
+
+**XL / XXL (exceeds one epic):**
 
 ```markdown
 ## ⚠️ Scope exceeds one epic
 
-Assessed **[L/XL]**. Generating full epics for every sub-goal now would be speculative
-over-generation. Proposed split into right-sized goals:
+Assessed **[XL/XXL]**. Generating full epics for every sub-goal now would be speculative
+over-generation. [XXL: this is feature-scale — prefer feature-level planning over a single
+epic.] Proposed split into right-sized goals:
 
 | # | Functional goal | Est. | Candidate stories |
 |---|-----------------|------|-------------------|
@@ -126,8 +148,9 @@ over-generation. Proposed split into right-sized goals:
 
 **Do NOT proceed without an explicit choice.**
 
-- **stubs** → Phase 2b.
-- **full** → Phase 3, and include the scope-warning banner in the epic.
+- **proceed** (L) → Phase 3, and include the utilization-risk banner in the epic.
+- **split** (L) / **stubs** (XL/XXL) → Phase 2b.
+- **full** (XL/XXL) → Phase 3, and include the scope-warning banner in the epic.
 
 ## Phase 2b — Emit decomposition stubs (oversized path)
 
@@ -242,8 +265,9 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 # Epic: <Epic Title>
 
-<!-- Scope-warning banner ONLY if the user chose "full" on an oversized epic:
-> ⚠️ **Scope warning:** assessed [L/XL]. May not fit one sprint. Consider splitting during planning.
+<!-- Risk banner ONLY if the user chose to proceed past a gate:
+- L, chose "proceed": > ⚠️ **Utilization risk:** assessed L (1–2 weeks). Fills the sprint with no slack for overruns. Watch for scope creep.
+- XL/XXL, chose "full": > ⚠️ **Scope warning:** assessed [XL/XXL]. Exceeds one sprint. Consider splitting during planning.
 -->
 
 ## Description
