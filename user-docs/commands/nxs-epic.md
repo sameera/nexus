@@ -76,46 +76,51 @@ Allow users to create custom tags for content organization.
 
 ### Phase 2: Complexity Assessment (Right-Sizing Gate)
 
-Before generating content, invokes the `nxs-decomposer` agent to assess scope using S/M/L/XL rubric:
+Before generating content, the command assesses scope using an S/M/L/XL/XXL rubric:
 
 | Complexity | Duration | Sprint Fit (10 days) | Action |
 |------------|----------|---------------------|--------|
-| **Small (S)** | 1-3 days | Fits | Proceed |
-| **Medium (M)** | 1-2 weeks | Fits | Proceed |
-| **Large (L)** | 2-4 weeks | Too large | Right-sizing prompt |
-| **Extra Large (XL)** | 1-3 months | Way too large | Right-sizing prompt |
+| **Small (S)** | 1-2 days | Fits | Proceed (auto) |
+| **Medium (M)** | 3-5 days | Fits | Proceed (auto) |
+| **Large (L)** | 1-2 weeks | Fills the sprint | Soft gate — proceed only on explicit confirmation |
+| **Extra Large (XL)** | 2-4 weeks | Too large | Right-sizing prompt |
+| **2XL (XXL)** | 1-3 months | Feature-scale | Right-sizing prompt — recommend feature-level planning |
 
-The decomposer provides:
-- Complexity rating (S/M/L/XL)
+The assessment provides:
+- Complexity rating (S/M/L/XL/XXL)
 - Best case / Likely case / Worst case timeline estimates
 - Complexity drivers (why it's sized this way)
-- For L/XL: Suggested decomposition into smaller epics
+- For L/XL/XXL: Suggested decomposition into smaller epics
 
-### Right-Sizing Prompt (L/XL Epics)
+**Why L is a soft gate:** an epic that fills the entire sprint runs at ~100% utilization,
+leaving no slack for overruns. It is allowed, but not accepted automatically — you must
+confirm, with decomposition offered as the safer alternative.
 
-When scope exceeds Medium complexity:
+### Right-Sizing Prompt (L / XL / XXL Epics)
+
+When scope reaches Large complexity or above:
 
 ```
 ## Epic Scope Assessment
 
-The proposed epic has been assessed as **Large complexity**
+The proposed epic has been assessed as **Extra Large complexity**
 with an estimated timeline of **3-4 weeks**.
 
 This exceeds the target sprint duration of **10 working days**.
 
-### Architect's Analysis
+### Complexity Analysis
 
-[Summary of complexity drivers from nxs-decomposer]
+[Summary of complexity drivers]
 
 ### Proposed Decomposition
 
-The architect suggests breaking this into the following right-sized epics:
+The assessment suggests breaking this into the following right-sized epics:
 
 | # | Epic Scope | Estimated Complexity | Est. Duration |
 |---|------------|---------------------|---------------|
-| 1 | Core tagging CRUD | Medium | 8 days |
-| 2 | Tag filtering & search | Small | 4 days |
-| 3 | Tag analytics dashboard | Medium | 7 days |
+| 1 | Core tagging CRUD | Medium | 5 days |
+| 2 | Tag filtering & search | Small | 2 days |
+| 3 | Tag analytics dashboard | Medium | 4 days |
 
 ---
 
@@ -196,12 +201,12 @@ created: 2026-01-23
 type: enhancement
 status: draft
 complexity: M
-estimated_duration: "8 days"
+estimated_duration: "4 days"
 ---
 
 # Epic: Space-Scoped Tags
 
-[Warning banner if Option 3 was chosen for L/XL epic]
+[Risk banner if user chose to proceed past the L soft gate or the XL/XXL right-sizing prompt]
 
 ### Description
 
@@ -280,16 +285,16 @@ Enable tag scoping to spaces for multi-tenant organization...
 
 ### Complexity Assessment
 
-**Assessed by**: nxs-decomposer
+**Assessed by**: /nxs.epic (inline assessment)
 **Rating**: M
 
 **Timeline Estimates**:
 
 | Scenario | Duration | Assumptions |
 |----------|----------|-------------|
-| Best Case | 5 days | No unexpected blockers, familiar patterns |
-| Likely Case | 8 days | Normal development pace |
-| Worst Case | 12 days | Integration issues, scope clarification needed |
+| Best Case | 3 days | No unexpected blockers, familiar patterns |
+| Likely Case | 4 days | Normal development pace |
+| Worst Case | 6 days | Integration issues, scope clarification needed |
 
 **Complexity Drivers**:
 
@@ -327,9 +332,9 @@ code docs/product/features/tagging/README.md
 Validated Feature: "User Tagging System"
 
 Assessing complexity...
-Invoking nxs-decomposer for scope assessment...
+Running inline scope assessment...
 
-Complexity: Medium (8 days likely case)
+Complexity: Medium (4 days likely case)
 Fits within sprint target
 
 Generating epic folder name: "space-scoped-tags"
@@ -350,7 +355,7 @@ Next: Run /nxs.hld to generate technical design
 **Metadata in Frontmatter**:
 - `feature`: Parent feature name
 - `epic`: Epic name
-- `complexity`: S/M/L/XL assessment
+- `complexity`: S/M/L/XL/XXL assessment
 - `estimated_duration`: Likely case estimate
 - `status`: draft -> design -> implementation -> complete
 
@@ -367,7 +372,7 @@ Next: Run /nxs.hld to generate technical design
 
 ### Epic Too Large Warning
 
-**Problem**: Complexity assessment shows L or XL
+**Problem**: Complexity assessment shows L, XL, or XXL
 
 **Solutions**:
 1. Choose decomposition option 1 or 2
