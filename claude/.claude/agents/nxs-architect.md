@@ -351,20 +351,9 @@ When appropriate, adapt to different scenarios:
 
 ## Complexity Assessment
 
-For detailed complexity sizing (S/M/L/XL), delegate to `nxs-decomposer`:
-
-```
-Invoke: nxs-decomposer
-Context: [feature/component description, stack context]
-Request: Estimate epic-level complexity with key drivers
-```
-
-The decomposer will return:
-
-- Size (S/M/L/XL)
-- Confidence level
-- Key complexity drivers
-- Risk factors affecting estimate
+Size epics and components yourself (S/M/L/XL) using the heuristics below. For each estimate
+record the size, your confidence, the key complexity drivers, and any risk factors that move the
+estimate.
 
 **Quick Heuristics** (for Council Mode or rapid assessment):
 
