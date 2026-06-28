@@ -23,13 +23,15 @@ Use common words instead of fancy words when both mean the same thing.
 
 Nexus enforces a sequential workflow with human checkpoints at each phase:
 
-### 1. `/nxs.init` - Bootstrap Project Documentation
+### 1. `/nxs.setup` - Bootstrap Project (System + Product Context)
 
-Initialize project-specific documentation and standards.
+One guided bootstrap that initializes both the technical and product context. Replaces the former `/nxs.init` + `/nxs.product-context` pair.
 
-- Generates `docs/system/stack.md` (technology stack)
+- Auto-detects the stack and generates `docs/system/stack.md` (confirm-only)
 - Creates `docs/system/standards/*.md` (project-specific standards)
-- Sets up documentation structure
+- Scaffolds the Nexus surfaces (`.nexus/config/task-labels.md`, `docs/delivery/lessons/`)
+- Runs an interactive interview (via the `nxs-setup` skill) to build `docs/product/context.md`
+- Refactors `CLAUDE.md` to link to the generated system docs
 
 ### 2. `/nxs.epic` - Generate User Stories and Epics
 
