@@ -176,7 +176,6 @@ docs/
 └── system/
     ├── stack.md                         # Technology stack
     └── standards/
-        ├── _template.md                 # Template for creating standards
         └── *.md                         # Project-specific standards
 ```
 
@@ -251,7 +250,7 @@ When commands or agents reference paths under `system/`, `docs/`, or `scripts/`,
 
 ### Standards Template
 
-Use `common/docs/system/standards/_template.md` as the template for creating project-specific standards. Standards should include: Overview, Principles, Standards (rules with rationale/examples/exceptions), Patterns, Checklist, Anti-Patterns, References, and Changelog.
+Use `common/templates/standard.template.md` (the tool-agnostic master; seeded into a project at `.nexus/templates/standard.template.md`) as the template for creating project-specific standards. Standards should include: Overview, Principles, Standards (rules with rationale/examples/exceptions), Patterns, Checklist, Anti-Patterns, References, and Changelog.
 
 ### Task Frontmatter
 

@@ -70,6 +70,20 @@ goal (the queue is now committed, then deleted on distill).
 The GitHub epic issue and GH close comment are the permanent human-readable record of what was
 specced and what shipped.
 
+**`.nexus/templates/` and `.nexus/config/` — further `.nexus/` surfaces (added 2026-06-26, see
+0004 A0).** Join `.nexus/queue/` (committed-transient planning) and `.nexus/concepts/` (machine
+knowledge) under `.nexus/`. Both are per-project, committed, and **tool-agnostic** (one copy read
+by both the Claude and Gemini commands):
+
+- `.nexus/templates/` — the pipeline's blank templates; **project-tunable**. Seeded by the
+  install/update script from the toolkit's single `common/templates/` master, **only when absent**
+  (0004 C0a). This moved templates *out* of `claude/.claude/nexus/templates/`.
+- `.nexus/config/` — delivery config (`task-labels.md`, `config.*`); generated/customized by
+  `/nxs.init` per project. Moved *out* of `claude/.claude/nexus/` so per-project state leaves the
+  tool namespace.
+
+Both are fixed singletons — the §2 `<branch>/<local-id>` discovery scheme does not apply.
+
 ---
 
 ## Superseded (see 0006)
