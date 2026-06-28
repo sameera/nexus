@@ -8,6 +8,21 @@ themselves (0005–0007) keep their own status banners.
 
 Most recent first.
 
+## 2026-06-28 — 0008: `/nxs.epic` takes direct intent; oversized scope → stubs
+
+`/nxs.epic` drops the feature-brief precondition and takes a natural-language capability
+description directly; the feature container becomes a scaffolded **output** (name confirmed once),
+not an input gate. The right-sizing gate is **kept**, but its `> M` consent path now emits **epic
+stubs** (slug + functional goal + candidate story-group titles + complexity + `blocked_by`) into
+`docs/features/<name>/backlog.md` — split by functional goal — instead of full epics; the full
+`epic.md` is deferred to a later per-stub `/nxs.epic <stub-ref>` promotion. **Rationale:** the
+brief is thin friction whose coherence role is absorbed by `context.md` + the `concepts:` read
+list, and multi-full-epic generation is the over-generation 0001 names (it fixes the latent hole
+in 0002 §3's Option 2). **Rejected:** an "initiative" tier (no 4th level — the feature folder is
+already a multi-epic container) and renaming `/nxs.epic` → `/nxs.plan` (cosmetic). Amends 0002 §3
+(epic entry + decomposition shape), 0004 A1 `nxs.epic` row, and 0004 C2 (`backlog.md` gains
+`/nxs.epic` as a second writer). Full record: [`0008`](./0008-epic-direct-intent-and-stub-decomposition.md).
+
 ## 2026-06-28 — templates nested under the config surface (`.nexus/config/templates/`)
 
 The template home moves **`.nexus/templates/` → `.nexus/config/templates/`**, superseding the

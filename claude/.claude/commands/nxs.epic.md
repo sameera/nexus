@@ -1,645 +1,350 @@
 ---
-description: Generate an Epic and User Stories document from a natural language capability description within a Feature.
+name: nxs.epic
+description: Turn a natural-language capability description into a right-sized epic with user stories and acceptance criteria. Takes intent directly — no feature brief required. Oversized scope decomposes to backlog stubs instead of full epics.
+category: planning
+tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill
+model: inherit
 ---
 
-## User Input
+# Role
+
+Act as a product manager and delivery lead. Turn one capability description into a bounded epic — user stories with testable acceptance criteria — or, when the scope is oversized, into decomposition stubs for later promotion. You do not design or implement; that is downstream (`/nxs.hld`, the engineer).
+
+# User Input
 
 ```text
 $ARGUMENTS
 ```
 
-You **MUST** consider the user input before proceeding (if not empty).
+The text after the slash command is either:
 
-## Outline
+- a **capability description** (natural language) — the normal case, or
+- a **stub reference** — a single kebab-case slug naming an existing backlog stub to promote.
 
-The text the user typed after the slash command **is** the capability/epic description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
+Empty input is an error: ask the user for a capability description (or a stub slug) and stop.
 
-Given that capability description, do this:
+# What this command does (read once)
 
-1. **Locate and validate the Feature context**:
+- **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
+- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<branch>/<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
+- **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full `epic.md` for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
 
-    a. **Find the Feature README.md**:
-    - Check if the user referenced a README.md file in their prompt
-    - OR check if there's a currently open file in the IDE named `README.md`
-    - OR check if there's a currently open file in the IDE and look for `README.md` in the same directory
+Run the phases in order.
 
-    b. **Validate the Feature Brief**:
-    - Read the README.md file and parse its YAML frontmatter
-    - **Required**: The frontmatter MUST contain a `feature` attribute
-    - Extract the feature name from the `feature` attribute value
+## Phase 0 — Resolve entry mode
 
-    c. **Handle validation failure**:
+1. If `$ARGUMENTS` is empty → ERROR. Ask for a capability description or a stub slug. Stop.
+2. Decide **promotion** vs **intent**:
+    - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `docs/features/*/backlog.md`. Glob the backlogs and check.
+    - Exactly one match → **promotion mode**. Load the stub (functional goal, candidate story-group titles, estimate). The feature container is the backlog's parent directory. Skip the right-sizing gate (the stub was already sized ≤ M at decomposition) and use the stub's goal + candidate stories as the seed for Phase 3.
+    - No match, or input contains whitespace → **intent mode**. The text is the capability description.
 
-    ```
-    ❌ **Cannot proceed**: No valid Feature context found.
+## Phase 1 — Resolve the feature container
 
-    This command must be executed within a Feature. Ensure one of the following:
-    1. Reference a Feature's README.md file in your prompt (e.g., "@README.md")
-    2. Have the Feature's README.md open in your IDE
-    3. Have any file open within a Feature directory that contains a README.md
+The container must exist before writing: the queue entry records its parent feature, and `backlog.md` lives under it (0006 §4).
 
-    The README.md must have YAML frontmatter with a `feature` attribute:
-    ---
-    feature: "Your Feature Name"
-    ---
-    ```
+1. **Promotion mode** → already resolved (the stub's backlog parent). Continue.
+2. **Intent already inside a feature** → if the user referenced a `docs/features/<name>/` path or has a file open under one, use that feature.
+3. **Otherwise infer and confirm once**:
+    - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
+    - Present a single confirmation: _"I'll plan this under feature **<Name>** (`docs/features/<slug>/`). Accept, or give a different name?"_ — one prompt, cheap. Accept the user's correction if any.
+    - If `docs/features/<slug>/` already exists, reuse it (append to its epic index). Otherwise scaffold it with a thin nav index `README.md` — a navigation aid, **not** a forcing-function brief:
 
-    - **Do not proceed** if validation fails
+        ```markdown
+        ---
+        feature: "<Name>"
+        ---
 
-    d. **Store the feature directory path** for later use (the directory containing README.md)
+        # <Name>
 
-2. **Right-Size Assessment** (MANDATORY GATE):
+        <one-line statement of the capability intent>
 
-    Before generating any epic content, invoke the `nxs-decomposer` agent to assess the scope:
+        ## Epics
 
-    ```
-    Invoke: nxs-decomposer
-    Topic: Complexity assessment for proposed epic
-    Context: [The capability description from user input]
-    Request:
-    - Assess complexity using the S/M/L/XL rubric
-    - Provide best/likely/worst case timeline estimates
-    - If complexity exceeds Medium (M), identify logical decomposition points
-    - For each potential sub-epic, estimate complexity
-    ```
+        - <linked once this epic gets a queue entry / issue>
+        ```
 
-    a. **Interpret the assessment**:
+## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
-    | Architect Assessment             | Sprint Fit (10 days)           | Action                      |
-    | -------------------------------- | ------------------------------ | --------------------------- |
-    | **Small (S)**: 1-3 days          | ✅ Fits easily                 | Proceed to epic generation  |
-    | **Medium (M)**: 1-2 weeks        | ✅ Fits (likely case ≤10 days) | Proceed to epic generation  |
-    | **Large (L)**: 2-4 weeks         | ❌ Too large                   | Trigger right-sizing prompt |
-    | **Extra Large (XL)**: 1-3 months | ❌ Way too large               | Trigger right-sizing prompt |
+Before generating any epic content, assess the scope yourself using the rubric below. This is a
+judgment step — read `docs/product/context.md` and `docs/system/stack.md` if present to calibrate
+against existing patterns.
 
-    b. **Right-sizing prompt** (when L or XL):
+### Sizing rubric
 
-    Present the architect's analysis and the following options to the user:
+| Size | Duration | Characteristics |
+| ---- | -------- | --------------- |
+| **S** | 1–3 days | Single service, existing patterns, no new infra, low risk |
+| **M** | 1–2 weeks | Multiple files, minor schema changes, 1–2 integrations |
+| **L** | 2–4 weeks | New service / major refactor, migrations, 3+ integrations, cross-team |
+| **XL** | 1–3 months | Architectural shift, large migrations, new infra, phased rollout |
 
-    ```markdown
-    ## ⚠️ Epic Scope Assessment
+Weigh distinct components, data entities, integration points, non-trivial NFRs (security,
+performance, observability), and known unknowns. Record the rating and its **drivers** — they go
+into the epic frontmatter (`complexity`, `complexity_drivers`).
 
-    The proposed epic has been assessed as **[L/XL] complexity** with an estimated timeline of **[X-Y weeks/months]**.
+Interpret:
 
-    This exceeds the target sprint duration of **10 working days**.
+| Assessment | Action |
+| --- | --- |
+| **S** (1–3 days) / **M** (1–2 weeks) | Proceed to Phase 3 — generate the full epic. |
+| **L** (2–4 weeks) / **XL** (1–3 months) | Present the assessment + proposed split, then **MANDATORY STOP** for a choice. |
 
-    ### Architect's Analysis
+When **L/XL**, decompose the capability into right-sized functional goals using the rules below,
+then present the assessment and the proposed split.
 
-    [Summary of complexity drivers from nxs-decomposer]
+### Decomposition (L/XL only)
 
-    ### Proposed Decomposition
+- Split by **functional goal** — a shippable, independently reviewable slice of capability. Never
+  split by layer (no "backend goal" + "frontend goal").
+- **Each goal must be ≤ M.** Split further if a goal still reads L/XL; if one genuinely cannot
+  drop below M, mark it `M` — it re-sizes when promoted.
+- Give each goal: a kebab-case **slug**, a one-line **goal**, an **S/M estimate**, **blocked_by**
+  ordering (foundational goals first, referenced by slug), and **candidate user-story group
+  titles** (titles only — no acceptance criteria).
+- Prefer the fewest viable goals. A clean L often splits into 2–3 goals, not 6. Do not pad.
 
-    The architect suggests breaking this into the following right-sized epics:
+Then offer:
 
-    | #   | Epic Scope               | Estimated Complexity | Est. Duration |
-    | --- | ------------------------ | -------------------- | ------------- |
-    | 1   | [Sub-epic 1 description] | [S/M]                | [X days]      |
-    | 2   | [Sub-epic 2 description] | [S/M]                | [X days]      |
-    | ... | ...                      | ...                  | ...           |
+```markdown
+## ⚠️ Scope exceeds one epic
 
-    ---
+Assessed **[L/XL]**. Generating full epics for every sub-goal now would be speculative
+over-generation. Proposed split into right-sized goals:
 
-    **How would you like to proceed?**
+| # | Functional goal | Est. | Candidate stories |
+|---|-----------------|------|-------------------|
+| 1 | …               | S/M  | …                 |
 
-    | Option | Action                                                               |
-    | ------ | -------------------------------------------------------------------- |
-    | **1**  | Generate epic with **reduced scope** (Epic #1 only, defer remainder) |
-    | **2**  | Generate **multiple right-sized epics** (all sub-epics above)        |
-    | **3**  | Proceed with **original scope** (ignore warning)                     |
+**How would you like to proceed?**
 
-    **Your choice**: _[1/2/3]_
-    ```
+| Option | Action |
+|--------|--------|
+| **stubs** | (recommended) Write these as proposed stubs to the feature backlog. Promote one later with `/nxs.epic <slug>`. |
+| **full**  | Generate a single full epic at the original (oversized) scope anyway, with a scope-warning banner. |
+```
 
-    c. **MANDATORY STOP**: Do NOT proceed until the user explicitly selects option 1, 2, or 3.
+**Do NOT proceed without an explicit choice.**
 
-    d. **Handle user choice**:
-    - **Option 1 (Reduced scope)**:
-        - Use only the first sub-epic scope for generation
-        - Note deferred scope in "Out of Scope" section
-        - Add deferred items to "Related Documents" or "Future Work" appendix
+- **stubs** → Phase 2b.
+- **full** → Phase 3, and include the scope-warning banner in the epic.
 
-    - **Option 2 (Multiple epics)**:
-        - Generate separate epic documents for each sub-epic
-        - Each gets its own sequential folder (e.g., `01-sub-epic-a/`, `02-sub-epic-b/`)
-        - Link the epics to each other in "Related Documents"
+## Phase 2b — Emit decomposition stubs (oversized path)
 
-    - **Option 3 (Ignore warning)**:
-        - Proceed with original scope
-        - Add a warning banner to the epic document:
-            ```markdown
-            > ⚠️ **Scope Warning**: This epic was assessed as [L/XL] complexity
-            > (estimated [X weeks/months]). It may not fit within a single sprint.
-            > Consider breaking into smaller deliverables during planning.
-            ```
+Append one stub per functional goal to `docs/features/<slug>/backlog.md` (create it if absent). The backlog is **append-only** with one consumer (the next `/nxs.epic`); `/nxs.close` also appends deferred scope here, so the entry shape is shared (slug + goal + estimate + status).
 
-    e. **Minimum viable epic check** (for decomposition):
+Create the file with this header on first write:
 
-    When breaking into multiple epics, validate each sub-epic has sufficient work:
-    - Each sub-epic MUST be estimated at **>4 days** of work
-    - If a sub-epic is <4 days, merge it with an adjacent epic
-    - Rationale: Epics smaller than 4 days should likely be user stories within a larger epic
+```markdown
+# Backlog: <Feature Name>
 
-3. **Generate a concise epic folder name** (kebab-case):
-    - Analyze the capability description and extract the most meaningful keywords
-    - Create a 2-5 word name that captures the essence of the capability
-    - Use noun or action-noun format (e.g., "space-scoped-tags", "private-user-tags", "tag-inheritance")
-    - Preserve technical terms and acronyms (OAuth2, API, JWT, etc.)
-    - **Do NOT** add any prefix or suffix — the issue number will be used as prefix after GitHub issue creation
-    - Examples:
-        - "Tags should be available to all users in a space" → `space-scoped-tags`
-        - "Allow users to have private tags not visible to others" → `private-user-tags`
-        - "Implement tag inheritance from parent spaces" → `tag-inheritance`
-        - "Add bulk tag operations for administrators" → `bulk-tag-operations`
+<!-- Append-only re-triage queue. Writers: /nxs.epic (decomposition stubs),
+     /nxs.close (deferred scope). One consumer: the next /nxs.epic.
+     Promote a proposed stub with `/nxs.epic <slug>`. -->
+```
 
-4. **Create the Epic directory**:
+Append one block per stub (never rewrite existing blocks):
 
-    a. Use the kebab-case name from step 3 directly as the folder name (no prefix):
+```markdown
+## <stub-slug>
 
-    ```bash
-    mkdir -p "<feature-directory>/<epic-name>"
-    ```
+- **status:** proposed
+- **goal:** <one-line functional goal>
+- **estimate:** S | M
+- **blocked_by:** [<stub-slug>, …] | none
+- **source:** decomposition of "<original intent>" (<YYYY-MM-DD>)
+- **candidate stories:** <Story group title>; <Story group title>; …
+```
 
-    - `<feature-directory>` is the directory containing the Feature's README.md
-    - `<epic-name>` is the kebab-case name generated in step 3
+Each stub must be ≤ M. If the decomposer returns a sub-goal still > M, note it in the stub (`estimate: M`, with a comment) — it will be re-decomposed when promoted.
 
-    b. The epic document will be saved as `epic.md` inside this directory:
-    `<feature-directory>/<epic-name>/epic.md`
+Then **stop**. Report the stub list and tell the user to promote one with `/nxs.epic <slug>`. Do **not** create a queue entry or a GitHub issue this run.
 
-    c. After GitHub issue creation (Step 12), the folder will be renamed to
-    `<issue-number>-<epic-name>/` and the file to `<issue-number>-epic.md`.
-    If the user skips issue creation, the folder and file remain unprefixed.
+## Phase 3 — Generate the epic
 
-5. **Handle external plan files** (if referenced):
+1. Read `docs/product/context.md` if present — personas and strategy are canonical there. **Reference** them; do not re-tabulate.
+2. Parse the capability description (or, in promotion mode, the stub's goal + candidate story titles):
+    - Extract actors, goals, actions, data, constraints, business value.
+    - Decompose into **3–8 user stories**, each independently deliverable (INVEST).
+    - For unclear aspects, make informed guesses from context and standards. Mark `[NEEDS CLARIFICATION: …]` only when the choice materially changes scope or UX and no reasonable default exists. **Max 3 markers.** Prioritize: scope > security/privacy > UX > technical.
+3. For each story assign **`story_type`**:
+    - `user` — acceptance criteria describe a behavioral outcome observable by an end-user.
+    - `system` — acceptance criteria are a measurable technical assertion (metric, threshold, or pass/fail contract). Prose-only ACs ("implement caching") are not acceptable for a `system` story.
+4. Write the epic document (structure below). Resolve any remaining clarifications with the user before finalizing (use the clarification format in the guidelines).
 
-    If the user referenced a Claude Code planning mode document or any file outside the repository:
+## Phase 4 — Write the queue entry
 
-    a. **Check for HLD.md in the epic directory**:
-    - If `HLD.md` does NOT exist in `<feature-directory>/<epic-name>/`:
-        - Copy the external file to `<feature-directory>/<epic-name>/HLD.md`
-        - This becomes the High-Level Design document for reference
+The epic is written to the committed planning queue, not under `docs/`.
 
-    b. **If HLD.md already exists**:
-    - Copy the external file to `<feature-directory>/<epic-name>/` with its original filename
-        - For example: `plan-2026-01-08.md`, `design-notes.md`, etc.
+```bash
+BRANCH="$(git branch --show-current)"; [ -z "$BRANCH" ] && BRANCH="detached"
+LOCAL_ID="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
+QDIR=".nexus/queue/${BRANCH}/${LOCAL_ID}"
+mkdir -p "$QDIR"
+```
 
-    c. **Never link to files outside the repository**:
-    - ❌ NEVER use paths like `~/.claude/plans/...`
-    - ❌ NEVER use absolute paths outside the repository
-    - ✅ ALWAYS copy external files into the repository
-    - ✅ ONLY link to repository-relative paths in documentation
+Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.tasks`, `/nxs.close`) discover this entry by `git branch --show-current` + globbing `.nexus/queue/<branch>/*/`; multiple entries on one branch prompt a selection.
 
-6. **Parse and analyze the capability description**:
+Then link the epic from the feature nav index (`docs/features/<slug>/README.md` → `## Epics`).
 
-    Follow this execution flow:
-    1. Parse user description from Input
-        - If empty: ERROR "No capability description provided"
-    2. Extract key concepts from description
-        - Identify: actors/personas, goals, actions, data, constraints, business value
-        - Consider the parent Feature context for consistency
-    3. For unclear aspects:
-        - Make informed guesses based on context and industry standards
-        - Only mark with [NEEDS CLARIFICATION: specific question] if:
-            - The choice significantly impacts epic scope or user experience
-            - Multiple reasonable interpretations exist with different implications
-            - No reasonable default exists
-        - **LIMIT: Maximum 3 [NEEDS CLARIFICATION] markers total**
-        - Prioritize clarifications by impact: scope > security/privacy > user experience > technical details
-    4. Decompose the capability into logical user stories
-        - Each story should be independently deliverable
-        - Stories should follow the INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)
-    5. Define acceptance criteria for each story
-        - Each criterion must be testable and unambiguous
-    6. Return: SUCCESS (epic document ready)
+## Phase 5 — Optional: create the GitHub epic issue (MANDATORY STOP)
 
-7. **Write the Epic document** using the following structure:
+Ask once:
 
-    **IMPORTANT - Absolute Path Linking**: All `.md` file links in the document MUST use absolute GitHub URLs. Use the `nxs-abs-doc-path` skill to convert relative paths:
+```markdown
+**Create a GitHub issue for this epic now?** (yes / no)
+— `yes`: creates the parent epic issue and records its number for downstream tasks.
+— `no`: skip; the issue can be created later.
+```
+
+**Do NOT proceed without a response.**
+
+- **yes** → invoke the `nxs-gh-create-epic` skill on the queued epic:
 
     ```bash
-    python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "<relative-path-from-repo-root>"
+    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${QDIR}/epic.md"
     ```
 
-    Example:
+    The skill reads `epic` (title) and `type` from frontmatter, creates the issue, and writes `link: "#<n>"` back. There is **no folder rename** — the queue `<local-id>` is stable (the GitHub number lives in frontmatter, not the path).
+- **no** → skip.
 
-    ```bash
-    python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md"
-    # Output: https://github.com/sameera/awzm/tree/main/docs/features/tagging/README.md
-    ```
+If this was a **promotion**, mark the source stub `status: promoted` in its `backlog.md` (a single status edit; do not delete the block).
+
+## Phase 6 — Report completion
+
+Report:
+
+- Feature name and folder.
+- Epic title, story count (with `story_type` breakdown), and complexity rating.
+- Queue entry path (`.nexus/queue/<branch>/<local-id>/epic.md`).
+- GitHub issue link, if created.
+- Any open clarifications still outstanding.
+- Next step: `/nxs.hld` to produce the decision record for this epic.
+
+---
+
+## Epic document structure
 
 ```markdown
 ---
-feature: "[Feature Name from README.md]"
-epic: "[Epic Name]"
-created: [Current date in YYYY-MM-DD format]
+feature: "<Feature Name>"
+feature_path: docs/features/<slug>
+epic: "<Epic Title>"
+slug: <epic-slug>
+created: <YYYY-MM-DD>
 type: enhancement
 status: draft
-complexity: [S/M/L/XL - from architect assessment]
-estimated_duration: "[X days/weeks - likely case from architect]"
+complexity: <S|M|L|XL>
+complexity_drivers: [<driver>, <driver>]
+concepts: []          # reading-list of concept slugs this epic depends on (consumed in B3)
+link:                 # GitHub epic issue, set by nxs-gh-create-epic
 ---
 
-# Epic: [Epic Title]
+# Epic: <Epic Title>
 
-[If Option 3 was chosen, include warning banner here]
+<!-- Scope-warning banner ONLY if the user chose "full" on an oversized epic:
+> ⚠️ **Scope warning:** assessed [L/XL]. May not fit one sprint. Consider splitting during planning.
+-->
 
-### Description
+## Description
 
-[2-3 paragraph description of the epic explaining WHAT the capability does and WHY it matters to users/business. Focus on value delivery, not implementation. Reference how this capability extends or modifies the parent Feature.]
+<2–3 paragraphs: WHAT the capability does and WHY it matters. Value, not implementation.>
 
-### Business Value
+## Business Value
 
-[Bullet points explaining the business justification and expected outcomes]
+- <business justification / expected outcome>
 
-### Success Metrics
+## Success Metrics
 
-[Measurable, technology-agnostic criteria that indicate the epic is successful]
+- <measurable, technology-agnostic criterion>
 
----
+## Personas
 
-## User Personas
-
-| Persona | Description         | Primary Goals               |
-| ------- | ------------------- | --------------------------- |
-| [Name]  | [Brief description] | [What they want to achieve] |
-
----
+<Deviations only. Personas are canonical in docs/product/context.md. If this epic uses them
+as-is, write: "Per `docs/product/context.md`." Tabulate only personas specific to this epic or
+deviations from the canonical set.>
 
 ## User Stories
 
-### Story 1: [Story Title]
+### Story 1: <Story Title>
 
-**As a** [persona],
-**I want** [goal/desire],
-**So that** [benefit/value].
+- **story_type:** user | system
+
+**As a** <persona>, **I want** <goal>, **so that** <benefit>.
 
 #### Acceptance Criteria
 
-- [ ] **Given** [precondition], **when** [action], **then** [expected result]
-- [ ] **Given** [precondition], **when** [action], **then** [expected result]
-- [ ] [Additional criteria as needed]
+- [ ] **Given** <precondition>, **when** <action>, **then** <expected result>
+<!-- For story_type: system, at least one AC must state a measurable metric, threshold,
+     or pass/fail assertion — not prose like "implement caching". -->
 
 #### Notes
 
-[Any assumptions, constraints, or additional context]
+<assumptions, constraints, context — optional>
 
----
+### Story 2: <Story Title>
 
-### Story 2: [Story Title]
-
-[Repeat structure for each story...]
-
----
-
-## Dependencies
-
-| Dependency | Type                | Description         | Status          |
-| ---------- | ------------------- | ------------------- | --------------- |
-| [Name]     | [Internal/External] | [Brief description] | [Known/Unknown] |
+<repeat>
 
 ## Assumptions
 
-- [List reasonable assumptions made during story creation]
-- [Document defaults chosen for unspecified details]
+- <reasonable defaults chosen for unspecified details>
 
 ## Out of Scope
 
-- [Explicitly list what is NOT included in this epic]
-- [Helps prevent scope creep]
-- [If Option 1 was chosen, list deferred scope here with reference to future epic]
+- <explicitly excluded; for the "full" oversized path, note deferred scope here>
 
 ## Open Questions
 
-[List any [NEEDS CLARIFICATION] items here for visibility - max 3]
-
----
-
-## Appendix
-
-### Complexity Assessment
-
-**Assessed by**: nxs-decomposer
-**Rating**: [S/M/L/XL]
-**Timeline Estimates**:
-| Scenario | Duration | Assumptions |
-|----------|----------|-------------|
-| Best Case | [X days] | [Key assumptions] |
-| Likely Case | [X days] | [Key assumptions] |
-| Worst Case | [X days] | [Key assumptions] |
-
-**Complexity Drivers**:
-
-- [Key factor 1 from architect analysis]
-- [Key factor 2 from architect analysis]
-
-### Glossary
-
-| Term   | Definition   |
-| ------ | ------------ |
-| [Term] | [Definition] |
-
-### Related Documents
-
-- [Parent Feature Brief](ABSOLUTE_URL_TO_PARENT_README) - Parent Feature Brief
-- [Links to related epics if part of a decomposition - USE ABSOLUTE URLs]
-- [Links to related specs, designs, or documentation - USE ABSOLUTE URLs]
-
-**Note**: All document links must be absolute GitHub URLs generated via `nxs-abs-doc-path` skill. Never use relative paths like `../README.md`.
+<[NEEDS CLARIFICATION] items — max 3. Empty if none.>
 ```
 
-8. **Story Decomposition Guidelines**:
+Notes on the shape (vs. the pre-refactor epic):
 
-    When breaking down the epic into user stories:
-
-    a. **Identify natural boundaries**:
-    - Different user actions or workflows
-    - Different data entities being manipulated
-    - Different permission levels or user types
-    - Core functionality vs. enhancements
-
-    b. **Apply story splitting patterns**:
-    - Split by user persona (admin vs. regular user)
-    - Split by workflow step (create, read, update, delete)
-    - Split by data variation (simple case vs. edge cases)
-    - Split by interface (web, mobile, API)
-    - Split by business rule (basic validation vs. complex rules)
-
-    c. **Story sizing guidance**:
-    - Each story should be completable in 1-3 days of work
-    - If a story seems larger, consider splitting further
-    - Aim for 3-8 stories per epic (adjust based on complexity)
-
-    d. **Story ordering**:
-    - Place foundational stories first (data models, core CRUD)
-    - Follow with enhancement stories (validations, notifications)
-    - End with polish stories (UI refinements, edge cases)
-
-9. **Quality Validation**: After writing the initial document, validate against these criteria:
-
-    a. **Epic Level**:
-    - [ ] Clear business value articulated
-    - [ ] Success metrics are measurable and technology-agnostic
-    - [ ] Scope is clearly bounded with explicit out-of-scope items
-    - [ ] No implementation details (languages, frameworks, APIs)
-    - [ ] Properly linked to parent Feature
-    - [ ] Complexity assessment included in appendix
-    - [ ] **All .md links use absolute GitHub URLs** (not relative paths)
-
-    b. **Story Level**:
-    - [ ] Each story follows "As a... I want... So that..." format
-    - [ ] Each story delivers independent user value
-    - [ ] Acceptance criteria are testable and unambiguous
-    - [ ] No story is too large (should be completable in 1-3 days)
-    - [ ] Stories are ordered logically for development
-
-    c. **Handle Validation Results**:
-    - If items fail: Update the document to address issues before saving
-    - If [NEEDS CLARIFICATION] markers remain (max 3): Present to user using the clarification format below
-
-10. **Handle Clarifications** (if any remain):
-
-    For each clarification needed (max 3), present options:
-
-    ```markdown
-    ## Clarification Needed: [Topic]
-
-    **Context**: [Quote relevant section]
-
-    **Question**: [Specific question]
-
-    | Option | Answer          | Impact on Stories                   |
-    | ------ | --------------- | ----------------------------------- |
-    | A      | [First option]  | [How this affects the epic/stories] |
-    | B      | [Second option] | [How this affects the epic/stories] |
-    | C      | [Third option]  | [How this affects the epic/stories] |
-
-    **Your choice**: _[A/B/C or provide custom answer]_
-    ```
-
-    After receiving answers, update the document and remove [NEEDS CLARIFICATION] markers.
-
-11. **Epic Creation Confirmation** (MANDATORY STOP):
-
-    After validation and clarifications are resolved, present a summary of the epic(s) and confirm GitHub issue creation.
-
-    a. **Build epic summary table**:
-
-    For each epic document generated (single epic or multiple from Option 2):
-
-    ```markdown
-    ## Epic(s) Ready for GitHub Issue Creation
-
-    | # | Epic | Complexity | Duration | File |
-    |---|------|-----------|----------|------|
-    | 1 | [Epic Title] | [S/M] | [X days] | `<feature-directory>/<epic-name>/epic.md` |
-    | 2 | [Epic Title 2] | [S/M] | [X days] | `<feature-directory>/<epic-name2>/epic.md` |
-
-    **Feature**: [Feature Name]
-
-    > **Note**: After issue creation, each folder will be renamed from `<epic-name>/` to
-    > `<issue-number>-<epic-name>/` and the file renamed to `<issue-number>-epic.md`.
-
-    ---
-
-    **Create GitHub issues for these epic(s)?**
-
-    | Option | Action |
-    |--------|--------|
-    | **yes** | Create GitHub issues and commit epic files |
-    | **no** | Skip issue creation (you can create them later via `/nxs.tasks`) |
-
-    **Your choice**: _[yes/no]_
-    ```
-
-    b. **MANDATORY STOP**: Do NOT proceed until the user explicitly responds.
-
-    c. **Handle user choice**:
-    - **`yes`**: Proceed to Step 12 (Create GitHub Issues)
-    - **`no`**: Skip Steps 12 and 13, proceed directly to Step 14 (Report Completion). Note in the report that GitHub issues were not created and the user can create them later.
-
-12. **Create GitHub Issues**:
-
-    For each epic document generated, invoke the `nxs-gh-create-epic` skill and then rename the folder and file:
-
-    ```bash
-    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "<feature-directory>/<epic-name>/epic.md"
-    ```
-
-    After the skill runs, extract the issue number and rename:
-
-    ```bash
-    # Extract issue number from updated frontmatter (skill sets link: "#<number>")
-    ISSUE_NUM=$(grep '^link:' "<feature-directory>/<epic-name>/epic.md" | grep -o '[0-9]*')
-
-    # Rename the epic file to <issue-number>-epic.md
-    mv "<feature-directory>/<epic-name>/epic.md" \
-       "<feature-directory>/<epic-name>/${ISSUE_NUM}-epic.md"
-
-    # Rename the folder from <epic-name> to <issue-number>-<epic-name>
-    mv "<feature-directory>/<epic-name>" \
-       "<feature-directory>/${ISSUE_NUM}-<epic-name>"
-    ```
-
-    Final path: `<feature-directory>/<issue-number>-<epic-name>/<issue-number>-epic.md`
-    Example: `docs/features/tagging/42-space-scoped-tags/42-epic.md`
-
-    a. **For multiple epics** (Option 2 - right-sizing):
-    - Invoke the skill once per epic document, in sequential order
-    - Perform the rename steps above after each invocation before moving to the next epic
-
-    b. **Verify success**:
-    - After each invocation and rename, confirm the final `<issue-number>-epic.md` exists and its frontmatter contains a `link` attribute
-    - If the skill fails: Report the error to the user and stop. Do not rename or proceed to commit.
-
-    c. **Collect results**:
-    - Store the issue number, URL, and final file path for each epic for the completion report
-
-13. **Commit Epic Files**:
-
-    After all GitHub issues are created successfully, commit the epic files to git:
-
-    ```bash
-    git add <feature-directory>/<issue-number>-<epic-name>/<issue-number>-epic.md [...]
-    git commit -m "epics: <Feature Name>"
-    ```
-
-    - Include ALL `<issue-number>-epic.md` files generated in this session (they now contain `link` attributes and are in their final renamed locations)
-    - The `<Feature Name>` comes from the Feature README.md frontmatter `feature` attribute
-    - If the commit fails (e.g., no changes or hook failure), report the error but do not stop the workflow
-
-14. **Report completion** with:
-    - Feature name and link to Feature README (using absolute URL)
-    - Full file path where epic document was saved (final path: `<issue-number>-<epic-name>/<issue-number>-epic.md`, or unprefixed path if issue creation was skipped)
-    - Epic summary (name, story count, complexity rating)
-    - **GitHub issue link(s)** for each epic (if created), e.g., `Epic: [Epic Title](#<issue-number>)`
-    - Any clarifications needed before the epic is considered complete
-    - If multiple epics were generated (Option 2), list all with their paths **and issue links**
-    - Suggested next steps:
-        - If issues were created: "Run `/nxs.hld` on an epic to generate the High-Level Design"
-        - If issues were NOT created: "Run `/nxs.tasks` when ready — it will create the GitHub issue and rename the folder/file at that point"
+- **No three-scenario timeline table and no complexity appendix** — the rating and its drivers live in frontmatter (`complexity`, `complexity_drivers`).
+- **No glossary.** Terms that name durable concepts are routed to a concept page's `aliases:` at close time (System B), not stored in the epic.
+- **Personas are deviations-only** — the canonical set is `docs/product/context.md`.
 
 ---
 
-## General Guidelines
+## Guidelines
 
-### Quick Guidelines
+### Focus
 
-- Focus on **WHAT** users need and **WHY** (business value)
-- Avoid **HOW** to implement (no tech stack, APIs, code structure)
-- Written for product owners, stakeholders, and developers to align on scope
-- Each story should be a conversation starter, not a complete specification
-- Maintain consistency with the parent Feature's context and terminology
-- **All .md file links MUST use absolute GitHub URLs** (use `nxs-abs-doc-path` skill)
+- **WHAT** users need and **WHY** (value). Avoid **HOW** (no stack, APIs, code structure).
+- Each story is a conversation starter, not a complete spec. Each AC must be verifiable.
+- Stay consistent with `docs/product/context.md` terminology and personas.
 
-### Absolute Path Linking
+### Story decomposition
 
-All markdown document links in generated epics MUST be absolute GitHub URLs, not relative paths.
+- Split by user action/workflow, data entity, permission level, or core-vs-enhancement.
+- Order foundational stories first (core CRUD / data), then enhancements, then polish.
+- Each story ≈ 1–3 days. If larger, split further.
 
-**Why?**
+### Clarifications (max 3)
 
-- Ensures links work regardless of where the document is viewed (GitHub, local, exported PDFs)
-- Provides consistent navigation experience
-- Avoids broken links when documents are moved or referenced from different contexts
+When a clarification is genuinely needed, present options and stop:
 
-**How?**
-Use the `nxs-abs-doc-path` skill to convert relative paths:
+```markdown
+## Clarification needed: <topic>
+
+**Context:** <quote the relevant intent>
+**Question:** <specific question>
+
+| Option | Answer | Impact |
+|--------|--------|--------|
+| A | … | … |
+| B | … | … |
+
+**Your choice:** _[A/B or custom]_
+```
+
+After answers, update the epic and remove the marker.
+
+### Links
+
+If a GitHub issue is created from the epic, any `.md` links in the body should be absolute GitHub URLs so they resolve from the issue. Use the `nxs-abs-doc-path` skill to convert repo-relative paths:
 
 ```bash
-# Convert a single path
-python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md"
-
-# Convert multiple paths at once
-python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md" "docs/system/delivery/task-labels.md"
+python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/<slug>/README.md"
 ```
-
-The script reads the docs root from `docs/system/delivery/config.yml` (`cross-ref.docs-root`) or `docs/system/delivery/config.json` (`docRoot`) and constructs the full URL. `config.yml` takes precedence when both exist.
-
-**Example transformation:**
-
-- Input: `../README.md` or `docs/features/tagging/README.md`
-- Output: `https://github.com/sameera/awzm/tree/main/docs/features/tagging/README.md`
-
-### Right-Sizing Philosophy
-
-The goal of right-sizing is to ensure:
-
-1. **Predictable delivery**: Epics that fit in a sprint can be planned reliably
-2. **Meaningful scope**: Epics smaller than 4 days lack sufficient cohesion
-3. **Clear boundaries**: Each epic has a defined start and end state
-4. **Independent value**: Each epic delivers something usable to stakeholders
-
-### Acceptance Criteria Best Practices
-
-- Use Given/When/Then format for complex scenarios
-- Keep criteria atomic (one testable condition per item)
-- Include happy path and key edge cases
-- Avoid implementation language ("the API should...", "the database must...")
-
-### For AI Generation
-
-When creating this document from a user prompt:
-
-1. **Validate Feature context first**: Always ensure you have a valid Feature before proceeding
-2. **Assess complexity early**: Invoke nxs-decomposer before generating content
-3. **Respect the gate**: NEVER proceed past right-sizing prompt without user input
-4. **Make informed guesses**: Use context, industry standards, and common patterns to fill gaps
-5. **Document assumptions**: Record reasonable defaults in the Assumptions section
-6. **Limit clarifications**: Maximum 3 [NEEDS CLARIFICATION] markers
-7. **Think like a product owner**: Every story should answer "what value does this deliver?"
-8. **Think like a tester**: Every acceptance criterion should be verifiable
-9. **Maintain Feature coherence**: Ensure the epic aligns with and extends the parent Feature
-10. **Use absolute URLs**: Always run `nxs-abs-doc-path` skill for any .md file links
-11. **Create GitHub issues on confirmation**: After user approves, invoke `nxs-gh-create-epic` skill for each epic and commit files
-
-**Examples of reasonable defaults** (don't ask about these):
-
-- Standard CRUD operations for data management features
-- Basic validation (required fields, format validation)
-- Standard error handling with user-friendly messages
-- Responsive design for web features
-- Basic accessibility compliance
-
-**Common areas that MAY need clarification** (only if critical):
-
-- User roles and permission boundaries
-- Integration with external systems
-- Compliance or regulatory requirements
-- Performance requirements for high-scale features
-
-### Directory Structure Example
-
-After running this command for a "Tagging" feature:
-
-```
-docs/features/tagging/
-├── README.md                      # Feature Brief (feature: "Tagging")
-├── 42-space-scoped-tags/
-│   └── 42-epic.md                 # First epic (M complexity, GitHub issue #42)
-├── 43-private-user-tags/
-│   └── 43-epic.md                 # Second epic (S complexity, GitHub issue #43)
-├── 44-tag-inheritance/
-│   └── 44-epic.md                 # Third epic - split from larger scope (issue #44)
-├── 45-tag-inheritance-advanced/
-│   └── 45-epic.md                 # Fourth epic - remainder of split (issue #45)
-└── 46-bulk-tag-operations/
-    └── 46-epic.md                 # Fifth epic (M complexity, GitHub issue #46)
-```
-
-Before issue creation (intermediate state), folders are unprefixed:
-
-```
-docs/features/tagging/
-├── README.md
-├── space-scoped-tags/
-│   └── epic.md                    # Pending issue creation → becomes 42-space-scoped-tags/42-epic.md
-└── ...
-```
-
-### Complexity-to-Sprint Mapping Reference
-
-| Complexity | Typical Duration | Sprint Fit    | Action       |
-| ---------- | ---------------- | ------------- | ------------ |
-| S          | 1-3 days         | ✅ Yes        | Proceed      |
-| M          | 5-10 days        | ✅ Yes        | Proceed      |
-| L          | 10-20 days       | ⚠️ Borderline | Likely split |
-| XL         | 20-60 days       | ❌ No         | Must split   |
-
-**Note**: The architect's "likely case" estimate is used for sprint fit determination.
