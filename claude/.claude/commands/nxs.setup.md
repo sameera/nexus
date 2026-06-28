@@ -110,22 +110,30 @@ last_updated: [DATE]
 
 ### 3.2 Standards files
 
-**Use your judgment** to decide which standards this project needs, based on the stack you documented, the patterns you observe in the code, and the project's size.
+**Governing principle: a standard is a ledger of decisions, not a catalog of patterns.**
 
-Illustrative (not prescriptive): API patterns, database schema/patterns, testing standards, code organization, auth/authorization, error handling, monorepo/workspace patterns, deployment patterns.
+The code is ground truth and self-updating. A coding agent re-reads these files on *every* `/nxs.hld`, `/nxs.tasks`, and `/nxs.dev` invocation, so each line is a recurring context cost. Only write what an agent **cannot recover by reading the code itself**.
 
-For each file you create:
+**The test for every line you write:** could the agent learn this by looking at a neighboring source file? If yes, **cut it** — it is a copy that pays tokens forever and drifts silently. If no, it belongs here.
 
-1. Document actual patterns found in the codebase.
-2. Include real code examples from the project (with file paths).
-3. Provide actionable guidance for developers and AI agents.
-4. Link to related documentation.
+**Document (not recoverable from code):**
 
-Use `.nexus/templates/standard.template.md` for structural guidance and adapt it per standard.
+- **Canonical choice among alternatives** — when the codebase shows several patterns, which one wins and which is deprecated (e.g. "use Result types; the `try/catch` in `legacy/` is being migrated off"). Code shows the options and gives no signal which to follow.
+- **Prohibitions** — "never do X". Absence is invisible in code.
+- **Cross-cutting NFR budgets** — e.g. a global "page load < 2s". These live nowhere in source.
+- **Security and authorization rules** that constrain how code must be written.
 
-**Do NOT** create files for patterns that don't exist here, generic best practices not reflected in the code, or aspirational standards.
+**Do NOT document:**
 
-**Cross-cutting NFR budgets** (e.g. a global "page load < 2s") belong **in a standards file**, not in a synthetic concept page.
+- Patterns an agent reads for free from one existing file (test framework, file naming, where tests live, formatting).
+- Generic best practices not specific to a decision made on this project.
+- Aspirational standards, or patterns that don't exist here.
+
+**Format — pointer, not paste.** A standard entry is: the decision + its constraint/rationale + a **path** to the exemplar in code (`src/foo/bar.ts`). Do **not** paste code blocks that already exist in the repo — the path is stable and the paste drifts.
+
+**Default to one `standards.md`** with short normative sections. Split into separate files only when a section grows large, or when it is loaded independently by work-type (the dev agent loads `unit-testing.md` always, `api-testing.md` for API work). Do not pre-generate files for capabilities that don't exist yet (no `auth.md` until there is auth work and a command path that loads it).
+
+Use `.nexus/config/templates/standard.template.md` for structural guidance; adapt it toward decisions-and-constraints, not pattern description.
 
 ## Phase 4: Scaffold the Nexus surfaces
 
