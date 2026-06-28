@@ -91,6 +91,25 @@ try {
     Write-Green "Successfully updated .claude folder"
     Write-Green "Files copied:"
     Get-ChildItem -Path "$claudePath" | Format-Table -AutoSize
+
+    # Step 4: Seed project templates into .nexus/templates (seed-if-absent; never clobber a tuned copy)
+    $TEMPLATES_SRC = Join-Path $TEMP_DIR "nexus/common/templates"
+    if (Test-Path $TEMPLATES_SRC) {
+        Write-Yellow "Seeding .nexus/templates (only missing files)..."
+        $templatesDest = Join-Path $REPO_ROOT ".nexus/templates"
+        if (-not (Test-Path $templatesDest)) {
+            New-Item -ItemType Directory -Path $templatesDest -Force | Out-Null
+        }
+        # Copy each template only if the project does not already have it (no-clobber)
+        Get-ChildItem -Path "$TEMPLATES_SRC/*" -File | ForEach-Object {
+            $target = Join-Path $templatesDest $_.Name
+            if (-not (Test-Path $target)) {
+                Copy-Item -Path $_.FullName -Destination $target
+            }
+        }
+        Write-Green "Templates seeded (existing project copies left untouched)"
+    }
+
     Write-Green "Done!"
 
 }

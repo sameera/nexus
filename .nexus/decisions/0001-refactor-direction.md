@@ -20,10 +20,6 @@ heavy, speculative artifacts (16-section HLDs, per-task LLDs, prose PIRs) ahead 
 scope, and that volume drowns the human judgment Nexus exists to inject. "Make Nexus
 token-efficient" always meant "stop generating junk."
 
-A separate, higher-level product line (an openly-a-bot scope-coaching agent) diverged out
-of that same brainstorm and lives in `~/projects/awzm-notes/brainstorms/concept store/nexus/`
-(notes 001–016). **It is not built here.**
-
 ## The goal — two systems that feed each other
 
 1. **System A — lean delivery pipeline.** Refactor Nexus into a leaner, more efficient
@@ -41,8 +37,8 @@ of that same brainstorm and lives in `~/projects/awzm-notes/brainstorms/concept 
 1. **Hard split — lean is defined by the human consumer; volume only where the consumer is
    a machine; the two never share an artifact.**
     - Human judgment surface → `docs/` — lean. Two independent gates: a forcing function
-      (the interaction that makes a human decide) justifies *generating* an output and
-      *stopping* on it; persistence to `docs/` is earned separately, by a downstream human
+      (the interaction that makes a human decide) justifies _generating_ an output and
+      _stopping_ on it; persistence to `docs/` is earned separately, by a downstream human
       reader consuming the committed result. A pure forcing function is an interaction, spent
       once answered — it persists nothing (e.g. the right-sizing gate, council).
     - Machine knowledge surface → `.nexus/concepts/` — distilled knowledge for AI tooling;

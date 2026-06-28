@@ -75,25 +75,41 @@ see A2 exit). Durability is automatic: the entry is committed, not staged into a
 **Depends on:** nothing (0002/0003 frozen). **Must complete before A1** — the commands are
 rewritten to _generate against_ these specs, so the specs are the real contract surface.
 
-These are blank templates + their filling rules. **Home (amended 2026-06-21):
-`claude/.claude/nexus/templates/`** — the installed tool surface — mirrored to
-`gemini/.gemini/nexus/templates/`. _Not_ the old `common/docs/system/delivery/`: blank
-templates are tool scaffolding, not the permanent human artifacts `docs/` is reserved for
-([0005](./0005-transient-artifact-storage.md)), and `common/` is never copied by
-`nxs.update.claude.sh` (it installs only `claude/.claude/` → the old `common/` paths are dead
-in any real install). The `nexus/` subfolder namespaces Nexus-owned assets inside the shared
-`.claude/` surface: everything else Nexus owns is `nxs`-prefixed, so a bare `templates/` would
-collide with user/other-tool files and escape the update script's prune-by-ownership step.
-Project-customizable delivery _config_ (`task-labels.md`, `config.*`) also moves out of
-`common/` to `claude/.claude/nexus/` (the folder root, _not_ `templates/` — it is config, not a
-blank shape), but is **seeded/customized by `/nxs.init`** per project rather than shipped fixed:
-init writes `.claude/nexus/task-labels.md` with the project's label set. This keeps all
-Nexus-owned, per-project state under one installed namespace (`.claude/nexus/`) and off the
-`docs/` human surface. No command logic yet.
+These are blank templates + their filling rules. **Home (amended 2026-06-26, reverses the
+2026-06-21 `claude/.claude/nexus/templates/` decision): `.nexus/templates/`** — a per-project
+surface alongside `.nexus/queue/` and `.nexus/concepts/`. Templates are **tool-agnostic** (one
+copy, read by both the Claude and Gemini commands — content is identical across agents) and
+**project-tunable** (committed; a project may adjust its own templates). The prior home treated
+them as install plumbing version-locked to the tool, but they are neither tool-specific nor
+doctrine the project may not touch. Putting them in `.nexus/` keeps `.claude/`/`.gemini/` to
+only what each agent's loader requires (commands/agents/skills), and collapses the old
+Claude↔Gemini template mirror into a single copy. _Still not_ `common/docs/system/delivery/`
+(dead — never copied by the update script) nor `docs/` (reserved for permanent human artifacts,
+[0005](./0005-transient-artifact-storage.md)).
+
+**Seeding — Checkpoint C0a — DECIDED (2026-06-26): the install script seeds.** The install only
+`cp -rf`s `claude/.claude/` → project `.claude/` (verified in `nxs.update.claude.sh`), so a
+`.nexus/templates/` home needs an explicit seed step. **Decided:** the toolkit ships one
+tool-agnostic master set at **`common/templates/`** (repo-root master, kept off the cluttered
+root). `common/` being outside the `cp -rf` install path is irrelevant here — the seed step reads
+the master from the **clone** (`$TEMP_DIR/nexus/common/templates/`), not the install copy. The
+install/update script (both `nxs.update.claude.sh` and `nxs.update.gemini.sh`) copies it to
+`.nexus/templates/` **only when absent** (never clobbering a tuned copy). This removes template files from `.claude/`/`.gemini/`
+entirely. **Consequence (accepted):** the seeding owner shifts from `/nxs.init` to the install
+script — init cannot read a master that no longer ships into `.claude/`. (Rejected fallback:
+read-only master at `.claude/nexus/templates/` + `/nxs.init` copy — it leaves one pristine
+`.claude/` copy, defeating the de-pollution goal.)
+
+Project-customizable delivery _config_ (`task-labels.md`, `config.*`) is the **same per-project
+lifecycle** as templates. **DECIDED (2026-06-26): home is `.nexus/config/`** — it follows
+templates out of the tool namespace so all per-project Nexus data sits under `.nexus/` and the
+update script can't clobber tuned config. Unlike templates, config is **not a copied master**:
+`/nxs.init` generates project-specific content (the label set) directly into `.nexus/config/`, so
+init stays its seeder. No command logic yet.
 
 **Deliverables — create:**
 
-- `claude/.claude/nexus/templates/decision-record-template.md` — replaces the 16-section HLD.
+- `common/templates/decision-record-template.md` (tool-agnostic master; seeded to `.nexus/templates/`) — replaces the 16-section HLD.
   Sections (0002 §4 net): Summary lead (1, slimmed) · Chosen Approach (5, slimmed) ·
   Key Decisions + rationale (10, **core** — each decision records the refuted _viable_
   alternative + why it lost, under the C1/G2 guardrail: no strawmen; omit if none existed) ·
@@ -104,11 +120,11 @@ Nexus-owned, per-project state under one installed namespace (`.claude/nexus/`) 
   (invariants→`invariants_added`, decisions→`decision_log_entry`, integration
   changes→`touches_*`). **Note (0006):** these annotations document _what B mines_, not a
   block A emits — A writes only the human prose.
-- `claude/.claude/nexus/templates/task-index-template.md` — the slimmed `tasks.md` shape: per
+- `common/templates/task-index-template.md` — the slimmed `tasks.md` shape: per
   task = title, one-line summary, AC pointer, `story_ref: [STORY-N, ...]`, `blocked_by`,
   effort. `story_ref` is required — no task without a story parent. Mermaid optional;
   `blocked_by` is the substance (0002 §5). No per-task LLD files.
-- `claude/.claude/nexus/templates/close-record-template.md` — replaces `PIR.md`.
+- `common/templates/close-record-template.md` — replaces `PIR.md`.
   **Human prose only (0006):** key decisions, deferred-scope pointer, and **deviation
   rationale** (the output of the close-from-diff forcing function — see A1 `nxs.close`).
   **No `ConceptDelta` block** — the machine-handoff half is removed; the distiller mines this
@@ -116,14 +132,15 @@ Nexus-owned, per-project state under one installed namespace (`.claude/nexus/`) 
 
 **Deliverables — modify:**
 
-- `task-template.md` — **relocate** `common/docs/system/delivery/` →
-  `claude/.claude/nexus/templates/` (with the three above), then drop the LLD sections (Files /
-  Interfaces / Implementation Notes), the Key Decisions table, the Git Workspace section
-  (0002 §5). Slim to summary + AC + dependencies — the GH issue body shape.
-- `common/docs/system/standards/_template.md` → `claude/.claude/nexus/templates/standard.template.md`
-  — same relocation (it is a tool-invariant template too). Reconciles the dangling
-  `nxs.init.md:210` reference to `templates/standard.template.md`, which currently points at a
-  non-existent path, to the real home. Update the CLAUDE.md "Standards Template" pointer to match.
+- `task-template.md` — **relocate** `common/docs/system/delivery/` → `common/templates/` (the
+  tool-agnostic master, with the three above), then drop the LLD sections (Files / Interfaces /
+  Implementation Notes), the Key Decisions table, the Git Workspace section (0002 §5). Slim to
+  summary + AC + dependencies — the GH issue body shape.
+- `common/docs/system/standards/_template.md` → `common/templates/standard.template.md` — same
+  relocation (it is a tool-agnostic template too). The dangling `nxs.init.md:210` reference to
+  `templates/standard.template.md` resolves to the seeded `.nexus/templates/standard.template.md`
+  (commands read templates from the seeded project copy, not the master). Update the CLAUDE.md
+  "Standards Template" pointer to match.
 
 **Checkpoints (forced here because the templates can't be written without resolving them):**
 
@@ -137,8 +154,9 @@ Nexus-owned, per-project state under one installed namespace (`.claude/nexus/`) 
 | C6 — **DECIDED**      | Decision record as a live document accruing in-flight decisions, mined at close | **Decided:** close-time mining is the baseline (GH comments + close review). The live-document option (PAI §4.2) is recorded as a future refinement under 0007's structured Decision Log stub — not built now.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | (noted only)                                                                                                                                                   |
 | C7 — **DECIDED**      | Task-ID stability vs the 0002 §8 renumbering auto-remediation                   | **Override 0002 §8 confirmed:** never renumber a task ID referenced elsewhere (`blocked_by`, GH issue, concept-store provenance). Renumbering breaks merges/references silently (PAI §1.3). Remediation may merge/delete but assigns IDs append-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | task-index template + A1 analyze rewrite                                                                                                                       |
 
-**Exit criteria:** the templates exist under `claude/.claude/nexus/templates/` (mirror deferred
-to Phase C per C9); C1–C7 resolved and reflected in them; the close-record template is human
+**Exit criteria:** the template masters exist under `common/templates/` (single tool-agnostic copy —
+no per-tool mirror; the C9 template-mirror obligation is dropped) and the seed path to
+`.nexus/templates/` is settled (C0a); C1–C7 resolved and reflected in them; the close-record template is human
 prose only (no `ConceptDelta` block, 0006); each decision-record section is annotated with the
 `ConceptDelta` field B will derive from it (proves B's mining contract is satisfiable from the
 committed artifacts before any command is touched).
@@ -153,7 +171,7 @@ committed artifacts before any command is touched).
 
 | File                     | Action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Per 0002 |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `nxs.init.md`            | **Modify** — cut the generated `docs/system/README.md` navigation index (§1). Keep stack/standards/CLAUDE.md edits. Scaffold the G1 `docs/delivery/lessons/` folder (with a README documenting the one-file-per-lesson convention) and the G4 NFR-budget home under `docs/system/standards/` (C3/C4). **Seed `.claude/nexus/task-labels.md`** with the project's label set (relocated from `common/docs/system/delivery/`; the `nxs.tasks`/decomposer label path updates to this home). **Queue surface (0006):** `.nexus/queue/` is **committed, not gitignored** — init does _not_ add a `.nexus/` ignore for it (reverses 0005 §2); only genuinely local scratch, if any, is ignored.                                                                                                                                                                                                                                                                                                                    | §1       |
+| `nxs.init.md`            | **Modify** — cut the generated `docs/system/README.md` navigation index (§1). Keep stack/standards/CLAUDE.md edits. Scaffold the G1 `docs/delivery/lessons/` folder (with a README documenting the one-file-per-lesson convention) and the G4 NFR-budget home under `docs/system/standards/` (C3/C4). **Seed `.nexus/config/task-labels.md`** with the project's label set (relocated from `common/docs/system/delivery/`; the `nxs.tasks`/decomposer label path updates to `.nexus/config/`). **Templates are _not_ init-seeded (C0a)** — the install/update script seeds `.nexus/templates/`; init seeds only the project-generated config. **Queue surface (0006):** `.nexus/queue/` is **committed, not gitignored** — init does _not_ add a `.nexus/` ignore for it (reverses 0005 §2); only genuinely local scratch, if any, is ignored.                                                                                                                                                                                                                                                                                                                    | §1       |
 | `nxs.product-context.md` | **Modify** — minor; confirm personas are canonical here (epic now references, doesn't re-tabulate).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | §2       |
 | `nxs.epic.md`            | **Modify** — slim. Keep right-sizing gate (the early over-generation brake), stories/AC, value, success metrics, scope/assumptions/open-questions. Slim persona table to deviations-only. Cut the three-scenario timeline table; rating+drivers to frontmatter. Add `concepts:` reading-list frontmatter field (defined now, _consumed_ in B3). Glossary terms that name durable concepts route to `aliases:` at close, not stored in the epic. Add `story_type: user \| system` to each story: `user` = behavioral AC observable by an end-user; `system` = measurable technical AC (metric, threshold, contract assertion). Both are first-class; `story_type` determines what the analyze gate checks at the AC level, not whether traceability applies. **Writes into `.nexus/queue/<branch>/<local-id>/`** (0006).                                                                                                                                                                                     | §3       |
 | `nxs.hld.md`             | **Rewrite** — emits the focused **decision record** (A0 template) into the queue, not the 16-section HLD. Consumes concept pages for System Context instead of regenerating them (in B3 this read goes live; until then it is a manual/README-driven read).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | §4       |
@@ -201,13 +219,17 @@ committed artifacts before any command is touched).
 - `claude/nxs.update.claude.sh` / `.ps1` — **Modify.** They `cp -rf` source over
   `.claude/` and **do not prune**; deleted commands/agents/skills will linger on existing
   installs. Add an explicit removal step for the cut `nxs.*`-prefixed files, or document
-  manual cleanup. (ADDRESS risk.)
+  manual cleanup. (ADDRESS risk.) **Also add the C0a seed step:** copy the toolkit's
+  `common/templates/` master → `.nexus/templates/` **only when absent** (seed, never clobber a tuned
+  copy). Same step added to `nxs.update.gemini.sh` — both seed the same tool-agnostic path.
 
 ### Gemini mirror — Checkpoint C9 — **DECIDED: defer**
 
 `gemini/.gemini/` is a full structural mirror (same commands/agents/skills) with its own
-`nxs.update.gemini.sh`. **Decided: defer the mirror until the Claude side stabilizes through
-A2.** Reapply the same deletes/rewrites to `gemini/.gemini/` as one batch in Phase C, after
+`nxs.update.gemini.sh`. **Templates are now exempt from the mirror** (A0, 2026-06-26): they are
+tool-agnostic, seeded once to `.nexus/templates/`, so there is no `gemini/.gemini/nexus/templates/`
+copy to keep in sync — only the gemini update script's C0a seed step. **Decided: defer the
+remaining mirror (commands/agents/skills) until the Claude side stabilizes through A2.** Reapply the same deletes/rewrites to `gemini/.gemini/` as one batch in Phase C, after
 the Claude side is pilot-validated — rewriting both in lockstep doubles the churn while the
 Claude shape is still settling. Mark `claude/.claude/` canonical and the mirror explicitly
 stale in the interim to prevent silent divergence (ADDRESS risk).
