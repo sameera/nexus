@@ -8,6 +8,23 @@ themselves (0005–0007) keep their own status banners.
 
 Most recent first.
 
+## 2026-06-28 — 0004 A1: `nxs.init` + `nxs.product-context` merged into `nxs.setup`
+
+The two bootstrap commands collapse into one **`/nxs.setup`** command backed by a new
+**`nxs-setup` skill**. `setup` auto-detects the stack/standards (**confirm-only** — asks only
+when detection is genuinely ambiguous) and scaffolds the Nexus surfaces (`nxs.init`'s job:
+`stack.md`, standards incl. the G4 NFR home, `.nexus/config/task-labels.md`,
+`docs/delivery/lessons/`, no `docs/system/README.md`, queue committed not gitignored), then
+**invokes the `nxs-setup` skill** for the interactive ≤5-question product-context interview
+(`nxs.product-context`'s job → `docs/product/context.md`). The command orchestrates; the skill
+owns the interview only and is **reusable standalone** to refresh product context without
+re-bootstrapping. **Rationale:** bootstrap is one user action — splitting it across two commands
+made the product-context step easy to skip and duplicated the "check-existing / confirm"
+preamble. Old `claude/.claude/commands/nxs.init.md` and `nxs.product-context.md` deleted.
+Updates 0004 A1 command + skill tables, the A2 pipeline string (`init→` → `setup→`), and the A0
+`standard.template.md` reference note. Gemini mirror stays deferred (C9); the `gemini/.gemini/`
+`nxs.init`/`nxs.product-context` files remain until the Phase C reconciliation.
+
 ## 2026-06-22 — 0003 §5: slug-uniqueness invariant made explicit
 
 The schema everywhere assumed one slug → one active page but stated it nowhere. **0003 §5 now
