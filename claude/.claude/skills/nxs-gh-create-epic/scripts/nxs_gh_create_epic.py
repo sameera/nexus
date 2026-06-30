@@ -159,6 +159,36 @@ def parse_frontmatter(content: str) -> tuple[dict[str, str], str]:
     return frontmatter, body
 
 
+def strip_non_durable_refs(body: str) -> str:
+    """Remove preamble/pointer lines that bake the transient queue location into the issue.
+
+    The queue path (.nexus/queue/<branch>/<local-id>/) is committed-transient — the
+    distiller drains it — so any `Queue entry:` / `Full epic:` / `Feature: … · docs/…`
+    pointer written into the issue body rots. Drop them; the GitHub issue carries the
+    epic content (its `# Epic:` title onward) only.
+    """
+    queue_ref = re.compile(r"\.nexus/queue/")
+    pointer = re.compile(r"^\s*\**\s*(Feature|Queue entry|Full epic)\b", re.IGNORECASE)
+
+    lines = body.split("\n")
+    first_h1 = next(
+        (i for i, line in enumerate(lines) if line.lstrip().startswith("# ")),
+        len(lines),
+    )
+
+    kept: list[str] = []
+    for i, line in enumerate(lines):
+        # Queue-path references are never durable, wherever they appear.
+        if queue_ref.search(line):
+            continue
+        # Pointer preamble only counts before the epic's H1 title.
+        if i < first_h1 and pointer.match(line):
+            continue
+        kept.append(line)
+
+    return "\n".join(kept).lstrip("\n")
+
+
 def update_frontmatter_with_link(content: str, issue_num: str) -> str:
     """Update or add link field in frontmatter."""
     lines = content.split("\n")
@@ -662,6 +692,9 @@ def main() -> int:
     # Read and parse the epic file
     content = epic_file.read_text(encoding="utf-8")
     frontmatter, body = parse_frontmatter(content)
+
+    # Strip non-durable queue/feature pointers so they never land in the issue body.
+    body = strip_non_durable_refs(body)
 
     # Extract epic title (required)
     epic_title = frontmatter.get("epic", "")
