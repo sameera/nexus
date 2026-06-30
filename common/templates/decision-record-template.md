@@ -102,7 +102,11 @@ date: {{YYYY-MM-DD}}
 
 ## Open Clarifications
 
-<!-- ⚠️ NEEDS CLARIFICATION items — the forcing functions. Each is a question
-     only the human can resolve before tasks are cut. -->
+<!-- Normally EMPTY in the written record. /nxs.hld resolves every ⚠️ NEEDS
+     CLARIFICATION item at its Phase 2 gate (AskUserQuestion) and folds the
+     answer into the relevant decision/invariant/approach before writing — the
+     write is blocked while any remain unresolved. Leave this section empty
+     (delete the placeholder) unless an item was explicitly deferred with the
+     human's recorded decision to defer. -->
 
 - [ ] {{OPEN_QUESTION}}

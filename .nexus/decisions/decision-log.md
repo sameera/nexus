@@ -8,6 +8,50 @@ themselves (0005–0007) keep their own status banners.
 
 Most recent first.
 
+## 2026-06-29 — 0010: `/nxs.epic` files story issues at an approval gate; `/nxs.tasks` cut
+
+Story-issue creation moves into **`/nxs.epic`** and **`/nxs.tasks` is eliminated**. The epic issue
+and its story sub-issues are now filed **together** at the end of `/nxs.epic`, gated by a
+**decision-grade approval digest** (feature line + epic prose + stories as one-liners-with-sizes +
+Assumptions/Out-of-Scope) that is the read-surface in place of the full `epic.md`. **Open questions
+block the gate** and are the only pre-filing safeguard — `/nxs.analyze` is not run before filing (a
+design split surfaced later by `/nxs.hld` is an issue edit). On `approve`, `/nxs.epic` creates the
+epic issue, sequences the stories (`blocked_by`), files one issue per story, writes
+`## Implementation Sequence` back, and writes the feature nav index (`README.md`) **linking directly
+to the epic issue** — the README is deferred until the issue exists, never a draft. A pending queue
+entry (epic with no `link`) is re-enterable via `/nxs.epic --resume`.
+Pipeline becomes **setup → epic → hld → analyze → close**. **Rationale:** 0009 chose the story as the
+unit but left a thin repurposed `/nxs.tasks` (sequence + gate + create) as an extra hop and offered no
+read-surface reduction at the only checkpoint that mattered; the digest reduces what the human reads
+without fragmenting the single epic artifact (so 0009's rejection of per-story files still holds), and
+coupling epic+story filing makes approval the single forcing function. **Rejected:** keeping
+`/nxs.tasks`; per-story/AC files; running `/nxs.analyze` inside `/nxs.epic`; deferring filing past the
+epic. **Amends** 0009 (the `/nxs.tasks` repurpose + GH-creation locus) and supersedes the `/nxs.tasks`
+command. `/nxs.analyze` keeps its role; only its `/nxs.tasks` references are retargeted. CLAUDE.md
+rewrite remains the deferred 0009 A1 item. Full record:
+[`0010`](./0010-epic-files-stories-at-approval-gate.md).
+
+## 2026-06-29 — 0009: the user story is the unit of implementation (task layer cut)
+
+The **user story** becomes the terminal planning unit and the GitHub-issue granularity; Nexus stops
+decomposing at the story and no longer breaks stories into technical tasks (that is the engineer's,
+0001 D4). `/nxs.tasks` is **repurposed** from "decompose HLD → task index + per-task issues" to
+"sequence the epic's stories + create one issue per story"; `/nxs.analyze` **drops** the story↔task
+traceability rules and the barrel-merge auto-remediation (no tasks to trace or merge), keeping
+terminology normalization + the `story_type` AC-quality check + a new story↔decision-record coverage
+check, and stays an inline gate (no `task-review.md`). Each story is sized S/M in `/nxs.epic` and the
+epic `complexity` is a bottom-up rollup; a single story > M splits inside the epic. GH model flips:
+epic → **story** issues (was epic → task issues). **Rationale:** the 0001 razor applied to the task
+layer — 0004 cut `/nxs.dev` but kept a task-decomposition layer that has no consumer (the distiller
+reads decision + close records + diff, not the task index, 0006) and forces no human decision the
+story doesn't already encode (INVEST). Task slicing is horizontal → manufactures non-shippable
+half-solutions; the barrel-merge remediation existed only to clean those up. **Rejected:** keeping
+tasks as the unit; one-file-per-story/AC; a separate `story-index.md`. **Amends** 0001 D4
+(interpretation), 0002 §5/§8, and 0004 (A0 templates — cut `task-index-template`/`task-template`;
+A1 `nxs.tasks`/`nxs.analyze` rows + skill table — delete `nxs-generate-tasks`, repurpose
+`nxs-gh-create-task` → `nxs-gh-create-story`; §5/§8; "does not do"). Full record:
+[`0009`](./0009-story-as-implementation-unit.md).
+
 ## 2026-06-28 — 0008: `/nxs.epic` takes direct intent; oversized scope → stubs
 
 `/nxs.epic` drops the feature-brief precondition and takes a natural-language capability

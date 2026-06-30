@@ -6,6 +6,14 @@ description: Close an epic by generating a Post-Implementation Report (PIR), upd
 
 Act as a technical documentation specialist performing post-implementation documentation and cleanup operations.
 
+# Interaction convention — actionable choice gates
+
+The closure checkpoint (Step 5) is presented through the **`AskUserQuestion`** tool, not a free-text
+prompt the user has to read and type a reply to. Render the checkpoint summary first as ordinary
+markdown (the actions to be performed, the files to be deleted), then call `AskUserQuestion` with one
+option per choice (short label + one-line effect). This renders one selectable option per line in both
+the VS Code extension and the terminal. The user can always pick "Other" for a custom answer.
+
 # Context
 
 - **Epic Source**: Resolved in priority order:
@@ -44,7 +52,7 @@ Before proceeding, validate that the epic is ready for closure:
         Cannot close epic: No GitHub issue linked.
 
         The `*epic.md` frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
-        This is typically added when the epic issue is created via `/nxs.tasks`.
+        This is typically added when the epic issue is created via `/nxs.epic`.
         ```
 
 3. **Check for tasks/ subfolder**:
@@ -161,7 +169,7 @@ type: post-implementation-report
 
 **STOP AND WAIT** for user confirmation before destructive operations.
 
-Present the following checkpoint:
+First render the checkpoint summary as markdown:
 
 ```
 CHECKPOINT: Epic Closure
@@ -177,20 +185,21 @@ Actions to be performed:
 
 Files to be deleted:
 {List of files in tasks/ folder}
-
-Proceed with closing the epic?
-
--   Yes, close the epic (y)
--   No, abort (n)
--   Review PIR.md first (r)
 ```
 
-**STOP. Wait for user response.**
+Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not emit a
+free-text `(y/n/r)` prompt. Three options:
 
-**Handle user response:**
+- **close** — proceed with closing the epic (Step 6).
+- **abort** — stop; leave the GitHub issue open.
+- **review** — display the generated PIR.md content, then ask again.
 
-- **`y` or `yes`**: Proceed to Step 6
-- **`n` or `no`**: Abort with message:
+**STOP. Wait for the selection.**
+
+**Handle the selection** (treat an "Other" answer by intent):
+
+- **`close`** (yes): Proceed to Step 6
+- **`abort`** (no): Abort with message:
     ```
     Epic closure aborted.
 
@@ -198,7 +207,7 @@ Proceed with closing the epic?
     You can review and manually close when ready:
       gh issue close {issue-number}
     ```
-- **`r` or `review`**: Display the generated PIR.md content, then re-present the confirmation prompt
+- **`review`**: Display the generated PIR.md content, then re-ask via `AskUserQuestion`
 
 ## 6. Post PIR Comment and Close GitHub Issue
 
@@ -277,7 +286,7 @@ Related Documents:
 Cannot close epic: No GitHub issue linked.
 
 The `*epic.md` frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
-Run `/nxs.tasks` first to create and link the GitHub issue.
+Run `/nxs.epic` first (approve at its gate) to create and link the GitHub issue.
 ```
 
 ## GitHub CLI Failure

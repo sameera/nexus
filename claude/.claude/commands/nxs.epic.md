@@ -1,8 +1,8 @@
 ---
 name: nxs.epic
-description: Turn a natural-language capability description into a right-sized epic with user stories and acceptance criteria. Takes intent directly — no feature brief required. Oversized scope decomposes to backlog stubs instead of full epics.
+description: Turn a natural-language capability description into a right-sized epic with user stories and acceptance criteria, then — on approval at a decision-grade digest — file the epic and one GitHub issue per story together. Takes intent directly — no feature brief required. Oversized scope decomposes to backlog stubs instead of full epics.
 category: planning
-tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill
+tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill, AskUserQuestion
 model: inherit
 ---
 
@@ -29,12 +29,36 @@ Empty input is an error: ask the user for a capability description (or a stub sl
 - **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<branch>/<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full `epic.md` for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
 
+## Interaction convention — actionable choice gates
+
+Every explicit-choice point in this command — the resume/feature-name confirmations,
+the right-size gates, clarifications, and the approval digest — is presented through
+the **`AskUserQuestion`** tool, **not** as a free-text prompt the user has to read and
+type a reply to. This renders one selectable option per line, each with a short
+description, in both the VS Code extension and the terminal.
+
+At each gate:
+
+1. Render any context first as ordinary markdown (the digest, the assessment table,
+   the clarification context, the proposed split).
+2. Then call `AskUserQuestion` with **one option per choice**. Use the canonical verb
+   named at that gate as the option label (`approve`/`revise`, `proceed`/`split`,
+   `stubs`/`full`, clarification `A`/`B`, `resume`/`new`) and put the action's effect
+   in the option description.
+3. Act on the selected option. The user can always pick "Other" to give a custom
+   answer (e.g. a different feature name, or a clarification answer not in the list).
+
+The option tables shown at the gates below describe each choice's impact — that detail
+is the context you render in step 1; the `AskUserQuestion` call in step 2 is what the
+user actually clicks.
+
 Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
 
-1. If `$ARGUMENTS` is empty → ERROR. Ask for a capability description or a stub slug. Stop.
-2. Decide **promotion** vs **intent**:
+1. **Resume check.** Glob `.nexus/queue/<branch>/*/epic.md` for the current branch (`git branch --show-current`). If an entry's frontmatter has **no `link`** — an epic already planned but not yet filed as issues — report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that entry and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending entry exists, resume it without asking. Otherwise continue.
+2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub slug. Stop.
+3. Decide **promotion** vs **intent**:
     - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `docs/features/*/backlog.md`. Glob the backlogs and check.
     - Exactly one match → **promotion mode**. Load the stub (functional goal, candidate story-group titles, estimate). The feature container is the backlog's parent directory. Skip the right-sizing gate (the stub was already sized ≤ M at decomposition) and use the stub's goal + candidate stories as the seed for Phase 3.
     - No match, or input contains whitespace → **intent mode**. The text is the capability description.
@@ -48,21 +72,7 @@ The container must exist before writing: the queue entry records its parent feat
 3. **Otherwise infer and confirm once**:
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
     - Present a single confirmation: _"I'll plan this under feature **<Name>** (`docs/features/<slug>/`). Accept, or give a different name?"_ — one prompt, cheap. Accept the user's correction if any.
-    - If `docs/features/<slug>/` already exists, reuse it (append to its epic index). Otherwise scaffold it with a thin nav index `README.md` — a navigation aid, **not** a forcing-function brief:
-
-        ```markdown
-        ---
-        feature: "<Name>"
-        ---
-
-        # <Name>
-
-        <one-line statement of the capability intent>
-
-        ## Epics
-
-        - <linked once this epic gets a queue entry / issue>
-        ```
+    - Ensure the directory exists (`mkdir -p docs/features/<slug>`) — the queue entry's `feature_path` and any `backlog.md` need it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
 
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
@@ -83,6 +93,20 @@ against existing patterns.
 Weigh distinct components, data entities, integration points, non-trivial NFRs (security,
 performance, observability), and known unknowns. Record the rating and its **drivers** — they go
 into the epic frontmatter (`complexity`, `complexity_drivers`).
+
+### Story-level sizing rolls up to the epic (0009)
+
+The epic's size is **not** guessed top-down — it is the **rollup of its story sizes**. Each story is
+sized **S or M** in Phase 3, at story scale (S ≈ ≤1 day, M ≈ 1–3 days), and **no single story may
+exceed M** — a story that reads larger is split into ≤ M stories there (the story is the
+implementation unit; an oversized story is a planning defect, not a big issue to file). The epic
+`complexity` is then **derived** from the story set: the dominant story size, the **story count**,
+and **cross-story integration**. A handful of S stories is an S/M epic; many stories, or several M
+stories with heavy interlock, roll up to L/XL and re-fire the gate below.
+
+This Phase-2 pass is therefore the **coarse pre-assessment** that catches obviously-oversized intent
+before any generation. Phase 3 finalizes `complexity` from the actually-sized stories; if that rollup
+lands **> M**, return here and apply the L/XL/XXL gate (offer stubs) before writing the epic.
 
 Interpret:
 
@@ -117,7 +141,7 @@ Then offer. Use the variant matching the assessed size.
 Assessed **L** (1–2 weeks). This fits a sprint but consumes it entirely, leaving no
 buffer for overruns or the unexpected. Proceeding is allowed but risky.
 
-**How would you like to proceed?**
+**Options** (asked via `AskUserQuestion` — see the interaction convention):
 
 | Option | Action |
 |--------|--------|
@@ -138,7 +162,7 @@ epic.] Proposed split into right-sized goals:
 |---|-----------------|------|-------------------|
 | 1 | …               | S/M  | …                 |
 
-**How would you like to proceed?**
+**Options** (asked via `AskUserQuestion` — see the interaction convention):
 
 | Option | Action |
 |--------|--------|
@@ -189,11 +213,18 @@ Then **stop**. Report the stub list and tell the user to promote one with `/nxs.
 2. Parse the capability description (or, in promotion mode, the stub's goal + candidate story titles):
     - Extract actors, goals, actions, data, constraints, business value.
     - Decompose into **3–8 user stories**, each independently deliverable (INVEST).
+    - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M**
+      into ≤ M stories before finalizing — the story is the implementation unit (0009), so an
+      oversized story is split here, not filed. Record each story's `size`.
     - For unclear aspects, make informed guesses from context and standards. Mark `[NEEDS CLARIFICATION: …]` only when the choice materially changes scope or UX and no reasonable default exists. **Max 3 markers.** Prioritize: scope > security/privacy > UX > technical.
 3. For each story assign **`story_type`**:
     - `user` — acceptance criteria describe a behavioral outcome observable by an end-user.
     - `system` — acceptance criteria are a measurable technical assertion (metric, threshold, or pass/fail contract). Prose-only ACs ("implement caching") are not acceptable for a `system` story.
-4. Write the epic document (structure below). Resolve any remaining clarifications with the user before finalizing (use the clarification format in the guidelines).
+4. **Roll up the epic complexity (0009).** Derive `complexity` from the sized stories — dominant
+   story size + story count + cross-story integration — and set `complexity_drivers` to match. **If
+   the rollup exceeds M**, stop and return to the Phase 2 gate (present the L/XL/XXL options; stubs
+   are the expected path) before writing anything.
+5. Write the epic document (structure below). Resolve any remaining clarifications with the user before finalizing (use the clarification format in the guidelines).
 
 ## Phase 4 — Write the queue entry
 
@@ -206,42 +237,172 @@ QDIR=".nexus/queue/${BRANCH}/${LOCAL_ID}"
 mkdir -p "$QDIR"
 ```
 
-Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.tasks`, `/nxs.close`) discover this entry by `git branch --show-current` + globbing `.nexus/queue/<branch>/*/`; multiple entries on one branch prompt a selection.
+Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by `git branch --show-current` + globbing `.nexus/queue/<branch>/*/`; multiple entries on one branch prompt a selection.
 
-Then link the epic from the feature nav index (`docs/features/<slug>/README.md` → `## Epics`).
+The feature nav index (`docs/features/<slug>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue — never a draft queue-path pointer that needs updating (the queue entry is transient; the distiller drains it, 0006).
 
-## Phase 5 — Optional: create the GitHub epic issue (MANDATORY STOP)
+## Phase 5 — Approval digest (MANDATORY STOP)
 
-Ask once:
+Present a **decision-grade digest** for approval — the read-surface, not the full file. The full
+`epic.md` stays in the queue as drill-down. This is the human checkpoint: a reviewer approves the
+epic *and* its story breakdown here, in one screen, instead of glossing a long document.
+
+**Open questions block the gate.** If `## Open Questions` carries any `[NEEDS CLARIFICATION]` items,
+resolve them first: present each using the clarification format (Guidelines), apply the answers to
+`epic.md`, and remove the markers. Do **not** render the approval prompt or create any issue while
+open questions remain.
+
+Then render the digest:
 
 ```markdown
-**Create a GitHub issue for this epic now?** (yes / no)
-— `yes`: creates the parent epic issue and records its number for downstream tasks.
-— `no`: skip; the issue can be created later.
+# Feature: <Feature Name>
+
+<the one-line capability statement recorded in Phase 1 (the README is not written yet)>
+
+# Proposal
+
+## <Epic Title>   ·   complexity: <S|M|L|XL>
+
+<everything in epic.md between the H1 title and `## User Stories` — Description, Business Value,
+Success Metrics, Personas — verbatim (condense only obvious redundancy).>
+
+### Stories
+
+- **<Story 1 Title>** (<size>) — <one-line summary of the story's goal>
+- **<Story 2 Title>** (<size>) — <one-line summary>
+- …
+
+<everything in epic.md after the User Stories section — Assumptions, Out of Scope. Open Questions is
+empty by now.>
 ```
 
-**Do NOT proceed without a response.**
+Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
+emit a free-text prompt line. Two options:
 
-- **yes** → invoke the `nxs-gh-create-epic` skill on the queued epic:
+- **approve** — file the epic issue and one issue per story.
+- **revise** — stop; edit the queued `epic.md`, then re-run with `/nxs.epic --resume`.
+
+**Do NOT create any issue without an explicit `approve`** (an `AskUserQuestion` selection of
+`approve`, or an "Other" answer that clearly means approve).
+
+- `approve` → Phase 6.
+- `revise` → stop. Leave the queue entry intact for editing; report how to resume.
+
+## Phase 6 — File the epic and story issues (on approve)
+
+Issue creation is **coupled**: the epic issue and its story sub-issues are created together in this
+one step. There is no separate task command — the story is the implementation unit (0009), so each
+story becomes one GitHub issue, child of the epic issue.
+
+1. **Create (or reuse) the epic issue.** If `epic.md` frontmatter already carries `link`, reuse that
+   number. Otherwise create it:
 
     ```bash
     python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${QDIR}/epic.md"
     ```
 
-    The skill reads `epic` (title) and `type` from frontmatter, creates the issue, and writes `link: "#<n>"` back. There is **no folder rename** — the queue `<local-id>` is stable (the GitHub number lives in frontmatter, not the path).
-- **no** → skip.
+    The skill reads `epic` (title) and `type` from frontmatter, creates the issue, and writes
+    `link: "#<n>"` back. Re-read the frontmatter; set `EPIC` = that number. There is **no folder
+    rename** — the queue `<local-id>` is stable (the GitHub number lives in frontmatter, not the path).
 
-If this was a **promotion**, mark the source stub `status: promoted` in its `backlog.md` (a single status edit; do not delete the block).
+2. **Sequence the stories.** Order by dependency: foundational first (core data / shared surface),
+   then dependents, then polish. Assign each a stable ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in
+   order) and record `blocked_by` as a list of story refs or `none`. Do **not** split or merge —
+   sizing happened in Phase 3.
 
-## Phase 6 — Report completion
+3. **Write transient story work-items** to the scratchpad, one `STORY-<EPIC>.<SEQ>.md` per story, with
+   the frontmatter the creation skill consumes and the story body as the issue body:
+
+    ```markdown
+    ---
+    ref: "STORY-<EPIC>.<SEQ>"          # internal authoring key — NOT shown on the issue
+    title: "<Story Title>"             # clean title; no STORY-<EPIC>.<SEQ> prefix
+    blocked_by: [STORY-<EPIC>.<SEQ>, ...] | none   # blocker refs (this batch)
+    labels: [<label>, ...]      # from .nexus/config/task-labels.md — applicable only
+    parent: "#<EPIC>"
+    project: "<org/repo from .nexus/config/config.* if present>"
+    ---
+
+    **As a** … **I want** … **so that** …
+
+    ## Acceptance Criteria
+    - [ ] …
+
+    ## Notes
+    …
+    ```
+
+    The `ref` is the stable planning-time key (the GitHub issue numbers don't exist yet, so the
+    `blocked_by` graph is authored against refs). It stays internal: the issue **title is clean**,
+    and the skill resolves refs → issue numbers itself. Read valid labels from
+    `.nexus/config/task-labels.md`; select only applicable ones per story.
+
+4. **Create the story issues:**
+
+    ```bash
+    python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>"
+    ```
+
+    The skill runs two passes: pass 1 creates each issue (clean title), links it as a sub-issue of
+    `#<EPIC>`, and adds it to the project, recording each `ref → issue` mapping; pass 2 wires the
+    **native GitHub `blocked_by` dependencies** from each story's `blocked_by` refs.
+
+    The skill is **resumable and idempotent**: it retries transient GitHub failures, records progress to
+    a `.nxs-created.json` ledger in the folder, and ends with a SUMMARY. **If it prints
+    `⚠️ INCOMPLETE`** (non-zero exit), do **not** hand-create the missing issues — re-run the exact same
+    command. Already-created issues are skipped via the ledger (no duplicates) and only the remainder is
+    filed. Discard the transient files only **after** a `✅ Complete` run — the stories live in `epic.md`;
+    the issues are then the working surface.
+
+5. **Record the sequence on the epic.** Append (or replace) an `## Implementation Sequence` section in
+   the queue `epic.md` — a thin ordered table, **not** a separate index file. The `blocked_by` column
+   is a human-readable mirror; the authoritative dependency graph now lives on the GitHub issues
+   themselves (wired in step 4):
+
+    ```markdown
+    ## Implementation Sequence
+
+    | STORY | Issue | blocked_by |
+    |---|---|---|
+    | STORY-<EPIC>.01 | #<n> | none |
+    | STORY-<EPIC>.02 | #<n> | STORY-<EPIC>.01 |
+    ```
+
+6. **Write the feature nav index.** Now that the issue exists, write `docs/features/<slug>/README.md`
+   with an `## Epics` entry that links **directly to the epic issue `#<EPIC>`** — no draft, no later
+   update. The entry must be a clickable **markdown link** to the issue, not a bare `#<EPIC>` ref
+   (a bare ref does not resolve in a repo `.md` file). Resolve the issue URL from the `gh` CLI
+   (`gh issue view <EPIC> --json url -q .url`, or `gh repo view --json url -q .url` + `/issues/<EPIC>`).
+   If the README does not exist (new feature), create it from the skeleton below using the name +
+   one-line statement recorded in Phase 1. If it exists (a multi-epic feature), append the new entry
+   to `## Epics`.
+
+    ```markdown
+    ---
+    feature: "<Feature Name>"
+    ---
+
+    # <Feature Name>
+
+    <one-line capability statement>
+
+    ## Epics
+
+    - **<Epic Title>** — [#<EPIC>](<epic-issue-url>)
+    ```
+
+If this was a **promotion**, mark the source stub `status: promoted` in its `backlog.md` (a single
+status edit; do not delete the block).
+
+## Phase 7 — Report completion
 
 Report:
 
 - Feature name and folder.
-- Epic title, story count (with `story_type` breakdown), and complexity rating.
+- Epic title, complexity rating, and story count (with `story_type` breakdown).
 - Queue entry path (`.nexus/queue/<branch>/<local-id>/epic.md`).
-- GitHub issue link, if created.
-- Any open clarifications still outstanding.
+- Epic issue link and the created story issue numbers — or, if the user chose `revise`, that no
+  issues were created and how to resume (`/nxs.epic --resume`).
 - Next step: `/nxs.hld` to produce the decision record for this epic.
 
 ---
@@ -257,7 +418,7 @@ slug: <epic-slug>
 created: <YYYY-MM-DD>
 type: enhancement
 status: draft
-complexity: <S|M|L|XL>
+complexity: <S|M|L|XL>   # rollup of story sizes + count + cross-story integration (0009)
 complexity_drivers: [<driver>, <driver>]
 concepts: []          # reading-list of concept slugs this epic depends on (consumed in B3)
 link:                 # GitHub epic issue, set by nxs-gh-create-epic
@@ -293,6 +454,7 @@ deviations from the canonical set.>
 ### Story 1: <Story Title>
 
 - **story_type:** user | system
+- **size:** S | M
 
 **As a** <persona>, **I want** <goal>, **so that** <benefit>.
 
@@ -343,11 +505,14 @@ Notes on the shape (vs. the pre-refactor epic):
 
 - Split by user action/workflow, data entity, permission level, or core-vs-enhancement.
 - Order foundational stories first (core CRUD / data), then enhancements, then polish.
-- Each story ≈ 1–3 days. If larger, split further.
+- **Each story is sized `S` or `M` and must not exceed M (0009).** Split any larger story further —
+  the story is the implementation unit, so an oversized story is split here, not filed as a big issue.
 
 ### Clarifications (max 3)
 
-When a clarification is genuinely needed, present options and stop:
+When a clarification is genuinely needed, render the context as markdown, then ask via
+`AskUserQuestion` (per the interaction convention) — one option per answer, plus the user's
+"Other" for a custom answer. Stop until answered.
 
 ```markdown
 ## Clarification needed: <topic>
@@ -359,11 +524,10 @@ When a clarification is genuinely needed, present options and stop:
 |--------|--------|--------|
 | A | … | … |
 | B | … | … |
-
-**Your choice:** _[A/B or custom]_
 ```
 
-After answers, update the epic and remove the marker.
+Then call `AskUserQuestion` with option `A`, option `B` (labels = the answers, descriptions =
+the impact). After answers, update the epic and remove the marker.
 
 ### Links
 
