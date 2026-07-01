@@ -241,6 +241,28 @@ Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.anal
 
 The feature nav index (`docs/features/<slug>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue — never a draft queue-path pointer that needs updating (the queue entry is transient; the distiller drains it, 0006).
 
+## Phase 4b — Epic gate (nxs-epic-gate)
+
+Before showing the approval digest, run the **`nxs-epic-gate`** agent against the just-written
+`${QDIR}/epic.md`. It is the planning-consistency check the story issues are filed behind: it verifies
+acceptance-criteria quality by `story_type`, story well-formedness (S/M sizing, INVEST), and epic
+internal consistency (no unresolved `[NEEDS CLARIFICATION]`, no self-contradicting terms). It checks
+the epic alone — story↔design coverage needs the decision record and is `/nxs.hld`'s job, not this
+gate's.
+
+```
+Invoke: nxs-epic-gate
+Input: ${QDIR}/epic.md
+```
+
+Fold the findings into Phase 5:
+
+- **No critical/high findings** → carry the gate result into the digest as a one-line "epic gate: clean"
+  and continue.
+- **Critical or high findings** → do **not** render the approval prompt. Surface the findings, fix
+  `epic.md` in place (or resolve with the user where judgment is needed), then re-run the gate until it
+  is clean. The gate is read-only; you apply the fixes.
+
 ## Phase 5 — Approval digest (MANDATORY STOP)
 
 Present a **decision-grade digest** for approval — the read-surface, not the full file. The full
