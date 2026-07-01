@@ -1,358 +1,335 @@
 ---
-description: Close an epic by generating a Post-Implementation Report (PIR), updating documentation links, closing the GitHub issue, and cleaning up task files.
+name: nxs.close
+description: Close an epic. Emits a human-prose close record into the committed queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), appends deferred scope to the feature backlog, writes the process lesson as its own file, then — after a checkpoint — comments on and closes the epic GitHub issue. Precondition — every child story issue must already be closed.
+category: engineering
+tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
+model: inherit
 ---
 
 # Role
 
-Act as a technical documentation specialist performing post-implementation documentation and cleanup operations.
+Close one epic at the end of its pipeline. You produce a **close record** — pure human prose the
+distiller later mines for the *why* it cannot recover from the code — and you close the epic's GitHub
+issue.
 
-# Interaction convention — actionable choice gates
+The close record is **human prose only** (0006): key decisions, a pointer to deferred scope, and the
+**deviation rationale** produced by the close-from-diff forcing function. There is **no `ConceptDelta`
+block, no `PIR.md`, and no task-file mining** — the task layer is gone (0009); decisions are mined from
+the epic, the story issue comments, and the close review (C6). Durability is structural: the close
+record is committed into `.nexus/queue/<branch>/<local-id>/` and travels to main with the PR, where the
+distiller consumes and deletes it.
 
-The closure checkpoint (Step 5) is presented through the **`AskUserQuestion`** tool, not a free-text
-prompt the user has to read and type a reply to. Render the checkpoint summary first as ordinary
-markdown (the actions to be performed, the files to be deleted), then call `AskUserQuestion` with one
-option per choice (short label + one-line effect). This renders one selectable option per line in both
-the VS Code extension and the terminal. The user can always pick "Other" for a custom answer.
+# Interaction convention — actionable choice gate
 
-# Context
+The closure checkpoint (Phase 6) is presented through the **`AskUserQuestion`** tool, not a free-text
+`(y/n)` prompt. Render the checkpoint summary first as ordinary markdown (the artifacts written, the
+actions about to run), then call `AskUserQuestion` with one option per choice (short label + one-line
+effect). The user can always pick "Other" for a custom answer.
 
-- **Epic Source**: Resolved in priority order:
-    1. Explicit file path provided in `$ARGUMENTS`
-    2. The file currently open in the editor (passed as context)
-- **User Input**: $ARGUMENTS
+# User Input
+
+```text
+$ARGUMENTS
+```
 
 # Input Resolution
 
-**CRITICAL**: Do NOT search for epic files. Resolve the epic source as follows:
+**CRITICAL: do NOT search for epic files.** Resolve the epic source as follows, in priority order:
 
-1. **If `$ARGUMENTS` contains a file path**: Use that path directly
-2. **If a file is provided in context** (open in editor): Use that file as the `*epic.md`
-3. **Otherwise**: Stop and ask the user to either:
-    - Open the `*epic.md` file in their editor and re-run the command, OR
-    - Provide the file path as an argument: `/nxs.close path/to/{N}-epic.md`
+1. **`$ARGUMENTS` contains a file path** → use that `*epic.md` directly.
+2. **A file is open in the editor** (passed as context) → use that file as the `*epic.md`.
+3. **Otherwise** → stop and ask the user to either open the `*epic.md` in their editor and re-run, or
+   pass the path: `/nxs.close path/to/epic.md`.
 
-**Never** run `find`, `ls`, or search commands to locate epic files.
+**Never** run `find`, `ls`, or any search to locate the epic. The resolved `epic.md` fixes the **queue
+entry directory** (its parent); `decision-record.md` and `close-record.md` are its siblings there — no
+search is needed to find them.
 
-# Workflow
+# Phase 0 — Validate the epic
 
-## 1. Validate Epic State
+1. Read and parse the `*epic.md` frontmatter. Extract:
+    - `epic` (or `title`) — the epic title
+    - `link` — the epic GitHub issue reference (e.g. `"#123"`)
+    - `feature` — the parent feature name/slug (the queue entry's one-direction pointer, 0006 §4)
+    - `complexity` — the story-size rollup (used for lesson framing)
 
-Before proceeding, validate that the epic is ready for closure:
+2. Set `QDIR` = the directory containing `*epic.md` (the committed queue entry).
 
-1. **Read and parse `*epic.md` frontmatter** to extract:
-    - `epic`: The epic title
-    - `link`: The GitHub issue reference (e.g., `"#123"`)
-    - `feature`: The parent feature name
-    - `status`: Current status
+3. **Validate `link`.** It MUST exist and contain an issue number. If missing, stop and report:
 
-2. **Validate required attributes**:
-    - `link` MUST exist and contain a valid issue number
-    - If `link` is missing: Stop and report:
+    ```
+    Cannot close epic: no GitHub issue linked.
+
+    The epic frontmatter must contain a `link` (e.g. `link: "#123"`), added when the epic
+    issue is created. Run `/nxs.epic` (approve at its gate) to create and link the epic issue.
+    ```
+
+    Extract the issue number from `link` (`"#123"` → `123`).
+
+# Phase 1 — Precondition: every child story issue is closed
+
+The epic cannot close while any of its stories is still open. **Block here if any is open — do not
+auto-close them, do not proceed.**
+
+1. Determine the child story issue numbers. Source in order:
+    - The `## Implementation Sequence` table in the queue `epic.md` (the `Issue` column) — written by
+      `/nxs.epic` when it filed the stories.
+    - Fallback — the epic issue's sub-issues via the API:
+
+        ```bash
+        gh api graphql -f query='
+          query($owner:String!,$repo:String!,$num:Int!){
+            repository(owner:$owner,name:$repo){
+              issue(number:$num){ subIssues(first:100){ nodes{ number title state } } }
+            }
+          }' -F owner=<owner> -F repo=<repo> -F num=<epic-issue> \
+          --jq '.data.repository.issue.subIssues.nodes[] | "\(.number) \(.state) \(.title)"'
         ```
-        Cannot close epic: No GitHub issue linked.
 
-        The `*epic.md` frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
-        This is typically added when the epic issue is created via `/nxs.epic`.
-        ```
+2. Check each story issue's state:
 
-3. **Check for tasks/ subfolder**:
-    - Verify `{epic-directory}/tasks/` exists
-    - If missing, warn but allow proceeding (may have been manually cleaned)
-
-## 2. Load Task Files
-
-If `tasks/` subfolder exists:
-
-1. Read all `TASK-*.md` files from `{epic-directory}/tasks/`
-2. For each task file, extract:
-    - Task ID and title (from frontmatter)
-    - Summary section
-    - Key Decisions section (if present)
-    - Implementation Notes section (if present)
-    - Acceptance Criteria (to verify completion)
-
-3. If no task files found but `tasks/` exists:
-    - Check for `task-review.md` (may be leftover from aborted run)
-    - Proceed with minimal PIR content
-
-## 3. Generate Post-Implementation Report (PIR.md)
-
-Create `PIR.md` in the same directory as `*epic.md`.
-
-### PIR Template
-
-```markdown
----
-epic: "{Epic Title}"
-created: {Current date in YYYY-MM-DD format}
-type: post-implementation-report
----
-
-# Post-Implementation Report: {Epic Title}
-
-## Executive Summary
-
-{2-3 sentences summarizing what was implemented and the overall outcome. Focus on the business value delivered.}
-
-## Epic Objectives Achieved
-
-{For each user story in *epic.md, a brief statement of how it was addressed}
-
-| Objective | Implementation Summary |
-|-----------|----------------------|
-| {Story 1 title} | {How it was implemented} |
-| {Story 2 title} | {How it was implemented} |
-
-## Key Decisions Made
-
-{Consolidated table of significant decisions from task Key Decisions sections}
-
-| Decision | Rationale | Task Reference |
-|----------|-----------|----------------|
-| {Decision 1} | {Why this choice was made} | TASK-{EPIC}.{NN} |
-| {Decision 2} | {Why this choice was made} | TASK-{EPIC}.{NN} |
-
-## Implementation Notes
-
-{Any notable implementation details, challenges overcome, or deviations from the original design. Keep this concise and focused on what future maintainers need to know.}
-
-## Files Changed
-
-{Summary list of key files created or modified - not exhaustive, focus on primary components}
-
-- `path/to/primary/file.ts` - {Purpose}
-- `path/to/another/file.ts` - {Purpose}
-
-## Testing Summary
-
-{Brief overview of test coverage and any notable testing considerations}
-
-## Future Considerations
-
-{Any deferred scope, technical debt introduced, or recommendations for future iterations}
-
-- {Item 1}
-- {Item 2}
-
----
-
-*Generated by nxs.close on {YYYY-MM-DD}*
-```
-
-### PIR Generation Guidelines
-
-- **DO** keep summaries concise (focus on decisions and outcomes)
-- **DO** reference task IDs when attributing decisions
-- **DO** note any deviations from original HLD
-- **DO NOT** include detailed code snippets
-- **DO NOT** duplicate full task content verbatim
-- **DO NOT** include implementation details that are obvious from the code
-
-## 4. Update Epic's Related Documents Section
-
-1. **Generate absolute URL for PIR.md** using the `nxs-abs-doc-path` skill:
     ```bash
-    python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "{epic-directory}/PIR.md"
+    gh issue view <story-issue> --json number,title,state
     ```
 
-2. **Locate the `### Related Documents` section** in `*epic.md`:
-    - Search for `### Related Documents` heading
-    - If not found, search for `## Related Documents`
-    - If still not found, create it before the closing `---` or at the end of the Appendix
+3. **If any story issue is `OPEN`**, block and report the open ones, then stop:
 
-3. **Add PIR.md link** to the Related Documents section:
+    ```
+    Cannot close epic #<epic-issue>: <N> child story issue(s) still open.
+
+      #<n> — <title>
+      #<n> — <title>
+
+    Close (or reopen and complete) each story before closing the epic. This command does not
+    auto-close story issues.
+    ```
+
+Only when **all** child story issues are closed do you continue. If the epic has no child story issues
+at all, warn and continue (a manually managed epic).
+
+# Phase 2 — Mine the key decisions
+
+Assemble the in-flight **key decisions** — decisions made or changed during implementation, especially
+any not already captured in the decision record. **Sources (C6), in priority order:**
+
+1. **`epic.md`** and **`decision-record.md`** in `QDIR` — the planned decisions (baseline; the close
+   record captures what *changed* against these, not a restatement).
+2. **Story issue comments** — read the comment thread on each child story issue for decisions recorded
+   during implementation:
+
+    ```bash
+    gh issue view <story-issue> --json title,body,comments
+    ```
+
+3. **The close review** — your own reading of the branch diff (Phase 3) surfaces decisions visible in
+   the code that were never written down.
+
+For each decision, capture the **decision + the why**, and the **refuted viable alternative** if one
+existed (C1/G2 guardrail: no strawmen — record an alternative only if a competent engineer might have
+chosen it). This is the distiller's *why* source for the Decision Log. There are **no task files** to
+mine — do not look for `TASK-*.md`.
+
+# Phase 3 — Close-from-diff forcing function
+
+Diff the branch **against the decision record**, auto-derive the *what*, and surface only the
+**deviations** — the human supplies rationale **only** on those (targeted, not a blank "write a
+summary"). That rationale lands in the close record's **Deviation Rationale** section.
+
+1. **Compute the branch diff** against the base it forked from:
+
+    ```bash
+    BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)"
+    git diff --stat "$BASE"...HEAD
+    git diff "$BASE"...HEAD
+    ```
+
+2. **Auto-derive the *what*** from the diff — the behavioral changes, the files touched. This is
+   code-derivable, so you derive it; **you do not ask the human to write it**.
+
+3. **Detect deviations** — compare the shipped code against the decision record's chosen approach,
+   constraints, and invariants (`decision-record.md` in `QDIR`). A deviation is where the code diverges
+   from what the decision record implied: a constraint relaxed, an invariant worked around, an approach
+   changed, a named component replaced. Matched work needs no entry.
+
+    - If `decision-record.md` is absent, say so and derive deviations only against the epic's stated
+      approach/scope (downgraded — no invariant check).
+
+4. **Force rationale on each deviation.** Present the detected deviations to the user and collect **why
+   each happened** (one prompt covering the list; use `AskUserQuestion` if the set is small and
+   discrete, otherwise ask for the rationale inline). Only deviations get an entry.
+
+If the diff shows **no** deviation from the decision record, record that plainly — the Deviation
+Rationale section is then empty (a matched implementation, not a gap).
+
+# Phase 4 — Write the close record
+
+Fill the seeded template and write it into the queue entry.
+
+1. Read the seeded project template: **`.nexus/config/templates/close-record-template.md`**. (If the
+   seeded copy is absent, fall back to the toolkit master `common/templates/close-record-template.md`.)
+
+2. Fill every `{{PLACEHOLDER}}` and **delete the guidance comments**:
+    - `title` / `epic` (the `link` ref) / `feature` / `date` (today).
+    - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
+    - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human supplied).
+    - **Deferred Scope** — a **pointer only** to `docs/features/<feature>/backlog.md` (the scope itself
+      is appended in Phase 5, not restated here).
+    - **Process Lesson** — a **pointer only** to the lesson file written in Phase 6.
+
+3. Write it to **`${QDIR}/close-record.md`** — in the committed queue entry, beside `epic.md` and
+   `decision-record.md`. Do **not** emit a `ConceptDelta` block; the record is human prose only.
+
+# Phase 5 — Append deferred scope to the feature backlog
+
+Deferred scope goes to the feature backlog, not into the close record (C2). `backlog.md` is a
+**two-writer, append-only** surface shared with `/nxs.epic`'s decomposition stubs (0008) — use the
+**same entry shape**; never rewrite existing blocks.
+
+1. Target `docs/features/<feature>/backlog.md` (create it with the header on first write):
+
     ```markdown
-    - [Post-Implementation Report]({ABSOLUTE_URL_TO_PIR}) - Implementation summary and key decisions
+    # Backlog: <Feature Name>
+
+    <!-- Append-only re-triage queue. Writers: /nxs.epic (decomposition stubs),
+         /nxs.close (deferred scope). One consumer: the next /nxs.epic.
+         Promote a proposed stub with `/nxs.epic <slug>`. -->
     ```
 
-## 5. Confirmation Checkpoint
+2. **Append** one block per deferred item (slug + one-line goal + complexity S/M + status):
 
-**STOP AND WAIT** for user confirmation before destructive operations.
+    ```markdown
+    ## <deferred-item-slug>
 
-First render the checkpoint summary as markdown:
+    - **status:** proposed
+    - **goal:** <one-line functional goal>
+    - **estimate:** S | M
+    - **blocked_by:** [<slug>, …] | none
+    - **source:** deferred from epic <epic-title> (#<epic-issue>) (<YYYY-MM-DD>)
+    ```
+
+   If nothing was deferred, skip this phase and leave the close record's Deferred Scope pointer noting
+   "none".
+
+# Phase 6 — Write the process lesson
+
+The lesson is its own file (C3), one file per lesson; the close record only points at it.
+
+1. Ensure `docs/delivery/lessons/` exists (`/nxs.setup` scaffolds it; create if absent).
+2. Write **`docs/delivery/lessons/<YYYY-MM-DD>-<slug>.md>`** where `<slug>` derives from the epic:
+
+    ```markdown
+    ---
+    date: <YYYY-MM-DD>
+    epic: "<Epic Title>"
+    source: <epic-issue-ref>
+    ---
+
+    # Lesson: <short title>
+
+    <The process/delivery lesson in human prose — estimate-vs-actual, decomposition or sequencing
+     lessons, what the next epic in this area should do differently. Consumed by PM estimation.>
+    ```
+
+# Phase 7 — Checkpoint (before any GitHub write)
+
+**STOP AND WAIT.** All the above (close record, backlog append, lesson) is local and reversible; the
+GitHub comment and issue close are not. Render the summary as markdown first:
 
 ```
 CHECKPOINT: Epic Closure
 
-I'm about to close epic "{Epic Title}" (#{issue-number}).
+Ready to close epic "<Epic Title>" (#<epic-issue>).
 
-Actions to be performed:
-1. PIR.md generated at `{epic-directory}/PIR.md`
-2. `*epic.md` updated with PIR link in Related Documents
-3. Post PIR comment on GitHub issue #{issue-number}
-4. Close GitHub issue #{issue-number}
-5. Delete `{epic-directory}/tasks/` folder ({N} files)
+Written:
+1. Close record  → ${QDIR}/close-record.md
+2. Deferred scope → docs/features/<feature>/backlog.md (<N> item(s))
+3. Process lesson → docs/delivery/lessons/<date>-<slug>.md
 
-Files to be deleted:
-{List of files in tasks/ folder}
+Precondition met: all <M> child story issues closed.
+
+About to (irreversible):
+4. Post the close comment on epic issue #<epic-issue>
+5. Close epic issue #<epic-issue>
 ```
 
-Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not emit a
-free-text `(y/n/r)` prompt. Three options:
+Then ask via **`AskUserQuestion`** (not free text). Three options:
 
-- **close** — proceed with closing the epic (Step 6).
-- **abort** — stop; leave the GitHub issue open.
-- **review** — display the generated PIR.md content, then ask again.
-
-**STOP. Wait for the selection.**
+- **close** — proceed to Phase 8 (post the comment, close the epic issue).
+- **abort** — stop; leave the epic issue open. The local artifacts stay written.
+- **review** — display the generated `close-record.md`, then ask again.
 
 **Handle the selection** (treat an "Other" answer by intent):
 
-- **`close`** (yes): Proceed to Step 6
-- **`abort`** (no): Abort with message:
+- **close** → Phase 8.
+- **abort** → stop with:
+
     ```
     Epic closure aborted.
 
-    PIR.md has been generated but the GitHub issue remains open.
-    You can review and manually close when ready:
-      gh issue close {issue-number}
+    The close record, backlog, and lesson are written; the GitHub issue remains open.
+    Close it manually when ready:  gh issue close <epic-issue> --reason completed
     ```
-- **`review`**: Display the generated PIR.md content, then re-ask via `AskUserQuestion`
 
-## 6. Post PIR Comment and Close GitHub Issue
+- **review** → print `close-record.md`, then re-ask via `AskUserQuestion`.
 
-Post a comment with the PIR link on the GitHub issue, then close it:
+# Phase 8 — Post the comment and close the epic issue
 
-```bash
-gh issue comment {issue-number} --body "## Post-Implementation Report
-
-The PIR for this epic is available at:
-[Post-Implementation Report]({ABSOLUTE_URL_TO_PIR})"
-```
-
-Where `{ABSOLUTE_URL_TO_PIR}` is the URL generated in Step 4 via `nxs-abs-doc-path`.
-
-Then close the issue:
+GitHub ops target the **epic issue** via `link`. Generate the absolute URL for the close record with
+the `nxs-abs-doc-path` skill:
 
 ```bash
-gh issue close {issue-number} --reason completed
+python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "${QDIR}/close-record.md"
 ```
 
-**Error Handling:**
-
-- If issue is already closed: Report and continue to cleanup
-- If `gh` command fails: Report error, preserve state, provide manual instructions
-
-## 7. Delete Tasks Subfolder
-
-Remove the entire `tasks/` directory:
+Post the comment, then close the epic issue:
 
 ```bash
-rm -rf "{epic-directory}/tasks/"
+gh issue comment <epic-issue> --body "## Close Record
+
+Epic closed. Close record (key decisions, deviations, deferred-scope pointer):
+[Close Record](<ABSOLUTE_URL_TO_CLOSE_RECORD>)"
+
+gh issue close <epic-issue> --reason completed
 ```
 
-**Pre-deletion verification:**
+**Error handling:**
 
-- Confirm path is within expected epic directory
-- Never delete if path doesn't match expected pattern
+- Epic issue already closed → report and continue to the completion summary.
+- `gh` fails → report the error, preserve state (artifacts already written), and print the manual
+  commands above.
 
-## 8. Report Completion
-
-Output a completion summary:
+# Phase 9 — Report completion
 
 ```
-EPIC CLOSED: {Epic Title}
+EPIC CLOSED: <Epic Title>
 
-GitHub Issue: #{issue-number} - Closed
-PIR Generated: {epic-directory}/PIR.md
-Tasks Cleaned: {N} task files removed
+GitHub epic issue: #<epic-issue> — closed
+Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
+Deferred scope:    docs/features/<feature>/backlog.md  (<N> item(s))
+Process lesson:    docs/delivery/lessons/<date>-<slug>.md
 
-Summary:
-- {Brief summary from PIR executive summary}
-
-Related Documents:
-- Epic: {absolute URL to *epic.md}
-- PIR: {absolute URL to PIR.md}
-- HLD: {absolute URL to HLD.md if exists}
+Key decisions captured: <count>
+Deviations recorded:    <count>
 ```
 
 # Constraints
 
-- **DO NOT** search for epic files - use the provided context or arguments only
-- **DO NOT** proceed past the Confirmation Checkpoint without explicit user confirmation
-- **DO NOT** delete files outside the tasks/ subfolder
-- **DO NOT** close the GitHub issue if PIR generation fails
-- **DO NOT** include detailed code snippets in PIR.md
-- **DO** verify the epic has a linked GitHub issue before proceeding
-- **DO** generate absolute URLs using the `nxs-abs-doc-path` skill
-- **DO** preserve `*epic.md`, `*HLD.md`, and tasks.md (only delete tasks/ folder)
-- **DO** handle already-closed issues gracefully
+- **No search for epic files** — resolve from `$ARGUMENTS` or the open editor only.
+- **No task-file mining** — the task layer is cut (0009). Never look for `TASK-*.md` or a `tasks/`
+  folder; never `rm -rf` a tasks folder. Decisions come from the epic + story issue comments + the
+  close review (C6).
+- **Human prose only** — the close record has **no `ConceptDelta` block**; do not generate `PIR.md`.
+- **Deferred scope goes to the backlog** — the close record carries only a pointer (C2).
+- **The lesson is its own file** — the close record carries only a pointer (C3).
+- **Do not proceed past the checkpoint** without an explicit `close` selection.
+- **Precondition is a hard block** — never close the epic issue while a child story issue is open, and
+  never auto-close story issues.
+- Generate absolute URLs with the `nxs-abs-doc-path` skill.
+- Handle an already-closed epic issue gracefully.
 
-# Error Handling
-
-## Missing GitHub Issue Link
-
-```
-Cannot close epic: No GitHub issue linked.
-
-The `*epic.md` frontmatter must contain a `link` attribute (e.g., `link: "#123"`).
-Run `/nxs.epic` first (approve at its gate) to create and link the GitHub issue.
-```
-
-## GitHub CLI Failure
+# Usage
 
 ```
-GitHub CLI Error: {error message}
-
-The PIR.md has been generated and `*epic.md` updated.
-Please manually post the PIR comment and close the issue:
-  gh issue comment {issue-number} --body "[Post-Implementation Report]({PIR_URL})"
-  gh issue close {issue-number} --reason completed
-
-Then delete the tasks folder:
-  rm -rf "{epic-directory}/tasks/"
+/nxs.close                    # epic from the open editor file
+/nxs.close path/to/epic.md    # explicit epic path
 ```
-
-## Empty Tasks Folder
-
-```
-Notice: No task files found in tasks/ folder.
-
-Proceeding with minimal PIR generation. The report will contain:
-- Epic objectives (from *epic.md)
-- Placeholder for implementation details
-
-You may want to manually enhance PIR.md with implementation specifics.
-```
-
-# Execution
-
-1. **Resolve `*epic.md` file** (see Input Resolution above - do not search)
-2. If no `*epic.md` can be resolved, stop and ask user to specify one
-3. **Validate epic state**:
-    - Parse frontmatter and extract `link` attribute
-    - If missing, stop with clear error
-4. **Extract issue number** from `link` attribute (e.g., `"#123"` -> `123`)
-5. **Locate tasks/ subfolder** in same directory as `*epic.md`
-6. **Read all task files** and extract relevant sections:
-    - Task titles and summaries
-    - Key Decisions tables
-    - Implementation Notes
-7. **Read `*epic.md` user stories** to map objectives to implementations
-8. **Generate PIR.md** using the template and extracted content
-9. **Generate absolute URL** for PIR.md using `nxs-abs-doc-path` skill:
-    ```bash
-    python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "{repo-relative-path-to-PIR.md}"
-    ```
-10. **Update `*epic.md`** Related Documents section with PIR link
-11. **CONFIRMATION CHECKPOINT - STOP AND WAIT**:
-    - Present summary of actions to be performed
-    - List files to be deleted
-    - Wait for explicit user confirmation
-    - Handle response (proceed, abort, or review)
-12. **Post PIR comment** on GitHub issue via:
-    ```bash
-    gh issue comment {issue-number} --body "## Post-Implementation Report
-
-    The PIR for this epic is available at:
-    [Post-Implementation Report]({ABSOLUTE_URL_TO_PIR})"
-    ```
-13. **Close GitHub issue** via:
-    ```bash
-    gh issue close {issue-number} --reason completed
-    ```
-14. **Delete tasks/ subfolder** via:
-    ```bash
-    rm -rf "{epic-directory}/tasks/"
-    ```
-15. **Report completion** with summary and links
