@@ -23,9 +23,9 @@ Run the phases in order.
 
 3. If the user stops, end here. Otherwise continue.
 
-## Phase 2: Codebase analysis (auto-detect)
+## Phase 2: Stack detection
 
-Analyze the project to identify, without asking unless ambiguous:
+Identify the following stack attributes, without asking unless ambiguous:
 
 1. **Project type**: monorepo, single app, library, API, full-stack
 2. **Languages**: TypeScript, JavaScript, Python, Rust, Go, Java, C#, etc.
@@ -34,7 +34,17 @@ Analyze the project to identify, without asking unless ambiguous:
 5. **Testing**: Vitest, Jest, pytest, JUnit, etc.
 6. **Build tools**: Vite, Webpack, Nx, Gradle, Maven, etc.
 
-Read configuration files to drive detection:
+### 2.1 Infer from CLAUDE.md first
+
+If `CLAUDE.md` exists (checked in Phase 1), read it and infer as many of the six attributes above as it states or clearly implies. `CLAUDE.md` is authoritative for what it declares — take those values as given, do not re-derive them from the codebase.
+
+Track which attributes remain **unresolved** after this pass (not mentioned, or too vague to pin down a concrete value).
+
+### 2.2 Analyze the codebase for the gaps only
+
+Run codebase analysis **only for the attributes left unresolved** in 2.1. Do not re-analyze anything CLAUDE.md already settled. If CLAUDE.md resolved all six, skip codebase analysis entirely.
+
+For the unresolved attributes, read configuration files to drive detection:
 
 - `package.json`, `tsconfig.json`, `nx.json`, `turbo.json`
 - `pyproject.toml`, `setup.py`, `requirements.txt`
