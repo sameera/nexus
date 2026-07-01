@@ -41,10 +41,11 @@ Turn direct intent into a bounded epic with sized stories, then file the GitHub 
     2. Generates the **stories** — the unit of implementation. Each story is sized **S/M**; a story larger than M is split here. The epic `complexity` is the **rollup** of its stories.
     3. Blocks the gate on any unresolved `[NEEDS CLARIFICATION]` — these must be answered (and `epic.md` updated) before filing.
     4. **Approval digest (the checkpoint):** presents a decision-grade summary — feature line, the epic's non-story prose, the stories as **one-liners with sizes**, then Assumptions / Out of Scope. The full `epic.md` stays in the queue as drill-down.
-    5. On approve: creates the epic issue, sequences the stories (`blocked_by`), and files **one issue per story as a child of the epic** — epic and story issues filed together.
-    6. Writes an `## Implementation Sequence` table back into the queued `epic.md`, and writes the feature `docs/features/<feature>/README.md` linking directly to the epic issue.
+    5. Before the digest, runs the **`nxs-epic-gate`** agent on the drafted `epic.md` — the planning-consistency check (AC quality by `story_type`, story well-formedness, internal consistency) that story issues are filed behind. Critical/high findings block the digest.
+    6. On approve: creates the epic issue, sequences the stories (`blocked_by`), and files **one issue per story as a child of the epic** — epic and story issues filed together.
+    7. Writes an `## Implementation Sequence` table back into the queued `epic.md`, and writes the feature `docs/features/<feature>/README.md` linking directly to the epic issue.
 - **No task layer:** no task index, no per-story LLD, no `story_ref`.
-- **`/nxs.analyze` is not run here** — it is the standalone gate (step 4 below).
+- **`/nxs.analyze` is not run here** — it is the post-implementation conformance gate (step 4 below); planning consistency is the `nxs-epic-gate` agent above.
 
 ### 3. `/nxs.hld` - Create the Decision Record
 
@@ -54,15 +55,16 @@ Capture the design decisions before implementation — a focused **decision reco
 - **Process:** Delegates to the `nxs-architect` agent for design analysis; checks against `docs/system/standards/*.md`.
 - **Output:** a decision record **tiered by complexity** — small epics get a short record, larger ones more depth. It records the decisions a reader cannot recover from the code, not an exhaustive blueprint.
 
-### 4. `/nxs.analyze` - Validate Consistency
+### 4. `/nxs.analyze` - Validate Implementation Conformance
 
-The standalone inline consistency gate over the epic and its decision record.
+The standalone inline **conformance** gate: does the implemented code do what the planning promised. Run after the stories are implemented, before `/nxs.close`.
 
 - **Checks:**
-    - Story ↔ design coverage (stories without design, design without stories)
-    - `story_type` AC quality (acceptance criteria fit the story type)
-    - Terminology drift
-- **Output:** inline findings. No `task-review.md`. Run it after `/nxs.hld`; it is not run before issues are filed.
+    - Acceptance-criteria conformance per story (each AC met / partial / unmet / contradicted, against the branch diff and closed story issues)
+    - Invariant conformance (the decision record's constraints/invariants not violated by the diff)
+    - Success-metric coverage (each epic success metric is plausibly moved and measurable from what shipped)
+- **Scope:** conformance, not quality — it does not run tests (`nxs-qa`), a security audit (`security-review`), or the app. Read-only; inline findings, no `task-review.md`.
+- **Not planning consistency:** story↔design coverage lives in `/nxs.hld`; AC quality by `story_type` lives in the `nxs-epic-gate` agent at `/nxs.epic`.
 
 ### 5. `/nxs.close` - Generate Close Record
 
@@ -81,6 +83,7 @@ Facilitate a cross-functional decision with product and technical perspectives. 
 ### Specialized Agents
 
 - **`nxs-architect`** (Opus): Staff/Principal Engineer for the decision record and standards conformance.
+- **`nxs-epic-gate`**: planning-consistency reviewer for a single `epic.md` — AC quality by `story_type`, story well-formedness, internal consistency. Run by `/nxs.epic` before the approval gate, or standalone against any `epic.md`.
 
 ### Reusable Skills
 

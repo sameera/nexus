@@ -1,6 +1,6 @@
 ---
 name: nxs.hld
-description: Add the architectural decision record to a planned epic in the queue — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the queued epic and its stories; writes decision-record.md beside epic.md. Next stage is /nxs.analyze.
+description: Add the architectural decision record to a planned epic in the queue — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the queued epic and its stories; writes decision-record.md beside epic.md. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash, Task, AskUserQuestion
 model: inherit
@@ -9,8 +9,9 @@ model: inherit
 # Role
 
 Produce the **decision record** for one planned epic: the focused architectural "why" that the
-distiller later mines (the rationale) and that `/nxs.analyze` checks for story design coverage. It is
-human prose, tiered by complexity, written into the epic's queue entry.
+distiller later mines (the rationale). It must give design coverage for every story in the epic —
+coverage is verified here (Phase 3), not by a downstream gate. It is human prose, tiered by
+complexity, written into the epic's queue entry.
 
 **The design spans the whole epic, not a single story.** One record covers the epic; its decisions and
 invariants must hold across every story (that is what coverage means). The **story** is the unit of
@@ -94,8 +95,8 @@ Produce, as human prose (no machine block, no file paths / type names / API or s
 - OPEN CLARIFICATIONS: ⚠️ NEEDS CLARIFICATION items only the human can resolve.
 
 Coverage requirement: the decisions + invariants must give design coverage for EVERY user
-story in epic.md. An uncovered story trips /nxs.analyze's coverage gate. Where a story needs
-a design split, describe it as an edit to that story's scope — NOT a new task.
+story in epic.md. An uncovered story fails this record's coverage requirement (verified in Phase 3).
+Where a story needs a design split, describe it as an edit to that story's scope — NOT a new task.
 ```
 
 **MANDATORY STOP:** do not format the record until the architect analysis returns.
@@ -138,7 +139,7 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
 4. Delete all template guidance comments before writing.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or
    invariant. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
-   that fails `/nxs.analyze`.
+   that leaves a story undesigned.
 
 ## Phase 4 — Write the decision record
 
@@ -163,7 +164,8 @@ Report concisely:
 - Open clarifications: **none**, or **N resolved** at the Phase 2 gate (Open Clarifications section is
   empty in the written record).
 - Story coverage: confirm every user story is addressed.
-- Next step: `/nxs.analyze` to run the story↔design coverage and consistency gate.
+- Next step: implement the stories, then `/nxs.analyze` to check the code against each story's
+  acceptance criteria and this record's invariants.
 
 # Constraints
 
