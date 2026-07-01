@@ -1,3 +1,5 @@
+!! THIS FILE IS NOW OBSOLETE AND IS PENDING A REWRITE
+
 # Getting Started with Nexus
 
 ## How this works: The Big Idea
@@ -50,10 +52,10 @@ You start with your fuzzy requirement.
 
 It will surface questions like:
 
--   What actions count as auditable?
--   Who can read these logs?
--   How long do they live?
--   How expensive can this get?
+- What actions count as auditable?
+- Who can read these logs?
+- How long do they live?
+- How expensive can this get?
 
 Your job here is not to be clever. It is to make sure everyone agrees on what “audit logging” even means before you build anything.
 
@@ -106,11 +108,11 @@ You repeat this until the work is done.
 
 A few hard-earned rules:
 
--   Do not collapse phases just because you are in a hurry
--   Use early phases to argue about intent, not implementation
--   Treat each boundary as a real review, not a speed bump to click past
--   If it feels obvious, you’re probably not paying attention
--   Keep project documentation current, the AI can only respect decisions you have written down
+- Do not collapse phases just because you are in a hurry
+- Use early phases to argue about intent, not implementation
+- Treat each boundary as a real review, not a speed bump to click past
+- If it feels obvious, you’re probably not paying attention
+- Keep project documentation current, the AI can only respect decisions you have written down
 
 Experienced developers can still move fast. Nexus just makes sure that speed is a conscious choice.
 
@@ -120,10 +122,10 @@ Experienced developers can still move fast. Nexus just makes sure that speed is 
 
 This shines when:
 
--   You are changing architecture
--   You are adding cross-cutting concerns like security or observability
--   You expect real code review, not drive-by approval
--   You are working with other humans who need shared understanding
+- You are changing architecture
+- You are adding cross-cutting concerns like security or observability
+- You expect real code review, not drive-by approval
+- You are working with other humans who need shared understanding
 
 If the task is trivial, skip it. Nexus is a tool, not a religion.
 
