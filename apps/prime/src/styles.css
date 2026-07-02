@@ -1,0 +1,204 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Semantic theme tokens — the single source of truth for color/radius/font.
+ *
+ * One semantic vocabulary, two value sets. The active mode is selected by a
+ * `data-theme` attribute on the shell root (see layout/app-shell.tsx); every
+ * region resolves its tokens through inheritance, so no region branches on
+ * theme. Tailwind's color theme maps onto these variables (see
+ * tailwind.config.js), so `bg-chrome`, `text-ink`, etc. resolve to the active
+ * mode automatically.
+ *
+ * The two mockups (prime-ui-mockup.html dark, prime-ui-mockup-light.html light)
+ * do NOT differ only in `:root`: a side-by-side diff surfaces ~two dozen colors
+ * hardcoded outside `:root` that also flip between modes — raised surfaces, gate
+ * / validation tints, badge alpha tints, violation rows, fix links, the
+ * on-accent / on-glyph inks, scrim and drawer shadow. Every one of those
+ * divergences is lifted into a semantic token below so both value sets are
+ * complete and later regions never carry a paired theme value inline.
+ */
+
+:root {
+    /* mode-invariant tokens (identical in both mockups) */
+    --radius: 7px;
+    /* gate-pulse ring — the gate color at alpha; identical in both mockups */
+    --c-gate-pulse: rgba(224, 160, 80, 0.55);
+    --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo,
+        Consolas, monospace;
+    --font-sans: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+}
+
+/* ── dark value set (prime-ui-mockup.html) — also the :root fallback ──────── */
+:root,
+[data-theme="dark"] {
+    /* base palette */
+    --c-bg: #16161a;
+    --c-bg-glow: #20202a;
+    --c-term: #0e0e11;
+    --c-chrome: #1c1c22;
+    --c-line: #2a2a33;
+    --c-ink: #e6e6ea;
+    --c-ink-dim: #8a8a96;
+    --c-ink-faint: #5a5a66;
+    --c-accent: #d59766;
+    --c-accent-soft: #c98a57;
+    --c-green: #7fb685;
+    --c-blue: #6fa8c7;
+    --c-violet: #a88bd0;
+    --c-red: #d77a72;
+    --c-gate: #e0a050;
+    --c-warn: #e0a050;
+
+    /* ink-on-colored-surface (flips between modes) */
+    --c-on-accent: #1a1a1a;
+    --c-on-gate: #1a1a1a;
+    --c-on-green: #0e0e11;
+    --c-on-red: #1a1a1a;
+
+    /* raised surfaces + their hairlines */
+    --c-surface-input: #14141a;
+    --c-surface-btn: #1c1c24;
+    --c-surface-row: #181820;
+    --c-row-line: #20202a;
+    --c-seg-done-hover: #1f261f;
+    --c-scrollbar: #2c2c36;
+    --c-term-line: #1a1a20;
+
+    /* gate tray + validation surfaces */
+    --c-gate-surface: #131318;
+    --c-validation-surface: #131318;
+    --c-vio-surface: #1b1518;
+    --c-vio-line: #2c1f20;
+    --c-vio-passed-surface: #14191550;
+    --c-vio-passed-line: #1f2a1f;
+    --c-fix-ink: #e0a050;
+    --c-fix-line: #3a3020;
+    --c-fix-hover: #221c12;
+
+    /* advance bar */
+    --c-advance-surface: #14140f;
+    --c-advance-line: #2a2616;
+
+    /* drawer overlay */
+    --c-scrim: rgba(0, 0, 0, 0.45);
+    --c-drawer-shadow: rgba(0, 0, 0, 0.5);
+
+    /* alpha tints (alpha itself flips between modes) */
+    --c-badge-user: rgba(111, 168, 199, 0.16);
+    --c-badge-system: rgba(168, 139, 208, 0.16);
+    --c-gate-grad: rgba(224, 160, 80, 0.05);
+    --c-validation-grad: rgba(215, 122, 114, 0.06);
+    --c-weighty-ring: rgba(224, 160, 80, 0.4);
+}
+
+/* ── light value set (prime-ui-mockup-light.html) ────────────────────────── */
+[data-theme="light"] {
+    /* base palette */
+    --c-bg: #eceae6;
+    --c-bg-glow: #ffffff;
+    --c-term: #fbfaf8;
+    --c-chrome: #f4f3ef;
+    --c-line: #d9d7d0;
+    --c-ink: #23232a;
+    --c-ink-dim: #65656f;
+    --c-ink-faint: #9a9aa2;
+    --c-accent: #bf6a2e;
+    --c-accent-soft: #a85a26;
+    --c-green: #3f8f4a;
+    --c-blue: #2f7fa6;
+    --c-violet: #7b54b5;
+    --c-red: #c0392b;
+    --c-gate: #e0a050;
+    --c-warn: #b07d1e;
+
+    /* ink-on-colored-surface */
+    --c-on-accent: #ffffff;
+    --c-on-gate: #1a1a1a;
+    --c-on-green: #ffffff;
+    --c-on-red: #ffffff;
+
+    /* raised surfaces + their hairlines */
+    --c-surface-input: #ffffff;
+    --c-surface-btn: #ffffff;
+    --c-surface-row: #ffffff;
+    --c-row-line: #e4e2db;
+    --c-seg-done-hover: #e3f0e4;
+    --c-scrollbar: #cfcdc6;
+    --c-term-line: #e7e5df;
+
+    /* gate tray + validation surfaces */
+    --c-gate-surface: #fbf7ef;
+    --c-validation-surface: #fdf4f3;
+    --c-vio-surface: #fbeeec;
+    --c-vio-line: #f1d6d2;
+    --c-vio-passed-surface: #eef5ee;
+    --c-vio-passed-line: #d6e7d6;
+    --c-fix-ink: #a06a18;
+    --c-fix-line: #e6d3ad;
+    --c-fix-hover: #f7eeda;
+
+    /* advance bar */
+    --c-advance-surface: #fbf6e8;
+    --c-advance-line: #ece1c2;
+
+    /* drawer overlay */
+    --c-scrim: rgba(40, 40, 46, 0.28);
+    --c-drawer-shadow: rgba(40, 40, 46, 0.18);
+
+    /* alpha tints */
+    --c-badge-user: rgba(47, 127, 166, 0.14);
+    --c-badge-system: rgba(123, 84, 181, 0.14);
+    --c-gate-grad: rgba(224, 160, 80, 0.12);
+    --c-validation-grad: rgba(192, 57, 43, 0.08);
+    --c-weighty-ring: rgba(224, 160, 80, 0.5);
+}
+
+@layer base {
+    html,
+    body,
+    #root {
+        height: 100%;
+    }
+
+    body {
+        overflow: hidden;
+    }
+}
+
+@layer components {
+    /*
+     * The shell background: a base fill plus the corner glow, both token-driven
+     * so the gradient flips with the mode (mockup body background).
+     */
+    .shell-bg {
+        background:
+            radial-gradient(
+                1200px 600px at 80% -10%,
+                var(--c-bg-glow) 0%,
+                transparent 60%
+            ),
+            var(--c-bg);
+    }
+
+    /*
+     * The gate tray's two-layer background (mockup `.gate-tray` /
+     * `.gate-tray.validation`): a top-anchored tint gradient over the tray
+     * surface. Both the tint alpha and the surface flip between modes, so both
+     * layers resolve through tokens — a single utility can't express the layered
+     * gradient + solid fill, matching how `.shell-bg` is handled above.
+     */
+    .gate-grad-judgment {
+        background:
+            linear-gradient(180deg, var(--c-gate-grad), transparent 40%),
+            var(--c-gate-surface);
+    }
+
+    .gate-grad-validation {
+        background:
+            linear-gradient(180deg, var(--c-validation-grad), transparent 40%),
+            var(--c-validation-surface);
+    }
+}
