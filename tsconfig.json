@@ -5,6 +5,9 @@
   "references": [
     {
       "path": "./libs/origin"
+    },
+    {
+      "path": "./apps/prime"
     }
   ]
 }
