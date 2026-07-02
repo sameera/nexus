@@ -1,0 +1,31 @@
+{
+  "name": "nexus",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A System of Intentional Friction for the Age of AI Agents",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sameera/nexus.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sameera/nexus/issues"
+  },
+  "homepage": "https://github.com/sameera/nexus#readme",
+  "packageManager": "pnpm@10.13.1",
+  "devDependencies": {
+    "@nx/js": "^23.0.1",
+    "@swc/helpers": "~0.5.18",
+    "@types/node": "^22.0.0",
+    "nx": "23.0.1",
+    "prettier": "~3.6.2",
+    "tslib": "^2.3.0",
+    "typescript": "~5.9.2"
+  },
+  "dependencies": {},
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "nx"
+    ]
+  }
+}

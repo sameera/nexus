@@ -1,3 +1,13 @@
 .claude/plans/lexical-squishing-meteor.md
 __pycache__/
 tmp/**
+node_modules/
+dist/
+.nx/installation
+.nx/cache
+.nx/workspace-data
+.nx/self-healing
+.nx/migrate-runs
+.nx/polygraph
+.claude/worktrees
+.claude/settings.local.json
