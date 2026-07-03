@@ -364,7 +364,7 @@ story becomes one GitHub issue, child of the epic issue.
     ref: "STORY-<EPIC>.<SEQ>"          # internal authoring key — NOT shown on the issue
     title: "<Story Title>"             # clean title; no STORY-<EPIC>.<SEQ> prefix
     blocked_by: [STORY-<EPIC>.<SEQ>, ...] | none   # blocker refs (this batch)
-    labels: [<label>, ...]      # from .nexus/config/task-labels.md — applicable only
+    labels: [<label>, ...]      # from .nexus/config/issue-labels.yaml — applicable only
     parent: "#<EPIC>"
     project: "<org/repo from .nexus/config/config.* if present>"
     ---
@@ -381,7 +381,7 @@ story becomes one GitHub issue, child of the epic issue.
     The `ref` is the stable planning-time key (the GitHub issue numbers don't exist yet, so the
     `blocked_by` graph is authored against refs). It stays internal: the issue **title is clean**,
     and the skill resolves refs → issue numbers itself. Read valid labels from
-    `.nexus/config/task-labels.md`; select only applicable ones per story.
+    `.nexus/config/issue-labels.yaml`; select only applicable ones per story.
 
 4. **Create the story issues:**
 

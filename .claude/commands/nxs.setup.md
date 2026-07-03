@@ -147,7 +147,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
 
 ## Phase 4: Scaffold the Nexus surfaces
 
-1. **`.nexus/config/task-labels.md`** — seed it with this project's label set. Setup is the seeder for project-generated config.
+1. **`.nexus/config/issue-labels.yaml`** — seed it with this project's label set. Setup is the seeder for project-generated config.
 2. **`docs/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
 3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 4. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
@@ -178,7 +178,7 @@ Output a completion summary:
 - `docs/system/stack.md` — technology stack
 - `docs/system/standards/[file].md` — [brief description]
 - `docs/product/context.md` — product context (interactive)
-- `.nexus/config/task-labels.md` — task label set
+- `.nexus/config/issue-labels.yaml` — task label set
 - `docs/delivery/lessons/README.md` — lessons convention
 
 ### Updated
