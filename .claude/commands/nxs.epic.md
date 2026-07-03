@@ -26,7 +26,7 @@ Empty input is an error: ask the user for a capability description (or a stub sl
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<branch>/<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
+- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<epic-slug>-<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full `epic.md` for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
 
 ## Interaction convention — actionable choice gates
@@ -56,7 +56,7 @@ Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
 
-1. **Resume check.** Glob `.nexus/queue/<branch>/*/epic.md` for the current branch (`git branch --show-current`). If an entry's frontmatter has **no `link`** — an epic already planned but not yet filed as issues — report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that entry and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending entry exists, resume it without asking. Otherwise continue.
+1. **Resume check.** Glob `.nexus/queue/*/epic.md`. If an entry's frontmatter has **no `link`** — an epic already planned but not yet filed as issues — report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that entry and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending entry exists, resume it without asking. Otherwise continue.
 2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub slug. Stop.
 3. Decide **promotion** vs **intent**:
     - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `docs/features/*/backlog.md`. Glob the backlogs and check.
@@ -231,13 +231,17 @@ Then **stop**. Report the stub list and tell the user to promote one with `/nxs.
 The epic is written to the committed planning queue, not under `docs/`.
 
 ```bash
-BRANCH="$(git branch --show-current)"; [ -z "$BRANCH" ] && BRANCH="detached"
 LOCAL_ID="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
-QDIR=".nexus/queue/${BRANCH}/${LOCAL_ID}"
+QDIR=".nexus/queue/${EPIC_SLUG}-${LOCAL_ID}"
 mkdir -p "$QDIR"
 ```
 
-Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by `git branch --show-current` + globbing `.nexus/queue/<branch>/*/`; multiple entries on one branch prompt a selection.
+`EPIC_SLUG` is the epic's kebab-case slug decided in Phase 3 (the same value written to `epic.md`'s
+`slug:` frontmatter) — it makes the queue entry recognizable in a file tree or `git status` without
+opening it. `LOCAL_ID` remains the actual collision-proof key; the slug is cosmetic and is never
+re-derived or renamed later, even if the epic title changes.
+
+Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by globbing `.nexus/queue/*/`; multiple entries with no `link` prompt a selection.
 
 The feature nav index (`docs/features/<slug>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue — never a draft queue-path pointer that needs updating (the queue entry is transient; the distiller drains it, 0006).
 
@@ -262,6 +266,11 @@ Fold the findings into Phase 5:
 - **Critical or high findings** → do **not** render the approval prompt. Surface the findings, fix
   `epic.md` in place (or resolve with the user where judgment is needed), then re-run the gate until it
   is clean. The gate is read-only; you apply the fixes.
+- **Exception — unresolved `[NEEDS CLARIFICATION]` markers.** Do **not** treat these as a blocking gate
+  finding to auto-fix here. Their disposition belongs to the user at the **Phase 5 open-questions gate**
+  (`answer` vs. `proceed` with them embedded), not to this gate. Carry any such finding forward as
+  context for that gate and continue; the gate's other checks (AC quality, sizing/INVEST,
+  self-contradiction) still block as normal.
 
 ## Phase 5 — Approval digest (MANDATORY STOP)
 
@@ -269,10 +278,23 @@ Present a **decision-grade digest** for approval — the read-surface, not the f
 `epic.md` stays in the queue as drill-down. This is the human checkpoint: a reviewer approves the
 epic *and* its story breakdown here, in one screen, instead of glossing a long document.
 
-**Open questions block the gate.** If `## Open Questions` carries any `[NEEDS CLARIFICATION]` items,
-resolve them first: present each using the clarification format (Guidelines), apply the answers to
-`epic.md`, and remove the markers. Do **not** render the approval prompt or create any issue while
-open questions remain.
+**Open questions gate (MANDATORY STOP).** If `## Open Questions` carries any `[NEEDS CLARIFICATION]`
+items, issue creation is **blocked**. Present each item using the clarification format (Guidelines),
+then ask via **`AskUserQuestion`** (per the interaction convention) how to unblock:
+
+| Option | Action |
+|--------|--------|
+| **answer** (recommended) | Resolve the questions now — apply the answers to `epic.md`, remove the `[NEEDS CLARIFICATION]` markers, then continue with `## Open Questions` empty. |
+| **proceed** | File the issues anyway **with the open questions embedded** — the `[NEEDS CLARIFICATION]` items stay in `epic.md`'s `## Open Questions` and are carried verbatim into the epic issue body as an explicit unresolved-caveats section. |
+
+Only one of these two selections unblocks the gate. **Do NOT render the approval prompt or create any
+issue while a `[NEEDS CLARIFICATION]` marker remains AND the user has not explicitly chosen `proceed`.**
+
+- **answer** → apply the answers, remove every marker (loop until `## Open Questions` is empty), then
+  render the digest below.
+- **proceed** → keep the markers in place and render the digest below, with the `## Open Questions`
+  items surfaced in the digest (see the digest template) so the reviewer approves the epic *knowing*
+  it ships with unresolved questions.
 
 Then render the digest:
 
@@ -285,8 +307,8 @@ Then render the digest:
 
 ## <Epic Title>   ·   complexity: <S|M|L|XL>
 
-<everything in epic.md between the H1 title and `## User Stories` — Description, Business Value,
-Success Metrics, Personas — verbatim (condense only obvious redundancy).>
+<everything in epic.md between the H1 title and `## User Stories` — Description, Success Metrics,
+Personas — verbatim (condense only obvious redundancy).>
 
 ### Stories
 
@@ -294,8 +316,10 @@ Success Metrics, Personas — verbatim (condense only obvious redundancy).>
 - **<Story 2 Title>** (<size>) — <one-line summary>
 - …
 
-<everything in epic.md after the User Stories section — Assumptions, Out of Scope. Open Questions is
-empty by now.>
+<everything in epic.md after the User Stories section — Assumptions, Out of Scope. If the user chose
+**answer**, `## Open Questions` is empty and omitted. If they chose **proceed**, render the remaining
+`[NEEDS CLARIFICATION]` items here under a `### ⚠️ Unresolved questions (shipping anyway)` callout so
+the approval is made with them in view.>
 ```
 
 Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
@@ -325,7 +349,7 @@ story becomes one GitHub issue, child of the epic issue.
 
     The skill reads `epic` (title) and `type` from frontmatter, creates the issue, and writes
     `link: "#<n>"` back. Re-read the frontmatter; set `EPIC` = that number. There is **no folder
-    rename** — the queue `<local-id>` is stable (the GitHub number lives in frontmatter, not the path).
+    rename** — the queue folder name (`<epic-slug>-<local-id>`) is stable (the GitHub number lives in frontmatter, not the path).
 
 2. **Sequence the stories.** Order by dependency: foundational first (core data / shared surface),
    then dependents, then polish. Assign each a stable ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in
@@ -340,7 +364,7 @@ story becomes one GitHub issue, child of the epic issue.
     ref: "STORY-<EPIC>.<SEQ>"          # internal authoring key — NOT shown on the issue
     title: "<Story Title>"             # clean title; no STORY-<EPIC>.<SEQ> prefix
     blocked_by: [STORY-<EPIC>.<SEQ>, ...] | none   # blocker refs (this batch)
-    labels: [<label>, ...]      # from .nexus/config/task-labels.md — applicable only
+    labels: [<label>, ...]      # from .nexus/config/issue-labels.yaml — applicable only
     parent: "#<EPIC>"
     project: "<org/repo from .nexus/config/config.* if present>"
     ---
@@ -357,7 +381,7 @@ story becomes one GitHub issue, child of the epic issue.
     The `ref` is the stable planning-time key (the GitHub issue numbers don't exist yet, so the
     `blocked_by` graph is authored against refs). It stays internal: the issue **title is clean**,
     and the skill resolves refs → issue numbers itself. Read valid labels from
-    `.nexus/config/task-labels.md`; select only applicable ones per story.
+    `.nexus/config/issue-labels.yaml`; select only applicable ones per story.
 
 4. **Create the story issues:**
 
@@ -422,7 +446,7 @@ Report:
 
 - Feature name and folder.
 - Epic title, complexity rating, and story count (with `story_type` breakdown).
-- Queue entry path (`.nexus/queue/<branch>/<local-id>/epic.md`).
+- Queue entry path (`.nexus/queue/<epic-slug>-<local-id>/epic.md`).
 - Epic issue link and the created story issue numbers — or, if the user chose `revise`, that no
   issues were created and how to resume (`/nxs.epic --resume`).
 - Next step: `/nxs.hld` to produce the decision record for this epic.
@@ -456,10 +480,6 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 ## Description
 
 <2–3 paragraphs: WHAT the capability does and WHY it matters. Value, not implementation.>
-
-## Business Value
-
-- <business justification / expected outcome>
 
 ## Success Metrics
 
@@ -511,6 +531,7 @@ Notes on the shape (vs. the pre-refactor epic):
 
 - **No three-scenario timeline table and no complexity appendix** — the rating and its drivers live in frontmatter (`complexity`, `complexity_drivers`).
 - **No glossary.** Terms that name durable concepts are routed to a concept page's `aliases:` at close time (System B), not stored in the epic.
+- **No Business Value section** — it is speculative generation (nobody specifies it upfront). The WHY lives in `## Description`; the measurable outcomes live in `## Success Metrics`.
 - **Personas are deviations-only** — the canonical set is `docs/product/context.md`.
 
 ---
@@ -553,8 +574,15 @@ the impact). After answers, update the epic and remove the marker.
 
 ### Links
 
-If a GitHub issue is created from the epic, any `.md` links in the body should be absolute GitHub URLs so they resolve from the issue. Use the `nxs-abs-doc-path` skill to convert repo-relative paths:
+Issues are **durable**; the planning queue (`.nexus/queue/…`) is **ephemeral** — the distiller drains
+it post-merge. So an issue body (and the feature nav index) must **never** link to a queue file
+(`epic.md`, `decision-record.md`, `close-record.md`); such a link dangles once the entry is drained.
+Link only durable targets: other issues, concept pages (`.nexus/concepts/`), anchors
+(`.nexus/anchors/`), and persistent `docs/`. The direction is docs → issues, never issue → queue.
+
+Any durable `.md` link placed in an issue body should be an absolute GitHub URL so it resolves from
+the issue. Convert repo-relative paths with the `nxs-abs-doc-path` skill:
 
 ```bash
-python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/<slug>/README.md"
+python ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.py "docs/features/<slug>/README.md"
 ```

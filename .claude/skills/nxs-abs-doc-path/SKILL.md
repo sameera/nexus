@@ -12,47 +12,50 @@ Ensures all markdown document links in generated documentation use absolute GitH
 
 ## Configuration
 
-The skill reads the `docRoot` attribute from `docs/system/delivery/config.json`:
+The skill reads `cross-ref.docs-root` from `.nexus/config/settings.yml`:
 
-```json
-{
-    "docRoot": "https://github.com/sameera/nexus/tree/main/"
-}
+```yaml
+cross-ref:
+    docs-root: https://github.com/sameera/nexus/blob/main/docs
 ```
+
+`docs-root` points at the repo's `docs/` directory (not the repo root). If the
+settings file is missing or the setting isn't set, the script falls back to a
+placeholder default: `https://github.com/{username|orgname}/{reponame}/blob/main/docs`.
 
 ## Usage
 
 ```bash
 # Convert a single path
-python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md"
-# Output: https://github.com/sameera/nexus/tree/main/docs/features/tagging/README.md
+tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "docs/features/tagging/README.md"
+# Output: https://github.com/sameera/nexus/blob/main/docs/features/tagging/README.md
 
 # Convert multiple paths at once
-python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/tagging/README.md" "docs/system/delivery/task-labels.md"
+tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "docs/features/tagging/README.md" "docs/system/delivery/task-labels.md"
 # Output (one per line):
-# https://github.com/sameera/nexus/tree/main/docs/features/tagging/README.md
-# https://github.com/sameera/nexus/tree/main/docs/system/delivery/task-labels.md
+# https://github.com/sameera/nexus/blob/main/docs/features/tagging/README.md
+# https://github.com/sameera/nexus/blob/main/docs/system/delivery/task-labels.md
 ```
 
 ## Input Path Handling
 
-The script normalizes input paths automatically:
+The script normalizes input paths automatically. Since `docs-root` already
+points at the `docs/` directory, a leading `docs/` segment is stripped so
+callers can keep passing repo-relative paths unchanged:
 
-| Input Format     | Normalized To                                        |
-| ---------------- | ---------------------------------------------------- |
-| `./docs/file.md` | `docs/file.md`                                       |
-| `/docs/file.md`  | `docs/file.md`                                       |
-| `docs/file.md`   | `docs/file.md`                                       |
+| Input Format     | Normalized To |
+| ---------------- | ------------- |
+| `./docs/file.md` | `file.md`     |
+| `/docs/file.md`  | `file.md`     |
+| `docs/file.md`   | `file.md`     |
 | `../README.md`   | ⚠️ Caller should resolve to repo-relative path first |
 
 ## Exit Codes
 
-| Code | Meaning                                                     |
-| ---- | ----------------------------------------------------------- |
-| 0    | Success                                                     |
-| 1    | Config file not found at `docs/system/delivery/config.json` |
-| 2    | `docRoot` attribute not found in config                     |
-| 3    | Invalid arguments (no path provided)                        |
+| Code | Meaning                            |
+| ---- | ----------------------------------- |
+| 0    | Success                             |
+| 3    | Invalid arguments (no path provided) |
 
 ## Integration
 

@@ -46,7 +46,7 @@ def read_delivery_config(project_root: Path) -> dict[str, str]:
 
     Returns a normalized dict with keys: docRoot, project, epicType, issuesRepo.
     """
-    delivery_dir = project_root / "docs" / "system" / "delivery"
+    delivery_dir = project_root / ".nexus" / "config"
 
     yml_path = delivery_dir / "config.yml"
     if yml_path.exists():
@@ -162,7 +162,7 @@ def parse_frontmatter(content: str) -> tuple[dict[str, str], str]:
 def strip_non_durable_refs(body: str) -> str:
     """Remove preamble/pointer lines that bake the transient queue location into the issue.
 
-    The queue path (.nexus/queue/<branch>/<local-id>/) is committed-transient — the
+    The queue path (.nexus/queue/<epic-slug>-<local-id>/) is committed-transient — the
     distiller drains it — so any `Queue entry:` / `Full epic:` / `Feature: … · docs/…`
     pointer written into the issue body rots. Drop them; the GitHub issue carries the
     epic content (its `# Epic:` title onward) only.
@@ -187,6 +187,39 @@ def strip_non_durable_refs(body: str) -> str:
         kept.append(line)
 
     return "\n".join(kept).lstrip("\n")
+
+
+def strip_story_bodies(body: str) -> str:
+    """Remove the `## User Stories` section from the epic issue body.
+
+    Each story is filed as its own GitHub sub-issue of the epic (see /nxs.epic Phase 6),
+    which is the durable, editable working surface for the story text and its acceptance
+    criteria. Repeating the full story bodies in the epic issue would duplicate that content
+    and let it drift. The stories stay in the queue `epic.md` (the digest, /nxs.hld,
+    /nxs.analyze and /nxs.distill read them there); GitHub renders the sub-issues under the
+    epic. So drop the section here.
+
+    Removes from the `## User Stories` H2 up to (but not including) the next H2 heading, or
+    end of body. Only level-2 headings terminate the section; the `###`/`####` story
+    subsections do not.
+    """
+    h2 = re.compile(r"^##\s")  # matches `## `, not `### ` (no space after the 3rd #)
+    lines = body.split("\n")
+
+    start = next(
+        (i for i, line in enumerate(lines) if re.match(r"^##\s+User Stories\s*$", line)),
+        None,
+    )
+    if start is None:
+        return body
+
+    end = next(
+        (j for j in range(start + 1, len(lines)) if h2.match(lines[j])),
+        len(lines),
+    )
+
+    kept = lines[:start] + lines[end:]
+    return "\n".join(kept).strip("\n") + "\n"
 
 
 def update_frontmatter_with_link(content: str, issue_num: str) -> str:
@@ -695,6 +728,10 @@ def main() -> int:
 
     # Strip non-durable queue/feature pointers so they never land in the issue body.
     body = strip_non_durable_refs(body)
+
+    # Drop the `## User Stories` section — each story is filed as its own sub-issue, so
+    # keeping the full story bodies here would duplicate them and let the copies drift.
+    body = strip_story_bodies(body)
 
     # Extract epic title (required)
     epic_title = frontmatter.get("epic", "")

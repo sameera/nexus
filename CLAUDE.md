@@ -18,3 +18,24 @@ Keep explanations concise.
 Break complex ideas into steps.
 Avoid unnecessary adjectives, metaphors, and filler.
 Use common words instead of fancy words when both mean the same thing.
+
+## Test-First Development
+
+All implementation work follows **Test-First Development (TFD)**: write the
+failing test that pins the intended behavior _before_ writing the code that satisfies it.
+
+Guidelines:
+
+- Test user-visible behavior and interactions — not implementation.
+- Assert on outcomes, not internal component details.
+- Don't assert on exact strings unless the exact text is itself the requirement.
+- Don't assert on CSS classes, styles, or layout/positioning — unless styling is the feature.
+  For the terminal emulator, rendered output (character grid, colors, cursor) often _is_ the
+  user-visible behavior; assert it as the user perceives it, not through implementation-specific
+  DOM.
+- Don't test component internals: state, private methods, or DOM structure.
+- Keep tests resilient to refactors by matching how a real user experiences the UI.
+
+After implementation, application source at **95% test coverage**. Treat coverage as a
+signal, not a score to game — never add internal-facing tests solely to move the number. If a
+branch can't be reached through user-visible behavior, question whether it should exist.

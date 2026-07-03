@@ -1,0 +1,56 @@
+labels:
+    - name: frontend
+      color: "0075ca"
+      purpose: React components, routing, UI/UX, client-side state
+      use_for:
+          - React component development
+          - react-router-dom routes and navigation
+          - Tailwind styling and layout
+          - Client-side state and hooks
+
+    - name: terminal
+      color: "5319e7"
+      purpose: The wterm-based in-browser terminal and the Claude Code session it hosts
+      use_for:
+          - wterm embedding and configuration
+          - Terminal I/O, rendering, and resize handling
+          - Claude Code process lifecycle inside the terminal
+
+    - name: pipeline
+      color: "1d76db"
+      purpose: Orchestration of the Nexus stages (nxs.*) and the human-decision gates between them
+      use_for:
+          - Sequencing and ordering of nxs.init → nxs.close
+          - Stage-gate enforcement and decision prompts
+          - Surfacing pipeline state to the user
+
+    - name: infrastructure
+      color: "0e8a16"
+      purpose: Build tooling, Nx/Vite/pnpm config, dev environment, CI/CD
+      use_for:
+          - Nx workspace and target configuration
+          - Vite/Tailwind/ESLint build setup
+          - Dependency and tooling upgrades
+          - CI/CD pipeline setup
+
+    - name: testing
+      color: "fbca04"
+      purpose: Vitest unit/component tests and Playwright e2e
+      use_for:
+          - Unit and component test coverage
+          - Playwright e2e flows
+          - Test tooling and fixtures
+
+    - name: performance
+      color: "d4c5f9"
+      purpose: Frontend and terminal rendering performance
+      use_for:
+          - React rendering optimization
+          - Terminal throughput / large-output handling
+          - Bundle size and load time
+
+usage_guidelines:
+    - Issues can have multiple labels when they span categories.
+    - Choose the label that best represents the primary work area.
+    - Use frontend, terminal, pipeline, infrastructure for the primary work surface.
+    - Use performance or testing as secondary labels when relevant.

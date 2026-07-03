@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nexus Prime — UI Mockup</title>
+<style>
+    /*
+      Nexus Prime — UI design mockup (not production code).
+      Thesis: the live Claude Code terminal is the product. Pipeline UI is a thin
+      persistent frame (top strip) + ephemeral interrupts (gate tray) + on-demand
+      peek (artifact drawer). Nothing permanently competes with the session.
+    */
+
+    :root {
+        --bg: #16161a;
+        --term-bg: #0e0e11;
+        --chrome: #1c1c22;
+        --chrome-line: #2a2a33;
+        --ink: #e6e6ea;
+        --ink-dim: #8a8a96;
+        --ink-faint: #5a5a66;
+        --accent: #d59766;      /* claude-ish amber/terracotta */
+        --accent-soft: #c98a57;
+        --green: #7fb685;
+        --blue: #6fa8c7;
+        --violet: #a88bd0;
+        --red: #d77a72;
+        --gate: #e0a050;        /* gate-pending amber, the loudest thing on screen */
+        --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+        --sans: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+        --radius: 7px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+        background:
+            radial-gradient(1200px 600px at 80% -10%, #20202a 0%, transparent 60%),
+            var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    /* ── caption bar (mockup meta, not part of the product) ───────────────── */
+    .caption {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 7px 16px;
+        font-size: 11.5px;
+        color: var(--ink-faint);
+        border-bottom: 1px solid var(--chrome-line);
+        background: #101013;
+        flex: 0 0 auto;
+    }
+    .caption strong { color: var(--ink-dim); font-weight: 600; }
+    .caption .scenes { margin-left: auto; display: flex; gap: 6px; }
+    .scene-btn {
+        font: inherit;
+        font-size: 11px;
+        color: var(--ink-dim);
+        background: transparent;
+        border: 1px solid var(--chrome-line);
+        border-radius: 99px;
+        padding: 3px 11px;
+        cursor: pointer;
+        transition: all .15s;
+    }
+    .scene-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+    .scene-btn.active { color: #1a1a1a; background: var(--accent); border-color: var(--accent); font-weight: 600; }
+
+    /* ── app shell ────────────────────────────────────────────────────────── */
+    .app {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        position: relative;
+    }
+
+    /* ── (1) slim top strip — the ONLY persistent chrome ──────────────────── */
+    .topstrip {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        height: 46px;
+        padding: 0 14px;
+        background: var(--chrome);
+        border-bottom: 1px solid var(--chrome-line);
+        font-size: 12.5px;
+        z-index: 5;
+    }
+
+    /* epic identity (Q1 #4 — non-negotiable: split spawns concurrent pipelines) */
+    .epic-id {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    .epic-id .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .epic-id .name { color: var(--ink); font-weight: 600; }
+    .epic-id .meta { color: var(--ink-faint); }
+    .epic-switch {
+        font: inherit; font-size: 11px; font-family: var(--mono);
+        color: var(--ink-dim); background: #14141a;
+        border: 1px solid var(--chrome-line); border-radius: 5px;
+        padding: 2px 7px; cursor: pointer;
+    }
+    .epic-switch:hover { color: var(--ink); }
+
+    /* the rail — passive segmented read-out, NOT a wizard */
+    .rail {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        margin: 0 auto;
+    }
+    .seg {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-faint);
+        cursor: default;
+        position: relative;
+        transition: background .15s;
+    }
+    .seg .glyph {
+        width: 14px; height: 14px; border-radius: 50%;
+        display: grid; place-items: center;
+        font-size: 9px; font-weight: 700;
+        border: 1.5px solid currentColor;
+    }
+    .seg.done { color: var(--green); cursor: pointer; }
+    .seg.done .glyph { background: var(--green); border-color: var(--green); color: #0e0e11; }
+    .seg.done:hover { background: #1f261f; }
+    .seg.active { color: var(--ink); }
+    .seg.active .glyph { border-color: var(--accent); color: var(--accent); }
+    .seg.active .label { color: var(--ink); }
+    .seg.gate {
+        color: #1a1a1a; background: var(--gate); cursor: pointer;
+        font-weight: 700;
+        animation: gatepulse 1.6s ease-in-out infinite;
+    }
+    .seg.gate .glyph { border-color: #1a1a1a; color: #1a1a1a; }
+    .seg.upcoming { color: var(--ink-faint); }
+    .seg.upcoming .glyph { border-color: var(--ink-faint); border-style: dashed; }
+    .rail-arrow { color: var(--ink-faint); font-size: 11px; }
+
+    @keyframes gatepulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(224,160,80,.55); }
+        50%      { box-shadow: 0 0 0 5px rgba(224,160,80,0); }
+    }
+
+    .topstrip .tools { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .icon-btn {
+        font: inherit; font-size: 14px; line-height: 1;
+        color: var(--ink-dim); background: transparent;
+        border: 1px solid var(--chrome-line); border-radius: 6px;
+        width: 30px; height: 28px; cursor: pointer; transition: all .15s;
+    }
+    .icon-btn:hover { color: var(--ink); border-color: var(--ink-faint); background: #14141a; }
+
+    /* ── (2) the terminal — ~85% of the surface ───────────────────────────── */
+    .term-wrap {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--term-bg);
+        position: relative;
+    }
+    .term {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        padding: 16px 20px 8px;
+        font-family: var(--mono);
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--ink);
+        scroll-behavior: smooth;
+    }
+    .term::-webkit-scrollbar { width: 9px; }
+    .term::-webkit-scrollbar-thumb { background: #2c2c36; border-radius: 9px; }
+
+    .ln { white-space: pre-wrap; word-break: break-word; }
+    .ln.gap { height: 9px; }
+    .prompt { color: var(--accent); }
+    .cmd { color: var(--ink); }
+    .muted { color: var(--ink-dim); }
+    .faint { color: var(--ink-faint); }
+    .ok { color: var(--green); }
+    .info { color: var(--blue); }
+    .warn { color: var(--gate); }
+    .err { color: var(--red); }
+    .vio { color: var(--violet); }
+    .b { font-weight: 700; }
+    .claude-tag { color: var(--accent-soft); }
+    .box { color: var(--ink-faint); }
+
+    /* the live input line, always visible so the session feels alive */
+    .term-input {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 9px 20px 12px;
+        font-family: var(--mono);
+        font-size: 13px;
+        border-top: 1px solid #1a1a20;
+        background: var(--term-bg);
+    }
+    .term-input .pchar { color: var(--accent); }
+    .term-input .typed { color: var(--ink); }
+    .caret {
+        width: 8px; height: 16px; background: var(--accent);
+        display: inline-block; animation: blink 1.1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── (3) gate tray — slides up FROM the terminal, scrollback stays visible ─ */
+    .gate-tray {
+        flex: 0 0 auto;
+        max-height: 0;
+        overflow: hidden;
+        background:
+            linear-gradient(180deg, rgba(224,160,80,.05), transparent 40%),
+            #131318;
+        border-top: 2px solid var(--gate);
+        transition: max-height .32s cubic-bezier(.4,0,.2,1);
+    }
+    .gate-tray.open { max-height: 46vh; }
+    .gate-tray.validation { border-top-color: var(--red); }
+    .gate-tray.validation { background: linear-gradient(180deg, rgba(215,122,114,.06), transparent 40%), #131318; }
+
+    .gate-inner { padding: 13px 20px 16px; }
+
+    .gate-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        font-family: var(--mono);
+        margin-bottom: 4px;
+    }
+    .gate-badge {
+        font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+        text-transform: uppercase;
+        padding: 2px 8px; border-radius: 4px;
+        background: var(--gate); color: #1a1a1a;
+    }
+    .gate-tray.validation .gate-badge { background: var(--red); color: #1a1a1a; }
+    .gate-title { font-size: 14px; font-weight: 700; color: var(--ink); }
+    .gate-sub { font-size: 12px; color: var(--ink-dim); margin-left: auto; font-family: var(--mono); }
+
+    .gate-why {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--ink-dim);
+        margin: 6px 0 12px;
+        padding-left: 12px;
+        border-left: 2px solid var(--chrome-line);
+    }
+    .gate-why .b { color: var(--ink); }
+
+    /* inline decision slice — only what the decision needs (Q5) */
+    .story-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; max-height: 22vh; overflow-y: auto; }
+    .story-row {
+        display: flex; align-items: center; gap: 10px;
+        font-family: var(--mono); font-size: 12px;
+        padding: 5px 10px; border-radius: 5px;
+        background: #181820; border: 1px solid #20202a;
+    }
+    .story-row .sid { color: var(--ink-faint); width: 34px; flex: 0 0 auto; }
+    .story-row .stext { color: var(--ink); flex: 1 1 auto; }
+    .badge {
+        font-size: 10px; font-weight: 700; letter-spacing: .03em;
+        padding: 1px 7px; border-radius: 4px; flex: 0 0 auto;
+    }
+    .badge.user { background: rgba(111,168,199,.16); color: var(--blue); }
+    .badge.system { background: rgba(168,139,208,.16); color: var(--violet); }
+    .split-mark { color: var(--gate); font-size: 11px; flex: 0 0 auto; }
+
+    /* validation gate: violation checklist (Q2 — analyze) */
+    .vio-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; max-height: 24vh; overflow-y: auto; }
+    .vio-row {
+        display: grid;
+        grid-template-columns: 18px 1fr auto;
+        align-items: center; gap: 10px;
+        font-family: var(--mono); font-size: 12px;
+        padding: 7px 10px; border-radius: 5px;
+        background: #1b1518; border: 1px solid #2c1f20;
+    }
+    .vio-row.passed { background: #14191550; border-color: #1f2a1f; opacity: .6; }
+    .vio-row .mark { font-weight: 700; text-align: center; }
+    .vio-row.passed .mark { color: var(--green); }
+    .vio-row .mark { color: var(--red); }
+    .vio-row .what .rule { color: var(--ink); }
+    .vio-row .what .detail { color: var(--ink-faint); font-size: 11px; }
+    .fix-link {
+        font: inherit; font-family: var(--mono); font-size: 11px;
+        color: var(--gate); background: transparent;
+        border: 1px solid #3a3020; border-radius: 5px; padding: 3px 9px; cursor: pointer;
+    }
+    .fix-link:hover { background: #221c12; }
+
+    /* gate actions */
+    .gate-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .btn {
+        font: inherit; font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+        padding: 8px 16px; border-radius: 6px; cursor: pointer;
+        border: 1px solid var(--chrome-line); background: #1c1c24; color: var(--ink);
+        transition: all .15s;
+    }
+    .btn:hover { border-color: var(--ink-faint); }
+    .btn.primary { background: var(--gate); border-color: var(--gate); color: #1a1a1a; }
+    .btn.primary:hover { filter: brightness(1.08); }
+    .btn.danger { background: var(--accent); border-color: var(--accent); color: #1a1a1a; }
+    .btn.weighty { box-shadow: inset 0 0 0 1px rgba(224,160,80,.4); }
+    .btn .sub { font-weight: 400; font-size: 10.5px; opacity: .7; }
+    .gate-actions .spacer { margin-left: auto; }
+    .gate-actions .peek {
+        font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
+        background: transparent; border: 1px dashed var(--chrome-line);
+    }
+    .gate-actions .peek:hover { color: var(--ink); }
+    /* override-with-friction, never a default (Q2) */
+    .override-note { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+    .override-note a { color: var(--red); text-decoration: underline dotted; cursor: pointer; }
+
+    /* ── single "advance" affordance (Q3) — appears only when a stage completes ─ */
+    .advance {
+        flex: 0 0 auto;
+        display: none;
+        align-items: center; gap: 12px;
+        padding: 10px 20px;
+        background: #14140f;
+        border-top: 1px solid #2a2616;
+        font-family: var(--mono); font-size: 12.5px;
+    }
+    .advance.show { display: flex; }
+    .advance .label { color: var(--ink-dim); }
+    .advance .next { color: var(--accent); font-weight: 700; }
+    .advance .run {
+        margin-left: auto;
+        font: inherit; font-family: var(--mono); font-size: 12px; font-weight: 600;
+        padding: 6px 14px; border-radius: 6px; cursor: pointer;
+        background: var(--accent); border: none; color: #1a1a1a;
+    }
+    .advance .hint { color: var(--ink-faint); font-size: 11px; }
+
+    /* ── (5) artifact peek drawer — dismissible slide-over, raw file render ──── */
+    .scrim {
+        position: absolute; inset: 0; background: rgba(0,0,0,.45);
+        opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 18;
+    }
+    .scrim.open { opacity: 1; pointer-events: auto; }
+    .drawer {
+        position: absolute; top: 0; right: 0; bottom: 0;
+        width: min(540px, 80%);
+        background: var(--term-bg);
+        border-left: 1px solid var(--chrome-line);
+        box-shadow: -24px 0 48px rgba(0,0,0,.5);
+        transform: translateX(100%);
+        transition: transform .28s cubic-bezier(.4,0,.2,1);
+        z-index: 19;
+        display: flex; flex-direction: column;
+    }
+    .drawer.open { transform: translateX(0); }
+    .drawer-head {
+        flex: 0 0 auto;
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 16px; border-bottom: 1px solid var(--chrome-line);
+        font-family: var(--mono); font-size: 12px;
+    }
+    .drawer-head .path { color: var(--ink-dim); flex: 1 1 auto; }
+    .drawer-head .tag { font-size: 10px; color: var(--ink-faint); border: 1px solid var(--chrome-line); padding: 1px 7px; border-radius: 4px; }
+    .drawer-close { font: inherit; font-size: 16px; color: var(--ink-dim); background: none; border: none; cursor: pointer; }
+    .drawer-close:hover { color: var(--ink); }
+    .drawer-body {
+        flex: 1 1 auto; overflow-y: auto; padding: 18px 22px;
+        font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--ink-dim);
+    }
+    .drawer-body h1 { font-size: 15px; color: var(--ink); margin: 0 0 4px; }
+    .drawer-body h2 { font-size: 13px; color: var(--accent-soft); margin: 18px 0 6px; font-weight: 700; }
+    .drawer-body .fm { color: var(--ink-faint); border-left: 2px solid var(--chrome-line); padding-left: 10px; margin-bottom: 14px; white-space: pre; }
+    .drawer-body code { color: var(--blue); }
+    .drawer-body .li { padding-left: 16px; position: relative; }
+    .drawer-body .li::before { content: "—"; position: absolute; left: 0; color: var(--ink-faint); }
+    .drawer-note {
+        flex: 0 0 auto; padding: 8px 16px; border-top: 1px solid var(--chrome-line);
+        font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
+    }
+
+    /* fidelity dimming when a gate/drawer is up: terminal recedes but stays visible */
+    .term-wrap.recede .term { filter: saturate(.85) brightness(.82); }
+</style>
+</head>
+<body>
+
+<div class="caption">
+    <strong>Nexus Prime</strong> · UI design mockup — interactive, not production code.
+    <span>The terminal is the product; pipeline UI is a thin frame + ephemeral interrupts.</span>
+    <span class="scenes">
+        <button class="scene-btn active" data-scene="gate">Right-sizing gate</button>
+        <button class="scene-btn" data-scene="analyze">Analyze gate</button>
+        <button class="scene-btn" data-scene="advance">Stage advance</button>
+        <button class="scene-btn" data-scene="peek">Artifact peek</button>
+    </span>
+</div>
+
+<div class="app">
+
+    <!-- (1) persistent top strip -->
+    <div class="topstrip">
+        <div class="epic-id">
+            <span class="dot"></span>
+            <span class="name">auth-refactor</span>
+            <span class="meta">· main · a3f9</span>
+            <button class="epic-switch" id="epicSwitch" title="Splitting an epic spawns concurrent pipelines">▾ 1 epic</button>
+        </div>
+
+        <div class="rail" id="rail">
+            <div class="seg done" data-artifact="setup"><span class="glyph">✓</span><span class="label">setup</span></div>
+            <span class="rail-arrow">›</span>
+            <div class="seg gate" id="segEpic" data-artifact="epic"><span class="glyph">!</span><span class="label">epic</span></div>
+            <span class="rail-arrow">›</span>
+            <div class="seg upcoming" id="segHld"><span class="glyph">○</span><span class="label">hld</span></div>
+            <span class="rail-arrow">›</span>
+            <div class="seg upcoming" id="segTasks"><span class="glyph">○</span><span class="label">tasks</span></div>
+            <span class="rail-arrow">›</span>
+            <div class="seg upcoming" id="segAnalyze"><span class="glyph">○</span><span class="label">analyze</span></div>
+            <span class="rail-arrow">›</span>
+            <div class="seg upcoming" id="segClose"><span class="glyph">○</span><span class="label">close</span></div>
+        </div>
+
+        <div class="tools">
+            <button class="icon-btn" id="peekBtn" title="Peek last artifact">⧉</button>
+        </div>
+    </div>
+
+    <!-- (2) the terminal + (3) gate tray + advance affordance -->
+    <div class="term-wrap" id="termWrap">
+        <div class="term" id="term"><!-- scrollback injected by JS per scene --></div>
+
+        <div class="term-input">
+            <span class="pchar">❯</span>
+            <span class="typed" id="typed"></span>
+            <span class="caret"></span>
+        </div>
+
+        <!-- gate tray slides up from here -->
+        <div class="gate-tray" id="gateTray">
+            <div class="gate-inner" id="gateInner"><!-- gate content per scene --></div>
+        </div>
+
+        <!-- single advance affordance -->
+        <div class="advance" id="advance">
+            <span class="label">Stage complete.</span>
+            <span class="next" id="advanceNext">Next: nxs.hld</span>
+            <span class="hint">— runs in the terminal above; you watch it execute.</span>
+            <button class="run" id="advanceRun">Run ⏎</button>
+        </div>
+    </div>
+
+    <!-- (5) artifact peek drawer -->
+    <div class="scrim" id="scrim"></div>
+    <aside class="drawer" id="drawer">
+        <div class="drawer-head">
+            <span class="path" id="drawerPath">.nexus/temp/main/a3f9/epic.md</span>
+            <span class="tag">raw file · read-only</span>
+            <button class="drawer-close" id="drawerClose">✕</button>
+        </div>
+        <div class="drawer-body" id="drawerBody"></div>
+        <div class="drawer-note">The actual file Claude wrote — rendered, never re-summarized. ESC or click-away to return to the terminal.</div>
+    </aside>
+
+</div>
+
+<script>
+/* ──────────────────────────────────────────────────────────────────────────
+   Mockup interaction. Four scenes, each a snapshot of one design moment.
+   ────────────────────────────────────────────────────────────────────────── */
+
+const term = document.getElementById("term");
+const typed = document.getElementById("typed");
+const gateTray = document.getElementById("gateTray");
+const gateInner = document.getElementById("gateInner");
+const advance = document.getElementById("advance");
+const advanceNext = document.getElementById("advanceNext");
+const termWrap = document.getElementById("termWrap");
+
+/* ----- terminal scrollback fragments (real-feeling Claude Code session) ----- */
+function L(cls, txt) { return `<div class="ln ${cls||""}">${txt}</div>`; }
+const GAP = `<div class="ln gap"></div>`;
+
+const sessionEpic = [
+    L("", `<span class="prompt">❯</span> <span class="cmd">/nxs.epic</span> <span class="muted">add passwordless + SSO to auth</span>`),
+    GAP,
+    L("claude-tag", `● Claude Code`),
+    L("muted", `  Reading ground truth — docs/system/stack.md, standards, product context…`),
+    L("muted", `  Loading library concepts: <span class="info">session-auth</span>, <span class="info">credential-store</span>, <span class="info">rate-limit</span>`),
+    GAP,
+    L("", `  Drafting epic from request. Stories below carry <span class="info">story_type</span>:`),
+    L("muted", `  <span class="info">user</span> = behavioral AC (observable by an end-user)`),
+    L("muted", `  <span class="vio">system</span> = measurable technical AC (metric / threshold / contract)`),
+    GAP,
+    L("ok", `  ✓ Wrote .nexus/temp/main/a3f9/epic.md — 7 stories, 4 system ACs`),
+    GAP,
+    L("warn", `  ⏸ Right-sizing check…`),
+    L("muted", `    Stories: 7   ·   System ACs: 4   ·   Cross-cutting concepts touched: 3`),
+    L("warn", `    Heuristic size: <span class="b">XL</span>. Nexus requires L/XL epics to split before any design.`),
+    L("muted", `    This is a forcing function, not an error — generation is cheap, judgment is not.`),
+    GAP,
+    L("box", `  ┌─ awaiting your decision ─────────────────────────────────────┐`),
+    L("box", `  │ The gate below has the story list + a suggested split.       │`),
+    L("box", `  └──────────────────────────────────────────────────────────────┘`),
+];
+
+const sessionAnalyze = [
+    L("", `<span class="prompt">❯</span> <span class="cmd">/nxs.analyze</span>`),
+    GAP,
+    L("claude-tag", `● Claude Code`),
+    L("muted", `  Cross-checking story ↔ task traceability before creating GitHub issues…`),
+    L("muted", `  6 stories · 11 tasks · checking story_ref links, AC coverage`),
+    GAP,
+    L("ok",  `  ✓ every task carries a story_ref … <span class="muted">9/11 ok</span>`),
+    L("err", `  ✗ 2 tasks orphaned (no story_ref)`),
+    L("err", `  ✗ story S-4 (user) has no task with a behavioral AC`),
+    L("err", `  ✗ story S-6 (system) AC is prose-only — no measurable criterion`),
+    GAP,
+    L("err", `  ⛔ Consistency gate BLOCKED issue creation — story-traceability drift.`),
+    L("muted", `     Issues are not created until the drift below is resolved. This gate does not`),
+    L("muted", `     rubber-stamp; the decision is <span class="b">how to fix</span>, not whether to proceed.`),
+];
+
+const sessionAdvance = [
+    L("", `<span class="prompt">❯</span> <span class="cmd">/nxs.epic</span> <span class="muted">add passwordless login to auth</span>`),
+    GAP,
+    L("claude-tag", `● Claude Code`),
+    L("muted", `  Drafting epic — 3 stories, 1 system AC.`),
+    L("ok", `  ✓ Wrote .nexus/temp/main/a3f9/epic.md`),
+    GAP,
+    L("warn", `  ⏸ Right-sizing check… size <span class="b">S</span> — within budget, no split needed.`),
+    L("ok", `  ✓ Right-sizing gate PASSED. Epic accepted.`),
+    GAP,
+    L("muted", `  Stories validated. Ready for design.`),
+    L("box", `  ──────────────────────────────────────────────────────────────`),
+];
+
+/* ----- gate tray content ----- */
+const storyRows = [
+    ["S-1", "User signs in with a magic link sent to email", "user", false],
+    ["S-2", "User registers a passkey (WebAuthn) on a device", "user", true],
+    ["S-3", "User signs in with a registered passkey", "user", true],
+    ["S-4", "Org admin enables SSO via SAML for a workspace", "user", false],
+    ["S-5", "Magic-link tokens expire ≤ 10 min, single-use", "system", false],
+    ["S-6", "Passkey assertion verified < 250ms p95", "system", true],
+    ["S-7", "SSO assertions validated against IdP cert chain", "system", false],
+];
+
+function renderStoryList() {
+    return `<div class="story-list">` + storyRows.map(([id, text, type, split]) =>
+        `<div class="story-row">
+            <span class="sid">${id}</span>
+            <span class="stext">${text}</span>
+            ${split ? `<span class="split-mark" title="Claude's suggested split boundary">split ▸ B</span>` : ``}
+            <span class="badge ${type}">${type}</span>
+        </div>`
+    ).join("") + `</div>`;
+}
+
+const gateRightSizing = `
+    <div class="gate-head">
+        <span class="gate-badge">Decision · judgment</span>
+        <span class="gate-title">Right-sizing gate</span>
+        <span class="gate-sub">nxs.epic · a3f9</span>
+    </div>
+    <div class="gate-why">
+        Epic rated <span class="b">XL</span> — <span class="b">7 stories</span>, <span class="b">4 system ACs</span>, touches 3 cross-cutting concepts.
+        Nexus's earliest brake: split before any design is generated. Claude suggests a boundary at
+        passkey vs. magic-link/SSO (marked <span class="b">▸ B</span> below).
+    </div>
+    ${renderStoryList()}
+    <div class="gate-actions">
+        <button class="btn primary weighty">Split into 2 epics
+            <span class="sub">— spawns concurrent pipelines · confirm</span></button>
+        <button class="btn">Accept size XL &amp; continue</button>
+        <button class="btn">Revise scope</button>
+        <button class="btn peek spacer" data-artifact="epic">Open epic.md ⧉</button>
+    </div>
+`;
+
+const violations = [
+    [true,  "every task has a story_ref",          "9 / 11 tasks linked"],
+    [false, "orphan task — no story_ref",            "T-7 \"add audit log table\""],
+    [false, "orphan task — no story_ref",            "T-10 \"refactor token signer\""],
+    [false, "user story lacks a behavioral-AC task", "S-4 \"admin enables SSO\""],
+    [false, "system story AC is prose-only",         "S-6 needs a measurable criterion"],
+];
+
+function renderViolations() {
+    return `<div class="vio-list">` + violations.map(([passed, rule, detail]) =>
+        `<div class="vio-row ${passed ? "passed" : ""}">
+            <span class="mark">${passed ? "✓" : "✗"}</span>
+            <span class="what"><span class="rule">${rule}</span> · <span class="detail">${detail}</span></span>
+            ${passed ? `<span></span>` : `<button class="fix-link">fix ▸</button>`}
+        </div>`
+    ).join("") + `</div>`;
+}
+
+const gateAnalyze = `
+    <div class="gate-head">
+        <span class="gate-badge">Blocked · validation</span>
+        <span class="gate-title">Consistency gate</span>
+        <span class="gate-sub">nxs.analyze · a3f9</span>
+    </div>
+    <div class="gate-why">
+        Story ↔ task traceability has drift. Issue creation is <span class="b">blocked</span> until every row passes.
+        Each violation links to its fix path — regenerate tasks, edit the story, or add a measurable AC.
+    </div>
+    ${renderViolations()}
+    <div class="gate-actions">
+        <button class="btn primary">Re-run analyze after fixes</button>
+        <button class="btn peek" data-artifact="tasks">Open task-index.md ⧉</button>
+        <span class="spacer override-note">No proceed-anyway. <a>Override w/ justification</a> if you must.</span>
+    </div>
+`;
+
+/* ----- artifact files for the peek drawer ----- */
+const artifacts = {
+    epic: {
+        path: ".nexus/temp/main/a3f9/epic.md",
+        html: `
+            <div class="fm">epic: auth-refactor
+local_id: a3f9
+size: XL        # ← right-sizing gate target
+stories: 7</div>
+            <h1>Epic — Passwordless &amp; SSO for Auth</h1>
+            <p>Replace password-primary auth with passwordless (magic link + passkey) and add SSO for org workspaces.</p>
+            <h2>Stories</h2>
+            <div class="li"><code>S-1</code> (user) Sign in with a magic link sent to email.</div>
+            <div class="li"><code>S-2</code> (user) Register a passkey (WebAuthn) on a device.</div>
+            <div class="li"><code>S-3</code> (user) Sign in with a registered passkey.</div>
+            <div class="li"><code>S-4</code> (user) Org admin enables SSO via SAML for a workspace.</div>
+            <div class="li"><code>S-5</code> (system) Magic-link tokens expire ≤ 10 min, single-use.</div>
+            <div class="li"><code>S-6</code> (system) Passkey assertion verified &lt; 250ms p95.</div>
+            <div class="li"><code>S-7</code> (system) SSO assertions validated against IdP cert chain.</div>
+            <h2>Acceptance criteria</h2>
+            <div class="li">Each story’s AC is observable (user) or measurable (system) — no prose-only ACs.</div>
+        `
+    },
+    tasks: {
+        path: ".nexus/temp/main/a3f9/task-index.md",
+        html: `
+            <div class="fm">epic: auth-refactor
+tasks: 11
+gate: analyze (BLOCKED)</div>
+            <h1>Task Index</h1>
+            <div class="li"><code>T-1</code> magic-link issue endpoint — <code>story_ref: S-1</code></div>
+            <div class="li"><code>T-2</code> magic-link verify + session mint — <code>story_ref: S-1</code></div>
+            <div class="li"><code>T-7</code> add audit log table — <code>story_ref: —</code> ⚠ orphan</div>
+            <div class="li"><code>T-10</code> refactor token signer — <code>story_ref: —</code> ⚠ orphan</div>
+            <h2>Gate note</h2>
+            <p>analyze blocks issue creation: 2 orphan tasks, S-4 has no behavioral-AC task, S-6 AC is prose-only.</p>
+        `
+    },
+    setup: {
+        path: "docs/system/stack.md",
+        html: `<div class="fm">maintained_by: human</div>
+            <h1>Ground truth — setup</h1>
+            <p>nxs.setup established stack + standards (formerly nxs.init, now merged). Human-maintained; the pipeline reads it, never rewrites it.</p>`
+    }
+};
+
+/* ----- scene wiring ----- */
+function setScrollback(lines) { term.innerHTML = lines.join(""); term.scrollTop = term.scrollHeight; }
+function setRail(states) {
+    const map = { setup:"done", epic:"upcoming", hld:"upcoming", tasks:"upcoming", analyze:"upcoming", close:"upcoming" };
+    Object.assign(map, states);
+    const ids = { setup: document.querySelector('[data-artifact="setup"]'), epic: segEpic, hld: segHld, tasks: segTasks, analyze: segAnalyze, close: segClose };
+    for (const k in ids) {
+        const cls = map[k];
+        ids[k].className = "seg " + cls;
+        const glyph = ids[k].querySelector(".glyph");
+        glyph.textContent = cls === "done" ? "✓" : cls === "gate" ? "!" : cls === "active" ? "●" : "○";
+    }
+}
+
+const segEpic = document.getElementById("segEpic");
+const segHld = document.getElementById("segHld");
+const segTasks = document.getElementById("segTasks");
+const segAnalyze = document.getElementById("segAnalyze");
+const segClose = document.getElementById("segClose");
+
+function openGate(html, validation) {
+    gateInner.innerHTML = html;
+    gateTray.classList.toggle("validation", !!validation);
+    gateTray.classList.add("open");
+    termWrap.classList.add("recede");
+    wireGateButtons();
+}
+function closeGate() {
+    gateTray.classList.remove("open");
+    if (!drawer.classList.contains("open")) termWrap.classList.remove("recede");
+}
+
+function wireGateButtons() {
+    gateInner.querySelectorAll("[data-artifact]").forEach(b =>
+        b.addEventListener("click", () => openDrawer(b.dataset.artifact)));
+    gateInner.querySelectorAll(".fix-link").forEach(b =>
+        b.addEventListener("click", () => { b.textContent = "fixing…"; b.disabled = true; }));
+}
+
+const scenes = {
+    gate() {
+        setScrollback(sessionEpic);
+        setRail({ epic: "gate" });
+        typed.textContent = "";
+        openGate(gateRightSizing, false);
+        advance.classList.remove("show");
+        advanceNext.textContent = "Next: nxs.hld";
+    },
+    analyze() {
+        setScrollback(sessionAnalyze);
+        setRail({ setup:"done", epic:"done", hld:"done", tasks:"done", analyze:"gate" });
+        typed.textContent = "";
+        openGate(gateAnalyze, true);
+        advance.classList.remove("show");
+    },
+    advance() {
+        setScrollback(sessionAdvance);
+        setRail({ setup:"done", epic:"active" });
+        closeGate();
+        typed.textContent = "";
+        advance.classList.add("show");
+        advanceNext.textContent = "Next: nxs.hld";
+    },
+    peek() {
+        setScrollback(sessionEpic);
+        setRail({ epic: "gate" });
+        closeGate();
+        typed.textContent = "";
+        advance.classList.remove("show");
+        openDrawer("epic");
+    }
+};
+
+let currentScene = "gate";
+document.querySelectorAll(".scene-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        document.querySelectorAll(".scene-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentScene = btn.dataset.scene;
+        closeDrawer(true);
+        scenes[currentScene]();
+    });
+});
+
+/* ----- artifact drawer ----- */
+const drawer = document.getElementById("drawer");
+const scrim = document.getElementById("scrim");
+const drawerBody = document.getElementById("drawerBody");
+const drawerPath = document.getElementById("drawerPath");
+
+function openDrawer(key) {
+    const a = artifacts[key] || artifacts.epic;
+    drawerPath.textContent = a.path;
+    drawerBody.innerHTML = a.html;
+    drawer.classList.add("open");
+    scrim.classList.add("open");
+    termWrap.classList.add("recede");
+}
+function closeDrawer(silent) {
+    drawer.classList.remove("open");
+    scrim.classList.remove("open");
+    if (!gateTray.classList.contains("open")) termWrap.classList.remove("recede");
+}
+document.getElementById("drawerClose").addEventListener("click", () => closeDrawer());
+scrim.addEventListener("click", () => closeDrawer());
+document.getElementById("peekBtn").addEventListener("click", () => openDrawer("epic"));
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+
+/* rail: clicking a completed segment previews its artifact (never navigates) */
+document.querySelectorAll(".seg").forEach(seg => {
+    seg.addEventListener("click", () => {
+        if (seg.classList.contains("done") && seg.dataset.artifact) openDrawer(seg.dataset.artifact);
+        else if (seg.classList.contains("gate")) scenes[currentScene === "analyze" ? "analyze" : "gate"]();
+    });
+});
+
+/* advance: runs the next command in the visible terminal */
+document.getElementById("advanceRun").addEventListener("click", () => {
+    advance.classList.remove("show");
+    typed.textContent = "/nxs.hld";
+    setRail({ setup:"done", epic:"done", hld:"active" });
+    setTimeout(() => {
+        term.insertAdjacentHTML("beforeend",
+            GAP +
+            L("", `<span class="prompt">❯</span> <span class="cmd">/nxs.hld</span>`) +
+            L("claude-tag", `● Claude Code`) +
+            L("muted", `  Emitting focused decision record — chosen approach, key decisions, constraints…`));
+        term.scrollTop = term.scrollHeight;
+        typed.textContent = "";
+    }, 500);
+});
+
+/* boot */
+scenes.gate();
+</script>
+</body>
+</html>

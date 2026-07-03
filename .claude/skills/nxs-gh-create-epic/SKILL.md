@@ -25,7 +25,7 @@ python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
 
 | Flag                 | Description                                                                                                             |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `--project "<name>"` | Specify the GitHub project to add the issue to (e.g., `my-org/my-project`). If omitted, reads from `docs/system/delivery/config.json`, then auto-discovers from repository. |
+| `--project "<name>"` | Specify the GitHub project to add the issue to (e.g., `my-org/my-project`). If omitted, reads from `.nexus/config/config.yml` (or `config.json`), then auto-discovers from repository. |
 | `-y`, `--yes`        | Skip confirmation if a link already exists                                                                              |
 | `--no-project`       | Skip adding the issue to any project                                                                                    |
 
@@ -52,9 +52,11 @@ The script (`./scripts/nxs_gh_create_epic.py`):
 1. Parses YAML frontmatter for `epic` (title) and `type` (issue type name)
 2. Resolves the GitHub issue type with the following priority:
    1. `type` field in the epic's YAML frontmatter
-   2. `epicType` field in `docs/system/delivery/config.json`
+   2. `epicType` field in `.nexus/config/config.yml` (or `config.json`)
    3. Falls back to adding the `enhancement` **label** if neither is set
-3. Creates temp file with markdown body (frontmatter stripped)
+3. Creates temp file with markdown body (frontmatter stripped, non-durable queue/feature
+   pointers dropped, and the `## User Stories` section removed — each story is filed as its
+   own sub-issue, so keeping the full story bodies here would duplicate and drift them)
 4. Executes `gh issue create --title "<epic>" --body-file <temp>`
    (adds `--label "enhancement"` only when falling back)
 5. Extracts issue number from returned URL

@@ -2,6 +2,7 @@ import {
     createContext,
     useCallback,
     useContext,
+    useEffect,
     useMemo,
     useState,
 } from "react";
@@ -17,17 +18,25 @@ import type { ReactElement, ReactNode } from "react";
  * prior choice, follow the OS `prefers-color-scheme`, defaulting to dark when the
  * OS expresses no preference (the original mockup). The choice is persisted to
  * `localStorage` on toggle and read back on mount, so a reload restores it.
+ *
+ * SSR (Story 2): `localStorage`/`matchMedia` don't exist in Node, so the server
+ * — and the client's first render, to stay hydration-stable — always renders
+ * `DEFAULT_THEME`; a post-mount effect reconciles the real choice, accepting a
+ * one-frame flash on first load (decision record — no cookie-based no-flash
+ * mechanism in this epic).
  */
 
 export type ThemeMode = "dark" | "light";
 
 const STORAGE_KEY = "prime-theme";
+const DEFAULT_THEME: ThemeMode = "dark";
 
-function readInitialTheme(): ThemeMode {
+function readStoredTheme(): ThemeMode | null {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "dark" || stored === "light") {
-        return stored;
-    }
+    return stored === "dark" || stored === "light" ? stored : null;
+}
+
+function readPreferredTheme(): ThemeMode {
     // `?.` guards environments (e.g. jsdom) with no matchMedia — no match falls
     // through to dark, which is also the "OS expresses no preference" default.
     return window.matchMedia?.("(prefers-color-scheme: light)").matches
@@ -44,7 +53,7 @@ interface ThemeContextValue {
 
 /* A non-throwing default lets a region render in isolation without a provider. */
 const ThemeContext = createContext<ThemeContextValue>({
-    theme: "dark",
+    theme: DEFAULT_THEME,
     toggleTheme: () => undefined,
 });
 
@@ -53,7 +62,13 @@ export function ThemeProvider({
 }: {
     children: ReactNode;
 }): ReactElement {
-    const [theme, setTheme] = useState<ThemeMode>(readInitialTheme);
+    const [theme, setTheme] = useState<ThemeMode>(DEFAULT_THEME);
+
+    // Client-only rehydration: reconcile the persisted/OS-preferred mode once
+    // mounted. Never runs during SSR, so the server has nothing to crash on.
+    useEffect(() => {
+        setTheme(readStoredTheme() ?? readPreferredTheme());
+    }, []);
 
     const toggleTheme = useCallback(() => {
         setTheme((current) => {
