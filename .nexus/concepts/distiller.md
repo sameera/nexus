@@ -22,6 +22,7 @@ The distiller runs after epics merge, scanning for unconsumed queue entries. For
 3. Judgment — concept mapping and prose — is the model's; the reciprocity, anchor, and validator steps are deterministic code.
 4. A validation failure blocks the apply; a failing page is never shipped.
 5. The distiller infers the concept mapping itself — the pipeline emits no structured concept list.
+6. Draining is a manually-invoked curated step, not an automated trigger; only detecting undrained entries and deleting consumed ones are deterministic.
 
 ## Integration Points
 
@@ -35,3 +36,7 @@ The distiller runs after epics merge, scanning for unconsumed queue entries. For
 ### 2026-06-14 — bootstrap — 0006: synthesis lives in the distiller
 
 Located all synthesis in the distiller: the pipeline stays dumb and emits only human prose, while the distiller reads the diff and records and infers the concept mapping. The considered alternative — having the close stage pre-produce the structured concept list — was rejected because it pushes machine synthesis onto the human surface and pre-guesses concept boundaries before the final merged code exists, whereas a single post-merge synthesizer sees the final state of every drained epic and reconciles once.
+
+### 2026-07-03 — bootstrap — 0012: draining is a manual curated step, not an auto-trigger
+
+Fixed the drain trigger as a manually-invoked curated step: a human runs the distiller after a feature with a queue entry merges, backed only by the built-in thirty-day drain age flag. A capability ladder is climbed only as scale forces it — manual now; then a plain check that detects undrained closed entries and nags; and only at sustained volume a scheduled headless run that opens the reviewed pull request plus a deterministic deletion step on its merge. The considered alternative — an unattended trigger that runs the distiller automatically on every merge — was rejected: it reintroduces the unattended write the reviewed-pull-request rule removed, merely relocated, and is speculative machinery for a single-entry queue. Resolves the cadence question left open by 0007; reviewer assignment stays open.
