@@ -26,7 +26,7 @@ Empty input is an error: ask the user for a capability description (or a stub sl
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<branch>/<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
+- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full `epic.md` for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
 
 ## Interaction convention — actionable choice gates
@@ -56,7 +56,7 @@ Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
 
-1. **Resume check.** Glob `.nexus/queue/<branch>/*/epic.md` for the current branch (`git branch --show-current`). If an entry's frontmatter has **no `link`** — an epic already planned but not yet filed as issues — report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that entry and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending entry exists, resume it without asking. Otherwise continue.
+1. **Resume check.** Glob `.nexus/queue/*/epic.md`. If an entry's frontmatter has **no `link`** — an epic already planned but not yet filed as issues — report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that entry and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending entry exists, resume it without asking. Otherwise continue.
 2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub slug. Stop.
 3. Decide **promotion** vs **intent**:
     - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `docs/features/*/backlog.md`. Glob the backlogs and check.
@@ -231,13 +231,12 @@ Then **stop**. Report the stub list and tell the user to promote one with `/nxs.
 The epic is written to the committed planning queue, not under `docs/`.
 
 ```bash
-BRANCH="$(git branch --show-current)"; [ -z "$BRANCH" ] && BRANCH="detached"
 LOCAL_ID="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
-QDIR=".nexus/queue/${BRANCH}/${LOCAL_ID}"
+QDIR=".nexus/queue/${LOCAL_ID}"
 mkdir -p "$QDIR"
 ```
 
-Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by `git branch --show-current` + globbing `.nexus/queue/<branch>/*/`; multiple entries on one branch prompt a selection.
+Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by globbing `.nexus/queue/*/`; multiple entries with no `link` prompt a selection.
 
 The feature nav index (`docs/features/<slug>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue — never a draft queue-path pointer that needs updating (the queue entry is transient; the distiller drains it, 0006).
 
@@ -442,7 +441,7 @@ Report:
 
 - Feature name and folder.
 - Epic title, complexity rating, and story count (with `story_type` breakdown).
-- Queue entry path (`.nexus/queue/<branch>/<local-id>/epic.md`).
+- Queue entry path (`.nexus/queue/<local-id>/epic.md`).
 - Epic issue link and the created story issue numbers — or, if the user chose `revise`, that no
   issues were created and how to resume (`/nxs.epic --resume`).
 - Next step: `/nxs.hld` to produce the decision record for this epic.
