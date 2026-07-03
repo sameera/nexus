@@ -12,7 +12,7 @@ FRONTMATTER VARIABLES
 - {{SEQ}}       : Append-only sequence number (01, 02, ...). Never renumbered
                   once referenced (C7).
 - {{TITLE}}     : Concise task title
-- {{LABELS}}    : Comma-separated labels from .claude/nexus/task-labels.md
+- {{LABELS}}    : Comma-separated labels from .nexus/config/issue-labels.yaml
 - {{PARENT}}    : Epic issue reference (e.g., #42)
 - {{PROJECT}}   : GitHub project name
 - {{STORY_REF}} : Required. The story/stories this task serves, e.g. [STORY-1].
