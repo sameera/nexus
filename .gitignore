@@ -3,6 +3,9 @@ __pycache__/
 tmp/**
 node_modules/
 dist/
+build/
+out-tsc/
+.react-router/
 .nx/installation
 .nx/cache
 .nx/workspace-data

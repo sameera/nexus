@@ -1,0 +1,47 @@
+{
+    "name": "prime",
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "projectType": "application",
+    "sourceRoot": "apps/prime/app",
+    "targets": {
+        "build": {
+            "executor": "nx:run-commands",
+            "cache": true,
+            "outputs": ["{projectRoot}/build"],
+            "options": {
+                "cwd": "apps/prime",
+                "command": "react-router build"
+            }
+        },
+        "dev": {
+            "executor": "nx:run-commands",
+            "options": {
+                "cwd": "apps/prime",
+                "command": "tsx --conditions development server.ts",
+                "env": {
+                    "NODE_ENV": "development"
+                }
+            }
+        },
+        "preview": {
+            "executor": "nx:run-commands",
+            "dependsOn": ["build"],
+            "options": {
+                "cwd": "apps/prime",
+                "command": "tsx server.ts"
+            }
+        },
+        "typecheck": {
+            "executor": "nx:run-commands",
+            "cache": true,
+            "options": {
+                "cwd": "apps/prime",
+                "commands": [
+                    "react-router typegen",
+                    "tsc --build tsconfig.json --emitDeclarationOnly"
+                ],
+                "parallel": false
+            }
+        }
+    }
+}
