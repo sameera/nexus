@@ -189,6 +189,39 @@ def strip_non_durable_refs(body: str) -> str:
     return "\n".join(kept).lstrip("\n")
 
 
+def strip_story_bodies(body: str) -> str:
+    """Remove the `## User Stories` section from the epic issue body.
+
+    Each story is filed as its own GitHub sub-issue of the epic (see /nxs.epic Phase 6),
+    which is the durable, editable working surface for the story text and its acceptance
+    criteria. Repeating the full story bodies in the epic issue would duplicate that content
+    and let it drift. The stories stay in the queue `epic.md` (the digest, /nxs.hld,
+    /nxs.analyze and /nxs.distill read them there); GitHub renders the sub-issues under the
+    epic. So drop the section here.
+
+    Removes from the `## User Stories` H2 up to (but not including) the next H2 heading, or
+    end of body. Only level-2 headings terminate the section; the `###`/`####` story
+    subsections do not.
+    """
+    h2 = re.compile(r"^##\s")  # matches `## `, not `### ` (no space after the 3rd #)
+    lines = body.split("\n")
+
+    start = next(
+        (i for i, line in enumerate(lines) if re.match(r"^##\s+User Stories\s*$", line)),
+        None,
+    )
+    if start is None:
+        return body
+
+    end = next(
+        (j for j in range(start + 1, len(lines)) if h2.match(lines[j])),
+        len(lines),
+    )
+
+    kept = lines[:start] + lines[end:]
+    return "\n".join(kept).strip("\n") + "\n"
+
+
 def update_frontmatter_with_link(content: str, issue_num: str) -> str:
     """Update or add link field in frontmatter."""
     lines = content.split("\n")
@@ -695,6 +728,10 @@ def main() -> int:
 
     # Strip non-durable queue/feature pointers so they never land in the issue body.
     body = strip_non_durable_refs(body)
+
+    # Drop the `## User Stories` section — each story is filed as its own sub-issue, so
+    # keeping the full story bodies here would duplicate them and let the copies drift.
+    body = strip_story_bodies(body)
 
     # Extract epic title (required)
     epic_title = frontmatter.get("epic", "")

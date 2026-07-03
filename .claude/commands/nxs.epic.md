@@ -262,6 +262,11 @@ Fold the findings into Phase 5:
 - **Critical or high findings** → do **not** render the approval prompt. Surface the findings, fix
   `epic.md` in place (or resolve with the user where judgment is needed), then re-run the gate until it
   is clean. The gate is read-only; you apply the fixes.
+- **Exception — unresolved `[NEEDS CLARIFICATION]` markers.** Do **not** treat these as a blocking gate
+  finding to auto-fix here. Their disposition belongs to the user at the **Phase 5 open-questions gate**
+  (`answer` vs. `proceed` with them embedded), not to this gate. Carry any such finding forward as
+  context for that gate and continue; the gate's other checks (AC quality, sizing/INVEST,
+  self-contradiction) still block as normal.
 
 ## Phase 5 — Approval digest (MANDATORY STOP)
 
@@ -269,10 +274,23 @@ Present a **decision-grade digest** for approval — the read-surface, not the f
 `epic.md` stays in the queue as drill-down. This is the human checkpoint: a reviewer approves the
 epic *and* its story breakdown here, in one screen, instead of glossing a long document.
 
-**Open questions block the gate.** If `## Open Questions` carries any `[NEEDS CLARIFICATION]` items,
-resolve them first: present each using the clarification format (Guidelines), apply the answers to
-`epic.md`, and remove the markers. Do **not** render the approval prompt or create any issue while
-open questions remain.
+**Open questions gate (MANDATORY STOP).** If `## Open Questions` carries any `[NEEDS CLARIFICATION]`
+items, issue creation is **blocked**. Present each item using the clarification format (Guidelines),
+then ask via **`AskUserQuestion`** (per the interaction convention) how to unblock:
+
+| Option | Action |
+|--------|--------|
+| **answer** (recommended) | Resolve the questions now — apply the answers to `epic.md`, remove the `[NEEDS CLARIFICATION]` markers, then continue with `## Open Questions` empty. |
+| **proceed** | File the issues anyway **with the open questions embedded** — the `[NEEDS CLARIFICATION]` items stay in `epic.md`'s `## Open Questions` and are carried verbatim into the epic issue body as an explicit unresolved-caveats section. |
+
+Only one of these two selections unblocks the gate. **Do NOT render the approval prompt or create any
+issue while a `[NEEDS CLARIFICATION]` marker remains AND the user has not explicitly chosen `proceed`.**
+
+- **answer** → apply the answers, remove every marker (loop until `## Open Questions` is empty), then
+  render the digest below.
+- **proceed** → keep the markers in place and render the digest below, with the `## Open Questions`
+  items surfaced in the digest (see the digest template) so the reviewer approves the epic *knowing*
+  it ships with unresolved questions.
 
 Then render the digest:
 
@@ -285,8 +303,8 @@ Then render the digest:
 
 ## <Epic Title>   ·   complexity: <S|M|L|XL>
 
-<everything in epic.md between the H1 title and `## User Stories` — Description, Business Value,
-Success Metrics, Personas — verbatim (condense only obvious redundancy).>
+<everything in epic.md between the H1 title and `## User Stories` — Description, Success Metrics,
+Personas — verbatim (condense only obvious redundancy).>
 
 ### Stories
 
@@ -294,8 +312,10 @@ Success Metrics, Personas — verbatim (condense only obvious redundancy).>
 - **<Story 2 Title>** (<size>) — <one-line summary>
 - …
 
-<everything in epic.md after the User Stories section — Assumptions, Out of Scope. Open Questions is
-empty by now.>
+<everything in epic.md after the User Stories section — Assumptions, Out of Scope. If the user chose
+**answer**, `## Open Questions` is empty and omitted. If they chose **proceed**, render the remaining
+`[NEEDS CLARIFICATION]` items here under a `### ⚠️ Unresolved questions (shipping anyway)` callout so
+the approval is made with them in view.>
 ```
 
 Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
@@ -457,10 +477,6 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 <2–3 paragraphs: WHAT the capability does and WHY it matters. Value, not implementation.>
 
-## Business Value
-
-- <business justification / expected outcome>
-
 ## Success Metrics
 
 - <measurable, technology-agnostic criterion>
@@ -511,6 +527,7 @@ Notes on the shape (vs. the pre-refactor epic):
 
 - **No three-scenario timeline table and no complexity appendix** — the rating and its drivers live in frontmatter (`complexity`, `complexity_drivers`).
 - **No glossary.** Terms that name durable concepts are routed to a concept page's `aliases:` at close time (System B), not stored in the epic.
+- **No Business Value section** — it is speculative generation (nobody specifies it upfront). The WHY lives in `## Description`; the measurable outcomes live in `## Success Metrics`.
 - **Personas are deviations-only** — the canonical set is `docs/product/context.md`.
 
 ---
