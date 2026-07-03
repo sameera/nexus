@@ -41,7 +41,7 @@ $ARGUMENTS
 
 **Do NOT search when a path is given.**
 
-1. **`$ARGUMENTS` contains a queue-entry path** (a directory like `.nexus/queue/main/fe205650/`,
+1. **`$ARGUMENTS` contains a queue-entry path** (a directory like `.nexus/queue/fe205650/`,
    or a file inside one — resolve to the directory) → drain exactly that entry.
 2. **No arguments** → scan `.nexus/queue/**` for entry directories (a directory containing an
    `epic.md`). **Presence = unconsumed** — there is no state file to consult.
@@ -329,5 +329,5 @@ Post-merge: delete the consumed queue entries (checklist in the PR body).
 
 ```
 /nxs.distill                                 # drain every closed entry in .nexus/queue/**
-/nxs.distill .nexus/queue/main/fe205650/     # drain one specific entry
+/nxs.distill .nexus/queue/fe205650/          # drain one specific entry
 ```

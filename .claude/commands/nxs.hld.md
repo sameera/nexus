@@ -47,11 +47,10 @@ The epic and its story issues already exist (filed by `/nxs.epic` at its approva
 queue entry that holds the epic; the decision record joins it.
 
 1. If `$ARGUMENTS` points at a queue entry / `epic.md` / its directory, use that.
-2. Otherwise discover by branch (mirror the discovery in `nxs.epic.md`):
+2. Otherwise discover (mirror the discovery in `nxs.epic.md`):
 
     ```bash
-    BRANCH="$(git branch --show-current)"; [ -z "$BRANCH" ] && BRANCH="detached"
-    ls -d .nexus/queue/${BRANCH}/*/ 2>/dev/null
+    ls -d .nexus/queue/*/ 2>/dev/null
     ```
 
     - **0 entries** → ERROR. The epic is not planned yet — tell the user to run `/nxs.epic` first. Stop.
@@ -176,4 +175,4 @@ Report concisely:
   ConceptDelta later from the queued decision + close records and the diff (0006). Just write clean
   prose.
 - **Queue, not `docs/`.** The decision record is committed planning state in
-  `.nexus/queue/<branch>/<local-id>/`, the same entry `/nxs.epic` and `/nxs.analyze` use.
+  `.nexus/queue/<local-id>/`, the same entry `/nxs.epic` and `/nxs.analyze` use.

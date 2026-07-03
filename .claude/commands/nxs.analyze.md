@@ -34,8 +34,8 @@ $ARGUMENTS
 Resolve in priority order:
 
 1. **Explicit path in `$ARGUMENTS`** — a queue entry, an `epic.md`, or its directory.
-2. **Queue entry for the current branch** — `git branch --show-current`, then
-   `.nexus/queue/<branch>/*/`; a single entry is used, multiple prompt a selection.
+2. **Queue entry in the current tree** — glob `.nexus/queue/*/`; a single entry is used, multiple
+   prompt a selection.
 3. **File open in the editor** — infer the epic directory from it.
 4. Otherwise stop and ask for the epic path.
 
