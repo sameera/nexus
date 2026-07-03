@@ -1,15 +1,21 @@
 ---
-feature: "Server Platform"
+feature: 'Server Platform'
 feature_path: docs/features/server-platform
-epic: "Prime Server Runtime Foundation"
+epic: 'Prime Server Runtime Foundation'
 slug: prime-server-runtime-foundation
 created: 2026-07-03
 type: enhancement
 status: draft
 complexity: L
-complexity_drivers: ["SPA→SSR framework-mode migration replacing Nx's inferred Vite build/serve targets", "new Node server + 3 new integration surfaces (persistence, resource route, WS-mountable origin)", "zero-regression migration across the full existing 1793-LOC component tree", "6 stories with heavy blocked_by interlock on the foundational server story"]
+complexity_drivers:
+  [
+    "SPA→SSR framework-mode migration replacing Nx's inferred Vite build/serve targets",
+    'new Node server with a WS-mountable origin for the PTY Bridge (issue #11)',
+    'zero-regression migration across the full existing 1793-LOC component tree',
+    '4 stories with blocked_by interlock on the foundational server story',
+  ]
 concepts: []
-link: "#15"
+link: '#15'
 ---
 
 # Epic: Prime Server Runtime Foundation
@@ -18,22 +24,18 @@ link: "#15"
 
 ## Description
 
-Prime runs today as a client-only Vite SPA with no server, no persistence, and no route
-structure beyond a single implicit screen. That was fine while Prime only orchestrated a
-terminal session in the browser — but the next stage of the terminal toolchain (the PTY Bridge,
-issue #11) needs a server process to host its WebSocket endpoint, and running that as an
-isolated sidecar duplicates infrastructure Prime should own itself.
+Prime runs today as a client-only Vite SPA with no server and no route structure beyond a
+single implicit screen. That was fine while Prime only orchestrated a terminal session in the
+browser — but the next stage of the terminal toolchain (the PTY Bridge, issue #11) needs a
+server process to host its WebSocket endpoint, and running that as an isolated sidecar
+duplicates infrastructure Prime should own itself.
 
 This epic converts Prime into a React Router 8 framework-mode application with a real Node
-server runtime. It establishes four platform capabilities in one coherent migration: a server
-host RR8 renders from, a persistence surface for saving prompts and artifacts through server
-loaders/actions (filesystem-backed today, shaped so a database can replace it later without
-call-site changes), a resource-route path for server-side graphics/chart generation, and a
-server structured so the PTY Bridge (issue #11) can mount its WebSocket endpoint on the same
-origin later. App
-chrome and content SSR; the terminal region — which cannot SSR once a real terminal library is
-wired in — stays client-rendered. The existing ~1800 LOC of AppShell, gates, drawers, and
-terminal-region migrate onto the new route structure with no feature regression.
+server runtime, structured so the PTY Bridge (issue #11) can mount its WebSocket endpoint on
+the same origin later. App chrome and content SSR; the terminal region — which cannot SSR once
+a real terminal library is wired in — stays client-rendered. The existing ~1800 LOC of
+AppShell, gates, drawers, and terminal-region migrate onto the new route structure with no
+feature regression.
 
 This epic precedes and blocks the PTY Bridge epic (#11), which will re-scope to mount its
 WebSocket endpoint on this server instead of running as a standalone sidecar.
@@ -44,8 +46,6 @@ WebSocket endpoint on this server instead of running as a standalone sidecar.
   `@vitejs/plugin-react`/inferred-Vite-target remnants.
 - 100% of existing component tests (app, theme, gate-tray, peek-drawer, pipeline-rail,
   advance-bar, terminal-region) pass unmodified in intent after migration.
-- A prompt or artifact saved via a server action is retrievable via a server loader after a full
-  page reload.
 - A stub WebSocket upgrade handler can attach to the running server process and complete a
   handshake, with zero changes to the server's request-handling path.
 
@@ -141,50 +141,7 @@ scope here) can mount there without ever being asked to run on the server.
 Depends on Story 1. Uses the same SSR-safe-by-construction pattern already proven by
 `peek-drawer.tsx` in this codebase (defer to `useEffect`, no module-scope browser-global access).
 
-### Story 4: Persistence surface for prompts and artifacts
-
-- **story_type:** user
-- **size:** M
-
-**As a** Prime user, **I want** my prompts and artifacts saved across page reloads, **so that** I
-don't lose session work when the browser refreshes.
-
-#### Acceptance Criteria
-
-- [ ] **Given** a save action is submitted for a prompt or artifact, **when** the page is
-      reloaded, **then** a server loader returns the previously saved item.
-- [ ] **Given** the persistence implementation, **when** inspected, **then** filesystem access is
-      isolated behind a storage-interface abstraction — no direct `fs` calls at route call sites —
-      so a later swap to a database changes only the interface's implementation, not its callers.
-
-#### Notes
-
-Depends on Story 1. Filesystem-backed now; "database-ready" is satisfied by the interface
-boundary, not by building a database.
-
-### Story 5: Server-side graphics/chart resource route
-
-- **story_type:** system
-- **size:** S
-
-**As a** platform maintainer, **I want** a working resource route that generates graphics/chart
-output on the server, **so that** later features needing server-rendered visuals have a proven
-integration point to build on.
-
-#### Acceptance Criteria
-
-- [ ] **Given** a request to the resource route with valid input, **when** it is handled, **then**
-      it returns rendered chart/graphic output (e.g. SVG or image) with a 200 response, for at
-      least one representative case.
-- [ ] **Given** a request with invalid input, **when** it is handled, **then** it returns a
-      well-formed error response (not a server crash).
-
-#### Notes
-
-Depends on Story 1. Proves the resource-route capability with one representative case — not a
-full charting feature (no chart library/UI selection is scoped here).
-
-### Story 6: Retire "no backend" stack statement
+### Story 4: Retire "no backend" stack statement
 
 - **story_type:** system
 - **size:** S
@@ -195,12 +152,12 @@ real architecture, **so that** I don't design against a stale "no backend" assum
 #### Acceptance Criteria
 
 - [ ] **Given** `docs/system/stack.md`, **when** read after this epic ships, **then** it no longer
-      states "no backend, database, or auth layer" and instead documents the Node server host,
-      the filesystem-backed persistence surface, and the graphics resource route.
+      states "no backend, database, or auth layer" and instead documents the Node server host
+      and its WS-mountable origin for the PTY Bridge.
 
 #### Notes
 
-Last story — depends on 1, 2, 4, 5 (the doc should describe what actually shipped).
+Last story — depends on 1, 2 (the doc should describe what actually shipped).
 
 ## Assumptions
 
@@ -225,10 +182,6 @@ Last story — depends on 1, 2, 4, 5 (the doc should describe what actually ship
 - Real xterm/wterm terminal integration — the terminal region remains a placeholder; epic #11
   wires the real terminal.
 - Auth or multi-user support — Prime is local, single-user, browser-based (not Tauri).
-- A production database — the persistence surface is filesystem-backed now; only the interface
-  is designed to be swappable.
-- A full charting/visualization feature — Story 5 proves the resource-route capability with a
-  representative case, not a complete chart-authoring feature.
 
 ## Open Questions
 
@@ -236,11 +189,9 @@ None.
 
 ## Implementation Sequence
 
-| STORY | Issue | blocked_by |
-|---|---|---|
-| STORY-15.01 | #16 | none |
-| STORY-15.02 | #17 | STORY-15.01 |
-| STORY-15.03 | #18 | STORY-15.01 |
-| STORY-15.04 | #19 | STORY-15.01 |
-| STORY-15.05 | #20 | STORY-15.01 |
-| STORY-15.06 | #21 | STORY-15.01, STORY-15.02, STORY-15.04, STORY-15.05 |
+| STORY       | Issue | blocked_by               |
+| ----------- | ----- | ------------------------ |
+| STORY-15.01 | #16   | none                     |
+| STORY-15.02 | #17   | STORY-15.01              |
+| STORY-15.03 | #18   | STORY-15.01              |
+| STORY-15.04 | #21   | STORY-15.01, STORY-15.02 |
