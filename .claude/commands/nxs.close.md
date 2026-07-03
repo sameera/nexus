@@ -274,22 +274,39 @@ Then ask via **`AskUserQuestion`** (not free text). Three options:
 
 # Phase 8 — Post the comment and close the epic issue
 
-GitHub ops target the **epic issue** via `link`. Generate the absolute URL for the close record with
-the `nxs-abs-doc-path` skill:
+GitHub ops target the **epic issue** via `link`. The epic issue is a **durable** surface; the queue
+`close-record.md` is **ephemeral** — the distiller deletes it post-merge. So the comment carries the
+close record's **prose inline** (Key Decisions + Deviation Rationale); it must **never** link into
+`.nexus/queue/`, or the link dangles the moment the distillation PR merges. Durable pointers — the
+feature backlog and the lesson file, both under `docs/` — may be included as bare paths (or absolute
+GitHub URLs via `nxs-abs-doc-path`); nothing in the queue may be linked.
+
+Write the comment body to a scratch file (Key Decisions + Deviation Rationale copied from
+`close-record.md`; drop the Deviation heading if there were none), then post it with `--body-file`
+(avoids shell-escaping the prose), then close the epic issue:
 
 ```bash
-python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "${QDIR}/close-record.md"
+gh issue comment <epic-issue> --body-file "<scratch>/close-comment.md"
+gh issue close <epic-issue> --reason completed
 ```
 
-Post the comment, then close the epic issue:
+The comment body has this shape:
 
-```bash
-gh issue comment <epic-issue> --body "## Close Record
+```markdown
+## Close Record
 
-Epic closed. Close record (key decisions, deviations, deferred-scope pointer):
-[Close Record](<ABSOLUTE_URL_TO_CLOSE_RECORD>)"
+Epic closed. Durable record below — the queue `close-record.md` drains post-merge.
 
-gh issue close <epic-issue> --reason completed
+### Key Decisions
+- **<decision>:** <why> (+ refuted alternative if any)
+- …
+
+### Deviation Rationale
+- **<deviation>:** <why>          <!-- omit this whole heading if there were none -->
+
+### Pointers (durable)
+- Deferred scope → docs/features/<feature>/backlog.md
+- Process lesson → docs/delivery/lessons/<date>-<slug>.md
 ```
 
 **Error handling:**
@@ -324,7 +341,9 @@ Deviations recorded:    <count>
 - **Do not proceed past the checkpoint** without an explicit `close` selection.
 - **Precondition is a hard block** — never close the epic issue while a child story issue is open, and
   never auto-close story issues.
-- Generate absolute URLs with the `nxs-abs-doc-path` skill.
+- **Never link an ephemeral queue file from the issue** — the close comment inlines the close-record
+  prose; the distiller deletes the queue entry post-merge. Link only durable targets (feature backlog,
+  lesson file, concept pages, anchors, other issues).
 - Handle an already-closed epic issue gracefully.
 
 # Usage
