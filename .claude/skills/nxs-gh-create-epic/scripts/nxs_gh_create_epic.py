@@ -46,7 +46,7 @@ def read_delivery_config(project_root: Path) -> dict[str, str]:
 
     Returns a normalized dict with keys: docRoot, project, epicType, issuesRepo.
     """
-    delivery_dir = project_root / "docs" / "system" / "delivery"
+    delivery_dir = project_root / ".nexus" / "config"
 
     yml_path = delivery_dir / "config.yml"
     if yml_path.exists():
