@@ -2,9 +2,9 @@
 /**
  * Convert a repository-relative path to an absolute GitHub URL.
  *
- * Reads the `docRoot` attribute from docs/system/delivery/config.yml
- * (cross-ref.docs-root) or config.json (docRoot) and appends the provided
- * relative path.
+ * Reads `cross-ref.docs-root` from .nexus/config/settings.yml and appends the
+ * provided relative path. Falls back to a placeholder default if the settings
+ * file is missing or the setting isn't set.
  *
  * Usage:
  *     tsx get_abs_doc_path.ts <relative-path>
@@ -16,25 +16,25 @@
  *
  * Output:
  *     The absolute URL(s), one per line
- *     e.g., https://github.com/user/repo/tree/main/docs/features/tagging/README.md
+ *     e.g., https://github.com/user/repo/blob/main/docs/features/tagging/README.md
  *
  * Exit codes:
  *     0 - Success
- *     1 - Config file not found (neither config.yml nor config.json)
- *     2 - docRoot not found in config
  *     3 - Invalid arguments
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, parse } from "node:path";
 
-interface DeliveryConfig {
+const DEFAULT_DOC_ROOT = "https://github.com/{username|orgname}/{reponame}/blob/main/docs";
+
+interface Settings {
 	docRoot?: string;
 	project?: string;
 	epicType?: string;
 }
 
-/** Parse the 2-level nested config.yml format without external dependencies. */
+/** Parse the 2-level nested settings.yml format without external dependencies. */
 function parseSimpleYaml(content: string): Record<string, Record<string, string>> {
 	const result: Record<string, Record<string, string>> = {};
 	let currentSection: string | null = null;
@@ -57,45 +57,31 @@ function parseSimpleYaml(content: string): Record<string, Record<string, string>
 	return result;
 }
 
-/**
- * Read delivery config from config.yml (preferred) or config.json (fallback).
- * Returns a normalized dict with keys: docRoot, project, epicType.
- */
-function readDeliveryConfig(projectRoot: string): DeliveryConfig {
-	const deliveryDir = join(projectRoot, "docs", "system", "delivery");
-
-	const ymlPath = join(deliveryDir, "config.yml");
-	if (existsSync(ymlPath)) {
-		try {
-			const raw = parseSimpleYaml(readFileSync(ymlPath, "utf-8"));
-			const result: DeliveryConfig = {};
-			const crossRef = raw["cross-ref"] ?? {};
-			const github = raw["github"] ?? {};
-			if (crossRef["docs-root"]) {
-				result.docRoot = crossRef["docs-root"];
-			}
-			if (github["project"]) {
-				result.project = github["project"];
-			}
-			if (github["epic-type"]) {
-				result.epicType = github["epic-type"];
-			}
-			return result;
-		} catch {
-			// fall through to JSON
-		}
+/** Read settings from .nexus/config/settings.yml. Returns {} if missing or unparsable. */
+function readSettings(projectRoot: string): Settings {
+	const settingsPath = join(projectRoot, ".nexus", "config", "settings.yml");
+	if (!existsSync(settingsPath)) {
+		return {};
 	}
 
-	const jsonPath = join(deliveryDir, "config.json");
-	if (existsSync(jsonPath)) {
-		try {
-			return JSON.parse(readFileSync(jsonPath, "utf-8")) as DeliveryConfig;
-		} catch {
-			// fall through to empty
+	try {
+		const raw = parseSimpleYaml(readFileSync(settingsPath, "utf-8"));
+		const result: Settings = {};
+		const crossRef = raw["cross-ref"] ?? {};
+		const github = raw["github"] ?? {};
+		if (crossRef["docs-root"]) {
+			result.docRoot = crossRef["docs-root"];
 		}
+		if (github["project"]) {
+			result.project = github["project"];
+		}
+		if (github["epic-type"]) {
+			result.epicType = github["epic-type"];
+		}
+		return result;
+	} catch {
+		return {};
 	}
-
-	return {};
 }
 
 /** Find the repository root by looking for common markers. */
@@ -103,13 +89,12 @@ function findRepoRoot(): string {
 	let current = process.cwd();
 	const { root } = parse(current);
 
-	// Walk up looking for .git or delivery config
+	// Walk up looking for .git or settings file
 	while (true) {
 		if (existsSync(join(current, ".git"))) {
 			return current;
 		}
-		const delivery = join(current, "docs", "system", "delivery");
-		if (existsSync(join(delivery, "config.yml")) || existsSync(join(delivery, "config.json"))) {
+		if (existsSync(join(current, ".nexus", "config", "settings.yml"))) {
 			return current;
 		}
 		if (current === root) {
@@ -122,26 +107,19 @@ function findRepoRoot(): string {
 	return process.cwd();
 }
 
-/** Read docRoot from delivery config (config.yml or config.json). */
+/** Read docRoot from settings, defaulting to a placeholder if missing. */
 function getDocRoot(repoRoot: string): string {
-	const config = readDeliveryConfig(repoRoot);
-	const docRoot = config.docRoot;
-
-	if (!docRoot) {
-		const deliveryDir = join(repoRoot, "docs", "system", "delivery");
-		if (!existsSync(join(deliveryDir, "config.yml")) && !existsSync(join(deliveryDir, "config.json"))) {
-			process.stderr.write(`Error: Config file not found in ${deliveryDir}\n`);
-			process.exit(1);
-		}
-		process.stderr.write("Error: 'docRoot' / 'cross-ref.docs-root' not found in delivery config\n");
-		process.exit(2);
-	}
+	const settings = readSettings(repoRoot);
+	const docRoot = settings.docRoot ?? DEFAULT_DOC_ROOT;
 
 	// Ensure docRoot ends with a slash for proper concatenation
 	return docRoot.replace(/\/+$/, "") + "/";
 }
 
-/** Normalize the relative path (remove leading ./ or /). */
+/**
+ * Normalize the relative path: remove leading ./ or /, and strip a leading
+ * docs/ segment since docRoot already points at the docs directory.
+ */
 function normalizeRelativePath(path: string): string {
 	let normalized = path.trim();
 
@@ -154,6 +132,10 @@ function normalizeRelativePath(path: string): string {
 
 	// Remove leading slash if present
 	normalized = normalized.replace(/^\/+/, "");
+
+	// docRoot already points at the docs/ directory; strip a leading docs/
+	// segment so callers can keep passing repo-relative paths unchanged.
+	normalized = normalized.replace(/^docs\//, "");
 
 	return normalized;
 }
