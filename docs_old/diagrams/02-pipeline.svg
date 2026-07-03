@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+<rect x="0" y="0" width="800" height="600" fill="#ffffff"/>
+<text x="228.0" y="36.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#1e1e1e" text-anchor="start">System A — The Lean Pipeline</text>
+<text x="250.0" y="56.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#757575" text-anchor="start">each stage earns its place as a forcing function</text>
+<rect x="60.0" y="70.0" width="360.0" height="52.0" rx="12" fill="#c3fae8" stroke="#0d9488" stroke-width="2" opacity="1.00"/>
+<text x="240.0" y="99.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#1e1e1e" text-anchor="middle">nxs.init   —   stack + standards (ground truth)</text>
+<polyline points="240.0,122.0 240.0,142.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="235.4,132.0 240.0,142.0 244.6,132.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="60.0" y="144.0" width="360.0" height="52.0" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2" opacity="1.00"/>
+<text x="240.0" y="173.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" fill="#1e1e1e" text-anchor="middle">nxs.epic   —   slim epic: stories + AC</text>
+<polyline points="420.0,170.0 460.0,170.0" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="450.0,174.6 460.0,170.0 450.0,165.4" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="612.0,138.0 762.0,170.0 612.0,202.0 462.0,170.0" fill="#fff3bf" stroke="#f59e0b" stroke-width="2" opacity="1.00"/>
+<text x="612.0" y="164.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">Right-sizing gate</text>
+<text x="612.0" y="181.5" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">L/XL forces split  (STOP)</text>
+<polyline points="240.0,196.0 240.0,216.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="235.4,206.0 240.0,216.0 244.6,206.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="60.0" y="218.0" width="360.0" height="52.0" rx="12" fill="#d0bfff" stroke="#8b5cf6" stroke-width="2" opacity="1.00"/>
+<text x="240.0" y="246.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">nxs.hld   —   decision record (was 16-section HLD)</text>
+<polyline points="240.0,270.0 240.0,290.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="235.4,280.0 240.0,290.0 244.6,280.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="60.0" y="292.0" width="360.0" height="52.0" rx="12" fill="#a5d8ff" stroke="#4a9eed" stroke-width="2" opacity="1.00"/>
+<text x="240.0" y="320.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">nxs.tasks   —   task index + GH issues (no LLDs)</text>
+<polyline points="420.0,318.0 460.0,318.0" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="450.0,322.6 460.0,318.0 450.0,313.4" fill="none" stroke="#e8590c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="612.0,286.0 762.0,318.0 612.0,350.0 462.0,318.0" fill="#fff3bf" stroke="#f59e0b" stroke-width="2" opacity="1.00"/>
+<text x="612.0" y="312.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">Scope-validation gate</text>
+<text x="612.0" y="329.5" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">sibling overlap  (STOP)</text>
+<polyline points="240.0,344.0 240.0,364.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="235.4,354.0 240.0,364.0 244.6,354.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="240.0,366.0 420.0,396.0 240.0,426.0 60.0,396.0" fill="#fff3bf" stroke="#f59e0b" stroke-width="2" opacity="1.00"/>
+<text x="240.0" y="398.7" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">nxs.analyze — consistency gate (blocks on drift)</text>
+<polyline points="240.0,426.0 240.0,446.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polyline points="235.4,436.0 240.0,446.0 244.6,436.0" fill="none" stroke="#495057" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="60.0" y="448.0" width="360.0" height="54.0" rx="12" fill="#b2f2bb" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="240.0" y="477.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">nxs.close   —   close record -&gt; LibraryDelta</text>
+<text x="468.0" y="384.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#b45309" text-anchor="start">diamond = forcing function</text>
+<text x="468.0" y="404.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#757575" text-anchor="start">(a decision only a human makes)</text>
+<rect x="60.0" y="524.0" width="702.0" height="56.0" rx="12" fill="#ffc9c9" stroke="#ef4444" stroke-width="2" opacity="1.00"/>
+<text x="411.0" y="554.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">CUT from the pipeline:  nxs.dev . nxs.yolo.dev . nxs.qa  —  implementation is the engineer&#x27;s</text>
+</svg>

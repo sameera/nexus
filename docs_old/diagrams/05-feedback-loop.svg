@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+<rect x="0" y="0" width="800" height="600" fill="#ffffff"/>
+<text x="214.0" y="38.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="24" fill="#1e1e1e" text-anchor="start">Two Systems That Feed Each Other</text>
+<text x="250.0" y="60.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#757575" text-anchor="start">steady state: A ships truth to B, B informs A</text>
+<rect x="40.0" y="120.0" width="280.0" height="250.0" rx="12" fill="#dbe4ff" stroke="#4a9eed" stroke-width="2" opacity="1.00"/>
+<text x="180.0" y="210.4" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">SYSTEM A</text>
+<text x="180.0" y="229.2" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">Lean delivery pipeline</text>
+<text x="180.0" y="247.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle"></text>
+<text x="180.0" y="266.7" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">epic . hld . tasks . close</text>
+<text x="180.0" y="285.4" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">(docs/  —  human surface)</text>
+<text x="70.0" y="392.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#2563eb" text-anchor="start">every artifact forces a decision</text>
+<rect x="480.0" y="120.0" width="280.0" height="250.0" rx="12" fill="#d3f9d8" stroke="#22c55e" stroke-width="2" opacity="1.00"/>
+<text x="620.0" y="201.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">SYSTEM B</text>
+<text x="620.0" y="219.8" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">Knowledge library</text>
+<text x="620.0" y="238.6" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle"></text>
+<text x="620.0" y="257.3" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">concept pages</text>
+<text x="620.0" y="276.1" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">invariants . decisions . blast radius</text>
+<text x="620.0" y="294.8" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" fill="#1e1e1e" text-anchor="middle">(.nexus/library/)</text>
+<text x="510.0" y="392.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#15803d" text-anchor="start">volume OK . grep-native . git-tracked</text>
+<text x="352.0" y="174.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#e8590c" text-anchor="start">(1) at epic close</text>
+<polyline points="324.0,195.0 476.0,195.0" fill="none" stroke="#e8590c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polygon points="476.0,195.0 466.0,199.6 466.0,190.4" fill="#e8590c"/>
+<rect x="349.6" y="183.8" width="100.8" height="19.6" fill="#ffffff" opacity="0.85"/>
+<text x="400.0" y="196.3" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">LibraryDelta</text>
+<text x="336.0" y="223.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#757575" text-anchor="start">shipped truth -&gt;</text>
+<text x="350.0" y="280.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13" fill="#8b5cf6" text-anchor="start">(2) at epic / hld</text>
+<polyline points="476.0,300.0 324.0,300.0" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="1.00"/>
+<polygon points="324.0,300.0 334.0,295.4 334.0,304.6" fill="#8b5cf6"/>
+<rect x="341.2" y="288.8" width="117.6" height="19.6" fill="#ffffff" opacity="0.85"/>
+<text x="400.0" y="301.3" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">concepts: read</text>
+<text x="322.0" y="328.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="12" fill="#757575" text-anchor="start">&lt;- informs specs + design</text>
+<rect x="120.0" y="430.0" width="560.0" height="58.0" rx="12" fill="#e5dbff" stroke="#8b5cf6" stroke-width="2" opacity="1.00"/>
+<text x="400.0" y="453.0" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">PM invariant-conflict gate (two-stage): grep candidate pages -&gt; model reviews</text>
+<text x="400.0" y="470.5" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#1e1e1e" text-anchor="middle">only those for contradiction. A new epic can&#x27;t silently break a shipped invariant.</text>
+<text x="190.0" y="528.9" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#757575" text-anchor="start">Mutual feeding is reached only after the read side (Phase B3) is wired.</text>
+</svg>
