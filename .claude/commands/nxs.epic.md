@@ -26,7 +26,7 @@ Empty input is an error: ask the user for a capability description (or a stub sl
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
+- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<epic-slug>-<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full `epic.md` for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
 
 ## Interaction convention — actionable choice gates
@@ -232,9 +232,14 @@ The epic is written to the committed planning queue, not under `docs/`.
 
 ```bash
 LOCAL_ID="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
-QDIR=".nexus/queue/${LOCAL_ID}"
+QDIR=".nexus/queue/${EPIC_SLUG}-${LOCAL_ID}"
 mkdir -p "$QDIR"
 ```
+
+`EPIC_SLUG` is the epic's kebab-case slug decided in Phase 3 (the same value written to `epic.md`'s
+`slug:` frontmatter) — it makes the queue entry recognizable in a file tree or `git status` without
+opening it. `LOCAL_ID` remains the actual collision-proof key; the slug is cosmetic and is never
+re-derived or renamed later, even if the epic title changes.
 
 Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by globbing `.nexus/queue/*/`; multiple entries with no `link` prompt a selection.
 
@@ -344,7 +349,7 @@ story becomes one GitHub issue, child of the epic issue.
 
     The skill reads `epic` (title) and `type` from frontmatter, creates the issue, and writes
     `link: "#<n>"` back. Re-read the frontmatter; set `EPIC` = that number. There is **no folder
-    rename** — the queue `<local-id>` is stable (the GitHub number lives in frontmatter, not the path).
+    rename** — the queue folder name (`<epic-slug>-<local-id>`) is stable (the GitHub number lives in frontmatter, not the path).
 
 2. **Sequence the stories.** Order by dependency: foundational first (core data / shared surface),
    then dependents, then polish. Assign each a stable ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in
@@ -441,7 +446,7 @@ Report:
 
 - Feature name and folder.
 - Epic title, complexity rating, and story count (with `story_type` breakdown).
-- Queue entry path (`.nexus/queue/<local-id>/epic.md`).
+- Queue entry path (`.nexus/queue/<epic-slug>-<local-id>/epic.md`).
 - Epic issue link and the created story issue numbers — or, if the user chose `revise`, that no
   issues were created and how to resume (`/nxs.epic --resume`).
 - Next step: `/nxs.hld` to produce the decision record for this epic.

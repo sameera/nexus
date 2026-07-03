@@ -16,7 +16,7 @@ The close record is **human prose only** (0006): key decisions, a pointer to def
 **deviation rationale** produced by the close-from-diff forcing function. There is **no `ConceptDelta`
 block, no `PIR.md`, and no task-file mining** — the task layer is gone (0009); decisions are mined from
 the epic, the story issue comments, and the close review (C6). Durability is structural: the close
-record is committed into `.nexus/queue/<local-id>/` and travels to main with the PR, where the
+record is committed into `.nexus/queue/<epic-slug>-<local-id>/` and travels to main with the PR, where the
 distiller consumes and deletes it.
 
 # Interaction convention — actionable choice gate

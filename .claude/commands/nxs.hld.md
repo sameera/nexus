@@ -175,4 +175,4 @@ Report concisely:
   ConceptDelta later from the queued decision + close records and the diff (0006). Just write clean
   prose.
 - **Queue, not `docs/`.** The decision record is committed planning state in
-  `.nexus/queue/<local-id>/`, the same entry `/nxs.epic` and `/nxs.analyze` use.
+  `.nexus/queue/<epic-slug>-<local-id>/`, the same entry `/nxs.epic` and `/nxs.analyze` use.

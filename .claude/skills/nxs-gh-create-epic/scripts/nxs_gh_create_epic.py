@@ -162,7 +162,7 @@ def parse_frontmatter(content: str) -> tuple[dict[str, str], str]:
 def strip_non_durable_refs(body: str) -> str:
     """Remove preamble/pointer lines that bake the transient queue location into the issue.
 
-    The queue path (.nexus/queue/<local-id>/) is committed-transient — the
+    The queue path (.nexus/queue/<epic-slug>-<local-id>/) is committed-transient — the
     distiller drains it — so any `Queue entry:` / `Full epic:` / `Feature: … · docs/…`
     pointer written into the issue body rots. Drop them; the GitHub issue carries the
     epic content (its `# Epic:` title onward) only.
