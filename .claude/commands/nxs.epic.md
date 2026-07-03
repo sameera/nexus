@@ -574,8 +574,15 @@ the impact). After answers, update the epic and remove the marker.
 
 ### Links
 
-If a GitHub issue is created from the epic, any `.md` links in the body should be absolute GitHub URLs so they resolve from the issue. Use the `nxs-abs-doc-path` skill to convert repo-relative paths:
+Issues are **durable**; the planning queue (`.nexus/queue/…`) is **ephemeral** — the distiller drains
+it post-merge. So an issue body (and the feature nav index) must **never** link to a queue file
+(`epic.md`, `decision-record.md`, `close-record.md`); such a link dangles once the entry is drained.
+Link only durable targets: other issues, concept pages (`.nexus/concepts/`), anchors
+(`.nexus/anchors/`), and persistent `docs/`. The direction is docs → issues, never issue → queue.
+
+Any durable `.md` link placed in an issue body should be an absolute GitHub URL so it resolves from
+the issue. Convert repo-relative paths with the `nxs-abs-doc-path` skill:
 
 ```bash
-python ./.claude/skills/nxs-abs-doc-path/get_abs_doc_path.py "docs/features/<slug>/README.md"
+python ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.py "docs/features/<slug>/README.md"
 ```
