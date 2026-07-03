@@ -3,7 +3,7 @@ CLOSE RECORD TEMPLATE — replaces PIR.md.
 
 WHAT THIS IS
     The epic close artifact emitted by /nxs.close into the committed planning
-    queue (.nexus/queue/<branch>/<local-id>/). It is HUMAN PROSE ONLY.
+    queue (.nexus/queue/<epic-slug>-<local-id>/). It is HUMAN PROSE ONLY.
 
     There is NO ConceptDelta block (0006). The machine-handoff half is removed:
     System A emits nothing structured. The distiller mines THIS prose for the
