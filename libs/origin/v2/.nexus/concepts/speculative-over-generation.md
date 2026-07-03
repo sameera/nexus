@@ -1,14 +1,14 @@
 ---
-title: "Speculative Over-Generation"
-aliases: ["over-generation anti-pattern", "over-generation disease", "speculative generality", "YAGNI violation"]
+title: "Gold-plating"
+aliases: ["over-generation anti-pattern", "over-generation disease", "speculative generality", "YAGNI violation", "speculative over-geneation]
 touches: ["forcing-function-razor", "concept-store", "two-store-split"]
 last_updated_by: "manual"
 status: active
 ---
 
-# Speculative Over-Generation
+# Gold-plating
 
-Speculative over-generation is the production of heavy, elaborate artifacts ahead of validated need — volume manufactured on speculation about what might matter rather than distilled from what has been decided. Its cost is not tokens but attention: maximal artifacts at every stage drown the human judgment the process exists to inject. It is the documentation analogue of speculative generality and YAGNI, with the harm landing on review capacity rather than code maintainability.
+Gold-plating is the production of heavy, elaborate artifacts ahead of validated need — volume manufactured on speculation about what might matter rather than distilled from what has been decided. Its cost is not tokens but attention: maximal artifacts at every stage drown the human judgment the process exists to inject. It is the documentation analogue of speculative generality and YAGNI, with the harm landing on review capacity rather than code maintainability.
 
 ## How It Works
 
@@ -33,7 +33,9 @@ In Nexus it appears as 16-section HLDs, per-task LLDs, and prose PIRs generated 
 ## Decision Log
 
 ### 2026-06-20 — manual — Initial concept page
+
 Distilled from [0001](../decisions/0001-refactor-direction.md) (refactor direction) and [0002](../decisions/0002-pipeline-audit.md) (pipeline audit), which name speculative over-generation as Nexus's core weakness and define the forcing-function razor that bounds it stage by stage. The two-store split makes the constraint physical: judgment artifacts live in `docs/`, regenerable volume lives in the concept store, and the two never share an artifact. Considered keeping this as inline prose inside the decision records instead of a standalone page; rejected because the diagnosis is referenced from multiple decisions and prior-art notes and needs one stable named anchor so it cannot drift per-document.
 
 ### 2026-06-19 — 0002 §b — Razor-relaxation guardrail
-The `decision_log_entry` body cap was relaxed to carry a refuted *viable* alternative (the anti-relitigation payload). A viability guardrail was added — record an alternative only if a competent engineer might genuinely have chosen it, never a first-glance strawman — specifically so the relaxation does not reopen speculative over-generation.
+
+The `decision_log_entry` body cap was relaxed to carry a refuted _viable_ alternative (the anti-relitigation payload). A viability guardrail was added — record an alternative only if a competent engineer might genuinely have chosen it, never a first-glance strawman — specifically so the relaxation does not reopen speculative over-generation.

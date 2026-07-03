@@ -8,6 +8,30 @@ themselves (0005–0007) keep their own status banners.
 
 Most recent first.
 
+## 2026-07-02 — 0011: dogfood re-evaluation of 0001–0010 (R1–R7 all accepted)
+
+**0001–0010 re-read end-to-end** against the restated objective — validate the Nexus pipeline
+by running it, with System B as a knowledge base that both informs future decisions **and ramps
+up new contributors**. The skeleton **holds** (two-system split, razor, committed queue,
+distillation-PR, story-as-unit, digest — all re-tested and upheld, no churn). Eight findings,
+seven recommendations, **all accepted 2026-07-02**: **R1** add contributor
+ramp-up as a third 0003 §1 consumer (derived code-anchor sidecars refreshed by the `/nxs.distill`
+drain and seeded at bootstrap; an on-demand `/nxs.explain [topic]` read path — argument = guided
+walkthrough of one aspect, no argument = ramp-up tour; `concepts:` pointer on story issues);
+**R2** close the write-only loops (`/nxs.epic` reads `docs/delivery/lessons/` at sizing and
+surfaces backlog overlap at the digest); **R3** live decision record — in-flight decisions
+captured as structured stubs when made (reverses 0004 C6; promotes 0007's open stub item);
+**R4** validate the pipeline **with Prime as the subject** (not mandatorily Nexus-on-Nexus) —
+import Prime's `.nexus/` + `docs/` surfaces (real in-flight epic `fe205650`), then drive it to
+close and distill; depends on R5. Distilling Nexus's own 0001–0010 (F5: the records exhibit the
+amendment-sprawl disease the store cures) is decoupled to a later follow-on. **R5** slim 0004 B1
+to validator-as-code + a `/nxs.distill` command (cut recipes-as-data and the state file until
+scale demands); **R6** verification flag lands at bootstrap, paired with C13; **R7** relocate
+`.nexus/` to the repo root (converges with R4's import into one root store). Also flagged: the
+glossary→`aliases:` capture path silently broke when 0006 removed structured emission; and Prime
+brings stale (cut) task templates + cross-repo provenance to remap. Full record:
+[`0011`](./0011-dogfood-reevaluation.md).
+
 ## 2026-06-29 — 0010: `/nxs.epic` files story issues at an approval gate; `/nxs.tasks` cut
 
 Story-issue creation moves into **`/nxs.epic`** and **`/nxs.tasks` is eliminated**. The epic issue
