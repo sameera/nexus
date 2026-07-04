@@ -39,3 +39,19 @@ Guidelines:
 After implementation, application source at **95% test coverage**. Treat coverage as a
 signal, not a score to game — never add internal-facing tests solely to move the number. If a
 branch can't be reached through user-visible behavior, question whether it should exist.
+
+## In-Flight Decision Stubs
+
+When you make a non-obvious implementation choice — you picked between viable approaches —
+append a stub to `.nexus/plans/<branch>/decisions.md` (create the file/dir if absent;
+`<branch>` = current branch with `/` → `-`) at the moment of choosing, not later:
+
+```
+## <YYYY-MM-DD> — <short decision title>
+- **Choice:** <what was chosen>
+- **Why:** <one sentence>
+- **Refuted alternative:** <the viable option not taken, or "none">
+```
+
+This directory is gitignored scratch; `/nxs.close` mines it as hints and deletes it after
+the close checkpoint. Obvious choices (only one sensible option) get no stub.
