@@ -7,6 +7,9 @@
       "path": "./libs/origin"
     },
     {
+      "path": "./libs/editor"
+    },
+    {
       "path": "./apps/prime"
     }
   ]
