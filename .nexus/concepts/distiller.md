@@ -2,9 +2,9 @@
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
 touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors"]
-last_updated_by: "bootstrap"
+last_updated_by: "manual"
 status: active
-verification: unverified
+verification: verified
 ---
 
 # Distiller
@@ -13,7 +13,7 @@ The distiller is the engine that drains committed queue entries into the concept
 
 ## How It Works
 
-The distiller runs after epics merge, scanning for unconsumed queue entries. For each, it recomputes the diff from history — the diff is never stored — and reads the decision and close records for the rationale. It maps that material to a list of per-concept deltas, each a page-patch carrying the changed sections plus exactly one decision entry. Its work splits along a firm line: judgment is the model's — mapping the diff and records to concepts, writing the prose, resolving a slug collision — while the mechanical steps are code and never improvised: the neighbor-link reciprocity fan-out, the anchor refresh, and the validator. A validation failure blocks the apply; the pages are fixed and revalidated, never shipped failing. The distiller never writes the store directly, and never deletes a queue entry outside the merge that consumes it.
+The distiller runs after epics merge, scanning for unconsumed queue entries. For each, it recomputes the diff from history — the diff is never stored — and reads the decision and close records for the rationale. It maps that material to a list of per-concept deltas, each a page-patch carrying the changed sections plus exactly one decision entry. Its work splits along a firm line: judgment is the model's — mapping the diff and records to concepts, writing the prose, resolving a slug collision — while the mechanical steps are code and never improvised: the neighbor-link reciprocity fan-out, the anchor refresh, and the validator. A validation failure blocks the apply; the pages are fixed and revalidated, never shipped failing. The distiller never writes the store directly, and never deletes a queue entry outside the merge that consumes it. A decision-only memo drains without a diff, landing as entries in the relevant decision logs; engineer plans and scratch capture are never inputs.
 
 ## Key Invariants
 
@@ -23,6 +23,7 @@ The distiller runs after epics merge, scanning for unconsumed queue entries. For
 4. A validation failure blocks the apply; a failing page is never shipped.
 5. The distiller infers the concept mapping itself — the pipeline emits no structured concept list.
 6. Draining is a manually-invoked curated step, not an automated trigger; only detecting undrained entries and deleting consumed ones are deterministic.
+7. Input is only the gated queue and the recomputed diff — never plans or ungated capture; a decision-only memo drains as a diff-less entry into the relevant decision logs.
 
 ## Integration Points
 
@@ -40,3 +41,7 @@ Located all synthesis in the distiller: the pipeline stays dumb and emits only h
 ### 2026-07-03 — bootstrap — 0012: draining is a manual curated step, not an auto-trigger
 
 Fixed the drain trigger as a manually-invoked curated step: a human runs the distiller after a feature with a queue entry merges, backed only by the built-in thirty-day drain age flag. A capability ladder is climbed only as scale forces it — manual now; then a plain check that detects undrained closed entries and nags; and only at sustained volume a scheduled headless run that opens the reviewed pull request plus a deterministic deletion step on its merge. The considered alternative — an unattended trigger that runs the distiller automatically on every merge — was rejected: it reintroduces the unattended write the reviewed-pull-request rule removed, merely relocated, and is speculative machinery for a single-entry queue. Resolves the cadence question left open by 0007; reviewer assignment stays open.
+
+### 2026-07-04 — manual — The distiller never consumes plans
+
+The distiller's data model is *what* from the merged diff and *why* from human-gated records; an engineer's plan is neither — it is pre-implementation speculation that routinely diverges from what ships, so distilling from plans risks recording rationale for code that never landed. Decision-only memos, by contrast, are gated queue artifacts and drain diff-less into decision logs. Refuted alternative: consuming captured plan-mode plans to enrich technical detail on concepts and anchors — attractive as free signal, but it breaks the diff-is-ground-truth model and depends on a sometimes-there input only some engineers' tooling produces.
