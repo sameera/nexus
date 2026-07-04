@@ -463,7 +463,6 @@ epic: "<Epic Title>"
 slug: <epic-slug>
 created: <YYYY-MM-DD>
 type: enhancement
-status: draft
 complexity: <S|M|L|XL>   # rollup of story sizes + count + cross-story integration (0009)
 complexity_drivers: [<driver>, <driver>]
 concepts: []          # reading-list of concept slugs this epic depends on (consumed in B3)

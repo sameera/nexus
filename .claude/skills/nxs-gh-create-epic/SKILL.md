@@ -73,7 +73,6 @@ The script (`./scripts/nxs_gh_create_epic.py`):
 feature: "Feature Name"
 epic: "Epic Title" # Required - becomes issue title
 created: 2025-01-02
-status: draft
 type: Task # Optional - set as GitHub issue type; falls back to config.json epicType, then "enhancement" label
 ---
 ```
