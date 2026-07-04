@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 22 active concepts. Each links to its full page
+Orientation map of the concept store — 23 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -32,9 +32,7 @@ Orientation map of the concept store — 22 active concepts. Each links to its f
 - [Gate Tray](../.nexus/concepts/gate-tray.md) — The gate tray is the ephemeral surface that rises from the bottom of the terminal region when a pipeline decision is required, letting the user act on a pending judgment without the terminal scrollback being replaced.
 - [Overlay Coordination](../.nexus/concepts/overlay-coordination.md) — Overlay coordination is the single shell-owned state that tracks which ephemeral surfaces are open and derives the terminal's recede from it.
 - [Pipeline Rail](../.nexus/concepts/pipeline-rail.md) — The pipeline rail is a passive segmented read-out of the pipeline stages shown in the top strip, so the user sees at a glance where the current run stands without the rail acting like a wizard.
-- [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root.
-
-## PTY Bridge
-
-- [PTY Bridge](../.nexus/concepts/pty-bridge.md) — The PTY bridge is the server-side half of Prime's in-browser terminal: a WebSocket endpoint on the Prime server's own origin that spawns one login shell inside a pseudo-terminal per connection and streams the shell's input and output.
+- [Prime Server Runtime](../.nexus/concepts/prime-server-runtime.md) — Prime runs as a server-rendered app fronted by a custom Node server that owns its underlying HTTP server outright, rather than a fully-managed serve binary.
+- [PTY Bridge](../.nexus/concepts/pty-bridge.md) — The PTY bridge is the server-side half of Prime's in-browser terminal: a WebSocket endpoint on the Prime server's own origin that spawns one login shell in a pseudo-terminal per connection and streams its input and output.
 - [Same-Origin Shell Guard](../.nexus/concepts/same-origin-shell-guard.md) — The same-origin shell guard is the sole security boundary of the PTY bridge's unauthenticated shell: it rejects any WebSocket handshake whose stated origin does not match the host the request itself was addressed to, before any shell is spawned.
+- [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root.
