@@ -11,3 +11,4 @@ generated: 2026-07-04
 
 - `.claude/commands/nxs.distill.md` — the drain agent: preflight, diff recomputation, per-concept delta synthesis, the deterministic steps, checkpoint, and PR.
 - `utils/validate-concepts.ts` — the deterministic validator a drain must pass before the distillation-PR opens.
+- `utils/generate-atlas.ts` — the atlas regeneration step the drain runs before each entry's commit.

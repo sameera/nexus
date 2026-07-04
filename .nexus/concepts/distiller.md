@@ -13,7 +13,7 @@ The distiller is the engine that drains committed queue entries into the concept
 
 ## How It Works
 
-The distiller runs after epics merge, scanning for unconsumed queue entries. For each, it recomputes the diff from history — the diff is never stored — and reads the decision and close records for the rationale. It maps that material to a list of per-concept deltas, each a page-patch carrying the changed sections plus exactly one decision entry. Its work splits along a firm line: judgment is the model's — mapping the diff and records to concepts, writing the prose, resolving a slug collision — while the mechanical steps are code and never improvised: the neighbor-link reciprocity fan-out, the anchor refresh, and the validator. A validation failure blocks the apply; the pages are fixed and revalidated, never shipped failing. The distiller never writes the store directly, and never deletes a queue entry outside the merge that consumes it. Decision-only memos drain without a diff into the relevant decision logs; plans and scratch are never inputs.
+The distiller runs after merges, scanning for unconsumed queue entries. For each, it recomputes the diff from history — the diff is never stored — and reads the decision and close records for the rationale. It maps that material to per-concept deltas, each a page-patch carrying the changed sections plus exactly one decision entry. Its work splits along a firm line: judgment is the model's — mapping the diff and records to concepts, writing the prose, resolving a slug collision — while the mechanical steps are code and never improvised: the neighbor-link reciprocity fan-out, the anchor refresh, the atlas regeneration, and the validator. A validation failure blocks the apply; the pages are fixed and revalidated, never shipped failing. The distiller never writes the store directly, and never deletes a queue entry outside the merge that consumes it. Decision-only memos drain without a diff into the relevant decision logs; plans and scratch are never inputs.
 
 ## Key Invariants
 
@@ -50,3 +50,7 @@ The distiller's data model is *what* from the merged diff and *why* from human-g
 ### 2026-07-04 — manual — Reciprocal link from scratch-capture
 
 Mechanical reciprocity fan-out: the scratch-capture page names this distiller as the consumer that never reads it.
+
+### 2026-07-04 — manual — Atlas regeneration joins the deterministic steps
+
+A derived orientation page must never drift from the pages it maps, so rebuilding the human atlas is mechanics-as-code on every drain, gated by the same validation that blocks a failing page — the drain ships only when the atlas matches the active pages.
