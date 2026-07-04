@@ -1,14 +1,15 @@
 import express from "express";
-import { attachStubUpgradeHandler, createAppServer } from "./server/http-server";
+import { createAppServer } from "./server/http-server";
+import { attachPtyBridgeHandler } from "./server/pty-bridge";
 
 /*
- * Dev-vs-prod strategy (Story 1 AC): dev and prod share this one entry point.
- * Dev runs Vite in middleware mode (not the RR8 CLI dev server) so the
- * WS-upgrade seam below is exercised in the daily inner loop, not only in a
- * rare prod smoke-test — the decision record's load-bearing reason. Prod
- * imports the built server bundle instead. Both funnel through the same
- * `createAppServer` + `attachStubUpgradeHandler`, so the seam issue #11
- * mounts its real WebSocket endpoint on is identical either way.
+ * Dev-vs-prod strategy: dev and prod share this one entry point. Dev runs
+ * Vite in middleware mode (not the RR8 CLI dev server) so the PTY bridge
+ * below is exercised in the daily inner loop, not only in a rare prod
+ * smoke-test — the decision record's load-bearing reason. Prod imports the
+ * built server bundle instead. Both funnel through the same
+ * `createAppServer` + `attachPtyBridgeHandler`, so the endpoint is identical
+ * either way.
  */
 
 const BUILD_PATH = "./build/server/index.js";
@@ -51,7 +52,7 @@ if (DEVELOPMENT) {
 }
 
 const httpServer = createAppServer(app);
-attachStubUpgradeHandler(httpServer);
+attachPtyBridgeHandler(httpServer);
 
 httpServer.listen(PORT, () => {
     console.log(`Prime server listening on http://localhost:${PORT}`);
