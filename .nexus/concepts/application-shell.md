@@ -1,8 +1,8 @@
 ---
 title: "Application Shell"
 aliases: ["app shell", "shell", "shell frame"]
-touches: [theme-tokens, overlay-coordination, gate-tray, artifact-peek-drawer, pipeline-rail]
-last_updated_by: sameera/prime#3
+touches: [theme-tokens, overlay-coordination, gate-tray, artifact-peek-drawer, pipeline-rail, prime-server-runtime]
+last_updated_by: "#15"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The application shell is the persistent full-height frame that wraps the Claude 
 
 ## How It Works
 
-The shell is a single full-height flex column. A slim persistent top strip holds the epic identity, the pipeline stage rail, and a tools cluster; below it the terminal region flex-fills all remaining vertical space and is the dominant region of the surface. Three ephemeral surfaces overlay this frame — the gate tray rising from the terminal, the advance bar, and the peek drawer sliding in from the right. The active theme mode is applied once at the shell root, and a single shell-owned state records which overlay surfaces are open, so both theming and the terminal recede resolve in one place rather than per region. The terminal interior is a labelled placeholder standing in for the Claude Code emulation, preserving the integration seam for a downstream epic.
+The shell is a single full-height flex column. A slim persistent top strip holds the epic identity, the pipeline stage rail, and a tools cluster; below it the terminal region flex-fills the remaining space and dominates the surface. Three ephemeral surfaces overlay this frame — the gate tray rising from the terminal, the advance bar, and the peek drawer sliding in from the right. The active theme mode is applied once at the shell root, and a single shell-owned state records which overlay surfaces are open, so both theming and the terminal recede resolve in one place rather than per region. The terminal interior is a labelled placeholder for the Claude Code emulation, preserving the integration seam for a downstream epic.
 
 ## Key Invariants
 
@@ -31,9 +31,14 @@ The shell is a single full-height flex column. A slim persistent top strip holds
 - [gate-tray](gate-tray.md) — the shell hosts the gate tray as an ephemeral surface over the terminal.
 - [artifact-peek-drawer](artifact-peek-drawer.md) — the shell hosts the peek drawer as a slide-over anchored to its root.
 - [pipeline-rail](pipeline-rail.md) — the top strip hosts the pipeline stage rail.
+- [prime-server-runtime](prime-server-runtime.md) — the runtime server-renders the shell chrome on the server pass, while the terminal region stays client-only.
 
 ## Decision Log
 
 ### 2026-07-02 — sameera/prime#3 — Logical-region shell frame over a by-type layout
 
 The shell is grouped by logical region — layout, header, terminal, gate, drawer, advance — rather than by file type, establishing the codebase's first structural convention while the cost of setting the pattern is lowest. Refuted alternative: the conventional by-type grouping into shared component and hook buckets, which a competent engineer reaches for by default; it loses because it scatters each region's markup, state, and styling across type buckets, obscuring the region boundaries the shell is organised around.
+
+### 2026-07-04 — #15 — Reciprocal link from prime-server-runtime
+
+Recorded the interaction with [prime-server-runtime](prime-server-runtime.md): the runtime server-renders the shell chrome on the server pass while the terminal region it hosts stays client-only. Mechanical reciprocity for the link the runtime page declared.

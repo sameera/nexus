@@ -1,6 +1,6 @@
 ---
 concept: pty-bridge
-source_sha: 8e9544b
+source_sha: 789e6e16ea97076491b91cbf2ee789a9f082f263
 generated: 2026-07-04
 ---
 
