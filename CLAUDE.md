@@ -19,6 +19,13 @@ Break complex ideas into steps.
 Avoid unnecessary adjectives, metaphors, and filler.
 Use common words instead of fancy words when both mean the same thing.
 
+## Code Conventions
+
+- **No barrel files.** Don't create `index.ts` (or `index.js`) files whose only job is
+  to re-export from sibling modules, and don't add exports to existing ones. Import directly
+  from the module that defines the symbol. Barrels obscure the dependency graph, defeat
+  tree-shaking, and create import cycles. When you need a symbol, import it from its source.
+
 ## Test-First Development
 
 All implementation work follows **Test-First Development (TFD)**: write the

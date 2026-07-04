@@ -1,7 +1,7 @@
 ---
 stack: Nexus Prime Technology Stack
-version: 1.0.0
-last_updated: 2026-06-28
+version: 1.1.0
+last_updated: 2026-07-04
 ---
 
 # Technology Stack
@@ -21,6 +21,11 @@ terminal library isn't wired in yet).
 - **Routing / framework**: React Router 8 (framework mode, SSR for chrome)
 - **Terminal**: [`wterm`](https://github.com/vercel-labs/wterm/) — the in-browser terminal the
   app embeds (integration is the work to build)
+- **Rich text**: [Lexical](https://lexical.dev) 0.38 via the `@nexus/editor` workspace lib
+  (`libs/editor`) — the primary Markdown editor/viewer. Single public export,
+  `<MarkdownEditor>`, round-trips Markdown (string in → string out) with an `edit`/`view` mode.
+  Styling comes from the host app's Tailwind design tokens; needs `lucide-react` for the table
+  toolbar icon.
 - **Styling**: Tailwind CSS 3.4 (+ PostCSS, Autoprefixer)
 - **Build Tool**: Vite 8
 
@@ -41,7 +46,11 @@ Not applicable.
 
 - **Monorepo**: Nx 22.7. `prime`'s build/dev/preview targets are explicit
   `nx:run-commands` in `apps/prime/project.json` (no Nx plugin understands RR8 framework
-  mode); its `test` target still comes from `@nx/vitest` inference.
+  mode); its `test` target still comes from `@nx/vitest` inference. Shared libraries under
+  `libs/*` are **source-consumed**: their package `exports` point straight at `src/index.ts`,
+  so consumers import the TypeScript source and their own bundler compiles it — no per-lib
+  build step or `dist/` output. `lint` and `typecheck` targets are inferred by the
+  `@nx/eslint` and `@nx/js/typescript` plugins (no executor config in the lib).
 - **CI/CD**: none configured yet
 
 ## Development
@@ -56,6 +65,9 @@ Not applicable.
 - `apps/prime/` — the terminal-emulator app (RR8 root `apps/prime/app/root.tsx`, home route
   `apps/prime/app/routes/home.tsx`, server entry `apps/prime/server.ts`)
 - `apps/prime-e2e/` — Playwright e2e suite
+- `libs/editor/` — `@nexus/editor`, the Lexical Markdown editor/viewer (public export
+  `MarkdownEditor`; source-consumed, see `libs/editor/README.md`)
+- `libs/origin/` — `origin` shared lib
 
 ## Commands
 
@@ -70,6 +82,9 @@ npx nx e2e prime-e2e      # playwright e2e
 npx nx lint prime         # eslint
 npx nx typecheck prime    # tsc
 npx nx show project prime # list all targets
+
+npx nx lint @nexus/editor      # eslint the editor lib
+npx nx typecheck @nexus/editor # tsc --build (emitDeclarationOnly)
 ```
 
 ## Related
