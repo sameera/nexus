@@ -21,3 +21,11 @@
 - **blocked_by:** [pty-bridge]
 - **source:** decomposition of "Wire up wterm to the Terminal Placeholder" (2026-07-03)
 - **candidate stories:** Mount @wterm/react in the terminal region; Connect the terminal to the bridge and stream I/O; Connection states (connecting / disconnected / error) and reconnection
+
+## pty-bridge-prod-smoke-check
+
+- **status:** proposed
+- **goal:** Smoke-test that the *built* Prime server (`build/server/index.js`), not just the dev/middleware mount, actually spawns a PTY over the bridge — covering the prod SSR + externalized-`node-pty` path end-to-end.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic PTY Bridge (#11) (2026-07-04)
