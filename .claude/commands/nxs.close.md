@@ -121,7 +121,21 @@ any not already captured in the decision record. **Sources (C6), in priority ord
     gh issue view <story-issue> --json title,body,comments
     ```
 
-3. **The close review** — your own reading of the branch diff (Phase 3) surfaces decisions visible in
+3. **Scratch decision stubs** — `.nexus/plans/<branch>/decisions.md`, where `<branch>` is the
+   current branch with `/` replaced by `-`:
+
+    ```bash
+    ls ".nexus/plans/$(git branch --show-current | tr '/' '-')/" 2>/dev/null
+    ```
+
+    Each stub records a choice, its why, and the refuted alternative — captured at the decision
+    moment, so treat them as the highest-fidelity *why* source. But they are **hints, not
+    authority**: verify each stub against the shipped diff (Phase 3) before recording it. A stub
+    contradicted by the code — the choice it records is not what shipped — is dropped, or
+    recorded as a deviation with the stub as the "planned" side. If the directory or file is
+    absent, say nothing and continue — capture is opt-in and most closes will have none.
+
+4. **The close review** — your own reading of the branch diff (Phase 3) surfaces decisions visible in
    the code that were never written down.
 
 For each decision, capture the **decision + the why**, and the **refuted viable alternative** if one
@@ -157,6 +171,12 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
 4. **Force rationale on each deviation.** Present the detected deviations to the user and collect **why
    each happened** (one prompt covering the list; use `AskUserQuestion` if the set is small and
    discrete, otherwise ask for the rationale inline). Only deviations get an entry.
+
+5. **Consult captured plans as weak hints** — `.nexus/plans/<branch>/NN-plan.md` files, if any.
+   Plans are pre-implementation speculation and routinely diverge from what ships; use them only
+   to *notice* deviations (the plan said X, the diff shows Y — ask about it), never as a source
+   of record. Nothing from a plan enters the close record unless the diff confirms it or the
+   human supplies it as deviation rationale.
 
 If the diff shows **no** deviation from the decision record, record that plainly — the Deviation
 Rationale section is then empty (a matched implementation, not a gap).
@@ -309,6 +329,17 @@ Epic closed. Durable record below — the queue `close-record.md` drains post-me
 - Process lesson → docs/delivery/lessons/<date>-<slug>.md
 ```
 
+**Then delete the branch's scratch** — consumed hints must not leak to a future epic on a
+reused branch:
+
+```bash
+rm -rf ".nexus/plans/$(git branch --show-current | tr '/' '-')"
+```
+
+Delete only the current branch's directory, never `.nexus/plans/` itself or another branch's
+scratch. If the abort path was taken at the checkpoint, leave scratch in place — it is consumed
+only by a completed close.
+
 **Error handling:**
 
 - Epic issue already closed → report and continue to the completion summary.
@@ -324,10 +355,13 @@ GitHub epic issue: #<epic-issue> — closed
 Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
 Deferred scope:    docs/features/<feature>/backlog.md  (<N> item(s))
 Process lesson:    docs/delivery/lessons/<date>-<slug>.md
+Scratch consumed:  .nexus/plans/<branch>/ — <N> stub(s), <M> plan(s) — deleted
 
 Key decisions captured: <count>
 Deviations recorded:    <count>
 ```
+
+(Use "none found" for the scratch-consumed line when the directory was absent.)
 
 # Constraints
 
@@ -345,6 +379,14 @@ Deviations recorded:    <count>
   prose; the distiller deletes the queue entry post-merge. Link only durable targets (feature backlog,
   lesson file, concept pages, anchors, other issues).
 - Handle an already-closed epic issue gracefully.
+- **Scratch is hints, never authority** — a decision stub or captured plan enters the close
+  record only when the diff confirms it or the human ratifies it as deviation rationale. The
+  diff remains ground truth (0006).
+- **Scratch cleanup is scoped and post-checkpoint** — delete only
+  `.nexus/plans/<current-branch>/`, only after Phase 8 completes; never on abort, never another
+  branch's directory, never the whole `.nexus/plans/` tree.
+- **The distiller never sees scratch** — nothing from `.nexus/plans/` may be copied into the
+  queue entry verbatim as a new artifact; the close record's prose is the only carrier.
 
 # Usage
 

@@ -151,6 +151,55 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
 2. **`docs/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
 3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 4. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
+5. **`.nexus/plans/` — gitignored scratch for plans and decision stubs.** Add a `.nexus/plans/`
+   line to the project's `.gitignore` (create `.gitignore` if absent; skip if the line already
+   exists). Do NOT create the directory itself — the capture hook and the agent create
+   `.nexus/plans/<branch>/` on first write. This surface is scratch: `/nxs.close` consumes it
+   as hints and deletes the branch's directory after its checkpoint. The distiller never reads it.
+6. **`.nexus/config/hooks/capture-plan.sh`** — seed the plan-capture hook script (committed,
+   executable). Write it with exactly this content:
+
+    ```bash
+    #!/usr/bin/env bash
+    # Nexus plan-capture hook (PostToolUse on ExitPlanMode).
+    # Opt-in: registered per-engineer in .claude/settings.local.json — never in a
+    # committed settings file. Writes the approved plan to gitignored scratch:
+    # .nexus/plans/<branch>/NN-plan.md. /nxs.close consumes these as hints.
+    # Always exits 0 — capture must never block the tool call.
+    set -u
+    payload="$(cat)"
+    plan="$(printf '%s' "$payload" | jq -r '.tool_input.plan // empty' 2>/dev/null)"
+    [ -z "$plan" ] && exit 0
+    branch="$(git branch --show-current 2>/dev/null)"
+    [ -z "$branch" ] && branch="detached"
+    dir=".nexus/plans/${branch//\//-}"
+    mkdir -p "$dir" || exit 0
+    n=$(ls "$dir"/*-plan.md 2>/dev/null | wc -l)
+    printf '# Plan captured %s\n\n%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$plan" \
+        > "$dir/$(printf '%02d' $((n + 1)))-plan.md"
+    exit 0
+    ```
+
+    Make it executable (`chmod +x`).
+7. **Offer the opt-in registration (never write it into a committed file).** Tell the user in
+   the Phase 7 summary how to opt in, per engineer, by adding to `.claude/settings.local.json`:
+
+    ```json
+    {
+        "hooks": {
+            "PostToolUse": [
+                {
+                    "matcher": "ExitPlanMode",
+                    "hooks": [{ "type": "command", "command": ".nexus/config/hooks/capture-plan.sh" }]
+                }
+            ]
+        }
+    }
+    ```
+
+    If a `settings.local.json` already exists, this must be merged into it, not overwritten.
+    Setup itself must NOT write `.claude/settings.json` (committed) or register the hook
+    repo-wide — opt-in consent is the load-bearing constraint (memo 6c575fe9, contract item 2).
 
 ## Phase 5: Build the product context (interactive)
 
@@ -165,6 +214,21 @@ After the docs exist:
 1. **Identify content to move** — detailed sections now better covered by standards files.
 2. **Replace with links** — add a "Technical Patterns and Standards" section linking to `docs/system/`.
 3. **Keep in CLAUDE.md** — project description, development commands, high-level architecture overview, import-path mappings, environment setup, recent changes.
+4. **Add the decision-stub rule** — a short section instructing the coding agent:
+
+    > **In-flight decision stubs.** When you make a non-obvious implementation choice — you
+    > picked between viable approaches — append a stub to `.nexus/plans/<branch>/decisions.md`
+    > (create the file/dir if absent) at the moment of choosing, not later:
+    >
+    > ```
+    > ## <date> — <short decision title>
+    > - **Choice:** <what was chosen>
+    > - **Why:** <one sentence>
+    > - **Refuted alternative:** <the viable option not taken, or "none">
+    > ```
+    >
+    > This directory is gitignored scratch; `/nxs.close` mines it as hints and deletes it.
+    > Obvious choices (only one sensible option) get no stub.
 
 ## Phase 7: Summary
 
@@ -180,6 +244,8 @@ Output a completion summary:
 - `docs/product/context.md` — product context (interactive)
 - `.nexus/config/issue-labels.yaml` — task label set
 - `docs/delivery/lessons/README.md` — lessons convention
+- `.nexus/config/hooks/capture-plan.sh` — plan-capture hook (opt-in; see registration below)
+- `.gitignore` — `.nexus/plans/` scratch ignored
 
 ### Updated
 
@@ -192,6 +258,12 @@ Output a completion summary:
 3. Commit changes to version control.
 4. Start your first epic with `/nxs.epic`.
 ```
+
+### Optional per-engineer opt-in
+
+Plan capture is opt-in. To enable it for yourself, add the hook registration above to
+`.claude/settings.local.json` (gitignored, per-engineer). Without it, only the CLAUDE.md
+decision-stub rule is active — stubs still land in scratch and `/nxs.close` still uses them.
 
 ## Quality requirements
 

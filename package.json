@@ -17,7 +17,9 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "nexus:validate-concepts": "tsx utils/validate-concepts.ts"
+    "nexus:validate-concepts": "tsx utils/validate-concepts.ts",
+    "nexus:generate-atlas": "tsx utils/generate-atlas.ts",
+    "nexus:check-atlas": "tsx utils/generate-atlas.ts --check"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
