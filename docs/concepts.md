@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 23 active concepts. Each links to its full page
+Orientation map of the concept store — 24 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -14,11 +14,12 @@ Orientation map of the concept store — 23 active concepts. Each links to its f
 - [Distiller](../.nexus/concepts/distiller.md) — The distiller is the engine that drains committed queue entries into the concept store.
 - [Nexus Pipeline](../.nexus/concepts/nexus-pipeline.md) — Nexus is a lean, spec-driven delivery pipeline that assists product and project management — turning intent into validated, decision-grade specs.
 - [Code Anchors](../.nexus/concepts/code-anchors.md) — Code anchors are derived sidecar files that map a concept to the source that implements it.
+- [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the single handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
 - [Forcing-Function Razor](../.nexus/concepts/forcing-function-razor.md) — Every artifact must exist to force a decision a human must make, or it is cut scaffolding.
 - [Gold-plating](../.nexus/concepts/gold-plating.md) — Gold-plating is the production of heavy, elaborate artifacts ahead of validated need — volume manufactured on speculation about what might matter rather than distilled from what has been decided.
+- [Scratch Capture](../.nexus/concepts/scratch-capture.md) — Scratch capture is the opt-in surface that saves what would otherwise evaporate — approved plan-mode plans and in-flight implementation decisions — into ungated, version-ignored, per-branch scratch, so the close stage can mine higher-fidelity rationale than memory reconstructs weeks later.
 - [Two-Store Split](../.nexus/concepts/two-store-split.md) — Nexus keeps two knowledge surfaces that never share an artifact: a lean human-judgment surface for what a person must read and decide, and a machine knowledge surface where distilled volume is legitimate.
 - [Append-Only Decision Log](../.nexus/concepts/append-only-decision-log.md) — Every concept page carries a Decision Log — the append-only, immutable record of why the concept is the way it is.
-- [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the single handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
 - [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
 - [Grep-Native Retrieval](../.nexus/concepts/grep-native-retrieval.md) — The knowledge store is retrieved by plain text search over readable files — search, list, and read — with no graph engine, embeddings, or community detection.
 - [Provenance Reference](../.nexus/concepts/provenance-reference.md) — A provenance reference links a concept page or a log entry back to the issue that originated it, so an agent can hop from a compressed page to the full context it distilled away.

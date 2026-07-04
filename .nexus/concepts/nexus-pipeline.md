@@ -1,10 +1,10 @@
 ---
 title: "Nexus Pipeline"
 aliases: ["delivery pipeline", "pipeline stages", "System A", "spec-driven pipeline"]
-touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate"]
-last_updated_by: "bootstrap"
+touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture"]
+last_updated_by: "manual"
 status: active
-verification: unverified
+verification: verified
 ---
 
 # Nexus Pipeline
@@ -29,6 +29,7 @@ Setup bootstraps the project's ground truth and product context once. The epic s
 - [committed-queue](committed-queue.md) — the handoff each epic's stages fill.
 - [story-as-unit](story-as-unit.md) — the terminal planning unit the pipeline stops at.
 - [epic-approval-gate](epic-approval-gate.md) — the gate where the epic and its stories are filed.
+- [scratch-capture](scratch-capture.md) — the close stage mines its hints and deletes it after the checkpoint.
 
 ## Decision Log
 
@@ -39,3 +40,7 @@ Scoped the pipeline to assist product and project management and to leave implem
 ### 2026-06-29 — bootstrap — 0010: stages settle to setup, epic, design, analyze, close
 
 The separate task-decomposition stage was cut and story-issue filing folded into the epic stage behind an approval gate. The considered alternative — keeping a distinct stage to sequence stories and file their issues — was rejected as a consumer-less extra hop the approval gate already subsumes.
+
+### 2026-07-04 — manual — Reciprocal link from scratch-capture
+
+Mechanical reciprocity fan-out: the scratch-capture page names the close stage as its sole consumer.
