@@ -2,9 +2,9 @@
 title: "Two-Store Split"
 aliases: ["two-system split", "human/machine store separation", "docs-vs-concepts wall", "artifact wall"]
 touches: ["forcing-function-razor", "gold-plating", "concept-store"]
-last_updated_by: "bootstrap"
+last_updated_by: "manual"
 status: active
-verification: unverified
+verification: verified
 ---
 
 # Two-Store Split
@@ -13,7 +13,7 @@ Nexus keeps two knowledge surfaces that never share an artifact: a lean human-ju
 
 ## How It Works
 
-The human surface holds only committed judgment a later human reader consumes — product and system ground truth, slim epics, focused decision records, close records. The machine surface holds distilled concept pages retrieved by tooling that informs planning and design. A command that writes a human-judgment artifact into the machine store, or a machine artifact into the human surface, is a review violation. The split is physical — separate locations — so the constraint is enforced by layout, not discipline. A third, transient category, the committed queue, carries gated human planning artifacts awaiting distillation; it is not a breach because it never holds an ungated machine block.
+The human surface holds only committed judgment a later human reader consumes — product and system ground truth, slim epics, focused decision records, close records. The machine surface holds distilled concept pages retrieved by tooling that informs planning and design. A command that writes a human-judgment artifact into the machine store, or a machine artifact into the human surface, is a review violation. The split is physical — separate locations — so the constraint is enforced by layout, not discipline. A third, transient category, the committed queue, carries gated human planning artifacts awaiting distillation; it is not a breach because it never holds an ungated machine block. Placement follows the consumer even when a machine writes the artifact: a derived, machine-written page whose consumer is human lives on the human surface, declaring its machine ownership in the artifact itself.
 
 ## Key Invariants
 
@@ -22,6 +22,7 @@ The human surface holds only committed judgment a later human reader consumes �
 3. Volume is legitimate only on the machine surface; the human surface stays lean.
 4. Writing a human artifact into the machine store, or the reverse, is a review violation.
 5. The machine store holds non-regenerable judgment, so it is version-tracked, not derived from code.
+6. Placement follows the consumer even for machine-written artifacts; a derived artifact on the human surface declares its machine ownership in the artifact itself.
 
 ## Integration Points
 
@@ -34,3 +35,7 @@ The human surface holds only committed judgment a later human reader consumes �
 ### 2026-06-09 — bootstrap — 0001: hard split by consumer
 
 Established the two-system direction: a lean delivery pipeline that assists product and project management, feeding a knowledge store that informs later specs and designs. Lean is defined by the human consumer; volume is allowed only where the consumer is a machine; the two never share an artifact. The considered alternative — one blended store with per-artifact tags marking human versus machine — was rejected: a soft tag relies on discipline and drifts, whereas separate physical surfaces make a misplaced artifact a visible review violation.
+
+### 2026-07-04 — manual — Producer never decides placement
+
+The generated concept atlas is machine-written but purely human-consumed, so it belongs on the human surface with its derived ownership declared in the artifact itself — the split's axis is the consumer, and authorship was never it. Refuted alternative: reading the human surface as hand-maintained-only, which would exile human-consumed derived artifacts to the machine store where their audience never looks.
