@@ -22,8 +22,10 @@ The split is **judgment as prompt, mechanics as code** (0004 B0):
   PR** — you fix the pages and re-validate; you never ship a failing page.
 
 Your output is a **distillation-PR**. The PR merge is the authoritative write (0007). You never
-write `.nexus/concepts/` on main, and you never delete a queue entry — deletion happens only after
-the distillation-PR merges, and is documented in the PR body as a post-merge checklist item.
+write `.nexus/concepts/` on main. Deleting a consumed entry is **part of that same PR**: the
+entry's `git rm` rides the distill branch beside its page writes, so the merge lands the pages and
+the deletion atomically — either both hit main or neither does. You never delete an entry outside
+the PR, and never touch an unclosed/undrained one (C12).
 
 # Interaction convention — actionable choice gate
 
@@ -224,7 +226,17 @@ Run these for each entry, in order, before its commit:
     PR** — fix the pages and re-run until it exits 0. Do not weaken, skip, or reinterpret a
     finding; the validator is the contract's mechanical half.
 
-4. Commit the entry's pages + anchors: `git add .nexus/concepts .nexus/anchors && git commit`.
+4. **Remove the consumed entry, then commit it together with its pages + anchors** so the deletion
+   is atomic with the write on merge:
+
+    ```bash
+    git rm -r <entry-dir>
+    git add .nexus/concepts .nexus/anchors
+    git commit
+    ```
+
+   The entry leaves `.nexus/queue/**` only on this branch; main still holds it until the PR merges,
+   and it stays recoverable via git history thereafter.
 
 # Phase 6 — Checkpoint (before any GitHub write)
 
@@ -246,7 +258,8 @@ Validator: PASS (<N> page(s))
 Skipped (not closed): <local-id> — age <n>d [DRAIN-SLO BREACH if >30d]
 
 About to: push the distill branch and open the distillation-PR.
-Queue entries are NOT deleted now — deletion is a post-merge step listed in the PR body.
+Consumed entries are removed on the branch (in each entry's commit) — the deletion lands on main
+only when the PR merges, atomically with the pages. Nothing is removed from main now.
 ```
 
 Then ask via **`AskUserQuestion`**:
@@ -281,9 +294,10 @@ Drained queue entries: `<entry paths>` (provenance: <ref(s)>)
 ## Anchors refreshed (derived, never hand-edited)
 - `.nexus/anchors/<slug>.md` @ <source_sha>
 
-## Post-merge checklist (do NOT do at review time)
-- [ ] Delete the consumed queue entries — deletion is bound to this PR's merge (0007):
-      `git rm -r <entry-path> …` on main, commit, push.
+## Consumed queue entries (removed by this PR)
+This PR already removes the drained entries on the branch, so the merge deletes them from main
+atomically with the page writes — **no manual post-merge step**:
+- `<entry-path>` (recoverable via git history)
 ```
 
 # Phase 8 — Report completion
@@ -301,15 +315,16 @@ Validator:         PASS
 
 Entries skipped (not closed): <list with ages, drain-SLO flags>
 
-Post-merge: delete the consumed queue entries (checklist in the PR body).
+Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```
 
 # Constraints
 
 - **Never write `.nexus/concepts/` on main.** All page writes happen on the distill branch; the
   PR merge is the authoritative write (0007).
-- **Never delete a queue entry** — not consumed ones (deletion is post-merge, via the PR-body
-  checklist), and never unclosed/undrained ones (C12: flag age, don't clean up).
+- **Consumed entries are deleted in the PR, never on main directly** — the `git rm` rides the
+  distill branch so the merge removes them atomically with the page writes (0007: deletion is bound
+  to the merge). **Never** touch an unclosed/undrained entry (C12: flag age, don't clean up).
 - **No search when a path is given** — `$ARGUMENTS` resolves directly.
 - **The diff is recomputed, never stored** (0006).
 - **No machinery**: no recipe/template files, no state file, no generated index (0003 §7 —
