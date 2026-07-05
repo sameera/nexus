@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@nexus/editor": "workspace:*",
     "@react-router/node": "^8.1.0",
     "isbot": "^5.1.44"
   }
