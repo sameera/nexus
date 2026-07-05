@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { MarkdownEditor } from "@nexus/editor";
 import { GateTray } from "../gate/gate-tray";
 import { AdvanceBar } from "../advance/advance-bar";
 import { useOverlay } from "../layout/overlay";
@@ -53,11 +54,18 @@ export function TerminalRegion(): ReactElement {
                 )}
             </div>
 
-            {/* Live input line (mockup `.term-input`) — prompt char + blinking caret. */}
-            <div className="flex flex-none items-center gap-[9px] border-t border-term-line bg-term px-5 pb-3 pt-[9px] font-mono text-[13px]">
+            {/*
+             * Live input line (mockup `.term-input`) — the prompt glyph plus a
+             * real, multi-line, plain-text command input (`@nexus/editor`'s
+             * raw-edit mode). It sits outside the recede filter above, so it
+             * stays fully interactive while the terminal is dimmed.
+             */}
+            <div className="flex flex-none items-start gap-[9px] border-t border-term-line bg-term px-5 pb-3 pt-[9px] font-mono text-[13px]">
                 <span className="text-accent">❯</span>
-                <span className="text-ink" />
-                <span className="inline-block h-4 w-2 animate-blink bg-accent" />
+                <MarkdownEditor
+                    mode="raw-edit"
+                    className="flex-1 text-ink caret-accent"
+                />
             </div>
 
             <GateTray />

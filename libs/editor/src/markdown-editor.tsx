@@ -27,6 +27,7 @@ import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
 import { ListPlugin } from "@lexical/react/LexicalListPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
 import { OnChangePlugin } from "@lexical/react/LexicalOnChangePlugin";
+import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { TablePlugin } from "@lexical/react/LexicalTablePlugin";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
@@ -41,15 +42,29 @@ import {
     TableRowNode,
 } from "@lexical/table";
 import type { EditorState } from "lexical";
-import { $createParagraphNode, $createTextNode } from "lexical";
+import {
+    $createParagraphNode,
+    $createTextNode,
+    $getRoot,
+    COMMAND_PRIORITY_HIGH,
+    KEY_ENTER_COMMAND,
+} from "lexical";
 
 import { editorTheme } from "./editor-theme.js";
 import { TableActionMenuPlugin } from "./table-action-menu-plugin.js";
 
 export interface MarkdownEditorProps {
     content?: string;
-    mode?: "edit" | "view";
+    /*
+     * `edit`/`view` are the Markdown modes. `raw-edit` is a plain-text,
+     * submit-capable mode: it mounts none of the Markdown machinery, delivers
+     * text verbatim (no Markdown serialization), and owns the Enter gesture
+     * (Enter submits and self-clears, Shift+Enter inserts a newline).
+     */
+    mode?: "edit" | "view" | "raw-edit";
     onChange?: (markdown: string) => void;
+    /* Called in `raw-edit` mode with the verbatim text when Enter submits. */
+    onSubmit?: (text: string) => void;
     onFocus?: () => void;
     placeholder?: string;
     className?: string;
@@ -194,15 +209,75 @@ function MarkdownOnChangePlugin({
     return <OnChangePlugin onChange={handleChange} />;
 }
 
+/*
+ * Owns the Enter gesture for `raw-edit` mode. Intercepts KEY_ENTER above
+ * Lexical's default: plain Enter reads the verbatim text and, if it is not
+ * blank, submits then clears the field and keeps the caret (empty/whitespace is
+ * a no-op). Shift+Enter is left to the plain-text plugin, which inserts a
+ * newline. Clearing is driven here — feeding empty content back through the
+ * `content` prop is a no-op, so the field must reset itself.
+ */
+function CommandSubmitPlugin({
+    onSubmit,
+}: {
+    onSubmit?: (text: string) => void;
+}) {
+    const [editor] = useLexicalComposerContext();
+
+    useEffect(() => {
+        return editor.registerCommand(
+            KEY_ENTER_COMMAND,
+            (event: KeyboardEvent | null) => {
+                if (!onSubmit) {
+                    // No submit target: Enter behaves as a plain newline.
+                    return false;
+                }
+                if (event?.shiftKey) {
+                    // Fall through to the plain-text plugin's newline insertion.
+                    return false;
+                }
+                event?.preventDefault();
+
+                let text = "";
+                editor.getEditorState().read(() => {
+                    text = $getRoot().getTextContent();
+                });
+
+                if (text.trim() !== "") {
+                    onSubmit?.(text);
+                    editor.update(() => {
+                        const root = $getRoot();
+                        root.clear();
+                        const paragraph = $createParagraphNode();
+                        root.append(paragraph);
+                        paragraph.select();
+                    });
+                }
+
+                // Handled either way: suppress the default newline; blank input
+                // simply does nothing.
+                return true;
+            },
+            COMMAND_PRIORITY_HIGH,
+        );
+    }, [editor, onSubmit]);
+
+    return null;
+}
+
 export function MarkdownEditor({
     content = "",
     mode = "edit",
     onChange,
+    onSubmit,
     onFocus,
-    placeholder = "Start typing...",
+    placeholder = "",
     className = "",
 }: MarkdownEditorProps) {
     const isView = mode === "view";
+    const isRaw = mode === "raw-edit";
+    // The Markdown modes (edit); raw-edit mounts none of the Markdown machinery.
+    const isMarkdown = !isView && !isRaw;
 
     const initialConfig = {
         namespace: "MarkdownEditor",
@@ -214,48 +289,69 @@ export function MarkdownEditor({
         nodes: NODES,
     };
 
+    const contentEditable = (
+        <ContentEditable
+            className={
+                isView
+                    ? "w-full bg-transparent px-3 py-2 text-sm text-foreground outline-none pointer-events-none text-left"
+                    : isRaw
+                      ? "w-full resize-none whitespace-pre-wrap break-words bg-transparent text-left outline-none"
+                      : "min-h-[300px] w-full resize-none bg-transparent px-3 py-2 text-base text-left ring-offset-background focus-visible:outline-none focus-visible:border-l-2 focus-visible:border-accent disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-150"
+            }
+            onFocus={!isView ? onFocus : undefined}
+        />
+    );
+
+    // View shows none; raw-edit shows one only when explicitly given; edit falls
+    // back to the historic default.
+    const placeholderNode = isView ? null : isRaw ? (
+        placeholder ? (
+            <div className="pointer-events-none absolute left-0 top-0 text-muted-foreground">
+                {placeholder}
+            </div>
+        ) : null
+    ) : (
+        <div className="pointer-events-none absolute left-3 top-2 text-base text-muted-foreground">
+            {placeholder || "Start typing..."}
+        </div>
+    );
+
     return (
         <LexicalComposer key={mode} initialConfig={initialConfig}>
             <div className={`relative w-full ${className}`}>
-                <RichTextPlugin
-                    contentEditable={
-                        <ContentEditable
-                            className={
-                                isView
-                                    ? "w-full bg-transparent px-3 py-2 text-sm text-foreground outline-none pointer-events-none text-left"
-                                    : "min-h-[300px] w-full resize-none bg-transparent px-3 py-2 text-base text-left ring-offset-background focus-visible:outline-none focus-visible:border-l-2 focus-visible:border-accent disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-150"
-                            }
-                            onFocus={!isView ? onFocus : undefined}
-                        />
-                    }
-                    placeholder={
-                        !isView ? (
-                            <div className="pointer-events-none absolute left-3 top-2 text-base text-muted-foreground">
-                                {placeholder}
-                            </div>
-                        ) : null
-                    }
-                    ErrorBoundary={LexicalErrorBoundary}
-                />
-                <ListPlugin />
-                <LinkPlugin />
-                <HorizontalRulePlugin />
-                <TablePlugin />
-                {content && (
+                {isRaw ? (
+                    <PlainTextPlugin
+                        contentEditable={contentEditable}
+                        placeholder={placeholderNode}
+                        ErrorBoundary={LexicalErrorBoundary}
+                    />
+                ) : (
+                    <RichTextPlugin
+                        contentEditable={contentEditable}
+                        placeholder={placeholderNode}
+                        ErrorBoundary={LexicalErrorBoundary}
+                    />
+                )}
+                {!isRaw && <ListPlugin />}
+                {!isRaw && <LinkPlugin />}
+                {!isRaw && <HorizontalRulePlugin />}
+                {!isRaw && <TablePlugin />}
+                {content && !isRaw && (
                     <MarkdownInitializerPlugin
                         content={content}
                         transformers={ALL_TRANSFORMERS}
                     />
                 )}
                 {!isView && <HistoryPlugin />}
-                {!isView && <AutoFocusPlugin />}
-                {!isView && (
+                {isMarkdown && <AutoFocusPlugin />}
+                {isMarkdown && (
                     <MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
                 )}
-                {!isView && onChange && (
+                {isMarkdown && onChange && (
                     <MarkdownOnChangePlugin onChange={onChange} />
                 )}
-                {!isView && <TableActionMenuPlugin />}
+                {isMarkdown && <TableActionMenuPlugin />}
+                {isRaw && <CommandSubmitPlugin onSubmit={onSubmit} />}
             </div>
         </LexicalComposer>
     );

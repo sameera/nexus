@@ -43,5 +43,10 @@
     "server.ts",
     "vite.config.ts",
     "react-router.config.ts"
+  ],
+  "references": [
+    {
+      "path": "../../libs/editor/tsconfig.lib.json"
+    }
   ]
 }
