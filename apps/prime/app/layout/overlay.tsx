@@ -54,6 +54,12 @@ interface OverlayContextValue {
     running: string | null;
     /* Run the next stage: hide the affordance and mark its command running (mock). */
     runNext: () => void;
+    /*
+     * Surface a user-submitted command in the terminal (the same slot `runNext`
+     * writes). A new submission replaces the prior one — no accumulation, since
+     * output/echo is out of scope.
+     */
+    submitCommand: (command: string) => void;
 }
 
 /*
@@ -72,6 +78,7 @@ const OverlayContext = createContext<OverlayContextValue>({
     nextCommand: NEXT_COMMAND,
     running: null,
     runNext: () => undefined,
+    submitCommand: () => undefined,
 });
 
 export function OverlayProvider({
@@ -94,6 +101,10 @@ export function OverlayProvider({
         setAdvanceReady(false);
         setRunning(NEXT_COMMAND);
     }, []);
+    const submitCommand = useCallback(
+        (command: string) => setRunning(command),
+        [],
+    );
 
     const value = useMemo<OverlayContextValue>(
         () => ({
@@ -108,6 +119,7 @@ export function OverlayProvider({
             nextCommand: NEXT_COMMAND,
             running,
             runNext,
+            submitCommand,
         }),
         [
             artifact,
@@ -119,6 +131,7 @@ export function OverlayProvider({
             advanceReady,
             running,
             runNext,
+            submitCommand,
         ],
     );
 

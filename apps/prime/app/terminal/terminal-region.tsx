@@ -19,7 +19,7 @@ import { useOverlay } from "../layout/overlay";
  * reflects the shared `receded` flag (exposed as `data-receded` for the seam).
  */
 export function TerminalRegion(): ReactElement {
-    const { receded, running } = useOverlay();
+    const { receded, running, submitCommand } = useOverlay();
 
     return (
         <div
@@ -42,14 +42,16 @@ export function TerminalRegion(): ReactElement {
                     marks the integration seam.
                 </p>
                 {/*
-                 * Presentational hand-off from the advance affordance (Story 7):
-                 * the next command shows as running here. No real command runs —
-                 * that is the downstream pipeline-integration work.
+                 * Presentational hand-off: a surfaced command (from the advance
+                 * affordance or a user submission) echoes here, verbatim — the
+                 * prompt glyph then the command exactly as sent, line breaks
+                 * preserved, no injected prefix and no execution-status suffix.
+                 * No real command runs; that is downstream pipeline work.
                  */}
                 {running !== null && (
-                    <p className="mt-3">
-                        <span className="text-accent">❯ /{running}</span>
-                        <span className="text-ink-dim"> · running…</span>
+                    <p className="mt-3 whitespace-pre-wrap">
+                        <span className="text-accent">❯ </span>
+                        <span className="text-ink">{running}</span>
                     </p>
                 )}
             </div>
@@ -64,6 +66,7 @@ export function TerminalRegion(): ReactElement {
                 <span className="text-accent">❯</span>
                 <MarkdownEditor
                     mode="raw-edit"
+                    onSubmit={submitCommand}
                     className="flex-1 text-ink caret-accent"
                 />
             </div>
