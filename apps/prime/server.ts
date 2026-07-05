@@ -19,6 +19,12 @@ const PORT = Number.parseInt(process.env.PORT ?? "3000", 10);
 const app = express();
 app.disable("x-powered-by");
 
+// Chrome DevTools "automatic workspace folders" probe — answer quietly so it
+// does not fall through to the RR8 handler and log a spurious 404 each start.
+app.get("/.well-known/appspecific/com.chrome.devtools.json", (_req, res) => {
+    res.status(204).end();
+});
+
 if (DEVELOPMENT) {
     console.log("Starting development server");
     const { createServer: createViteServer } = await import("vite");
