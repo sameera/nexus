@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import {
     $createLineBreakNode,
     $createParagraphNode,
@@ -76,5 +76,77 @@ describe("MarkdownEditor raw-edit mode", () => {
     it("exposes no formatting or table toolbar", () => {
         render(<MarkdownEditor mode="raw-edit" />);
         expect(screen.queryByRole("button")).toBeNull();
+    });
+});
+
+function modelText(box: HTMLElement): string {
+    let text = "";
+    editorOf(box)
+        .getEditorState()
+        .read(() => {
+            text = $getRoot().getTextContent();
+        });
+    return text;
+}
+
+describe("MarkdownEditor raw-edit — Enter gesture", () => {
+    const pressEnter = (box: HTMLElement, shiftKey = false): void => {
+        fireEvent.keyDown(box, { key: "Enter", code: "Enter", shiftKey });
+    };
+
+    it("submits the verbatim text on Enter and then clears the field", async () => {
+        const onSubmit = vi.fn();
+        render(<MarkdownEditor mode="raw-edit" onSubmit={onSubmit} />);
+        const box = screen.getByRole("textbox");
+        setText(box, "npm run build");
+        pressEnter(box);
+
+        expect(onSubmit).toHaveBeenCalledExactlyOnceWith("npm run build");
+        // The field resets itself after a successful submit (next tick).
+        await Promise.resolve();
+        expect(modelText(box)).toBe("");
+    });
+
+    it("delivers a multi-line command as a single submission, lines preserved", () => {
+        const onSubmit = vi.fn();
+        render(<MarkdownEditor mode="raw-edit" onSubmit={onSubmit} />);
+        const box = screen.getByRole("textbox");
+        setText(box, "line one\nline two\nline three");
+        pressEnter(box);
+
+        expect(onSubmit).toHaveBeenCalledExactlyOnceWith(
+            "line one\nline two\nline three",
+        );
+    });
+
+    it("keeps Markdown-significant characters byte-for-byte on submit", () => {
+        const onSubmit = vi.fn();
+        render(<MarkdownEditor mode="raw-edit" onSubmit={onSubmit} />);
+        const box = screen.getByRole("textbox");
+        setText(box, "--- flag # note *.ts");
+        pressEnter(box);
+
+        expect(onSubmit).toHaveBeenCalledExactlyOnceWith("--- flag # note *.ts");
+    });
+
+    it("does not submit on Shift+Enter", () => {
+        const onSubmit = vi.fn();
+        render(<MarkdownEditor mode="raw-edit" onSubmit={onSubmit} />);
+        const box = screen.getByRole("textbox");
+        setText(box, "still typing");
+        pressEnter(box, true);
+
+        expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("does nothing on Enter when the field is empty or only whitespace", () => {
+        const onSubmit = vi.fn();
+        render(<MarkdownEditor mode="raw-edit" onSubmit={onSubmit} />);
+        const box = screen.getByRole("textbox");
+        pressEnter(box);
+        setText(box, "   \n  ");
+        pressEnter(box);
+
+        expect(onSubmit).not.toHaveBeenCalled();
     });
 });
