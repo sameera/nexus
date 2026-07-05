@@ -43,12 +43,12 @@ describe("Stage advance affordance", () => {
         expect(advance()).toBeInTheDocument();
     });
 
-    it("hides the bar and shows the next command running in the terminal when run is triggered", () => {
+    it("hides the bar and surfaces the next command in the terminal when run is triggered", () => {
         render(<App />);
         fireEvent.click(screen.getByRole("button", { name: /run/i }));
 
         expect(advance()).toBeNull();
-        expect(within(terminal()).getByText(/\/nxs\.hld/)).toBeInTheDocument();
-        expect(within(terminal()).getByText(/running/i)).toBeInTheDocument();
+        // The surfaced command echoes verbatim — no injected `/`, no status suffix.
+        expect(within(terminal()).getByText("nxs.hld")).toBeInTheDocument();
     });
 });
