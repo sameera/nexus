@@ -1,9 +1,9 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Reads the queued epic + decision record and the branch diff / closed story issues; reports inline conformance findings. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.hld, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Reads the queued epic + decision record and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.hld, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Write
 ---
 
 # Role
@@ -108,9 +108,9 @@ outcome the build cannot demonstrate.
 Note material behavior in the diff that **no** story called for (unplanned scope), and any story whose
 implementation went meaningfully beyond its ACs. Informational unless it breaks an invariant.
 
-# Phase 3 — Report (inline, no file)
+# Phase 3 — Report (inline) and write the receipt
 
-Return a concise summary — do not write a file:
+Return a concise summary:
 
 ```
 Conformance: <epic title> (<queue-entry-or-path>)  ·  epic #<link>
@@ -132,6 +132,25 @@ the epic. Fix the implementation (or, if the epic's intent changed during build,
 re-file the affected story issues) before `/nxs.close`. This command does not edit code, issues, or
 the epic; it reports so the user can gate.
 
+Then write the **receipt** — the proof this gate ran, which `/nxs.close` checks as a precondition.
+Write it to **`analyze-receipt.md`** beside the resolved `epic.md`, overwriting any previous receipt
+(a re-run supersedes it). This is the command's only write:
+
+```markdown
+---
+epic: "<link>"                        # e.g. "#11"
+date: <YYYY-MM-DD>
+head: <git rev-parse --short HEAD>    # the commit the analysis read
+mode: full | downgraded
+findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
+---
+
+<the summary block above, verbatim>
+```
+
+The receipt is ephemeral queue content: the distiller deletes it with the entry post-merge. Never
+link it from an issue.
+
 # Usage
 
 ```
@@ -143,8 +162,9 @@ the epic; it reports so the user can gate.
 
 - **Conformance, not quality.** Compare code to intent. Do not run tests (that is `nxs-qa`), do not run
   a security audit (that is `security-review`), do not run the app.
-- **Read-only.** Never edit code, the epic, the decision record, or GitHub issues. Findings are inline
-  only — never write `task-review.md` or any file.
+- **Read-only, one exception.** Never edit code, the epic, the decision record, or GitHub issues.
+  Findings are inline; the only file written is `analyze-receipt.md` beside the epic — never
+  `task-review.md` or any other report file.
 - **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`

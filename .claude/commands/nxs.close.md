@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic. Emits a human-prose close record into the committed queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), appends deferred scope to the feature backlog, writes the process lesson as its own file, then — after a checkpoint — comments on and closes the epic GitHub issue. Precondition — every child story issue must already be closed.
+description: Close an epic. Emits a human-prose close record into the committed queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), appends deferred scope to the feature backlog, writes the process lesson as its own file, then — after a checkpoint — comments on and closes the epic GitHub issue. Preconditions — every child story issue closed (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver).
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -21,10 +21,10 @@ distiller consumes and deletes it.
 
 # Interaction convention — actionable choice gate
 
-The closure checkpoint (Phase 6) is presented through the **`AskUserQuestion`** tool, not a free-text
-`(y/n)` prompt. Render the checkpoint summary first as ordinary markdown (the artifacts written, the
-actions about to run), then call `AskUserQuestion` with one option per choice (short label + one-line
-effect). The user can always pick "Other" for a custom answer.
+The closure checkpoint (Phase 7) and the conformance gate (Phase 1.2) are presented through the
+**`AskUserQuestion`** tool, not a free-text `(y/n)` prompt. Render the summary first as ordinary
+markdown (the state found, the artifacts written, the actions about to run), then call
+`AskUserQuestion` with one option per choice (short label + one-line effect). The user can always pick "Other" for a custom answer.
 
 # User Input
 
@@ -66,7 +66,9 @@ search is needed to find them.
 
     Extract the issue number from `link` (`"#123"` → `123`).
 
-# Phase 1 — Precondition: every child story issue is closed
+# Phase 1 — Preconditions
+
+## 1.1 Every child story issue is closed (hard block)
 
 The epic cannot close while any of its stories is still open. **Block here if any is open — do not
 auto-close them, do not proceed.**
@@ -106,6 +108,35 @@ auto-close them, do not proceed.**
 
 Only when **all** child story issues are closed do you continue. If the epic has no child story issues
 at all, warn and continue (a manually managed epic).
+
+## 1.2 Conformance analysis ran (choice gate)
+
+`/nxs.analyze` writes **`${QDIR}/analyze-receipt.md`** when it runs. Check it **before** mining
+anything — if the user opts to analyze first, nothing later in this command should have run yet.
+
+1. Read `${QDIR}/analyze-receipt.md`; parse `date`, `head`, `mode`, and `findings` from its
+   frontmatter. Classify the state:
+    - **clean** — receipt exists, `git rev-list --count <head>..HEAD` is `0`, and `findings`
+      has no critical/high. Set the close record's `analyze:` value to `ran <date> @ <head>`
+      and continue silently to Phase 2.
+    - **missing** — no receipt: `/nxs.analyze` never ran on this entry.
+    - **stale** — commits landed after the receipt (`git rev-list --count <head>..HEAD` > 0;
+      report the count).
+    - **blocking** — the receipt reports critical or high findings: analyze judged the code
+      does not yet satisfy the epic.
+2. On **missing / stale / blocking**, render a one-paragraph markdown note naming the state and
+   what it means, then ask via `AskUserQuestion` — never proceed silently:
+    - missing → **"Run /nxs.analyze first (Recommended)"** | "Close without analysis"
+    - stale → **"Re-run /nxs.analyze (Recommended)"** | "Proceed with the stale receipt"
+    - blocking → **"Stop and fix the findings (Recommended)"** | "Override and close"
+3. If the user picks the recommended option, **stop**: tell them to run `/nxs.analyze` (fixing
+   findings first, for blocking) and then re-run `/nxs.close`. Do not run the analysis yourself —
+   the gate detects, it does not substitute.
+4. If the user picks the proceed option, set the waiver text for the close record's `analyze:`
+   frontmatter (Phase 4) and continue:
+    - missing → `waived — closed without /nxs.analyze (<YYYY-MM-DD>)`
+    - stale → `stale — ran <date> @ <head>, <N> commit(s) unanalyzed; waived <YYYY-MM-DD>`
+    - blocking → `overridden — <C> critical / <H> high finding(s) open; waived <YYYY-MM-DD>`
 
 # Phase 2 — Mine the key decisions
 
@@ -190,6 +221,7 @@ Fill the seeded template and write it into the queue entry.
 
 2. Fill every `{{PLACEHOLDER}}` and **delete the guidance comments**:
     - `title` / `epic` (the `link` ref) / `feature` / `date` (today).
+    - `analyze` — the conformance-gate outcome from Phase 1.2 (`ran … @ …`, or the waiver text).
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
     - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human supplied).
     - **Deferred Scope** — a **pointer only** to `docs/features/<feature>/backlog.md` (the scope itself
@@ -265,7 +297,7 @@ Written:
 2. Deferred scope → docs/features/<feature>/backlog.md (<N> item(s))
 3. Process lesson → docs/delivery/lessons/<date>-<slug>.md
 
-Precondition met: all <M> child story issues closed.
+Preconditions: all <M> child story issues closed · analyze: <the Phase 1.2 outcome>.
 
 About to (irreversible):
 4. Post the close comment on epic issue #<epic-issue>
@@ -316,6 +348,9 @@ The comment body has this shape:
 ## Close Record
 
 Epic closed. Durable record below — the queue `close-record.md` drains post-merge.
+
+Conformance: <analyze frontmatter value>   <!-- include this line ONLY when Phase 1.2 was not clean:
+the durable surface must show the epic closed on a waiver -->
 
 ### Key Decisions
 - **<decision>:** <why> (+ refuted alternative if any)
@@ -375,6 +410,11 @@ Deviations recorded:    <count>
 - **Do not proceed past the checkpoint** without an explicit `close` selection.
 - **Precondition is a hard block** — never close the epic issue while a child story issue is open, and
   never auto-close story issues.
+- **The analyze gate detects, it does not substitute** — on a missing/stale receipt or open
+  critical/high findings, either stop (user runs `/nxs.analyze` and re-runs close) or proceed on an
+  **explicit user waiver**; never run the analysis from inside close, and never proceed silently. A
+  waiver is always recorded in the close record's `analyze:` frontmatter and surfaced in the close
+  comment.
 - **Never link an ephemeral queue file from the issue** — the close comment inlines the close-record
   prose; the distiller deletes the queue entry post-merge. Link only durable targets (feature backlog,
   lesson file, concept pages, anchors, other issues).

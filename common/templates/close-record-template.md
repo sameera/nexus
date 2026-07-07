@@ -29,6 +29,7 @@ title: "Close Record: {{EPIC_TITLE}}"
 epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, e.g. #42
 feature: "{{FEATURE_NAME}}"     # one-direction pointer: entry → parent feature
 date: {{YYYY-MM-DD}}
+analyze: {{ANALYZE_STATUS}}     # conformance gate: "ran <date> @ <sha>" or the recorded waiver
 ---
 
 # Close Record: {{EPIC_TITLE}}
