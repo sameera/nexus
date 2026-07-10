@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nexus — The Assets</title>
+<style>
+:root {
+    --bg: #f6f7f4;
+    --surface: #ffffff;
+    --surface2: #eef0ea;
+    --ink: #1d231f;
+    --muted: #5b665f;
+    --faint: #8b958d;
+    --line: #d9ded5;
+    --human: #a9700e;
+    --human-soft: #f3e7cf;
+    --machine: #0e7e73;
+    --machine-soft: #d5ebe5;
+    --queue: #6c59b8;
+    --queue-soft: #e4dff4;
+    --neutral-acc: #37423c;
+    --neutral-soft: #e2e6df;
+    --code-bg: #202622;
+    --code-ink: #dfe6df;
+    --code-dim: #9aa89d;
+    --mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #131715;
+        --surface: #1b201d;
+        --surface2: #242a26;
+        --ink: #e6ebe5;
+        --muted: #a0aba2;
+        --faint: #6f7a72;
+        --line: #313832;
+        --human: #dfa63d;
+        --human-soft: #383018;
+        --machine: #4cc2b2;
+        --machine-soft: #17332e;
+        --queue: #a695e0;
+        --queue-soft: #2d2842;
+        --neutral-acc: #c3cdc5;
+        --neutral-soft: #2a302b;
+        --code-bg: #0e1210;
+        --code-ink: #d5ddd5;
+        --code-dim: #7d8a80;
+    }
+}
+:root[data-theme="light"] {
+    --bg: #f6f7f4;
+    --surface: #ffffff;
+    --surface2: #eef0ea;
+    --ink: #1d231f;
+    --muted: #5b665f;
+    --faint: #8b958d;
+    --line: #d9ded5;
+    --human: #a9700e;
+    --human-soft: #f3e7cf;
+    --machine: #0e7e73;
+    --machine-soft: #d5ebe5;
+    --queue: #6c59b8;
+    --queue-soft: #e4dff4;
+    --neutral-acc: #37423c;
+    --neutral-soft: #e2e6df;
+    --code-bg: #202622;
+    --code-ink: #dfe6df;
+    --code-dim: #9aa89d;
+}
+:root[data-theme="dark"] {
+    --bg: #131715;
+    --surface: #1b201d;
+    --surface2: #242a26;
+    --ink: #e6ebe5;
+    --muted: #a0aba2;
+    --faint: #6f7a72;
+    --line: #313832;
+    --human: #dfa63d;
+    --human-soft: #383018;
+    --machine: #4cc2b2;
+    --machine-soft: #17332e;
+    --queue: #a695e0;
+    --queue-soft: #2d2842;
+    --neutral-acc: #c3cdc5;
+    --neutral-soft: #2a302b;
+    --code-bg: #0e1210;
+    --code-ink: #d5ddd5;
+    --code-dim: #7d8a80;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.55;
+    overflow: hidden;
+}
+
+.deck { position: fixed; inset: 0; display: flex; flex-direction: column; }
+.stage { flex: 1; position: relative; min-height: 0; }
+
+.slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    overflow-y: auto;
+    padding: clamp(20px, 4vh, 44px) clamp(20px, 5vw, 64px) clamp(28px, 5vh, 52px);
+}
+.slide.active { display: block; animation: rise .28s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .slide.active { animation: none; }
+}
+.slide-inner { max-width: 920px; margin: 0 auto; }
+
+/* per-surface accent */
+.slide { --acc: var(--neutral-acc); --acc-soft: var(--neutral-soft); }
+.slide[data-s="queue"]   { --acc: var(--queue);   --acc-soft: var(--queue-soft); }
+.slide[data-s="human"]   { --acc: var(--human);   --acc-soft: var(--human-soft); }
+.slide[data-s="machine"] { --acc: var(--machine); --acc-soft: var(--machine-soft); }
+
+.eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--acc);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.eyebrow::before { content: ""; width: 22px; height: 3px; background: var(--acc); flex: none; }
+
+h1 {
+    font-size: clamp(30px, 4.6vw, 46px);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    font-weight: 750;
+    margin: 0 0 10px;
+    text-wrap: balance;
+}
+h2 { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 8px; }
+p { margin: 0 0 12px; max-width: 68ch; }
+.lede { font-size: clamp(16px, 2vw, 19px); color: var(--muted); max-width: 62ch; margin-bottom: 20px; }
+.lede strong { color: var(--ink); }
+ul { margin: 0 0 12px; padding-left: 20px; }
+li { margin-bottom: 7px; max-width: 66ch; }
+li::marker { color: var(--acc); }
+small { color: var(--faint); }
+
+.path {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--acc-soft);
+    color: var(--acc);
+    border: 1px solid color-mix(in srgb, var(--acc) 30%, transparent);
+    border-radius: 4px;
+    padding: 3px 9px;
+    margin-bottom: 18px;
+}
+.tag {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    background: var(--acc-soft);
+    color: var(--acc);
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+}
+
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 34px; margin-top: 6px; }
+.cols-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 6px; }
+@media (max-width: 760px) { .cols, .cols-3 { grid-template-columns: 1fr; } }
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+}
+.card h2 { display: flex; align-items: baseline; gap: 8px; }
+.card p:last-child, .card ul:last-child { margin-bottom: 0; }
+
+.meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    border-top: 1px solid var(--line);
+    margin-top: 22px;
+    padding-top: 14px;
+}
+.meta div { min-width: 130px; }
+.meta dt {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 2px;
+}
+.meta dd { margin: 0; font-size: 14px; }
+.meta dd code { font-family: var(--mono); font-size: 12.5px; color: var(--acc); }
+
+.doc {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.6;
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    white-space: pre;
+    margin: 0;
+}
+.doc .c { color: var(--code-dim); }
+.doc .k { color: var(--machine); }
+.doc .h { color: var(--human); }
+
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.table-wrap { overflow-x: auto; margin-top: 6px; }
+th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 600;
+    padding: 6px 14px 6px 0;
+    border-bottom: 1px solid var(--line);
+}
+td { padding: 8px 14px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+td code, .mono { font-family: var(--mono); font-size: 12.5px; }
+
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; flex: none; }
+.dot.q { background: var(--queue); }
+.dot.h { background: var(--human); }
+.dot.m { background: var(--machine); }
+.dot.n { background: var(--faint); }
+
+/* map slide */
+.map { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 10px; }
+@media (max-width: 760px) { .map { grid-template-columns: 1fr; } }
+.store {
+    border-radius: 10px;
+    padding: 16px 18px;
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--sc);
+    background: var(--surface);
+}
+.store .who {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--sc);
+    margin-bottom: 6px;
+}
+.store h2 { margin-bottom: 2px; }
+.store .loc { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.store ul { padding-left: 16px; font-size: 14px; }
+.store li { margin-bottom: 4px; }
+
+/* flow slide */
+.flow { display: flex; flex-direction: column; gap: 0; margin-top: 8px; }
+.step { display: grid; grid-template-columns: 30px 1fr; gap: 14px; }
+.step .rail { display: flex; flex-direction: column; align-items: center; }
+.step .node {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--nc); flex: none; margin-top: 5px;
+}
+.step .rail::after { content: ""; flex: 1; width: 2px; background: var(--line); margin-top: 4px; }
+.step:last-child .rail::after { display: none; }
+.step .body { padding-bottom: 16px; }
+.step h2 { font-size: 15px; margin-bottom: 2px; }
+.step h2 code { font-family: var(--mono); font-size: 12.5px; color: var(--nc); font-weight: 600; }
+.step p { font-size: 14px; color: var(--muted); margin: 0; }
+
+/* chrome */
+.chrome {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px clamp(20px, 5vw, 64px) 14px;
+    border-top: 1px solid var(--line);
+}
+.chrome .brand { font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: .08em; }
+.dots { display: flex; gap: 5px; flex: 1; justify-content: center; flex-wrap: wrap; }
+.dots button {
+    width: 10px; height: 10px; border-radius: 50%;
+    border: none; padding: 0; cursor: pointer;
+    background: var(--line);
+}
+.dots button[data-g="queue"] { background: color-mix(in srgb, var(--queue) 35%, var(--line)); }
+.dots button[data-g="human"] { background: color-mix(in srgb, var(--human) 35%, var(--line)); }
+.dots button[data-g="machine"] { background: color-mix(in srgb, var(--machine) 35%, var(--line)); }
+.dots button.on { background: var(--ink); transform: scale(1.25); }
+.dots button[data-g="queue"].on { background: var(--queue); }
+.dots button[data-g="human"].on { background: var(--human); }
+.dots button[data-g="machine"].on { background: var(--machine); }
+.dots button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.navbtns { display: flex; gap: 8px; align-items: center; }
+.count { font-family: var(--mono); font-size: 12px; color: var(--faint); min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
+.navbtns button {
+    font-family: var(--mono);
+    font-size: 14px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    width: 34px; height: 30px;
+    cursor: pointer;
+}
+.navbtns button:hover { background: var(--surface2); }
+.navbtns button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.kbd-hint { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+@media (max-width: 700px) { .kbd-hint, .brand { display: none; } }
+
+/* title slide */
+.title-slide .slide-inner { display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
+.title-slide h1 { font-size: clamp(40px, 7vw, 72px); }
+.pipeline {
+    font-family: var(--mono);
+    font-size: clamp(12px, 1.8vw, 15px);
+    color: var(--muted);
+    margin-top: 26px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 0;
+    align-items: center;
+}
+.pipeline b { color: var(--ink); font-weight: 600; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; }
+.pipeline span.arr { color: var(--faint); padding: 0 8px; }
+.pipeline b.dist { color: var(--machine); border-color: color-mix(in srgb, var(--machine) 40%, transparent); }
+
+.legend { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 30px; font-size: 13.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; }
+
+.razor {
+    border-left: 3px solid var(--acc);
+    background: var(--surface);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    font-size: clamp(17px, 2.4vw, 22px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    max-width: 60ch;
+    margin: 18px 0;
+    text-wrap: balance;
+}
+</style>
+</head>
+<body>
+
+<div class="deck">
+<div class="stage" id="stage">
+
+<!-- 1 · TITLE -->
+<section class="slide title-slide" data-g="intro">
+  <div class="slide-inner">
+    <div class="eyebrow">Explainer</div>
+    <h1>Nexus, explained by its assets</h1>
+    <p class="lede">Nexus is a lean, spec-driven delivery pipeline for the age of AI agents. It turns intent into validated, decision-grade specs — and leaves implementation to engineers. The pipeline is easiest to understand not by its commands, but by the small set of <strong>files it produces and consumes</strong>. This deck walks through each one: what it is, and why it earns its place.</p>
+    <div class="pipeline">
+      <b>setup</b><span class="arr">→</span><b>epic</b><span class="arr">→</span><b>hld</b><span class="arr">→</span><b>analyze</b><span class="arr">→</span><b>close</b><span class="arr">→</span><b class="dist">distill</b>
+    </div>
+    <div class="legend">
+      <span><i class="dot q"></i>Committed queue (per-epic)</span>
+      <span><i class="dot h"></i>Human-judgment surface</span>
+      <span><i class="dot m"></i>Machine knowledge surface</span>
+    </div>
+  </div>
+</section>
+
+<!-- 2 · PHILOSOPHY -->
+<section class="slide" data-g="intro">
+  <div class="slide-inner">
+    <div class="eyebrow">Why these assets, and no others</div>
+    <h1>Generation is cheap. Judgment is not.</h1>
+    <p class="lede">AI can produce planning artifacts endlessly. The failure mode Nexus guards against is <strong>speculative over-generation</strong>: sprawling design docs, per-task plans, and prose reports produced ahead of validated scope — burying the few decisions a human actually needs to make.</p>
+    <div class="razor">Every artifact must force a human decision, or it gets cut.</div>
+    <p>That razor shaped the whole asset set. There is no 16-section design document, no per-task plan, no status report. Each surviving asset exists because it either <em>forces a judgment</em> (approve this scope, resolve this question, accept this deviation) or <em>preserves a judgment</em> so it never has to be re-made.</p>
+    <p><small>Consequence: assets are small, few, and each has exactly one job.</small></p>
+  </div>
+</section>
+
+<!-- 3 · MAP -->
+<section class="slide" data-g="intro">
+  <div class="slide-inner">
+    <div class="eyebrow">The map</div>
+    <h1>Three surfaces, split by consumer</h1>
+    <p class="lede">Every asset lives on exactly one surface — and placement is decided by <strong>who consumes it</strong>, never by content type or by who wrote it. The split is physical, so a misplaced artifact is a visible review violation, not a judgment call.</p>
+    <div class="map">
+      <div class="store" style="--sc: var(--human)">
+        <div class="who">Consumer: a person</div>
+        <h2>Human surface</h2>
+        <div class="loc">docs/</div>
+        <ul>
+          <li>Product context</li>
+          <li>Feature homes &amp; backlogs</li>
+          <li>Delivery lessons</li>
+          <li>Concept atlas (derived)</li>
+        </ul>
+        <p style="font-size:13px; color:var(--muted); margin:8px 0 0;">Stays lean. Only committed judgment a later reader must see.</p>
+      </div>
+      <div class="store" style="--sc: var(--queue)">
+        <div class="who">Consumer: the next stage</div>
+        <h2>Committed queue</h2>
+        <div class="loc">.nexus/queue/&lt;epic&gt;/</div>
+        <ul>
+          <li>Epic</li>
+          <li>Decision record</li>
+          <li>Analyze receipt</li>
+          <li>Close record</li>
+        </ul>
+        <p style="font-size:13px; color:var(--muted); margin:8px 0 0;">Transient. One folder per epic; rides the branch, drained after merge.</p>
+      </div>
+      <div class="store" style="--sc: var(--machine)">
+        <div class="who">Consumer: tooling &amp; agents</div>
+        <h2>Machine surface</h2>
+        <div class="loc">.nexus/concepts/ + anchors/</div>
+        <ul>
+          <li>Concept pages</li>
+          <li>Code-anchor sidecars</li>
+        </ul>
+        <p style="font-size:13px; color:var(--muted); margin:8px 0 0;">Volume is legitimate here — distilled, grep-retrievable knowledge that informs future planning.</p>
+      </div>
+    </div>
+    <p style="margin-top:16px;"><small>A fourth, shadow surface — gitignored per-branch scratch — captures in-flight decisions and never survives the epic. More on it later.</small></p>
+  </div>
+</section>
+
+<!-- 4 · LIFECYCLE -->
+<section class="slide" data-g="intro">
+  <div class="slide-inner">
+    <div class="eyebrow">One epic&rsquo;s journey</div>
+    <h1>How the assets hand off to each other</h1>
+    <div class="flow">
+      <div class="step" style="--nc: var(--queue)">
+        <div class="rail"><div class="node"></div></div>
+        <div class="body"><h2>Intent becomes an <code>epic.md</code></h2><p>A capability description is shaped into a right-sized epic with user stories and acceptance criteria. On human approval, the epic and its story issues are filed on GitHub together.</p></div>
+      </div>
+      <div class="step" style="--nc: var(--queue)">
+        <div class="rail"><div class="node"></div></div>
+        <div class="body"><h2>Design judgment lands in <code>decision-record.md</code></h2><p>Key decisions, refuted alternatives, invariants, and blocking risks — the focused &ldquo;why&rdquo; beside the epic in its queue folder.</p></div>
+      </div>
+      <div class="step" style="--nc: var(--faint)">
+        <div class="rail"><div class="node"></div></div>
+        <div class="body"><h2>Engineers implement the stories</h2><p>Nexus plans and gates the work; it does not write the code. In-flight decisions optionally land in gitignored scratch.</p></div>
+      </div>
+      <div class="step" style="--nc: var(--queue)">
+        <div class="rail"><div class="node"></div></div>
+        <div class="body"><h2>Conformance is checked — <code>analyze-receipt.md</code></h2><p>The build is compared against acceptance criteria, success metrics, and the decision record&rsquo;s invariants. The receipt gates the close.</p></div>
+      </div>
+      <div class="step" style="--nc: var(--queue)">
+        <div class="rail"><div class="node"></div></div>
+        <div class="body"><h2>The epic closes with a <code>close-record.md</code></h2><p>Decisions made during implementation, plus rationale for each deviation the diff revealed. Deferred scope goes to the feature backlog; the process lesson gets its own file.</p></div>
+      </div>
+      <div class="step" style="--nc: var(--machine)">
+        <div class="rail"><div class="node"></div></div>
+        <div class="body"><h2>After merge, the queue entry is distilled</h2><p>A reviewed distillation-PR drains the folder into concept pages and refreshed code anchors, regenerates the atlas, then deletes the consumed entry. The judgment survives; the scaffolding doesn&rsquo;t.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 · QUEUE -->
+<section class="slide" data-s="queue" data-g="queue">
+  <div class="slide-inner">
+    <div class="eyebrow">Committed queue · container</div>
+    <h1>The committed queue</h1>
+    <span class="path">.nexus/queue/&lt;epic-slug&gt;-&lt;id&gt;/</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>One committed folder per epic, holding that epic&rsquo;s human planning artifacts: the epic, the decision record, the analyze receipt, the close record. It is the <strong>single handoff surface</strong> between the delivery pipeline and the knowledge store.</p>
+        <p>It also accepts <em>decision-only memos</em> — a single reviewed file recording an out-of-band decision with no code diff.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>Committed, not gitignored</strong> — rationale is visible from every checkout and travels to main with the PR. Durability is structural, not procedural.</li>
+          <li><strong>Presence is the only state.</strong> An unconsumed entry is one that still exists — no status files to read or forget.</li>
+          <li><strong>Abandoned epics never distill.</strong> They never reach the trunk, so bad plans can&rsquo;t contaminate the knowledge store.</li>
+          <li><strong>Everything in it passed a human gate.</strong> Ungated captures (e.g. plan-mode plans) never enter.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Filled by</dt><dd>each pipeline stage in turn</dd></div>
+      <div><dt>Drained by</dt><dd>the distiller, after merge</dd></div>
+      <div><dt>Lifespan</dt><dd>epic lifetime; deleted on drain, recoverable via git history</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 6 · EPIC -->
+<section class="slide" data-s="queue" data-g="queue">
+  <div class="slide-inner">
+    <div class="eyebrow">Committed queue · planning</div>
+    <h1>The epic</h1>
+    <span class="path">.nexus/queue/&lt;epic&gt;/epic.md</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>A right-sized unit of capability: a short description, measurable success metrics, and a handful of <strong>user stories</strong> with Given/When/Then acceptance criteria, sizes, an implementation sequence with dependencies — plus explicit assumptions and out-of-scope lines.</p>
+        <p>The <strong>story is the terminal planning unit</strong>: decomposition stops once a story is small enough to ship and verify on its own. Each story becomes one GitHub issue, filed as a sub-issue of the epic — there is no task layer beneath it.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>It forces the scope decision.</strong> Approval happens at a single decision-grade digest; only then are the epic and story issues filed, together.</li>
+          <li><strong>Acceptance criteria are the contract</strong> — the analyze stage later checks the build against exactly these lines.</li>
+          <li><strong>Oversized scope can&rsquo;t sneak through:</strong> it decomposes into backlog stubs instead of bloated epics.</li>
+          <li><strong>Complexity is declared</strong> (S/M/L/XL with named drivers), which tiers how much design rigor the next stage must bring.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd><code>/nxs.epic</code>, from natural-language intent</dd></div>
+      <div><dt>Consumed by</dt><dd>engineers, the analyze gate, the distiller</dd></div>
+      <div><dt>Forces</dt><dd>one human approval of scope + stories</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 7 · DECISION RECORD -->
+<section class="slide" data-s="queue" data-g="queue">
+  <div class="slide-inner">
+    <div class="eyebrow">Committed queue · design</div>
+    <h1>The decision record</h1>
+    <span class="path">.nexus/queue/&lt;epic&gt;/decision-record.md</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>The focused architectural &ldquo;why&rdquo; — it replaced a 16-section HLD. Key decisions each record <strong>what was decided, why, and the refuted <em>viable</em> alternative</strong> (never a strawman). Alongside: hard constraints and invariants the build must preserve, risks that block progress, and open clarifications only a human can resolve.</p>
+        <p>Sections are <strong>tiered by complexity</strong>: small epics need only Key Decisions and Invariants; large ones must fill everything.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>No file paths, type names, or API specs</strong> — those rot against source and belong to the engineer. What remains is exactly the part that can&rsquo;t be regenerated from code.</li>
+          <li><strong>Refuted alternatives prevent re-litigation.</strong> Six months later, nobody re-argues a decision whose losing option and trade-off are written down.</li>
+          <li><strong>Invariants become checkable:</strong> the analyze stage verifies the build preserved them.</li>
+          <li><strong>It is the distiller&rsquo;s primary rationale source</strong> — this prose becomes concept-page decision-log entries.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd><code>/nxs.hld</code>, reading the queued epic</dd></div>
+      <div><dt>Consumed by</dt><dd>engineers, the analyze gate, the distiller</dd></div>
+      <div><dt>Forces</dt><dd>resolution of open clarifications before build</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 8 · ANALYZE RECEIPT -->
+<section class="slide" data-s="queue" data-g="queue">
+  <div class="slide-inner">
+    <div class="eyebrow">Committed queue · conformance</div>
+    <h1>The analyze receipt</h1>
+    <span class="path">.nexus/queue/&lt;epic&gt;/analyze-receipt.md</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>The small proof that a conformance pass ran: after implementation, the code is checked against the epic&rsquo;s <strong>acceptance criteria</strong>, its <strong>success metrics</strong>, and the decision record&rsquo;s <strong>invariants</strong> — does the build do what the planning said? Findings are reported inline; the receipt records that the check happened, when, and at what commit.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>It gates the close.</strong> An epic cannot close without a present, current receipt — or an explicit, recorded human waiver.</li>
+          <li><strong>Staleness is detectable:</strong> a receipt tied to an old commit doesn&rsquo;t count, so the check can&rsquo;t silently drift from what ships.</li>
+          <li><strong>It keeps conformance honest</strong> without producing a prose report nobody reads — the receipt is evidence, not literature.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd><code>/nxs.analyze</code>, after stories are implemented</dd></div>
+      <div><dt>Consumed by</dt><dd>the close gate</dd></div>
+      <div><dt>Forces</dt><dd>fix, waive, or don&rsquo;t close</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 9 · CLOSE RECORD -->
+<section class="slide" data-s="queue" data-g="queue">
+  <div class="slide-inner">
+    <div class="eyebrow">Committed queue · closure</div>
+    <h1>The close record</h1>
+    <span class="path">.nexus/queue/&lt;epic&gt;/close-record.md</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>Human prose written at epic close: decisions made or changed <em>during</em> implementation, and — via a <strong>close-from-diff</strong> pass — rationale for each place the shipped diff deviates from the decision record. Matched work needs no entry.</p>
+        <p>It carries <strong>pointers, not payloads</strong>: deferred scope is appended to the feature backlog; the process lesson becomes its own file. The record just points at both.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>The diff does the remembering.</strong> The human isn&rsquo;t asked to &ldquo;write a summary&rdquo; — only to explain detected deviations. Targeted questions get honest answers.</li>
+          <li><strong>It captures the why that only exists at close:</strong> what changed mid-build and what debt was accepted — the distiller cannot derive this from the code diff alone.</li>
+          <li><strong>Nothing is duplicated:</strong> scope lives where it will be re-triaged, lessons live where they&rsquo;ll be read.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd><code>/nxs.close</code> (also closes the GitHub issues)</dd></div>
+      <div><dt>Consumed by</dt><dd>the distiller, as its close-time &ldquo;why&rdquo; source</dd></div>
+      <div><dt>Precondition</dt><dd>all story issues closed + current analyze receipt</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 10 · PRODUCT CONTEXT -->
+<section class="slide" data-s="human" data-g="human">
+  <div class="slide-inner">
+    <div class="eyebrow">Human surface · ground truth</div>
+    <h1>Product context</h1>
+    <span class="path">docs/product/context.md</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>The durable product ground truth, built once through a short strategic interview: vision, explicit <strong>anti-goals</strong>, product principles, personas with jobs-to-be-done and pain points, competitive landscape, a north-star metric, and impact/effort thresholds for scoring.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>Every epic inherits it.</strong> Personas and principles don&rsquo;t get re-invented per epic — stories reference this file instead of restating them.</li>
+          <li><strong>Anti-goals kill scope creep early:</strong> a written &ldquo;does not do X&rdquo; settles arguments before they start.</li>
+          <li><strong>Impact thresholds make prioritization arguable in numbers</strong>, not adjectives.</li>
+          <li>Inferences from the interview are marked as inferences — the file is honest about what&rsquo;s confirmed vs. assumed.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd>the setup interview (≤5 questions + PM inference)</dd></div>
+      <div><dt>Consumed by</dt><dd>epic generation, design, anyone new to the product</dd></div>
+      <div><dt>Lifespan</dt><dd>durable; refreshed when strategy shifts</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 11 · FEATURE HOME + BACKLOG -->
+<section class="slide" data-s="human" data-g="human">
+  <div class="slide-inner">
+    <div class="eyebrow">Human surface · scope ledger</div>
+    <h1>Feature homes &amp; backlogs</h1>
+    <span class="path">docs/features/&lt;feature&gt;/README.md · backlog.md</span>
+    <div class="cols">
+      <div>
+        <h2>What they are</h2>
+        <p>Each feature gets a tiny <strong>README</strong> — one paragraph plus links to its epics&rsquo; GitHub issues — and an <strong>append-only backlog</strong>: a re-triage queue of stubs, each with a goal, an estimate, dependencies, provenance, and candidate stories.</p>
+        <p>Two writers feed the backlog: epic planning (when oversized scope is decomposed into stubs) and epic close (deferred scope). One consumer reads it: the next epic, which promotes a stub into a full epic.</p>
+      </div>
+      <div>
+        <h2>Why they&rsquo;re useful</h2>
+        <ul>
+          <li><strong>Cut scope has somewhere honest to go.</strong> &ldquo;Not now&rdquo; doesn&rsquo;t mean &ldquo;lost&rdquo; — it means a stub with provenance, waiting for re-triage.</li>
+          <li><strong>Stubs are cheap by design:</strong> a goal and candidate stories, not a speculative full plan for work that may never be chosen.</li>
+          <li><strong><code>blocked_by</code> lines make sequencing visible</strong> before anyone commits to an epic.</li>
+          <li>Status is auditable: <span class="tag">proposed</span> → <span class="tag">promoted</span>, append-only, with dates.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Written by</dt><dd>epic decomposition &amp; close-time deferral</dd></div>
+      <div><dt>Consumed by</dt><dd>the next epic planning pass</dd></div>
+      <div><dt>Forces</dt><dd>a deliberate promote/defer decision per stub</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 12 · LESSONS -->
+<section class="slide" data-s="human" data-g="human">
+  <div class="slide-inner">
+    <div class="eyebrow">Human surface · process memory</div>
+    <h1>Delivery lessons</h1>
+    <span class="path">docs/delivery/lessons/&lt;date&gt;-&lt;slug&gt;.md</span>
+    <div class="cols">
+      <div>
+        <h2>What they are</h2>
+        <p>One short file per lesson, captured at epic close: <strong>what happened, what we learned, what to change next time</strong>, with the source epic in frontmatter. These are process learnings — how the work went — deliberately separate from the system knowledge that flows into concept pages.</p>
+        <p style="font-size:14px; color:var(--muted);">Real examples from this repo: <em>&ldquo;verify mockup assumptions with a diff&rdquo;</em>, <em>&ldquo;isolate the hard concern first&rdquo;</em>, <em>&ldquo;front-load the Nx target risk.&rdquo;</em></p>
+      </div>
+      <div>
+        <h2>Why they&rsquo;re useful</h2>
+        <ul>
+          <li><strong>One lesson per file keeps each one findable and quotable</strong> — no scrolling a mega-retro document.</li>
+          <li><strong>The close stage extracts it while memory is fresh</strong>, instead of relying on a quarterly retro reconstructing events.</li>
+          <li><strong>Short and actionable by rule:</strong> a lesson nobody reads costs context for nothing.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd>epic close (or by hand, same format)</dd></div>
+      <div><dt>Consumed by</dt><dd>the team, before similar work</dd></div>
+      <div><dt>Lifespan</dt><dd>permanent</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 13 · ATLAS -->
+<section class="slide" data-s="human" data-g="human">
+  <div class="slide-inner">
+    <div class="eyebrow">Human surface · derived</div>
+    <h1>The concept atlas</h1>
+    <span class="path">docs/concepts.md</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>A generated orientation map of the machine-side concept store: one line per concept, grouped by area, each linking to its full page. It is <strong>machine-written but human-consumed</strong> — which, under the consumer rule, is exactly why it lives on the human surface, with its derived ownership declared in a header comment.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>It&rsquo;s the human on-ramp to the concept store</strong> — you skim one page instead of listing a directory of slugs.</li>
+          <li><strong>Never hand-edited, never stale by accident:</strong> regenerated on every distillation drain, with a checker that verifies atlas ↔ store sync.</li>
+          <li>It demonstrates the placement rule: <em>authorship never decides where an asset lives; the consumer does.</em></li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd>generator script, on every drain</dd></div>
+      <div><dt>Consumed by</dt><dd>humans orienting in the knowledge store</dd></div>
+      <div><dt>Hand-edits</dt><dd>never — derived, rebuilt not fixed</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 14 · CONCEPT PAGES -->
+<section class="slide" data-s="machine" data-g="machine">
+  <div class="slide-inner">
+    <div class="eyebrow">Machine surface · knowledge</div>
+    <h1>Concept pages</h1>
+    <span class="path">.nexus/concepts/&lt;slug&gt;.md</span>
+    <div class="cols">
+      <div>
+        <h2>What they are</h2>
+        <p>One distilled concept per file — current behavior, hard invariants, integration points, and an <strong>append-only decision log</strong> where every entry carries its provenance (the issue it came from), the why, and the refuted alternative. Bodies are capped at ~400 words; <strong>code, file paths, and type names are banned</strong> so pages describe behavior, not implementation.</p>
+        <p>Retrieval is <strong>grep-native</strong>: no graph engine, no embeddings — just readable markdown searched by slug, alias, or phrase. The <code>touches:</code> field answers &ldquo;what&rsquo;s the blast radius of changing X?&rdquo; with a one-line search.</p>
+      </div>
+      <div>
+        <h2>Why they&rsquo;re useful</h2>
+        <ul>
+          <li><strong>They hold the judgment code can&rsquo;t express</strong> — why the system is this way — so they&rsquo;re git-tracked and reviewed like source, not regenerated.</li>
+          <li><strong>Future planning reads them instead of re-deriving system state</strong>, so decision records stay small.</li>
+          <li><strong>The append-only log means history is never rewritten</strong> — a reversed decision gets a new entry, keeping the reasoning chain intact.</li>
+          <li><strong>Single producer:</strong> pages change only through a reviewed distillation-PR — the store can&rsquo;t drift via casual edits.</li>
+        </ul>
+      </div>
+    </div>
+    <pre class="doc"><span class="c"># frontmatter of a real page</span>
+<span class="k">title:</span> "Command Input"
+<span class="k">aliases:</span> ["editable command prompt", "terminal input line", …]
+<span class="k">touches:</span> ["markdown-editor", "overlay-coordination", "application-shell"]
+<span class="k">last_updated_by:</span> <span class="h">"#25"</span>   <span class="c">← provenance: the epic that last changed it</span>
+<span class="k">verification:</span> verified</pre>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd>the distiller, via reviewed PR only</dd></div>
+      <div><dt>Consumed by</dt><dd>agents during planning &amp; design; ramp-up</dd></div>
+      <div><dt>Retrieval</dt><dd><code>rg</code> over slugs, aliases, touches</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 15 · ANCHORS -->
+<section class="slide" data-s="machine" data-g="machine">
+  <div class="slide-inner">
+    <div class="eyebrow">Machine surface · derived</div>
+    <h1>Code anchors</h1>
+    <span class="path">.nexus/anchors/&lt;slug&gt;.md</span>
+    <div class="cols">
+      <div>
+        <h2>What they are</h2>
+        <p>A derived sidecar per concept: the list of source files that implement it, each with a one-line role — <strong>SHA-stamped</strong> with the commit they were generated from. Regenerated by the distiller on every drain that touches the concept; <strong>never hand-edited</strong> (stale anchors are rebuilt, not fixed).</p>
+      </div>
+      <div>
+        <h2>Why they&rsquo;re useful</h2>
+        <ul>
+          <li><strong>They resolve a real tension:</strong> concept pages ban file paths because paths rot — but an agent still needs the concept → code hop. Anchors carry the rot-prone half in a disposable, regenerable file.</li>
+          <li><strong>The SHA stamp makes staleness detectable</strong> instead of silent: you know exactly which commit the map reflects.</li>
+          <li><strong>Judgment and mechanics age differently</strong> — splitting the durable why (page) from the perishable where (anchor) lets each be maintained on its own schedule.</li>
+        </ul>
+      </div>
+    </div>
+    <pre class="doc"><span class="k">concept:</span> command-input
+<span class="k">source_sha:</span> 7425293…   <span class="c">← the commit this map reflects</span>
+<span class="c">---</span>
+- <span class="h">apps/prime/app/terminal/terminal-region.tsx</span> — mounts the editor
+  as the live input line, outside the recede filter …</pre>
+    <dl class="meta">
+      <div><dt>Produced by</dt><dd>the distiller, on every touching drain</dd></div>
+      <div><dt>Consumed by</dt><dd>agents hopping from concept to source</dd></div>
+      <div><dt>Hand-edits</dt><dd>never — rebuilt, not fixed</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 16 · SCRATCH -->
+<section class="slide" data-s="machine" data-g="machine">
+  <div class="slide-inner">
+    <div class="eyebrow">Shadow surface · ungated</div>
+    <h1>Scratch capture</h1>
+    <span class="path">.nexus/plans/&lt;branch&gt;/decisions.md &nbsp;·&nbsp; gitignored</span>
+    <div class="cols">
+      <div>
+        <h2>What it is</h2>
+        <p>An opt-in, version-ignored, per-branch scratch file for <strong>in-flight decision stubs</strong> — written at the moment a non-obvious implementation choice is made: the choice, one sentence of why, and the refuted alternative. Nothing more.</p>
+        <p>At close, the stubs are mined as hints for the close record, then the directory is deleted. Scratch content <strong>never enters the queue directly</strong> — only close-gated prose crosses over.</p>
+      </div>
+      <div>
+        <h2>Why it&rsquo;s useful</h2>
+        <ul>
+          <li><strong>It saves what would otherwise evaporate:</strong> mid-build rationale is far higher-fidelity in the moment than reconstructed from memory weeks later at close.</li>
+          <li><strong>Ungated by design, so it&rsquo;s worthless as record but cheap as capture</strong> — the gate is applied later, by a human, at close.</li>
+          <li><strong>The gitignore is a consent boundary:</strong> half-formed thoughts never get silently committed on the author&rsquo;s behalf.</li>
+        </ul>
+      </div>
+    </div>
+    <dl class="meta">
+      <div><dt>Written by</dt><dd>whoever makes the choice, as it happens</dd></div>
+      <div><dt>Consumed by</dt><dd>the close pass, as hints</dd></div>
+      <div><dt>Lifespan</dt><dd>one branch; deleted after the close checkpoint</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- 17 · RECAP -->
+<section class="slide" data-g="intro">
+  <div class="slide-inner">
+    <div class="eyebrow">Recap</div>
+    <h1>Every asset, one line each</h1>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Asset</th><th>Lives at</th><th>Its one job</th><th>Lifespan</th></tr></thead>
+        <tbody>
+          <tr><td><i class="dot q"></i><strong>Epic</strong></td><td><code>.nexus/queue/…/epic.md</code></td><td>Force the scope decision; pin stories &amp; acceptance criteria</td><td>until drained</td></tr>
+          <tr><td><i class="dot q"></i><strong>Decision record</strong></td><td><code>…/decision-record.md</code></td><td>Preserve the design why: decisions, refuted alternatives, invariants</td><td>until drained</td></tr>
+          <tr><td><i class="dot q"></i><strong>Analyze receipt</strong></td><td><code>…/analyze-receipt.md</code></td><td>Prove the build matches the plan; gate the close</td><td>until drained</td></tr>
+          <tr><td><i class="dot q"></i><strong>Close record</strong></td><td><code>…/close-record.md</code></td><td>Explain deviations &amp; implementation-time decisions</td><td>until drained</td></tr>
+          <tr><td><i class="dot h"></i><strong>Product context</strong></td><td><code>docs/product/context.md</code></td><td>Ground every epic in shared vision, personas, principles</td><td>durable</td></tr>
+          <tr><td><i class="dot h"></i><strong>Feature backlog</strong></td><td><code>docs/features/…/backlog.md</code></td><td>Hold cut &amp; deferred scope for honest re-triage</td><td>durable, append-only</td></tr>
+          <tr><td><i class="dot h"></i><strong>Delivery lesson</strong></td><td><code>docs/delivery/lessons/…</code></td><td>Keep one process learning findable</td><td>durable</td></tr>
+          <tr><td><i class="dot h"></i><strong>Concept atlas</strong></td><td><code>docs/concepts.md</code></td><td>Give humans a one-page map of the store</td><td>derived, regenerated</td></tr>
+          <tr><td><i class="dot m"></i><strong>Concept page</strong></td><td><code>.nexus/concepts/&lt;slug&gt;.md</code></td><td>Hold distilled behavior, invariants &amp; the append-only why</td><td>durable, PR-gated</td></tr>
+          <tr><td><i class="dot m"></i><strong>Code anchor</strong></td><td><code>.nexus/anchors/&lt;slug&gt;.md</code></td><td>Map concept → source, SHA-stamped</td><td>derived, regenerated</td></tr>
+          <tr><td><i class="dot n"></i><strong>Scratch capture</strong></td><td><code>.nexus/plans/&lt;branch&gt;/</code></td><td>Catch in-flight rationale before it evaporates</td><td>one branch, then deleted</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:18px;"><strong>The through-line:</strong> generation is cheap, judgment is not. Each asset either forces a human decision at the right moment, or preserves one so it compounds — and everything that is neither gets deleted, regenerated, or was never written at all.</p>
+  </div>
+</section>
+
+</div>
+
+<div class="chrome">
+  <span class="brand">NEXUS · ASSETS</span>
+  <div class="dots" id="dots" role="tablist" aria-label="Slides"></div>
+  <span class="kbd-hint">← → to navigate</span>
+  <div class="navbtns">
+    <button id="prev" aria-label="Previous slide">←</button>
+    <button id="next" aria-label="Next slide">→</button>
+    <span class="count" id="count"></span>
+  </div>
+</div>
+</div>
+
+<script>
+(function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+    var dotsEl = document.getElementById("dots");
+    var countEl = document.getElementById("count");
+    var cur = 0;
+
+    slides.forEach(function (s, i) {
+        var b = document.createElement("button");
+        b.setAttribute("data-g", s.getAttribute("data-g") || "intro");
+        b.setAttribute("aria-label", "Slide " + (i + 1));
+        b.addEventListener("click", function () { go(i); });
+        dotsEl.appendChild(b);
+    });
+    var dots = Array.prototype.slice.call(dotsEl.children);
+
+    function go(i) {
+        cur = Math.max(0, Math.min(slides.length - 1, i));
+        slides.forEach(function (s, j) { s.classList.toggle("active", j === cur); });
+        dots.forEach(function (d, j) { d.classList.toggle("on", j === cur); });
+        countEl.textContent = (cur + 1) + " / " + slides.length;
+        if (history.replaceState) history.replaceState(null, "", "#" + (cur + 1));
+        slides[cur].scrollTop = 0;
+    }
+
+    document.getElementById("prev").addEventListener("click", function () { go(cur - 1); });
+    document.getElementById("next").addEventListener("click", function () { go(cur + 1); });
+
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); go(cur + 1); }
+        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); go(cur - 1); }
+        else if (e.key === "Home") { e.preventDefault(); go(0); }
+        else if (e.key === "End") { e.preventDefault(); go(slides.length - 1); }
+    });
+
+    var fromHash = parseInt((location.hash || "").slice(1), 10);
+    go(isNaN(fromHash) ? 0 : fromHash - 1);
+})();
+</script>
+</body>
+</html>
