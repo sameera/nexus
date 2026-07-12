@@ -16,6 +16,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
+import { isBareSegment } from "./bare-name.js";
 import {
     type Diagnostic,
     type DiagnosticProblem,
@@ -104,6 +105,13 @@ export function parseAndValidatePointer(raw: string, file: string): PointerResul
     const hubName = stringField(hub.name);
     if (!hubName) {
         return fail("missing-field", "hub", `${name}: 'hub' is missing required field 'name'`);
+    }
+    if (!isBareSegment(hubName)) {
+        return fail(
+            "unsafe-name",
+            "hub",
+            `${name}: hub name '${hubName}' must be a bare sibling directory name (no path separators or '..'); it locates the hub as a sibling of this checkout, never an arbitrary path`,
+        );
     }
     const hubRemote = stringField(hub.remote);
     if (!hubRemote) {

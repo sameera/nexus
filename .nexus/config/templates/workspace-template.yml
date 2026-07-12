@@ -24,6 +24,9 @@
 #     - Required on `hub`: `name`, `remote`. Required on each member: `name`, `remote`.
 #     - No other keys are allowed on `hub` or a member (an unknown key is a reported error).
 #     - Member names must be unique, and no two members may point at the same remote.
+#     - Each `name` is a BARE sibling directory name: no path separators and not '.' or '..'
+#       (a name is joined onto the shared parent to locate a checkout, so a path would be a
+#       reported error, never followed).
 
 hub:
   name: docs-hub

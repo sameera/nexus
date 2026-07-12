@@ -213,6 +213,28 @@ describe("parseAndValidateManifest — structural defects (AC2)", () => {
         expect(err.problem).toBe("wrong-type");
         expect(err.message).toContain("workspace.yml");
     });
+
+    it("rejects a member name that traverses out of the shared parent", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: r\nmembers:\n  - name: ../evil\n    remote: git@github.com:acme/evil.git\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("unsafe-name");
+        expect(err.entry).toContain("members[0]");
+        expect(err.message).toContain("../evil");
+    });
+
+    it("rejects a member name containing a path separator", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: r\nmembers:\n  - name: nested/app\n    remote: git@github.com:acme/app.git\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("unsafe-name");
+        expect(err.message).toContain("nested/app");
+    });
+
+    it("rejects a hub name that is not a bare directory segment", () => {
+        const raw = `hub:\n  name: ../../hub\n  remote: r\nmembers: []\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("unsafe-name");
+        expect(err.entry).toContain("hub");
+    });
 });
 
 // --- loadWorkspaceFromHub: the filesystem wrapper ---------------------------
