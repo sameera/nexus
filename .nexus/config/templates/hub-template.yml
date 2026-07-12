@@ -22,7 +22,9 @@
 # RULES
 #     - Required on `hub`: `name`, `remote`. No other key is allowed (an unknown key — including
 #       a `members:` list — is a reported error: a pointer never redeclares membership).
-#     - `name` must match the hub's checkout directory name under the shared parent.
+#     - `name` must match the hub's checkout directory name under the shared parent, and must be
+#       a BARE directory name: no path separators and not '.' or '..' (it locates the hub as a
+#       sibling, never an arbitrary path — a path is a reported error).
 #     - Resolution is read-only: if the hub is not checked out at the expected sibling, that is
 #       reported — it is never cloned or fetched for you.
 

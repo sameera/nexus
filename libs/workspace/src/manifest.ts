@@ -15,6 +15,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
+import { isBareSegment } from "./bare-name.js";
 import { normalizeRemote } from "./remote.js";
 
 export type DiagnosticProblem =
@@ -23,6 +24,7 @@ export type DiagnosticProblem =
     | "missing-field"
     | "unknown-key"
     | "duplicate-member"
+    | "unsafe-name"
     | "wrong-type"
     // Member-side resolution (see ./pointer):
     | "missing-pointer"
@@ -138,6 +140,13 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
     if (!hubName) {
         return fail("missing-field", "hub", `${name}: 'hub' is missing required field 'name'`);
     }
+    if (!isBareSegment(hubName)) {
+        return fail(
+            "unsafe-name",
+            "hub",
+            `${name}: hub name '${hubName}' must be a bare directory name (no path separators or '..')`,
+        );
+    }
     const hubRemote = stringField(hub.remote);
     if (!hubRemote) {
         return fail("missing-field", "hub", `${name}: 'hub' is missing required field 'remote'`);
@@ -168,6 +177,13 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
         const memberName = stringField(member.name);
         if (!memberName) {
             return fail("missing-field", entry, `${name}: ${entry} is missing required field 'name'`);
+        }
+        if (!isBareSegment(memberName)) {
+            return fail(
+                "unsafe-name",
+                entry,
+                `${name}: ${entry} name '${memberName}' must be a bare sibling directory name (no path separators or '..')`,
+            );
         }
         const label = `${entry} (${memberName})`;
         const memberRemote = stringField(member.remote);

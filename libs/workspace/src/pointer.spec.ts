@@ -143,6 +143,19 @@ describe("parseAndValidatePointer — structural defects", () => {
         expect(err.problem).toBe("wrong-type");
         expect(err.message).toContain("hub.yml");
     });
+
+    it("rejects a hub name that traverses out of the shared parent", () => {
+        const raw = `hub:\n  name: ../../elsewhere\n  remote: git@github.com:acme/docs-hub.git\n`;
+        const err = asPointerError(parseAndValidatePointer(raw, PFILE));
+        expect(err.problem).toBe("unsafe-name");
+        expect(err.message).toContain("../../elsewhere");
+    });
+
+    it("rejects a hub name containing a path separator", () => {
+        const raw = `hub:\n  name: a/b\n  remote: git@github.com:acme/docs-hub.git\n`;
+        const err = asPointerError(parseAndValidatePointer(raw, PFILE));
+        expect(err.problem).toBe("unsafe-name");
+    });
 });
 
 // --- loadWorkspaceFromMember: the filesystem resolver -----------------------
@@ -292,5 +305,18 @@ describe("loadWorkspaceFromMember", () => {
 
         const err = asError(loadWorkspaceFromMember(member));
         expect(err.problem).toBe("malformed-yaml");
+    });
+
+    it("refuses to redirect resolution outside the parent via a traversal hub name", () => {
+        const parent = makeParent();
+        writeManifest(parent, "docs-hub", MANIFEST);
+        const member = writeMember(
+            parent,
+            "web-app",
+            `hub:\n  name: ../../etc\n  remote: git@github.com:acme/docs-hub.git\n`,
+        );
+
+        const err = asError(loadWorkspaceFromMember(member));
+        expect(err.problem).toBe("unsafe-name");
     });
 });
