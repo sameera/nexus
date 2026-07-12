@@ -19,6 +19,16 @@
       "import": "./src/pointer.ts",
       "default": "./src/pointer.ts"
     },
+    "./resolve": {
+      "types": "./src/resolve.ts",
+      "import": "./src/resolve.ts",
+      "default": "./src/resolve.ts"
+    },
+    "./status": {
+      "types": "./src/status.ts",
+      "import": "./src/status.ts",
+      "default": "./src/status.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {
