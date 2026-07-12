@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 26 active concepts. Each links to its full page
+Orientation map of the concept store — 29 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -39,3 +39,9 @@ Orientation map of the concept store — 26 active concepts. Each links to its f
 - [Markdown Editor](../.nexus/concepts/markdown-editor.md) — The Markdown Editor is Prime's shared in-repo editing library: a rich Markdown-editing surface plus a distinct plain-text, submit-capable mode built for command entry.
 - [Same-Origin Shell Guard](../.nexus/concepts/same-origin-shell-guard.md) — The same-origin shell guard is the sole security boundary of the PTY bridge's unauthenticated shell: it rejects any WebSocket handshake whose stated origin does not match the host the request itself was addressed to, before any shell is spawned.
 - [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root.
+
+## Workspace Resolution
+
+- [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product a declared, discoverable thing: one manifest committed in the hub repo names the hub and its members, and a thin pointer committed in each member names only the hub.
+- [Bare-Name Guard](../.nexus/concepts/bare-name-guard.md) — The bare-name guard is the security boundary of workspace resolution: a hub or member name declared in a workspace artifact may only be a bare directory segment, never a path.
+- [Remote Identity Normalization](../.nexus/concepts/remote-identity-normalization.md) — A single git remote can be written many equivalent ways — as a secure-shell address or a web address, with or without a trailing suffix, with an upper- or lower-cased host.
