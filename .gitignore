@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 out-tsc/
+test-output/
 .react-router/
 .nx/installation
 .nx/cache
