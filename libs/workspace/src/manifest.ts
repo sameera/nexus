@@ -23,7 +23,12 @@ export type DiagnosticProblem =
     | "missing-field"
     | "unknown-key"
     | "duplicate-member"
-    | "wrong-type";
+    | "wrong-type"
+    // Member-side resolution (see ./pointer):
+    | "missing-pointer"
+    | "missing-hub-checkout"
+    | "hub-remote-mismatch"
+    | "undeclared-member";
 
 export interface Diagnostic {
     /** Path to the workspace.yml that was read. */

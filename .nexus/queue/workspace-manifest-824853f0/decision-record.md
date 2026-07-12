@@ -47,6 +47,18 @@ context themselves.
   by scanning siblings for a manifest. Viable, and it removes the pointer file — but a member checked
   out beside several sibling repos has no deterministic way to know which sibling is the hub, and
   scanning invites picking the wrong one silently.
+- **Refuted alternative:** A "nexus project" file at the shared parent folder that names one child as
+  the hub and treats every other child as an implicit member — the workspace-root pattern familiar
+  from pnpm/Cargo/`go.work`. Natural to developers, but those tools all put the root file inside the
+  one committed repo whose subdirectories the members are; here the hub and members are independent
+  repos and the parent is per-engineer scratch, not version-controlled. So the project file has no
+  repo to live in — it becomes uncommitted per-engineer config a fresh clone never sees — and
+  implicit "every other child is a member" makes the roster whatever happens to be checked out:
+  non-deterministic across machines and, fatally, unable to report a member that was never cloned
+  (the exact missing-checkout diagnostic this epic exists to deliver). The committable analogues that
+  do reference independent siblings (`.code-workspace`, `go.work`) are conventionally left uncommitted
+  for precisely this reason. A committed meta-repo at the parent (e.g. git submodules) would restore
+  committability but is a larger topology change, deferred as out of scope for v1.
 
 ### Format and home: YAML, committed in the repo's existing Nexus config area
 
@@ -58,6 +70,17 @@ context themselves.
 - **Refuted alternative:** A new dotfile at each repo root in JSON. Viable and conventional
   elsewhere, but it splits Nexus config across two formats and two locations, and JSON forfeits the
   comments a lead uses to annotate a hand-authored manifest.
+- **Refuted alternative:** Fold the workspace declaration into a `workspace:`/`hub:` section of the
+  existing `.nexus/config/settings.yml` rather than a dedicated file. Viable and it adds no new file,
+  but three things favor a separate artifact. (1) Structure: `settings.yml` is read today as a
+  shallow key→value store by a hand-rolled two-level parser, whereas the manifest is a list of member
+  mappings needing a real YAML parser — folding it in would force upgrading every existing settings
+  reader, working against the zero-regression gate. (2) Validation: the manifest rejects unknown
+  keys to catch typos in a hand-authored file, which cannot apply to `settings.yml` since it
+  legitimately carries unrelated keys (`cross-ref`, `github`, labels). (3) Role legibility: the hub's
+  manifest and a member's pointer are distinct artifacts, so keeping them as separate named files
+  lets a checkout's role — and single-repo vs. workspace mode — be told by which file is present,
+  and leaves every existing settings read untouched.
 
 ### Resolution is deterministic code, and it is the single producer of workspace context
 

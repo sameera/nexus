@@ -1,0 +1,31 @@
+# HUB POINTER TEMPLATE — how a MEMBER repo locates its workspace hub.
+#
+# WHAT THIS IS
+#     A thin pointer, authored and committed in each MEMBER repo at `.nexus/config/hub.yml`
+#     (NOT here — copy this template there and fill it in). It names ONLY the hub: enough to
+#     locate it, nothing more. The hub's manifest (`workspace.yml` in the hub) remains the
+#     single source of truth for the member set; this pointer never declares membership.
+#     It is shared workspace truth, not per-engineer configuration, so it is committed,
+#     never gitignored.
+#
+# LAYOUT (v1)
+#     The hub and every member checkout are siblings under one shared parent folder:
+#         <parent>/
+#           docs-hub/     <- the hub, found by the `name` below as a sibling of THIS repo
+#           web-app/      <- this member repo (holds this hub.yml)
+#           api/          <- another member repo (holds its own hub.yml)
+#     `name` is the hub's expected sibling DIRECTORY name; `remote` is the hub's git remote
+#     identity, used to verify the sibling found really is the intended hub. A remote may be
+#     written SSH or HTTPS, with or without a trailing `.git` — they are compared by host +
+#     path, so the spelling you use here is up to you.
+#
+# RULES
+#     - Required on `hub`: `name`, `remote`. No other key is allowed (an unknown key — including
+#       a `members:` list — is a reported error: a pointer never redeclares membership).
+#     - `name` must match the hub's checkout directory name under the shared parent.
+#     - Resolution is read-only: if the hub is not checked out at the expected sibling, that is
+#       reported — it is never cloned or fetched for you.
+
+hub:
+  name: docs-hub
+  remote: git@github.com:your-org/docs-hub.git
