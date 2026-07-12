@@ -42,14 +42,20 @@ def _parse_simple_yaml(content: str) -> dict[str, dict[str, str]]:
 
 
 def read_delivery_config(project_root: Path) -> dict[str, str]:
-    """Read delivery config from config.yml (preferred) or config.json (fallback).
+    """Read delivery config from settings.yml (canonical), falling back to the legacy
+    config.yml / config.json names.
 
     Returns a normalized dict with keys: docRoot, project, epicType, issuesRepo.
     """
     delivery_dir = project_root / ".nexus" / "config"
 
-    yml_path = delivery_dir / "config.yml"
-    if yml_path.exists():
+    # settings.yml is the committed config file this repo actually writes. config.yml is
+    # kept only as a legacy name: prior versions read config.yml (which never existed), so
+    # any github: config placed in settings.yml was silently dropped.
+    for yml_name in ("settings.yml", "config.yml"):
+        yml_path = delivery_dir / yml_name
+        if not yml_path.exists():
+            continue
         try:
             with open(yml_path, encoding="utf-8") as f:
                 raw = _parse_simple_yaml(f.read())
@@ -464,9 +470,20 @@ def get_repo_project_id() -> str | None:
     Returns:
         The project node ID (e.g., "PVT_kwHOABC123") or None if no project found.
     """
+    result = run_command(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])
+    if result.returncode != 0:
+        warn(f"Could not determine repository name: {result.stderr}")
+        return None
+
+    name_with_owner = result.stdout.strip()
+    if "/" not in name_with_owner:
+        warn(f"Unexpected repository name format: {name_with_owner}")
+        return None
+    owner, repo = name_with_owner.split("/", 1)
+
     query = """
-    query {
-        repository(owner: "{owner}", name: "{repo}") {
+    query($owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
             projectsV2(first: 1) {
                 nodes {
                     id
@@ -476,17 +493,23 @@ def get_repo_project_id() -> str | None:
         }
     }
     """
-    
-    cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
-    
+
+    cmd = [
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-f", f"repo={repo}",
+    ]
+
     result = run_command(cmd)
     if result.returncode != 0:
         warn(f"Error fetching repository projects: {result.stderr}")
         return None
-    
+
     try:
         data = json.loads(result.stdout)
-        nodes = data.get("data", {}).get("repository", {}).get("projectsV2", {}).get("nodes", [])
+        repository = (data.get("data") or {}).get("repository") or {}
+        nodes = (repository.get("projectsV2") or {}).get("nodes") or []
         if nodes:
             project = nodes[0]
             print(f"📊 Found project: {project.get('title', 'Unknown')}")
@@ -594,12 +617,10 @@ def get_repo_issue_type_id(type_name: str) -> str | None:
 
     try:
         data = json.loads(result.stdout)
-        nodes = (
-            data.get("data", {})
-                .get("repository", {})
-                .get("issueTypes", {})
-                .get("nodes", [])
-        )
+        # Repos without the issue-types feature return "issueTypes": null —
+        # .get(key, default) does not apply the default to an explicit null.
+        repository = (data.get("data") or {}).get("repository") or {}
+        nodes = (repository.get("issueTypes") or {}).get("nodes") or []
         for node in nodes:
             if node.get("name", "").lower() == type_name.lower():
                 return node.get("id")
@@ -818,6 +839,12 @@ def main() -> int:
             epic_title, temp_file, fallback_label=fallback_label, repo=issues_repo
         )
 
+        # Record the link immediately — the project/type steps below are
+        # best-effort decoration and must not be able to lose the issue number.
+        print("📝 Updating epic frontmatter with link...")
+        updated_content = update_frontmatter_with_link(content, issue_num)
+        epic_file.write_text(updated_content, encoding="utf-8")
+
         # Fetch the issue node ID once — needed for both project and type operations
         issue_id: str | None = None
         if project_id or issue_type:
@@ -835,19 +862,24 @@ def main() -> int:
         if issue_type:
             print(f"🏷️  Setting issue type: {issue_type}...")
             type_id = get_repo_issue_type_id(issue_type)
-            if type_id:
-                if issue_id and set_issue_type(issue_id, type_id):
-                    print(f"🏷️  Issue type set: {issue_type}")
-                else:
-                    warn(f"Failed to set issue type '{issue_type}' on issue #{issue_num}")
+            type_set = bool(type_id and issue_id and set_issue_type(issue_id, type_id))
+            if type_set:
+                print(f"🏷️  Issue type set: {issue_type}")
             else:
-                warn(f"Issue type '{issue_type}' not found in repository — type not set")
-
-        print("📝 Updating epic frontmatter with link...")
-
-        # Update frontmatter with link
-        updated_content = update_frontmatter_with_link(content, issue_num)
-        epic_file.write_text(updated_content, encoding="utf-8")
+                if type_id:
+                    warn(f"Failed to set issue type '{issue_type}' on issue #{issue_num}")
+                else:
+                    warn(f"Issue type '{issue_type}' not found in repository — type not set")
+                # Without a type the issue would carry no classification at all —
+                # fall back to the type name as a label.
+                label = issue_type.lower()
+                label_cmd = ["gh", "issue", "edit", issue_num, "--add-label", label]
+                if issues_repo:
+                    label_cmd.extend(["-R", issues_repo])
+                if run_command(label_cmd).returncode == 0:
+                    print(f"🏷️  Fallback label added: {label}")
+                else:
+                    warn(f"Could not add fallback label '{label}' to issue #{issue_num}")
 
         # Success output
         print()

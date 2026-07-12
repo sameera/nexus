@@ -1,0 +1,36 @@
+# WORKSPACE MANIFEST TEMPLATE — the shape of a hub's workspace declaration.
+#
+# WHAT THIS IS
+#     The single source of truth for a multi-repo workspace's shape. It is authored and
+#     committed by the delivery lead in the HUB repo at `.nexus/config/workspace.yml`
+#     (NOT here — copy this template there and fill it in). It is shared workspace truth,
+#     not per-engineer configuration, so it is committed, never gitignored.
+#
+# LAYOUT (v1)
+#     The hub and every member checkout are siblings under one shared parent folder:
+#         <parent>/
+#           docs-hub/     <- the hub (holds this manifest)
+#           web-app/      <- a member checkout, named by its `name` below
+#           api/          <- a member checkout
+#     `name` is the expected sibling DIRECTORY name; `remote` is the git remote identity.
+#     A remote may be written SSH or HTTPS, with or without a trailing `.git` — they are
+#     compared by host + path, so the spelling you use here is up to you.
+#
+# ADDING A MEMBER
+#     Add one entry under `members:` here, then commit a hub pointer in the new member repo
+#     (that is the member's own one-time change). No other file changes.
+#
+# RULES
+#     - Required on `hub`: `name`, `remote`. Required on each member: `name`, `remote`.
+#     - No other keys are allowed on `hub` or a member (an unknown key is a reported error).
+#     - Member names must be unique, and no two members may point at the same remote.
+
+hub:
+  name: docs-hub
+  remote: git@github.com:your-org/docs-hub.git
+
+members:
+  - name: web-app
+    remote: git@github.com:your-org/web-app.git
+  - name: api
+    remote: https://github.com/your-org/api.git

@@ -1,0 +1,12 @@
+---
+feature: "Multi-Repo Workspaces"
+---
+
+# Multi-Repo Workspaces
+
+Run the Nexus pipeline across a multi-repo product: code repos plan and close locally while a
+hub docs repo holds the concept store and drains the queue.
+
+## Epics
+
+- **Workspace Manifest & Resolution** — [#38](https://github.com/sameera/nexus/issues/38)
