@@ -1,0 +1,22 @@
+{
+  "name": "@nexus/workspace",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./manifest": {
+      "types": "./src/manifest.ts",
+      "import": "./src/manifest.ts",
+      "default": "./src/manifest.ts"
+    },
+    "./remote": {
+      "types": "./src/remote.ts",
+      "import": "./src/remote.ts",
+      "default": "./src/remote.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  }
+}

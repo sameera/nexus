@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage generated="1783741079257" clover="3.2.0">
+  <project timestamp="1783741079257" name="All files">
+    <metrics statements="88" coveredstatements="88" conditionals="59" coveredconditionals="58" methods="7" coveredmethods="7" elements="154" coveredelements="153" complexity="0" loc="88" ncloc="88" packages="1" files="2" classes="2"/>
+    <file name="manifest.ts" path="/home/sameera/projects/nexus/libs/workspace/src/manifest.ts">
+      <metrics statements="70" coveredstatements="70" conditionals="47" coveredconditionals="46" methods="5" coveredmethods="5"/>
+      <line num="69" count="1" type="stmt"/>
+      <line num="70" count="1" type="stmt"/>
+      <line num="71" count="1" type="stmt"/>
+      <line num="72" count="1" type="stmt"/>
+      <line num="75" count="63" type="cond" truecount="3" falsecount="0"/>
+      <line num="80" count="70" type="cond" truecount="4" falsecount="0"/>
+      <line num="92" count="25" type="stmt"/>
+      <line num="93" count="25" type="stmt"/>
+      <line num="99" count="25" type="stmt"/>
+      <line num="100" count="25" type="stmt"/>
+      <line num="102" count="1" type="cond" truecount="1" falsecount="1"/>
+      <line num="103" count="1" type="stmt"/>
+      <line num="106" count="24" type="cond" truecount="4" falsecount="0"/>
+      <line num="107" count="1" type="stmt"/>
+      <line num="109" count="23" type="cond" truecount="2" falsecount="0"/>
+      <line num="110" count="2" type="stmt"/>
+      <line num="113" count="21" type="stmt"/>
+      <line num="114" count="41" type="cond" truecount="2" falsecount="0"/>
+      <line num="115" count="1" type="stmt"/>
+      <line num="120" count="20" type="cond" truecount="2" falsecount="0"/>
+      <line num="121" count="1" type="stmt"/>
+      <line num="123" count="19" type="stmt"/>
+      <line num="124" count="19" type="cond" truecount="2" falsecount="0"/>
+      <line num="125" count="1" type="stmt"/>
+      <line num="127" count="18" type="stmt"/>
+      <line num="128" count="35" type="cond" truecount="2" falsecount="0"/>
+      <line num="129" count="1" type="stmt"/>
+      <line num="132" count="17" type="stmt"/>
+      <line num="133" count="17" type="cond" truecount="2" falsecount="0"/>
+      <line num="134" count="1" type="stmt"/>
+      <line num="136" count="16" type="stmt"/>
+      <line num="137" count="16" type="cond" truecount="2" falsecount="0"/>
+      <line num="138" count="1" type="stmt"/>
+      <line num="142" count="15" type="stmt"/>
+      <line num="143" count="15" type="cond" truecount="2" falsecount="0"/>
+      <line num="144" count="25" type="cond" truecount="2" falsecount="0"/>
+      <line num="145" count="1" type="stmt"/>
+      <line num="148" count="14" type="stmt"/>
+      <line num="149" count="14" type="stmt"/>
+      <line num="150" count="14" type="stmt"/>
+      <line num="152" count="14" type="stmt"/>
+      <line num="153" count="21" type="stmt"/>
+      <line num="154" count="21" type="stmt"/>
+      <line num="155" count="21" type="cond" truecount="2" falsecount="0"/>
+      <line num="156" count="1" type="stmt"/>
+      <line num="158" count="20" type="stmt"/>
+      <line num="159" count="39" type="cond" truecount="2" falsecount="0"/>
+      <line num="160" count="1" type="stmt"/>
+      <line num="163" count="19" type="stmt"/>
+      <line num="164" count="19" type="cond" truecount="2" falsecount="0"/>
+      <line num="165" count="1" type="stmt"/>
+      <line num="167" count="18" type="stmt"/>
+      <line num="168" count="18" type="stmt"/>
+      <line num="169" count="18" type="cond" truecount="2" falsecount="0"/>
+      <line num="170" count="1" type="stmt"/>
+      <line num="173" count="17" type="stmt"/>
+      <line num="174" count="17" type="cond" truecount="2" falsecount="0"/>
+      <line num="175" count="1" type="stmt"/>
+      <line num="181" count="16" type="stmt"/>
+      <line num="183" count="16" type="stmt"/>
+      <line num="184" count="16" type="stmt"/>
+      <line num="185" count="16" type="cond" truecount="2" falsecount="0"/>
+      <line num="186" count="1" type="stmt"/>
+      <line num="192" count="15" type="stmt"/>
+      <line num="194" count="15" type="stmt"/>
+      <line num="202" count="8" type="stmt"/>
+      <line num="226" count="3" type="stmt"/>
+      <line num="227" count="3" type="cond" truecount="2" falsecount="0"/>
+      <line num="228" count="1" type="stmt"/>
+      <line num="237" count="2" type="stmt"/>
+    </file>
+    <file name="remote.ts" path="/home/sameera/projects/nexus/libs/workspace/src/remote.ts">
+      <metrics statements="18" coveredstatements="18" conditionals="12" coveredconditionals="12" methods="2" coveredmethods="2"/>
+      <line num="20" count="44" type="stmt"/>
+      <line num="21" count="44" type="cond" truecount="2" falsecount="0"/>
+      <line num="22" count="16" type="stmt"/>
+      <line num="23" count="16" type="stmt"/>
+      <line num="24" count="16" type="cond" truecount="2" falsecount="0"/>
+      <line num="25" count="16" type="cond" truecount="2" falsecount="0"/>
+      <line num="26" count="16" type="stmt"/>
+      <line num="30" count="28" type="stmt"/>
+      <line num="31" count="28" type="cond" truecount="2" falsecount="0"/>
+      <line num="32" count="21" type="stmt"/>
+      <line num="36" count="7" type="stmt"/>
+      <line num="37" count="7" type="cond" truecount="2" falsecount="0"/>
+      <line num="38" count="1" type="stmt"/>
+      <line num="40" count="6" type="stmt"/>
+      <line num="51" count="44" type="stmt"/>
+      <line num="56" count="44" type="stmt"/>
+      <line num="57" count="44" type="stmt"/>
+      <line num="58" count="44" type="cond" truecount="2" falsecount="0"/>
+    </file>
+  </project>
+</coverage>

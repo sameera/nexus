@@ -98,14 +98,20 @@ def _parse_simple_yaml(content: str) -> dict[str, dict[str, str]]:
 
 
 def read_delivery_config(project_root: Path) -> dict[str, str]:
-    """Read delivery config from config.yml (preferred) or config.json (fallback).
+    """Read delivery config from settings.yml (canonical), falling back to the legacy
+    config.yml / config.json names.
 
     Returns a normalized dict with keys: docRoot, project, epicType, issuesRepo.
     """
     delivery_dir = project_root / ".nexus" / "config"
 
-    yml_path = delivery_dir / "config.yml"
-    if yml_path.exists():
+    # settings.yml is the committed config file this repo actually writes. config.yml is
+    # kept only as a legacy name: prior versions read config.yml (which never existed), so
+    # any github: config placed in settings.yml was silently dropped.
+    for yml_name in ("settings.yml", "config.yml"):
+        yml_path = delivery_dir / yml_name
+        if not yml_path.exists():
+            continue
         try:
             with open(yml_path, encoding="utf-8") as f:
                 raw = _parse_simple_yaml(f.read())
@@ -379,8 +385,8 @@ def get_repo_project_id() -> str | None:
         The project node ID (e.g., "PVT_kwHOABC123") or None if no project found.
     """
     query = """
-    query {
-        repository(owner: "{owner}", name: "{repo}") {
+    query($owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
             projectsV2(first: 1) {
                 nodes {
                     id
@@ -390,13 +396,29 @@ def get_repo_project_id() -> str | None:
         }
     }
     """
-    
-    cmd = ["gh", "api", "graphql", "-f", f"query={query}"]
-    
+
     try:
+        name_result = subprocess.run(
+            ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
+            capture_output=True, text=True, check=True,
+        )
+        name_with_owner = name_result.stdout.strip()
+        if "/" not in name_with_owner:
+            print(f"Unexpected repository name format: {name_with_owner}", file=sys.stderr)
+            return None
+        owner, repo = name_with_owner.split("/", 1)
+
+        cmd = [
+            "gh", "api", "graphql",
+            "-f", f"query={query}",
+            "-f", f"owner={owner}",
+            "-f", f"repo={repo}",
+        ]
+
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
-        nodes = data.get("data", {}).get("repository", {}).get("projectsV2", {}).get("nodes", [])
+        repository = (data.get("data") or {}).get("repository") or {}
+        nodes = (repository.get("projectsV2") or {}).get("nodes") or []
         if nodes:
             project = nodes[0]
             print(f"Found project: {project.get('title', 'Unknown')}")

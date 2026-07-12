@@ -33,6 +33,9 @@ importers:
       '@eslint/js':
         specifier: ^9.8.0
         version: 9.39.4
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:libs/workspace
       '@nx/eslint':
         specifier: 23.0.1
         version: 23.0.1(@babel/traverse@7.29.7)(@swc/cli@0.8.1(@swc/core@1.15.43(@swc/helpers@0.5.23))(chokidar@5.0.0))(@swc/core@1.15.43(@swc/helpers@0.5.23))(@zkochan/js-yaml@0.0.7)(eslint@9.39.4(jiti@2.4.2))(nx@23.0.1(@swc/core@1.15.43(@swc/helpers@0.5.23)))
@@ -209,6 +212,12 @@ importers:
         version: 19.2.7(react@19.2.7)
 
   libs/origin: {}
+
+  libs/workspace:
+    dependencies:
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
 packages:
 
