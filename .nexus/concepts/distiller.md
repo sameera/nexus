@@ -1,29 +1,29 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture"]
-last_updated_by: "manual"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling"]
+last_updated_by: "#44"
 status: active
 verification: verified
 ---
 
 # Distiller
 
-The distiller is the engine that drains committed queue entries into the concept store. It derives what changed from the merged code diff and why from the queued human records, infers the per-concept mapping itself, and applies the result through a reviewed pull request rather than a direct write.
+The distiller drains committed queue entries into the concept store, deriving what changed from the merged code diff and why from the queued human records, inferring the per-concept mapping itself, and applying the result through a reviewed pull request rather than a direct write.
 
 ## How It Works
 
-The distiller runs after merges, scanning for unconsumed queue entries. For each, it recomputes the diff from history — the diff is never stored — and reads the decision and close records for the rationale. It maps that material to per-concept deltas, each a page-patch carrying the changed sections plus exactly one decision entry. Its work splits along a firm line: judgment is the model's — mapping the diff and records to concepts, writing the prose, resolving a slug collision — while the mechanical steps are code and never improvised: the neighbor-link reciprocity fan-out, the anchor refresh, the atlas regeneration, and the validator. A validation failure blocks the apply; the pages are fixed and revalidated, never shipped failing. The distiller never writes the store directly, and never deletes a queue entry outside the merge that consumes it. Decision-only memos drain without a diff into the relevant decision logs; plans and scratch are never inputs.
+The distiller runs after merges, scanning for unconsumed queue entries. For each it recomputes the diff from history (never stored) and reads the decision and close records for the rationale, then maps both to per-concept deltas, each a page-patch with the changed sections plus one decision entry. Its work splits firmly: judgment is the model's (mapping diff and records to concepts, writing prose, resolving a slug collision) while the mechanical steps are code and never improvised: the reciprocity fan-out, anchor refresh, atlas regeneration, and validator. Those last two steps run the in-repo tooling in a code repo and the vendored portable tooling in a docs-only hub, selected by the checkout's workspace role, never a new heuristic. A validation failure blocks the apply; a failing page is fixed and revalidated, never shipped. The distiller never writes the store directly, only through the merge that consumes each entry.
 
 ## Key Invariants
 
 1. The distiller is the single producer of the concept store.
 2. What changed comes from the recomputed diff; why comes from the queued human records; the diff is never stored.
-3. Judgment — concept mapping and prose — is the model's; the reciprocity, anchor, and validator steps are deterministic code.
+3. Judgment (concept mapping and prose) is the model's; the reciprocity, anchor, and validator steps are deterministic code.
 4. A validation failure blocks the apply; a failing page is never shipped.
 5. The distiller infers the concept mapping itself — the pipeline emits no structured concept list.
 6. Draining is a manually-invoked curated step, not an automated trigger; only detecting undrained entries and deleting consumed ones are deterministic.
-7. Input is only the gated queue and the recomputed diff — never plans or ungated capture; decision-only memos drain diff-less into decision logs.
+7. Input is only the gated queue and the recomputed diff, never plans or ungated capture; decision-only memos drain diff-less into decision logs.
 
 ## Integration Points
 
@@ -32,6 +32,7 @@ The distiller runs after merges, scanning for unconsumed queue entries. For each
 - [distillation-pr](distillation-pr.md) — the reviewed pull request through which the distiller applies its output.
 - [code-anchors](code-anchors.md) — the derived sidecars the distiller regenerates for every touched concept.
 - [scratch-capture](scratch-capture.md) — an input boundary: the distiller never reads scratch.
+- [portable-tooling](portable-tooling.md) — the offline validator and atlas generator the distiller runs when draining from a hub.
 
 ## Decision Log
 
@@ -54,3 +55,7 @@ Mechanical reciprocity fan-out: the scratch-capture page names this distiller as
 ### 2026-07-04 — manual — Atlas regeneration joins the deterministic steps
 
 A derived orientation page must never drift from the pages it maps, so rebuilding the human atlas is mechanics-as-code on every drain, gated by the same validation that blocks a failing page — the drain ships only when the atlas matches the active pages.
+
+### 2026-07-14 — #44 — The deterministic steps select their runner by workspace role
+
+The validator and atlas-regeneration steps now choose their runner from the checkout's role: a single code repo runs the in-repo tooling exactly as before, and a docs-only hub runs the vendored portable form. The choice reads the same committed artifacts that already mark a checkout's role and forbids any new heuristic, so it cannot drift from how the rest of the system determines that role, and single-repo distillation stays unchanged. Refuted alternative: one unified invocation that always runs the compiled portable build in both contexts — simpler, and it makes parity trivially structural, but it demotes the in-repo source to mere build input, forces the build to be produced and committed inside code repos too, and changes the single-repo mechanism, breaking the guarantees that the in-repo tooling stays the executed authority and that single-repo distillation is untouched.
