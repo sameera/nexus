@@ -19,7 +19,8 @@
   "scripts": {
     "nexus:validate-concepts": "tsx libs/portable-tools/src/validate-concepts.ts",
     "nexus:generate-atlas": "tsx libs/portable-tools/src/generate-atlas.ts",
-    "nexus:check-atlas": "tsx libs/portable-tools/src/generate-atlas.ts --check"
+    "nexus:check-atlas": "tsx libs/portable-tools/src/generate-atlas.ts --check",
+    "nexus:vendor-tools": "tsx libs/portable-tools/src/vendor-bundle.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
