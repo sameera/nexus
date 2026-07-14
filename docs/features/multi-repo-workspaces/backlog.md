@@ -15,7 +15,7 @@
 
 ## portable-nexus-tools
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** Package the deterministic Nexus tooling (concept validator, atlas generator, shared mechanical steps) so it runs in a hub repo that has no local node tooling of its own, with parity against the in-repo scripts.
 - **estimate:** M
 - **blocked_by:** none
