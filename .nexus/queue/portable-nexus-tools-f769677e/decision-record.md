@@ -171,8 +171,11 @@ and fails on any divergence in validator findings, exit codes, or atlas bytes.
     part of workspace context — the same context Invariant 7 already makes distill consume — and the
     Story 2 placement doc and the vendor step name that path from this single definition; no
     consumer hard-codes it independently. The literal directory is fixed at implementation and
-    recorded here once chosen, because renaming a committed artifact across hub clones is a
-    migration. *(Story 2; extends workspace-resolution's sole-producer invariant)*
+    recorded here once chosen — **`.nexus/tools`**, a sibling of `.nexus/concepts/`,
+    `.nexus/anchors/`, `.nexus/config/`, and `.nexus/queue/`, exported as `portableToolsDir` by
+    `@nexus/workspace`'s `resolveWorkspace` (`PORTABLE_TOOLS_RELATIVE_PATH` in
+    `libs/workspace/src/resolve.ts`) — because renaming a committed artifact across hub clones is
+    a migration. *(Story 2; extends workspace-resolution's sole-producer invariant)*
 
 ## Risks (BLOCKER / ADDRESS only)
 

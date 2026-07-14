@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type Diagnostic } from "./manifest";
 import {
+    PORTABLE_TOOLS_RELATIVE_PATH,
     type ResolveResult,
     type ResolvedWorkspace,
     type SingleRepoWorkspace,
@@ -145,6 +146,23 @@ describe("resolveWorkspace", () => {
 
         // Distinguished from single-repo: this is still a resolved workspace.
         expect(ws.mode).toBe("workspace");
+    });
+
+    // --- Story 2 (#46): hub-vendored portable-tools directory --------------
+
+    it("resolves the hub's vendored portable-tools directory as a sibling of .nexus/config", () => {
+        const parent = makeParent();
+        const hub = writeCheckout(parent, "docs-hub", { name: "workspace.yml", contents: MANIFEST });
+
+        const ws = asWorkspace(resolveWorkspace(hub));
+        expect(ws.portableToolsDir).toBe(path.join(hub, ...PORTABLE_TOOLS_RELATIVE_PATH));
+    });
+
+    it("does not resolve a portable-tools directory in single-repo mode", () => {
+        const parent = makeParent();
+        const repo = writeCheckout(parent, "solo");
+
+        expect(asSingleRepo(resolveWorkspace(repo))).not.toHaveProperty("portableToolsDir");
     });
 
     // --- AC1: parity — hub-entry and member-entry yield identical descriptions

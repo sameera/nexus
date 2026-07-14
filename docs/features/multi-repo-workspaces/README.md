@@ -11,3 +11,4 @@ hub docs repo holds the concept store and drains the queue.
 
 - **Workspace Manifest & Resolution** — [#38](https://github.com/sameera/nexus/issues/38)
 - **Portable Nexus Tooling** — [#44](https://github.com/sameera/nexus/issues/44)
+  - [Hub tooling install](hub-tooling-install.md)
