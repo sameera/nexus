@@ -13,6 +13,9 @@
       "path": "./libs/workspace"
     },
     {
+      "path": "./libs/portable-tools"
+    },
+    {
       "path": "./apps/prime"
     }
   ]

@@ -18,7 +18,7 @@ The split is **judgment as prompt, mechanics as code** (0004 B0):
 - **Judgment (yours):** mapping the diff + records to per-concept `ConceptDelta`s, writing the
   page prose, deciding update-vs-distinguish on a slug collision.
 - **Mechanics (deterministic, never improvised):** the C11 reciprocity fan-out, the R1 anchors
-  refresh, and the validator (`utils/validate-concepts.ts`). A validation failure **blocks the
+  refresh, and the validator (`libs/portable-tools/src/validate-concepts.ts`). A validation failure **blocks the
   PR** — you fix the pages and re-validate; you never ship a failing page.
 
 Your output is a **distillation-PR**. The PR merge is the authoritative write (0007). You never

@@ -1,0 +1,19 @@
+{
+  "name": "@nexus/portable-tools",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/portable-tools/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/portable-tools --web",
+  "targets": {
+    "bundle": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "outputs": ["{projectRoot}/dist/bundle"],
+      "options": {
+        "cwd": "libs/portable-tools",
+        "command": "tsx src/build-bundles.ts"
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
  * Deterministic concept-page validator (0003 §2, §5, §8.3 — mechanics as code).
  *
  * Usage:
- *   npx tsx utils/validate-concepts.ts [--base <git-ref>] [--concepts-dir <dir>] [files...]
+ *   npx tsx libs/portable-tools/src/validate-concepts.ts [--base <git-ref>] [--concepts-dir <dir>] [files...]
  *
  * With no files, validates every active page under the concepts dir (README.md excluded).
  * With --base, additionally enforces that every changed page gained exactly one new
@@ -29,7 +29,7 @@ interface Frontmatter {
     bodyStart: number;
 }
 
-interface Finding {
+export interface Finding {
     file: string;
     message: string;
 }
@@ -41,7 +41,7 @@ const PROVENANCE_REF = /^(#\d+|[\w.-]+\/[\w.-]+#\d+|bootstrap|manual)$/;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const LOG_HEADING = /^### (\d{4}-\d{2}-\d{2}) — (\S+) — (.+)$/;
 
-function parseArgs(argv: string[]): CliOptions {
+export function parseArgs(argv: string[]): CliOptions {
     const options: CliOptions = { base: null, conceptsDir: ".nexus/concepts", files: [] };
     for (let i = 0; i < argv.length; i++) {
         const arg: string = argv[i];
@@ -96,7 +96,7 @@ function stripQuotes(raw: string): string {
     return trimmed;
 }
 
-function parseFrontmatter(lines: string[]): Frontmatter | null {
+export function parseFrontmatter(lines: string[]): Frontmatter | null {
     if (lines[0]?.trim() !== "---") {
         return null;
     }
@@ -155,7 +155,7 @@ function decisionLogHeadings(content: string): string[] {
     return log.filter((line: string) => line.startsWith("### "));
 }
 
-function checkForbiddenContent(file: string, text: string, findings: Finding[]): void {
+export function checkForbiddenContent(file: string, text: string, findings: Finding[]): void {
     const lines: string[] = text.split("\n");
     let inFence = false;
     for (const line of lines) {
@@ -201,7 +201,7 @@ function gitShow(ref: string, relPath: string): string | null {
     }
 }
 
-function validatePage(file: string, base: string | null, repoRoot: string, findings: Finding[]): void {
+export function validatePage(file: string, base: string | null, repoRoot: string, findings: Finding[]): void {
     const content: string = fs.readFileSync(file, "utf8");
     const lines: string[] = content.split("\n");
 
@@ -363,8 +363,8 @@ function validatePage(file: string, base: string | null, repoRoot: string, findi
     }
 }
 
-function main(): void {
-    const options: CliOptions = parseArgs(process.argv.slice(2));
+export function runCli(argv: string[]): number {
+    const options: CliOptions = parseArgs(argv);
     let repoRoot: string = process.cwd();
     try {
         repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
@@ -376,7 +376,7 @@ function main(): void {
     if (files.length === 0) {
         if (!fs.existsSync(options.conceptsDir)) {
             console.log(`No concepts directory at ${options.conceptsDir} — nothing to validate.`);
-            return;
+            return 0;
         }
         files = fs.readdirSync(options.conceptsDir)
             .filter((name: string) => name.endsWith(".md") && name !== "README.md")
@@ -397,9 +397,16 @@ function main(): void {
             console.error(`${finding.file}: ${finding.message}`);
         }
         console.error(`\n${findings.length} finding(s) across ${files.length} page(s).`);
-        process.exit(1);
+        return 1;
     }
     console.log(`OK: ${files.length} page(s) validated.`);
+    return 0;
 }
 
-main();
+function main(): void {
+    process.exit(runCli(process.argv.slice(2)));
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+    main();
+}

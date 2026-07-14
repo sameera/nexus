@@ -3,9 +3,17 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildClusters, generateAtlas, loadConceptPages, renderAtlas } from "./generate-atlas";
+import {
+    buildClusters,
+    generateAtlas,
+    loadConceptPages,
+    parseArgs,
+    parseFrontmatter,
+    renderAtlas,
+    runCli,
+} from "./generate-atlas";
 
-const REPO_ROOT: string = path.resolve(__dirname, "..");
+const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 
 interface FixtureSpec {
     title: string;
@@ -27,7 +35,7 @@ function writeConcept(conceptsDir: string, slug: string, spec: FixtureSpec): voi
     const status: string = spec.status ?? "active";
     const touchesYaml: string = touches.length > 0 ? `[${touches.map((t: string) => `"${t}"`).join(", ")}]` : "[]";
     const integrationBullets: string = touches.map((t: string) => `- [${t}](${t}.md) — interacts with ${t}.`).join("\n");
-    const content: string = `---
+    const content = `---
 title: "${spec.title}"
 aliases: []
 touches: ${touchesYaml}
@@ -124,6 +132,108 @@ describe("loadConceptPages", () => {
         const pages = loadConceptPages(dir);
         expect(pages.map((p) => p.slug)).toEqual(["alpha"]);
     });
+
+    it("returns an empty list when the concepts directory doesn't exist", () => {
+        const dir: string = makeTmpDir();
+        expect(loadConceptPages(path.join(dir, "missing"))).toEqual([]);
+    });
+
+    it("skips a page with no frontmatter block at all", () => {
+        const dir: string = makeTmpDir();
+        fs.writeFileSync(path.join(dir, "alpha.md"), "# Alpha\n\nNo frontmatter here.\n");
+        expect(loadConceptPages(dir)).toEqual([]);
+    });
+
+    it("skips a page whose frontmatter is never terminated", () => {
+        const dir: string = makeTmpDir();
+        fs.writeFileSync(path.join(dir, "alpha.md"), "---\ntitle: Alpha\n# never closed\n");
+        expect(loadConceptPages(dir)).toEqual([]);
+    });
+
+    it("gives an empty hook when the body has no H1", () => {
+        const dir: string = makeTmpDir();
+        const content = `---
+title: "Alpha"
+aliases: []
+touches: []
+last_updated_by: "bootstrap"
+status: active
+verification: verified
+---
+
+No H1 here, just prose.
+`;
+        fs.writeFileSync(path.join(dir, "alpha.md"), content);
+        const pages = loadConceptPages(dir);
+        expect(pages[0].hook).toBe("");
+    });
+});
+
+describe("parseFrontmatter", () => {
+    it("ignores a frontmatter line that isn't shaped like key: value", () => {
+        const fm = parseFrontmatter(["---", "not a valid line", "title: Alpha", "---", ""]);
+        expect(fm?.fields.get("title")).toBe("Alpha");
+    });
+
+    it("parses a block list field", () => {
+        const fm = parseFrontmatter(["---", "aliases:", "  - one", "  - two", "---", ""]);
+        expect(fm?.fields.get("aliases")).toEqual(["one", "two"]);
+    });
+
+    it("returns null when the block is never terminated", () => {
+        expect(parseFrontmatter(["---", "title: Alpha"])).toBeNull();
+    });
+});
+
+describe("parseArgs", () => {
+    it("defaults to .nexus/concepts, docs/concepts.md, and check: false", () => {
+        expect(parseArgs([])).toEqual({ conceptsDir: ".nexus/concepts", out: "docs/concepts.md", check: false });
+    });
+
+    it("parses --concepts-dir, --out, and --check", () => {
+        const options = parseArgs(["--concepts-dir", "a", "--out", "b", "--check"]);
+        expect(options).toEqual({ conceptsDir: "a", out: "b", check: true });
+    });
+});
+
+describe("runCli", () => {
+    it("writes the atlas and returns 0", () => {
+        const conceptsDir: string = makeTmpDir();
+        const outPath: string = path.join(makeTmpDir(), "concepts.md");
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        const status = runCli(["--concepts-dir", conceptsDir, "--out", outPath]);
+
+        expect(status).toBe(0);
+        expect(fs.existsSync(outPath)).toBe(true);
+    });
+
+    it("--check returns 1 when the atlas is missing", () => {
+        const conceptsDir: string = makeTmpDir();
+        const outPath: string = path.join(makeTmpDir(), "concepts.md");
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        expect(runCli(["--concepts-dir", conceptsDir, "--out", outPath, "--check"])).toBe(1);
+    });
+
+    it("--check returns 0 when the atlas is in sync", () => {
+        const conceptsDir: string = makeTmpDir();
+        const outPath: string = path.join(makeTmpDir(), "concepts.md");
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        runCli(["--concepts-dir", conceptsDir, "--out", outPath]);
+        expect(runCli(["--concepts-dir", conceptsDir, "--out", outPath, "--check"])).toBe(0);
+    });
+
+    it("--check returns 1 when the on-disk atlas no longer matches the source pages", () => {
+        const conceptsDir: string = makeTmpDir();
+        const outPath: string = path.join(makeTmpDir(), "concepts.md");
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        runCli(["--concepts-dir", conceptsDir, "--out", outPath]);
+        writeConcept(conceptsDir, "beta", { title: "Beta", lead: "Beta lead." });
+        expect(runCli(["--concepts-dir", conceptsDir, "--out", outPath, "--check"])).toBe(1);
+    });
 });
 
 describe("buildClusters", () => {
@@ -185,6 +295,9 @@ describe("renderAtlas / generateAtlas determinism", () => {
         expect(first).toBe(second);
         expect(first).toContain("DERIVED");
         expect(first).toContain("# Concept Atlas");
+        // Invariant 4: environment-neutral header — names no toolchain-specific path or command.
+        expect(first).not.toContain("utils/");
+        expect(first).not.toContain("pnpm");
     });
 
     it("renders clusters and bullets in the documented format", () => {
@@ -199,16 +312,16 @@ describe("renderAtlas / generateAtlas determinism", () => {
 });
 
 describe("CLI", () => {
-    function runCli(args: string[]): { status: number; stdout: string } {
+    function runCli(args: string[]): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync("npx", ["tsx", "utils/generate-atlas.ts", ...args], {
+            const stdout: string = execFileSync("npx", ["tsx", "libs/portable-tools/src/generate-atlas.ts", ...args], {
                 cwd: REPO_ROOT,
                 encoding: "utf8",
             });
-            return { status: 0, stdout };
+            return { status: 0, stdout, stderr: "" };
         } catch (error) {
-            const err = error as { status: number; stdout: string };
-            return { status: err.status, stdout: err.stdout };
+            const err = error as { status: number; stdout: string; stderr: string };
+            return { status: err.status, stdout: err.stdout, stderr: err.stderr };
         }
     }
 
@@ -247,6 +360,9 @@ describe("CLI", () => {
         const result = runCli(["--concepts-dir", conceptsDir, "--out", outPath, "--check"]);
 
         expect(result.status).toBe(1);
+        // Invariant 4: the --check stderr hint names no toolchain-specific command or path.
+        expect(result.stderr).not.toContain("pnpm");
+        expect(result.stderr).not.toContain("utils/");
     });
 
     it("--check exits 1 when the on-disk atlas no longer matches the source pages", () => {
@@ -260,5 +376,7 @@ describe("CLI", () => {
         const result = runCli(["--concepts-dir", conceptsDir, "--out", outPath, "--check"]);
 
         expect(result.status).toBe(1);
+        expect(result.stderr).not.toContain("pnpm");
+        expect(result.stderr).not.toContain("utils/");
     });
 });

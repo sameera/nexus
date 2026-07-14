@@ -17,9 +17,9 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "nexus:validate-concepts": "tsx utils/validate-concepts.ts",
-    "nexus:generate-atlas": "tsx utils/generate-atlas.ts",
-    "nexus:check-atlas": "tsx utils/generate-atlas.ts --check"
+    "nexus:validate-concepts": "tsx libs/portable-tools/src/validate-concepts.ts",
+    "nexus:generate-atlas": "tsx libs/portable-tools/src/generate-atlas.ts",
+    "nexus:check-atlas": "tsx libs/portable-tools/src/generate-atlas.ts --check"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -48,6 +48,7 @@
     "@vitest/coverage-v8": "~4.1.0",
     "@vitest/ui": "~4.1.0",
     "autoprefixer": "10.4.13",
+    "esbuild": "^0.28.1",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-import": "2.31.0",
