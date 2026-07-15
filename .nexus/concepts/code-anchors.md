@@ -2,9 +2,9 @@
 title: "Code Anchors"
 aliases: ["anchor sidecars", "derived path sidecar", "code anchor refresh", "concept anchors"]
 touches: ["concept-store", "distiller", "grep-native-retrieval"]
-last_updated_by: "bootstrap"
+last_updated_by: "#54"
 status: active
-verification: unverified
+verification: verified
 ---
 
 # Code Anchors
@@ -13,7 +13,7 @@ Code anchors are derived sidecar files that map a concept to the source that imp
 
 ## How It Works
 
-For every concept a drain touches, the distiller regenerates that concept's anchor sidecar from the diff paths attributable to it plus a name search over the source tree. Each anchor is stamped with the source revision it was derived from and marked as derived state. Because anchors are regenerable, a stale anchor is rebuilt rather than fixed, and a hand edit would simply be overwritten on the next drain. They exist to serve contributor ramp-up — the third consumer of the knowledge store, alongside spec generation and design — by giving a reader the jump from a concept's behavior to the code that realizes it, without polluting the durable page with paths that rot. They are seeded in bulk when the store is first bootstrapped.
+For every concept a drain touches, the distiller regenerates that concept's anchor sidecar from the diff paths attributable to it plus a name search over the source tree. Each anchor is stamped with the source revision it was derived from and marked as derived state. Because anchors are regenerable, a stale anchor is rebuilt rather than fixed, and a hand edit would simply be overwritten on the next drain. They exist to serve contributor ramp-up — the third consumer of the knowledge store, alongside spec generation and design — by giving a reader the jump from a concept's behavior to the code that realizes it, without polluting the durable page with paths that rot. They are seeded in bulk when the store is first bootstrapped. In a multi-repo workspace the sidecar qualifies each path by its member repo and records a source revision per repo, so a concept whose code spans repos captures exactly where each path lives and at which revision — not one ambiguous revision against a hub that holds no code.
 
 ## Key Invariants
 
@@ -21,6 +21,7 @@ For every concept a drain touches, the distiller regenerates that concept's anch
 2. Anchors are the only place file paths are allowed; concept pages still reject them.
 3. Each anchor is stamped with the source revision it was derived from.
 4. A stale anchor is rebuilt, not repaired.
+5. In a multi-repo drain, each anchor path is qualified by its member repo and the sidecar records a source revision per repo, with every path attributed to exactly one repo.
 
 ## Integration Points
 
@@ -33,3 +34,7 @@ For every concept a drain touches, the distiller regenerates that concept's anch
 ### 2026-07-02 — bootstrap — 0011: derived anchor sidecars for ramp-up
 
 Added derived code-anchor sidecars, refreshed by the drain and seeded at bootstrap, to serve contributor ramp-up as a third store consumer. The considered alternative — putting file paths directly on concept pages — was rejected because paths rot against the source and would violate the pages' domain-terms-only boundary, whereas a regenerable sidecar keeps paths current and quarantined from the durable why.
+
+### 2026-07-15 — #54 — Per-repo source revisions for cross-repo concepts
+
+When a concept's code spans several member repos, the anchor sidecar now records a source revision for each repo and qualifies every path by the repo it lives in, replacing the single revision that only made sense when code sat beside the store. The single-repo form — one scalar revision, unqualified paths — is untouched. The considered alternative — keep one revision, set to the first-listed repo's head — needed no format change but was rejected as wrong for any cross-repo concept: it would stamp another repo's paths with a revision from a different repo, pointing a reader at a state where those paths may not exist and defeating the ramp-up jump the anchors exist to serve.
