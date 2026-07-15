@@ -2,7 +2,7 @@
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
 touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration"]
-last_updated_by: "#49"
+last_updated_by: "#54"
 status: active
 verification: verified
 ---
@@ -64,3 +64,7 @@ The validator and atlas-regeneration steps now choose their runner from the chec
 ### 2026-07-15 — #49 — Reciprocal link from close-entry-migration
 
 Mechanical reciprocity fan-out: the close-entry-migration page names this distiller as the consumer that recomputes a migrated epic's diff from the stamped range and drains the relocated entry once it sits beside the concept store.
+
+### 2026-07-15 — #54 — Workspace-aware sourcing of the what
+
+Draining from a docs-only workspace hub, the distiller now sources the what across repos: each entry's diff is recomputed from its recorded landed range inside the correct member checkout, code anchors and provenance are qualified by member repo, and one pass reports drain health for the whole hub queue. All of it is gated on the presence of the hub manifest, so a single-repo drain is unchanged. The considered alternative — keep the introducing-commit diff as a first-try fast path and fall back to the recorded range — was rejected because after an entry migrates to the hub its introducing commit is the migration commit, so that path would return the migration's file moves, a confidently wrong diff; in a hub the recorded range must be the sole authoritative diff source, never a fallback. The drain only ever reads a member checkout — never cloning, fetching, or mutating one — and a missing checkout, an unreachable recorded revision, or a missing range stamp is a hard per-entry error, never a silent empty diff.

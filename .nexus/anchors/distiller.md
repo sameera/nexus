@@ -1,6 +1,6 @@
 ---
 concept: distiller
-source_sha: ca5265b
+source_sha: 7c08d74
 generated: 2026-07-15
 ---
 
@@ -9,6 +9,7 @@ generated: 2026-07-15
 
 # Code Anchors: Distiller
 
-- `.claude/commands/nxs.distill.md` — the drain agent: preflight, diff recomputation, per-concept delta synthesis, the deterministic steps (including the hub-vs-single-repo invocation selection), checkpoint, and PR.
-- `libs/portable-tools/src/validate-concepts.ts` — the deterministic validator a drain must pass before the distillation-PR opens.
+- `.claude/commands/nxs.distill.md` — the drain agent: preflight and the run-mode gate, per-mode diff recomputation, per-concept delta synthesis, the deterministic steps (reciprocity, anchor refresh, atlas, validator, and the hub-vs-single-repo invocation), checkpoint, and PR.
+- `libs/portable-tools/src/derive-entry-diff.ts` — hub-mode diff derivation: reads an entry's recorded range, resolves each repo to its member checkout, and emits one queue-excluded diff per repo (read-only; a missing checkout or unreachable revision is a hard error, never a fallback or partial diff).
+- `libs/portable-tools/src/validate-concepts.ts` — the deterministic validator (concept pages and anchor sidecars) a drain must pass before the distillation-PR opens.
 - `libs/portable-tools/src/generate-atlas.ts` — the atlas regeneration step the drain runs before each entry's commit.
