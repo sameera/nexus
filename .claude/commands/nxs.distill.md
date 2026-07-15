@@ -88,8 +88,10 @@ resolve the SHA range in priority order:
     For a merge commit this is the merged feature diff; for a squash-merge it is the squashed
     commit's diff. Both are the epic's landed change.
 
-2. **Recorded range in the entry** — `base`/`head` fields in `epic.md` or `close-record.md`
-   frontmatter, if present: `git diff <base>...<head>`.
+2. **Recorded range in the entry** — the `range:` list in `close-record.md` frontmatter
+   (entries of `{repo, base, head}`, full SHAs — use this repo's entry), or legacy top-level
+   `base`/`head` fields in `epic.md` or `close-record.md`, if present:
+   `git diff <base>...<head>`.
 
 3. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
    user for a base/head range via `AskUserQuestion` free text; do not guess.

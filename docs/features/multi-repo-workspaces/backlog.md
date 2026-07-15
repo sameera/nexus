@@ -24,7 +24,7 @@
 
 ## close-entry-migration
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** /nxs.close migrates the closed queue entry from the code repo to the hub queue — stamping repo plus explicit base/head ranges (one per touched repo) into the close record — and removes the entry from the code repo, so distill's diff derivation and drain atomicity survive the repo split.
 - **estimate:** M
 - **blocked_by:** [workspace-manifest]

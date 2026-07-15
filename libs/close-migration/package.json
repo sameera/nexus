@@ -1,0 +1,42 @@
+{
+  "name": "@nexus/close-migration",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./run": {
+      "types": "./src/run.ts",
+      "import": "./src/run.ts",
+      "default": "./src/run.ts"
+    },
+    "./diagnostic": {
+      "types": "./src/diagnostic.ts",
+      "import": "./src/diagnostic.ts",
+      "default": "./src/diagnostic.ts"
+    },
+    "./identity": {
+      "types": "./src/identity.ts",
+      "import": "./src/identity.ts",
+      "default": "./src/identity.ts"
+    },
+    "./preflight": {
+      "types": "./src/preflight.ts",
+      "import": "./src/preflight.ts",
+      "default": "./src/preflight.ts"
+    },
+    "./migrate": {
+      "types": "./src/migrate.ts",
+      "import": "./src/migrate.ts",
+      "default": "./src/migrate.ts"
+    },
+    "./render": {
+      "types": "./src/render.ts",
+      "import": "./src/render.ts",
+      "default": "./src/render.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@nexus/workspace": "workspace:*"
+  }
+}

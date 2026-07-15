@@ -186,7 +186,11 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
     BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)"
     git diff --stat "$BASE"...HEAD
     git diff "$BASE"...HEAD
+    HEAD_SHA="$(git rev-parse HEAD)"   # full SHA; $BASE is already one (merge-base emits full SHAs)
     ```
+
+    Keep `$BASE` and `$HEAD_SHA` — Phase 4 stamps them into the close record's `range:` block,
+    and the stamped range MUST be the exact range this diff used.
 
 2. **Auto-derive the *what*** from the diff — the behavioral changes, the files touched. This is
    code-derivable, so you derive it; **you do not ask the human to write it**.
@@ -222,6 +226,10 @@ Fill the seeded template and write it into the queue entry.
 2. Fill every `{{PLACEHOLDER}}` and **delete the guidance comments**:
     - `title` / `epic` (the `link` ref) / `feature` / `date` (today).
     - `analyze` — the conformance-gate outcome from Phase 1.2 (`ran … @ …`, or the waiver text).
+    - `range` — **unconditional, every mode**: exactly one list entry with `repo` = the Phase 1.3
+      preflight's repo identity, `base` = `$BASE`, `head` = `$HEAD_SHA` (Phase 3) — **full commit
+      SHAs**, never `HEAD` or a branch name. The list shape is deliberate: a future cross-repo
+      epic appends entries; this epic always writes exactly one (the home repo).
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
     - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human supplied).
     - **Deferred Scope** — a **pointer only** to `docs/features/<feature>/backlog.md` (the scope itself

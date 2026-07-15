@@ -1,0 +1,9 @@
+{
+  "name": "@nexus/close-migration",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/close-migration/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/close-migration --web",
+  "targets": {}
+}
