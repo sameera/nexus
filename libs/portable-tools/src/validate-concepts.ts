@@ -40,6 +40,10 @@ const REQUIRED_SECTIONS: string[] = ["How It Works", "Key Invariants", "Integrat
 const PROVENANCE_REF = /^(#\d+|[\w.-]+\/[\w.-]+#\d+|bootstrap|manual)$/;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const LOG_HEADING = /^### (\d{4}-\d{2}-\d{2}) — (\S+) — (.+)$/;
+const GENERATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const SCALAR_SOURCE_SHA = /^[0-9a-f]{7,40}$/;
+const REPO_AT_SHA = /^([a-z0-9.-]+(?:\/[\w.-]+)+)@([0-9a-f]{40})$/;
+const ANCHOR_BULLET = /^-\s+`([^`]+)`/;
 
 export function parseArgs(argv: string[]): CliOptions {
     const options: CliOptions = { base: null, conceptsDir: ".nexus/concepts", files: [] };
@@ -198,6 +202,93 @@ function gitShow(ref: string, relPath: string): string | null {
         });
     } catch {
         return null;
+    }
+}
+
+/** Anchor sidecars are routed by layout, not content: `.nexus/anchors/<slug>.md`. */
+export function isAnchorFile(file: string): boolean {
+    return path.basename(path.dirname(path.resolve(file))) === "anchors";
+}
+
+export function validateAnchor(file: string, findings: Finding[]): void {
+    const content: string = fs.readFileSync(file, "utf8");
+    const lines: string[] = content.split("\n");
+    const slug: string = path.basename(file, ".md");
+
+    const fm: Frontmatter | null = parseFrontmatter(lines);
+    if (fm === null) {
+        findings.push({ file, message: "anchor: missing or unterminated frontmatter block" });
+        return;
+    }
+    const concept = fm.fields.get("concept");
+    if (typeof concept !== "string" || concept === "") {
+        findings.push({ file, message: "anchor frontmatter: missing `concept`" });
+    } else if (concept !== slug) {
+        findings.push({ file, message: `anchor frontmatter: \`concept\` "${concept}" does not match filename slug "${slug}"` });
+    }
+    const generated = fm.fields.get("generated");
+    if (typeof generated !== "string" || !GENERATED_DATE.test(generated)) {
+        findings.push({ file, message: `anchor frontmatter: \`generated\` must be YYYY-MM-DD (got ${JSON.stringify(generated ?? null)})` });
+    }
+    if (!content.includes("<!-- DERIVED")) {
+        findings.push({ file, message: "anchor: missing the DERIVED marker comment — anchors are derived state, never hand-written" });
+    }
+
+    const body: string[] = lines.slice(fm.bodyStart);
+    const bulletPaths: string[] = [];
+    for (const line of body) {
+        const m: RegExpMatchArray | null = line.trim().match(ANCHOR_BULLET);
+        if (m !== null) bulletPaths.push(m[1]);
+    }
+
+    const raw = fm.fields.get("source_sha");
+    if (typeof raw === "string") {
+        // Single-repo form: one scalar SHA, unqualified paths (unchanged by #54).
+        if (!SCALAR_SOURCE_SHA.test(raw)) {
+            findings.push({ file, message: `anchor: source_sha "${raw}" is not a 7-40 char hex SHA` });
+        }
+        for (const p of bulletPaths) {
+            if (p.includes(":")) {
+                findings.push({ file, message: `anchor: path "${p}" is repo-qualified but source_sha is a single SHA — the single-repo form takes unqualified paths` });
+            }
+        }
+    } else if (Array.isArray(raw)) {
+        // Hub form (#54): per-repo mapping `<host/owner/repo>@<full sha>`, every path qualified.
+        if (raw.length === 0) {
+            findings.push({ file, message: "anchor: source_sha list is empty — a hub anchor maps at least one repo" });
+        }
+        const repos: Set<string> = new Set();
+        for (let i = 0; i < raw.length; i++) {
+            const m: RegExpMatchArray | null = raw[i].match(REPO_AT_SHA);
+            if (m === null) {
+                findings.push({ file, message: `anchor: source_sha[${i}] "${raw[i]}" is not <host/owner/repo>@<full 40-hex sha>` });
+                continue;
+            }
+            if (repos.has(m[1])) {
+                findings.push({ file, message: `anchor: source_sha repo "${m[1]}" listed more than once` });
+            }
+            repos.add(m[1]);
+        }
+        const anchored: Set<string> = new Set();
+        for (const p of bulletPaths) {
+            const colon: number = p.indexOf(":");
+            if (colon === -1) {
+                findings.push({ file, message: `anchor: path "${p}" is not repo-qualified — every path in the per-repo form is \`<repo>:<path>\`` });
+                continue;
+            }
+            const repo: string = p.slice(0, colon);
+            if (!repos.has(repo)) {
+                findings.push({ file, message: `anchor: path "${p}" names repo "${repo}" which has no source_sha entry` });
+            }
+            anchored.add(repo);
+        }
+        for (const repo of repos) {
+            if (!anchored.has(repo)) {
+                findings.push({ file, message: `anchor: repo "${repo}" has a source_sha entry but no anchored path — every mapped repo carries at least one path` });
+            }
+        }
+    } else {
+        findings.push({ file, message: "anchor frontmatter: missing `source_sha` (a scalar SHA, or the per-repo `<repo>@<sha>` list)" });
     }
 }
 
@@ -389,7 +480,11 @@ export function runCli(argv: string[]): number {
             findings.push({ file, message: "file not found" });
             continue;
         }
-        validatePage(file, options.base, repoRoot, findings);
+        if (isAnchorFile(file)) {
+            validateAnchor(file, findings);
+        } else {
+            validatePage(file, options.base, repoRoot, findings);
+        }
     }
 
     if (findings.length > 0) {
