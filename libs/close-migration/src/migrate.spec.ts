@@ -81,17 +81,58 @@ describe("migrateEntry", () => {
         );
     });
 
+    // --- 12b: exactly-one-place end state (Story 3) -----------------------
+
+    it("removes the entry from the member and commits the deletion, leaving it in exactly one place", () => {
+        const { memberRoot, entryDir, entryName } = fixture();
+
+        const outcome = asOk(migrateEntry(entryDir));
+
+        expect(fs.existsSync(entryDir)).toBe(false);
+        expect(
+            sh(memberRoot, "git", "status", "--porcelain", "--", `.nexus/queue/${entryName}`),
+        ).toBe("");
+        expect(outcome.removalCommit).toMatch(/^[0-9a-f]{40}$/);
+
+        const lastMessage = sh(memberRoot, "git", "log", "-1", "--format=%s");
+        expect(lastMessage).toContain(entryName);
+
+        const removedFiles = sh(memberRoot, "git", "show", "--name-only", "--format=", "HEAD")
+            .split("\n")
+            .filter(Boolean);
+        expect(removedFiles.length).toBeGreaterThan(0);
+        expect(removedFiles.every((f) => f.startsWith(`.nexus/queue/${entryName}/`))).toBe(true);
+    });
+
+    // --- 15: member's unrelated staged work untouched ----------------------
+
+    it("leaves the member's unrelated staged work untouched by the removal commit", () => {
+        const { memberRoot, entryDir } = fixture();
+        fs.writeFileSync(path.join(memberRoot, "unrelated.txt"), "unrelated\n");
+        sh(memberRoot, "git", "add", "unrelated.txt");
+
+        asOk(migrateEntry(entryDir));
+
+        expect(sh(memberRoot, "git", "status", "--porcelain", "--", "unrelated.txt")).toMatch(
+            /^A\s+unrelated\.txt$/,
+        );
+        const removedFiles = sh(memberRoot, "git", "show", "--name-only", "--format=", "HEAD").split(
+            "\n",
+        );
+        expect(removedFiles).not.toContain("unrelated.txt");
+    });
+
     // --- 13: untracked fidelity -------------------------------------------
 
     it("preserves the exact byte content of untracked files", () => {
         const { hubRoot, entryDir, entryName } = fixture();
+        const source = fs
+            .readFileSync(path.join(entryDir, "close-record.md"), "utf8")
+            .replace(/\n$/, "");
 
         asOk(migrateEntry(entryDir));
 
         const blob = sh(hubRoot, "git", "show", `HEAD:.nexus/queue/${entryName}/close-record.md`);
-        const source = fs
-            .readFileSync(path.join(entryDir, "close-record.md"), "utf8")
-            .replace(/\n$/, "");
         expect(blob).toBe(source);
     });
 
@@ -181,16 +222,17 @@ describe("migrateEntry", () => {
         expect(fs.existsSync(entryDir)).toBe(true);
     });
 
-    // --- 19: idempotent re-run --------------------------------------------
+    // --- 19 / 19b: idempotent re-run, completing the move -----------------
 
-    it("is idempotent across a simulated crash-after-commit", () => {
-        const { hubRoot, entryDir, entryName } = fixture();
+    it("is idempotent across a simulated crash-after-commit, ending with exactly one place holding the entry", () => {
+        const { hubRoot, memberRoot, entryDir, entryName } = fixture();
 
         const first = asOk(migrateEntry(entryDir));
         const countAfterFirst = sh(hubRoot, "git", "rev-list", "--count", "HEAD");
+        expect(first.removalCommit).toMatch(/^[0-9a-f]{40}$/);
 
-        // Simulate a crash after the hub commit landed but before removal completed: the
-        // member entry (whether or not it still exists) is restored from the hub's copy.
+        // Simulate an operator restoring the entry after the fact (or a crash recovery that
+        // re-materializes it): the member entry is repopulated from the hub's committed copy.
         const dest = path.join(hubRoot, ".nexus", "queue", entryName);
         fs.rmSync(entryDir, { recursive: true, force: true });
         fs.cpSync(dest, entryDir, { recursive: true });
@@ -200,6 +242,13 @@ describe("migrateEntry", () => {
         expect(second.alreadyMigrated).toBe(true);
         expect(second.hubCommit).toBe(first.hubCommit);
         expect(sh(hubRoot, "git", "rev-list", "--count", "HEAD")).toBe(countAfterFirst);
+
+        // 19b: end state is exactly-one-place, and the removal is committed in member history.
+        expect(fs.existsSync(entryDir)).toBe(false);
+        expect(
+            sh(memberRoot, "git", "status", "--porcelain", "--", `.nexus/queue/${entryName}`),
+        ).toBe("");
+        expect(sh(memberRoot, "git", "log", "--format=%s")).toContain(entryName);
     });
 
     // --- 20: failure injection, hub left clean ----------------------------
@@ -253,5 +302,40 @@ describe("migrateEntry", () => {
         expect(error.problem).toBe("hub-detached-head");
         expect(sh(hubRoot, "git", "rev-list", "--count", "HEAD")).toBe(beforeCount);
         expect(fs.existsSync(entryDir)).toBe(true);
+    });
+
+    // --- 23: entry with no tracked files ------------------------------
+
+    it("removes an entry whose files are all untracked, without creating a removal commit", () => {
+        const parent = makeParent(tmpDirs);
+        const { memberRoot } = buildWorkspaceFixture(parent);
+        const entryName = "untracked-only-epic-cccc3333";
+        const entryDir = path.join(memberRoot, ".nexus", "queue", entryName);
+        fs.mkdirSync(entryDir, { recursive: true });
+        fs.writeFileSync(path.join(entryDir, "epic.md"), "# untracked epic\n");
+        const beforeCount = sh(memberRoot, "git", "rev-list", "--count", "HEAD");
+
+        const outcome = asOk(migrateEntry(entryDir));
+
+        expect(outcome.removalCommit).toBeNull();
+        expect(fs.existsSync(entryDir)).toBe(false);
+        expect(sh(memberRoot, "git", "rev-list", "--count", "HEAD")).toBe(beforeCount);
+    });
+
+    // --- removal-failed: coverage for the last gated failure mode ---------
+
+    it("reports removal-failed and names the safe hub commit when the member-side removal fails", () => {
+        const { hubRoot, entryDir } = fixture();
+        const failingRunner: Runner = (cmd, args, opts) => {
+            if (cmd === "git" && args[0] === "commit" && opts.cwd !== hubRoot) {
+                return { status: 1, stdout: "", stderr: "simulated removal-commit failure" };
+            }
+            return defaultRunner(cmd, args, opts);
+        };
+
+        const error = asError(migrateEntry(entryDir, failingRunner));
+
+        expect(error.problem).toBe("removal-failed");
+        expect(error.message).toContain("safe in the hub commit");
     });
 });

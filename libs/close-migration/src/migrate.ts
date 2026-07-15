@@ -223,8 +223,50 @@ export function migrateEntry(entryDir: string, run: Runner = defaultRunner): Mig
         }
     }
 
-    // --- 7. Remove — stubbed until Story 3 (#52) --------------------------
-    const removalCommit: string | null = null;
+    // --- 7. Remove — only reached when step 6 verified, or on the alreadyMigrated path ---
+    // `git add -A -- <path>` errors ("did not match any files") when the path has never been
+    // tracked, so only touch the index when the entry actually has tracked content to remove.
+    const trackedBefore = git(run, codeRoot, "ls-files", "--", relPath);
+    fs.rmSync(entryDir, { recursive: true, force: true });
+
+    let removalCommit: string | null = null;
+    if (trackedBefore) {
+        const addRemovalResult = run("git", ["add", "-A", "--", relPath], { cwd: codeRoot });
+        if (addRemovalResult.status !== 0) {
+            return {
+                ok: false,
+                error: {
+                    file: codeRoot,
+                    entry: entryName,
+                    problem: "removal-failed",
+                    message: `the entry is safe in the hub commit ${hubCommit} at ${hubRoot}, but staging its removal from ${codeRoot} failed: ${addRemovalResult.stderr}`,
+                },
+            };
+        }
+        const removalCommitResult = run(
+            "git",
+            [
+                "commit",
+                "-m",
+                `closure: migrate queue entry ${entryName} to hub ${preflight.hub.name}`,
+                "--",
+                relPath,
+            ],
+            { cwd: codeRoot },
+        );
+        if (removalCommitResult.status !== 0) {
+            return {
+                ok: false,
+                error: {
+                    file: codeRoot,
+                    entry: entryName,
+                    problem: "removal-failed",
+                    message: `the entry is safe in the hub commit ${hubCommit} at ${hubRoot}, but committing its removal from ${codeRoot} failed: ${removalCommitResult.stderr}`,
+                },
+            };
+        }
+        removalCommit = git(run, codeRoot, "rev-parse", "HEAD");
+    }
 
     return {
         ok: true,

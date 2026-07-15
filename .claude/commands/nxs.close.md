@@ -447,6 +447,8 @@ EPIC CLOSED: <Epic Title>
 
 GitHub epic issue: #<epic-issue> — closed
 Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
+Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
+                   (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
 Deferred scope:    docs/features/<feature>/backlog.md  (<N> item(s))
 Process lesson:    docs/delivery/lessons/<date>-<slug>.md
 Scratch consumed:  .nexus/plans/<branch>/ — <N> stub(s), <M> plan(s) — deleted
@@ -456,6 +458,15 @@ Deviations recorded:    <count>
 ```
 
 (Use "none found" for the scratch-consumed line when the directory was absent.)
+
+In member mode, end the report with the durability instruction — closure is not durable until
+the hub commit is pushed:
+
+    ACTION REQUIRED — push the hub commit:
+        git -C <hub-root> push
+
+In single-repo and hub mode, omit the Queue entry line and the push instruction; the close
+record's line already says the entry stays and is consumed post-merge.
 
 # Constraints
 
@@ -486,6 +497,19 @@ Deviations recorded:    <count>
   branch's directory, never the whole `.nexus/plans/` tree.
 - **The distiller never sees scratch** — nothing from `.nexus/plans/` may be copied into the
   queue entry verbatim as a new artifact; the close record's prose is the only carrier.
+- **Role comes from the workspace preflight** (Phase 1.3 — the shared resolver's committed
+  artifacts: manifest → hub, pointer → member, neither → single-repo), never a new heuristic.
+  Migration fires only in member mode; in single-repo and hub mode no hub write is ever attempted
+  and the entry is never removed — it must reach that checkout's `main` for its own distiller.
+- **Range stamping is unconditional** — every close record carries the full-SHA `range:` list, in
+  every mode, taken from the same base/head Phase 3 diffed.
+- **Never bypass the migration helper** — the migrate → verify → gated-remove order is encoded in
+  `close_migration.ts migrate`; never copy, commit, or remove the entry with inline git, and
+  never remove the entry unless the helper confirmed the hub commit.
+- **Cross-repo mutations run only between the Phase 7 checkpoint and the Phase 8 GitHub writes**,
+  and the checkpoint summary names them with the target hub root and branch.
+- **A member close ends with the push instruction** — until the hub commit is pushed, the migrated
+  entry has no copy off this machine.
 
 # Usage
 
