@@ -88,12 +88,25 @@ naturally), applied entry-by-entry (Phase 4).
 
 4. Determine the **home repo** (`gh repo view --json nameWithOwner`) — the resolution scope for
    unqualified `#n` provenance (0003 §2.4).
-5. **Resolve each entry's provenance repo.** The epic's `link` (e.g. `"#3"`) is only meaningful
-   in the repo where that issue lives. Check `gh issue view <n> --json title` in the home repo:
-   if the issue exists and its title matches the epic, the terse `#n` form is correct. If it does
-   not match (an imported entry — e.g. the Prime import, where `#3` is actually `sameera/prime#3`),
-   ask the user for the owning repo and use the **qualified `<owner>/<repo>#n` form** in every
-   provenance reference you write (frontmatter `last_updated_by` and Decision Log headings).
+5. **Resolve each entry's provenance repo** — branch on the Phase 0.3 mode:
+
+    - **Hub mode:** every provenance reference is the **qualified `<owner>/<repo>#n` form**,
+      resolved deterministically from the entry's recorded originating repo — the **first**
+      `range:` entry's `repo` in `close-record.md` frontmatter (the repo the close ran in).
+      Strip the leading host segment from the normalized identity and append the epic's `link`
+      number: `github.com/acme/web-app` + `#3` → `acme/web-app#3`. The terse `#n` form is
+      **never emitted** in hub mode — in a hub the issue never lives in the drain's own repo, so
+      a terse reference would resolve against the wrong repo. Do **not** probe issue titles with
+      `gh issue view` for this: the recorded repo is ground truth and needs no network
+      round-trip. Use the qualified form everywhere a reference is written — page frontmatter
+      `last_updated_by`, Decision Log headings, and the PR body.
+    - **Single-repo mode (unchanged):** the epic's `link` (e.g. `"#3"`) is only meaningful in
+      the repo where that issue lives. Check `gh issue view <n> --json title` in the home repo:
+      if the issue exists and its title matches the epic, the terse `#n` form is correct. If it
+      does not match (an imported entry — e.g. the Prime import, where `#3` is actually
+      `sameera/prime#3`), ask the user for the owning repo and use the **qualified
+      `<owner>/<repo>#n` form** in every provenance reference you write (frontmatter
+      `last_updated_by` and Decision Log headings).
 
 # Phase 1 — Derive the diff (never stored)
 
@@ -204,8 +217,9 @@ committed.
   two Decision Logs.
 - **Every `touches` slug must resolve** to an existing active page or a page this same run
   creates. A touch pointing nowhere is dropped from the delta (no speculative stub pages).
-- **Provenance** uses `#n` for the home repo, qualified `<owner>/<repo>#n` cross-repo — per the
-  Phase 0 resolution, everywhere a reference is written.
+- **Provenance** — per the Phase 0.5 resolution, everywhere a reference is written: in hub mode
+  always the qualified `<owner>/<repo>#n` form (the terse `#n` never appears in a workspace
+  drain's output); in single-repo mode `#n` for the home repo, qualified cross-repo.
 
 # Phase 4 — Apply the deltas on a distill branch
 
@@ -483,8 +497,10 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
   speculative claims. Paths live only in `.nexus/anchors/` (R1).
 - **Reciprocity (C11), anchors (R1), and the validator are deterministic steps** — never skipped,
   never reinterpreted. A validation failure blocks the PR.
-- **Provenance is qualified cross-repo** (`<owner>/<repo>#n`, 0003 §2.4) — verify the issue
-  actually lives in the home repo before writing the terse `#n` form.
+- **Provenance is qualified cross-repo** (`<owner>/<repo>#n`, 0003 §2.4). In hub mode every
+  reference is qualified from the entry's recorded originating repo and the terse `#n` form is
+  never emitted. In single-repo mode, verify the issue actually lives in the home repo before
+  writing the terse `#n` form.
 - The historical design workspace `libs/origin/v2/.nexus/` is **never written** — the live store
   is `.nexus/` at the repo root.
 
