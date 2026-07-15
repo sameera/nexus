@@ -225,7 +225,17 @@ importers:
 
   libs/origin: {}
 
-  libs/portable-tools: {}
+  libs/portable-tools:
+    dependencies:
+      '@nexus/close-migration':
+        specifier: workspace:*
+        version: link:../close-migration
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
   libs/workspace:
     dependencies:

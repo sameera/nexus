@@ -13,3 +13,4 @@ hub docs repo holds the concept store and drains the queue.
 - **Portable Nexus Tooling** — [#44](https://github.com/sameera/nexus/issues/44)
   - [Hub tooling install](hub-tooling-install.md)
 - **Close-Entry Migration to the Hub Queue** — [#49](https://github.com/sameera/nexus/issues/49)
+- **Distill Across a Multi-Repo Workspace** — [#54](https://github.com/sameera/nexus/issues/54)

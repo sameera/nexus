@@ -64,9 +64,31 @@ naturally), applied entry-by-entry (Phase 4).
    `slug`. Read `decision-record.md` and `close-record.md` in full.
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: the drain creates a branch and must not entangle unrelated work.
-3. Determine the **home repo** (`gh repo view --json nameWithOwner`) — the resolution scope for
+3. **Resolve the run mode once** — the same committed artifacts and presence check the
+   deterministic steps use to select their runner (Phase 5.3); never a new heuristic
+   (e.g. never "no `package.json`"):
+
+    ```bash
+    test -f .nexus/config/workspace.yml   # hub manifest → hub mode
+    test -f .nexus/config/hub.yml         # member pointer → member mode
+    ```
+
+    - **hub** (`.nexus/config/workspace.yml` present): every mode-gated behavior below takes
+      its hub branch — diff derivation (Phase 1), anchor source SHAs (Phase 5.2), provenance
+      form (Phase 0.5, Phase 3), tool invocation (Phase 5.3–5.5), and drain-SLO reporting
+      (Input Resolution 3, Phases 6/8).
+    - **single-repo** (neither file present): every path below is exactly today's behavior,
+      unchanged.
+    - **member** (`.nexus/config/hub.yml` present, no manifest): a member repo does not
+      drain — its closed entries migrate to the hub at close, and the hub drains them. Report
+      that and **stop**.
+
+    This mirrors workspace resolution's own role determination (a checkout carrying both files
+    is the hub); distill re-derives no workspace shape of its own.
+
+4. Determine the **home repo** (`gh repo view --json nameWithOwner`) — the resolution scope for
    unqualified `#n` provenance (0003 §2.4).
-4. **Resolve each entry's provenance repo.** The epic's `link` (e.g. `"#3"`) is only meaningful
+5. **Resolve each entry's provenance repo.** The epic's `link` (e.g. `"#3"`) is only meaningful
    in the repo where that issue lives. Check `gh issue view <n> --json title` in the home repo:
    if the issue exists and its title matches the epic, the terse `#n` form is correct. If it does
    not match (an imported entry — e.g. the Prime import, where `#3` is actually `sameera/prime#3`),
@@ -75,8 +97,42 @@ naturally), applied entry-by-entry (Phase 4).
 
 # Phase 1 — Derive the diff (never stored)
 
-The diff is recomputed from git on every run (0006) — it is never written anywhere. Per entry,
-resolve the SHA range in priority order:
+The diff is recomputed from git on every run (0006) — it is never written anywhere. How it is
+recomputed branches on the Phase 0.3 mode.
+
+**Hub mode.** The recorded range is the only diff source — after migration the entry no longer
+shares history with the code, and the entry's introducing commit here is the *migration* commit
+(its diff would be the migration's file moves: confidently wrong). Never use the
+introducing-commit path in hub mode. Per entry, run the vendored derivation tool with each
+argument its own quoted token — never a shell-interpolated string:
+
+    ```bash
+    node .nexus/tools/derive-entry-diff.mjs --entry "<entry-dir>"
+    ```
+
+    If `.nexus/tools/derive-entry-diff.mjs` does not exist, the hub's vendored tooling predates
+    this capability — stop and tell the operator to re-vendor per
+    `docs/features/multi-repo-workspaces/hub-tooling-install.md`; do not derive the diff another
+    way.
+
+    The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
+    full SHAs), resolves each named repo to its sibling member checkout through the workspace
+    resolver (the hub's own entries resolve to the hub checkout), verifies both SHAs are
+    reachable, and emits **one diff per repo** — each computed as `git diff <base>...<head>`
+    inside that repo's own checkout with `.nexus/queue/**` excluded, so no path is ever
+    attributed to the wrong repo. It reads only: it never clones, fetches, or mutates a member
+    checkout.
+
+    - **Exit 0:** stdout carries a `=== repo <identity> checkout <path> range <base>...<head> ===`
+      header per repo followed by that repo's diff. Analyze each repo's diff against its own
+      repo.
+    - **Exit 1** (missing checkout, unreachable SHA, missing/malformed `range:` stamp,
+      unknown repo): report the tool's diagnostic **verbatim**, mark the entry **blocked** — it
+      is not drained this run and its queue files are untouched — and continue with the
+      remaining entries. Never fall back to the hub repo, never treat the failure as an empty
+      diff, never derive a partial diff, and never ask the user for a replacement range.
+
+**Single-repo mode (unchanged).** Per entry, resolve the SHA range in priority order:
 
 1. **The commit that introduced the queue entry:**
 
@@ -96,8 +152,8 @@ resolve the SHA range in priority order:
 3. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
    user for a base/head range via `AskUserQuestion` free text; do not guess.
 
-Exclude `.nexus/queue/**` paths from the behavioral analysis — the entry's own artifacts are
-input, not the *what*.
+In both modes, exclude `.nexus/queue/**` paths from the behavioral analysis — the entry's own
+artifacts are input, not the *what*.
 
 # Phase 2 — Survey the concept store
 
@@ -216,24 +272,16 @@ Run these for each entry, in order, before its commit:
     - `<path>` — <one-line role in the concept>
     ```
 
-3. **Select the invocation.** Steps 4 and 5 both branch on the same check, resolved once here —
-   checked directly against workspace resolution's own committed artifacts, never a new
+3. **Select the invocation.** Steps 4 and 5 both branch on the run mode **already resolved once
+   in Phase 0.3** — that check reads workspace resolution's own committed artifacts, never a new
    heuristic (e.g. never "no `package.json`"):
 
-    ```bash
-    test -f .nexus/config/workspace.yml   # hub manifest
-    test -f .nexus/config/hub.yml         # member pointer
-    ```
-
-    - **hub** (`.nexus/config/workspace.yml` present): run the bundle vendored at
+    - **hub**: run the bundle vendored at
       `.nexus/tools/` via plain `node`. Pass every page path and git ref as its own separate,
       quoted argument — never build the command by interpolating a shell string.
-    - **single-repo** (neither file present): keep today's `pnpm nexus:*` invocation, unchanged.
-    - **member** (`.nexus/config/hub.yml` present, no manifest): out of this story's scope —
-      `distill-multi-repo` owns member-repo distillation. Take neither action below.
-
-    This mirrors workspace resolution's own role determination (a checkout carrying both files
-    is the hub); distill re-derives no workspace shape of its own.
+    - **single-repo**: keep today's `pnpm nexus:*` invocation, unchanged.
+    - **member**: a member repo does not drain — Phase 0.3 already stopped the run before this
+      point.
 
 4. **Atlas regeneration.** Rebuild the human orientation page from the store's current
    state, using the invocation Step 3 selected:
@@ -308,6 +356,7 @@ Atlas: regenerated (docs/concepts.md)
 Validator: PASS (<N> page(s))
 
 Skipped (not closed): <local-id> — age <n>d [DRAIN-SLO BREACH if >30d]
+Blocked (hub mode — diff underivable): <local-id> — <problem>: <repo / expected path / SHA>
 
 About to: push the distill branch and open the distillation-PR.
 Consumed entries are removed on the branch (in each entry's commit) — the deletion lands on main
@@ -369,6 +418,7 @@ Anchors refreshed: <n>
 Validator:         PASS
 
 Entries skipped (not closed): <list with ages, drain-SLO flags>
+Entries blocked (hub mode — diff underivable): <list with the named problem per entry>
 
 Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```
@@ -381,7 +431,11 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
   distill branch so the merge removes them atomically with the page writes (0007: deletion is bound
   to the merge). **Never** touch an unclosed/undrained entry (C12: flag age, don't clean up).
 - **No search when a path is given** — `$ARGUMENTS` resolves directly.
-- **The diff is recomputed, never stored** (0006).
+- **The diff is recomputed, never stored** (0006). In hub mode it is recomputed **only** from
+  the close record's `range:` stamp inside the named member checkout; a missing checkout, an
+  unreachable SHA, or a missing/malformed stamp is a hard per-entry error (report it, drain the
+  rest) — the drain never falls back to the hub repo, never fabricates an empty or partial
+  diff, and never clones, fetches, or mutates a member checkout.
 - **No machinery**: no recipe/template files, no state file, no retrieval index (0003 §7 —
   glob/rg is the index; the `docs/concepts.md` atlas is a derived human-orientation page
   regenerated by this phase's atlas-regeneration step, never a retrieval surface). Idempotency

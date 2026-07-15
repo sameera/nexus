@@ -10,6 +10,7 @@ import { buildBundle } from "./bundle.js";
 export const ENTRY_POINTS: Record<string, string> = {
     "generate-atlas": "generate-atlas.ts",
     "validate-concepts": "validate-concepts.ts",
+    "derive-entry-diff": "derive-entry-diff.ts",
 };
 
 export async function buildAllBundles(srcDir: string, outDir: string): Promise<string[]> {

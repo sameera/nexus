@@ -33,7 +33,7 @@
 
 ## distill-multi-repo
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** /nxs.distill drains the hub queue across the workspace: recomputes each entry's diff from its recorded repo+range in the member checkout, writes repo-qualified code anchors with per-repo source SHAs, defaults to qualified provenance, and reports drain-SLO across all repos.
 - **estimate:** M
 - **blocked_by:** [portable-nexus-tools, close-entry-migration]
