@@ -53,6 +53,17 @@ $ARGUMENTS
    drain-SLO breach to report, not to clean up). Report each skipped entry's age (from its
    introducing commit, or its `epic.md` `created` date if uncommitted); flag anything older than
    30 days as a drain-SLO breach.
+
+   **Hub mode (Phase 0.3):** the drain-SLO report spans the **whole hub queue** — every
+   undrained entry (skipped-not-closed and blocked-underivable alike) is listed, none omitted,
+   and each is **attributed to its originating repo**: the first `range:` entry's `repo` in its
+   `close-record.md` when present (host-stripped, e.g. `acme/web-app`), otherwise the hub repo
+   itself (an unclosed hub-queue entry is necessarily the hub's own — migration happens only at
+   close, after the close record is written). The introducing-commit age stays correct in the
+   hub: for a migrated entry that commit *is* the migration commit, so age measures exactly how
+   long the entry has been drainable in the hub queue. Drain-SLO is measured against the hub
+   queue only — never scan member checkouts for closed-but-unmigrated entries (that is
+   migration-lag, owned by close-entry-migration / workspace-status, not this report).
 4. If nothing is drainable, report that and stop.
 
 All drainable entries in one run are batched into **one** distillation-PR (0007 batches
@@ -406,8 +417,9 @@ Anchors refreshed: <slugs>
 Atlas: regenerated (docs/concepts.md)
 Validator: PASS (<N> page(s))
 
-Skipped (not closed): <local-id> — age <n>d [DRAIN-SLO BREACH if >30d]
-Blocked (hub mode — diff underivable): <local-id> — <problem>: <repo / expected path / SHA>
+Skipped (not closed): <local-id> — repo <owner/repo, hub mode only> — age <n>d [DRAIN-SLO BREACH if >30d]
+Blocked (hub mode — diff underivable): <local-id> — repo <owner/repo> — age <n>d — <problem> [DRAIN-SLO BREACH if >30d]
+(if nothing was skipped or blocked: "Skipped: none — every queue entry drained; no drain-SLO breaches")
 
 About to: push the distill branch and open the distillation-PR.
 Consumed entries are removed on the branch (in each entry's commit) — the deletion lands on main
@@ -468,8 +480,12 @@ Reciprocal edits:  <n>  (<slugs>)
 Anchors refreshed: <n>
 Validator:         PASS
 
-Entries skipped (not closed): <list with ages, drain-SLO flags>
-Entries blocked (hub mode — diff underivable): <list with the named problem per entry>
+Entries skipped (not closed): <list with ages, drain-SLO flags; hub mode adds each entry's
+                               originating repo as <owner>/<repo>>
+Entries blocked (hub mode — diff underivable): <list with originating repo, age, drain-SLO
+                               flag, and the named problem per entry>
+(if nothing was skipped or blocked: "Entries skipped: none — every queue entry drained; no
+ drain-SLO breaches")
 
 Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```
@@ -481,6 +497,9 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
 - **Consumed entries are deleted in the PR, never on main directly** — the `git rm` rides the
   distill branch so the merge removes them atomically with the page writes (0007: deletion is bound
   to the merge). **Never** touch an unclosed/undrained entry (C12: flag age, don't clean up).
+  In hub mode the drain-SLO report covers every undrained hub-queue entry, attributed to its
+  originating repo — and only the hub queue; member checkouts are never scanned for unmigrated
+  entries.
 - **No search when a path is given** — `$ARGUMENTS` resolves directly.
 - **The diff is recomputed, never stored** (0006). In hub mode it is recomputed **only** from
   the close record's `range:` stamp inside the named member checkout; a missing checkout, an
