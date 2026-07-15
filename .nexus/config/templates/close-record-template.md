@@ -17,6 +17,14 @@ CLOSE-FROM-DIFF FORCING FUNCTION
     supplies rationale ONLY on those deviations (targeted, not a blank "write a
     summary"). That rationale lands in "Deviation Rationale" below.
 
+RANGE STAMPING (unconditional — every mode)
+    The range records the exact diff /nxs.close derived: git diff <base>...<head>
+    in the named repo reproduces the epic's landed change. It is a LIST (one
+    entry per touched repo); a single-code-repo epic populates exactly one.
+    Full SHAs only — symbolic refs stop resolving once the branch is deleted.
+    After a workspace migration this range is the only thing the hub-side
+    drain can recompute the diff from.
+
 FILLING RULES
     - Replace every {{PLACEHOLDER}}. Delete guidance comments before committing.
     - Deferred scope is APPENDED to docs/features/<feature>/backlog.md (C2);
@@ -30,6 +38,10 @@ epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, e.g. #42
 feature: "{{FEATURE_NAME}}"     # one-direction pointer: entry → parent feature
 date: {{YYYY-MM-DD}}
 analyze: {{ANALYZE_STATUS}}     # conformance gate: "ran <date> @ <sha>" or the recorded waiver
+range:                          # exact diff range of the landed change — one entry per touched repo
+  - repo: {{REPO_IDENTITY}}     # normalized code-repo identity (host/owner/repo), from the close preflight
+    base: {{BASE_SHA}}          # FULL commit SHA of the merge-base the branch forked from — never a ref
+    head: {{HEAD_SHA}}          # FULL commit SHA of the branch head the close-from-diff pass diffed — never HEAD/main
 ---
 
 # Close Record: {{EPIC_TITLE}}

@@ -138,6 +138,26 @@ anything — if the user opts to analyze first, nothing later in this command sh
     - stale → `stale — ran <date> @ <head>, <N> commit(s) unanalyzed; waived <YYYY-MM-DD>`
     - blocking → `overridden — <C> critical / <H> high finding(s) open; waived <YYYY-MM-DD>`
 
+## 1.3 Workspace preflight (role gate)
+
+Close behaves differently in a multi-repo workspace. Resolve the role once, through the shared
+resolver's helper — never a heuristic of your own:
+
+```bash
+tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts preflight
+```
+
+- **single-repo** or **hub** → note the mode and continue. Every migration step below (the
+  member-mode checkpoint items, Phase 7.5, the member-mode report lines) is **skipped**; behavior
+  is identical to today. The hub drains its own queue, so a hub close keeps its entry too.
+- **member** → record the reported `repo` identity, hub root, and hub branch. They feed the range
+  stamp (Phase 4), the checkpoint summary (Phase 7), and the migration (Phase 7.5).
+- **exit 1** (a named diagnostic was printed) → **hard block.** Report the diagnostic verbatim —
+  it names which checkout is missing and how to supply it — and stop. Never attempt a partial
+  migration and never guess the hub's location.
+
+In every mode, keep the preflight's `repo` identity: it is the `range:` block's `repo` value.
+
 # Phase 2 — Mine the key decisions
 
 Assemble the in-flight **key decisions** — decisions made or changed during implementation, especially
@@ -186,7 +206,11 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
     BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)"
     git diff --stat "$BASE"...HEAD
     git diff "$BASE"...HEAD
+    HEAD_SHA="$(git rev-parse HEAD)"   # full SHA; $BASE is already one (merge-base emits full SHAs)
     ```
+
+    Keep `$BASE` and `$HEAD_SHA` — Phase 4 stamps them into the close record's `range:` block,
+    and the stamped range MUST be the exact range this diff used.
 
 2. **Auto-derive the *what*** from the diff — the behavioral changes, the files touched. This is
    code-derivable, so you derive it; **you do not ask the human to write it**.
@@ -222,6 +246,10 @@ Fill the seeded template and write it into the queue entry.
 2. Fill every `{{PLACEHOLDER}}` and **delete the guidance comments**:
     - `title` / `epic` (the `link` ref) / `feature` / `date` (today).
     - `analyze` — the conformance-gate outcome from Phase 1.2 (`ran … @ …`, or the waiver text).
+    - `range` — **unconditional, every mode**: exactly one list entry with `repo` = the Phase 1.3
+      preflight's repo identity, `base` = `$BASE`, `head` = `$HEAD_SHA` (Phase 3) — **full commit
+      SHAs**, never `HEAD` or a branch name. The list shape is deliberate: a future cross-repo
+      epic appends entries; this epic always writes exactly one (the home repo).
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
     - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human supplied).
     - **Deferred Scope** — a **pointer only** to `docs/features/<feature>/backlog.md` (the scope itself
@@ -297,22 +325,30 @@ Written:
 2. Deferred scope → docs/features/<feature>/backlog.md (<N> item(s))
 3. Process lesson → docs/delivery/lessons/<date>-<slug>.md
 
-Preconditions: all <M> child story issues closed · analyze: <the Phase 1.2 outcome>.
+Preconditions: all <M> child story issues closed · analyze: <the Phase 1.2 outcome> ·
+workspace: <the Phase 1.3 role>.
 
-About to (irreversible):
-4. Post the close comment on epic issue #<epic-issue>
-5. Close epic issue #<epic-issue>
+About to:
+4. [member mode only] Migrate the queue entry → <hub-root>/.nexus/queue/<entry-dir-name>/
+   — committed on the hub's current branch '<hub-branch>' (local git, recoverable)
+5. [member mode only] Remove the queue entry from this repo — committed on branch '<branch>'
+   (local git, recoverable)
+6. Post the close comment on epic issue #<epic-issue>  (irreversible)
+7. Close epic issue #<epic-issue>  (irreversible)
 ```
+
+In single-repo and hub mode, omit items 4–5 (and renumber) — the list reads exactly as today.
 
 Then ask via **`AskUserQuestion`** (not free text). Three options:
 
-- **close** — proceed to Phase 8 (post the comment, close the epic issue).
+- **close** — proceed to Phase 7.5 (member mode) and then Phase 8 (post the comment, close the
+  epic issue).
 - **abort** — stop; leave the epic issue open. The local artifacts stay written.
 - **review** — display the generated `close-record.md`, then ask again.
 
 **Handle the selection** (treat an "Other" answer by intent):
 
-- **close** → Phase 8.
+- **close** → Phase 7.5 in member mode, otherwise Phase 8.
 - **abort** → stop with:
 
     ```
@@ -324,9 +360,32 @@ Then ask via **`AskUserQuestion`** (not free text). Three options:
 
 - **review** → print `close-record.md`, then re-ask via `AskUserQuestion`.
 
+# Phase 7.5 — Migrate the entry to the hub queue (member mode only)
+
+**Skip this phase entirely in single-repo and hub mode.**
+
+On an approved **close**, run the migration helper. It performs the full ordered sequence —
+copy the working-tree entry (the just-written `close-record.md` and `analyze-receipt.md`
+included), commit it in the hub (path-scoped, so unrelated hub work is untouched), **verify**
+the hub commit contains the entry byte-for-byte, and only on that confirmation remove the entry
+here and commit the deletion on the current branch. **Never reproduce these steps as inline
+git** — the ordering is the no-data-loss invariant, and it lives in the helper.
+
+```bash
+tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts migrate "${QDIR}"
+```
+
+- **exit 0** → the entry now exists in exactly one place: the hub queue. Record the printed hub
+  commit SHA and hub branch for the Phase 9 report, then continue to Phase 8.
+- **exit non-zero** → **stop before any GitHub write.** Print the helper's diagnostic verbatim.
+  The helper has already cleaned any partial hub copy; the entry is intact in this repo. Tell the
+  user to fix the named problem and re-run `/nxs.close` — the re-run is idempotent (an entry
+  already verified in the hub proceeds straight to removal).
+
 # Phase 8 — Post the comment and close the epic issue
 
-GitHub ops target the **epic issue** via `link`. The epic issue is a **durable** surface; the queue
+In member mode this phase runs only after Phase 7.5 succeeded. GitHub ops target the **epic
+issue** via `link`. The epic issue is a **durable** surface; the queue
 `close-record.md` is **ephemeral** — the distiller deletes it post-merge. So the comment carries the
 close record's **prose inline** (Key Decisions + Deviation Rationale); it must **never** link into
 `.nexus/queue/`, or the link dangles the moment the distillation PR merges. Durable pointers — the
@@ -388,6 +447,8 @@ EPIC CLOSED: <Epic Title>
 
 GitHub epic issue: #<epic-issue> — closed
 Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
+Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
+                   (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
 Deferred scope:    docs/features/<feature>/backlog.md  (<N> item(s))
 Process lesson:    docs/delivery/lessons/<date>-<slug>.md
 Scratch consumed:  .nexus/plans/<branch>/ — <N> stub(s), <M> plan(s) — deleted
@@ -397,6 +458,15 @@ Deviations recorded:    <count>
 ```
 
 (Use "none found" for the scratch-consumed line when the directory was absent.)
+
+In member mode, end the report with the durability instruction — closure is not durable until
+the hub commit is pushed:
+
+    ACTION REQUIRED — push the hub commit:
+        git -C <hub-root> push
+
+In single-repo and hub mode, omit the Queue entry line and the push instruction; the close
+record's line already says the entry stays and is consumed post-merge.
 
 # Constraints
 
@@ -427,6 +497,19 @@ Deviations recorded:    <count>
   branch's directory, never the whole `.nexus/plans/` tree.
 - **The distiller never sees scratch** — nothing from `.nexus/plans/` may be copied into the
   queue entry verbatim as a new artifact; the close record's prose is the only carrier.
+- **Role comes from the workspace preflight** (Phase 1.3 — the shared resolver's committed
+  artifacts: manifest → hub, pointer → member, neither → single-repo), never a new heuristic.
+  Migration fires only in member mode; in single-repo and hub mode no hub write is ever attempted
+  and the entry is never removed — it must reach that checkout's `main` for its own distiller.
+- **Range stamping is unconditional** — every close record carries the full-SHA `range:` list, in
+  every mode, taken from the same base/head Phase 3 diffed.
+- **Never bypass the migration helper** — the migrate → verify → gated-remove order is encoded in
+  `close_migration.ts migrate`; never copy, commit, or remove the entry with inline git, and
+  never remove the entry unless the helper confirmed the hub commit.
+- **Cross-repo mutations run only between the Phase 7 checkpoint and the Phase 8 GitHub writes**,
+  and the checkpoint summary names them with the target hub root and branch.
+- **A member close ends with the push instruction** — until the hub commit is pushed, the migrated
+  entry has no copy off this machine.
 
 # Usage
 

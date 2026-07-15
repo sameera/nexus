@@ -13,6 +13,9 @@
       "path": "./libs/workspace"
     },
     {
+      "path": "./libs/close-migration"
+    },
+    {
       "path": "./libs/portable-tools"
     },
     {

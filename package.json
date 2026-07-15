@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
+    "@nexus/close-migration": "workspace:*",
     "@nexus/workspace": "workspace:*",
     "@nx/eslint": "23.0.1",
     "@nx/eslint-plugin": "23.0.1",

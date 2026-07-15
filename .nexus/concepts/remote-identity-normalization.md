@@ -1,8 +1,8 @@
 ---
 title: "Remote Identity Normalization"
 aliases: ["remote normalization", "git remote matching", "same-remote comparison", "remote identity rule"]
-touches: ["workspace-resolution"]
-last_updated_by: "#38"
+touches: ["workspace-resolution", "close-entry-migration"]
+last_updated_by: "#49"
 status: active
 verification: verified
 ---
@@ -27,9 +27,14 @@ Workspace resolution applies this rule wherever remote identity matters: verifyi
 ## Integration Points
 
 - [workspace-resolution](workspace-resolution.md) — resolution uses this rule to verify a member's pointer names the located hub and to reject two members that resolve to the same remote.
+- [close-entry-migration](close-entry-migration.md) — the stamped range's repo identity is produced through this rule so a hub-side drain can match it to a manifest member.
 
 ## Decision Log
 
 ### 2026-07-12 — #38 — Lower-case the host, preserve the repository path's case
 
 One normalization rule comparing host plus path — ignoring the protocol and any trailing suffix — is required so differing spellings of the same remote do not silently break parity. Host names are case-insensitive, so lower-casing the host is always safe, but some self-hosted forges are path-case-sensitive, so the repository path's case is preserved to avoid a false "same remote" match between genuinely different repositories. Refuted alternative: lower-case the whole remote string — it matches more spellings on the largest host, but risks a false duplicate on case-sensitive hosts.
+
+### 2026-07-15 — #49 — Reciprocal link from close-entry-migration
+
+Mechanical reciprocity fan-out: the close-entry-migration page names this rule as how the stamped range's repo identity is canonicalized so a hub-side drain can match it to a manifest member.
