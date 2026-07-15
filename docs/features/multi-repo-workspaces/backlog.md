@@ -113,3 +113,15 @@
   (the manifest epic's Story 4 read-out, exposed as a CLI verb); `nexus workspace add-repo`
   (member add touching at most the two files the manifest epic promises); Re-scope `/nxs.setup`
   to per-repo judgment with workspace detection (hub vs member) via the pointer/manifest
+
+## cross-repo-range-recording
+
+- **status:** proposed
+- **goal:** Extend range stamping (the producer side) to cross-repo epics: record more than one
+  `{repo, base, head}` entry in the close record and detect which code repos an epic touched, so
+  an epic implemented across multiple member repos carries a range per repo. The range block is
+  already list-shaped, so no frontmatter schema change is needed — only touched-repo detection and
+  multi-entry stamping.
+- **estimate:** M
+- **blocked_by:** [distill-multi-repo]
+- **source:** deferred from epic Close-Entry Migration to the Hub Queue (#49) (2026-07-15)
