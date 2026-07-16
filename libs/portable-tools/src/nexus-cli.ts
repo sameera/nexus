@@ -18,6 +18,8 @@
 
 import * as path from "node:path";
 import * as readline from "node:readline";
+import { resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
+import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
 import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components.js";
 import { runWorkspaceInit } from "./workspace-init.js";
@@ -178,6 +180,17 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         } finally {
             prompter.close();
         }
+    }
+    if (sub === "status") {
+        if (rest.length > 0) {
+            io.stderr(`unknown argument for workspace status: ${rest[0]}\n${USAGE}`);
+            return 2;
+        }
+        // The identical code path the in-repo status skill runs: resolve, render, exit by
+        // result. Read-only by construction — the resolver never clones, fetches, or writes.
+        const result: ResolveResult = resolveWorkspace(io.cwd);
+        (result.ok ? io.stdout : io.stderr)(renderWorkspaceStatus(result));
+        return result.ok ? 0 : 1;
     }
     io.stderr(sub === undefined ? USAGE : `unknown workspace verb '${sub}'\n${USAGE}`);
     return 2;
