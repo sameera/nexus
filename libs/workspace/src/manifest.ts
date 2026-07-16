@@ -154,6 +154,7 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
 
     // --- members -------------------------------------------------------------
     const parentDir = path.dirname(hubRoot);
+    const normalizedHubRemote = normalizeRemote(hubRemote);
     const membersRaw = doc.members ?? [];
     if (!Array.isArray(membersRaw)) {
         return fail("wrong-type", "members", `${name}: 'members' must be a list`);
@@ -191,6 +192,16 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
             return fail("missing-field", label, `${name}: member '${memberName}' is missing required field 'remote'`);
         }
 
+        // The hub participates in the identity rules: a member may not reuse the hub's
+        // sibling-directory name or its remote identity (the remote-identity collision rule).
+        if (memberName === hubName) {
+            return fail(
+                "duplicate-member",
+                label,
+                `${name}: member '${memberName}' shares the hub's name — a member cannot be the hub`,
+            );
+        }
+
         const priorNameIndex = seenNames.get(memberName);
         if (priorNameIndex !== undefined) {
             return fail(
@@ -202,6 +213,13 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
         seenNames.set(memberName, i);
 
         const normalizedRemote = normalizeRemote(memberRemote);
+        if (normalizedRemote === normalizedHubRemote) {
+            return fail(
+                "duplicate-member",
+                label,
+                `${name}: member '${memberName}' shares the hub's remote '${normalizedHubRemote}'`,
+            );
+        }
         const priorRemoteName = seenRemotes.get(normalizedRemote);
         if (priorRemoteName !== undefined) {
             return fail(

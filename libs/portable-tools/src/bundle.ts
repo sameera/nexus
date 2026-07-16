@@ -31,6 +31,13 @@ export async function buildBundle(entryAbsPath: string): Promise<BuiltBundle> {
         target: "node22",
         write: false,
         metafile: true,
+        // Inlined CJS dependencies (e.g. the `yaml` package) require() Node builtins at module
+        // scope; esbuild's ESM output has no `require`, so its shim throws "Dynamic require of
+        // 'process' is not supported" on a plain-node run. Provide a real require via
+        // createRequire — constant bytes, so the fingerprint pin stays deterministic.
+        banner: {
+            js: 'import { createRequire as __nexusCreateRequire } from "node:module"; const require = __nexusCreateRequire(import.meta.url);',
+        },
     });
     return { code: result.outputFiles[0].text, metafile: result.metafile };
 }

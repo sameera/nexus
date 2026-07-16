@@ -17,8 +17,10 @@
  */
 
 import * as path from "node:path";
+import * as readline from "node:readline";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
 import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components.js";
+import { runWorkspaceInit } from "./workspace-init.js";
 
 export interface CliIo {
     /** The invoking working directory (the repo a verb acts on / resolves from). */
@@ -93,6 +95,94 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
     return 0;
 }
 
+interface Prompter {
+    ask: (question: string) => Promise<string>;
+    close: () => void;
+}
+
+/**
+ * Interactive prompt over stdin that also works when answers arrive piped in one chunk:
+ * every line is buffered as it arrives, so a line emitted between two questions is consumed
+ * by the next question instead of being dropped (readline/promises.question loses it).
+ * A closed stdin resolves pending and future questions with "" — every prompt treats an
+ * empty answer as "abort/decline", so an exhausted pipe can never confirm anything.
+ */
+function makeStdinPrompter(): Prompter {
+    const rl = readline.createInterface({ input: process.stdin });
+    const buffered: string[] = [];
+    const waiters: Array<(answer: string) => void> = [];
+    let closed = false;
+    rl.on("line", (line: string): void => {
+        const waiter = waiters.shift();
+        if (waiter !== undefined) {
+            waiter(line);
+        } else {
+            buffered.push(line);
+        }
+    });
+    rl.on("close", (): void => {
+        closed = true;
+        while (waiters.length > 0) {
+            waiters.shift()?.("");
+        }
+    });
+    return {
+        ask: (question: string): Promise<string> => {
+            process.stdout.write(question);
+            const ready: string | undefined = buffered.shift();
+            if (ready !== undefined) {
+                return Promise.resolve(ready);
+            }
+            if (closed) {
+                return Promise.resolve("");
+            }
+            return new Promise<string>((resolve) => {
+                waiters.push(resolve);
+            });
+        },
+        close: (): void => {
+            rl.close();
+        },
+    };
+}
+
+async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
+    const [sub, ...rest] = argv;
+
+    if (sub === "init") {
+        const args: string[] = [...rest];
+        const payloadOpt = takeOption(args, "--payload", io);
+        if (payloadOpt === null) {
+            return 2;
+        }
+        if (args.length > 0) {
+            io.stderr(`unknown argument for workspace init: ${args[0]}\n${USAGE}`);
+            return 2;
+        }
+        const payloadDir: string = payloadOpt.value ?? defaultPayloadDir();
+        const prompter: Prompter = makeStdinPrompter();
+        try {
+            return await runWorkspaceInit(
+                {
+                    cwd: io.cwd,
+                    stdout: io.stdout,
+                    stderr: io.stderr,
+                    ask: prompter.ask,
+                },
+                {
+                    deploy: (repoRoot: string): void => {
+                        deployComponents(payloadDir, repoRoot);
+                    },
+                },
+            );
+        } finally {
+            prompter.close();
+        }
+    }
+    io.stderr(sub === undefined ? USAGE : `unknown workspace verb '${sub}'\n${USAGE}`);
+    return 2;
+}
+
 /** Run the CLI against explicit argv (no leading node/script segments) and IO. */
 export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
     const [verb, ...rest] = argv;
@@ -107,6 +197,9 @@ export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
     }
     if (verb === "deploy") {
         return runDeploy(rest, io);
+    }
+    if (verb === "workspace") {
+        return runWorkspaceVerb(rest, io);
     }
     io.stderr(`unknown verb '${verb}'\n${USAGE}`);
     return 2;

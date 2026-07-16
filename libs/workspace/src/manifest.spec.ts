@@ -168,6 +168,21 @@ describe("parseAndValidateManifest — structural defects (AC2)", () => {
         expect(err.message).toContain("github.com/acme/web-app");
     });
 
+    it("reports a member that shares the hub's remote identity, across spellings", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\nmembers:\n  - name: docs-copy\n    remote: https://github.com/acme/docs-hub\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("duplicate-member");
+        expect(err.message).toContain("hub");
+        expect(err.message).toContain("github.com/acme/docs-hub");
+    });
+
+    it("reports a member that shares the hub's name", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: r\nmembers:\n  - name: docs-hub\n    remote: git@github.com:acme/other.git\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("duplicate-member");
+        expect(err.message).toContain("docs-hub");
+    });
+
     it("reports unparseable YAML", () => {
         const raw = `hub:\n  name: docs-hub\nmembers: [\n`;
         const err = asError(parseAndValidateManifest(raw, FILE, HUB));

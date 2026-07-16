@@ -29,6 +29,11 @@
       "import": "./src/status.ts",
       "default": "./src/status.ts"
     },
+    "./write": {
+      "types": "./src/write.ts",
+      "import": "./src/write.ts",
+      "default": "./src/write.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {
