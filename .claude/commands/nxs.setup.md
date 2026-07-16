@@ -8,11 +8,41 @@ model: inherit
 
 You are bootstrapping a project for the Nexus pipeline. This is a single guided setup that does two things: it auto-detects the technical context (stack, standards, scaffolding) and it interactively builds the product context.
 
-**Division of labor:** you orchestrate every phase below. The product-context interview itself is owned by the `nxs-setup` skill — you invoke it in Phase 5, you do not re-implement it here.
+**Division of labor:** you orchestrate every phase below. The product-context interview itself is owned by the `nxs-setup` skill — you invoke it in Phase 5, you do not re-implement it here. The **structural** half of setup is not yours at all: the portable `nexus` CLI owns component installation (`nexus deploy`) and workspace declaration (`nexus workspace init` / `add-repo`); this command owns only the per-repo **judgment** artifacts — stack docs, standards, product context.
 
-**Interaction rule:** the technical phases (1–4, 6) are auto-detected. Only ask the user something when detection is genuinely ambiguous, and batch those into a single question set. The heavy back-and-forth lives in the product-context interview (Phase 5), run by the skill.
+**Interaction rule:** the technical phases (0–4, 6) are auto-detected. Only ask the user something when detection is genuinely ambiguous, and batch those into a single question set. The heavy back-and-forth lives in the product-context interview (Phase 5), run by the skill.
 
 Run the phases in order.
+
+## Phase 0: Workspace role detection
+
+Detect this repo's workspace role **through the resolver** — never by asking the user:
+
+1. Run the workspace status read-out (the sole observable surface over the workspace resolver):
+
+    ```bash
+    tsx ./.claude/skills/nxs-workspace-status/scripts/workspace_status.ts
+    ```
+
+    In a checkout with no in-repo Node toolchain, use the portable CLI instead —
+    `node <tools-dir>/nexus.mjs workspace status` (in a workspace hub, `<tools-dir>` is
+    `.nexus/tools`). Both run the identical resolver.
+
+2. Branch on the result and continue with the phases below in every case:
+    - **Hub** (the checkout declares the workspace manifest) or **member** (it carries a hub
+      pointer): note the role for context in the generated docs; the workspace structure
+      already exists and is not revisited here.
+    - **Single-repo mode** (neither artifact): proceed unchanged.
+
+**Structural rules (binding, in every mode):**
+
+- Issue **no** hub/member placement prompt. Placement is decided once, by the human, through
+  `nexus workspace init` — never re-litigated here.
+- Create or modify **no** manifest or pointer file (`.nexus/config/workspace.yml`,
+  `.nexus/config/hub.yml`) in any phase. Workspace artifacts appear only through
+  `nexus workspace init` / `nexus workspace add-repo`.
+- Do not install or refresh `.claude/` components — `nexus deploy` already placed them. If they
+  are missing, tell the user to run `nexus deploy` and continue with the judgment phases.
 
 ## Phase 1: Prerequisites check
 
