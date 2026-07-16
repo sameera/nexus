@@ -55,7 +55,7 @@ export interface InitDeps {
 }
 
 /** The checkout's `origin` remote via the git CLI (read-only), or null when unset. */
-function originRemote(repoRoot: string): string | null {
+export function originRemote(repoRoot: string): string | null {
     try {
         return execFileSync("git", ["-C", repoRoot, "remote", "get-url", "origin"], {
             encoding: "utf8",

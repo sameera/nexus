@@ -22,6 +22,7 @@ import { resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
 import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components.js";
+import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
 export interface CliIo {
@@ -180,6 +181,13 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         } finally {
             prompter.close();
         }
+    }
+    if (sub === "add-repo") {
+        if (rest.length > 0) {
+            io.stderr(`unknown argument for workspace add-repo: ${rest[0]}\n${USAGE}`);
+            return 2;
+        }
+        return runWorkspaceAddRepo(io);
     }
     if (sub === "status") {
         if (rest.length > 0) {
