@@ -114,6 +114,14 @@
   (member add touching at most the two files the manifest epic promises); Re-scope `/nxs.setup`
   to per-repo judgment with workspace detection (hub vs member) via the pointer/manifest
 
+## manifest-skeleton-autopropose
+
+- **status:** proposed
+- **goal:** `nexus workspace init` *proposes* which discovered sibling is the hub and which are members (a confirmable skeleton) rather than only listing them for manual designation — the ergonomic win that dissolves the "where to deploy" decision.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic Nexus Setup CLI (#60) (2026-07-16)
+
 ## cross-repo-range-recording
 
 - **status:** proposed
