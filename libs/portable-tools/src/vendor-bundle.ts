@@ -18,6 +18,13 @@ import * as path from "node:path";
 import { buildBundle } from "./bundle.js";
 import { ENTRY_POINTS } from "./build-bundles.js";
 import { hashBundleCode, type Fingerprint } from "./parity.js";
+import {
+    COMPONENT_PAYLOAD_DIRNAME,
+    COMPONENT_PAYLOAD_KEY,
+    copyComponentTree,
+    hashComponentTree,
+    liveClaudeDir,
+} from "./vendor-components.js";
 
 export interface VendorOptions {
     /** Directory holding the entry-point sources. Defaults to this file's directory. */
@@ -26,18 +33,24 @@ export interface VendorOptions {
     pinPath: string;
     /** Full path to a hub's portable-tools directory to copy the matching artifacts into. */
     toolsDir?: string;
+    /** The live `.claude/` component source. Defaults to the repo-root tree beside srcDir. */
+    claudeDir?: string;
 }
 
 export interface VendorResult {
     fingerprint: Fingerprint;
     copiedTo: string[];
+    /** Payload-relative component paths vendored into `<toolsDir>/claude-components/`. */
+    payloadCopiedTo: string[];
 }
 
 /** Builds every entry point, writes the pin, and — if `toolsDir` is set — vendors the artifacts. */
 export async function vendorBundles(options: VendorOptions): Promise<VendorResult> {
     const srcDir: string = options.srcDir ?? import.meta.dirname;
+    const claudeDir: string = options.claudeDir ?? liveClaudeDir(srcDir);
     const fingerprint: Fingerprint = {};
     const copiedTo: string[] = [];
+    let payloadCopiedTo: string[] = [];
 
     if (options.toolsDir !== undefined) {
         fs.mkdirSync(options.toolsDir, { recursive: true });
@@ -54,10 +67,18 @@ export async function vendorBundles(options: VendorOptions): Promise<VendorResul
         }
     }
 
+    // The component payload rides the same pin-and-copy lockstep as the bundles: hash the live
+    // tree, and when vendoring, copy from that same tree — so a distributable whose components
+    // lag their source fails the fingerprint gate (decision record, epic #60 ADDRESS risk).
+    fingerprint[COMPONENT_PAYLOAD_KEY] = hashComponentTree(claudeDir);
+    if (options.toolsDir !== undefined) {
+        payloadCopiedTo = copyComponentTree(claudeDir, path.join(options.toolsDir, COMPONENT_PAYLOAD_DIRNAME));
+    }
+
     fs.mkdirSync(path.dirname(options.pinPath), { recursive: true });
     fs.writeFileSync(options.pinPath, JSON.stringify(fingerprint, null, 2) + "\n");
 
-    return { fingerprint, copiedTo };
+    return { fingerprint, copiedTo, payloadCopiedTo };
 }
 
 export function parseArgs(argv: string[]): { toolsDir?: string } {
@@ -75,7 +96,7 @@ export async function runCli(argv: string[]): Promise<number> {
     const srcDir: string = import.meta.dirname;
     const pinPath: string = path.join(srcDir, "..", "bundle-fingerprint.json");
 
-    const { fingerprint, copiedTo } = await vendorBundles({ srcDir, pinPath, toolsDir });
+    const { fingerprint, copiedTo, payloadCopiedTo } = await vendorBundles({ srcDir, pinPath, toolsDir });
 
     console.log(`Fingerprint pin written: ${pinPath}`);
     for (const [name, hash] of Object.entries(fingerprint)) {
@@ -85,6 +106,7 @@ export async function runCli(argv: string[]): Promise<number> {
         for (const dest of copiedTo) {
             console.log(`Vendored: ${dest}`);
         }
+        console.log(`Vendored component payload: ${payloadCopiedTo.length} file(s) under ${COMPONENT_PAYLOAD_DIRNAME}/`);
     } else {
         console.log("No --tools-dir given: pin updated in place; no artifact copied.");
     }

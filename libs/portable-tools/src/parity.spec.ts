@@ -22,6 +22,7 @@ import {
     hashBundleCode,
     type RunResult,
 } from "./parity";
+import { COMPONENT_PAYLOAD_KEY, hashComponentTree, liveClaudeDir } from "./vendor-components";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const SRC_DIR: string = __dirname;
@@ -43,6 +44,9 @@ beforeAll(async () => {
         freshBundles[name] = built;
         freshFingerprint[`${name}.mjs`] = hashBundleCode(built.code);
     }
+    // The vendored component payload rides the same pin (STORY-60.01): a live `.claude/` edit
+    // that skips the re-vendor step fails the fingerprint test exactly like a stale bundle.
+    freshFingerprint[COMPONENT_PAYLOAD_KEY] = hashComponentTree(liveClaudeDir(SRC_DIR));
 });
 
 let tmpDirs: string[] = [];

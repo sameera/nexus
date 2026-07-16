@@ -209,18 +209,20 @@ This repository root contains:
 When any command or agent references paths under `system/`, `docs/`, or `scripts/`, treat them as relative to this repository root, not as absolute filesystem paths.
 ```
 
-# Updating
+# Installing & Updating
 
-In order to update the Nexus plugin in your repo, run the `nxs.update.[agent].sh`. You may need to give the script execution permissions first. E.g.
+Installing Nexus into a repo — and refreshing it later — is one command, the portable `nexus` CLI (the legacy `nxs.update.claude.sh` script is retired):
 
 ```bash
-chmod +x nxs.update.claude.sh
+node <tools-dir>/nexus.mjs deploy
 ```
 
-This update script does the following:
+`<tools-dir>` is wherever the portable distributable lives (in a workspace hub: `.nexus/tools/`). The CLI ships as a self-contained bundle with the Nexus `.claude/` components vendored beside it, so it runs on a bare `node` binary — no install or build step, no in-repo toolchain.
 
-1. Ensures that there are no manual edits to the files in your .claude folder, so that the update does not overwrite any of your custom edits.
-2. Checkout the updated content from the Nexus github repo.
-3. Copy the updated content to your .claude, overwriting any matching existing files.
+`nexus deploy` does the following:
 
-**NOTE**: The script only overwrites files with matching names - typically, with `nxs` prefix. It will not delete any other files in .claude folder.
+1. Mirrors the Nexus-managed component set (slash commands, agents, skills — the `nxs`-prefixed files) into your repo's `.claude/`, overwriting managed files in place.
+2. Removes `nxs`-prefixed files that are no longer part of the managed set, so re-running always converges to the current component set (idempotent refresh).
+3. Leaves everything else untouched — `.claude/settings.local.json` and any of your own files are never modified or deleted.
+
+For multi-repo workspaces, the same CLI also declares and inspects the workspace: `nexus workspace init`, `nexus workspace status`, and `nexus workspace add-repo`. After components are in place, run `/nxs.setup` inside the repo for the per-repo judgment pass (stack docs, standards, product context).

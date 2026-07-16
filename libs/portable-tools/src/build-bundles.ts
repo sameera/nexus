@@ -11,6 +11,7 @@ export const ENTRY_POINTS: Record<string, string> = {
     "generate-atlas": "generate-atlas.ts",
     "validate-concepts": "validate-concepts.ts",
     "derive-entry-diff": "derive-entry-diff.ts",
+    "nexus": "nexus-cli.ts",
 };
 
 export async function buildAllBundles(srcDir: string, outDir: string): Promise<string[]> {

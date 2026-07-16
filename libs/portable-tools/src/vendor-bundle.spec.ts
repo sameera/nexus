@@ -5,9 +5,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ENTRY_POINTS } from "./build-bundles";
 import { hashBundleCode } from "./parity";
 import { parseArgs, vendorBundles } from "./vendor-bundle";
+import { COMPONENT_PAYLOAD_DIRNAME, COMPONENT_PAYLOAD_KEY, hashComponentTree } from "./vendor-components";
 
 const SRC_DIR: string = __dirname;
 const ARTIFACTS: string[] = Object.keys(ENTRY_POINTS).map((name) => `${name}.mjs`);
+const PIN_KEYS: string[] = [...ARTIFACTS, COMPONENT_PAYLOAD_KEY];
 
 let tmpDirs: string[] = [];
 
@@ -35,25 +37,25 @@ describe("parseArgs", () => {
 });
 
 describe("vendorBundles", () => {
-    it("writes a pin covering every entry point, keyed by artifact filename, with sha256 hashes", async () => {
+    it("writes a pin covering every entry point and the component payload, with sha256 hashes", async () => {
         const pinPath: string = path.join(makeTmpDir("vendor-pin-"), "bundle-fingerprint.json");
 
         const { fingerprint, copiedTo } = await vendorBundles({ srcDir: SRC_DIR, pinPath });
 
-        expect(Object.keys(fingerprint).sort()).toEqual([...ARTIFACTS].sort());
-        for (const artifact of ARTIFACTS) {
-            expect(fingerprint[artifact]).toMatch(/^[0-9a-f]{64}$/);
+        expect(Object.keys(fingerprint).sort()).toEqual([...PIN_KEYS].sort());
+        for (const key of PIN_KEYS) {
+            expect(fingerprint[key]).toMatch(/^[0-9a-f]{64}$/);
         }
         expect(copiedTo).toEqual([]);
         // The pin file is written and parses back to the same fingerprint.
         expect(JSON.parse(fs.readFileSync(pinPath, "utf8"))).toEqual(fingerprint);
     });
 
-    it("copies each artifact into the tools directory, byte-matching the pinned hash", async () => {
+    it("copies each artifact and the component payload into the tools directory, byte-matching the pin", async () => {
         const pinPath: string = path.join(makeTmpDir("vendor-pin-"), "bundle-fingerprint.json");
         const toolsDir: string = path.join(makeTmpDir("vendor-hub-"), ".nexus", "tools");
 
-        const { fingerprint, copiedTo } = await vendorBundles({ srcDir: SRC_DIR, pinPath, toolsDir });
+        const { fingerprint, copiedTo, payloadCopiedTo } = await vendorBundles({ srcDir: SRC_DIR, pinPath, toolsDir });
 
         expect(copiedTo.map((p) => path.basename(p)).sort()).toEqual([...ARTIFACTS].sort());
         for (const artifact of ARTIFACTS) {
@@ -61,6 +63,11 @@ describe("vendorBundles", () => {
             // The copied artifact hashes to exactly what the pin recorded — build/pin/copy lockstep.
             expect(hashBundleCode(vendored)).toBe(fingerprint[artifact]);
         }
+        // The vendored payload hashes to exactly the pinned payload fingerprint.
+        expect(payloadCopiedTo.length).toBeGreaterThan(0);
+        expect(hashComponentTree(path.join(toolsDir, COMPONENT_PAYLOAD_DIRNAME))).toBe(
+            fingerprint[COMPONENT_PAYLOAD_KEY],
+        );
     });
 
     it("produces a stable pin across repeated runs (cwd-independent build)", async () => {
