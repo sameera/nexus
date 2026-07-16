@@ -82,7 +82,7 @@
 
 ## workspace-setup-cli
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** A deterministic, workspace-level `nexus` CLI that owns the structural bootstrap a
   slash command structurally cannot — because `/nxs.setup` runs inside one Claude session cwd'd
   into one repo, while first-run must act *above* any single repo: decide which checkout is the
