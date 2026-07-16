@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration"]
-last_updated_by: "#49"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli"]
+last_updated_by: "#60"
 status: active
 verification: verified
 ---
@@ -13,11 +13,11 @@ Workspace resolution makes a multi-repo product a declared, discoverable thing: 
 
 ## How It Works
 
-The hub manifest is the single source of truth for the workspace shape: the hub, the members, each member's remote identity, and its expected sibling checkout name. A member's pointer names only the hub, locating it without redeclaring membership; on disagreement the manifest wins and the mismatch is reported.
+The hub manifest is the single source of truth: the hub, the members, each member's remote, and its expected checkout name. A member's pointer names only the hub without redeclaring membership; on disagreement the manifest wins.
 
-A checkout's role follows the artifact it carries: a manifest makes it the hub; a pointer makes it a member, which finds the hub as a named sibling under the shared parent and reads that same manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes where a hub's vendored portable tooling lives. Carrying neither artifact means single-repo mode, unchanged.
+A checkout's role follows the artifact it carries: a manifest makes it the hub; a pointer makes it a member that finds the hub as a named sibling and reads that same manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes where a hub's vendored portable tooling lives. Carrying neither means single-repo mode, unchanged.
 
-The status read-out is the sole observable surface over this resolver, rendering the hub and each member's checkout state.
+The status read-out is the sole observable surface over this resolver.
 
 ## Key Invariants
 
@@ -31,10 +31,11 @@ The status read-out is the sole observable surface over this resolver, rendering
 
 ## Integration Points
 
-- [remote-identity-normalization](remote-identity-normalization.md) — resolution compares git remotes through this rule to verify a pointer names the located hub and to reject same-remote members.
+- [remote-identity-normalization](remote-identity-normalization.md) — resolution compares git remotes through this rule to verify a pointer names the located hub and to reject a member sharing another member's or the hub's remote.
 - [bare-name-guard](bare-name-guard.md) — every manifest and pointer name is validated as a bare segment before it locates a checkout.
 - [portable-tooling](portable-tooling.md) — the resolved workspace context reports where a hub's vendored copy of this tooling lives.
 - [close-entry-migration](close-entry-migration.md) — a member close reads its role and hub here before relocating the entry.
+- [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer artifacts this resolver reads, re-resolving for parity.
 
 ## Decision Log
 
@@ -49,3 +50,7 @@ Resolution now also produces where a hub's vendored portable tooling lives, so t
 ### 2026-07-15 — #49 — Reciprocal link from close-entry-migration
 
 Mechanical reciprocity fan-out: the close-entry-migration page names this resolver as the source of the role and hub location a member close consumes before relocating the entry.
+
+### 2026-07-16 — #60 — The resolver owns the member-vs-hub collision rule; a canonical writer counterpart
+
+The parser now rejects a manifest where a member reuses the hub's sibling name or remote identity, extending the remote-identity rule from member-vs-member to also cover the hub — the shape authority must own the rule so the read and write sides cannot diverge. This epic's setup CLI is that write side: its init and add-repo writers render a candidate and run it back through this parser, writing only when resolution accepts it unchanged, so the resolver stays the single acceptance oracle for workspace shape. Refuted alternative: a CLI-side pre-check comparing the new member against the hub remote — works for the writer, but creates a second copy of collision logic the single-authority invariant forbids.

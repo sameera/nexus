@@ -1,19 +1,19 @@
 ---
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
-touches: ["distiller", "workspace-resolution"]
-last_updated_by: "#54"
+touches: ["distiller", "workspace-resolution", "nexus-setup-cli"]
+last_updated_by: "#60"
 status: active
 verification: verified
 ---
 
 # Portable Tooling
 
-Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime. Committed into a docs-only hub, it lets a hub that is not a code project validate its concept store and regenerate its atlas as a code repo does. The in-repo tooling stays authoritative; the portable form is a derived build.
+Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime. Committed into a docs-only hub, it lets a non-code hub validate its concept store and regenerate its atlas as a code repo does. The in-repo tooling stays authoritative; the portable form is a derived build.
 
 ## How It Works
 
-Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only hub does not carry. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime, the validator still calling git for its append-only check. Every outside dependency is folded in, so nothing is resolved from an installed package tree at run time; later tools can ship the same way even when they need packages a hub cannot install. Committed into the hub beside the concept store, it gives every checkout identical, offline, reproducible tooling with no registry fetch or per-machine install.
+Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only hub lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable now also carries the `nexus` setup CLI and a vendored component tree, under the one fingerprint gate. Committed into the hub, it gives every checkout identical, offline, reproducible tooling.
 
 ## Key Invariants
 
@@ -29,6 +29,7 @@ Distillation's validator and atlas steps were written to run through a code repo
 
 - [distiller](distiller.md) — runs this tooling as its validator and atlas steps when draining from a hub.
 - [workspace-resolution](workspace-resolution.md) — the resolved role decides whether the distiller runs this tooling or the in-repo tooling; this tooling's committed hub location is part of the workspace context the resolver produces.
+- [nexus-setup-cli](nexus-setup-cli.md) — ships as a vendored entrypoint on this distributable, its component payload pinned by the same fingerprint gate.
 
 ## Decision Log
 
@@ -39,3 +40,7 @@ The portable tooling is a compiled build of the one in-repo source — not a rei
 ### 2026-07-15 — #54 — A third portable tool: resolver-consuming hub diff derivation
 
 The bundle grew a third tool that derives a hub entry's cross-repo diff, joining the validator and the atlas generator, and the bundled validator learned to check the derived anchor sidecars in their new per-repo shape. Unlike the two checks, this tool must consult the workspace resolver at run time to find where each member's code is checked out, so it is the first portable tool that carries a cross-library dependency into the install-free hub — the packaging always anticipated this. The considered alternative — leave hub diff derivation as command prose rather than a bundled tool — was rejected because resolving members to checkouts needs real workspace context, not a presence bit a markdown command can read, so it belongs in code that actually consults the resolver.
+
+### 2026-07-16 — #60 — The setup CLI and a vendored component payload join the distributable
+
+The `nexus` setup CLI ships on this same distributable, and it makes the distributable carry two things it did not before: an inlined package dependency (the manifest parser needs it) and a vendored copy of the live component tree as plain review-gated files, because a distributed CLI has no line of sight back to the source components. A committed payload can lag its source exactly like a compiled bundle, so it is covered by the same fingerprint gate — one `claude-components` pin beside the bundle hashes — rather than a separate discipline. Refuted alternatives: inlining the component tree as base64 blobs — self-contained too, but a blob diff is unreviewable, breaking the ship-only-reviewable-code posture; and a separate component-fingerprint pin — avoids touching the existing gate, but forks the pin discipline into two files.
