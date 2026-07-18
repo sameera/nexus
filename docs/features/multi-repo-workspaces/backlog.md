@@ -133,3 +133,13 @@
 - **estimate:** M
 - **blocked_by:** [distill-multi-repo]
 - **source:** deferred from epic Close-Entry Migration to the Hub Queue (#49) (2026-07-15)
+
+## migrate-existing-hub-docs
+
+- **status:** proposed
+- **goal:** Migrate an already-committed hub's docs into the new layout — relocate an existing
+  `docs/concepts.md` (and any other hub docs) from `docs/` to the resolved hub-root docs location,
+  so hubs created before Parameterized Docs Root pick up the root layout without a manual move.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic Parameterized Docs Root (#74) (2026-07-18)
