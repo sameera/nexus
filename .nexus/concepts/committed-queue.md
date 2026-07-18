@@ -2,7 +2,7 @@
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
 touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration"]
-last_updated_by: "#49"
+last_updated_by: "#67"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The committed queue is the single handoff surface between the delivery pipeline 
 
 ## How It Works
 
-Each epic gets one folder holding its human planning artifacts — the epic, the decision record, and the close record. The folder is committed, so its invariants and rationale are visible from every checkout without duplicating them into the issue body, and its durability is automatic — nothing to stage before consumption. Presence is the only state: an unconsumed entry still exists, so there is no separate status file. The distiller drains an entry after the epic merges; abandoned epics never reach the trunk and never distill. A drained entry is deleted, keeping the tree clean while its artifacts stay recoverable through history. The queue is a third category, distinct from the human and machine surfaces — it holds gated human artifacts awaiting distillation, never an ungated machine block, so it does not breach the two-store split. The queue also carries decision-only memos — a single reviewed decision file recording an out-of-band decision with no code diff, drained diff-less into the relevant concepts' decision logs. Ungated captures such as plan-mode plans never enter.
+Each epic gets one committed folder holding its human planning artifacts — the epic, the decision record, and the close record — visible from every checkout. Presence is the only state: an unconsumed entry still exists, so there is no separate status file. The distiller drains an entry after the epic merges; abandoned epics never reach the trunk and never distill. A drained entry is deleted but stays recoverable through history. The queue holds gated human artifacts awaiting distillation, never an ungated machine block, so it does not breach the two-store split. It also carries decision-only memos — a single reviewed decision file with no code diff, drained diff-less into the relevant concepts' decision logs. An entry additionally carries the epic's committed per-user engineer scratch, which drains away with the entry but is hint-only — the distiller never reads it, so no ungated capture crosses into the store.
 
 ## Key Invariants
 
@@ -22,14 +22,14 @@ Each epic gets one folder holding its human planning artifacts — the epic, the
 3. Presence equals unconsumed — there is no separate state file.
 4. An entry is drained only after its epic merges; abandoned epics never distill.
 5. A drained entry is deleted but stays recoverable through history.
-6. Every artifact in the queue passed a human gate; ungated captures never enter.
+6. Everything the distiller drains passed a human gate; the per-user scratch that also rides inside the entry is hint-only, never read.
 7. An entry is an epic entry or a single-file decision memo; a memo drains diff-less into the relevant concepts' decision logs.
 
 ## Integration Points
 
 - [distiller](distiller.md) — the consumer that drains each queue entry into the knowledge store.
 - [nexus-pipeline](nexus-pipeline.md) — the pipeline whose stages fill the queue entry across an epic's life.
-- [scratch-capture](scratch-capture.md) — the ungated shadow surface; only close-gated prose crosses into the queue.
+- [scratch-capture](scratch-capture.md) — the per-user scratch that now rides inside each entry, hint-only and drained away with it, never read into the store.
 - [close-entry-migration](close-entry-migration.md) — a closed member entry is migrated to the hub queue, not the code repo's trunk.
 
 ## Decision Log
@@ -49,3 +49,7 @@ Mechanical reciprocity fan-out: the scratch-capture page names this queue as the
 ### 2026-07-15 — #49 — Reciprocal link from close-entry-migration
 
 Mechanical reciprocity fan-out: the close-entry-migration page names this queue as the surface whose closed member entry is relocated to the hub rather than riding the code repo's trunk.
+
+### 2026-07-18 — #67 — The entry also carries per-user engineer scratch
+
+In-flight decision scratch moved into committed per-user subdirectories inside the queue entry, so an entry now physically holds both its gated human artifacts and ungated engineer scratch. This refines the earlier "ungated captures never enter" invariant: the scratch rides inside the entry as a hint-only surface the distiller never reads and never distils, so nothing ungated ever crosses into the store — the human-gate guarantee holds for everything the distiller actually drains. Refuted alternative: keep scratch on a separate ungated surface outside the queue — it keeps the entry purely gated but leaves the highest-fidelity rationale invisible on the PR head and forces a bespoke deletion the committed model removes for free.

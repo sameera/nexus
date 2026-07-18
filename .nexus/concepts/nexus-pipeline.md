@@ -2,7 +2,7 @@
 title: "Nexus Pipeline"
 aliases: ["delivery pipeline", "pipeline stages", "System A", "spec-driven pipeline"]
 touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture"]
-last_updated_by: "manual"
+last_updated_by: "#67"
 status: active
 verification: verified
 ---
@@ -29,7 +29,7 @@ Setup bootstraps the project's ground truth and product context once. The epic s
 - [committed-queue](committed-queue.md) — the handoff each epic's stages fill.
 - [story-as-unit](story-as-unit.md) — the terminal planning unit the pipeline stops at.
 - [epic-approval-gate](epic-approval-gate.md) — the gate where the epic and its stories are filed.
-- [scratch-capture](scratch-capture.md) — the close stage mines its hints and deletes it after the checkpoint.
+- [scratch-capture](scratch-capture.md) — the close and analyze stages read it as hints; close mines and retains it, and no stage deletes it (the distiller drains it with the entry).
 
 ## Decision Log
 
@@ -44,3 +44,7 @@ The separate task-decomposition stage was cut and story-issue filing folded into
 ### 2026-07-04 — manual — Reciprocal link from scratch-capture
 
 Mechanical reciprocity fan-out: the scratch-capture page names the close stage as its sole consumer.
+
+### 2026-07-18 — #67 — Close retains scratch; analyze also reads it
+
+The close stage stopped deleting scratch and the analyze stage began reading it as soft context, because moving scratch into the committed entry made it visible on the PR head at review time and let the distiller's entry-deletion drain it — so close owns no cleanup and analyze can explain a divergence without the rationale being machine-local. Refuted alternative: keep close as the sole scratch consumer that deletes after its checkpoint — it wastes the now-reviewable rationale at analyze time and re-imposes a bespoke deletion the committed model removes.
