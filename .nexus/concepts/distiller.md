@@ -2,7 +2,7 @@
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
 touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration"]
-last_updated_by: "#54"
+last_updated_by: "#67"
 status: active
 verification: verified
 ---
@@ -68,3 +68,7 @@ Mechanical reciprocity fan-out: the close-entry-migration page names this distil
 ### 2026-07-15 — #54 — Workspace-aware sourcing of the what
 
 Draining from a docs-only workspace hub, the distiller now sources the what across repos: each entry's diff is recomputed from its recorded landed range inside the correct member checkout, code anchors and provenance are qualified by member repo, and one pass reports drain health for the whole hub queue. All of it is gated on the presence of the hub manifest, so a single-repo drain is unchanged. The considered alternative — keep the introducing-commit diff as a first-try fast path and fall back to the recorded range — was rejected because after an entry migrates to the hub its introducing commit is the migration commit, so that path would return the migration's file moves, a confidently wrong diff; in a hub the recorded range must be the sole authoritative diff source, never a fallback. The drain only ever reads a member checkout — never cloning, fetching, or mutating one — and a missing checkout, an unreachable recorded revision, or a missing range stamp is a hard per-entry error, never a silent empty diff.
+
+### 2026-07-18 — #67 — Per-user scratch rides inside entries but is never a drain input
+
+Committed engineer scratch now lives inside the very queue entries the distiller drains, so the boundary that the distiller never reads scratch had to become active rather than incidental: the existing queue-path exclusion keeps the scratch out of the what, and an explicit rule keeps the per-user directories out of the why — no concept ever derives from them. Refuted alternative: mine the committed stubs to enrich concept rationale now that they are conveniently in-tree — attractive free signal, but it breaks the diff-is-ground-truth model and launders ungated capture into the gated store.
