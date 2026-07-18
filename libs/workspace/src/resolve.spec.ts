@@ -8,6 +8,7 @@ import {
     type ResolveResult,
     type ResolvedWorkspace,
     type SingleRepoWorkspace,
+    localDocsRoot,
     resolveWorkspace,
 } from "./resolve";
 
@@ -92,6 +93,7 @@ describe("resolveWorkspace", () => {
 
         const single = asSingleRepo(resolveWorkspace(repo));
         expect(single.root).toBe(repo);
+        expect(single.docsRoot).toBe("docs");
     });
 
     it("reports single-repo mode when only unrelated Nexus settings are present", () => {
@@ -178,6 +180,10 @@ describe("resolveWorkspace", () => {
 
         expect(fromMember).toEqual(fromHub);
         expect(fromHub.members.map((m) => m.checkout)).toEqual(["present", "present"]);
+        // AC4: the deep-equal parity guarantee extends to docs root (epic #74).
+        expect(fromHub.hub.docsRoot).toBe(".");
+        expect(fromHub.members.map((m) => m.docsRoot)).toEqual(["docs", "docs"]);
+        expect(fromMember.hub.docsRoot).toBe(fromHub.hub.docsRoot);
     });
 
     it("keeps parity even when a sibling member is missing, from either entry point", () => {
@@ -231,5 +237,53 @@ describe("resolveWorkspace", () => {
         const ws = asWorkspace(resolveWorkspace(both));
         expect(ws.hub.name).toBe("docs-hub");
         expect(ws.hubRoot).toBe(both);
+    });
+
+    // --- localDocsRoot: the docs-root-only selector Stories 2 & 3 consume ----
+
+    describe("localDocsRoot", () => {
+        it("returns 'docs' for a single-repo checkout", () => {
+            const parent = makeParent();
+            const repo = writeCheckout(parent, "solo");
+
+            const result = localDocsRoot(repo);
+            expect(result).toEqual({ ok: true, docsRoot: "docs" });
+        });
+
+        it("returns the hub's resolved docs root when called from the hub checkout", () => {
+            const parent = makeParent();
+            const hub = writeCheckout(parent, "docs-hub", { name: "workspace.yml", contents: MANIFEST });
+
+            expect(localDocsRoot(hub)).toEqual({ ok: true, docsRoot: "." });
+        });
+
+        it("returns an explicit hub docs-root override when called from the hub checkout", () => {
+            const parent = makeParent();
+            const withOverride = `hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n  docs-root: docs\nmembers: []\n`;
+            const hub = writeCheckout(parent, "docs-hub", { name: "workspace.yml", contents: withOverride });
+
+            expect(localDocsRoot(hub)).toEqual({ ok: true, docsRoot: "docs" });
+        });
+
+        it("returns 'docs' when called from a member checkout, regardless of the hub's docs root", () => {
+            const parent = makeParent();
+            writeCheckout(parent, "docs-hub", { name: "workspace.yml", contents: MANIFEST });
+            const web = writeCheckout(parent, "web-app", { name: "hub.yml", contents: POINTER });
+
+            expect(localDocsRoot(web)).toEqual({ ok: true, docsRoot: "docs" });
+        });
+
+        it("passes through a resolution failure as a named diagnostic", () => {
+            const parent = makeParent();
+            const web = writeCheckout(parent, "web-app", { name: "hub.yml", contents: POINTER });
+            // hub sibling 'docs-hub' is not checked out.
+
+            const result = localDocsRoot(web);
+            expect(result.ok).toBe(false);
+            if (result.ok) {
+                throw new Error("expected a resolution failure");
+            }
+            expect(result.error.problem).toBe("missing-hub-checkout");
+        });
     });
 });

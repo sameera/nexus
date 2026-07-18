@@ -37,19 +37,25 @@ tsx ./.claude/skills/nxs-workspace-status/scripts/workspace_status.ts /path/to/a
 
 ## What it reports
 
-**A resolved workspace** — the hub (name, normalized remote, path) followed by each declared
-member with its checkout state:
+**A resolved workspace** — the hub (name, normalized remote, path, resolved docs root) followed by
+each declared member with its checkout state and its own resolved docs root:
 
 ```
 Workspace: docs-hub
   hub      docs-hub  (github.com/acme/docs-hub)
     /ws/docs-hub
+    docs root: repo root
   members: 2 declared, 1 checked out
     [present] web-app  (github.com/acme/web-app)
       /ws/web-app
+      docs root: docs
     [missing] api  (github.com/acme/api)
       /ws/api  <- expected checkout not found
+      docs root: docs
 ```
+
+The hub's docs root is `repo root` unless the manifest sets an explicit `docs-root` override (in
+which case that value prints instead); every member's docs root is always `docs`.
 
 A member marked `[missing]` is declared in the hub manifest but not checked out at its expected
 sibling location. This is reported state, not a failure — the read-out names the member, its

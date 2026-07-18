@@ -10,6 +10,8 @@
  * is not copy-pasted and cannot drift between them.
  */
 
+import * as path from "node:path";
+
 /**
  * True if `name` is a bare directory segment — a single path component that cannot escape its
  * parent. Rejects path separators (`/` or `\`) and the `.` / `..` traversal tokens. Dots that are
@@ -20,4 +22,24 @@ export function isBareSegment(name: string): boolean {
         return false;
     }
     return name !== "." && name !== "..";
+}
+
+/**
+ * True if `p` is a safe repo-relative path: never absolute, never escaping via a `..` segment.
+ * Unlike {@link isBareSegment} (a single bare directory name), this accepts multi-segment paths
+ * and the bare `.` token (meaning "the repo root itself") — the shape a docs-root override needs,
+ * since a docs root can be a nested directory or the root, never a name that redirects outside
+ * the repo it configures.
+ */
+export function isSafeRelativePath(p: string): boolean {
+    if (p === "") {
+        return false;
+    }
+    if (p.includes("\\")) {
+        return false;
+    }
+    if (path.isAbsolute(p)) {
+        return false;
+    }
+    return p.split("/").every((segment) => segment !== "..");
 }

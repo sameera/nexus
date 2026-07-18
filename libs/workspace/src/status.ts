@@ -24,11 +24,17 @@ function indent(line: string, depth = 1): string {
     return "  ".repeat(depth) + line;
 }
 
+/** Render a repo-relative docs root for display: "." reads as "repo root". */
+function renderDocsRoot(docsRoot: string): string {
+    return docsRoot === "." ? "repo root" : docsRoot;
+}
+
 function renderResolvedWorkspace(ws: ResolvedWorkspace): string {
     const lines: string[] = [];
     lines.push(`Workspace: ${ws.hub.name}`);
     lines.push(indent(`hub      ${ws.hub.name}  (${ws.hub.normalizedRemote})`));
     lines.push(indent(ws.hub.path, 2));
+    lines.push(indent(`docs root: ${renderDocsRoot(ws.hub.docsRoot)}`, 2));
 
     if (ws.members.length === 0) {
         lines.push(indent("members: (none declared)"));
@@ -42,6 +48,7 @@ function renderResolvedWorkspace(ws: ResolvedWorkspace): string {
         lines.push(indent(`${marker} ${m.name}  (${m.normalizedRemote})`, 2));
         const note = m.checkout === "missing" ? "  <- expected checkout not found" : "";
         lines.push(indent(`${m.expectedPath}${note}`, 3));
+        lines.push(indent(`docs root: ${renderDocsRoot(m.docsRoot)}`, 3));
     }
     return lines.join("\n");
 }
@@ -52,6 +59,7 @@ function renderSingleRepo(ws: SingleRepoWorkspace): string {
         indent(
             `${ws.root} has neither a hub manifest nor a hub pointer; Nexus commands operate on this repo alone.`,
         ),
+        indent(`docs root: ${renderDocsRoot(ws.docsRoot)}`),
     ].join("\n");
 }
 

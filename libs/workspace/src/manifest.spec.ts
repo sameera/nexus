@@ -83,6 +83,47 @@ describe("parseAndValidateManifest — valid manifest (AC1)", () => {
     });
 });
 
+// --- docs root (epic #74, STORY-74.01) --------------------------------------
+
+describe("parseAndValidateManifest — docs root", () => {
+    it("defaults the hub's docs root to the repo root when no override is given", () => {
+        const ws = asOk(parseAndValidateManifest(VALID, FILE, HUB));
+        expect(ws.hub.docsRoot).toBe(".");
+    });
+
+    it("defaults every member's docs root to 'docs' — the hub role, not membership, moves the default", () => {
+        const ws = asOk(parseAndValidateManifest(VALID, FILE, HUB));
+        expect(ws.members.map((m) => m.docsRoot)).toEqual(["docs", "docs"]);
+    });
+
+    it("accepts an explicit hub docs-root override, which wins over the role default", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: r\n  docs-root: docs\nmembers: []\n`;
+        const ws = asOk(parseAndValidateManifest(raw, FILE, HUB));
+        expect(ws.hub.docsRoot).toBe("docs");
+    });
+
+    it("accepts a nested explicit hub docs-root override", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: r\n  docs-root: docs/handbook\nmembers: []\n`;
+        const ws = asOk(parseAndValidateManifest(raw, FILE, HUB));
+        expect(ws.hub.docsRoot).toBe("docs/handbook");
+    });
+
+    it("rejects an absolute docs-root override", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: r\n  docs-root: /etc\nmembers: []\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("unsafe-name");
+        expect(err.entry).toContain("hub");
+        expect(err.message).toContain("/etc");
+    });
+
+    it("rejects a docs-root override carrying a '..' traversal segment", () => {
+        const raw = `hub:\n  name: docs-hub\n  remote: r\n  docs-root: ../escape\nmembers: []\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("unsafe-name");
+        expect(err.message).toContain("../escape");
+    });
+});
+
 // --- AC3: adding a member is recognized with no other change ----------------
 
 describe("parseAndValidateManifest — adding a member (AC3)", () => {
