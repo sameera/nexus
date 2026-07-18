@@ -6,7 +6,7 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildBundle, type BuiltBundle } from "./bundle";
-import { generateAtlas } from "./generate-atlas";
+import { computeLinkPrefix, generateAtlas } from "./generate-atlas";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const SRC_DIR: string = __dirname;
@@ -181,12 +181,14 @@ describe("AC1 — atlas bundle parity", () => {
         writeConcept(conceptsDir, "pair-b", { title: "Pair B", touches: ["pair-a"] });
         writeConcept(conceptsDir, "solo", { title: "Solo" });
 
-        const fromSource: string = generateAtlas(conceptsDir);
-
         const outsideDir = makeTmpDir("portable-tools-outside-");
         const bundlePath = path.join(outsideDir, "generate-atlas.mjs");
         fs.writeFileSync(bundlePath, atlasBundle.code);
         const outPath = path.join(outsideDir, "out", "concepts.md");
+
+        // The bundle computes its link prefix from where it actually writes (epic #74); the
+        // in-repo comparison must use the identical output location to be a fair comparison.
+        const fromSource: string = generateAtlas(conceptsDir, computeLinkPrefix(outPath, conceptsDir));
 
         execFileSync("node", [bundlePath, "--concepts-dir", conceptsDir, "--out", outPath], { cwd: outsideDir });
 
