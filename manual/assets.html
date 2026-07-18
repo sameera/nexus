@@ -810,28 +810,28 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
 <!-- 16 · SCRATCH -->
 <section class="slide" data-s="machine" data-g="machine">
   <div class="slide-inner">
-    <div class="eyebrow">Shadow surface · ungated</div>
+    <div class="eyebrow">Committed scratch · ungated</div>
     <h1>Scratch capture</h1>
-    <span class="path">.nexus/plans/&lt;branch&gt;/decisions.md &nbsp;·&nbsp; gitignored</span>
+    <span class="path">.nexus/queue/&lt;epic&gt;/&lt;username&gt;/decisions-&lt;branch&gt;.md &nbsp;·&nbsp; committed</span>
     <div class="cols">
       <div>
         <h2>What it is</h2>
-        <p>An opt-in, version-ignored, per-branch scratch file for <strong>in-flight decision stubs</strong> — written at the moment a non-obvious implementation choice is made: the choice, one sentence of why, and the refuted alternative. Nothing more.</p>
-        <p>At close, the stubs are mined as hints for the close record, then the directory is deleted. Scratch content <strong>never enters the queue directly</strong> — only close-gated prose crosses over.</p>
+        <p>A committed, per-user, per-branch scratch file inside the epic&rsquo;s queue entry for <strong>in-flight decision stubs</strong> — written at the moment a non-obvious implementation choice is made: the choice, one sentence of why, and the refuted alternative. Nothing more. Working notes sit beside it as <code>notes-&lt;branch&gt;.md</code>.</p>
+        <p>Because it is committed, it rides the PR to review and to the lead&rsquo;s checkout at merge. The close pass mines it as hints, verified against the diff; the distiller then <strong>drains it with the entry</strong> when the distillation-PR merges. Scratch content <strong>never enters the concept store directly</strong> — only close-gated prose crosses over.</p>
       </div>
       <div>
         <h2>Why it&rsquo;s useful</h2>
         <ul>
           <li><strong>It saves what would otherwise evaporate:</strong> mid-build rationale is far higher-fidelity in the moment than reconstructed from memory weeks later at close.</li>
           <li><strong>Ungated by design, so it&rsquo;s worthless as record but cheap as capture</strong> — the gate is applied later, by a human, at close.</li>
-          <li><strong>The gitignore is a consent boundary:</strong> half-formed thoughts never get silently committed on the author&rsquo;s behalf.</li>
+          <li><strong>Branch-keyed filenames make it conflict-free:</strong> each session appends to its own file, so any number of engineers or branches touch the same epic without a merge conflict.</li>
         </ul>
       </div>
     </div>
     <dl class="meta">
       <div><dt>Written by</dt><dd>whoever makes the choice, as it happens</dd></div>
       <div><dt>Consumed by</dt><dd>the close pass, as hints</dd></div>
-      <div><dt>Lifespan</dt><dd>one branch; deleted after the close checkpoint</dd></div>
+      <div><dt>Lifespan</dt><dd>lives in the committed entry; removed when the distillation-PR merges</dd></div>
     </dl>
   </div>
 </section>
@@ -855,7 +855,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
           <tr><td><i class="dot h"></i><strong>Concept atlas</strong></td><td><code>docs/concepts.md</code></td><td>Give humans a one-page map of the store</td><td>derived, regenerated</td></tr>
           <tr><td><i class="dot m"></i><strong>Concept page</strong></td><td><code>.nexus/concepts/&lt;slug&gt;.md</code></td><td>Hold distilled behavior, invariants &amp; the append-only why</td><td>durable, PR-gated</td></tr>
           <tr><td><i class="dot m"></i><strong>Code anchor</strong></td><td><code>.nexus/anchors/&lt;slug&gt;.md</code></td><td>Map concept → source, SHA-stamped</td><td>derived, regenerated</td></tr>
-          <tr><td><i class="dot n"></i><strong>Scratch capture</strong></td><td><code>.nexus/plans/&lt;branch&gt;/</code></td><td>Catch in-flight rationale before it evaporates</td><td>one branch, then deleted</td></tr>
+          <tr><td><i class="dot n"></i><strong>Scratch capture</strong></td><td><code>.nexus/queue/&lt;epic&gt;/&lt;user&gt;/</code></td><td>Catch in-flight rationale before it evaporates</td><td>committed; drained with the entry</td></tr>
         </tbody>
       </table>
     </div>

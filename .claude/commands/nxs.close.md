@@ -172,19 +172,19 @@ any not already captured in the decision record. **Sources (C6), in priority ord
     gh issue view <story-issue> --json title,body,comments
     ```
 
-3. **Scratch decision stubs** — `.nexus/plans/<branch>/decisions.md`, where `<branch>` is the
-   current branch with `/` replaced by `-`:
+3. **Committed decision stubs** — `${QDIR}/*/decisions-*.md` (one per-user subdir per
+   engineer; per-branch files). `QDIR` is already the epic's queue entry, so no branch→epic
+   mapping is needed:
 
     ```bash
-    ls ".nexus/plans/$(git branch --show-current | tr '/' '-')/" 2>/dev/null
+    ls "${QDIR}"/*/decisions-*.md 2>/dev/null
     ```
 
-    Each stub records a choice, its why, and the refuted alternative — captured at the decision
-    moment, so treat them as the highest-fidelity *why* source. But they are **hints, not
-    authority**: verify each stub against the shipped diff (Phase 3) before recording it. A stub
-    contradicted by the code — the choice it records is not what shipped — is dropped, or
-    recorded as a deviation with the stub as the "planned" side. If the directory or file is
-    absent, say nothing and continue — capture is opt-in and most closes will have none.
+    Each stub records a choice, its why, and the refuted alternative — captured at the
+    decision moment, the highest-fidelity *why* source. Still **hints, not authority**:
+    verify each against the shipped diff (Phase 3). A stub the code contradicts is dropped,
+    or recorded as a deviation with the stub as the "planned" side. If none exist, say
+    nothing and continue — capture is soft and most closes may have none.
 
 4. **The close review** — your own reading of the branch diff (Phase 3) surfaces decisions visible in
    the code that were never written down.
@@ -227,11 +227,10 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
    each happened** (one prompt covering the list; use `AskUserQuestion` if the set is small and
    discrete, otherwise ask for the rationale inline). Only deviations get an entry.
 
-5. **Consult captured plans as weak hints** — `.nexus/plans/<branch>/NN-plan.md` files, if any.
-   Plans are pre-implementation speculation and routinely diverge from what ships; use them only
-   to *notice* deviations (the plan said X, the diff shows Y — ask about it), never as a source
-   of record. Nothing from a plan enters the close record unless the diff confirms it or the
-   human supplies it as deviation rationale.
+5. **Consult committed engineer notes as weak hints** — `${QDIR}/*/notes-*.md`, if any.
+   Working scratch, routinely diverges from what ships; use only to *notice* deviations
+   (notes said X, the diff shows Y — ask about it), never as a source of record. (No
+   `hld-*.md` glob — developer HLDs are not captured in the queue; see the layout spec.)
 
 If the diff shows **no** deviation from the decision record, record that plainly — the Deviation
 Rationale section is then empty (a matched implementation, not a gap).
@@ -423,17 +422,6 @@ the durable surface must show the epic closed on a waiver -->
 - Process lesson → docs/delivery/lessons/<date>-<slug>.md
 ```
 
-**Then delete the branch's scratch** — consumed hints must not leak to a future epic on a
-reused branch:
-
-```bash
-rm -rf ".nexus/plans/$(git branch --show-current | tr '/' '-')"
-```
-
-Delete only the current branch's directory, never `.nexus/plans/` itself or another branch's
-scratch. If the abort path was taken at the checkpoint, leave scratch in place — it is consumed
-only by a completed close.
-
 **Error handling:**
 
 - Epic issue already closed → report and continue to the completion summary.
@@ -451,13 +439,14 @@ Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
 Deferred scope:    docs/features/<feature>/backlog.md  (<N> item(s))
 Process lesson:    docs/delivery/lessons/<date>-<slug>.md
-Scratch consumed:  .nexus/plans/<branch>/ — <N> stub(s), <M> plan(s) — deleted
+Scratch mined:     ${QDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the
+                   committed entry (distiller drains it with the entry post-merge)
 
 Key decisions captured: <count>
 Deviations recorded:    <count>
 ```
 
-(Use "none found" for the scratch-consumed line when the directory was absent.)
+(Use "none" when no per-user dir was present.)
 
 In member mode, end the report with the durability instruction — closure is not durable until
 the hub commit is pushed:
@@ -489,14 +478,12 @@ record's line already says the entry stays and is consumed post-merge.
   prose; the distiller deletes the queue entry post-merge. Link only durable targets (feature backlog,
   lesson file, concept pages, anchors, other issues).
 - Handle an already-closed epic issue gracefully.
-- **Scratch is hints, never authority** — a decision stub or captured plan enters the close
-  record only when the diff confirms it or the human ratifies it as deviation rationale. The
-  diff remains ground truth (0006).
-- **Scratch cleanup is scoped and post-checkpoint** — delete only
-  `.nexus/plans/<current-branch>/`, only after Phase 8 completes; never on abort, never another
-  branch's directory, never the whole `.nexus/plans/` tree.
-- **The distiller never sees scratch** — nothing from `.nexus/plans/` may be copied into the
-  queue entry verbatim as a new artifact; the close record's prose is the only carrier.
+- **Scratch is hints, never authority** — a decision stub in `${QDIR}/*/decisions-*.md` or an
+  engineer note enters the close record only when the diff confirms it or the human ratifies it
+  as deviation rationale. The diff remains ground truth (0006).
+- **The distiller ignores the per-user scratch dirs.** They live inside the committed entry
+  but are never read into a `ConceptDelta`; the close record's prose is the only carrier of
+  rationale onward. The entry (scratch included) is deleted when the distillation-PR merges.
 - **Role comes from the workspace preflight** (Phase 1.3 — the shared resolver's committed
   artifacts: manifest → hub, pointer → member, neither → single-repo), never a new heuristic.
   Migration fires only in member mode; in single-repo and hub mode no hub write is ever attempted
