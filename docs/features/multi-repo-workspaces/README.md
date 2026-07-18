@@ -15,3 +15,4 @@ hub docs repo holds the concept store and drains the queue.
 - **Close-Entry Migration to the Hub Queue** — [#49](https://github.com/sameera/nexus/issues/49)
 - **Distill Across a Multi-Repo Workspace** — [#54](https://github.com/sameera/nexus/issues/54)
 - **Nexus Setup CLI** — [#60](https://github.com/sameera/nexus/issues/60)
+- **Parameterized Docs Root** — [#74](https://github.com/sameera/nexus/issues/74)
