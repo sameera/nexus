@@ -1,6 +1,6 @@
 /**
  * Deterministic concept-atlas generator (decision: 0b8973e2 — generated atlas at
- * docs/concepts.md, contract item 2).
+ * `<docs-root>/concepts.md`, contract item 2, amended by epic #74).
  *
  * Usage:
  *   npx tsx libs/portable-tools/src/generate-atlas.ts [--concepts-dir <dir>] [--out <path>] [--check]
@@ -9,15 +9,43 @@
  * `touches:` graph. No LLM judgment: pure parsing + graph mechanics. `--check` regenerates
  * in memory and byte-compares against the existing output file without writing (the sync
  * gate the validator invokes).
+ *
+ * With no explicit `--out`, the default output location is the resolved workspace docs root
+ * (`@nexus/workspace/resolve`, epic #74) joined with `concepts.md` — `docs/concepts.md` for a
+ * single-repo checkout or a workspace member, `concepts.md` at the repo root for a hub with no
+ * override. An explicit `--out` always wins over the resolved default, and `--check` resolves
+ * the identical location write mode does, so the two can never diverge.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { localDocsRoot } from "@nexus/workspace/resolve";
 
 interface CliOptions {
     conceptsDir: string;
-    out: string;
+    out?: string;
     check: boolean;
+}
+
+/** The docs root to fall back to when resolution fails outright (mirrors the single-repo default). */
+const FALLBACK_DOCS_ROOT = "docs";
+
+/** The resolved-docs-root default output path, used whenever no explicit `--out` is given. */
+function defaultOutPath(): string {
+    const resolved = localDocsRoot(process.cwd());
+    const docsRoot = resolved.ok ? resolved.docsRoot : FALLBACK_DOCS_ROOT;
+    return path.join(docsRoot, "concepts.md");
+}
+
+/**
+ * The atlas's concept-link prefix: the real relative path from the atlas's own directory to the
+ * concept store, POSIX-separated regardless of host OS (Invariant 6). Reproduces the pre-epic
+ * `../.nexus/concepts/` constant exactly when the atlas sits at `docs/concepts.md`.
+ */
+export function computeLinkPrefix(outPath: string, conceptsDir: string): string {
+    const rel: string = path.relative(path.dirname(outPath), conceptsDir);
+    const posix: string = rel.split(path.sep).join("/");
+    return posix === "" ? "./" : `${posix}/`;
 }
 
 interface Frontmatter {
@@ -38,7 +66,7 @@ export interface Cluster {
 }
 
 export function parseArgs(argv: string[]): CliOptions {
-    const options: CliOptions = { conceptsDir: ".nexus/concepts", out: "docs/concepts.md", check: false };
+    const options: CliOptions = { conceptsDir: ".nexus/concepts", out: undefined, check: false };
     for (let i = 0; i < argv.length; i++) {
         const arg: string = argv[i];
         if (arg === "--concepts-dir") {
@@ -236,7 +264,7 @@ export function buildClusters(pages: ConceptPage[]): Cluster[] {
     return clusters;
 }
 
-export function renderAtlas(clusters: Cluster[]): string {
+export function renderAtlas(clusters: Cluster[], linkPrefix: string): string {
     const total: number = clusters.reduce((sum: number, c: Cluster) => sum + c.pages.length, 0);
     const lines: string[] = [
         "<!-- DERIVED — generated from .nexus/concepts/ frontmatter by the concept-atlas generator.",
@@ -252,38 +280,40 @@ export function renderAtlas(clusters: Cluster[]): string {
     for (const cluster of clusters) {
         lines.push("", `## ${cluster.name}`, "");
         for (const page of cluster.pages) {
-            lines.push(`- [${page.title}](../.nexus/concepts/${page.slug}.md) — ${page.hook}`);
+            lines.push(`- [${page.title}](${linkPrefix}${page.slug}.md) — ${page.hook}`);
         }
     }
     return lines.join("\n") + "\n";
 }
 
-export function generateAtlas(conceptsDir: string): string {
-    return renderAtlas(buildClusters(loadConceptPages(conceptsDir)));
+export function generateAtlas(conceptsDir: string, linkPrefix = "../.nexus/concepts/"): string {
+    return renderAtlas(buildClusters(loadConceptPages(conceptsDir)), linkPrefix);
 }
 
 export function runCli(argv: string[]): number {
     const options: CliOptions = parseArgs(argv);
+    const out: string = options.out ?? defaultOutPath();
     const pages: ConceptPage[] = loadConceptPages(options.conceptsDir);
-    const atlas: string = renderAtlas(buildClusters(pages));
+    const linkPrefix: string = computeLinkPrefix(out, options.conceptsDir);
+    const atlas: string = renderAtlas(buildClusters(pages), linkPrefix);
 
     if (options.check) {
-        if (!fs.existsSync(options.out)) {
-            console.error(`Atlas missing: ${options.out} — regenerate it from .nexus/concepts/ before checking again.`);
+        if (!fs.existsSync(out)) {
+            console.error(`Atlas missing: ${out} — regenerate it from .nexus/concepts/ before checking again.`);
             return 1;
         }
-        const existing: string = fs.readFileSync(options.out, "utf8");
+        const existing: string = fs.readFileSync(out, "utf8");
         if (existing !== atlas) {
-            console.error(`Atlas out of sync: ${options.out} does not match generated content — regenerate it from .nexus/concepts/ and retry.`);
+            console.error(`Atlas out of sync: ${out} does not match generated content — regenerate it from .nexus/concepts/ and retry.`);
             return 1;
         }
         console.log("OK");
         return 0;
     }
 
-    fs.mkdirSync(path.dirname(options.out), { recursive: true });
-    fs.writeFileSync(options.out, atlas);
-    console.log(`Atlas written: ${options.out} (${pages.length} concepts)`);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, atlas);
+    console.log(`Atlas written: ${out} (${pages.length} concepts)`);
     return 0;
 }
 

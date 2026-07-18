@@ -186,8 +186,8 @@ describe("parseFrontmatter", () => {
 });
 
 describe("parseArgs", () => {
-    it("defaults to .nexus/concepts, docs/concepts.md, and check: false", () => {
-        expect(parseArgs([])).toEqual({ conceptsDir: ".nexus/concepts", out: "docs/concepts.md", check: false });
+    it("defaults to .nexus/concepts, no --out (resolver-derived), and check: false", () => {
+        expect(parseArgs([])).toEqual({ conceptsDir: ".nexus/concepts", out: undefined, check: false });
     });
 
     it("parses --concepts-dir, --out, and --check", () => {
@@ -305,9 +305,18 @@ describe("renderAtlas / generateAtlas determinism", () => {
             { slug: "alpha", title: "Alpha", touches: [], hook: "Alpha does the thing." },
         ];
         const clusters = buildClusters(pages);
-        const rendered: string = renderAtlas(clusters);
+        const rendered: string = renderAtlas(clusters, "../.nexus/concepts/");
         expect(rendered).toContain("## Standalone");
         expect(rendered).toContain("- [Alpha](../.nexus/concepts/alpha.md) — Alpha does the thing.");
+    });
+
+    it("computes the link prefix for a repo-root atlas one level shallower", () => {
+        const pages = [
+            { slug: "alpha", title: "Alpha", touches: [], hook: "Alpha does the thing." },
+        ];
+        const clusters = buildClusters(pages);
+        const rendered: string = renderAtlas(clusters, ".nexus/concepts/");
+        expect(rendered).toContain("- [Alpha](.nexus/concepts/alpha.md) — Alpha does the thing.");
     });
 });
 
@@ -378,5 +387,113 @@ describe("CLI", () => {
         expect(result.status).toBe(1);
         expect(result.stderr).not.toContain("pnpm");
         expect(result.stderr).not.toContain("utils/");
+    });
+});
+
+// --- resolver-derived default output (epic #74, STORY-74.02) ----------------
+
+describe("runCli — resolver-derived default output (no --out)", () => {
+    let originalCwd: string;
+
+    afterEach(() => {
+        if (originalCwd) {
+            process.chdir(originalCwd);
+        }
+    });
+
+    function chdirTmp(): string {
+        originalCwd = process.cwd();
+        const dir = makeTmpDir();
+        process.chdir(dir);
+        return dir;
+    }
+
+    it("defaults to docs/concepts.md in single-repo mode, byte-identical to the pre-epic default", () => {
+        const repo = chdirTmp();
+        const conceptsDir = path.join(repo, ".nexus", "concepts");
+        fs.mkdirSync(conceptsDir, { recursive: true });
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        const status = runCli([]);
+
+        expect(status).toBe(0);
+        const outPath = path.join(repo, "docs", "concepts.md");
+        expect(fs.existsSync(outPath)).toBe(true);
+        const atlas = fs.readFileSync(outPath, "utf8");
+        expect(atlas).toContain("- [Alpha](../.nexus/concepts/alpha.md) — Alpha lead.");
+    });
+
+    it("defaults to concepts.md at the repo root for a hub with no docs-root override, no docs/ created", () => {
+        const hub = chdirTmp();
+        fs.mkdirSync(path.join(hub, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(
+            path.join(hub, ".nexus", "config", "workspace.yml"),
+            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\nmembers: []\n",
+        );
+        const conceptsDir = path.join(hub, ".nexus", "concepts");
+        fs.mkdirSync(conceptsDir, { recursive: true });
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        const status = runCli([]);
+
+        expect(status).toBe(0);
+        const outPath = path.join(hub, "concepts.md");
+        expect(fs.existsSync(outPath)).toBe(true);
+        expect(fs.existsSync(path.join(hub, "docs"))).toBe(false);
+        const atlas = fs.readFileSync(outPath, "utf8");
+        expect(atlas).toContain("- [Alpha](.nexus/concepts/alpha.md) — Alpha lead.");
+    });
+
+    it("defaults to <override>/concepts.md for a hub with an explicit docs-root override", () => {
+        const hub = chdirTmp();
+        fs.mkdirSync(path.join(hub, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(
+            path.join(hub, ".nexus", "config", "workspace.yml"),
+            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n  docs-root: handbook\nmembers: []\n",
+        );
+        const conceptsDir = path.join(hub, ".nexus", "concepts");
+        fs.mkdirSync(conceptsDir, { recursive: true });
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        const status = runCli([]);
+
+        expect(status).toBe(0);
+        const outPath = path.join(hub, "handbook", "concepts.md");
+        expect(fs.existsSync(outPath)).toBe(true);
+        const atlas = fs.readFileSync(outPath, "utf8");
+        expect(atlas).toContain("- [Alpha](../.nexus/concepts/alpha.md) — Alpha lead.");
+    });
+
+    it("an explicit --out always wins over the resolver-derived default", () => {
+        const hub = chdirTmp();
+        fs.mkdirSync(path.join(hub, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(
+            path.join(hub, ".nexus", "config", "workspace.yml"),
+            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\nmembers: []\n",
+        );
+        const conceptsDir = path.join(hub, ".nexus", "concepts");
+        fs.mkdirSync(conceptsDir, { recursive: true });
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        const status = runCli(["--out", "custom/atlas.md"]);
+
+        expect(status).toBe(0);
+        expect(fs.existsSync(path.join(hub, "custom", "atlas.md"))).toBe(true);
+        expect(fs.existsSync(path.join(hub, "concepts.md"))).toBe(false);
+    });
+
+    it("--check resolves the identical default location write mode used", () => {
+        const hub = chdirTmp();
+        fs.mkdirSync(path.join(hub, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(
+            path.join(hub, ".nexus", "config", "workspace.yml"),
+            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\nmembers: []\n",
+        );
+        const conceptsDir = path.join(hub, ".nexus", "concepts");
+        fs.mkdirSync(conceptsDir, { recursive: true });
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead." });
+
+        expect(runCli([])).toBe(0);
+        expect(runCli(["--check"])).toBe(0);
     });
 });
