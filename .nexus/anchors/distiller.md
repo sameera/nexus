@@ -1,6 +1,6 @@
 ---
 concept: distiller
-source_sha: f04488689f5da44048778729e71a9b119941a9bf
+source_sha: 142dc6b0f8bd631b8f71dc44dbe25285413a57bf
 generated: 2026-07-18
 ---
 
@@ -9,7 +9,7 @@ generated: 2026-07-18
 
 # Code Anchors: Distiller
 
-- `.claude/commands/nxs.distill.md` — the drain agent: preflight and the run-mode gate, per-mode diff recomputation, per-concept delta synthesis, the deterministic steps (reciprocity, anchor refresh, atlas, validator, and the hub-vs-single-repo invocation), the explicit ban on reading per-user scratch, checkpoint, and PR.
+- `.claude/commands/nxs.distill.md` — the drain agent: preflight and the run-mode gate, per-mode diff recomputation, per-concept delta synthesis, the deterministic steps (reciprocity, anchor refresh, atlas, validator, and the hub-vs-single-repo invocation), the explicit ban on reading per-user scratch, checkpoint, and PR; its atlas step, sync gate, staged path, and report follow the resolved docs root rather than a fixed location.
 - `libs/portable-tools/src/derive-entry-diff.ts` — hub-mode diff derivation: reads an entry's recorded range, resolves each repo to its member checkout, and emits one queue-excluded diff per repo (read-only; a missing checkout or unreachable revision is a hard error, never a fallback or partial diff).
 - `libs/portable-tools/src/validate-concepts.ts` — the deterministic validator (concept pages and anchor sidecars) a drain must pass before the distillation-PR opens.
-- `libs/portable-tools/src/generate-atlas.ts` — the atlas regeneration step the drain runs before each entry's commit.
+- `libs/portable-tools/src/generate-atlas.ts` — the atlas regeneration step the drain runs before each entry's commit; writes to the resolved docs root the drain then stages and reports.

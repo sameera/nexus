@@ -2,7 +2,7 @@
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
 touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli"]
-last_updated_by: "#60"
+last_updated_by: "#74"
 status: active
 verification: verified
 ---
@@ -15,9 +15,9 @@ Workspace resolution makes a multi-repo product a declared, discoverable thing: 
 
 The hub manifest is the single source of truth: the hub, the members, each member's remote, and its expected checkout name. A member's pointer names only the hub without redeclaring membership; on disagreement the manifest wins.
 
-A checkout's role follows the artifact it carries: a manifest makes it the hub; a pointer makes it a member that finds the hub as a named sibling and reads that same manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes where a hub's vendored portable tooling lives. Carrying neither means single-repo mode, unchanged.
+A checkout's role follows the artifact it carries: a manifest makes it the hub; a pointer makes it a member that finds the hub as a named sibling and reads that same manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes where a hub's vendored portable tooling lives and each repo's docs root. Carrying neither means single-repo mode, unchanged.
 
-The status read-out is the sole observable surface over this resolver.
+The status read-out is the sole observable surface.
 
 ## Key Invariants
 
@@ -54,3 +54,7 @@ Mechanical reciprocity fan-out: the close-entry-migration page names this resolv
 ### 2026-07-16 — #60 — The resolver owns the member-vs-hub collision rule; a canonical writer counterpart
 
 The parser now rejects a manifest where a member reuses the hub's sibling name or remote identity, extending the remote-identity rule from member-vs-member to also cover the hub — the shape authority must own the rule so the read and write sides cannot diverge. This epic's setup CLI is that write side: its init and add-repo writers render a candidate and run it back through this parser, writing only when resolution accepts it unchanged, so the resolver stays the single acceptance oracle for workspace shape. Refuted alternative: a CLI-side pre-check comparing the new member against the hub remote — works for the writer, but creates a second copy of collision logic the single-authority invariant forbids.
+
+### 2026-07-18 — #74 — The per-repo docs root is resolved context, defaulted by role
+
+The resolver now produces where each repo keeps its human docs — its docs root — as one more value on the workspace description, defaulted by role: the repo root for a hub, a docs subdirectory for a member or single-repo project, with an optional hub override. Placing it here gives the fact a single producer, so the atlas generator, the doc-link builder, and the drain read it rather than each assuming a fixed location and drifting apart. Refuted alternative: keep the override in each checkout's local settings, beside the existing cross-reference URL — no manifest change needed, but local settings are per-checkout and invisible from another checkout, so a member's value could not be seen when resolving from the hub, breaking the parity guarantee; a shared workspace fact cannot live in per-checkout state.

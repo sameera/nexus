@@ -2,7 +2,7 @@
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
 touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration"]
-last_updated_by: "#67"
+last_updated_by: "#74"
 status: active
 verification: verified
 ---
@@ -72,3 +72,7 @@ Draining from a docs-only workspace hub, the distiller now sources the what acro
 ### 2026-07-18 — #67 — Per-user scratch rides inside entries but is never a drain input
 
 Committed engineer scratch now lives inside the very queue entries the distiller drains, so the boundary that the distiller never reads scratch had to become active rather than incidental: the existing queue-path exclusion keeps the scratch out of the what, and an explicit rule keeps the per-user directories out of the why — no concept ever derives from them. Refuted alternative: mine the committed stubs to enrich concept rationale now that they are conveniently in-tree — attractive free signal, but it breaks the diff-is-ground-truth model and launders ungated capture into the gated store.
+
+### 2026-07-18 — #74 — The drain follows the resolved atlas location, holding no docs-path literal
+
+The drain's atlas regeneration, its sync check, its staged file set, and its completion report all follow the docs root the resolver produces, rather than a hardcoded docs-directory location. A single-repo drain is unchanged, because the resolved location there is still that same docs subdirectory; a docs-only hub drain writes the atlas at the hub root, never recreates a docs directory the hub does not use, and names the real location in its report. Sourcing the path from the same producer the generator uses keeps one answer across regenerate, check, stage, and report — the literal was the last place the old fixed-location assumption survived.

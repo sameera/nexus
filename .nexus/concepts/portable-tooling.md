@@ -2,7 +2,7 @@
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
 touches: ["distiller", "workspace-resolution", "nexus-setup-cli"]
-last_updated_by: "#60"
+last_updated_by: "#74"
 status: active
 verification: verified
 ---
@@ -44,3 +44,7 @@ The bundle grew a third tool that derives a hub entry's cross-repo diff, joining
 ### 2026-07-16 — #60 — The setup CLI and a vendored component payload join the distributable
 
 The `nexus` setup CLI ships on this same distributable, and it makes the distributable carry two things it did not before: an inlined package dependency (the manifest parser needs it) and a vendored copy of the live component tree as plain review-gated files, because a distributed CLI has no line of sight back to the source components. A committed payload can lag its source exactly like a compiled bundle, so it is covered by the same fingerprint gate — one `claude-components` pin beside the bundle hashes — rather than a separate discipline. Refuted alternatives: inlining the component tree as base64 blobs — self-contained too, but a blob diff is unreviewable, breaking the ship-only-reviewable-code posture; and a separate component-fingerprint pin — avoids touching the existing gate, but forks the pin discipline into two files.
+
+### 2026-07-18 — #74 — The atlas generator becomes a resolver-consuming tool; re-vendoring tracks inlined source
+
+The atlas generator gained a run-time dependency on the workspace resolver — it now places its output at the resolved docs root — so it joins the diff-derivation tool as a bundled tool carrying the workspace dependency into the install-free hub, which the packaging simply inlines. Because that new inlined source, together with the vendored component edits this epic also made, staled the fingerprint pin the moment the intermediate stories landed — before the generator itself was touched — the bundle was re-vendored on every story that changed inlined source or components, not once at the end. Refuted alternative: defer all re-vendoring to the generator-change story or the epic's end — fewer vendor commits, but it leaves the fingerprint gate red across every intermediate commit, breaking the green-on-every-commit rigor this epic held to.
