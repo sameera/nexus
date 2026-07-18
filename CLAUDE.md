@@ -39,15 +39,34 @@ branch can't be reached through user-visible behavior, question whether it shoul
 ## In-Flight Decision Stubs
 
 When you make a non-obvious implementation choice — you picked between viable approaches —
-append a stub to `.nexus/plans/<branch>/decisions.md` (create the file/dir if absent;
-`<branch>` = current branch with `/` → `-`) at the moment of choosing, not later:
+append a stub to your per-user scratch inside the epic's queue entry, at the moment of
+choosing, not later:
 
-```
-## <YYYY-MM-DD> — <short decision title>
-- **Choice:** <what was chosen>
-- **Why:** <one sentence>
-- **Refuted alternative:** <the viable option not taken, or "none">
-```
+    .nexus/queue/<epic>/<your-username>/decisions-<branch>.md
 
-This directory is gitignored scratch; `/nxs.close` mines it as hints and deletes it after
-the close checkpoint. Obvious choices (only one sensible option) get no stub.
+- `<epic>` — the queue-entry directory for the epic your story belongs to (resolved below).
+- `<your-username>` — your GitHub login (`gh api user --jq .login`; fall back to a slug of
+  `git config user.name`).
+- `<branch>` — current branch with `/` → `-`. Append-only; one file per branch.
+
+    ## <YYYY-MM-DD> — <short decision title>
+    - **Choice:** <what was chosen>
+    - **Why:** <one sentence>
+    - **Refuted alternative:** <the viable option not taken, or "none">
+
+Working notes go in the same dir as `notes-<branch>.md`. Do **not** write a design/HLD
+document into the queue — a developer HLD lives in the team's doc space and enters Nexus only
+via the lead's `/nxs.hld --from` at approval, never as a committed file.
+
+**Resolving `<epic>`** (do this silently — a stub in the wrong folder is worse than none):
+1. Find your story issue — the number in the branch name, or the issue the open PR closes.
+2. `gh` the story's parent epic issue, then match its number to a queue entry whose `epic.md`
+   frontmatter `link` equals it. That entry's directory is `<epic>`.
+3. If step 2 fails, fall back to matching the branch slug against queue-entry directory names.
+4. If still unresolved, **write nothing** — skip silently.
+
+This scratch is committed: ordinary commits carry it through your PR. It is a pre-checkpoint
+hint the lead-run stages (hld, analyze, close) mine and verify against the diff — never
+load-bearing. Never link these paths from an issue, doc, or concept page; the distiller
+deletes the whole queue entry when the distillation-PR merges. Obvious choices (only one
+sensible option) get no stub.

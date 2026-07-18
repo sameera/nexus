@@ -1,5 +1,5 @@
 .claude/plans/lexical-squishing-meteor.md
-.nexus/plans/
+.nexus/plans/          # retired — decision scratch now committed under .nexus/queue/<epic>/<user>/
 __pycache__/
 tmp/**
 node_modules/

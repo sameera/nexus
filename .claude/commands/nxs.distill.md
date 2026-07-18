@@ -203,7 +203,8 @@ committed.
 
 **Sources:** the *what* (behavior, integration points, behavioral invariants) from the diff; the
 *why* (key decisions, refuted alternatives, deviation rationale) from `decision-record.md` and
-`close-record.md`.
+`close-record.md`. Do **not** read `<entry>/<username>/**`. Engineer scratch is not a distill
+input; the *why* comes only from `decision-record.md` and `close-record.md`.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
@@ -514,6 +515,9 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
   never edited, reordered, or deleted.
 - **§8.3 is a hard boundary** for pages: no code, no file paths, no type names, no API specs, no
   speculative claims. Paths live only in `.nexus/anchors/` (R1).
+- **The per-user scratch dirs inside a queue entry are never a distill input** — never read,
+  never mapped to a `ConceptDelta`. The `.nexus/queue/**` diff exclusion keeps them out of the
+  *what*; this keeps them out of the *why*. They are deleted with the entry when the PR merges.
 - **Reciprocity (C11), anchors (R1), and the validator are deterministic steps** — never skipped,
   never reinterpreted. A validation failure blocks the PR.
 - **Provenance is qualified cross-repo** (`<owner>/<repo>#n`, 0003 §2.4). In hub mode every

@@ -72,6 +72,14 @@ Determine what was actually built for this epic. Use, in order of availability:
 3. **Targeted code reads.** Where the diff is large or a story's AC names a behavior, grep/read the
    touched files to confirm the behavior exists, rather than trusting the diff stat alone.
 
+4. **Committed engineer scratch (soft, on the PR head).** If the entry carries per-user
+   stubs — `${QDIR}/*/decisions-*.md`, `${QDIR}/*/notes-*.md` — read them as *context only*.
+   They surface the engineer's stated rationale for a divergence at review time (visible now
+   because the scratch is committed to the PR head, not machine-local). Use them to explain
+   scope drift (§2.4) and, in **downgraded** mode, to reconstruct likely invariants the
+   missing decision record would have carried. They **never** change a met/partial/unmet/
+   contradicted verdict — the diff and the ACs decide that. Absent → ignore silently.
+
 Do not run the application or the test suite. You are reading the change, not exercising it.
 
 # Phase 2 — Conformance checks
@@ -169,3 +177,6 @@ link it from an issue.
   task↔story traceability.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`
   agent (`/nxs.epic`); story↔design coverage is verified in `/nxs.hld`. Not here.
+- **Engineer scratch is soft.** The per-user stubs are read-only context that can explain a
+  divergence but never decide a verdict or gate the receipt; a missing scratch dir changes
+  nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch.
