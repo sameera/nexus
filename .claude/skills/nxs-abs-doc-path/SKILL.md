@@ -19,9 +19,16 @@ cross-ref:
     docs-root: https://github.com/sameera/nexus/blob/main/docs
 ```
 
-`docs-root` points at the repo's `docs/` directory (not the repo root). If the
-settings file is missing or the setting isn't set, the script falls back to a
-placeholder default: `https://github.com/{username|orgname}/{reponame}/blob/main/docs`.
+If the settings file is missing or the setting isn't set, the script falls
+back to a placeholder default: `https://github.com/{username|orgname}/{reponame}/blob/main/docs`.
+
+`docs-root` must point at the same place the workspace resolver's docs root
+resolves to (`@nexus/workspace/resolve`, epic #74) — `docs/` for a single-repo
+checkout or a workspace member, or the repo root for a hub with no override
+(or its explicit `docs-root` override). The script resolves the local docs
+root itself and checks the two agree; a mismatch (e.g. this URL still ends in
+`/docs` but the hub's docs root is now the repo root) is reported as an
+operator error instead of producing a dead link.
 
 ## Usage
 
@@ -39,9 +46,9 @@ tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "docs/features
 
 ## Input Path Handling
 
-The script normalizes input paths automatically. Since `docs-root` already
-points at the `docs/` directory, a leading `docs/` segment is stripped so
-callers can keep passing repo-relative paths unchanged:
+The script normalizes input paths automatically: it strips a leading `./` or
+`/`, then strips exactly the resolved docs root once (`docs/` in a single-repo
+checkout, shown below; nothing in a hub whose docs root is the repo root):
 
 | Input Format     | Normalized To |
 | ---------------- | ------------- |

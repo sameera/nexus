@@ -3,8 +3,17 @@
  * Convert a repository-relative path to an absolute GitHub URL.
  *
  * Reads `cross-ref.docs-root` from .nexus/config/settings.yml and appends the
- * provided relative path. Falls back to a placeholder default if the settings
- * file is missing or the setting isn't set.
+ * provided relative path, after stripping exactly the resolved workspace docs
+ * root (epic #74) — `docs/` for a single-repo checkout or a workspace member,
+ * or nothing for a hub whose docs root is the repo root. The resolver
+ * (`@nexus/workspace/resolve`) is the sole producer of that value; this script
+ * never re-derives it. Falls back to a placeholder cross-ref URL if the
+ * settings file is missing or the setting isn't set.
+ *
+ * The resolved docs root and the cross-ref URL must agree (Invariant 7): if
+ * the URL's trailing path segment doesn't match the resolved docs root, that
+ * is an operator misconfiguration, surfaced as an error rather than a dead
+ * link.
  *
  * Usage:
  *     tsx get_abs_doc_path.ts <relative-path>
@@ -20,11 +29,13 @@
  *
  * Exit codes:
  *     0 - Success
+ *     1 - Workspace resolution failed, or the cross-ref URL disagrees with the resolved docs root
  *     3 - Invalid arguments
  */
 
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, parse } from "node:path";
+import { localDocsRoot } from "@nexus/workspace/resolve";
 
 const DEFAULT_DOC_ROOT = "https://github.com/{username|orgname}/{reponame}/blob/main/docs";
 
@@ -117,10 +128,10 @@ function getDocRoot(repoRoot: string): string {
 }
 
 /**
- * Normalize the relative path: remove leading ./ or /, and strip a leading
- * docs/ segment since docRoot already points at the docs directory.
+ * Normalize the relative path: remove leading ./ or /, then strip exactly the
+ * resolved docs root once. A "." docs root (repo root) strips nothing.
  */
-function normalizeRelativePath(path: string): string {
+function normalizeRelativePath(path: string, docsRoot: string): string {
 	let normalized = path.trim();
 
 	// Handle relative path prefixes
@@ -133,19 +144,36 @@ function normalizeRelativePath(path: string): string {
 	// Remove leading slash if present
 	normalized = normalized.replace(/^\/+/, "");
 
-	// docRoot already points at the docs/ directory; strip a leading docs/
-	// segment so callers can keep passing repo-relative paths unchanged.
-	normalized = normalized.replace(/^docs\//, "");
+	// Strip exactly the resolved docs root, once — never a hardcoded "docs/".
+	if (docsRoot !== ".") {
+		const prefix = `${docsRoot.replace(/\/+$/, "")}/`;
+		if (normalized.startsWith(prefix)) {
+			normalized = normalized.slice(prefix.length);
+		}
+	}
 
 	return normalized;
 }
 
-/** Convert a relative path to an absolute GitHub URL. */
-function toAbsoluteUrl(relativePath: string): string {
-	const repoRoot = findRepoRoot();
-	const docRoot = getDocRoot(repoRoot);
-	const normalizedPath = normalizeRelativePath(relativePath);
+/**
+ * Extract the in-repo path the cross-ref URL points at — the segment after
+ * `/blob/<ref>/` or `/tree/<ref>/` — normalized like a resolved docs root:
+ * "." for the repo root (no trailing path after the ref), else the trailing
+ * path with no trailing slash. Returns null when the URL carries no
+ * recognizable GitHub blob/tree path, in which case the agreement check is
+ * skipped rather than guessed at.
+ */
+function extractUrlDocsRoot(url: string): string | null {
+	const match = url.replace(/\/+$/, "").match(/\/(?:blob|tree)\/[^/]+(?:\/(.*))?$/);
+	if (!match) {
+		return null;
+	}
+	return match[1] && match[1] !== "" ? match[1] : ".";
+}
 
+/** Convert a relative path to an absolute GitHub URL. */
+function toAbsoluteUrl(relativePath: string, docRoot: string, docsRoot: string): string {
+	const normalizedPath = normalizeRelativePath(relativePath, docsRoot);
 	return `${docRoot}${normalizedPath}`;
 }
 
@@ -157,9 +185,32 @@ function main(): void {
 		process.exit(3);
 	}
 
+	const repoRoot = findRepoRoot();
+	const docsRootResult = localDocsRoot(repoRoot);
+	if (!docsRootResult.ok) {
+		process.stderr.write(
+			`Workspace resolution failed: ${docsRootResult.error.problem} — ${docsRootResult.error.message}\n`,
+		);
+		process.exit(1);
+	}
+	const docsRoot = docsRootResult.docsRoot;
+
+	const docRoot = getDocRoot(repoRoot);
+	const urlDocsRoot = extractUrlDocsRoot(docRoot);
+	if (urlDocsRoot !== null && urlDocsRoot !== docsRoot) {
+		const describe = (root: string) => (root === "." ? "the repo root" : `'${root}'`);
+		process.stderr.write(
+			`cross-ref.docs-root URL disagrees with the resolved docs root: the URL points at ` +
+				`${describe(urlDocsRoot)} but the resolved docs root is ${describe(docsRoot)}. Fix ` +
+				`.nexus/config/settings.yml's cross-ref.docs-root (or the workspace docs-root ` +
+				`override) so they agree.\n`,
+		);
+		process.exit(1);
+	}
+
 	// Support multiple paths
 	for (const relPath of args) {
-		process.stdout.write(toAbsoluteUrl(relPath) + "\n");
+		process.stdout.write(toAbsoluteUrl(relPath, docRoot, docsRoot) + "\n");
 	}
 }
 
