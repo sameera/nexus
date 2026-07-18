@@ -15,7 +15,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
-import { isBareSegment } from "./bare-name.js";
+import { isBareSegment, isSafeRelativePath } from "./bare-name.js";
 import { normalizeRemote } from "./remote.js";
 
 export type DiagnosticProblem =
@@ -52,6 +52,8 @@ export interface MemberDescription {
     normalizedRemote: string;
     /** Expected checkout path: a sibling of the hub under the shared parent. */
     expectedPath: string;
+    /** Repo-relative docs root (epic #74): always "docs" — only the hub role moves the default. */
+    docsRoot: string;
 }
 
 export interface WorkspaceDescription {
@@ -65,6 +67,11 @@ export interface WorkspaceDescription {
         normalizedRemote: string;
         /** The hub checkout path (equals hubRoot). */
         path: string;
+        /**
+         * Repo-relative docs root (epic #74): the manifest's explicit `docs-root` override, or
+         * "." (the repo root) when none is given — the hub-role default.
+         */
+        docsRoot: string;
     };
     members: MemberDescription[];
 }
@@ -74,9 +81,13 @@ export type LoadResult =
     | { ok: false; error: Diagnostic };
 
 const MANIFEST_RELATIVE_PATH = [".nexus", "config", "workspace.yml"];
-const HUB_KEYS = ["name", "remote"];
+const HUB_KEYS = ["name", "remote", "docs-root"];
 const MEMBER_KEYS = ["name", "remote"];
 const TOP_LEVEL_KEYS = ["hub", "members"];
+/** The hub-role default docs root when no explicit override is given: the repo root. */
+const DEFAULT_HUB_DOCS_ROOT = ".";
+/** The member-role docs root — unchanged regardless of hub configuration (epic #74 Assumption). */
+const MEMBER_DOCS_ROOT = "docs";
 
 function isMapping(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -151,6 +162,15 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
     if (!hubRemote) {
         return fail("missing-field", "hub", `${name}: 'hub' is missing required field 'remote'`);
     }
+    const docsRootOverride = stringField(hub["docs-root"]);
+    if (docsRootOverride && !isSafeRelativePath(docsRootOverride)) {
+        return fail(
+            "unsafe-name",
+            "hub",
+            `${name}: hub docs-root '${docsRootOverride}' must be a repo-relative path (no absolute path, no '..' traversal)`,
+        );
+    }
+    const hubDocsRoot = docsRootOverride ?? DEFAULT_HUB_DOCS_ROOT;
 
     // --- members -------------------------------------------------------------
     const parentDir = path.dirname(hubRoot);
@@ -235,6 +255,7 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
             remote: memberRemote,
             normalizedRemote,
             expectedPath: path.join(parentDir, memberName),
+            docsRoot: MEMBER_DOCS_ROOT,
         });
     }
 
@@ -248,6 +269,7 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
                 remote: hubRemote,
                 normalizedRemote: normalizeRemote(hubRemote),
                 path: hubRoot,
+                docsRoot: hubDocsRoot,
             },
             members,
         },

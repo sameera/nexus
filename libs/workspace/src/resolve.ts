@@ -63,7 +63,15 @@ export interface SingleRepoWorkspace {
     mode: "single-repo";
     /** The checkout resolution started from. */
     root: string;
+    /** Repo-relative docs root (epic #74): always "docs" in single-repo mode. */
+    docsRoot: string;
 }
+
+/** The single-repo docs-root default — unchanged before and after epic #74. */
+const SINGLE_REPO_DOCS_ROOT = "docs";
+
+/** A checkout's docs root alone, without the rest of the resolved workspace shape. */
+export type LocalDocsRootResult = { ok: true; docsRoot: string } | { ok: false; error: Diagnostic };
 
 export type ResolveResult =
     | { ok: true; workspace: ResolvedWorkspace | SingleRepoWorkspace }
@@ -107,7 +115,10 @@ export function resolveWorkspace(startDir: string): ResolveResult {
 
     // Single-repo fallback keyed on the absence of BOTH artifacts: existing projects untouched.
     if (!hasManifest && !hasPointer) {
-        return { ok: true, workspace: { mode: "single-repo", root: startDir } };
+        return {
+            ok: true,
+            workspace: { mode: "single-repo", root: startDir, docsRoot: SINGLE_REPO_DOCS_ROOT },
+        };
     }
 
     // The manifest is the single source of truth; if a checkout carries one, it is the hub.
@@ -118,4 +129,22 @@ export function resolveWorkspace(startDir: string): ResolveResult {
         return loaded;
     }
     return { ok: true, workspace: annotate(loaded.workspace) };
+}
+
+/**
+ * Resolve just the docs root for the checkout at `startDir` — the thin selector consumers that
+ * need only this one value (the atlas generator, the cross-ref skill) read instead of resolving
+ * (and discarding) the full workspace shape themselves. Never a second producer: it calls
+ * {@link resolveWorkspace} and reads the same field the status read-out prints.
+ */
+export function localDocsRoot(startDir: string): LocalDocsRootResult {
+    const resolved = resolveWorkspace(startDir);
+    if (!resolved.ok) {
+        return resolved;
+    }
+    if (resolved.workspace.mode === "single-repo") {
+        return { ok: true, docsRoot: resolved.workspace.docsRoot };
+    }
+    const isHub = path.resolve(startDir) === path.resolve(resolved.workspace.hubRoot);
+    return { ok: true, docsRoot: isHub ? resolved.workspace.hub.docsRoot : "docs" };
 }

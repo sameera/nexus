@@ -21,16 +21,24 @@
 #     (that is the member's own one-time change). No other file changes.
 #
 # RULES
-#     - Required on `hub`: `name`, `remote`. Required on each member: `name`, `remote`.
+#     - Required on `hub`: `name`, `remote`. Optional on `hub`: `docs-root`. Required on each
+#       member: `name`, `remote`.
 #     - No other keys are allowed on `hub` or a member (an unknown key is a reported error).
 #     - Member names must be unique, and no two members may point at the same remote.
 #     - Each `name` is a BARE sibling directory name: no path separators and not '.' or '..'
 #       (a name is joined onto the shared parent to locate a checkout, so a path would be a
 #       reported error, never followed).
+#     - `docs-root` is where THIS HUB keeps its own human-readable docs, as a path relative to
+#       the hub's repo root (e.g. `docs`, or `.` for docs living at the repo root itself). It
+#       defaults to the repo root when omitted — the docs-only-hub convention — so set it only
+#       when the hub keeps its docs under a subdirectory instead. Members are unaffected: a
+#       member's docs root is always `docs`, regardless of this setting. Must be a repo-relative
+#       path (no absolute path, no '..' traversal) — validated the same way a bare name is.
 
 hub:
   name: docs-hub
   remote: git@github.com:your-org/docs-hub.git
+  # docs-root: docs   # optional — omit for the repo-root default
 
 members:
   - name: web-app

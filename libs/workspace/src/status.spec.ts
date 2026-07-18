@@ -6,7 +6,7 @@ import { renderWorkspaceStatus } from "./status";
 
 const PARENT = path.join(path.sep, "ws");
 
-function workspaceResult(): ResolveResult {
+function workspaceResult(hubDocsRoot = "."): ResolveResult {
     return {
         ok: true,
         workspace: {
@@ -18,6 +18,7 @@ function workspaceResult(): ResolveResult {
                 remote: "git@github.com:acme/docs-hub.git",
                 normalizedRemote: "github.com/acme/docs-hub",
                 path: path.join(PARENT, "docs-hub"),
+                docsRoot: hubDocsRoot,
             },
             members: [
                 {
@@ -26,6 +27,7 @@ function workspaceResult(): ResolveResult {
                     normalizedRemote: "github.com/acme/web-app",
                     expectedPath: path.join(PARENT, "web-app"),
                     checkout: "present",
+                    docsRoot: "docs",
                 },
                 {
                     name: "api",
@@ -33,6 +35,7 @@ function workspaceResult(): ResolveResult {
                     normalizedRemote: "github.com/acme/api",
                     expectedPath: path.join(PARENT, "api"),
                     checkout: "missing",
+                    docsRoot: "docs",
                 },
             ],
         },
@@ -82,6 +85,7 @@ describe("renderWorkspaceStatus — resolved workspace", () => {
                     remote: "git@github.com:acme/docs-hub.git",
                     normalizedRemote: "github.com/acme/docs-hub",
                     path: path.join(PARENT, "docs-hub"),
+                    docsRoot: ".",
                 },
                 members: [],
             },
@@ -92,12 +96,41 @@ describe("renderWorkspaceStatus — resolved workspace", () => {
     });
 });
 
+// --- docs root (epic #74, STORY-74.01 AC5) ----------------------------------
+
+describe("renderWorkspaceStatus — docs root", () => {
+    it("reports the hub's docs root as the repo root", () => {
+        const out = renderWorkspaceStatus(workspaceResult(".")).toLowerCase();
+        expect(out).toContain("repo root");
+    });
+
+    it("reports an explicit hub docs-root override", () => {
+        const out = renderWorkspaceStatus(workspaceResult("docs"));
+        expect(out).toContain("docs");
+    });
+
+    it("reports each member's docs root", () => {
+        const out = renderWorkspaceStatus(workspaceResult());
+        // Both members default to "docs" — appears once per member line, distinct from the hub's ".".
+        expect(out.match(/docs(?!-hub)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    });
+
+    it("reports the single-repo docs root", () => {
+        const single: ResolveResult = {
+            ok: true,
+            workspace: { mode: "single-repo", root: path.join(PARENT, "solo"), docsRoot: "docs" },
+        };
+        const out = renderWorkspaceStatus(single);
+        expect(out).toContain("docs");
+    });
+});
+
 // --- single-repo mode (AC2) -------------------------------------------------
 
 describe("renderWorkspaceStatus — single-repo mode", () => {
     const single: ResolveResult = {
         ok: true,
-        workspace: { mode: "single-repo", root: path.join(PARENT, "solo") },
+        workspace: { mode: "single-repo", root: path.join(PARENT, "solo"), docsRoot: "docs" },
     };
 
     it("states that no workspace is declared, not an error", () => {
