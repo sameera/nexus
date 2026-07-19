@@ -143,3 +143,14 @@
 - **estimate:** S
 - **blocked_by:** none
 - **source:** deferred from epic Parameterized Docs Root (#74) (2026-07-18)
+
+## nxs-pm-decisions-path-sweep
+
+- **status:** proposed
+- **goal:** Route the residual `docs/decisions/` literals in the nxs-pm agent (lines 47, 588)
+  through the resolved docs root, closing the last literal-`docs/` prefix left after the taxonomy
+  surfaces (features/product/system/delivery) moved. Outside this epic's taxonomy, so it was not a
+  bypass here — a follow-on sweep so the `decisions/` surface tracks the root like the rest.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic Planning Surfaces Follow the Docs Root (#81) (2026-07-19)
