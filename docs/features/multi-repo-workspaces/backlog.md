@@ -146,7 +146,7 @@
 
 ## nxs-pm-decisions-path-sweep
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** Route the residual `docs/decisions/` literals in the nxs-pm agent (lines 47, 588)
   through the resolved docs root, closing the last literal-`docs/` prefix left after the taxonomy
   surfaces (features/product/system/delivery) moved. Outside this epic's taxonomy, so it was not a

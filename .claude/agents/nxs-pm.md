@@ -44,7 +44,7 @@ genuinely-absent file stays graceful (ask the user / proceed), never a hard fail
 
 2. **Related Features & Patterns**
     - Read `<docs-root>/features/README.md` for feature inventory and patterns
-    - Check `docs/decisions/` for relevant prior decisions
+    - Check `<docs-root>/decisions/` for relevant prior decisions
 
 ## Conditional Research
 
@@ -262,7 +262,7 @@ Apply your domain knowledge throughout:
 ### Template Handling
 
 1. **User-provided templates**: If the user provides or references a template, use it exactly
-2. **Project templates**: Check `docs/templates/` for project-specific templates
+2. **Project templates**: Check `<docs-root>/templates/` for project-specific templates
 3. **Industry standard**: If no template exists, use widely-accepted industry formats (provided below)
 
 ### Standard Deliverable Formats
@@ -585,7 +585,7 @@ _Legend: ✅ Full support | 🟡 Partial | ❌ None | 🚧 In development_
 
 For significant decisions, recommend creating:
 
-- **Decision Record** in `docs/decisions/[number]-[title].md`
+- **Decision Record** in `<docs-root>/decisions/[number]-[title].md`
 - **Feature Doc** in `<docs-root>/features/[name].md`
 
 State this as a recommendation, not a requirement.

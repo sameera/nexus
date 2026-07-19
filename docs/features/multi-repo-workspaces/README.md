@@ -17,3 +17,4 @@ hub docs repo holds the concept store and drains the queue.
 - **Nexus Setup CLI** — [#60](https://github.com/sameera/nexus/issues/60)
 - **Parameterized Docs Root** — [#74](https://github.com/sameera/nexus/issues/74)
 - **Planning Surfaces Follow the Docs Root** — [#81](https://github.com/sameera/nexus/issues/81)
+- **nxs-pm Path References Follow the Docs Root** — [#87](https://github.com/sameera/nexus/issues/87)
