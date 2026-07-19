@@ -13,7 +13,7 @@ complexity_drivers:
     "filing rules (parent filing, the Decision Log exemption) interact with existing drain-time validation",
   ]
 concepts: ["concept-store", "portable-tooling"]
-link:
+link: "#89"
 ---
 
 # Epic: Domain Taxonomy for the Concept Store
@@ -48,8 +48,8 @@ and seeding an existing store) is the follow-on epic in this feature.
 - On a store with a seeded registry, the generated atlas lists every active concept exactly once
   under its filed heading, and a densely linked store no longer collapses to a single heading.
 - The validator rejects 100% of fixture violations — unresolvable `domain:` path, third nesting
-  level, duplicate slug path, node missing its slug or rubric — and raises zero domain findings
-  on a store that has no registry.
+  level, duplicate slug path, node missing its title, slug, or rubric — and raises zero domain
+  findings on a store that has no registry.
 - Atlas generation stays deterministic: consecutive runs over an unchanged store are
   byte-identical and `--check` parity is preserved.
 
@@ -76,9 +76,9 @@ tools can trust.
       order.
 - [ ] **Given** a registry that nests a third level, **when** the store is validated, **then**
       validation fails with a finding naming the offending entry (two levels is a hard cap).
-- [ ] **Given** a registry with a duplicate slug path, or an entry missing its slug or rubric,
-      **when** the store is validated, **then** validation fails with a finding naming the
-      entry.
+- [ ] **Given** a registry with a duplicate slug path, or an entry missing its title, slug, or
+      rubric, **when** the store is validated, **then** validation fails with a finding naming
+      the entry.
 - [ ] **Given** the fixture suite (one well-formed registry, one fixture per malformation),
       **when** the validator runs, **then** it exits zero on the well-formed fixture and
       non-zero on every malformed one.
@@ -156,3 +156,11 @@ distiller will consume in the follow-on epic.
 ## Open Questions
 
 <!-- none -->
+
+## Implementation Sequence
+
+| STORY | Issue | blocked_by |
+|---|---|---|
+| STORY-89.01 | #90 | none |
+| STORY-89.02 | #91 | STORY-89.01 |
+| STORY-89.03 | #92 | STORY-89.01, STORY-89.02 |
