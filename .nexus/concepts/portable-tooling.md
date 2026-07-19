@@ -2,7 +2,7 @@
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
 touches: ["distiller", "workspace-resolution", "nexus-setup-cli"]
-last_updated_by: "#74"
+last_updated_by: "#81"
 status: active
 verification: verified
 ---
@@ -48,3 +48,7 @@ The `nexus` setup CLI ships on this same distributable, and it makes the distrib
 ### 2026-07-18 — #74 — The atlas generator becomes a resolver-consuming tool; re-vendoring tracks inlined source
 
 The atlas generator gained a run-time dependency on the workspace resolver — it now places its output at the resolved docs root — so it joins the diff-derivation tool as a bundled tool carrying the workspace dependency into the install-free hub, which the packaging simply inlines. Because that new inlined source, together with the vendored component edits this epic also made, staled the fingerprint pin the moment the intermediate stories landed — before the generator itself was touched — the bundle was re-vendored on every story that changed inlined source or components, not once at the end. Refuted alternative: defer all re-vendoring to the generator-change story or the epic's end — fewer vendor commits, but it leaves the fingerprint gate red across every intermediate commit, breaking the green-on-every-commit rigor this epic held to.
+
+### 2026-07-19 — #81 — The docs-root read-out is reachable through the portable CLI
+
+A docs-only hub has no in-repo toolchain, so the resolved docs root its planning commands need must also be reachable offline. The portable CLI gained a docs-root read-out verb — a single-value view over the same resolver selector the in-repo read-out uses — so the docs-only-hub vehicle reaches the value exactly as a code repo does, re-vendored under the one fingerprint gate to stay byte-parity with the source. This is the same dual-vehicle pattern setup already relies on for the workspace status read-out. Refuted alternative: extend the existing status read-out to also emit the docs root as a parseable field, reusing an invocation commands already make — but that turns the human-facing status render into a machine-parsed contract every planning command would couple to, and contradicts the dedicated single-purpose selector this value was deliberately given.

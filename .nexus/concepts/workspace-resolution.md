@@ -2,7 +2,7 @@
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
 touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli"]
-last_updated_by: "#74"
+last_updated_by: "#81"
 status: active
 verification: verified
 ---
@@ -13,11 +13,11 @@ Workspace resolution makes a multi-repo product a declared, discoverable thing: 
 
 ## How It Works
 
-The hub manifest is the single source of truth: the hub, the members, each member's remote, and its expected checkout name. A member's pointer names only the hub without redeclaring membership; on disagreement the manifest wins.
+The hub manifest is the single source of truth for the hub, its members, and each member's remote and checkout name. A member's pointer only locates the hub; on disagreement the manifest wins.
 
-A checkout's role follows the artifact it carries: a manifest makes it the hub; a pointer makes it a member that finds the hub as a named sibling and reads that same manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes where a hub's vendored portable tooling lives and each repo's docs root. Carrying neither means single-repo mode, unchanged.
+A checkout's role follows the artifact it carries: a manifest makes it the hub; a pointer makes it a member that finds the hub as a named sibling and reads that same manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes where a hub's portable tooling lives and each repo's docs root. Carrying neither means single-repo mode, unchanged.
 
-The status read-out is the sole observable surface.
+Two read-outs surface it: the full status and the resolved docs root.
 
 ## Key Invariants
 
@@ -58,3 +58,7 @@ The parser now rejects a manifest where a member reuses the hub's sibling name o
 ### 2026-07-18 — #74 — The per-repo docs root is resolved context, defaulted by role
 
 The resolver now produces where each repo keeps its human docs — its docs root — as one more value on the workspace description, defaulted by role: the repo root for a hub, a docs subdirectory for a member or single-repo project, with an optional hub override. Placing it here gives the fact a single producer, so the atlas generator, the doc-link builder, and the drain read it rather than each assuming a fixed location and drifting apart. Refuted alternative: keep the override in each checkout's local settings, beside the existing cross-reference URL — no manifest change needed, but local settings are per-checkout and invisible from another checkout, so a member's value could not be seen when resolving from the hub, breaking the parity guarantee; a shared workspace fact cannot live in per-checkout state.
+
+### 2026-07-19 — #81 — Planning surfaces read the docs root through a dedicated read-out
+
+The single-producer guarantee now provably covers the planning surfaces, not only the derived-artifact ones. A dedicated single-value read-out over the resolver's existing docs-root selector lets the epic, close, setup, and design commands — and the product-manager and architect briefs they invoke — obtain the resolved docs root once per run and prefix it onto the unchanged taxonomy, instead of writing to a fixed docs location a docs-only hub does not use. The per-feature container path is resolved once when the feature is created and recorded in the queue entry; close reads that recorded value rather than re-resolving, so its writes land under the same root as the artifacts they belong to. A resolution failure surfaces the resolver's named diagnostic and stops the command — only a context doc genuinely missing under a successfully resolved root is treated as absent, preserving reference-if-present. Refuted alternative: re-resolve the docs root at each stage instead of recording it — every command stays self-contained, but it creates two sources of truth that disagree exactly when an override changes or the entry migrates between checkouts, landing the close-time writes under a different root than where the feature was created.
