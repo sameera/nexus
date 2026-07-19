@@ -2,7 +2,7 @@
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
 touches: ["distiller", "workspace-resolution", "nexus-setup-cli"]
-last_updated_by: "#81"
+last_updated_by: "#89"
 status: active
 verification: verified
 ---
@@ -52,3 +52,7 @@ The atlas generator gained a run-time dependency on the workspace resolver — i
 ### 2026-07-19 — #81 — The docs-root read-out is reachable through the portable CLI
 
 A docs-only hub has no in-repo toolchain, so the resolved docs root its planning commands need must also be reachable offline. The portable CLI gained a docs-root read-out verb — a single-value view over the same resolver selector the in-repo read-out uses — so the docs-only-hub vehicle reaches the value exactly as a code repo does, re-vendored under the one fingerprint gate to stay byte-parity with the source. This is the same dual-vehicle pattern setup already relies on for the workspace status read-out. Refuted alternative: extend the existing status read-out to also emit the docs root as a parseable field, reusing an invocation commands already make — but that turns the human-facing status render into a machine-parsed contract every planning command would couple to, and contradicts the dedicated single-purpose selector this value was deliberately given.
+
+### 2026-07-19 — #89 — A shared registry parser joins the inlined source, re-vendored per story
+
+The new domain-registry parser is standalone — no imports — so it inlines into both the validator and atlas-generator bundles exactly like every other shared module here, and it entered the fingerprint gate the same way prior inlined-source changes did: re-vendoring on every story that touched inlined source, keeping the pin green on each commit rather than red until the epic's last story landed, the discipline already established for a resolver-consuming atlas generator. Refuted alternative: defer re-vendoring to the epic's final story once the parser and both consuming tools were done — fewer vendor commits, but it reintroduces the stretch of red-pin commits that discipline exists to prevent, so it wasn't reconsidered here.
