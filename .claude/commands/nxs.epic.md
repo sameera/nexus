@@ -26,7 +26,7 @@ Empty input is an error: ask the user for a capability description (or a stub sl
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<epic-slug>-<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `docs/features/<name>/` holds only a thin nav index and `backlog.md`.
+- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<epic-slug>-<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) holds only a thin nav index and `backlog.md`.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full `epic.md` for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
 
 ## Interaction convention — actionable choice gates
@@ -505,9 +505,11 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 ## Personas
 
-<Deviations only. Personas are canonical in docs/product/context.md. If this epic uses them
-as-is, write: "Per `docs/product/context.md`." Tabulate only personas specific to this epic or
-deviations from the canonical set.>
+<Deviations only. Personas are canonical in `<docs-root>/product/context.md` — the `<docs-root>`
+resolved in Phase 0, with the empty-prefix rule applied (so `product/context.md` on a repo-root
+hub, `docs/product/context.md` in a single-repo checkout). If this epic uses them as-is, write
+that resolved path: "Per `<docs-root>/product/context.md`." Tabulate only personas specific to
+this epic or deviations from the canonical set.>
 
 ## User Stories
 
@@ -550,7 +552,7 @@ Notes on the shape (vs. the pre-refactor epic):
 - **No three-scenario timeline table and no complexity appendix** — the rating and its drivers live in frontmatter (`complexity`, `complexity_drivers`).
 - **No glossary.** Terms that name durable concepts are routed to a concept page's `aliases:` at close time (System B), not stored in the epic.
 - **No Business Value section** — it is speculative generation (nobody specifies it upfront). The WHY lives in `## Description`; the measurable outcomes live in `## Success Metrics`.
-- **Personas are deviations-only** — the canonical set is `docs/product/context.md`.
+- **Personas are deviations-only** — the canonical set is `<docs-root>/product/context.md`.
 
 ---
 
@@ -560,7 +562,7 @@ Notes on the shape (vs. the pre-refactor epic):
 
 - **WHAT** users need and **WHY** (value). Avoid **HOW** (no stack, APIs, code structure).
 - Each story is a conversation starter, not a complete spec. Each AC must be verifiable.
-- Stay consistent with `docs/product/context.md` terminology and personas.
+- Stay consistent with `<docs-root>/product/context.md` terminology and personas.
 
 ### Story decomposition
 
