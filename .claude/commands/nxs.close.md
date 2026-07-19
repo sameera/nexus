@@ -51,6 +51,16 @@ search is needed to find them.
     - `epic` (or `title`) — the epic title
     - `link` — the epic GitHub issue reference (e.g. `"#123"`)
     - `feature` — the parent feature name/slug (the queue entry's one-direction pointer, 0006 §4)
+    - `feature_path` — the **actual resolved feature container** `/nxs.epic` recorded (e.g.
+      `docs/features/onboarding` in single-repo, `features/onboarding` on a repo-root hub). Close
+      targets the backlog under this and derives the sibling lessons location from it — it never
+      re-resolves the docs root. Compute two names now and reuse them below:
+        - **`<feature-path>`** = the `feature_path` value. (If `feature_path` is absent — a pre-epic
+          entry — fall back to `docs/features/<feature>`, today's literal.)
+        - **`<docs-root>`** = `<feature-path>` with its final two segments (`features/<slug>`) removed:
+          `docs` for `docs/features/onboarding`, or the **empty string** for `features/onboarding`.
+          When `<docs-root>` is empty, a taxonomy path hangs directly off the repo root (no `./`
+          prefix, no `.`-named segment).
     - `complexity` — the story-size rollup (used for lesson framing)
 
 2. Set `QDIR` = the directory containing `*epic.md` (the committed queue entry).
@@ -251,7 +261,7 @@ Fill the seeded template and write it into the queue entry.
       epic appends entries; this epic always writes exactly one (the home repo).
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
     - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human supplied).
-    - **Deferred Scope** — a **pointer only** to `docs/features/<feature>/backlog.md` (the scope itself
+    - **Deferred Scope** — a **pointer only** to `<feature-path>/backlog.md` (the scope itself
       is appended in Phase 5, not restated here).
     - **Process Lesson** — a **pointer only** to the lesson file written in Phase 6.
 
@@ -264,7 +274,7 @@ Deferred scope goes to the feature backlog, not into the close record (C2). `bac
 **two-writer, append-only** surface shared with `/nxs.epic`'s decomposition stubs (0008) — use the
 **same entry shape**; never rewrite existing blocks.
 
-1. Target `docs/features/<feature>/backlog.md` (create it with the header on first write):
+1. Target `<feature-path>/backlog.md` (the recorded feature container from Phase 0; create it with the header on first write):
 
     ```markdown
     # Backlog: <Feature Name>
@@ -293,8 +303,9 @@ Deferred scope goes to the feature backlog, not into the close record (C2). `bac
 
 The lesson is its own file (C3), one file per lesson; the close record only points at it.
 
-1. Ensure `docs/delivery/lessons/` exists (`/nxs.setup` scaffolds it; create if absent).
-2. Write **`docs/delivery/lessons/<YYYY-MM-DD>-<slug>.md>`** where `<slug>` derives from the epic:
+1. Ensure the lessons dir exists — **`<docs-root>/delivery/lessons/`** (just `delivery/lessons/` when
+   `<docs-root>` is empty, i.e. a repo-root hub). `/nxs.setup` scaffolds it; create if absent.
+2. Write **`<docs-root>/delivery/lessons/<YYYY-MM-DD>-<slug>.md`** where `<slug>` derives from the epic:
 
     ```markdown
     ---
@@ -321,8 +332,8 @@ Ready to close epic "<Epic Title>" (#<epic-issue>).
 
 Written:
 1. Close record  → ${QDIR}/close-record.md
-2. Deferred scope → docs/features/<feature>/backlog.md (<N> item(s))
-3. Process lesson → docs/delivery/lessons/<date>-<slug>.md
+2. Deferred scope → <feature-path>/backlog.md (<N> item(s))
+3. Process lesson → <docs-root>/delivery/lessons/<date>-<slug>.md
 
 Preconditions: all <M> child story issues closed · analyze: <the Phase 1.2 outcome> ·
 workspace: <the Phase 1.3 role>.
@@ -388,8 +399,8 @@ issue** via `link`. The epic issue is a **durable** surface; the queue
 `close-record.md` is **ephemeral** — the distiller deletes it post-merge. So the comment carries the
 close record's **prose inline** (Key Decisions + Deviation Rationale); it must **never** link into
 `.nexus/queue/`, or the link dangles the moment the distillation PR merges. Durable pointers — the
-feature backlog and the lesson file, both under `docs/` — may be included as bare paths (or absolute
-GitHub URLs via `nxs-abs-doc-path`); nothing in the queue may be linked.
+feature backlog and the lesson file, both under the resolved docs root — may be included as bare paths
+(or absolute GitHub URLs via `nxs-abs-doc-path`); nothing in the queue may be linked.
 
 Write the comment body to a scratch file (Key Decisions + Deviation Rationale copied from
 `close-record.md`; drop the Deviation heading if there were none), then post it with `--body-file`
@@ -418,8 +429,8 @@ the durable surface must show the epic closed on a waiver -->
 - **<deviation>:** <why>          <!-- omit this whole heading if there were none -->
 
 ### Pointers (durable)
-- Deferred scope → docs/features/<feature>/backlog.md
-- Process lesson → docs/delivery/lessons/<date>-<slug>.md
+- Deferred scope → <feature-path>/backlog.md
+- Process lesson → <docs-root>/delivery/lessons/<date>-<slug>.md
 ```
 
 **Error handling:**
@@ -437,8 +448,8 @@ GitHub epic issue: #<epic-issue> — closed
 Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
 Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
-Deferred scope:    docs/features/<feature>/backlog.md  (<N> item(s))
-Process lesson:    docs/delivery/lessons/<date>-<slug>.md
+Deferred scope:    <feature-path>/backlog.md  (<N> item(s))
+Process lesson:    <docs-root>/delivery/lessons/<date>-<slug>.md
 Scratch mined:     ${QDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the
                    committed entry (distiller drains it with the entry post-merge)
 
