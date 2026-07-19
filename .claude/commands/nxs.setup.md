@@ -2,7 +2,7 @@
 name: nxs.setup
 description: One-time project bootstrap. Auto-detects the stack, generates system docs/standards, scaffolds the Nexus surfaces, then runs an interactive interview (via the nxs-setup skill) to build the product context. Replaces the old nxs.init + nxs.product-context.
 category: setup
-tools: Read, Write, Edit, Glob, Grep, WebSearch, Skill
+tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch, Skill
 model: inherit
 ---
 
@@ -27,6 +27,23 @@ Detect this repo's workspace role **through the resolver** — never by asking t
     In a checkout with no in-repo Node toolchain, use the portable CLI instead —
     `node <tools-dir>/nexus.mjs workspace status` (in a workspace hub, `<tools-dir>` is
     `.nexus/tools`). Both run the identical resolver.
+
+    Then obtain the **resolved docs root** — the value every scaffold path below prefixes — from the
+    single-value read-out (the same two vehicles):
+
+    ```bash
+    tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+    ```
+
+    In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
+
+    - Capture the one printed line as **`<docs-root>`**: `docs` for a single-repo project or a member,
+      `.` for a hub whose docs root is the repo root, or the hub's configured override.
+    - **On a non-zero exit** it printed a resolver diagnostic to stderr. **Stop and report it.** Never
+      fall back to a literal `docs/` — a resolution failure is not "single-repo".
+    - **Empty-prefix rule:** when `<docs-root>` is `.`, a taxonomy path hangs directly off the repo
+      root (`system/stack.md`); otherwise prefix it (`<docs-root>/system/stack.md`). Never a
+      `./`-prefixed path or a `.`-named segment. Reuse `<docs-root>` for Phases 3–7 below.
 
 2. Branch on the result and continue with the phases below in every case:
     - **Hub** (the checkout declares the workspace manifest) or **member** (it carries a hub
@@ -93,19 +110,20 @@ For the unresolved attributes, read configuration files to drive detection:
 
 ## Phase 3: Generate system documentation
 
-Create:
+Create (under the resolved docs root — the tree below hangs off `<docs-root>`; on a repo-root hub
+that is the repo root, so `system/stack.md`, not `docs/system/stack.md`):
 
 ```
-docs/
+<docs-root>/
 └── system/
     ├── stack.md            # Technology stack overview
     └── standards/
         └── *.md            # Project-specific standards (by judgment)
 ```
 
-**Generate only the files listed above** — no `README.md` or index file at `docs/system/`. Nothing in the pipeline reads one.
+**Generate only the files listed above** — no `README.md` or index file at `<docs-root>/system/`. Nothing in the pipeline reads one.
 
-### 3.1 `docs/system/stack.md`
+### 3.1 `<docs-root>/system/stack.md`
 
 Document the complete technology stack. Include only sections that apply:
 
@@ -178,7 +196,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
 ## Phase 4: Scaffold the Nexus surfaces
 
 1. **`.nexus/config/issue-labels.yaml`** — seed it with this project's label set. Setup is the seeder for project-generated config.
-2. **`docs/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
+2. **`<docs-root>/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
 3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 4. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
 5. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
@@ -191,16 +209,18 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
 
 ## Phase 5: Build the product context (interactive)
 
-Invoke the **`nxs-setup` skill** to run the interactive product-context interview. The skill asks at most 5 strategic questions one at a time, infers the rest with PM expertise, and writes `docs/product/context.md`.
+Invoke the **`nxs-setup` skill** to run the interactive product-context interview, **telling it the
+resolved target path**: it writes the product context to `<docs-root>/product/context.md`. The skill
+asks at most 5 strategic questions one at a time, infers the rest with PM expertise, and writes that file.
 
-Personas live canonically in `docs/product/context.md` — later epics reference them rather than re-tabulating.
+Personas live canonically in `<docs-root>/product/context.md` — later epics reference them rather than re-tabulating.
 
 ## Phase 6: Refactor CLAUDE.md
 
 After the docs exist:
 
 1. **Identify content to move** — detailed sections now better covered by standards files.
-2. **Replace with links** — add a "Technical Patterns and Standards" section linking to `docs/system/`.
+2. **Replace with links** — add a "Technical Patterns and Standards" section linking to `<docs-root>/system/`.
 3. **Keep in CLAUDE.md** — project description, development commands, high-level architecture overview, import-path mappings, environment setup, recent changes.
 4. **Add the decision-stub rule** — a short section instructing the coding agent:
 
@@ -239,11 +259,11 @@ Output a completion summary:
 
 ### Created
 
-- `docs/system/stack.md` — technology stack
-- `docs/system/standards/[file].md` — [brief description]
-- `docs/product/context.md` — product context (interactive)
+- `<docs-root>/system/stack.md` — technology stack
+- `<docs-root>/system/standards/[file].md` — [brief description]
+- `<docs-root>/product/context.md` — product context (interactive)
 - `.nexus/config/issue-labels.yaml` — task label set
-- `docs/delivery/lessons/README.md` — lessons convention
+- `<docs-root>/delivery/lessons/README.md` — lessons convention
 - `.gitignore` — any pre-existing `.nexus/plans/` line kept as retired (no new ignore added; decision scratch is committed under `.nexus/queue/`)
 
 ### Updated
