@@ -56,10 +56,28 @@ Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
 
+**Resolve the docs root (once, up front — reused by every path this command builds).** Run the
+docs-root read-out, the single-value view over the workspace resolver:
+
+```bash
+tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+```
+
+In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable CLI instead —
+`node <tools-dir>/nexus.mjs workspace docs-root` (in a workspace hub, `<tools-dir>` is `.nexus/tools`).
+
+- It prints one line — capture it as **`<docs-root>`**: `docs` for a single-repo checkout or a
+  member, `.` for a hub whose docs root is the repo root, or the hub's configured override.
+- **On a non-zero exit** it printed a resolver diagnostic to stderr. **Stop and report it.** Never
+  fall back to a literal `docs/` — a resolution failure is not "no feature yet".
+- **Building a path under `<docs-root>` (empty-prefix rule):** if `<docs-root>` is `.`, the taxonomy
+  hangs directly off the repo root (`features/<slug>/…`); otherwise prefix it
+  (`<docs-root>/features/<slug>/…`). Never emit a `./`-prefixed path or a segment named `.`.
+
 1. **Resume check.** Glob `.nexus/queue/*/epic.md`. If an entry's frontmatter has **no `link`** — an epic already planned but not yet filed as issues — report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that entry and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending entry exists, resume it without asking. Otherwise continue.
 2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub slug. Stop.
 3. Decide **promotion** vs **intent**:
-    - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `docs/features/*/backlog.md`. Glob the backlogs and check.
+    - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `<docs-root>/features/*/backlog.md` (per the empty-prefix rule, `features/*/backlog.md` on a repo-root hub). Glob the backlogs and check.
     - Exactly one match → **promotion mode**. Load the stub (functional goal, candidate story-group titles, estimate). The feature container is the backlog's parent directory. Skip the right-sizing gate (the stub was already sized ≤ M at decomposition) and use the stub's goal + candidate stories as the seed for Phase 3.
     - No match, or input contains whitespace → **intent mode**. The text is the capability description.
 
@@ -68,11 +86,12 @@ Run the phases in order.
 The container must exist before writing: the queue entry records its parent feature, and `backlog.md` lives under it (0006 §4).
 
 1. **Promotion mode** → already resolved (the stub's backlog parent). Continue.
-2. **Intent already inside a feature** → if the user referenced a `docs/features/<name>/` path or has a file open under one, use that feature.
+2. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
 3. **Otherwise infer and confirm once**:
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
-    - Present a single confirmation: _"I'll plan this under feature **<Name>** (`docs/features/<slug>/`). Accept, or give a different name?"_ — one prompt, cheap. Accept the user's correction if any.
-    - Ensure the directory exists (`mkdir -p docs/features/<slug>`) — the queue entry's `feature_path` and any `backlog.md` need it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
+    - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `backlog.md` / `README.md` from.
+    - Present a single confirmation: _"I'll plan this under feature **<Name>** (`<feature-path>/`). Accept, or give a different name?"_ — one prompt, cheap. Accept the user's correction if any.
+    - Ensure the directory exists (`mkdir -p <feature-path>`) — the queue entry's `feature_path` and any `backlog.md` need it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
 
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
@@ -178,7 +197,7 @@ epic.] Proposed split into right-sized goals:
 
 ## Phase 2b — Emit decomposition stubs (oversized path)
 
-Append one stub per functional goal to `docs/features/<slug>/backlog.md` (create it if absent). The backlog is **append-only** with one consumer (the next `/nxs.epic`); `/nxs.close` also appends deferred scope here, so the entry shape is shared (slug + goal + estimate + status).
+Append one stub per functional goal to `<feature-path>/backlog.md` (the resolved container from Phase 1; create it if absent). The backlog is **append-only** with one consumer (the next `/nxs.epic`); `/nxs.close` also appends deferred scope here, so the entry shape is shared (slug + goal + estimate + status).
 
 Create the file with this header on first write:
 
@@ -243,7 +262,7 @@ re-derived or renamed later, even if the epic title changes.
 
 Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by globbing `.nexus/queue/*/`; multiple entries with no `link` prompt a selection.
 
-The feature nav index (`docs/features/<slug>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue — never a draft queue-path pointer that needs updating (the queue entry is transient; the distiller drains it, 0006).
+The feature nav index (`<feature-path>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue — never a draft queue-path pointer that needs updating (the queue entry is transient; the distiller drains it, 0006).
 
 ## Phase 4b — Epic gate (nxs-epic-gate)
 
@@ -414,7 +433,7 @@ story becomes one GitHub issue, child of the epic issue.
     | STORY-<EPIC>.02 | #<n> | STORY-<EPIC>.01 |
     ```
 
-6. **Write the feature nav index.** Now that the issue exists, write `docs/features/<slug>/README.md`
+6. **Write the feature nav index.** Now that the issue exists, write `<feature-path>/README.md`
    with an `## Epics` entry that links **directly to the epic issue `#<EPIC>`** — no draft, no later
    update. The entry must be a clickable **markdown link** to the issue, not a bare `#<EPIC>` ref
    (a bare ref does not resolve in a repo `.md` file). Resolve the issue URL from the `gh` CLI
@@ -458,7 +477,7 @@ Report:
 ```markdown
 ---
 feature: "<Feature Name>"
-feature_path: docs/features/<slug>
+feature_path: <feature-path>   # the ACTUAL resolved container from Phase 1 — e.g. `docs/features/onboarding` in single-repo, `features/onboarding` on a repo-root hub. Never a fixed `docs/…` literal.
 epic: "<Epic Title>"
 slug: <epic-slug>
 created: <YYYY-MM-DD>
@@ -583,5 +602,5 @@ Any durable `.md` link placed in an issue body should be an absolute GitHub URL 
 the issue. Convert repo-relative paths with the `nxs-abs-doc-path` skill:
 
 ```bash
-python ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.py "docs/features/<slug>/README.md"
+tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "<feature-path>/README.md"
 ```
