@@ -1,6 +1,6 @@
 ---
 concept: portable-tooling
-source_sha: 72f0a3f33475cde917bf192b5aa66a96511ad36a
+source_sha: 0c477760e469bdbe24fe805fc1d7bbb7c4c2aa2a
 generated: 2026-07-19
 ---
 
@@ -12,8 +12,10 @@ generated: 2026-07-19
 - `libs/portable-tools/src/bundle.ts` — the shared bundling primitive: compiles one entry point into a self-contained Node-targeted bundle, inlining every non-builtin import; emits a constant `createRequire` banner so an inlined CJS dependency runs on a bare node, and pins the working dir so the bytes (and their hash) are cwd-independent.
 - `libs/portable-tools/src/build-bundles.ts` — builds every entry point (validator, atlas generator, hub diff-derivation tool, and the `nexus` setup CLI) into self-contained bundles; the nx `bundle` target.
 - `libs/portable-tools/src/nexus-cli.ts` — the `nexus` CLI; gained the docs-root read-out verb, the portable vehicle that lets a docs-only hub's planning commands resolve their root offline through the same resolver selector the in-repo read-out uses.
-- `libs/portable-tools/src/validate-concepts.ts` — the authoritative concept validator (concept pages and anchor sidecars), bundled unchanged for the hub.
-- `libs/portable-tools/src/generate-atlas.ts` — the authoritative atlas generator (incl. `--check` sync mode); now consults the resolver at run time for its default output location and computes its link prefix from where the atlas lands.
+- `libs/portable-tools/src/domain-registry.ts` — the shared domain-registry grammar and parser; standalone (no imports), inlined into both the validator and atlas-generator bundles.
+- `libs/portable-tools/src/domain-registry.spec.ts` — parser coverage, bundled and parity-checked alongside the two consuming tools.
+- `libs/portable-tools/src/validate-concepts.ts` — the authoritative concept validator (concept pages and anchor sidecars), bundled for the hub; now also runs the registry structural pass and per-page `domain:` resolution when a registry is present.
+- `libs/portable-tools/src/generate-atlas.ts` — the authoritative atlas generator (incl. `--check` sync mode); consults the resolver at run time for its default output location, computes its link prefix from where the atlas lands, and renders the curated domain hierarchy when a registry is present.
 - `libs/portable-tools/src/generate-atlas.spec.ts` — atlas rendering, link-prefix computation, and the resolver-derived default-output behavior across layouts.
 - `libs/portable-tools/src/docs-root-readout.spec.ts` — subprocess coverage of the portable docs-root read-out verb across layouts, asserting the same resolved value and failure diagnostic as the in-repo read-out.
 - `libs/portable-tools/src/derive-entry-diff.ts` — the hub diff-derivation tool: the first bundled tool to consult the workspace resolver at run time, resolving an entry's recorded range to per-repo diffs inside the member checkouts.
