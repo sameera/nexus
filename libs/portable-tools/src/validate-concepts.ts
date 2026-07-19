@@ -18,7 +18,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { localDocsRoot } from "@nexus/workspace/resolve";
-import { parseDomainRegistry } from "./domain-registry.js";
+import { parseDomainRegistry, type ParsedRegistry } from "./domain-registry.js";
 
 interface CliOptions {
     base: string | null;
@@ -162,6 +162,30 @@ function decisionLogHeadings(content: string): string[] {
     return log.filter((line: string) => line.startsWith("### "));
 }
 
+/**
+ * Return `content` with its frontmatter `domain:` field removed (epic #89, STORY-89.02). Used by the
+ * changed-page check to detect a re-file: a change whose only difference is `domain:` is orientation
+ * metadata, not knowledge, so it is exempt from the one-new-Decision-Log-entry rule. Only the field
+ * inside the opening frontmatter block is dropped; a body line is never touched.
+ */
+function stripDomainLine(content: string): string {
+    const lines: string[] = content.split("\n");
+    const kept: string[] = [];
+    let delimiters = 0;
+    for (const line of lines) {
+        if (line.trim() === "---") {
+            delimiters++;
+            kept.push(line);
+            continue;
+        }
+        if (delimiters === 1 && /^domain:\s*/.test(line)) {
+            continue;
+        }
+        kept.push(line);
+    }
+    return kept.join("\n");
+}
+
 export function checkForbiddenContent(file: string, text: string, findings: Finding[]): void {
     const lines: string[] = text.split("\n");
     let inFence = false;
@@ -295,7 +319,7 @@ export function validateAnchor(file: string, findings: Finding[]): void {
     }
 }
 
-export function validatePage(file: string, base: string | null, repoRoot: string, findings: Finding[]): void {
+export function validatePage(file: string, base: string | null, repoRoot: string, findings: Finding[], validDomainPaths: Set<string> | null = null): void {
     const content: string = fs.readFileSync(file, "utf8");
     const lines: string[] = content.split("\n");
 
@@ -335,6 +359,20 @@ export function validatePage(file: string, base: string | null, repoRoot: string
     for (const derived of ["slug", "id"]) {
         if (fm.fields.has(derived)) {
             findings.push({ file, message: `frontmatter: \`${derived}\` is derived state — the filename is the slug (0003 §2.1)` });
+        }
+    }
+
+    // Domain filing (epic #89, STORY-89.02): when a registry is present every page must file under a
+    // defined domain or subdomain path. Gated on presence — validDomainPaths is null when the store
+    // has no registry, and then no domain finding is ever raised (decision-record Invariant 5).
+    // Parent filing is legal: validDomainPaths carries every domain path, so a parent path resolves
+    // whether or not it has subdomains (Invariant 7).
+    if (validDomainPaths !== null) {
+        const domain: string | string[] | undefined = fm.fields.get("domain");
+        if (typeof domain !== "string" || domain === "") {
+            findings.push({ file, message: "frontmatter: missing `domain` — every page files under a registry domain path" });
+        } else if (!validDomainPaths.has(domain)) {
+            findings.push({ file, message: `frontmatter: \`domain\` "${domain}" does not resolve to a defined domain or subdomain path` });
         }
     }
 
@@ -440,9 +478,13 @@ export function validatePage(file: string, base: string | null, repoRoot: string
         if (previous !== null && previous === content) {
             // Unchanged against base: nothing to enforce.
         } else if (previous !== null) {
+            // Re-filing is orientation metadata, not knowledge (epic #89, STORY-89.02): when the only
+            // difference between base and head is the `domain:` field, the one-new-entry rule is
+            // exempt. Any other difference re-arms it; the append-only check below always holds.
+            const domainOnly: boolean = stripDomainLine(previous) === stripDomainLine(content);
             const oldHeadings: string[] = decisionLogHeadings(previous);
             const gained: number = logHeadings.length - oldHeadings.length;
-            if (gained !== 1) {
+            if (!domainOnly && gained !== 1) {
                 findings.push({ file, message: `Decision Log: page changed against ${base} but gained ${gained} entries (must be exactly 1)` });
             }
             for (let i = 0; i < oldHeadings.length; i++) {
@@ -473,12 +515,33 @@ export function registryPath(startDir: string): string {
  * each structural problem onto a blocking finding against the registry file. The parse is total: a
  * malformed registry yields findings, never a throw (decision-record Constraint 3).
  */
-export function validateRegistry(file: string, findings: Finding[]): void {
+export function validateRegistry(file: string, findings: Finding[]): ParsedRegistry {
     const content: string = fs.readFileSync(file, "utf8");
-    const parsed = parseDomainRegistry(content);
+    const parsed: ParsedRegistry = parseDomainRegistry(content);
     for (const message of parsed.findings) {
         findings.push({ file, message });
     }
+    return parsed;
+}
+
+/**
+ * The set of full slug paths a page may file under: every domain path and every subdomain path.
+ * Parent paths are always included, so filing at a parent that has subdomains resolves (Invariant 7).
+ * Entries with a missing slug (path "") are excluded — they are separately flagged as malformed.
+ */
+function collectDomainPaths(parsed: ParsedRegistry): Set<string> {
+    const paths: Set<string> = new Set();
+    for (const domain of parsed.domains) {
+        if (domain.slug !== "") {
+            paths.add(domain.path);
+        }
+        for (const sub of domain.subdomains) {
+            if (sub.slug !== "") {
+                paths.add(sub.path);
+            }
+        }
+    }
+    return paths;
 }
 
 export function runCli(argv: string[]): number {
@@ -497,8 +560,10 @@ export function runCli(argv: string[]): number {
     // "gated on presence, not on the file list"). An absent registry raises no domain findings.
     const regPath: string = registryPath(process.cwd());
     const hasRegistry: boolean = fs.existsSync(regPath);
+    let validDomainPaths: Set<string> | null = null;
     if (hasRegistry) {
-        validateRegistry(regPath, findings);
+        const parsed: ParsedRegistry = validateRegistry(regPath, findings);
+        validDomainPaths = collectDomainPaths(parsed);
     }
 
     let files: string[] = options.files;
@@ -529,7 +594,7 @@ export function runCli(argv: string[]): number {
         if (isAnchorFile(file)) {
             validateAnchor(file, findings);
         } else {
-            validatePage(file, options.base, repoRoot, findings);
+            validatePage(file, options.base, repoRoot, findings, validDomainPaths);
         }
     }
 

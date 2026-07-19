@@ -887,6 +887,203 @@ const REGISTRY_MISSING_RUBRIC =
 Sources rubric present so only the first entry lacks a rubric.
 `;
 
+// --- domain filing (epic #89, STORY-89.02) ----------------------------------
+
+const VALID_DOMAIN_PATHS = new Set(["connectors", "connectors/catalog", "connectors/runtime", "sources", "sources/catalog"]);
+
+function validateDom(file: string, validPaths: Set<string> | null): Finding[] {
+    const findings: Finding[] = [];
+    validatePage(file, null, path.dirname(file), findings, validPaths);
+    return findings;
+}
+
+const FM_WITH_DOMAIN = `${DEFAULT_FRONTMATTER}\ndomain: connectors`;
+const FM_WITH_DOMAIN_SOURCES = `${DEFAULT_FRONTMATTER}\ndomain: sources`;
+
+describe("validatePage — domain filing (STORY-89.02)", () => {
+    it("AC(a) resolves at a domain → pass", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: FM_WITH_DOMAIN }));
+        const findings = validateDom(file, VALID_DOMAIN_PATHS);
+        expect(findings.some((f) => f.message.includes("domain"))).toBe(false);
+    });
+
+    it("AC(a) resolves at a subdomain → pass", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: `${DEFAULT_FRONTMATTER}\ndomain: connectors/catalog` }));
+        const findings = validateDom(file, VALID_DOMAIN_PATHS);
+        expect(findings.some((f) => f.message.includes("domain"))).toBe(false);
+    });
+
+    it("AC(b) parent filing with subdomains present → pass", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: FM_WITH_DOMAIN }));
+        const findings = validateDom(file, VALID_DOMAIN_PATHS);
+        expect(findings.some((f) => f.message.includes("domain"))).toBe(false);
+    });
+
+    it("AC(a) undefined path → fail naming the page", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: `${DEFAULT_FRONTMATTER}\ndomain: nope/not-real` }));
+        const findings = validateDom(file, VALID_DOMAIN_PATHS);
+        const finding = findings.find((f) => f.message.includes("does not resolve"));
+        expect(finding?.file).toBe(file);
+        expect(finding?.message).toContain("nope/not-real");
+    });
+
+    it("AC(a) absent field with registry present → fail naming the page", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page());
+        const findings = validateDom(file, VALID_DOMAIN_PATHS);
+        const finding = findings.find((f) => f.message.includes("missing") && f.message.includes("domain"));
+        expect(finding?.file).toBe(file);
+    });
+
+    it("AC(c) no registry → no domain finding even when absent", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page());
+        const findings = validateDom(file, null);
+        expect(findings.some((f) => f.message.includes("domain"))).toBe(false);
+    });
+
+    it("leaf reuse resolves under either parent", () => {
+        const dir = makeTmpDir();
+        const sourcesFile = writeFile(dir, "alpha.md", page({ frontmatter: `${DEFAULT_FRONTMATTER}\ndomain: sources/catalog` }));
+        expect(validateDom(sourcesFile, VALID_DOMAIN_PATHS).some((f) => f.message.includes("domain"))).toBe(false);
+        const connectorsFile = writeFile(dir, "beta.md", page({ frontmatter: `${DEFAULT_FRONTMATTER}\ndomain: connectors/catalog` }));
+        expect(validateDom(connectorsFile, VALID_DOMAIN_PATHS).some((f) => f.message.includes("domain"))).toBe(false);
+    });
+});
+
+describe("runCli — domain filing (STORY-89.02)", () => {
+    let originalCwd: string;
+
+    afterEach(() => {
+        if (originalCwd) {
+            process.chdir(originalCwd);
+        }
+    });
+
+    function chdirTmp(): string {
+        originalCwd = process.cwd();
+        const dir = makeTmpDir();
+        process.chdir(dir);
+        return dir;
+    }
+
+    it("AC(a) end-to-end pass", () => {
+        chdirTmp();
+        fs.mkdirSync("docs", { recursive: true });
+        fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
+        fs.mkdirSync(".nexus/concepts", { recursive: true });
+        fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page({ frontmatter: FM_WITH_DOMAIN }));
+        expect(runCli([])).toBe(0);
+    });
+
+    it("AC(a) undefined path → exit 1, names the page", () => {
+        chdirTmp();
+        fs.mkdirSync("docs", { recursive: true });
+        fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
+        fs.mkdirSync(".nexus/concepts", { recursive: true });
+        fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page({ frontmatter: `${DEFAULT_FRONTMATTER}\ndomain: ghosts` }));
+        const errors: string[] = [];
+        const originalError = console.error;
+        console.error = (msg: string) => errors.push(msg);
+        let status: number;
+        try {
+            status = runCli([]);
+        } finally {
+            console.error = originalError;
+        }
+        expect(status).toBe(1);
+        expect(errors.some((line) => line.includes("alpha.md") && line.includes("does not resolve"))).toBe(true);
+    });
+
+    it("AC(a) absent field → exit 1, names the page", () => {
+        chdirTmp();
+        fs.mkdirSync("docs", { recursive: true });
+        fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
+        fs.mkdirSync(".nexus/concepts", { recursive: true });
+        fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page());
+        const errors: string[] = [];
+        const originalError = console.error;
+        console.error = (msg: string) => errors.push(msg);
+        let status: number;
+        try {
+            status = runCli([]);
+        } finally {
+            console.error = originalError;
+        }
+        expect(status).toBe(1);
+        expect(errors.some((line) => line.includes("alpha.md") && line.includes("missing") && line.includes("domain"))).toBe(true);
+    });
+
+    it("AC(b) parent filing → exit 0", () => {
+        chdirTmp();
+        fs.mkdirSync("docs", { recursive: true });
+        fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
+        fs.mkdirSync(".nexus/concepts", { recursive: true });
+        fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page({ frontmatter: FM_WITH_DOMAIN }));
+        expect(runCli([])).toBe(0);
+    });
+
+    it("AC(c) no-registry no-op", () => {
+        chdirTmp();
+        fs.mkdirSync(".nexus/concepts", { recursive: true });
+        fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page());
+        const errors: string[] = [];
+        const originalError = console.error;
+        console.error = (msg: string) => errors.push(msg);
+        let status: number;
+        try {
+            status = runCli([]);
+        } finally {
+            console.error = originalError;
+        }
+        expect(status).toBe(0);
+        expect(errors.some((line) => line.includes("domain"))).toBe(false);
+    });
+});
+
+describe("validatePage — Decision Log domain-only exemption (STORY-89.02)", () => {
+    it("AC(d) domain-only change → exempt, passes", () => {
+        const dir = makeGitRepo();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: FM_WITH_DOMAIN }));
+        const sha = commitAll(dir, "seed");
+        fs.writeFileSync(file, page({ frontmatter: FM_WITH_DOMAIN_SOURCES }));
+        const findings = validateWithCwd(dir, () => validate(file, sha, dir));
+        expect(findings.some((f) => f.message.includes("Decision Log"))).toBe(false);
+    });
+
+    it("AC(d) domain-plus-body change → not exempt, must carry an entry", () => {
+        const dir = makeGitRepo();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: FM_WITH_DOMAIN }));
+        const sha = commitAll(dir, "seed");
+        fs.writeFileSync(file, page({ frontmatter: FM_WITH_DOMAIN_SOURCES, lead: "Alpha does the thing well, revised." }));
+        const findings = validateWithCwd(dir, () => validate(file, sha, dir));
+        expect(findings.some((f) => f.message.includes("gained 0 entries"))).toBe(true);
+    });
+
+    it("AC(d) body-only change → unchanged behavior", () => {
+        const dir = makeGitRepo();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: FM_WITH_DOMAIN }));
+        const sha = commitAll(dir, "seed");
+        fs.writeFileSync(file, page({ frontmatter: FM_WITH_DOMAIN, lead: "Alpha does the thing well, revised." }));
+        const findings = validateWithCwd(dir, () => validate(file, sha, dir));
+        expect(findings.some((f) => f.message.includes("gained 0 entries"))).toBe(true);
+    });
+
+    it("AC(d) append-only still holds under a domain-only change", () => {
+        const dir = makeGitRepo();
+        const file = writeFile(dir, "alpha.md", page({ frontmatter: FM_WITH_DOMAIN }));
+        const sha = commitAll(dir, "seed");
+        const sections = DEFAULT_SECTIONS.replace("### 2026-07-04 — #1 — Seed", "### 2026-07-05 — #1 — Seed");
+        fs.writeFileSync(file, page({ frontmatter: FM_WITH_DOMAIN_SOURCES, sections }));
+        const findings = validateWithCwd(dir, () => validate(file, sha, dir));
+        expect(findings.some((f) => f.message.includes("append-only"))).toBe(true);
+    });
+});
+
 describe("domain registry (epic #89, STORY-89.01)", () => {
     let originalCwd: string;
 

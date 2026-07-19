@@ -19,3 +19,22 @@
 - **Refuted alternative:** add a well-formed `domains.md` (plus malformed variants) to the shared
   corpus now; rejected because it grows the corpus's blast radius into stories not yet built and
   risks the corpus's parity guarantees for consumers who haven't adopted the registry.
+
+## 2026-07-19 — Domain-only exemption via a normalized string compare
+- **Choice:** detect a re-file by removing the frontmatter `domain:` line from base and head and
+  comparing for byte-equality; the one-entry rule is skipped only when they match, and the
+  append-only check always runs.
+- **Why:** re-filing is orientation metadata, not knowledge, so it carries no "why" worth logging —
+  but the exemption must not reach any other frontmatter field.
+- **Refuted alternative:** exempt any frontmatter-only change (rejected per DR — `status`,
+  `last_updated_by`, and `touches` are knowledge- or provenance-bearing and must still carry an
+  entry).
+
+## 2026-07-19 — Valid-paths built by reusing the single registry parse
+- **Choice:** `validateRegistry` returns the `ParsedRegistry`, and `runCli` builds the valid-paths
+  `Set` from it, so the registry is parsed once per run and threaded into `validatePage` via a
+  nullable parameter (null = no registry = no domain finding).
+- **Why:** the decision record requires the registry to parse once per invocation; reusing the
+  store-level parse keeps that guarantee instead of re-deriving it per page.
+- **Refuted alternative:** parse the registry a second time to build the set (rejected — DR
+  requires "parse once per run").
