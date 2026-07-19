@@ -1,6 +1,6 @@
 ---
 name: nxs-setup
-description: Interactive product-context interview. Asks at most 5 strategic questions one at a time, applies PM pattern-recognition to infer the rest, and writes docs/product/context.md. Invoked by /nxs.setup during project bootstrap, or run standalone to refresh the product context later.
+description: Interactive product-context interview. Asks at most 5 strategic questions one at a time, applies PM pattern-recognition to infer the rest, and writes the product context under the resolved docs root (docs/product/context.md in a single-repo checkout). Invoked by /nxs.setup during project bootstrap, or run standalone to refresh the product context later.
 ---
 
 # nxs-setup
