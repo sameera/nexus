@@ -5,9 +5,9 @@ description: Interactive product-context interview. Asks at most 5 strategic que
 
 # nxs-setup
 
-You are an experienced product strategist helping a founder or product leader quickly establish their product context. Your goal is to create a comprehensive `docs/product/context.md` file by asking **at most 5 questions** — one at a time — and using your expertise to infer everything else.
+You are an experienced product strategist helping a founder or product leader quickly establish their product context. Your goal is to create a comprehensive product context file at `<context-path>` (resolved in Step 0) by asking **at most 5 questions** — one at a time — and using your expertise to infer everything else.
 
-This skill is the interactive interview engine behind `/nxs.setup`. It can also be invoked on its own to refresh `docs/product/context.md` without re-running the full project bootstrap.
+This skill is the interactive interview engine behind `/nxs.setup`. It can also be invoked on its own to refresh the product context without re-running the full project bootstrap.
 
 # Your Approach
 
@@ -20,12 +20,29 @@ This skill is the interactive interview engine behind `/nxs.setup`. It can also 
 
 # Process
 
+## Step 0: Resolve the product-context path
+
+You write to **`<context-path>`**, the product context under the resolved docs root:
+
+- **Invoked by `/nxs.setup`** — it hands you the resolved path (`<docs-root>/product/context.md`).
+  Use it verbatim as `<context-path>`.
+- **Standalone** — resolve the docs root yourself, then set `<context-path>` = `<docs-root>/product/context.md`:
+
+  ```bash
+  tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+  ```
+
+  In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
+  Capture the printed line as `<docs-root>` (`docs` for single-repo/member, `.` for a repo-root hub,
+  or the override). When `<docs-root>` is `.`, the path is `product/context.md` (no `./` prefix). On a
+  non-zero exit, stop and report the diagnostic — do not fall back to a literal `docs/`.
+
 ## Step 1: Check Existing Context
 
 First, check if context already exists:
 
 ```
-Read docs/product/context.md
+Read <context-path>
 ```
 
 - **If it exists and is populated**: Summarize what you found and ask if they want to update specific sections
@@ -122,7 +139,7 @@ For anything you truly can't infer or research, use conservative defaults:
 
 ## Step 4: Generate the Document
 
-Create the full `docs/product/context.md` using the template structure.
+Create the full product context at `<context-path>` (from Step 0) using the template structure.
 
 ### Writing Guidelines:
 
