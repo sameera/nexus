@@ -1,6 +1,6 @@
 ---
 concept: workspace-resolution
-source_sha: 72f0a3f33475cde917bf192b5aa66a96511ad36a
+source_sha: 33446b81f6b6f13a2f9dc812eb8e9c75537ca9d4
 generated: 2026-07-19
 ---
 
@@ -24,7 +24,7 @@ generated: 2026-07-19
 - `.claude/commands/nxs.setup.md` — scaffolds the product, system, and delivery docs under the resolved docs root.
 - `.claude/commands/nxs.hld.md` — hands the resolved context-doc locations into the design brief in place of fixed paths.
 - `.claude/commands/nxs.council.md` — resolves the docs root once and threads it into the product-manager and architect briefs.
-- `.claude/agents/nxs-pm.md` — reads the product context from the resolved location the invoking command hands in.
+- `.claude/agents/nxs-pm.md` — reads the product context from the resolved location the invoking command hands in; its prior-decisions check, project-templates check, and decision-record path also read the resolved docs root.
 - `.claude/agents/nxs-architect.md` — reads the system standards from the resolved location during its conformance pass.
 - `.claude/skills/nxs-setup/SKILL.md` — the product-context interview writes its output under the resolved docs root.
 - `.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts` — the doc-link builder that reads the resolver's docs root, strips exactly that prefix when converting a repo-relative path to an absolute URL, and errors when its configured URL disagrees with the resolved root.

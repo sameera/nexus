@@ -2,7 +2,7 @@
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
 touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli"]
-last_updated_by: "#81"
+last_updated_by: "#87"
 status: active
 verification: verified
 ---
@@ -62,3 +62,7 @@ The resolver now produces where each repo keeps its human docs — its docs root
 ### 2026-07-19 — #81 — Planning surfaces read the docs root through a dedicated read-out
 
 The single-producer guarantee now provably covers the planning surfaces, not only the derived-artifact ones. A dedicated single-value read-out over the resolver's existing docs-root selector lets the epic, close, setup, and design commands — and the product-manager and architect briefs they invoke — obtain the resolved docs root once per run and prefix it onto the unchanged taxonomy, instead of writing to a fixed docs location a docs-only hub does not use. The per-feature container path is resolved once when the feature is created and recorded in the queue entry; close reads that recorded value rather than re-resolving, so its writes land under the same root as the artifacts they belong to. A resolution failure surfaces the resolver's named diagnostic and stops the command — only a context doc genuinely missing under a successfully resolved root is treated as absent, preserving reference-if-present. Refuted alternative: re-resolve the docs root at each stage instead of recording it — every command stays self-contained, but it creates two sources of truth that disagree exactly when an override changes or the entry migrates between checkouts, landing the close-time writes under a different root than where the feature was created.
+
+### 2026-07-19 — #87 — The product-manager brief's residual path references now read the docs root too
+
+The docs-root read-out reached most of the product-manager brief when the planning surfaces moved, but three references it uses at runtime — its prior-decisions check, its project-templates check, and the decision-record path it recommends — still carried a hardcoded default and were missed by that sweep. They now read the same resolved value instead, so a workspace whose docs root isn't the default no longer sends the brief looking in, or recommending, the wrong place. No new mechanism: this closes a gap in the one already in place. Refuted alternative: leave the gap and treat it as within tolerance since the surfaces are read-time defaults, not write-time — rejected because a wrong read is the same silent-drift failure the docs-root read-out exists to prevent, whether the surface reads or writes.
