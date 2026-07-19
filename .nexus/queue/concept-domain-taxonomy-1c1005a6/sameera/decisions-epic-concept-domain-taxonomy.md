@@ -38,3 +38,34 @@
   store-level parse keeps that guarantee instead of re-deriving it per page.
 - **Refuted alternative:** parse the registry a second time to build the set (rejected — DR
   requires "parse once per run").
+
+## 2026-07-19 — Atlas resolves the registry via `localDocsRoot(process.cwd())`, mirroring the validator (Story 3)
+- **Choice:** the atlas finds `domains.md` from the resolved docs root, not from `path.dirname(--out)`,
+  so it and the validator agree on the location.
+- **Why:** the same resolution path atlas, validator, and `defaultOutPath()` all rely on keeps the
+  three surfaces from ever disagreeing about where the registry lives.
+- **Refuted alternative:** resolve beside the `--out` path (diverges from the validator when `--out`
+  is explicit).
+
+## 2026-07-19 — Header block duplicated into `renderRegistryAtlas`, not shared (Story 3)
+- **Choice:** copy the 9 header lines rather than extract a shared helper, keeping the fallback
+  `renderAtlas` byte-for-byte untouched.
+- **Why:** the decision record's Risk ADDRESS requires the no-registry fallback path to stay
+  untouched; sharing a header helper would edit that path.
+- **Refuted alternative:** extract an `atlasHeader()` helper (would edit the fallback render path
+  the DR Risk says to leave untouched).
+
+## 2026-07-19 — Unresolved / unfiled pages land under a trailing `## Unfiled` heading (Story 3)
+- **Choice:** honor Invariant 9 "never silently dropped" with a catch-all that appears only when a
+  page's `domain:` matches no node.
+- **Why:** a pre-validation drain run must not lose a page even when its filing is wrong; the
+  validator, not the atlas, is the gate that rejects a misfile.
+- **Refuted alternative:** silently drop misfiled pages (violates Invariant 9).
+
+## 2026-07-19 — Within-node page order = slug ascending; registry-mode parity lives in an isolated `corpus/registry/` subtree (Story 3)
+- **Choice:** deterministic slug order within a node; the parity corpus activates registry mode only
+  via `cwd = corpus/registry`, leaving every existing `cwd = CORPUS` run on the fallback path.
+- **Why:** matches the fallback's own `Standalone` sort for consistency, and keeps the new registry
+  corpus from disturbing any existing no-registry parity case.
+- **Refuted alternative:** filesystem/insertion order (non-deterministic); adding
+  `corpus/docs/domains.md` (would activate the registry for every existing corpus run).

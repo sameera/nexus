@@ -5,13 +5,18 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
     buildClusters,
+    type ConceptPage,
+    computeLinkPrefix,
     generateAtlas,
     loadConceptPages,
     parseArgs,
     parseFrontmatter,
     renderAtlas,
+    renderRegistryAtlas,
+    registryPath,
     runCli,
 } from "./generate-atlas";
+import { parseDomainRegistry, type ParsedRegistry } from "./domain-registry";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 
@@ -20,6 +25,44 @@ interface FixtureSpec {
     touches?: string[];
     status?: string;
     lead: string;
+    domain?: string;
+}
+
+// --- domain registry (epic #89, STORY-89.03) --------------------------------
+// Fixture string duplicated from validate-concepts.spec.ts (no shared fixtures module — CLAUDE.md
+// forbids barrel-style re-export files).
+
+const REGISTRY_WELL_FORMED =
+`# Domain Registry
+
+## Connectors
+\`connectors\`
+
+Everything about pulling data in from and pushing it out to external systems.
+
+### Catalog
+\`catalog\`
+
+The registry of available connector types and their published metadata.
+
+### Runtime
+\`runtime\`
+
+How a configured connector executes when a flow runs.
+
+## Sources
+\`sources\`
+
+Upstream systems and the shape of the data they provide.
+
+### Catalog
+\`catalog\`
+
+The inventory of known source systems.
+`;
+
+function pg(slug: string, domain: string): ConceptPage {
+    return { slug, title: slug[0].toUpperCase() + slug.slice(1), touches: [], hook: `${slug} hook.`, domain };
 }
 
 let tmpDirs: string[] = [];
@@ -35,13 +78,14 @@ function writeConcept(conceptsDir: string, slug: string, spec: FixtureSpec): voi
     const status: string = spec.status ?? "active";
     const touchesYaml: string = touches.length > 0 ? `[${touches.map((t: string) => `"${t}"`).join(", ")}]` : "[]";
     const integrationBullets: string = touches.map((t: string) => `- [${t}](${t}.md) — interacts with ${t}.`).join("\n");
+    const domainLine: string = spec.domain !== undefined ? `\ndomain: ${spec.domain}` : "";
     const content = `---
 title: "${spec.title}"
 aliases: []
 touches: ${touchesYaml}
 last_updated_by: "bootstrap"
 status: ${status}
-verification: verified
+verification: verified${domainLine}
 ---
 
 # ${spec.title}
@@ -495,5 +539,191 @@ describe("runCli — resolver-derived default output (no --out)", () => {
 
         expect(runCli([])).toBe(0);
         expect(runCli(["--check"])).toBe(0);
+    });
+});
+
+// --- registry-mode rendering (epic #89, STORY-89.03) ------------------------
+
+describe("renderRegistryAtlas (STORY-89.03)", () => {
+    const registry: ParsedRegistry = parseDomainRegistry(REGISTRY_WELL_FORMED);
+    const PREFIX = "../.nexus/concepts/";
+    const headings = (s: string): string[] => s.split("\n").filter((l) => /^#{2,3} /.test(l));
+
+    it("AC(a) — one H2 per domain, one H3 per subdomain, in registry order; every page once", () => {
+        const pages: ConceptPage[] = [
+            pg("alpha", "connectors"),
+            pg("beta", "connectors/catalog"),
+            pg("gamma", "connectors/runtime"),
+            pg("delta", "sources"),
+            pg("epsilon", "sources/catalog"),
+        ];
+        const out: string = renderRegistryAtlas(registry, pages, PREFIX);
+
+        expect(headings(out)).toEqual(["## Connectors", "### Catalog", "### Runtime", "## Sources", "### Catalog"]);
+        expect(out).toContain("5 active concepts");
+        for (const page of pages) {
+            expect(out.match(new RegExp(`${page.slug}\\.md`, "g"))).toHaveLength(1);
+        }
+        expect(out).toContain("- [Alpha](../.nexus/concepts/alpha.md) — alpha hook.");
+    });
+
+    it("AC(b) — parent-filed pages land under the H2, before the first H3", () => {
+        const pages: ConceptPage[] = [
+            pg("alpha", "connectors"),
+            pg("beta", "connectors/catalog"),
+            pg("gamma", "connectors/runtime"),
+            pg("delta", "sources"),
+            pg("epsilon", "sources/catalog"),
+        ];
+        const out: string = renderRegistryAtlas(registry, pages, PREFIX);
+        const i = (s: string): number => out.indexOf(s);
+
+        expect(i("alpha.md")).toBeGreaterThan(i("## Connectors"));
+        expect(i("alpha.md")).toBeLessThan(i("### Catalog"));
+    });
+
+    it("AC(c) — a subdomain heading shows its own title, not the parent or the composed path", () => {
+        const pages: ConceptPage[] = [pg("alpha", "connectors"), pg("beta", "connectors/catalog")];
+        const out: string = renderRegistryAtlas(registry, pages, PREFIX);
+
+        expect(out).toContain("### Catalog");
+        expect(out).not.toContain("### connectors/catalog");
+        expect(out).not.toContain("### Connectors/Catalog");
+    });
+
+    it("AC(d) at the render level — deterministic (pure)", () => {
+        const pages: ConceptPage[] = [pg("alpha", "connectors")];
+        expect(renderRegistryAtlas(registry, pages, PREFIX)).toBe(renderRegistryAtlas(registry, pages, PREFIX));
+    });
+
+    it("every node heading renders even when empty (AC(a)/Invariant 8)", () => {
+        const pages: ConceptPage[] = [pg("alpha", "connectors")];
+        const out: string = renderRegistryAtlas(registry, pages, PREFIX);
+
+        expect(headings(out)).toEqual(["## Connectors", "### Catalog", "### Runtime", "## Sources", "### Catalog"]);
+        expect(out).toContain("1 active concepts");
+    });
+
+    it("never silently drops an unresolved / absent domain — trailing ## Unfiled (Invariant 9)", () => {
+        const pages: ConceptPage[] = [
+            pg("alpha", "connectors"),
+            pg("ghost", "nope/not-real"),
+            { slug: "nodom", title: "Nodom", touches: [], hook: "nodom hook." },
+        ];
+        const out: string = renderRegistryAtlas(registry, pages, PREFIX);
+
+        expect(out).toContain("## Unfiled");
+        expect(out.indexOf("## Unfiled")).toBeGreaterThan(out.indexOf("## Sources"));
+        expect(out).toContain("ghost.md");
+        expect(out).toContain("nodom.md");
+        expect(out).toContain("3 active concepts");
+    });
+
+    it("orders pages within a node slug-ascending (determinism)", () => {
+        const pages: ConceptPage[] = [pg("zeta", "connectors/catalog"), pg("alpha", "connectors/catalog")];
+        const out: string = renderRegistryAtlas(registry, pages, PREFIX);
+
+        expect(out.indexOf("alpha.md")).toBeLessThan(out.indexOf("zeta.md"));
+    });
+});
+
+describe("registryPath (STORY-89.03)", () => {
+    it("resolves docs/domains.md in single-repo mode", () => {
+        expect(registryPath()).toBe(path.join("docs", "domains.md"));
+    });
+});
+
+describe("runCli — registry mode (STORY-89.03)", () => {
+    let originalCwd: string;
+
+    afterEach(() => {
+        if (originalCwd) {
+            process.chdir(originalCwd);
+        }
+    });
+
+    function chdirTmp(): string {
+        originalCwd = process.cwd();
+        const dir = makeTmpDir();
+        process.chdir(dir);
+        return dir;
+    }
+
+    it("AC(a) end-to-end — registry present + filed pages", () => {
+        const repo = chdirTmp();
+        fs.mkdirSync(path.join(repo, ".nexus", "concepts"), { recursive: true });
+        fs.mkdirSync(path.join(repo, "docs"), { recursive: true });
+        fs.writeFileSync(path.join(repo, "docs", "domains.md"), REGISTRY_WELL_FORMED);
+        const conceptsDir = path.join(repo, ".nexus", "concepts");
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead.", domain: "connectors" });
+        writeConcept(conceptsDir, "beta", { title: "Beta", lead: "Beta lead.", domain: "connectors/catalog" });
+        writeConcept(conceptsDir, "gamma", { title: "Gamma", lead: "Gamma lead.", domain: "sources" });
+
+        expect(runCli([])).toBe(0);
+        const atlas: string = fs.readFileSync(path.join(repo, "docs", "concepts.md"), "utf8");
+
+        expect(atlas).toContain("## Connectors");
+        expect(atlas).toContain("### Catalog");
+        expect(atlas).toContain("## Sources");
+        expect(atlas).not.toContain("## Standalone");
+    });
+
+    it("AC(d) — generate twice byte-identical + --check passes", () => {
+        const repo = chdirTmp();
+        fs.mkdirSync(path.join(repo, ".nexus", "concepts"), { recursive: true });
+        fs.mkdirSync(path.join(repo, "docs"), { recursive: true });
+        fs.writeFileSync(path.join(repo, "docs", "domains.md"), REGISTRY_WELL_FORMED);
+        const conceptsDir = path.join(repo, ".nexus", "concepts");
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead.", domain: "connectors" });
+        writeConcept(conceptsDir, "beta", { title: "Beta", lead: "Beta lead.", domain: "connectors/catalog" });
+        writeConcept(conceptsDir, "gamma", { title: "Gamma", lead: "Gamma lead.", domain: "sources" });
+        const read = (): string => fs.readFileSync(path.join(repo, "docs", "concepts.md"), "utf8");
+
+        runCli([]);
+        const a: string = read();
+        runCli([]);
+        const b: string = read();
+
+        expect(a).toBe(b);
+        expect(runCli(["--check"])).toBe(0);
+    });
+
+    it("AC(e) — no registry present → byte-identical to the pre-change generator", () => {
+        const repo = chdirTmp();
+        const conceptsDir = path.join(repo, ".nexus", "concepts");
+        fs.mkdirSync(conceptsDir, { recursive: true });
+        writeConcept(conceptsDir, "hub", { title: "Hub", lead: "Hub lead.", touches: ["leaf"], domain: "connectors" });
+        writeConcept(conceptsDir, "leaf", { title: "Leaf", lead: "Leaf lead.", touches: ["hub"] });
+        writeConcept(conceptsDir, "solo", { title: "Solo", lead: "Solo lead." });
+
+        expect(runCli([])).toBe(0);
+        const actual: string = fs.readFileSync(path.join(repo, "docs", "concepts.md"), "utf8");
+        const expected: string = generateAtlas(".nexus/concepts", computeLinkPrefix(path.join("docs", "concepts.md"), ".nexus/concepts"));
+
+        expect(actual).toBe(expected);
+        expect(actual).toContain("## Standalone");
+        expect(actual).not.toContain("## Connectors");
+    });
+
+    it("the presence gate flips both ways", () => {
+        const repo = chdirTmp();
+        fs.mkdirSync(path.join(repo, ".nexus", "concepts"), { recursive: true });
+        fs.mkdirSync(path.join(repo, "docs"), { recursive: true });
+        const registryFile = path.join(repo, "docs", "domains.md");
+        fs.writeFileSync(registryFile, REGISTRY_WELL_FORMED);
+        const conceptsDir = path.join(repo, ".nexus", "concepts");
+        writeConcept(conceptsDir, "alpha", { title: "Alpha", lead: "Alpha lead.", domain: "connectors" });
+        writeConcept(conceptsDir, "beta", { title: "Beta", lead: "Beta lead.", domain: "connectors/catalog" });
+        writeConcept(conceptsDir, "gamma", { title: "Gamma", lead: "Gamma lead.", domain: "sources" });
+        const read = (): string => fs.readFileSync(path.join(repo, "docs", "concepts.md"), "utf8");
+
+        expect(runCli([])).toBe(0);
+        expect(read()).toContain("## Connectors");
+
+        fs.rmSync(registryFile);
+        expect(runCli([])).toBe(0);
+        const after: string = read();
+        expect(after).not.toContain("## Connectors");
+        expect(after.includes("## Standalone") || /## \w/.test(after)).toBe(true);
     });
 });

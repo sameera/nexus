@@ -227,6 +227,29 @@ describe("atlas parity over the corpus (Invariant 3 — byte-identical)", () => 
     });
 });
 
+describe("atlas parity — registry mode (epic #89, Invariant 12)", () => {
+    it("source and bundle render byte-identical curated atlas output", () => {
+        const registryRoot: string = path.join(CORPUS, "registry");
+        const conceptsDir: string = path.join(registryRoot, "concepts");
+        const sourceOut: string = path.join(makeTmpDir("parity-reg-src-"), "concepts.md");
+        const bundleOut: string = path.join(makeTmpDir("parity-reg-bun-"), "concepts.md");
+        const bundlePath: string = writeBundle("generate-atlas");
+
+        runSource(ATLAS_SRC, ["--concepts-dir", conceptsDir, "--out", sourceOut], registryRoot);
+        runBundle(bundlePath, ["--concepts-dir", conceptsDir, "--out", bundleOut], registryRoot);
+
+        const sourceAtlas: string = fs.readFileSync(sourceOut, "utf8");
+        const bundleAtlas: string = fs.readFileSync(bundleOut, "utf8");
+        const divergence = diffAtlasBytes("generate-atlas", "registry", sourceAtlas, bundleAtlas);
+        expect(divergence, divergence ? formatDivergences([divergence]) : undefined).toBeNull();
+
+        // Guard: curated headings (registry projection), not link-density clusters.
+        expect(sourceAtlas).toContain("## Connectors");
+        expect(sourceAtlas).toContain("### Catalog");
+        expect(sourceAtlas).not.toContain("## Standalone");
+    });
+});
+
 // ---------------------------------------------------------------------------------------------
 // AC2 — the gate is enforced, not documented: a doctored bundle is caught and named.
 // ---------------------------------------------------------------------------------------------
