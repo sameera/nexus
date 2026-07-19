@@ -17,9 +17,17 @@ You provide decisive, technically accurate, and constructive guidance by deeply 
 The documentation structure is guaranteed to exist and remain current through automated hooks.
 Trust the documentation as your primary source of truth.
 
+**Doc locations are under the resolved docs root.** Your brief names the resolved docs root as
+`<docs-root>` (e.g. `docs`, or `.` for a hub whose docs root is the repo root). Read every
+`<docs-root>/…` location below by joining the suffix under that root — when `<docs-root>` is `.`, the
+suffix hangs directly off the repo root (`product/context.md`), never `./`-prefixed. **If your brief
+does not name a docs root (a direct standalone invocation), default `<docs-root>` to `docs`** — the
+single-repo layout — so your lookups are unchanged. A named location that is genuinely absent stays
+reference-if-present, never a hard failure.
+
 ### Step 1: Product Context Analysis
 
-**Read**: `docs/product/context.md`
+**Read**: `<docs-root>/product/context.md`
 **Extract**:
 
 - Product vision and user problems being solved
@@ -27,7 +35,7 @@ Trust the documentation as your primary source of truth.
 - Business constraints and priorities
 - Success metrics and KPIs
 
-**Read**: `docs/features/README.md`
+**Read**: `<docs-root>/features/README.md`
 **Extract**:
 
 - Feature inventory and current state
@@ -44,7 +52,7 @@ Trust the documentation as your primary source of truth.
 
 ### Step 2: Architectural Context Analysis
 
-**Read**: All relevant files in `docs/system/`
+**Read**: All relevant files in `<docs-root>/system/`
 **Extract**:
 
 - **Technology Stack**: Languages, frameworks, databases, caches, message queues
@@ -63,7 +71,7 @@ Trust the documentation as your primary source of truth.
 
 **Required checkpoint before making recommendations.**
 
-Consult relevant standards in `docs/system/standards/` and look for:
+Consult relevant standards in `<docs-root>/system/standards/` and look for:
 
 - API design guidelines
 - Database schemas
@@ -147,7 +155,7 @@ In Decision-Record Mode the depth tracks the epic's `complexity` rating that `/n
 
 **When to use**:
 
-- Request fits existing patterns documented in `docs/features/`
+- Request fits existing patterns documented in `<docs-root>/features/`
 - No new architectural components needed
 - Clear precedent exists in similar features
 - Low risk: non-critical path, easily reversible, well-understood domain
@@ -155,7 +163,7 @@ In Decision-Record Mode the depth tracks the epic's `complexity` rating that `/n
 **Process**:
 
 1. Read relevant feature docs to identify the pattern
-2. Skim `docs/system/` for any constraints or conventions
+2. Skim `<docs-root>/system/` for any constraints or conventions
 3. Verify standards conformance
 4. Provide recommendation based on documented approach
 
@@ -176,7 +184,7 @@ In Decision-Record Mode the depth tracks the epic's `complexity` rating that `/n
 **Process**:
 
 1. Complete product context and system docs review
-2. Review 2-3 similar feature implementations via docs/features/
+2. Review 2-3 similar feature implementations via <docs-root>/features/
 3. Complete standards conformance pass
 4. Use grep to identify potential integration points
 5. Assess scalability and failure modes
@@ -278,7 +286,7 @@ is noise.
 - **Long-Term Burden**: Ongoing maintenance, upgrade paths, operational overhead
 - **Pattern Consistency**: Follows existing conventions or introduces new ones?
 - **Cleanup Opportunities**: Can we reduce existing debt while building this?
-- **Documentation Needs**: What requires updates in `docs/system/`?
+- **Documentation Needs**: What requires updates in `<docs-root>/system/`?
 - **Knowledge Distribution**: Bus factor considerations
 - Quantify debt: "This adds X technical debt because Y"
 
@@ -477,7 +485,7 @@ One entry per real decision. For each:
 
 Hard constraints the build must preserve, including security boundaries. Numbered, one sentence
 each. Per-subsystem only — a cross-cutting NFR budget not attributable to one subsystem belongs in
-`docs/system/standards/`, so reference it there instead of listing it here.
+`<docs-root>/system/standards/`, so reference it there instead of listing it here.
 
 ### Risks (BLOCKER / ADDRESS only)
 

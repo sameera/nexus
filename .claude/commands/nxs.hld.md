@@ -65,17 +65,30 @@ Record `QDIR` = the resolved entry directory.
 
 ## Phase 1 — Architectural analysis (delegate to nxs-architect)
 
+**Resolve the docs root first** (the architect reads context under it; it never resolves for itself).
+Run the docs-root read-out:
+
+```bash
+tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+```
+
+In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
+Capture the printed line as **`<docs-root>`** (`docs` for single-repo/member, `.` for a repo-root hub,
+or the override). **On a non-zero exit, stop and report the diagnostic** — never pass a fake `docs`
+value nor treat failure as "context absent".
+
 Invoke `nxs-architect` in **decision-record mode**. The architect produces the decision *content* — the
 "why", not a 16-section document.
 
 ```
 Invoke: nxs-architect
 Topic: Decision record for epic "<epic title>"
+Resolved docs root: <docs-root>   # every doc path below is under this; on a repo-root hub it is `.`
 Inputs to read:
 - ${QDIR}/epic.md            # the epic and ALL its user stories — authoritative scope
-- docs/product/context.md    # personas, strategy (reference, don't re-tabulate)
-- docs/system/stack.md       # technology stack
-- docs/system/standards/*    # standards-conformance pass (flag deviations + justify)
+- <docs-root>/product/context.md    # personas, strategy (reference, don't re-tabulate)
+- <docs-root>/system/stack.md       # technology stack
+- <docs-root>/system/standards/*    # standards-conformance pass (flag deviations + justify)
 - Any concept reading-list pages named in epic.md `concepts:` frontmatter.
   (B3 makes this read live; until then it is manual / README-driven — if a concepts
   list is present, grep docs for the matching pages and read them. Do NOT block if absent.)
@@ -88,7 +101,7 @@ Produce, as human prose (no machine block, no file paths / type names / API or s
   if a competent engineer might genuinely have chosen it and it lost on a real trade-off —
   never a strawman. Omit the alternative line if none was viable.
 - CONSTRAINTS & INVARIANTS the build must preserve, including security boundaries.
-  Per-subsystem only — route any cross-cutting NFR budget to docs/system/standards/ instead.
+  Per-subsystem only — route any cross-cutting NFR budget to <docs-root>/system/standards/ instead.
 - RISKS limited to BLOCKER / ADDRESS (those that force a human decision). No likelihood×severity
   matrix, no speculative risks.
 - OPEN CLARIFICATIONS: ⚠️ NEEDS CLARIFICATION items only the human can resolve.

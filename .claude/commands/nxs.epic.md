@@ -96,8 +96,8 @@ The container must exist before writing: the queue entry records its parent feat
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
 Before generating any epic content, assess the scope yourself using the rubric below. This is a
-judgment step — read `docs/product/context.md` and `docs/system/stack.md` if present to calibrate
-against existing patterns.
+judgment step — read `<docs-root>/product/context.md` and `<docs-root>/system/stack.md` (the
+`<docs-root>` resolved in Phase 0) if present to calibrate against existing patterns.
 
 ### Sizing rubric
 
@@ -228,7 +228,7 @@ Then **stop**. Report the stub list and tell the user to promote one with `/nxs.
 
 ## Phase 3 — Generate the epic
 
-1. Read `docs/product/context.md` if present — personas and strategy are canonical there. **Reference** them; do not re-tabulate.
+1. Read `<docs-root>/product/context.md` if present — personas and strategy are canonical there. **Reference** them; do not re-tabulate.
 2. Parse the capability description (or, in promotion mode, the stub's goal + candidate story titles):
     - Extract actors, goals, actions, data, constraints, business value.
     - Decompose into **3–8 user stories**, each independently deliverable (INVEST).

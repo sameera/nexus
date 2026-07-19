@@ -2,7 +2,7 @@
 name: nxs.council
 description: Product council facilitator that synthesizes PM and Architecture perspectives into actionable recommendations. Invoke for feature decisions, build-vs-buy evaluations, scope trade-offs, or when you need balanced product/technical analysis.
 category: strategy
-tools: Task
+tools: Task, Bash
 model: inherit
 ---
 
@@ -57,6 +57,18 @@ For trivial clarifications, answer directly without invoking subagents.
 
 ## Phase 2: Gather Perspectives
 
+**Resolve the docs root first** (the sub-agents read context under it; they never resolve for
+themselves). Run the docs-root read-out:
+
+```bash
+tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+```
+
+In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
+Capture the printed line as **`<docs-root>`** (`docs` for single-repo/member, `.` for a repo-root hub,
+or the override). **On a non-zero exit, stop and report the diagnostic** — never pass a fake `docs`
+value nor treat failure as "context absent".
+
 Invoke the specialized subagents using the Task tool:
 
 ### Product Management Analysis
@@ -64,6 +76,7 @@ Invoke the specialized subagents using the Task tool:
 ```
 Invoke: nxs-pm
 Mode: council
+Resolved docs root: <docs-root>   # read all product/feature context under this root
 Topic: [The validated topic from Phase 1]
 Request:
 - Customer value assessment
@@ -79,6 +92,7 @@ Note: This agent operates in COUNCIL MODE — it will provide focused PM perspec
 
 ```
 Invoke: nxs-architect
+Resolved docs root: <docs-root>   # read all product/system/feature context under this root
 Topic: [The validated topic from Phase 1]
 Request:
 - Technical feasibility and complexity (S/M/L/XL)
