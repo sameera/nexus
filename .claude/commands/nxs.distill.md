@@ -86,7 +86,7 @@ naturally), applied entry-by-entry (Phase 4).
 
     - **hub** (`.nexus/config/workspace.yml` present): every mode-gated behavior below takes
       its hub branch — diff derivation (Phase 1), anchor source SHAs (Phase 5.2), provenance
-      form (Phase 0.5, Phase 3), tool invocation (Phase 5.3–5.5), and drain-SLO reporting
+      form (Phase 0.6, Phase 3), tool invocation (Phase 5.3–5.5), and drain-SLO reporting
       (Input Resolution 3, Phases 6/8).
     - **single-repo** (neither file present): every path below is exactly today's behavior,
       unchanged.
@@ -97,9 +97,46 @@ naturally), applied entry-by-entry (Phase 4).
     This mirrors workspace resolution's own role determination (a checkout carrying both files
     is the hub); distill re-derives no workspace shape of its own.
 
-4. Determine the **home repo** (`gh repo view --json nameWithOwner`) — the resolution scope for
+4. **Merge precondition — distill is a post-merge drain (0007). Single-repo mode only; skip in hub
+   mode** (a hub entry arrived by migration and drains from the hub trunk — migration-lag is a
+   drain-SLO concern, Input Resolution 3, not this gate). The *why* was reviewed when the feature
+   merged, so a single-repo drain writes the store only from an entry that has reached the trunk.
+   Confirm each drainable entry is on the trunk:
+
+    ```bash
+    TRUNK="$(git rev-parse -q --verify origin/main || git rev-parse -q --verify main)"
+    git cat-file -e "${TRUNK}:<entry-path>/epic.md" 2>/dev/null && echo merged || echo not-merged
+    ```
+
+    - **merged** → continue silently. Phase 1 and Phase 4 take their normal single-repo path
+      (branch cut from the trunk, introducing-commit diff).
+    - **not-merged** → the entry's feature branch has not merged to the trunk. Running here hits the
+      two failures the ordering exists to prevent, and you surface **both** before doing any work —
+      the gate **detects, it never substitutes** (the analyze-gate contract from `/nxs.close`):
+        1. the introducing-commit diff (Phase 1 priority 1) is degenerate — pre-merge the entry's
+           files were added across several branch commits, so it resolves to a branch commit (often
+           the close commit, whose diff is only close artifacts), not the merged feature diff; and
+        2. the distill branch cannot be cut from the trunk (the entry is not there), so it is cut
+           from the current HEAD and the resulting PR carries the unmerged feature commits **and**
+           the distillation together — collapsing the two-gate design (feature-merge review, then a
+           narrow distillation review) into one PR, 0007's refuted shape.
+
+      Render a one-paragraph markdown note naming the not-merged entry (or entries) and both
+      consequences, then ask via **`AskUserQuestion`** — never proceed silently:
+        - **"Merge the feature PR first, then re-run (Recommended)"** → stop. Tell the user to merge
+          the entry's feature PR to the trunk (and `git fetch` first if it merged remotely but the
+          local `origin/main` is stale), then re-run `/nxs.distill`.
+        - **"Proceed on the current branch"** → continue with a recorded waiver. For every
+          not-merged entry: Phase 1 skips the degenerate priority 1 and derives the diff from the
+          recorded `range:` (priority 2); Phase 4 cuts the branch from the current HEAD, not the
+          trunk; and the Phase 6 checkpoint states that the PR carries the unmerged feature commits
+          alongside the distillation.
+
+      When a run mixes merged and not-merged entries, list the not-merged ones together and ask
+      once; a "proceed" answer applies only to those entries (merged entries keep the normal path).
+5. Determine the **home repo** (`gh repo view --json nameWithOwner`) — the resolution scope for
    unqualified `#n` provenance (0003 §2.4).
-5. **Resolve each entry's provenance repo** — branch on the Phase 0.3 mode:
+6. **Resolve each entry's provenance repo** — branch on the Phase 0.3 mode:
 
     - **Hub mode:** every provenance reference is the **qualified `<owner>/<repo>#n` form**,
       resolved deterministically from the entry's recorded originating repo — the **first**
@@ -156,7 +193,9 @@ argument its own quoted token — never a shell-interpolated string:
       remaining entries. Never fall back to the hub repo, never treat the failure as an empty
       diff, never derive a partial diff, and never ask the user for a replacement range.
 
-**Single-repo mode (unchanged).** Per entry, resolve the SHA range in priority order:
+**Single-repo mode (unchanged).** Per entry, resolve the SHA range in priority order. For an entry
+the Phase 0.4 gate waived as **not-merged**, skip priority 1 — it is degenerate pre-merge (Phase
+0.4) — and derive the diff from priority 2 (the recorded `range:`):
 
 1. **The commit that introduced the queue entry:**
 
@@ -229,7 +268,7 @@ input; the *why* comes only from `decision-record.md` and `close-record.md`.
   two Decision Logs.
 - **Every `touches` slug must resolve** to an existing active page or a page this same run
   creates. A touch pointing nowhere is dropped from the delta (no speculative stub pages).
-- **Provenance** — per the Phase 0.5 resolution, everywhere a reference is written: in hub mode
+- **Provenance** — per the Phase 0.6 resolution, everywhere a reference is written: in hub mode
   always the qualified `<owner>/<repo>#n` form (the terse `#n` never appears in a workspace
   drain's output); in single-repo mode `#n` for the home repo, qualified cross-repo.
 
@@ -240,6 +279,11 @@ input; the *why* comes only from `decision-record.md` and `close-record.md`.
     ```bash
     git checkout -b "distill/$(date +%Y-%m-%d)-<local-ids>"
     ```
+
+    If this run drains a Phase 0.4-waived **not-merged** entry, branch from the current **HEAD**
+    instead of the trunk — that is where the entry lives (to `git rm`) and where the surveyed store
+    matches. Branching from the trunk would make the `git rm` fail and land pages describing code
+    the trunk does not yet have.
 
 2. **Apply entry-by-entry, one commit per queue entry** (this keeps the validator's
    one-new-Decision-Log-entry check exact when several entries touch the same page). For each
@@ -430,6 +474,10 @@ Skipped (not closed): <local-id> — repo <owner/repo, hub mode only> — age <n
 Blocked (hub mode — diff underivable): <local-id> — repo <owner/repo> — age <n>d — <problem> [DRAIN-SLO BREACH if >30d]
 (if nothing was skipped or blocked: "Skipped: none — every queue entry drained; no drain-SLO breaches")
 
+Not-merged (Phase 0.4 waiver): <local-id> — PR based on the current HEAD; merging it lands the
+  unmerged feature commits AND this distillation together (omit this line when every drained entry
+  was on the trunk)
+
 About to: push the distill branch and open the distillation-PR.
 Consumed entries are removed on the branch (in each entry's commit) — the deletion lands on main
 only when the PR merges, atomically with the pages. Nothing is removed from main now.
@@ -509,6 +557,11 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
   In hub mode the drain-SLO report covers every undrained hub-queue entry, attributed to its
   originating repo — and only the hub queue; member checkouts are never scanned for unmigrated
   entries.
+- **Distill is a post-merge drain (0007)** — in single-repo mode Phase 0.4 confirms each entry is
+  on the trunk before draining. A not-merged entry is never drained silently: the gate surfaces the
+  degenerate introducing-commit diff and the collapsed single-PR consequence, then requires an
+  explicit choice — merge first (recommended) or an explicit waiver that routes the diff through the
+  recorded `range:` and bases the branch on HEAD. Detect, never substitute.
 - **No search when a path is given** — `$ARGUMENTS` resolves directly.
 - **The diff is recomputed, never stored** (0006). In hub mode it is recomputed **only** from
   the close record's `range:` stamp inside the named member checkout; a missing checkout, an
