@@ -13,12 +13,13 @@
  *   nexus deploy                       install the Nexus components into the invoking repo
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
+ *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
  *   nexus workspace add-repo           add one member to an existing workspace (STORY-60.04)
  */
 
 import * as path from "node:path";
 import * as readline from "node:readline";
-import { resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
+import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
 import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components.js";
@@ -43,6 +44,7 @@ const USAGE: string = [
     "",
     "  nexus workspace init        Declare a multi-repo workspace (hub + members).",
     "  nexus workspace status      Read-only workspace status from any checkout.",
+    "  nexus workspace docs-root   Print the resolved repo-relative docs root.",
     "  nexus workspace add-repo    Add the invoking checkout to an existing workspace.",
 ].join("\n");
 
@@ -199,6 +201,22 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         const result: ResolveResult = resolveWorkspace(io.cwd);
         (result.ok ? io.stdout : io.stderr)(renderWorkspaceStatus(result));
         return result.ok ? 0 : 1;
+    }
+    if (sub === "docs-root") {
+        if (rest.length > 0) {
+            io.stderr(`unknown argument for workspace docs-root: ${rest[0]}\n${USAGE}`);
+            return 2;
+        }
+        // The single-value view over the resolver: print only the resolved repo-relative docs
+        // root, or the resolver's named diagnostic on failure (never a silent "docs"). The
+        // in-repo docs_root.ts script runs this identical selector. Read-only by construction.
+        const result = localDocsRoot(io.cwd);
+        if (!result.ok) {
+            io.stderr(renderWorkspaceStatus(result));
+            return 1;
+        }
+        io.stdout(result.docsRoot);
+        return 0;
     }
     io.stderr(sub === undefined ? USAGE : `unknown workspace verb '${sub}'\n${USAGE}`);
     return 2;
