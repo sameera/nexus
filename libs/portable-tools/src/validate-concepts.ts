@@ -17,6 +17,8 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { localDocsRoot } from "@nexus/workspace/resolve";
+import { parseDomainRegistry } from "./domain-registry.js";
 
 interface CliOptions {
     base: string | null;
@@ -44,6 +46,7 @@ const GENERATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SCALAR_SOURCE_SHA = /^[0-9a-f]{7,40}$/;
 const REPO_AT_SHA = /^([a-z0-9.-]+(?:\/[\w.-]+)+)@([0-9a-f]{40})$/;
 const ANCHOR_BULLET = /^-\s+`([^`]+)`/;
+const REGISTRY_FILENAME = "domains.md";
 
 export function parseArgs(argv: string[]): CliOptions {
     const options: CliOptions = { base: null, conceptsDir: ".nexus/concepts", files: [] };
@@ -454,6 +457,30 @@ export function validatePage(file: string, base: string | null, repoRoot: string
     }
 }
 
+/**
+ * The registry lives beside the atlas in the resolved docs root; resolve it the same way the atlas
+ * generator does (decision record — both tools must agree on the registry's location). Returns a
+ * docs-root-relative path, resolved against the process cwd exactly as the atlas's default out path.
+ */
+export function registryPath(startDir: string): string {
+    const resolved = localDocsRoot(startDir);
+    const docsRoot: string = resolved.ok ? resolved.docsRoot : "docs";
+    return path.join(docsRoot, REGISTRY_FILENAME);
+}
+
+/**
+ * Store-level registry structural pass (epic #89, STORY-89.01). Parses the registry once and maps
+ * each structural problem onto a blocking finding against the registry file. The parse is total: a
+ * malformed registry yields findings, never a throw (decision-record Constraint 3).
+ */
+export function validateRegistry(file: string, findings: Finding[]): void {
+    const content: string = fs.readFileSync(file, "utf8");
+    const parsed = parseDomainRegistry(content);
+    for (const message of parsed.findings) {
+        findings.push({ file, message });
+    }
+}
+
 export function runCli(argv: string[]): number {
     const options: CliOptions = parseArgs(argv);
     let repoRoot: string = process.cwd();
@@ -463,19 +490,38 @@ export function runCli(argv: string[]): number {
         // Not a git repo: --base checks will be skipped by gitShow failing.
     }
 
+    const findings: Finding[] = [];
+
+    // Store-level registry pass (epic #89): whenever the registry is present, parse and
+    // structurally validate it once per run, independent of the file list (decision record —
+    // "gated on presence, not on the file list"). An absent registry raises no domain findings.
+    const regPath: string = registryPath(process.cwd());
+    const hasRegistry: boolean = fs.existsSync(regPath);
+    if (hasRegistry) {
+        validateRegistry(regPath, findings);
+    }
+
     let files: string[] = options.files;
     if (files.length === 0) {
         if (!fs.existsSync(options.conceptsDir)) {
-            console.log(`No concepts directory at ${options.conceptsDir} — nothing to validate.`);
-            return 0;
+            // Preserve the pre-change "nothing to validate" exit only when the registry pass is clean.
+            if (findings.length === 0) {
+                console.log(`No concepts directory at ${options.conceptsDir} — nothing to validate.`);
+                return 0;
+            }
+            files = [];
+        } else {
+            files = fs.readdirSync(options.conceptsDir)
+                .filter((name: string) => name.endsWith(".md") && name !== "README.md")
+                .map((name: string) => path.join(options.conceptsDir, name));
         }
-        files = fs.readdirSync(options.conceptsDir)
-            .filter((name: string) => name.endsWith(".md") && name !== "README.md")
-            .map((name: string) => path.join(options.conceptsDir, name));
     }
 
-    const findings: Finding[] = [];
     for (const file of files) {
+        // Invariant 6: the registry is validated by its own grammar, never as a concept page.
+        if (hasRegistry && path.resolve(file) === path.resolve(regPath)) {
+            continue;
+        }
         if (!fs.existsSync(file)) {
             findings.push({ file, message: "file not found" });
             continue;

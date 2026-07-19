@@ -9,9 +9,11 @@ import {
     isAnchorFile,
     parseArgs,
     parseFrontmatter,
+    registryPath,
     runCli,
     validateAnchor,
     validatePage,
+    validateRegistry,
 } from "./validate-concepts";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
@@ -797,6 +799,166 @@ describe("runCli", () => {
         const dir = makeTmpDir();
         writeFile(dir, "alpha.md", page({ h1: "# Mismatched Title" }));
         expect(runCli(["--concepts-dir", dir])).toBe(1);
+    });
+});
+
+// --- domain registry (epic #89, STORY-89.01) --------------------------------
+// Fixture strings duplicated from domain-registry.spec.ts (no shared fixtures module — CLAUDE.md
+// forbids barrel-style re-export files).
+
+const REGISTRY_WELL_FORMED =
+`# Domain Registry
+
+## Connectors
+\`connectors\`
+
+Everything about pulling data in from and pushing it out to external systems.
+
+### Catalog
+\`catalog\`
+
+The registry of available connector types and their published metadata.
+
+### Runtime
+\`runtime\`
+
+How a configured connector executes when a flow runs.
+
+## Sources
+\`sources\`
+
+Upstream systems and the shape of the data they provide.
+
+### Catalog
+\`catalog\`
+
+The inventory of known source systems.
+`;
+
+const REGISTRY_THIRD_LEVEL =
+`## Connectors
+\`connectors\`
+
+Rubric for connectors.
+
+### Catalog
+\`catalog\`
+
+Rubric for catalog.
+
+#### Nested Too Deep
+\`nested\`
+
+This nests a third level and must be rejected.
+`;
+
+const REGISTRY_DUP_PATH =
+`## Connectors
+\`connectors\`
+
+First connectors rubric.
+
+## Connectors Again
+\`connectors\`
+
+A second entry claiming the same slug path.
+`;
+
+const REGISTRY_MISSING_TITLE =            // note the trailing space after "##"
+`## 
+\`connectors\`
+
+Rubric with no domain title.
+`;
+
+const REGISTRY_MISSING_SLUG =
+`## Connectors
+
+Everything about connectors, but the slug line is missing entirely.
+`;
+
+const REGISTRY_MISSING_RUBRIC =
+`## Connectors
+\`connectors\`
+
+## Sources
+\`sources\`
+
+Sources rubric present so only the first entry lacks a rubric.
+`;
+
+describe("domain registry (epic #89, STORY-89.01)", () => {
+    let originalCwd: string;
+
+    afterEach(() => {
+        if (originalCwd) {
+            process.chdir(originalCwd);
+        }
+    });
+
+    function chdirTmp(): string {
+        originalCwd = process.cwd();
+        const dir = makeTmpDir();
+        process.chdir(dir);
+        return dir;
+    }
+
+    it("registryPath resolves beside the atlas in single-repo mode", () => {
+        const dir = makeTmpDir();
+        const result = registryPath(dir);
+        expect(result.endsWith("domains.md")).toBe(true);
+        expect(result).toBe(path.join("docs", "domains.md"));
+    });
+
+    it("validateRegistry maps parser findings onto the registry file", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "domains.md", REGISTRY_THIRD_LEVEL);
+        const findings: Finding[] = [];
+        validateRegistry(file, findings);
+        expect(findings.length).toBeGreaterThan(0);
+        for (const finding of findings) {
+            expect(finding.file).toBe(file);
+        }
+    });
+
+    it.each([
+        ["WELL_FORMED", REGISTRY_WELL_FORMED, 0],
+        ["THIRD_LEVEL", REGISTRY_THIRD_LEVEL, 1],
+        ["DUP_PATH", REGISTRY_DUP_PATH, 1],
+        ["MISSING_TITLE", REGISTRY_MISSING_TITLE, 1],
+        ["MISSING_SLUG", REGISTRY_MISSING_SLUG, 1],
+        ["MISSING_RUBRIC", REGISTRY_MISSING_RUBRIC, 1],
+    ])("AC4 — %s registry exits with code %i", (_label, fixture, expectedStatus) => {
+        chdirTmp();
+        fs.mkdirSync("docs", { recursive: true });
+        fs.writeFileSync(path.join("docs", "domains.md"), fixture);
+        const status = runCli([]);
+        expect(status).toBe(expectedStatus);
+    });
+
+    it("no-registry no-op: a store with no registry raises zero domain findings (Invariant 5)", () => {
+        chdirTmp();
+        fs.mkdirSync(".nexus/concepts", { recursive: true });
+        fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page());
+        const errors: string[] = [];
+        const originalError = console.error;
+        console.error = (msg: string) => errors.push(msg);
+        let status: number;
+        try {
+            status = runCli([]);
+        } finally {
+            console.error = originalError;
+        }
+        expect(status).toBe(0);
+        expect(errors.some((line) => line.includes("slug path") || line.includes("domains.md"))).toBe(false);
+    });
+
+    it("the registry is never validated as a concept page (Invariant 6)", () => {
+        chdirTmp();
+        fs.mkdirSync("docs", { recursive: true });
+        fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
+        const status = runCli(["docs/domains.md"]);
+        expect(status).toBe(0);
     });
 });
 
