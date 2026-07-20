@@ -2,7 +2,7 @@
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
 touches: ["distiller", "workspace-resolution", "nexus-setup-cli"]
-last_updated_by: "#89"
+last_updated_by: "#94"
 status: active
 verification: verified
 ---
@@ -56,3 +56,7 @@ A docs-only hub has no in-repo toolchain, so the resolved docs root its planning
 ### 2026-07-19 — #89 — A shared registry parser joins the inlined source, re-vendored per story
 
 The new domain-registry parser is standalone — no imports — so it inlines into both the validator and atlas-generator bundles exactly like every other shared module here, and it entered the fingerprint gate the same way prior inlined-source changes did: re-vendoring on every story that touched inlined source, keeping the pin green on each commit rather than red until the epic's last story landed, the discipline already established for a resolver-consuming atlas generator. Refuted alternative: defer re-vendoring to the epic's final story once the parser and both consuming tools were done — fewer vendor commits, but it reintroduces the stretch of red-pin commits that discipline exists to prevent, so it wasn't reconsidered here.
+
+### 2026-07-20 — #94 — Two new bundled tools; a self-invoke guard hardened against cross-tool bundling
+
+The bundle grew two entry points — the drift advisory and the registry seeder — joining the validator, the atlas generator, and the hub diff-derivation tool under the one fingerprint gate. Both new tools reuse the atlas generator's link-graph construction, so they import it; because the packaging inlines every imported module into each tool's self-contained artifact, the atlas generator's own run-only-when-invoked-directly guard was inlined too, and after inlining every module in an artifact shares one sense of which file was invoked — so running one tool could silently trigger and exit through another tool's guard. Refuted alternative: leave each guard keyed only on that shared signal — rejected because it was already misfiring across the bundled tools; keying each guard additionally on the name of the tool actually invoked is the minimal fix that stays correct in both source and vendored-bundle form.

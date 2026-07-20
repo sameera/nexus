@@ -1,8 +1,8 @@
 ---
 title: "Domain Taxonomy"
 aliases: ["domain registry", "concept domains", "curated atlas grouping", "domain filing"]
-touches: ["concept-store"]
-last_updated_by: "#89"
+touches: ["concept-store", "taxonomy-filing-gate"]
+last_updated_by: "#94"
 status: active
 verification: verified
 ---
@@ -17,15 +17,14 @@ link density.
 ## How It Works
 
 A registry defines domains and, optionally, one level of subdomains under each; every entry
-carries a display title, a slug, and a short filing rubric describing what belongs there. A
-concept page declares which node it belongs to; that declaration must resolve to a defined path,
-and filing at a parent domain stays legal even after that domain grows subdomains, so a domain can
-be refined incrementally rather than forcing every existing page to move at once. When a registry
-exists, the atlas renders one heading per domain and one sub-heading per subdomain, in the order
-the registry lists them, with every active page listed exactly once under its declared node; a
-page whose declared node no longer resolves is still listed, under a clearly separate heading,
-rather than silently dropped. A store with no registry is completely unaffected — grouping falls
-back to the prior link-density clustering, unchanged.
+carries a title, a slug, and a short filing rubric describing what belongs there. A concept page
+declares which node it belongs to; that declaration must resolve to a defined path, and filing at
+a parent domain stays legal even after that domain grows subdomains, so a domain can be refined
+incrementally rather than forcing every existing page to move at once. When a registry exists, the
+atlas renders one heading per domain and sub-heading per subdomain, in registry order, each active
+page listed once under its declared node; a page whose node no longer resolves is still listed,
+under a separate heading, never silently dropped. A store with no registry is unaffected: grouping
+falls back to the prior link-density clustering.
 
 ## Key Invariants
 
@@ -49,6 +48,8 @@ back to the prior link-density clustering, unchanged.
 
 - [concept-store](concept-store.md) — the store's derived atlas renders under this taxonomy
   instead of link-density clusters, whenever a registry exists.
+- [taxonomy-filing-gate](taxonomy-filing-gate.md) — the drain files new pages against this
+  registry's rubrics and grows its vocabulary through the gate.
 
 ## Decision Log
 
@@ -68,3 +69,10 @@ unaffected. Refuted alternative: tune the prior clustering algorithm (e.g. a str
 threshold) to resist collapsing — this treats the symptom, not the cause, since any link-derived
 grouping degrades as a store's link density grows, and it still gives no author control over
 category names or order.
+
+### 2026-07-20 — #94 — Reciprocal link from taxonomy-filing-gate
+
+Mechanical reciprocity fan-out: the taxonomy filing gate names this registry as the closed list
+of rubrics the drain files new concepts against, and as the vocabulary an approved gate decision
+grows — one domain or subdomain at a time, on the same distillation-PR as the page that motivated
+it.
