@@ -13,7 +13,7 @@ complexity_drivers:
     "one deterministic clustering engine is shared by drift detection and store seeding",
   ]
 concepts: ["distiller", "distillation-pr", "concept-store"]
-link:
+link: "#94"
 ---
 
 # Epic: Domain Filing and Drift Advisory in the Drain
@@ -173,3 +173,11 @@ is a review task rather than a hand audit of every page.
 ## Open Questions
 
 <!-- none -->
+
+## Implementation Sequence
+
+| STORY | Issue | blocked_by |
+|---|---|---|
+| STORY-94.01 | #95 | none |
+| STORY-94.02 | #96 | STORY-94.01 |
+| STORY-94.03 | #97 | STORY-94.02 |
