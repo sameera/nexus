@@ -1,19 +1,19 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory"]
-last_updated_by: "#94"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow"]
+last_updated_by: "#101"
 status: active
 verification: verified
 ---
 
 # Distiller
 
-The distiller drains committed queue entries into the concept store — what changed from the merged code diff, why from the queued human records — inferring the per-concept mapping itself and applying the result through a reviewed pull request, not a direct write.
+The distiller drains committed queue entries into the concept store — what changed from the merged diff, why from the queued human records — inferring the mapping itself and applying it through a reviewed pull request, not a direct write.
 
 ## How It Works
 
-The distiller runs after merges, scanning for unconsumed entries. For each it recomputes the diff from history (never stored), reads the decision and close records for rationale, and maps both to per-concept deltas. Its work splits firmly: judgment is the model's (concept mapping, prose, domain filing, resolving a slug collision); the mechanical steps are code, never improvised — reciprocity fan-out, anchor refresh, atlas regeneration, validator, and a non-blocking drift advisory. A validation failure blocks the apply; a failing page is fixed, never shipped. The distiller never writes the store directly — only through the merge consuming each entry.
+The distiller runs after merges, scanning for unconsumed entries. For each it recomputes the diff from history, never stored, reads the decision and close records for rationale, and maps both to per-concept deltas. Its work splits firmly: judgment is the model's — mapping, prose, domain filing, slug collisions; the mechanical steps are code — reciprocity fan-out, anchor refresh, atlas, validator, and a drift advisory. A validation failure blocks the apply; a failing page is fixed, never shipped. The distiller writes the store only through the merge consuming each entry.
 
 ## Key Invariants
 
@@ -32,10 +32,11 @@ The distiller runs after merges, scanning for unconsumed entries. For each it re
 - [distillation-pr](distillation-pr.md) — the reviewed pull request through which the distiller applies its output.
 - [code-anchors](code-anchors.md) — the derived sidecars the distiller regenerates for every touched concept.
 - [scratch-capture](scratch-capture.md) — an input boundary: the distiller never reads scratch.
-- [portable-tooling](portable-tooling.md) — the offline validator and atlas generator the distiller runs when draining from a hub.
+- [portable-tooling](portable-tooling.md) — the offline validator and atlas generator the drain runs from a hub.
 - [close-entry-migration](close-entry-migration.md) — the migrated entry and range the drain recomputes a relocated epic's diff from.
-- [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decision and three-way gate the drain performs during synthesis and at its checkpoint.
-- [drift-advisory](drift-advisory.md) — the non-blocking deterministic step the drain runs after synthesis, writing decay findings into the PR.
+- [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decision and three-way gate the drain performs at synthesis and checkpoint.
+- [drift-advisory](drift-advisory.md) — the non-blocking step the drain runs after synthesis, writing decay findings into the PR.
+- [pr-driven-flow](pr-driven-flow.md) — the post-merge flow the drain continues in, deriving its diff from the stamped range.
 
 ## Decision Log
 
@@ -82,3 +83,7 @@ The drain's atlas regeneration, its sync check, its staged file set, and its com
 ### 2026-07-20 — #94 — The drain becomes the taxonomy's steward: filing and a drift advisory
 
 The distiller gained two stewardship behaviors, each split into its own concept rather than grown onto this already-full page: during synthesis it files every new concept under a best-fit domain and stops at a three-way gate when none fits, and among its deterministic steps it now runs a non-blocking drift advisory that reports taxonomy decay into the PR body. Both are gated on a registry's presence, so a drain with no registry is byte-for-byte unchanged. Refuted alternative: describe filing and the advisory inline here — rejected because the page is already at its word cap and the store's discipline splits a concept that no longer fits rather than growing it.
+
+### 2026-07-20 — #101 — Single-repo derivation goes range-first, with a single-entry continuation mode
+
+Single-repo diff derivation now prefers the recorded landed range, with the introducing-commit scan only a fallback for a legacy entry whose range is unreachable — converging single-repo onto how a hub drain already derives. On a close-prepared distillation branch the drain continues in place: it drains exactly that one entry rather than the whole queue, skips cutting a branch, and gates on the recorded range head being reachable from the trunk. Refuted alternative: keep the introducing-commit scan first and whole-queue batching — rejected because on a close-prepared branch the most recent add to the entry is the close commit, so that scan is degenerate, and batching strands entries closed on their own branches and misreports them as overdue.

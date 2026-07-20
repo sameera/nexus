@@ -1,6 +1,6 @@
 ---
 concept: distillation-pr
-source_sha: 1e368ef4eea9ca9337bbdf4c951ae5c6da70ac98
+source_sha: 717ec0ffbc06be2f51d04cfc22c1a016bb112f1c
 generated: 2026-07-20
 ---
 
@@ -9,4 +9,5 @@ generated: 2026-07-20
 
 # Code Anchors: Distillation PR
 
-- `.claude/commands/nxs.distill.md` — Phases 6–7: the pre-PR checkpoint, opening the reviewed distillation-PR, and the post-merge queue-deletion checklist bound to its merge; the PR body now also carries the drift advisory's findings, and an approved domain or subdomain the taxonomy gate coined is authored onto the same branch beside its motivating page.
+- `.claude/commands/nxs.distill.md` — Phases 6–7: the pre-PR checkpoint, opening the reviewed distillation-PR, and the post-merge queue-deletion checklist bound to its merge; in continuation mode it resumes on the close-prepared branch so the close artifacts ride this same PR; the PR body carries the drift advisory's findings, and an approved domain or subdomain the taxonomy gate coined is authored beside its motivating page.
+- `.claude/commands/nxs.close.md` — the --pr closure that prepares the distillation branch, commits and pushes the close artifacts onto it, and hands off to distillation to continue and open this reviewed write.
