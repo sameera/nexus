@@ -16,7 +16,9 @@ close records. You infer the concept mapping yourself: System A emits nothing st
 The split is **judgment as prompt, mechanics as code** (0004 B0):
 
 - **Judgment (yours):** mapping the diff + records to per-concept `ConceptDelta`s, writing the
-  page prose, deciding update-vs-distinguish on a slug collision.
+  page prose, deciding update-vs-distinguish on a slug collision, and — when a domain registry
+  exists (epic #94, STORY-94.01) — filing each new concept's `domain:` against the registry's
+  rubrics and drafting a new subdomain/domain when none fits.
 - **Mechanics (deterministic, never improvised):** the C11 reciprocity fan-out, the R1 anchors
   refresh, and the validator (`libs/portable-tools/src/validate-concepts.ts`). A validation failure **blocks the
   PR** — you fix the pages and re-validate; you never ship a failing page.
@@ -31,7 +33,9 @@ the PR, and never touch an unclosed/undrained one (C12).
 
 The pre-PR checkpoint (Phase 6) is presented through the **`AskUserQuestion`** tool, not a
 free-text prompt. Render the delta digest first as ordinary markdown, then call `AskUserQuestion`
-with one option per choice. The user can always pick "Other" for a custom answer.
+with one option per choice. The user can always pick "Other" for a custom answer. The Phase 6.1
+taxonomy gate (epic #94, STORY-94.01) follows the identical convention — one `AskUserQuestion`
+per forced-fit concept, exactly three rendered options, "Other" still available.
 
 # User Input
 
@@ -233,6 +237,21 @@ Read the Summary of every plausible-neighbor page (name/alias hits against the e
 then `touches:` overlap). If `.nexus/concepts/` does not exist yet, create the directory — this
 is the first drain.
 
+**Domain registry (epic #94, STORY-94.01) — gated on presence.** The registry lives beside the
+atlas at the resolved docs root, filename `domains.md` (`docs/domains.md` in a single-repo
+checkout, mirroring exactly how Phase 5.4 resolves the atlas location):
+
+```bash
+ls docs/domains.md 2>/dev/null && cat docs/domains.md
+```
+
+If present, read every domain's and subdomain's title, slug path, and filing rubric — this is
+the closed list Phase 3 matches new concepts against, the same role the survey above plays for
+slug convergence. **If absent, domain filing is inert for this drain**: Phase 3 writes no
+`domain` for any created concept and the Phase 6 taxonomy gate never fires — exactly today's
+behavior, unchanged (adopting a registry onto an existing store is Story 3's seed mode, a
+separate epic).
+
 # Phase 3 — Synthesize the ConceptDeltas (judgment)
 
 For each entry, map the diff + records to a list of **per-concept `ConceptDelta`s in the 0003
@@ -247,9 +266,55 @@ input; the *why* comes only from `decision-record.md` and `close-record.md`.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
-`touches_removed` (omit if none). **Body sections** (omit any unchanged one — omission means
-*unchanged*, never *clear*): `## Summary`, `## How It Works`, `## Invariants Added`,
-`## Invariants Retired`, `## Decision Log Entry`.
+`touches_removed` (omit if none), `domain` (**create only**, and only when a registry exists —
+epic #94, STORY-94.01: the resolving best-fit domain/subdomain path), `domain_fit` (**create
+only**, only when a registry exists: `clear` or `forced`). **Body sections** (omit any unchanged
+one — omission means *unchanged*, never *clear*): `## Summary`, `## How It Works`,
+`## Invariants Added`, `## Invariants Retired`, `## Decision Log Entry`, `## New Subdomain Draft`
+(**create + `domain_fit: forced` only**), `## New Domain Draft` (**create + `domain_fit: forced`
+only**).
+
+**Domain filing (epic #94, STORY-94.01) — gated on registry presence, judgment against the
+rubrics, not a classifier.** For every **create**-action delta, when Phase 2 found a registry:
+match the concept's Summary against every domain's and subdomain's filing rubric (the closed
+list — exactly the role the Phase 2 slug survey plays for slug convergence) and write the
+resolving best-fit as `domain`. **Always resolve to a real, existing path — never leave a
+created page unfiled, never invent an undefined path** (decision-record Invariant 1). Separately
+flag the filing:
+
+- **`clear`** — the concept's Summary is plainly within a rubric's stated scope. No draft
+  sections; the checkpoint asks nothing for this concept.
+- **`forced`** — no rubric's stated scope covers the concept, or covering it needs stretching a
+  rubric past its own stated boundary. **When genuinely unsure between clear and forced, choose
+  forced** — the epic's success metric requires a new concept is never silently filed against
+  the reviewer's judgment, so ties gate rather than pass silently. A `forced` delta additionally
+  drafts exactly two candidates for the Phase 6.1 gate to offer — plain values, never a literal
+  registry heading (that would collide with this delta's own `## <Section>` boundaries):
+
+  ```
+  ## New Subdomain Draft (`domain_fit: forced` only)
+  - Parent: `<top-level-domain-slug>` (`<top-level-domain-title>`)
+  - Title: <Drafted Subdomain Title>
+  - Slug: `<drafted-subdomain-slug>`
+  - Rubric: <one-paragraph rubric drafted from the concept, in the registry's own prose style>
+
+  ## New Domain Draft (`domain_fit: forced` only)
+  - Title: <Drafted Domain Title>
+  - Slug: `<drafted-domain-slug>`
+  - Rubric: <one-paragraph rubric drafted from the concept, in the registry's own prose style>
+  ```
+
+  The subdomain draft's `Parent` is always the resolved best-fit's **top-level** domain — if the
+  best-fit itself is already a subdomain, this drafts a **sibling** subdomain under that same
+  parent, never a child of it (the registry caps at domain + subdomain, never a third level).
+
+No registry (Phase 2 found none) → omit `domain`, `domain_fit`, and both draft sections entirely;
+filing is inert this drain (Phase 6's taxonomy gate never fires — Success Metric: zero gate
+interruptions when every concept fits).
+
+**`update` and `retire` deltas never carry `domain`, under any circumstance** (decision-record
+Invariant 2 — an existing page's filing is untouched by any update; re-filing a live page is
+manual curation, out of this drain's scope).
 
 **Binding rules (0003 §8.2/§8.3, §5):**
 
@@ -271,6 +336,10 @@ input; the *why* comes only from `decision-record.md` and `close-record.md`.
 - **Provenance** — per the Phase 0.6 resolution, everywhere a reference is written: in hub mode
   always the qualified `<owner>/<repo>#n` form (the terse `#n` never appears in a workspace
   drain's output); in single-repo mode `#n` for the home repo, qualified cross-repo.
+- **Domain filing is create-only** (epic #94, STORY-94.01; decision-record Invariant 2): `domain`
+  and `domain_fit` appear on a `create` delta only, and only when Phase 2 found a registry. An
+  `update` or `retire` delta never adds, changes, or references `domain` — an existing page's
+  `domain:` frontmatter line is untouched by any later delta.
 
 # Phase 4 — Apply the deltas on a distill branch
 
@@ -291,16 +360,22 @@ input; the *why* comes only from `decision-record.md` and `close-record.md`.
 
 3. **Applying a delta** (0003 §2, §8.2 semantics):
     - `create` → write the full page: frontmatter (`title`, `aliases`, `touches`,
-      `last_updated_by: <source>`, `status: active`, `verification:` per below), H1 mirroring
-      `title`, Summary lead (≤3 sentences, written to stand alone as a grep hit), `## How It
-      Works` (≤180 words), `## Key Invariants` (≤7, numbered), `## Integration Points` (one
-      bullet per `touches` slug: `- [slug](slug.md) — <nature of the interaction>`), and a
-      `## Decision Log` seeded with exactly the delta's entry.
+      `last_updated_by: <source>`, `status: active`, `verification:` per below, plus `domain:
+      <delta's domain>` **when the delta carries one** — epic #94, STORY-94.01; omit the field
+      entirely when Phase 2 found no registry), H1 mirroring `title`, Summary lead (≤3 sentences,
+      written to stand alone as a grep hit), `## How It Works` (≤180 words), `## Key Invariants`
+      (≤7, numbered), `## Integration Points` (one bullet per `touches` slug: `- [slug](slug.md)
+      — <nature of the interaction>`), and a `## Decision Log` seeded with exactly the delta's
+      entry. The delta's `domain_fit` and any `## New Subdomain Draft` / `## New Domain Draft`
+      sections are **never** written onto the page — they are working material the Phase 6.1
+      taxonomy gate consumes, not page content.
     - `update` → patch only the sections the delta carries; update `last_updated_by`; **append
       exactly one** Decision Log entry — never edit, reorder, or delete prior entries. A retired
-      invariant is **struck through in place** (`~~...~~`), never deleted.
+      invariant is **struck through in place** (`~~...~~`), never deleted. **Never `domain:`** —
+      filing is create-only (epic #94 Invariant 2); an update delta never carries the field, so
+      there is nothing to patch.
     - `retire` → set `status: deprecated`, append the Decision Log entry, `git mv` the page to
-      `.nexus/concepts/_archive/`.
+      `.nexus/concepts/_archive/`. **Never `domain:`** — same create-only rule.
     - Decision Log entries are headed `### <YYYY-MM-DD> — <ref> — <short title>`.
     - Body stays under the **400-word cap** (excluding frontmatter + Decision Log); if the content
       doesn't fit, the concept is too broad — **split it into two pages, don't grow it**.
@@ -454,6 +529,51 @@ Run these for each entry, in order, before its commit:
 
 # Phase 6 — Checkpoint (before any GitHub write)
 
+## Phase 6.1 — Taxonomy gate (forced fits only; epic #94, STORY-94.01)
+
+Collect every `create` delta across every entry in this run whose `domain_fit` is `forced`
+(Phase 3). **Zero such deltas → skip 6.1 and 6.2 entirely, proceed straight to 6.3** — a run in
+which every new concept resolved to a clear fit never gates (Success Metric: zero gate
+interruptions when everything fits).
+
+Otherwise, for each forced-fit concept, in slug order (determinism), render its best-fit path,
+its Summary, and both drafts, then ask via **`AskUserQuestion`** — one question per concept, the
+same convention as Phase 0.4:
+
+- **"File under `<best-fit path>` (Recommended)"** → no further action; the page already carries
+  `domain: <best-fit path>` from Phase 4.
+- **"New subdomain under <top-level domain title>: <drafted subdomain title>"** → queue the
+  `## New Subdomain Draft` block and this concept's slug for Phase 6.2.
+- **"New domain: <drafted domain title>"** → queue the `## New Domain Draft` block and this
+  concept's slug for Phase 6.2.
+
+**The drain does not proceed past 6.1 until every forced-fit concept's question is answered** —
+no default, no timeout, no silent pass-through (epic #94 AC2; decision-record Invariant 3).
+
+## Phase 6.2 — Apply approved taxonomy changes (only if 6.1 queued any)
+
+For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
+
+1. Build the real registry heading from the queued draft's Title/Slug/Rubric and append it —
+   a new `###` entry (title, then the backticked slug line, then the rubric paragraph) nested
+   directly under the identified `##` domain, for a "new subdomain" answer; a new top-level `##`
+   entry (same three-line shape) for a "new domain" answer — to the registry (`domains.md` at
+   the resolved docs root), matching the registry's exact grammar (§3).
+2. Update that concept's page `domain:` to the new full path (`<top-level-slug>/<new-slug>` for
+   a subdomain, `<new-slug>` for a domain).
+3. Re-run the Phase 5.4 atlas regeneration and the Phase 5.5 validator over every file this step
+   touched (the registry plus every re-filed page) — a new registry entry changes the rendered
+   hierarchy, so both must run again. **A finding blocks exactly like Phase 5.5** — fix and
+   re-run until both exit 0 (decision-record Invariant 4: the validator passes on this branch
+   before the PR opens).
+4. Commit **once**, covering every approved change from this step (never amend an entry's Phase 4
+   commit): `git add <registry path> <re-filed page paths> <resolved atlas path> && git commit -m
+   "distill: taxonomy gate — <n> new domain/subdomain entr(y/ies)"`. This keeps the approved
+   registry entry and its motivating page(s) on the same distill branch, in the same
+   distillation-PR (decision-record Invariant 4; epic #94 AC3).
+
+## Phase 6.3 — Final checkpoint
+
 **STOP AND WAIT.** Render the delta digest as markdown first:
 
 ```
@@ -465,6 +585,9 @@ Drained entries:
 Concept deltas:
 - <slug> — <create|update|retire> — <sections changed> — log: "<entry title>"
   ↳ reciprocity fan-out: <slugs, or none>
+
+Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new subdomain "<title>" | new domain "<title>">, ...
+  (omit this line entirely when Phase 6.1 found no forced fits — "no gate fired")
 
 Anchors refreshed: <slugs>
 Atlas: regenerated (<resolved-atlas-path>)
@@ -533,6 +656,7 @@ Entries drained:   <n>  (<local-ids>)
 Pages created:     <n>  (<slugs>)
 Pages updated:     <n>  (<slugs>)
 Pages retired:     <n>  (<slugs>)
+Taxonomy gate:     <n> forced fit(s) resolved (<n> new subdomain(s), <n> new domain(s), <n> confirmed best-fit) — omit this line when Phase 6.1 found no forced fits (epic #94, STORY-94.01)
 Reciprocal edits:  <n>  (<slugs>)
 Anchors refreshed: <n>
 Validator:         PASS
@@ -574,6 +698,12 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
   Idempotency is structural: entry presence = unconsumed.
 - **Every changed page gains exactly one Decision Log entry per queue entry**; prior entries are
   never edited, reordered, or deleted.
+- **Domain filing (epic #94, STORY-94.01) is gated on registry presence.** A registry present at
+  Phase 2 makes every `create` delta write a resolving `domain:` before Phase 5's validator ever
+  runs; the Phase 6.1 taxonomy gate blocks only a `forced` fit and never fires for a `clear` one;
+  an approved new domain/subdomain is authored on this same distill branch and re-validated
+  before Phase 7 opens the PR. No registry present → completely inert, byte-for-byte today's
+  behavior.
 - **§8.3 is a hard boundary** for pages: no code, no file paths, no type names, no API specs, no
   speculative claims. Paths live only in `.nexus/anchors/` (R1).
 - **The per-user scratch dirs inside a queue entry are never a distill input** — never read,
