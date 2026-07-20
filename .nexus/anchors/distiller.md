@@ -1,6 +1,6 @@
 ---
 concept: distiller
-source_sha: 1e368ef4eea9ca9337bbdf4c951ae5c6da70ac98
+source_sha: 717ec0ffbc06be2f51d04cfc22c1a016bb112f1c
 generated: 2026-07-20
 ---
 
@@ -9,7 +9,7 @@ generated: 2026-07-20
 
 # Code Anchors: Distiller
 
-- `.claude/commands/nxs.distill.md` — the drain agent: preflight and the run-mode gate, per-mode diff recomputation, per-concept delta synthesis (now including best-fit domain filing against the registry rubrics and the three-way taxonomy gate), the deterministic steps (reciprocity, anchor refresh, atlas, validator, the non-blocking drift advisory, and the hub-vs-single-repo invocation), the ban on reading per-user scratch, checkpoint, and PR; its atlas step, sync gate, staged path, and report follow the resolved docs root.
+- `.claude/commands/nxs.distill.md` — the drain agent: preflight and the run-mode gate, per-mode diff recomputation (single-repo now range-first, with the introducing-commit scan only a fallback), the single-entry continuation mode on a close-prepared distill branch, per-concept delta synthesis (best-fit domain filing against the registry rubrics and the three-way taxonomy gate), the deterministic steps (reciprocity, anchor refresh, atlas, validator, the non-blocking drift advisory, and the hub-vs-single-repo invocation), the ban on reading per-user scratch, checkpoint, and PR; its atlas step, sync gate, staged path, and report follow the resolved docs root.
 - `libs/portable-tools/src/derive-entry-diff.ts` — hub-mode diff derivation: reads an entry's recorded range, resolves each repo to its member checkout, and emits one queue-excluded diff per repo (read-only; a missing checkout or unreachable revision is a hard error, never a fallback or partial diff).
 - `libs/portable-tools/src/validate-concepts.ts` — the deterministic validator (concept pages and anchor sidecars) a drain must pass before the distillation-PR opens.
 - `libs/portable-tools/src/generate-atlas.ts` — the atlas regeneration step the drain runs before each entry's commit; writes to the resolved docs root the drain then stages and reports.
