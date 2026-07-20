@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration"]
-last_updated_by: "#74"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory"]
+last_updated_by: "#94"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The distiller drains committed queue entries into the concept store — what cha
 
 ## How It Works
 
-The distiller runs after merges, scanning for unconsumed entries. For each it recomputes the diff from history (never stored), reads the decision and close records for rationale, and maps both to per-concept deltas — a page-patch with the changed sections plus one decision entry. Its work splits firmly: judgment is the model's (mapping diff and records to concepts, writing prose, resolving a slug collision); the mechanical steps are code, never improvised — the reciprocity fan-out, anchor refresh, atlas regeneration, and validator. Those last two run in-repo tooling in a code repo and vendored portable tooling in a docs-only hub, by the checkout's role, never a new heuristic. A validation failure blocks the apply; a failing page is fixed, never shipped. The distiller never writes the store directly — only through the merge consuming each entry.
+The distiller runs after merges, scanning for unconsumed entries. For each it recomputes the diff from history (never stored), reads the decision and close records for rationale, and maps both to per-concept deltas. Its work splits firmly: judgment is the model's (concept mapping, prose, domain filing, resolving a slug collision); the mechanical steps are code, never improvised — reciprocity fan-out, anchor refresh, atlas regeneration, validator, and a non-blocking drift advisory. A validation failure blocks the apply; a failing page is fixed, never shipped. The distiller never writes the store directly — only through the merge consuming each entry.
 
 ## Key Invariants
 
@@ -34,6 +34,8 @@ The distiller runs after merges, scanning for unconsumed entries. For each it re
 - [scratch-capture](scratch-capture.md) — an input boundary: the distiller never reads scratch.
 - [portable-tooling](portable-tooling.md) — the offline validator and atlas generator the distiller runs when draining from a hub.
 - [close-entry-migration](close-entry-migration.md) — the migrated entry and range the drain recomputes a relocated epic's diff from.
+- [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decision and three-way gate the drain performs during synthesis and at its checkpoint.
+- [drift-advisory](drift-advisory.md) — the non-blocking deterministic step the drain runs after synthesis, writing decay findings into the PR.
 
 ## Decision Log
 
@@ -76,3 +78,7 @@ Committed engineer scratch now lives inside the very queue entries the distiller
 ### 2026-07-18 — #74 — The drain follows the resolved atlas location, holding no docs-path literal
 
 The drain's atlas regeneration, its sync check, its staged file set, and its completion report all follow the docs root the resolver produces, rather than a hardcoded docs-directory location. A single-repo drain is unchanged, because the resolved location there is still that same docs subdirectory; a docs-only hub drain writes the atlas at the hub root, never recreates a docs directory the hub does not use, and names the real location in its report. Sourcing the path from the same producer the generator uses keeps one answer across regenerate, check, stage, and report — the literal was the last place the old fixed-location assumption survived.
+
+### 2026-07-20 — #94 — The drain becomes the taxonomy's steward: filing and a drift advisory
+
+The distiller gained two stewardship behaviors, each split into its own concept rather than grown onto this already-full page: during synthesis it files every new concept under a best-fit domain and stops at a three-way gate when none fits, and among its deterministic steps it now runs a non-blocking drift advisory that reports taxonomy decay into the PR body. Both are gated on a registry's presence, so a drain with no registry is byte-for-byte unchanged. Refuted alternative: describe filing and the advisory inline here — rejected because the page is already at its word cap and the store's discipline splits a concept that no longer fits rather than growing it.

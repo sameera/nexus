@@ -1,8 +1,8 @@
 ---
 title: "Grep-Native Retrieval"
 aliases: ["no-topology retrieval", "grep-native knowledge", "blast radius by grep", "neighbor list"]
-touches: ["concept-store", "code-anchors"]
-last_updated_by: "manual"
+touches: ["concept-store", "code-anchors", "drift-advisory"]
+last_updated_by: "#94"
 status: active
 verification: verified
 ---
@@ -27,6 +27,7 @@ Retrieval has four paths, all plain search: a known concept name reads its page 
 
 - [concept-store](concept-store.md) — the store whose pages this retrieval model reads.
 - [code-anchors](code-anchors.md) — derived path sidecars that extend retrieval toward the source for contributor ramp-up.
+- [drift-advisory](drift-advisory.md) — reopens community detection, but only offline and advisory, never as retrieval state, so this discipline holds.
 
 ## Decision Log
 
@@ -37,3 +38,7 @@ Informing planning and design needs readable, retrievable, distilled pages, not 
 ### 2026-07-04 — manual — An atlas without touching retrieval
 
 Ramp-up is precisely the case where the reader cannot name what to search, so a derived orientation atlas fills that one gap while machine retrieval stays search, list, and read. Refuted alternative: letting tooling consult the atlas as an index — it duplicates what listing already gives a machine and reintroduces derived retrieval state.
+
+### 2026-07-20 — #94 — Reciprocal link from drift-advisory
+
+Mechanical reciprocity fan-out: the drift advisory reopens community detection — burned in three prior generations and barred from retrieval here — but confines it to offline, human-reviewed proposals of missing domains, never persisted as page metadata or read as an index, so this page's no-community-detection retrieval rule stays intact.
