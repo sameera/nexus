@@ -6,7 +6,7 @@
 
 **Core Philosophy:** Generation is cheap. Judgment is not. Nexus's failure mode to guard against is speculative over-generation: heavy artifacts (sprawling HLDs, per-task plans, prose reports) produced ahead of validated scope, burying the human decisions that matter. The rule: every artifact must force a human decision, or it gets cut.
 
-**Pipeline:** `setup → epic → hld → analyze → close`. The user story, not the technical task, is the terminal planning unit and the GitHub-issue granularity — Nexus stops decomposing once a story is small enough to ship and verify on its own. Implementation itself stays the engineer's job — Nexus plans and gates the work, it does not write the code.
+**Pipeline:** `setup → epic → hld → analyze → close`, and then the distiller drains the closed queue into the concept store. In the PR-driven flow the lead runs `analyze --pr` against the (possibly open) PR, merges, then runs `close --pr` and `distill` post-merge in one shared worktree. The user story, not the technical task, is the terminal planning unit and the GitHub-issue granularity — Nexus stops decomposing once a story is small enough to ship and verify on its own. Implementation itself stays the engineer's job — Nexus plans and gates the work, it does not write the code.
 
 ## Code Conventions
 

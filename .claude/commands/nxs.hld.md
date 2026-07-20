@@ -1,6 +1,6 @@
 ---
 name: nxs.hld
-description: Add the architectural decision record to a planned epic in the queue — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the queued epic and its stories; writes decision-record.md beside epic.md. Next stage is implementation, then /nxs.analyze validates conformance.
+description: Add the architectural decision record to a planned epic in the queue — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the queued epic and its stories; writes decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash, Task, AskUserQuestion
 model: inherit
@@ -29,6 +29,14 @@ $ARGUMENTS
 
 `$ARGUMENTS` may name a queue entry, an `epic.md`, or its directory. Empty is the normal case —
 resolve the entry from the current branch in Phase 0.
+
+**Import mode — `--from <path>`.** If `$ARGUMENTS` contains `--from <path>` (string-matched, like
+`/nxs.epic --resume`), the decision record is derived from the **existing design doc** at `<path>` —
+a developer HLD, a plan, or any out-of-band design write — instead of a fresh from-scratch analysis.
+This is the supported bridge for work designed outside the pipeline (CLAUDE.md: "a developer HLD …
+enters Nexus only via the lead's `/nxs.hld --from` at approval"): the doc supplies the *why*, the
+queued `epic.md` still supplies the scope the record must cover. Strip the `--from <path>` token
+before resolving the entry path from the rest of `$ARGUMENTS`.
 
 ## Interaction convention — actionable choice gates
 
@@ -63,6 +71,16 @@ queue entry that holds the epic; the decision record joins it.
 
 Record `QDIR` = the resolved entry directory.
 
+## Phase 0.5 — Load the design doc (import mode only)
+
+**Skip without `--from`.** With `--from <path>`, read the design doc at `<path>` (it lives outside
+the queue — a docs-space HLD, or a machine-local plan). If it does not exist or is empty, ERROR and
+stop — import mode has nothing to import. Keep its content as **`IMPORT_DOC`** for Phase 1. The doc
+is the authoritative *why* source; the from-scratch architect analysis is replaced by a
+**doc-derivation** pass (Phase 1). The doc may contain code, file paths, and type names — those are
+**stripped** when deriving the record (the record is decisions-and-rationale prose only; §template
+rule: no file paths / type names / API specs).
+
 ## Phase 1 — Architectural analysis (delegate to nxs-architect)
 
 **Resolve the docs root first** (the architect reads context under it; it never resolves for itself).
@@ -80,11 +98,21 @@ value nor treat failure as "context absent".
 Invoke `nxs-architect` in **decision-record mode**. The architect produces the decision *content* — the
 "why", not a 16-section document.
 
+**Import mode (`--from`):** pass `IMPORT_DOC` (Phase 0.5) as the FIRST, authoritative input and tell
+the architect to **derive** the record from it — extract the decisions, the refuted viable
+alternatives, the invariants, and the BLOCKER/ADDRESS risks the doc already states, rather than
+re-designing from scratch. Fresh reasoning is used only to (a) abstract any code / file paths / type
+names in the doc into domain prose and (b) verify story coverage. Any decision the doc states without
+a *why*, any choice it made without recording the viable alternative it beat, or any doc claim that
+needs human ratification becomes an **Open Clarification** (the Phase 2 gate) — import never silently
+invents a rationale the doc did not contain.
+
 ```
 Invoke: nxs-architect
 Topic: Decision record for epic "<epic title>"
 Resolved docs root: <docs-root>   # every doc path below is under this; on a repo-root hub it is `.`
 Inputs to read:
+- <IMPORT_DOC path>          # import mode ONLY (--from): the authoritative design doc — primary why source
 - ${QDIR}/epic.md            # the epic and ALL its user stories — authoritative scope
 - <docs-root>/product/context.md    # personas, strategy (reference, don't re-tabulate)
 - <docs-root>/system/stack.md       # technology stack
@@ -179,6 +207,15 @@ Report concisely:
 - Next step: implement the stories, then `/nxs.analyze` to check the code against each story's
   acceptance criteria and this record's invariants.
 
+# Usage
+
+```
+/nxs.hld                              # design the queue entry resolved from the current branch
+/nxs.hld path/to/epic.md             # design an explicit queue entry
+/nxs.hld --from docs/design/x.md     # import an existing design doc as the record's basis
+/nxs.hld --from ~/plan.md path/to/epic.md   # import, with an explicit entry
+```
+
 # Constraints
 
 - **No 16-section HLD, no per-task LLD, no task index, no `story_ref`** — the story is the
@@ -189,3 +226,9 @@ Report concisely:
   prose.
 - **Queue, not `docs/`.** The decision record is committed planning state in
   `.nexus/queue/<epic-slug>-<local-id>/`, the same entry `/nxs.epic` and `/nxs.analyze` use.
+- **`--from` imports a design doc; it does not copy it.** The doc is the authoritative *why*
+  source, but the record it produces is still abstracted domain prose (no code / file paths / type
+  names) covering every story, and every decision still carries its *why* — a doc that states a
+  choice without a rationale, or without the viable alternative it beat, raises an Open Clarification
+  rather than shipping an unsupported entry. The source doc stays where it lives; only the record is
+  written into the queue.

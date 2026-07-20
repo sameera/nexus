@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Reads the queued epic + decision record and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.hld, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Reads the queued epic + decision record and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.hld, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -31,6 +31,34 @@ $ARGUMENTS
 
 # Phase 0 — Resolve the epic context
 
+## PR mode (`--pr <N>`)
+
+If `$ARGUMENTS` contains `--pr <N>` (recognized by string match, like `/nxs.epic --resume`), run
+against a PR **in an isolated worktree** instead of the current checkout. The PR may still be
+**open** — conformance runs *before* merge in the new pipeline (`analyze → merge → close`).
+Supported in single-repo and hub mode only; a member repo is rejected by the helper.
+
+1. **Open the worktree** (also preflights the role and PR):
+
+    ```bash
+    tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts open --pr <N> --mode analyze
+    ```
+
+    It prints `{ wtPath, analyzedHead, base }`: `wtPath` is a detached worktree checked out at the
+    PR head (`analyzedHead` — the commit actually analyzed, fetched via `pull/<N>/head` so forks
+    work), and `base` is the PR base SHA. **Every path operation below — epic resolution, the diff,
+    the code reads — happens inside `wtPath`.** Resolve the epic from `$ARGUMENTS` (minus the
+    `--pr <N>` token) *re-rooted under `wtPath/.nexus/queue/…`*, or from the single queue entry in
+    the worktree. The entry is present because it landed with the epic PR and the dev's scratch rides
+    the feature PR.
+2. **Always remove the worktree** at the end of the run and on any error:
+
+    ```bash
+    tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts remove <wtPath>
+    ```
+
+Without `--pr`, resolve the epic context from the current checkout as usual.
+
 Resolve in priority order:
 
 1. **Explicit path in `$ARGUMENTS`** — a queue entry, an `epic.md`, or its directory.
@@ -59,6 +87,10 @@ Determine what was actually built for this epic. Use, in order of availability:
     ```
 
     If the epic was implemented across several merges, this is the cumulative change set.
+
+    **In `--pr` mode**, skip the `merge-base` line: run inside `wtPath`, set `BASE` to the
+    preflight `base`, and diff against the worktree head — `git -C <wtPath> diff "$BASE"...HEAD`
+    — which is exactly the PR's change set.
 
 2. **The story issues.** For each story, read its issue state and any closing commits/PRs:
 
@@ -159,11 +191,55 @@ findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
 The receipt is ephemeral queue content: the distiller deletes it with the entry post-merge. Never
 link it from an issue.
 
+## PR mode — publish a review, not a receipt file
+
+In `--pr` mode the worktree is removed after this phase, so **do not write `analyze-receipt.md`**
+(it would vanish with the worktree). Instead publish the result on the PR so `/nxs.close --pr` can
+read it.
+
+1. Write the review body to a scratch file: the summary block above **verbatim**, then a machine
+   block `/nxs.close` parses back out (the `<!-- nexus:analyze-receipt -->` marker anchors it):
+
+    `````markdown
+    <!-- nexus:analyze-receipt -->
+    ```yaml
+    epic: "<link>"
+    pr: <N>
+    date: <YYYY-MM-DD>
+    head: <full 40-hex analyzedHead>     # the commit actually analyzed
+    mode: full | downgraded
+    findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
+    ```
+    `````
+
+2. Publish it as a **PR review**, so the verdict lands in the merge box:
+
+    ```bash
+    # clean — no critical/high findings:
+    gh pr review <N> --approve --body-file "<scratch>/analyze-review.md"
+    # critical or high present:
+    gh pr review <N> --request-changes --body-file "<scratch>/analyze-review.md"
+    ```
+
+    **Fallback:** GitHub forbids reviewing your own PR. If the review call fails because the lead
+    authored the PR, post the same body as a comment and say so in your summary:
+
+    ```bash
+    gh pr comment <N> --body-file "<scratch>/analyze-review.md"
+    ```
+
+3. Remove the worktree: `tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts remove <wtPath>`.
+
+`head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so `/nxs.close` can
+compare it for exact equality against the PR head. Re-running analyze publishes a fresh review;
+`/nxs.close` takes the latest machine block.
+
 # Usage
 
 ```
 /nxs.analyze                      # current branch's queue entry, or open-file context
 /nxs.analyze path/to/epic-entry   # explicit queue entry / epic directory
+/nxs.analyze --pr 123             # conformance against PR #123 in a worktree; posts a PR review
 ```
 
 # Constraints
@@ -180,3 +256,8 @@ link it from an issue.
 - **Engineer scratch is soft.** The per-user stubs are read-only context that can explain a
   divergence but never decide a verdict or gate the receipt; a missing scratch dir changes
   nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch.
+- **`--pr` mode runs in a worktree and publishes a review, not a file.** Single-repo and hub only
+  (the helper rejects member repos). Every read happens inside the worktree; the worktree is always
+  removed at the end and on error. The conformance result is a PR review (comment fallback when the
+  lead authored the PR) carrying the machine block — `analyze-receipt.md` is **not** written in this
+  mode. The PR may be open (analyze precedes merge).

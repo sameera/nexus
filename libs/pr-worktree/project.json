@@ -1,0 +1,9 @@
+{
+  "name": "@nexus/pr-worktree",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/pr-worktree/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/pr-worktree --web",
+  "targets": {}
+}

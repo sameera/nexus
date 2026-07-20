@@ -76,12 +76,30 @@ $ARGUMENTS
 All drainable entries in one run are batched into **one** distillation-PR (0007 batches
 naturally), applied entry-by-entry (Phase 4).
 
+**Continuation mode (the `/nxs.close --pr` hand-off).** If the current branch matches `distill/*`,
+the working tree is clean, and the branch's commits vs `origin/main` touch **only** queue/docs
+artifacts (a close just prepared it — the close record, backlog append, and lesson), run in
+**continuation mode**:
+
+- **Drain exactly the one entry this branch carries** — the queue entry whose `close-record.md` is
+  present on this branch but not on `origin/main`. Do **not** scan the whole queue, and do **not**
+  report other closed-on-their-own-branch entries as drain-SLO breaches (each is drained on its own
+  branch). Whole-queue batching applies only to the ordinary drain, not continuation mode.
+- **Do not cut a new branch** (Phase 4) — you are already on the close-prepared one.
+- **Fetch and rebase onto the trunk first:** `git fetch origin main` and rebase this distill branch
+  onto `origin/main` before the Phase 2 survey, so slug convergence sees any distillation that
+  merged since the close (or warn if the branch base is behind and cannot fast-forward).
+- Use the **range-head-reachability** merge precondition, not the `epic.md`-presence proxy
+  (Phase 0.4).
+
 # Phase 0 — Preflight
 
 1. For each drainable entry, read `epic.md` frontmatter: `epic`/`title`, `link`, `feature`,
    `slug`. Read `decision-record.md` and `close-record.md` in full.
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: the drain creates a branch and must not entangle unrelated work.
+   (In continuation mode the tree is clean because the close committed its artifacts, and you are
+   already on the `distill/*` branch — expected, not a block.)
 3. **Resolve the run mode once** — the same committed artifacts and presence check the
    deterministic steps use to select their runner (Phase 5.3); never a new heuristic
    (e.g. never "no `package.json`"):
@@ -110,13 +128,26 @@ naturally), applied entry-by-entry (Phase 4).
    merged, so a single-repo drain writes the store only from an entry that has reached the trunk.
    Confirm each drainable entry is on the trunk:
 
+    **Continuation mode uses a different, stronger check** (the `epic.md`-presence proxy is defeated
+    in the `--pr` pipeline — `epic.md` reaches `main` at the *epic* PR, long before the feature
+    merges). Confirm instead that the entry's landed change is on the trunk by testing the recorded
+    range head:
+
+    ```bash
+    TRUNK="$(git rev-parse -q --verify origin/main || git rev-parse -q --verify main)"
+    git merge-base --is-ancestor <range.head> "$TRUNK" && echo merged || echo not-merged
+    ```
+
+    In the ordinary (non-continuation) drain, keep the `epic.md`-presence proxy:
+
     ```bash
     TRUNK="$(git rev-parse -q --verify origin/main || git rev-parse -q --verify main)"
     git cat-file -e "${TRUNK}:<entry-path>/epic.md" 2>/dev/null && echo merged || echo not-merged
     ```
 
     - **merged** → continue silently. Phase 1 and Phase 4 take their normal single-repo path
-      (branch cut from the trunk, introducing-commit diff).
+      (branch cut from the trunk, introducing-commit diff); continuation mode stays on its branch
+      and derives from the recorded range.
     - **not-merged** → the entry's feature branch has not merged to the trunk. Running here hits the
       two failures the ordering exists to prevent, and you surface **both** before doing any work —
       the gate **detects, it never substitutes** (the analyze-gate contract from `/nxs.close`):
@@ -200,11 +231,20 @@ argument its own quoted token — never a shell-interpolated string:
       remaining entries. Never fall back to the hub repo, never treat the failure as an empty
       diff, never derive a partial diff, and never ask the user for a replacement range.
 
-**Single-repo mode (unchanged).** Per entry, resolve the SHA range in priority order. For an entry
-the Phase 0.4 gate waived as **not-merged**, skip priority 1 — it is degenerate pre-merge (Phase
-0.4) — and derive the diff from priority 2 (the recorded `range:`):
+**Single-repo mode — range-first.** Per entry, resolve the SHA range in priority order. The
+recorded `range:` is the primary source (it is exact — `/nxs.close` stamps it from the merged PR,
+and it converges single-repo onto how hub mode already derives). The introducing-commit path is only
+a fallback for legacy entries with no usable range. For an entry the Phase 0.4 gate waived as
+**not-merged**, use priority 1 (the recorded `range:`) directly:
 
-1. **The commit that introduced the queue entry:**
+1. **Recorded range in the entry** — the `range:` list in `close-record.md` frontmatter
+   (entries of `{repo, base, head}`, full SHAs — use this repo's entry), or legacy top-level
+   `base`/`head` fields in `epic.md` or `close-record.md`, if present:
+   `git diff <base>...<head>`. In continuation mode this is always the source (the close just
+   stamped it).
+
+2. **The commit that introduced the queue entry (fallback — only when the range SHAs are
+   unreachable):**
 
     ```bash
     INTRO="$(git log --diff-filter=A --format=%H -n 1 -- <entry-dir>)"
@@ -212,12 +252,10 @@ the Phase 0.4 gate waived as **not-merged**, skip priority 1 — it is degenerat
     ```
 
     For a merge commit this is the merged feature diff; for a squash-merge it is the squashed
-    commit's diff. Both are the epic's landed change.
-
-2. **Recorded range in the entry** — the `range:` list in `close-record.md` frontmatter
-   (entries of `{repo, base, head}`, full SHAs — use this repo's entry), or legacy top-level
-   `base`/`head` fields in `epic.md` or `close-record.md`, if present:
-   `git diff <base>...<head>`.
+    commit's diff. **Do not use this in continuation mode** — on a close-prepared branch the most
+    recent add to the entry dir is the close commit, whose diff is only close artifacts (and in the
+    multi-PR pipeline no single introducing commit holds the feature code). It exists for legacy
+    single-repo entries whose recorded head was squashed away and is no longer reachable.
 
 3. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
    user for a base/head range via `AskUserQuestion` free text; do not guess.
@@ -356,6 +394,10 @@ manual curation, out of this drain's scope).
     instead of the trunk — that is where the entry lives (to `git rm`) and where the surveyed store
     matches. Branching from the trunk would make the `git rm` fail and land pages describing code
     the trunk does not yet have.
+
+    **In continuation mode, skip this step** — you are already on the close-prepared `distill/*`
+    branch (it holds the entry to `git rm` and the store the survey matched, rebased onto the trunk
+    in Phase 0). Apply the deltas and commit on it directly.
 
 2. **Apply entry-by-entry, one commit per queue entry** (this keeps the validator's
    one-new-Decision-Log-entry check exact when several entries touch the same page). For each
@@ -638,6 +680,11 @@ gh pr create --title "distill: <epic title(s) or local-ids>" --body "<body below
 git checkout -
 ```
 
+**In continuation mode**, the branch already exists and was pushed by the close (`--pr`); `git push`
+lands the new concept/anchor/atlas commits on it. **Do not run `git checkout -`** — you are inside
+the close worktree, which stays on this branch; there is no prior branch to return to. The worktree
+is removed after the PR is dealt with (Phase 8).
+
 The PR body is **review-oriented** — the reviewer is checking the *what*-abstraction and the
 page-patch mapping (0007), so give them, per concept:
 
@@ -668,6 +715,11 @@ atomically with the page writes — **no manual post-merge step**:
 - `<entry-path>` (recoverable via git history)
 ```
 
+In continuation mode the entry's `close-record.md` was added by the close earlier on this same
+branch and is `git rm`'d here, so it is **add-then-deleted within the branch** — invisible in the
+net "Files changed". Its prose lives durably in the epic-issue close comment; quote or link that
+comment in the PR body so the reviewer can see the *why* without a dangling queue path.
+
 # Phase 8 — Report completion
 
 ```
@@ -693,6 +745,13 @@ Entries blocked (hub mode — diff underivable): <list with originating repo, ag
 Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```
 
+**In continuation mode**, end with the worktree-cleanup instruction. `/nxs.distill` runs *inside* the
+close worktree, so it cannot remove that worktree itself; the lead removes it once done reviewing:
+
+    Worktree: <wtPath> (the close/distill worktree — still checked out on this branch)
+    CLEANUP (after the distillation-PR is merged or closed):
+        git worktree remove --force <wtPath>
+
 # Constraints
 
 - **Never write `.nexus/concepts/` on main.** All page writes happen on the distill branch; the
@@ -709,6 +768,16 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
   explicit choice — merge first (recommended) or an explicit waiver that routes the diff through the
   recorded `range:` and bases the branch on HEAD. Detect, never substitute.
 - **No search when a path is given** — `$ARGUMENTS` resolves directly.
+- **Single-repo diff derivation is range-first** — the recorded `range:` is primary (exact, stamped
+  by `/nxs.close` from the merged PR), the introducing-commit path a fallback for legacy entries
+  whose range SHAs are unreachable. In continuation mode the range is always the source, and the
+  introducing-commit path is never used (its most-recent add is the close commit).
+- **Continuation mode (the `/nxs.close --pr` hand-off) drains exactly one entry on its branch** —
+  the entry whose `close-record.md` the close just committed. It does not scan the whole queue, does
+  not batch, does not cut a new branch (it is already on the close-prepared `distill/*` branch,
+  rebased onto the trunk), uses the range-head-reachability merge precondition, and leaves worktree
+  removal to the lead (it runs inside that worktree). The ordinary whole-queue batched drain is
+  unchanged when not on a close-prepared branch.
 - **The diff is recomputed, never stored** (0006). In hub mode it is recomputed **only** from
   the close record's `range:` stamp inside the named member checkout; a missing checkout, an
   unreachable SHA, or a missing/malformed stamp is a hard per-entry error (report it, drain the
@@ -750,4 +819,7 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
 ```
 /nxs.distill                                 # drain every closed entry in .nexus/queue/**
 /nxs.distill .nexus/queue/fe205650/          # drain one specific entry
+/nxs.distill                                 # (on a close-prepared distill/* branch, inside the
+                                             #  close worktree) continuation mode — drains that
+                                             #  branch's one entry and opens its distillation-PR
 ```

@@ -36,6 +36,9 @@ importers:
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:libs/close-migration
+      '@nexus/pr-worktree':
+        specifier: workspace:*
+        version: link:libs/pr-worktree
       '@nexus/workspace':
         specifier: workspace:*
         version: link:libs/workspace
@@ -236,6 +239,15 @@ importers:
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
+
+  libs/pr-worktree:
+    dependencies:
+      '@nexus/close-migration':
+        specifier: workspace:*
+        version: link:../close-migration
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
 
   libs/workspace:
     dependencies:
