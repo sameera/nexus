@@ -21,6 +21,7 @@
     "nexus:generate-atlas": "tsx libs/portable-tools/src/generate-atlas.ts",
     "nexus:check-atlas": "tsx libs/portable-tools/src/generate-atlas.ts --check",
     "nexus:drift-advisory": "tsx libs/portable-tools/src/drift-advisory.ts",
+    "nexus:seed-registry": "tsx libs/portable-tools/src/seed-registry.ts",
     "nexus:vendor-tools": "tsx libs/portable-tools/src/vendor-bundle.ts"
   },
   "devDependencies": {

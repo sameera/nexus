@@ -33,6 +33,7 @@ const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const ATLAS_SRC: string = path.join(SRC_DIR, "generate-atlas.ts");
 const VALIDATOR_SRC: string = path.join(SRC_DIR, "validate-concepts.ts");
 const DRIFT_SRC: string = path.join(SRC_DIR, "drift-advisory.ts");
+const SEED_SRC: string = path.join(SRC_DIR, "seed-registry.ts");
 
 let freshBundles: Record<string, BuiltBundle>;
 let freshFingerprint: Fingerprint;
@@ -267,6 +268,34 @@ describe("drift-advisory parity over the corpus (epic #94, STORY-94.02 — byte-
 
         // Guard the corpus itself: it exercises a real, stable finding, not just a clean store.
         expect(source.stdout).toContain("### Cross-domain misfiles");
+    });
+});
+
+describe("seed-registry parity over the corpus (epic #94, STORY-94.03 — byte-identical drafts)", () => {
+    it("source and bundle write byte-identical draft files over the corpus", () => {
+        const seedRoot: string = path.join(CORPUS, "seed");
+        const sourceOut: string = makeTmpDir("parity-seed-src-");
+        const bundleOut: string = makeTmpDir("parity-seed-bun-");
+        const bundlePath: string = writeBundle("seed-registry");
+        const args = (out: string): string[] => ["--concepts-dir", "concepts", "--out-dir", out];
+
+        const source: RunResult = runSource(SEED_SRC, args(sourceOut), seedRoot);
+        const bundle: RunResult = runBundle(bundlePath, args(bundleOut), seedRoot);
+
+        expect(source.status).toBe(0);
+        expect(bundle.status).toBe(0);
+
+        // Seed mode writes files (not stdout); compare each draft byte-for-byte across source/bundle.
+        for (const name of ["domains.draft.md", "domain-filing-suggestions.draft.md"]) {
+            const sourceDraft: string = fs.readFileSync(path.join(sourceOut, name), "utf8");
+            const bundleDraft: string = fs.readFileSync(path.join(bundleOut, name), "utf8");
+            const divergence = diffAtlasBytes("seed-registry", name, sourceDraft, bundleDraft);
+            expect(divergence, divergence ? formatDivergences([divergence]) : undefined).toBeNull();
+        }
+
+        // Guard the corpus: a real, stable candidate-domain draft, not an empty store.
+        const registryDraft: string = fs.readFileSync(path.join(sourceOut, "domains.draft.md"), "utf8");
+        expect(registryDraft).toContain("## Candidate Domain 1");
     });
 });
 

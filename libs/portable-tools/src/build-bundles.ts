@@ -12,6 +12,7 @@ export const ENTRY_POINTS: Record<string, string> = {
     "validate-concepts": "validate-concepts.ts",
     "derive-entry-diff": "derive-entry-diff.ts",
     "drift-advisory": "drift-advisory.ts",
+    "seed-registry": "seed-registry.ts",
     "nexus": "nexus-cli.ts",
 };
 
