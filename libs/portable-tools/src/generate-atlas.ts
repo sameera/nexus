@@ -214,7 +214,7 @@ export function loadConceptPages(conceptsDir: string): ConceptPage[] {
     return pages;
 }
 
-function buildAdjacency(pages: ConceptPage[]): Map<string, Set<string>> {
+export function buildAdjacency(pages: ConceptPage[]): Map<string, Set<string>> {
     const slugs: Set<string> = new Set(pages.map((p: ConceptPage) => p.slug));
     const adjacency: Map<string, Set<string>> = new Map();
     for (const page of pages) {
@@ -406,6 +406,13 @@ function main(): void {
     process.exit(runCli(process.argv.slice(2)));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// The `import.meta.url` check alone is not enough once another entry point imports this module
+// (epic #94, STORY-94.02: drift-advisory.ts imports buildAdjacency/loadConceptPages/registryPath
+// for Invariant 9's literal graph-construction agreement) — esbuild inlines this whole file into
+// that entry's bundle, and after bundling both files' guards share one `import.meta.url`, so this
+// guard would otherwise also fire (and process.exit) inside a run of the OTHER entry point. The
+// filename check disambiguates: it stays true only when this file is the one actually invoked, in
+// both `tsx` (source, "generate-atlas.ts") and vendored-bundle ("generate-atlas.mjs") form.
+if (import.meta.url === `file://${process.argv[1]}` && path.basename(process.argv[1]).startsWith("generate-atlas")) {
     main();
 }

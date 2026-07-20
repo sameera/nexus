@@ -32,6 +32,7 @@ const PIN_PATH: string = path.join(LIB_ROOT, "bundle-fingerprint.json");
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const ATLAS_SRC: string = path.join(SRC_DIR, "generate-atlas.ts");
 const VALIDATOR_SRC: string = path.join(SRC_DIR, "validate-concepts.ts");
+const DRIFT_SRC: string = path.join(SRC_DIR, "drift-advisory.ts");
 
 let freshBundles: Record<string, BuiltBundle>;
 let freshFingerprint: Fingerprint;
@@ -247,6 +248,25 @@ describe("atlas parity — registry mode (epic #89, Invariant 12)", () => {
         expect(sourceAtlas).toContain("## Connectors");
         expect(sourceAtlas).toContain("### Catalog");
         expect(sourceAtlas).not.toContain("## Standalone");
+    });
+});
+
+describe("drift-advisory parity over the corpus (epic #94, STORY-94.02 — byte-identical)", () => {
+    it("source and bundle produce byte-identical stdout over the corpus", () => {
+        const driftRoot: string = path.join(CORPUS, "drift");
+        const bundlePath: string = writeBundle("drift-advisory");
+        const args: string[] = ["--concepts-dir", "concepts", "--registry", "docs/domains.md"];
+
+        const source: RunResult = runSource(DRIFT_SRC, args, driftRoot);
+        const bundle: RunResult = runBundle(bundlePath, args, driftRoot);
+
+        expect(source.status).toBe(0);
+        expect(bundle.status).toBe(0);
+        const divergences = diffRunResults("drift-advisory", "drift", source, bundle);
+        expect(divergences, formatDivergences(divergences)).toEqual([]);
+
+        // Guard the corpus itself: it exercises a real, stable finding, not just a clean store.
+        expect(source.stdout).toContain("### Cross-domain misfiles");
     });
 });
 

@@ -20,8 +20,11 @@ The split is **judgment as prompt, mechanics as code** (0004 B0):
   exists (epic #94, STORY-94.01) — filing each new concept's `domain:` against the registry's
   rubrics and drafting a new subdomain/domain when none fits.
 - **Mechanics (deterministic, never improvised):** the C11 reciprocity fan-out, the R1 anchors
-  refresh, and the validator (`libs/portable-tools/src/validate-concepts.ts`). A validation failure **blocks the
-  PR** — you fix the pages and re-validate; you never ship a failing page.
+  refresh, the validator (`libs/portable-tools/src/validate-concepts.ts`), and — when a domain
+  registry exists (epic #94, STORY-94.02) — the drift advisory (Phase 6.3). A validation failure
+  **blocks the PR** — you fix the pages and re-validate; you never ship a failing page. The drift
+  advisory is the opposite: it never blocks, never edits, always exits zero — it only writes text
+  into the PR body.
 
 Your output is a **distillation-PR**. The PR merge is the authoritative write (0007). You never
 write `.nexus/concepts/` on main. Deleting a consumed entry is **part of that same PR**: the
@@ -574,6 +577,19 @@ For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
 
 ## Phase 6.3 — Final checkpoint
 
+**Drift advisory (epic #94, STORY-94.02) — deterministic, non-blocking, store-level; gated on
+registry presence.** When Phase 2 found a registry, now that every entry is applied and any Phase
+6.2 taxonomy change has landed (so the branch holds the final store state the atlas was regenerated
+from), run the advisory **once** over the whole store, using the Phase 5.3-selected invocation:
+
+- Single-repo: `pnpm nexus:drift-advisory`
+- Hub: `node .nexus/tools/drift-advisory.mjs`
+
+Capture its stdout — advisory markdown, possibly empty. It **never edits a page or the registry and
+always exits zero**; a non-zero exit or any file write is a bug, never a drain block, and nothing it
+prints is ever `git add`ed. Record the captured markdown for the digest line below and the Phase 7
+PR body. **If Phase 2 found no registry, skip this step entirely** (byte-for-byte today's behavior).
+
 **STOP AND WAIT.** Render the delta digest as markdown first:
 
 ```
@@ -592,6 +608,7 @@ Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new 
 Anchors refreshed: <slugs>
 Atlas: regenerated (<resolved-atlas-path>)
 Validator: PASS (<N> page(s))
+Drift advisory: <n finding(s) — misfiles/refinements/candidates, or a staleness alarm | clean — no drift above thresholds | not run — no registry> (advisory only, never blocks)
 
 Skipped (not closed): <local-id> — repo <owner/repo, hub mode only> — age <n>d [DRAIN-SLO BREACH if >30d]
 Blocked (hub mode — diff underivable): <local-id> — repo <owner/repo> — age <n>d — <problem> [DRAIN-SLO BREACH if >30d]
@@ -635,6 +652,10 @@ Drained queue entries: `<entry paths>` (provenance: <ref(s)>)
 - **Provenance:** <ref> (<link to the issue>)
 - **Reciprocal edits:** <slugs, or none>
 
+## Taxonomy drift advisory (epic #94, STORY-94.02 — advisory only, never blocks)
+<Paste the Phase 6.3 captured advisory markdown verbatim here. If it was empty, write
+"Clean — no drift above thresholds." If Phase 2 found no registry, omit this section.>
+
 ## Anchors refreshed (derived, never hand-edited)
 - `.nexus/anchors/<slug>.md` @ <source_sha — single-repo scalar, or one `<repo>@<sha>` per repo in hub mode>
 
@@ -660,6 +681,7 @@ Taxonomy gate:     <n> forced fit(s) resolved (<n> new subdomain(s), <n> new dom
 Reciprocal edits:  <n>  (<slugs>)
 Anchors refreshed: <n>
 Validator:         PASS
+Drift advisory:    <n finding(s), or "clean", or "not run — no registry"> (advisory only — never blocked this drain)
 
 Entries skipped (not closed): <list with ages, drain-SLO flags; hub mode adds each entry's
                                originating repo as <owner>/<repo>>
@@ -704,6 +726,11 @@ Consumed entries: removed on the branch — deletion lands with the merge (no po
   an approved new domain/subdomain is authored on this same distill branch and re-validated
   before Phase 7 opens the PR. No registry present → completely inert, byte-for-byte today's
   behavior.
+- **The drift advisory (epic #94, STORY-94.02) is advisory only.** When a registry exists, Phase 6.3
+  runs it once over the final branch state and pastes its findings into the PR body. It is
+  deterministic (slug-ordered, integer thresholds, byte-identical on an unchanged store), always
+  exits zero, and **never edits a page or the registry, never gates the drain, and is never
+  committed**. No registry present → it is not run.
 - **§8.3 is a hard boundary** for pages: no code, no file paths, no type names, no API specs, no
   speculative claims. Paths live only in `.nexus/anchors/` (R1).
 - **The per-user scratch dirs inside a queue entry are never a distill input** — never read,
