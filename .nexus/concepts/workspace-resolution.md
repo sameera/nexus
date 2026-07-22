@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli"]
-last_updated_by: "#87"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning"]
+last_updated_by: "#114"
 status: active
 verification: verified
 ---
@@ -15,9 +15,9 @@ Workspace resolution makes a multi-repo product a declared, discoverable thing: 
 
 The hub manifest is the single source of truth for the hub, its members, and each member's remote and checkout name. A member's pointer only locates the hub; on disagreement the manifest wins.
 
-A checkout's role follows the artifact it carries: a manifest makes it the hub; a pointer makes it a member that finds the hub as a named sibling and reads that same manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes where a hub's portable tooling lives and each repo's docs root. Carrying neither means single-repo mode, unchanged.
+A checkout's role follows its artifact: a manifest makes it the hub, a pointer a member that finds the hub as a named sibling and reads that manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes the hub's portable-tooling location and each repo's docs root. Carrying neither means single-repo mode, unchanged.
 
-Two read-outs surface it: the full status and the resolved docs root.
+Two read-outs surface it: full status and resolved docs root.
 
 ## Key Invariants
 
@@ -36,6 +36,7 @@ Two read-outs surface it: the full status and the resolved docs root.
 - [portable-tooling](portable-tooling.md) — the resolved workspace context reports where a hub's vendored copy of this tooling lives.
 - [close-entry-migration](close-entry-migration.md) — a member close reads its role and hub here before relocating the entry.
 - [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer artifacts this resolver reads, re-resolving for parity.
+- [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
 
 ## Decision Log
 
@@ -66,3 +67,7 @@ The single-producer guarantee now provably covers the planning surfaces, not onl
 ### 2026-07-19 — #87 — The product-manager brief's residual path references now read the docs root too
 
 The docs-root read-out reached most of the product-manager brief when the planning surfaces moved, but three references it uses at runtime — its prior-decisions check, its project-templates check, and the decision-record path it recommends — still carried a hardcoded default and were missed by that sweep. They now read the same resolved value instead, so a workspace whose docs root isn't the default no longer sends the brief looking in, or recommending, the wrong place. No new mechanism: this closes a gap in the one already in place. Refuted alternative: leave the gap and treat it as within tolerance since the surfaces are read-time defaults, not write-time — rejected because a wrong read is the same silent-drift failure the docs-root read-out exists to prevent, whether the surface reads or writes.
+
+### 2026-07-22 — #114 — Reciprocal link from issue-sourced-planning
+
+Mechanical reciprocity fan-out: the issue-sourced-planning page names this resolver as what selects the epic resolver's target — the hub's issues in a workspace, the local repo in single-repo mode.
