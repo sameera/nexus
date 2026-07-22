@@ -36,6 +36,9 @@ importers:
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:libs/close-migration
+      '@nexus/epic-resolve':
+        specifier: workspace:*
+        version: link:libs/epic-resolve
       '@nexus/pr-worktree':
         specifier: workspace:*
         version: link:libs/pr-worktree
@@ -225,6 +228,15 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
+
+  libs/epic-resolve:
+    dependencies:
+      '@nexus/close-migration':
+        specifier: workspace:*
+        version: link:../close-migration
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
 
   libs/origin: {}
 

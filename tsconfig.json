@@ -16,6 +16,9 @@
       "path": "./libs/close-migration"
     },
     {
+      "path": "./libs/epic-resolve"
+    },
+    {
       "path": "./libs/portable-tools"
     },
     {

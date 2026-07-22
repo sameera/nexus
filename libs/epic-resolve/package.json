@@ -1,0 +1,48 @@
+{
+  "name": "@nexus/epic-resolve",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./run": {
+      "types": "./src/run.ts",
+      "import": "./src/run.ts",
+      "default": "./src/run.ts"
+    },
+    "./diagnostic": {
+      "types": "./src/diagnostic.ts",
+      "import": "./src/diagnostic.ts",
+      "default": "./src/diagnostic.ts"
+    },
+    "./render": {
+      "types": "./src/render.ts",
+      "import": "./src/render.ts",
+      "default": "./src/render.ts"
+    },
+    "./gh": {
+      "types": "./src/gh.ts",
+      "import": "./src/gh.ts",
+      "default": "./src/gh.ts"
+    },
+    "./serialize": {
+      "types": "./src/serialize.ts",
+      "import": "./src/serialize.ts",
+      "default": "./src/serialize.ts"
+    },
+    "./resolve": {
+      "types": "./src/resolve.ts",
+      "import": "./src/resolve.ts",
+      "default": "./src/resolve.ts"
+    },
+    "./write": {
+      "types": "./src/write.ts",
+      "import": "./src/write.ts",
+      "default": "./src/write.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@nexus/close-migration": "workspace:*",
+    "@nexus/workspace": "workspace:*"
+  }
+}
