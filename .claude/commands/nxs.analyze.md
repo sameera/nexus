@@ -47,10 +47,19 @@ Supported in single-repo and hub mode only; a member repo is rejected by the hel
     It prints `{ wtPath, analyzedHead, base }`: `wtPath` is a detached worktree checked out at the
     PR head (`analyzedHead` — the commit actually analyzed, fetched via `pull/<N>/head` so forks
     work), and `base` is the PR base SHA. **Every path operation below — epic resolution, the diff,
-    the code reads — happens inside `wtPath`.** Resolve the epic from `$ARGUMENTS` (minus the
-    `--pr <N>` token) *re-rooted under `wtPath/.nexus/queue/…`*, or from the single queue entry in
-    the worktree. The entry is present because it landed with the epic PR and the dev's scratch rides
-    the feature PR.
+    the code reads — happens inside `wtPath`.** Resolve the epic **inside `wtPath`** with the same
+    dual-read as the local flow: if a committed queue entry is present in the worktree (an
+    old-contract epic whose entry rode the PR), use it; otherwise resolve from the issue number —
+    derive the epic issue number from the **PR's linked issue** (`gh pr view <N> --json ...` → the
+    issue it closes → its parent epic; invariant 12), then materialize it:
+
+    ```bash
+    tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n> --dir <wtPath>
+    ```
+
+    Use the directory of the printed `outPath` (under `wtPath/.nexus/tmp/`) as the entry. Under #114
+    nothing is committed at planning, so the feature PR carries **no** queue entry — the resolver path
+    is the norm here; the committed-entry branch is the transitional case (invariant 14).
 2. **Always remove the worktree** at the end of the run and on any error:
 
     ```bash
@@ -59,18 +68,29 @@ Supported in single-repo and hub mode only; a member repo is rejected by the hel
 
 Without `--pr`, resolve the epic context from the current checkout as usual.
 
-Resolve in priority order:
+Resolve in priority order — **dual-read**: a committed entry when one exists, else resolve from the
+issue number (invariant 14):
 
 1. **Explicit path in `$ARGUMENTS`** — a queue entry, an `epic.md`, or its directory.
-2. **Queue entry in the current tree** — glob `.nexus/queue/*/`; a single entry is used, multiple
-   prompt a selection.
-3. **File open in the editor** — infer the epic directory from it.
-4. Otherwise stop and ask for the epic path.
+2. **Committed queue entry in the current tree** — glob `.nexus/queue/*/`; a single entry is used,
+   multiple prompt a selection. (Old-contract epics, including #114 itself.)
+3. **Resolve from the issue number (invariant 11)** — if no committed entry exists, reconstruct the
+   epic instead of failing with "queue entry not found":
+    - Epic issue number (invariant 12): the explicit `#<n>` / `<n>` in `$ARGUMENTS`, else derived from
+      the current branch's linked issue — its parent epic. If undeterminable, ask and stop.
+    - `tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>` → a materialized
+      `epic.md` under the gitignored `.nexus/tmp/`; use its directory as the entry. On a non-zero
+      exit, report the diagnostic and stop. The story set, acceptance criteria, and success metrics
+      come from the **live GitHub issue state at resolve time** — no stale committed copy is consulted.
+4. **File open in the editor** — infer the epic directory from it.
+5. Otherwise stop and ask for the epic path or the epic issue number.
 
 Load `epic.md` (stories, acceptance criteria, success metrics) and the **decision record** —
-`decision-record.md`, the `/nxs.hld` output — from the same entry. The decision record supplies the
-invariants to check; if it is absent, run in **downgraded** mode (AC + success-metric conformance
-only, no invariant check) and say so.
+`decision-record.md`, the `/nxs.hld` output — from the resolved entry. The decision record supplies
+the invariants to check. If it is absent — which is the interim norm for a resolver-path epic until
+the durable decision-record home (`hld-subissue-record`) lands — run in **no-invariant (downgraded)**
+mode (AC + success-metric conformance only, no invariant check) and **state that you did so**
+(invariant 13).
 
 Read `epic.md` frontmatter `link` to get the epic issue number; it anchors the story issues.
 
@@ -237,9 +257,10 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 # Usage
 
 ```
-/nxs.analyze                      # current branch's queue entry, or open-file context
+/nxs.analyze                      # committed entry from the branch, else resolve from its linked epic issue
+/nxs.analyze 118                  # resolve epic issue #118 via the resolver (no committed entry needed)
 /nxs.analyze path/to/epic-entry   # explicit queue entry / epic directory
-/nxs.analyze --pr 123             # conformance against PR #123 in a worktree; posts a PR review
+/nxs.analyze --pr 123             # conformance against PR #123 in a worktree; epic from the PR's linked issue
 ```
 
 # Constraints

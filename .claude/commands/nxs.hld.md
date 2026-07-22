@@ -49,27 +49,51 @@ The user can always pick "Other" for a custom answer.
 
 Run the phases in order.
 
-## Phase 0 — Resolve the queue entry
+## Phase 0 — Resolve the epic (dual-read: committed entry, else resolve from the issue)
 
-The epic and its story issues already exist (filed by `/nxs.epic` at its approval gate). Find the
-queue entry that holds the epic; the decision record joins it.
+The epic and its story issues already exist (filed by `/nxs.epic`). Obtain the epic — either from a
+committed queue entry (an old-contract epic, including #114 itself) or, when nothing was committed at
+planning (#114), by resolving its issue number through the resolver. `/nxs.hld` **reads** the epic;
+it never hard-fails with "queue entry not found" just because planning committed nothing.
 
-1. If `$ARGUMENTS` points at a queue entry / `epic.md` / its directory, use that.
-2. Otherwise discover (mirror the discovery in `nxs.epic.md`):
+1. **Explicit path** — if `$ARGUMENTS` points at a queue entry / `epic.md` / its directory, use that.
+   Record `QDIR` = that directory and skip to step 4.
+2. **Committed entry (transitional)** — else glob:
 
     ```bash
     ls -d .nexus/queue/*/ 2>/dev/null
     ```
 
-    - **0 entries** → ERROR. The epic is not planned yet — tell the user to run `/nxs.epic` first. Stop.
-    - **1 entry** → use it.
-    - **>1 entries** → read each `epic.md` title and ask which epic to design via `AskUserQuestion`
-      (one option per entry — label = epic title, description = queue path + complexity). Stop until
-      chosen.
+    - **≥1 entry** → today's behavior: **1** → use it; **>1** → read each `epic.md` title and ask
+      which via `AskUserQuestion` (label = epic title, description = queue path + complexity). Record
+      `QDIR`. This is the path #114's own entry (and any other old-contract epic) takes — the resolver
+      path (invariant 14) governs epics planned after the migration.
+    - **0 entries** → go to step 3.
+3. **Resolve from the issue number** — no committed entry exists, so reconstruct the epic (invariant
+   11: zero reads of a committed planning file; the story set + success metrics come from the live
+   GitHub issue state at resolve time):
+    - **Epic issue number (invariant 12):** the explicit `#<n>` / `<n>` in `$ARGUMENTS` if given; else
+      derive it from the current branch's linked issue — the issue its open PR closes, then that
+      issue's **parent epic** (`gh pr view --json ...` for the branch's PR and its closing issue; or
+      the `#<n>` in the branch name). If you cannot determine it unambiguously, ask the user for the
+      epic issue number and stop until answered.
+    - **Materialize:**
 
-3. The resolved entry **must** contain `epic.md`. If it does not, ERROR (not an epic entry). Stop.
+        ```bash
+        tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>
+        ```
 
-Record `QDIR` = the resolved entry directory.
+      On a non-zero exit, report the diagnostic (`epic-resolve <problem>: <message>`) and stop. On
+      success it prints `{ epic, targetRoot, outPath }`; record `QDIR` = the directory of `outPath`
+      (a materialized `epic.md` under the gitignored `.nexus/tmp/`).
+4. `QDIR` **must** contain `epic.md`. If it does not, ERROR. Stop.
+
+**Interim decision-record home.** On the **committed-entry** path, `QDIR` is the committed queue entry
+and the record is committed there as today. On the **resolver** path there is no committed entry for
+the record to sit beside, so `/nxs.hld` writes `decision-record.md` beside the materialized `epic.md`
+in `QDIR` (ephemeral, gitignored). The durable home — an `hld` sub-issue — is the sibling stub
+`hld-subissue-record`; until it lands the record is transitional here, and `/nxs.analyze` degrades to
+no-invariant mode when it cannot resolve a record (its ratified interim posture).
 
 ## Phase 0.5 — Load the design doc (import mode only)
 
@@ -166,7 +190,9 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
 1. Read the seeded project template: `.nexus/config/templates/decision-record-template.md` (the
    project copy, not the `common/templates/` master).
 2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup (0009)
-   and selects the **C5 required-section whitelist** — apply it explicitly, not as a heuristic:
+   and selects the **C5 required-section whitelist** — apply it explicitly, not as a heuristic. If
+   `complexity` is absent (a hand-filed epic resolved from an issue with no `nexus:epic-meta` block),
+   default to **L** — require all sections rather than risk under-documenting:
 
     | `complexity` | Required sections |
     | --- | --- |
@@ -210,10 +236,11 @@ Report concisely:
 # Usage
 
 ```
-/nxs.hld                              # design the queue entry resolved from the current branch
+/nxs.hld                              # committed entry from the current branch, else resolve from its linked epic issue
+/nxs.hld 118                          # resolve epic issue #118 via the resolver (no committed entry needed)
 /nxs.hld path/to/epic.md             # design an explicit queue entry
 /nxs.hld --from docs/design/x.md     # import an existing design doc as the record's basis
-/nxs.hld --from ~/plan.md path/to/epic.md   # import, with an explicit entry
+/nxs.hld --from ~/plan.md 118        # import a design doc, epic resolved from issue #118
 ```
 
 # Constraints
