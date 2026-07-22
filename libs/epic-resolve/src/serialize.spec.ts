@@ -52,6 +52,17 @@ describe("serializeEpic — frontmatter", () => {
         const md = serializeEpic(input({ epic: { number: 1, title: 'A "quoted" epic', body: "# Epic: x" } }));
         expect(md).toContain('epic: "A \\"quoted\\" epic"');
     });
+
+    it("round-trips the raw meta frontmatter verbatim when present, resetting only link", () => {
+        const raw = 'feature: "MRW"\nslug: mrw\ncomplexity: L\nconcepts: ["a", "b"]\nlink: ""';
+        const md = serializeEpic(input({ epic: { number: 115, title: "Sample", body: EPIC_BODY, rawFrontmatter: raw } }));
+        expect(md).toContain('feature: "MRW"');
+        expect(md).toContain("slug: mrw");
+        expect(md).toContain("complexity: L");
+        expect(md).toContain('concepts: ["a", "b"]');
+        expect(md).toContain('link: "#115"');
+        expect(md).not.toContain('link: ""');
+    });
 });
 
 describe("serializeEpic — section placement", () => {

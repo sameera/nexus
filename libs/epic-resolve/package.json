@@ -39,6 +39,11 @@
       "import": "./src/write.ts",
       "default": "./src/write.ts"
     },
+    "./meta": {
+      "types": "./src/meta.ts",
+      "import": "./src/meta.ts",
+      "default": "./src/meta.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

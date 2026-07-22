@@ -195,6 +195,30 @@ def strip_non_durable_refs(body: str) -> str:
     return "\n".join(kept).lstrip("\n")
 
 
+def extract_raw_frontmatter(content: str) -> str:
+    """Return the epic's raw YAML frontmatter text (between the leading `---` fences), or "".
+
+    The resolver (@nexus/epic-resolve) reconstructs the epic from its issue alone, but the issue
+    body created below has the frontmatter stripped. So the raw frontmatter is carried onto the
+    issue verbatim inside an HTML comment (see append_epic_meta) — invisible in the rendered issue,
+    losslessly re-read at resolve time — making the epic fully re-resolvable from its number.
+    """
+    match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
+    return match.group(1) if match else ""
+
+
+def append_epic_meta(body: str, raw_frontmatter: str) -> str:
+    """Append the `nexus:epic-meta` machine block carrying the raw planning frontmatter.
+
+    The block is an HTML comment, so it never shows in the rendered issue; the resolver lifts the
+    frontmatter back out and resets `link` to the issue number. No-op when there is no frontmatter.
+    """
+    if not raw_frontmatter.strip():
+        return body
+    block = f"<!-- nexus:epic-meta\n{raw_frontmatter}\n-->"
+    return body.rstrip("\n") + "\n\n" + block + "\n"
+
+
 def strip_story_bodies(body: str) -> str:
     """Remove the `## User Stories` section from the epic issue body.
 
@@ -753,6 +777,10 @@ def main() -> int:
     # Drop the `## User Stories` section — each story is filed as its own sub-issue, so
     # keeping the full story bodies here would duplicate them and let the copies drift.
     body = strip_story_bodies(body)
+
+    # Carry the raw planning frontmatter onto the issue (hidden HTML comment) so the resolver can
+    # reconstruct the full epic.md field shape from the issue number alone.
+    body = append_epic_meta(body, extract_raw_frontmatter(content))
 
     # Extract epic title (required)
     epic_title = frontmatter.get("epic", "")

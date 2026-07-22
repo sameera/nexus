@@ -26,8 +26,8 @@ Empty input is an error: ask the user for a capability description (or a stub sl
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **The epic is written to the queue, not `docs/`.** `epic.md` goes into `.nexus/queue/<epic-slug>-<local-id>/` — the committed planning queue the distiller later drains (0006). The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) holds only a thin nav index and `backlog.md`.
-- **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full `epic.md` for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
+- **Nothing is committed at planning — GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; and at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer born here — it is born at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage reconstructs the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index and `backlog.md`.
+- **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full epic for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
 
 ## Interaction convention — actionable choice gates
 
@@ -74,7 +74,13 @@ In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable
   hangs directly off the repo root (`features/<slug>/…`); otherwise prefix it
   (`<docs-root>/features/<slug>/…`). Never emit a `./`-prefixed path or a segment named `.`.
 
-1. **Resume check.** Glob `.nexus/queue/*/epic.md`. If an entry's frontmatter has **no `link`** — an epic already planned but not yet filed as issues — report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that entry and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending entry exists, resume it without asking. Otherwise continue.
+1. **Resume check.** Look in your **session scratch** for a pending epic draft — a working folder
+   (e.g. `nxs-epic-<slug>/epic.md`) written by a prior run of this command whose frontmatter has
+   **no `link`** (an epic drafted but not yet filed as issues). If one exists, report it and ask
+   whether to **resume** its approval gate or start a new epic. Resume → load that draft and skip to
+   Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending draft exists, resume it without
+   asking. Otherwise continue. (There is no committed queue entry to resume — nothing is committed at
+   planning; a draft abandoned mid-session is simply never filed, and needs no cleanup.)
 2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub slug. Stop.
 3. Decide **promotion** vs **intent**:
     - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `<docs-root>/features/*/backlog.md` (per the empty-prefix rule, `features/*/backlog.md` on a repo-root hub). Glob the backlogs and check.
@@ -83,7 +89,7 @@ In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable
 
 ## Phase 1 — Resolve the feature container
 
-The container must exist before writing: the queue entry records its parent feature, and `backlog.md` lives under it (0006 §4).
+The container must exist before writing: `backlog.md` lives under it, and the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter — carried onto the epic issue's meta block at filing, so the resolver recovers it.
 
 1. **Promotion mode** → already resolved (the stub's backlog parent). Continue.
 2. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
@@ -91,7 +97,7 @@ The container must exist before writing: the queue entry records its parent feat
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
     - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `backlog.md` / `README.md` from.
     - Present a single confirmation: _"I'll plan this under feature **<Name>** (`<feature-path>/`). Accept, or give a different name?"_ — one prompt, cheap. Accept the user's correction if any.
-    - Ensure the directory exists (`mkdir -p <feature-path>`) — the queue entry's `feature_path` and any `backlog.md` need it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
+    - Ensure the directory exists (`mkdir -p <feature-path>`) — the draft's `feature_path` and any `backlog.md` need it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
 
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
@@ -245,29 +251,32 @@ Then **stop**. Report the stub list and tell the user to promote one with `/nxs.
    are the expected path) before writing anything.
 5. Write the epic document (structure below). Resolve any remaining clarifications with the user before finalizing (use the clarification format in the guidelines).
 
-## Phase 4 — Write the queue entry
+## Phase 4 — Write the draft to session scratch (commit nothing)
 
-The epic is written to the committed planning queue, not under `docs/`.
+The epic is drafted **only to session scratch** — never to `.nexus/queue/` and never under `docs/`.
+Nothing is committed at planning (#114); the committed queue entry is born at close.
 
 ```bash
-LOCAL_ID="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
-QDIR=".nexus/queue/${EPIC_SLUG}-${LOCAL_ID}"
-mkdir -p "$QDIR"
+DRAFT_DIR="<your-session-scratch>/nxs-epic-${EPIC_SLUG}"
+mkdir -p "$DRAFT_DIR"
 ```
 
-`EPIC_SLUG` is the epic's kebab-case slug decided in Phase 3 (the same value written to `epic.md`'s
-`slug:` frontmatter) — it makes the queue entry recognizable in a file tree or `git status` without
-opening it. `LOCAL_ID` remains the actual collision-proof key; the slug is cosmetic and is never
-re-derived or renamed later, even if the epic title changes.
+`EPIC_SLUG` is the epic's kebab-case slug decided in Phase 3 (the same value written to the draft's
+`slug:` frontmatter). Write the epic to `${DRAFT_DIR}/epic.md` — this is the working draft the epic
+gate (Phase 4b) and the approval digest (Phase 5) read, and the source the filing skill (Phase 6)
+files from. It is transient: it is **not** committed, and after filing it can be discarded.
 
-Write the epic to `${QDIR}/epic.md`. Downstream commands (`/nxs.hld`, `/nxs.analyze`, `/nxs.close`) discover this entry by globbing `.nexus/queue/*/`; multiple entries with no `link` prompt a selection.
+**Invariant:** after this command completes, the working tree shows **zero** new files under
+`.nexus/queue/` (Success Metric 1). If you ever feel the urge to `mkdir .nexus/queue/…`, stop — that
+is the old contract.
 
-The feature nav index (`<feature-path>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue — never a draft queue-path pointer that needs updating (the queue entry is transient; the distiller drains it, 0006).
+The feature nav index (`<feature-path>/README.md`) is **not** written here. It is written in Phase 6,
+after the epic issue exists, so its `## Epics` entry links directly to the issue.
 
 ## Phase 4b — Epic gate (nxs-epic-gate)
 
 Before showing the approval digest, run the **`nxs-epic-gate`** agent against the just-written
-`${QDIR}/epic.md`. It is the planning-consistency check the story issues are filed behind: it verifies
+`${DRAFT_DIR}/epic.md` draft. It is the planning-consistency check the story issues are filed behind: it verifies
 acceptance-criteria quality by `story_type`, story well-formedness (S/M sizing, INVEST), and epic
 internal consistency (no unresolved `[NEEDS CLARIFICATION]`, no self-contradicting terms). It checks
 the epic alone — story↔design coverage needs the decision record and is `/nxs.hld`'s job, not this
@@ -275,7 +284,7 @@ gate's.
 
 ```
 Invoke: nxs-epic-gate
-Input: ${QDIR}/epic.md
+Input: ${DRAFT_DIR}/epic.md
 ```
 
 Fold the findings into Phase 5:
@@ -294,8 +303,8 @@ Fold the findings into Phase 5:
 ## Phase 5 — Approval digest (MANDATORY STOP)
 
 Present a **decision-grade digest** for approval — the read-surface, not the full file. The full
-`epic.md` stays in the queue as drill-down. This is the human checkpoint: a reviewer approves the
-epic *and* its story breakdown here, in one screen, instead of glossing a long document.
+`epic.md` stays in session scratch as drill-down. This is the human checkpoint: a reviewer approves
+the epic *and* its story breakdown here, in one screen, instead of glossing a long document.
 
 **Open questions gate (MANDATORY STOP).** If `## Open Questions` carries any `[NEEDS CLARIFICATION]`
 items, issue creation is **blocked**. Present each item using the clarification format (Guidelines),
@@ -345,13 +354,14 @@ Then ask for the decision via **`AskUserQuestion`** (per the interaction convent
 emit a free-text prompt line. Two options:
 
 - **approve** — file the epic issue and one issue per story.
-- **revise** — stop; edit the queued `epic.md`, then re-run with `/nxs.epic --resume`.
+- **revise** — stop; edit the `epic.md` draft in session scratch, then re-run with `/nxs.epic --resume`.
 
 **Do NOT create any issue without an explicit `approve`** (an `AskUserQuestion` selection of
 `approve`, or an "Other" answer that clearly means approve).
 
 - `approve` → Phase 6.
-- `revise` → stop. Leave the queue entry intact for editing; report how to resume.
+- `revise` → stop. Leave the scratch draft intact for editing; report how to resume. Nothing is
+  committed, so there is nothing to clean up.
 
 ## Phase 6 — File the epic and story issues (on approve)
 
@@ -359,16 +369,21 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 one step. There is no separate task command — the story is the implementation unit (0009), so each
 story becomes one GitHub issue, child of the epic issue.
 
-1. **Create (or reuse) the epic issue.** If `epic.md` frontmatter already carries `link`, reuse that
-   number. Otherwise create it:
+1. **Create (or reuse) the epic issue (idempotent).** If the scratch draft's frontmatter already
+   carries `link` — the epic issue was filed in a prior run of this command — **reuse that number;
+   do not create a second epic issue** (Success Metric / AC: a re-run reuses the recorded number).
+   Otherwise create it:
 
     ```bash
-    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${QDIR}/epic.md"
+    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${DRAFT_DIR}/epic.md"
     ```
 
-    The skill reads `epic` (title) and `type` from frontmatter, creates the issue, and writes
-    `link: "#<n>"` back. Re-read the frontmatter; set `EPIC` = that number. There is **no folder
-    rename** — the queue folder name (`<epic-slug>-<local-id>`) is stable (the GitHub number lives in frontmatter, not the path).
+    The skill reads `epic` (title) and `type` from frontmatter, **embeds the raw planning
+    frontmatter onto the issue as a hidden `nexus:epic-meta` block** (so the resolver can rebuild the
+    full `epic.md` field shape from the issue number alone), creates the issue, and writes
+    `link: "#<n>"` back into the draft. Re-read the draft frontmatter; set `EPIC` = that number.
+    Because the number is now recorded in the draft, re-running is safe — the epic issue is created
+    at most once.
 
 2. **Sequence the stories.** Order by dependency: foundational first (core data / shared surface),
    then dependents, then polish. Assign each a stable ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in
@@ -419,14 +434,13 @@ story becomes one GitHub issue, child of the epic issue.
     filed. Discard the transient files only **after** a `✅ Complete` run — the stories live in `epic.md`;
     the issues are then the working surface.
 
-5. **Record the sequence on the epic.** Append (or replace) an `## Implementation Sequence` section in
-   the queue `epic.md` — a thin ordered table, **not** a separate index file. The `blocked_by` column
-   is a human-readable mirror; the authoritative dependency graph now lives on the GitHub issues
-   themselves (wired in step 4):
+5. **Do not persist the sequence to a committed file.** The authoritative dependency graph lives on
+   the GitHub issues themselves (the native `blocked_by` edges wired in step 4). The resolver rebuilds
+   the `## Implementation Sequence` table from those live edges on demand, so there is **no** queue
+   `epic.md` to append it to and no separate index file. Keep the ordered sequence you computed in
+   step 2 in memory only — surface it in the Phase 7 completion report:
 
     ```markdown
-    ## Implementation Sequence
-
     | STORY | Issue | blocked_by |
     |---|---|---|
     | STORY-<EPIC>.01 | #<n> | none |
@@ -465,10 +479,13 @@ Report:
 
 - Feature name and folder.
 - Epic title, complexity rating, and story count (with `story_type` breakdown).
-- Queue entry path (`.nexus/queue/<epic-slug>-<local-id>/epic.md`).
-- Epic issue link and the created story issue numbers — or, if the user chose `revise`, that no
-  issues were created and how to resume (`/nxs.epic --resume`).
-- Next step: `/nxs.hld` to produce the decision record for this epic.
+- **Nothing committed to `.nexus/queue/`** — the epic lives on GitHub issues; the queue entry is
+  born at close. The `epic.md` draft stayed in session scratch.
+- Epic issue link and the created story issue numbers, plus the implementation sequence (the table
+  from Phase 6 step 5) — or, if the user chose `revise`, that no issues were created and how to
+  resume (`/nxs.epic --resume`).
+- Next step: `/nxs.hld <epic-issue-#>` to produce the decision record for this epic (it resolves the
+  epic from its issue number — no committed planning file).
 
 ---
 
@@ -594,8 +611,8 @@ the impact). After answers, update the epic and remove the marker.
 
 ### Links
 
-Issues are **durable**; the planning queue (`.nexus/queue/…`) is **ephemeral** — the distiller drains
-it post-merge. So an issue body (and the feature nav index) must **never** link to a queue file
+Issues are **durable**; the queue (`.nexus/queue/…`, a close-time drain buffer) is **ephemeral** —
+the distiller drains it post-merge. So an issue body (and the feature nav index) must **never** link to a queue file
 (`epic.md`, `decision-record.md`, `close-record.md`); such a link dangles once the entry is drained.
 Link only durable targets: other issues, concept pages (`.nexus/concepts/`), anchors
 (`.nexus/anchors/`), and persistent `docs/`. The direction is docs → issues, never issue → queue.

@@ -11,6 +11,7 @@
 
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
 import { fetchBlockedBy, fetchIssue, fetchSubIssueNumbers, resolveRepoSlug } from "./gh.js";
+import { extractMeta } from "./meta.js";
 import { type Runner } from "./run.js";
 import { type EpicStory, serializeEpic } from "./serialize.js";
 
@@ -47,10 +48,11 @@ export function resolveEpic(run: Runner, targetRoot: string, epicNumber: number)
         blockedBy.set(subNumber, deps.numbers);
     }
 
+    const { rawFrontmatter, body } = extractMeta(epic.issue.body);
     return {
         ok: true,
         markdown: serializeEpic({
-            epic: { number: epic.issue.number, title: epic.issue.title, body: epic.issue.body },
+            epic: { number: epic.issue.number, title: epic.issue.title, body, rawFrontmatter },
             stories,
             blockedBy,
         }),

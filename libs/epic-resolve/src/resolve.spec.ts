@@ -82,6 +82,39 @@ describe("resolveEpic — AC2: byte-identical idempotency", () => {
     });
 });
 
+describe("resolveEpic — Story 2: meta block round-trips the full frontmatter", () => {
+    const META = ['feature: "MRW"', "feature_path: docs/features/mrw", "complexity: L", 'link: ""'].join("\n");
+
+    function graphWithMeta(): FixtureGraph {
+        return {
+            epic: {
+                number: 115,
+                title: "Planning",
+                body: `# Epic: Planning\n\n## Description\n\nDo it.\n\n<!-- nexus:epic-meta\n${META}\n-->\n`,
+            },
+            stories: [{ number: 116, title: "Resolver", body: "**As a** stage **I want** X.", blockedBy: [] }],
+        };
+    }
+
+    it("emits the stripped planning fields with link set to the issue number", () => {
+        const r = resolveEpic(makeGhRunner(graphWithMeta()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("complexity: L");
+        expect(r.markdown).toContain("feature_path: docs/features/mrw");
+        expect(r.markdown).toContain('link: "#115"');
+    });
+
+    it("does not leave the meta block in the materialized body", () => {
+        const r = resolveEpic(makeGhRunner(graphWithMeta()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        // The block appears once (inside frontmatter round-trip is raw yaml, not the comment marker).
+        expect(r.markdown).not.toContain("nexus:epic-meta");
+        expect(r.markdown).toContain("## Description");
+    });
+});
+
 describe("resolveEpic — AC4: dependency edges exact", () => {
     it("reproduces exactly the native blocked_by edges and invents none", () => {
         const r = resolveEpic(makeGhRunner(graph()), "/repo", 115);

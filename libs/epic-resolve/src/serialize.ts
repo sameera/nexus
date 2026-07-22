@@ -7,15 +7,20 @@
  * `blocked_by` edges (never a stale table baked into the issue body), and no volatile field
  * (timestamp, run id) is ever emitted — so the same graph always serializes to byte-identical text.
  *
- * Frontmatter carries only what a bare epic issue recoverably provides — `epic` (title) and `link`
- * (its number). Fields the filing skills strip (`complexity`, `feature_path`, `slug`, …) are
- * omitted, never fabricated; persisting them onto the issue is a later story's job.
+ * Frontmatter comes from the epic issue's embedded meta block when present (Story 2) — the raw
+ * planning frontmatter carried through verbatim, with `link` reset to the issue number — so the
+ * full field shape round-trips. A bare issue with no meta block (e.g. hand-filed) falls back to the
+ * recoverable-only fields (`epic` title + `link`); nothing is ever fabricated.
  */
+
+import { withLink } from "./meta.js";
 
 export interface EpicHeader {
     number: number;
     title: string;
     body: string;
+    /** Raw planning frontmatter lifted from the issue's meta block, or null when there is none. */
+    rawFrontmatter?: string | null;
 }
 
 export interface EpicStory {
@@ -80,6 +85,18 @@ function splitH2(body: string): { preamble: string; sections: Section[] } {
     return { preamble: preambleLines.join("\n"), sections };
 }
 
+/**
+ * The frontmatter block. When the issue carried a meta block, round-trip its raw planning
+ * frontmatter verbatim (only `link` reset to the issue number). Otherwise emit the recoverable-only
+ * fields — never fabricating the ones the filing skills strip.
+ */
+function renderFrontmatter(epic: EpicHeader): string {
+    if (epic.rawFrontmatter != null && epic.rawFrontmatter.trim().length > 0) {
+        return ["---", withLink(epic.rawFrontmatter, epic.number), "---"].join("\n");
+    }
+    return ["---", `epic: ${JSON.stringify(epic.title)}`, `link: "#${epic.number}"`, "---"].join("\n");
+}
+
 /** `STORY-<epic>.<seq>` — zero-padded to two digits, matching the pipeline's story-ref shape. */
 function storyRef(epicNumber: number, seq: number): string {
     return `STORY-${epicNumber}.${String(seq).padStart(2, "0")}`;
@@ -117,9 +134,7 @@ export function serializeEpic(input: SerializeInput): string {
     const { preamble, sections } = splitH2(input.epic.body);
     const carried = sections.filter((s) => !REBUILT_TITLES.has(s.title));
 
-    const frontmatter = ["---", `epic: ${JSON.stringify(input.epic.title)}`, `link: "#${input.epic.number}"`, "---"].join(
-        "\n",
-    );
+    const frontmatter = renderFrontmatter(input.epic);
     const userStories = renderUserStories(stories);
 
     const blocks: string[] = [frontmatter];
