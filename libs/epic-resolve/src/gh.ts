@@ -33,6 +33,11 @@ const SUB_ISSUES_QUERY =
     "repository(owner:$owner,name:$repo){" +
     "issue(number:$num){subIssues(first:100){nodes{number title state}}}}}";
 
+/** The GraphQL query that reads an issue's parent (non-null iff the issue is itself a sub-issue). */
+const PARENT_QUERY =
+    "query($owner:String!,$repo:String!,$num:Int!){" +
+    "repository(owner:$owner,name:$repo){issue(number:$num){parent{number}}}}";
+
 /** Parse newline-delimited issue numbers from a `--jq '…number'` stream; reject non-integers. */
 function parseNumberLines(stdout: string): number[] | null {
     const out: number[] = [];
@@ -164,6 +169,54 @@ export function fetchSubIssueNumbers(
         };
     }
     return { ok: true, numbers };
+}
+
+/**
+ * Read an issue's parent issue number, or null when it has none. A non-null parent means the issue
+ * is itself a sub-issue — i.e. a story, not an epic — which the `--from` security boundary rejects.
+ */
+export function fetchParentNumber(
+    run: Runner,
+    cwd: string,
+    slug: RepoSlug,
+    issueNumber: number,
+): Ok<{ parent: number | null }> | Err {
+    const r = run(
+        "gh",
+        [
+            "api",
+            "graphql",
+            "-f",
+            `query=${PARENT_QUERY}`,
+            "-F",
+            `owner=${slug.owner}`,
+            "-F",
+            `repo=${slug.repo}`,
+            "-F",
+            `num=${issueNumber}`,
+            "--jq",
+            ".data.repository.issue.parent.number // empty",
+        ],
+        { cwd },
+    );
+    if (r.status !== 0) {
+        return {
+            ok: false,
+            error: {
+                problem: "gh-failed",
+                message: `reading the parent of #${issueNumber} failed: ${r.stderr.trim() || "unknown gh error"}`,
+            },
+        };
+    }
+    const trimmed = r.stdout.trim();
+    if (trimmed.length === 0) return { ok: true, parent: null };
+    if (!/^\d+$/.test(trimmed)) {
+        return {
+            ok: false,
+            error: { problem: "malformed-json", message: `parent of #${issueNumber} was not a number: ${JSON.stringify(r.stdout)}` },
+        };
+    }
+    return { ok: true, parent: Number(trimmed) };
 }
 
 /** Read one story's native `blocked_by` dependency edges as blocker issue numbers. */

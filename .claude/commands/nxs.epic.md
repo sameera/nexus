@@ -19,7 +19,11 @@ $ARGUMENTS
 The text after the slash command is either:
 
 - a **capability description** (natural language) — the normal case, or
-- a **stub reference** — a single kebab-case slug naming an existing backlog stub to promote.
+- a **stub reference** — a single kebab-case slug naming an existing backlog stub to promote, or
+- **`--from #<issue>`** — pull an epic that is **already filed** as GitHub issues (by Nexus or by
+  hand) into a materialized `epic.md`, so downstream stages can run against an epic not planned in
+  this session. This is a read-only wrapper over the resolver — it plans nothing and commits nothing
+  (handled up front in Phase 0; the planning phases below do not run).
 
 Empty input is an error: ask the user for a capability description (or a stub slug) and stop.
 
@@ -55,6 +59,27 @@ user actually clicks.
 Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
+
+**`--from #<issue>` short-circuit (handle first, before anything else).** If `$ARGUMENTS` contains
+`--from` (string-matched, like `--resume`) followed by an issue reference (`#<n>` or `<n>`), this is
+a **pull**, not a plan. Do not draft, do not run the right-size gate, do not file anything:
+
+1. Run the resolver with the epic-vs-story guard on:
+
+    ```bash
+    tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n> --require-epic
+    ```
+
+2. **On a non-zero exit** the resolver printed a diagnostic on stderr (`epic-resolve <problem>:
+   <message>`). Report it verbatim and stop — in particular, `not-an-epic` (the number is a story
+   sub-issue) and `epic-not-found` (no such issue) are the two "that is not an epic" outcomes, each
+   naming why. **No `epic.md` is produced** on failure.
+3. **On success** it printed `{ epic, targetRoot, outPath }` — a materialized `epic.md` at `outPath`
+   under the gitignored `.nexus/tmp/`. Report that path and that `/nxs.hld <n>` / `/nxs.analyze` can
+   now run against this epic. **Commit nothing** (the same no-commit contract as planning; the output
+   is gitignored). Then **stop** — the phases below do not run for `--from`.
+
+Otherwise (no `--from`), continue with normal planning.
 
 **Resolve the docs root (once, up front — reused by every path this command builds).** Run the
 docs-root read-out, the single-value view over the workspace resolver:

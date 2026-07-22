@@ -13,11 +13,13 @@
  *
  * Usage (success prints one JSON object on stdout; a failure prints a diagnostic on stderr):
  *
- *   epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>]
+ *   epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]
  *       Resolve epic issue #N and write the materialized epic.md. Prints
  *       { epic, targetRoot, outPath }. --out overrides the default gitignored path
  *       (<targetRoot>/.nexus/tmp/epic-<N>/epic.md); --dir sets the checkout to resolve from
- *       (default: the current working directory).
+ *       (default: the current working directory); --require-epic validates the target is an epic
+ *       (rejecting a story sub-issue or a non-existent number) before materializing — the `--from`
+ *       security boundary.
  *
  * Exit codes: 0 success · 1 a named diagnostic was printed · 2 usage error.
  */
@@ -34,15 +36,17 @@ interface Flags {
     epic?: number;
     out?: string;
     dir?: string;
+    requireEpic: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
-    const flags: Flags = {};
+    const flags: Flags = { requireEpic: false };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === "--epic") flags.epic = Number(argv[++i]);
         else if (a === "--out") flags.out = argv[++i];
         else if (a === "--dir") flags.dir = argv[++i];
+        else if (a === "--require-epic") flags.requireEpic = true;
     }
     return flags;
 }
@@ -75,11 +79,11 @@ function targetRoot(startDir: string): string {
 function main(): void {
     const flags = parseFlags(process.argv.slice(2));
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        usage("--epic <N> [--out <path>] [--dir <startDir>]");
+        usage("--epic <N> [--out <path>] [--dir <startDir>] [--require-epic]");
     }
 
     const root = targetRoot(flags.dir ?? process.cwd());
-    const resolved = resolveEpic(defaultRunner, root, flags.epic);
+    const resolved = resolveEpic(defaultRunner, root, flags.epic, { requireEpic: flags.requireEpic });
     if (!resolved.ok) die(resolved.error);
 
     const outPath = writeMaterializedEpic(root, flags.epic, resolved.markdown, flags.out);

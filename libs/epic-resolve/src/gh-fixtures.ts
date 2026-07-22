@@ -26,12 +26,20 @@ export interface FixtureGraph {
     stories?: FixtureStory[];
     /** Order the sub-issues GraphQL query returns (default: the stories' declared order). */
     subIssueOrder?: number[];
+    /** issue number → its parent issue number (present iff the issue is a sub-issue / story). */
+    parents?: Record<number, number>;
     failRepoView?: boolean;
     failSubIssues?: boolean;
     malformedSubIssues?: boolean;
+    failParent?: boolean;
     failIssueView?: Set<number>;
     malformedIssues?: Set<number>;
     failBlockedBy?: Set<number>;
+}
+
+function queryArg(args: string[]): string {
+    const i = args.indexOf("-f");
+    return i >= 0 && args[i + 1]?.startsWith("query=") ? args[i + 1] : "";
 }
 
 function numberStream(numbers: number[]): string {
@@ -75,6 +83,13 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
         }
 
         if (args[0] === "api" && args[1] === "graphql") {
+            const query = queryArg(args);
+            if (query.includes("parent{number}")) {
+                if (graph.failParent) return fail("GraphQL error reading parent");
+                const target = Number((args.find((a) => a.startsWith("num=")) ?? "num=0").slice(4));
+                const parent = graph.parents?.[target];
+                return ok(parent === undefined ? "" : `${parent}\n`);
+            }
             if (graph.failSubIssues) return fail("GraphQL error listing sub-issues");
             if (graph.malformedSubIssues) return ok("not-a-number\n");
             const order = graph.subIssueOrder ?? stories.map((s) => s.number);

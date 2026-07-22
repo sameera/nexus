@@ -64,6 +64,36 @@ describe("resolveEpic — AC1: all-or-nothing over N stories", () => {
     });
 });
 
+describe("resolveEpic — Story 3: --from epic-vs-story validation (requireEpic)", () => {
+    it("resolves a valid epic (no parent) when requireEpic is set", () => {
+        const r = resolveEpic(makeGhRunner(graph()), "/repo", 115, { requireEpic: true });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story 1: Resolver");
+    });
+
+    it("rejects a story issue (has a parent) with not-an-epic, producing no markdown", () => {
+        const r = resolveEpic(makeGhRunner({ ...graph(), parents: { 116: 115 } }), "/repo", 116, { requireEpic: true });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("not-an-epic");
+        expect(r.error.message).toContain("#115");
+    });
+
+    it("rejects a non-existent number with epic-not-found under requireEpic", () => {
+        const r = resolveEpic(makeGhRunner({ ...graph(), failIssueView: new Set([900]) }), "/repo", 900, { requireEpic: true });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("epic-not-found");
+    });
+
+    it("does not run the parent check when requireEpic is off (internal stages)", () => {
+        // A story-shaped issue with a parent still resolves for the internal stages that know it is an epic.
+        const r = resolveEpic(makeGhRunner({ ...graph(), parents: { 115: 42 } }), "/repo", 115);
+        expect(r.ok).toBe(true);
+    });
+});
+
 describe("resolveEpic — AC2: byte-identical idempotency", () => {
     it("produces identical markdown on two runs over the same graph", () => {
         const a = resolveEpic(makeGhRunner(graph()), "/repo", 115);

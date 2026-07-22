@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fetchBlockedBy, fetchIssue, fetchSubIssueNumbers, resolveRepoSlug } from "./gh.js";
+import { fetchBlockedBy, fetchIssue, fetchParentNumber, fetchSubIssueNumbers, resolveRepoSlug } from "./gh.js";
 import { makeGhRunner } from "./gh-fixtures.js";
 import { type Runner } from "./run.js";
 
@@ -98,6 +98,37 @@ describe("fetchSubIssueNumbers", () => {
 
     it("flags a non-number stream as malformed", () => {
         const r = fetchSubIssueNumbers(makeGhRunner({ ...GRAPH, malformedSubIssues: true }), "/repo", { owner: "a", repo: "b" }, 115);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("malformed-json");
+    });
+});
+
+describe("fetchParentNumber", () => {
+    it("returns null when the issue has no parent (it is a top-level epic)", () => {
+        const r = fetchParentNumber(makeGhRunner(GRAPH), "/repo", { owner: "a", repo: "b" }, 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.parent).toBeNull();
+    });
+
+    it("returns the parent number when the issue is a sub-issue (a story)", () => {
+        const r = fetchParentNumber(makeGhRunner({ ...GRAPH, parents: { 116: 115 } }), "/repo", { owner: "a", repo: "b" }, 116);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.parent).toBe(115);
+    });
+
+    it("maps a parent-query failure to gh-failed", () => {
+        const r = fetchParentNumber(makeGhRunner({ ...GRAPH, failParent: true }), "/repo", { owner: "a", repo: "b" }, 116);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
+    });
+
+    it("flags a non-number parent stream as malformed", () => {
+        const run: Runner = () => ({ status: 0, stdout: "nope\n", stderr: "" });
+        const r = fetchParentNumber(run, "/repo", { owner: "a", repo: "b" }, 116);
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("malformed-json");

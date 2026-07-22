@@ -10,7 +10,7 @@
  */
 
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
-import { fetchBlockedBy, fetchIssue, fetchSubIssueNumbers, resolveRepoSlug } from "./gh.js";
+import { fetchBlockedBy, fetchIssue, fetchParentNumber, fetchSubIssueNumbers, resolveRepoSlug } from "./gh.js";
 import { extractMeta } from "./meta.js";
 import { type Runner } from "./run.js";
 import { type EpicStory, serializeEpic } from "./serialize.js";
@@ -19,19 +19,51 @@ export type ResolveEpicResult =
     | { ok: true; markdown: string }
     | { ok: false; error: EpicResolveDiagnostic };
 
+export interface ResolveEpicOptions {
+    /**
+     * Validate that the target is an epic before materializing (the `--from` security boundary,
+     * Invariant 18): a non-existent number fails `epic-not-found`, and an issue that is itself a
+     * sub-issue (a story) fails `not-an-epic`. Off for the internal stages, which resolve epics
+     * they already know are epics.
+     */
+    requireEpic?: boolean;
+}
+
 /**
  * Resolve an epic issue number into materialized `epic.md` markdown.
  *
  * @param run  the process seam (`gh` calls run with `cwd` = `targetRoot`)
  * @param targetRoot  the repo root whose issues to query (single-repo root, or the workspace hub)
  * @param epicNumber  the epic issue number — the sole join key
+ * @param opts  resolution options (see {@link ResolveEpicOptions})
  */
-export function resolveEpic(run: Runner, targetRoot: string, epicNumber: number): ResolveEpicResult {
+export function resolveEpic(
+    run: Runner,
+    targetRoot: string,
+    epicNumber: number,
+    opts: ResolveEpicOptions = {},
+): ResolveEpicResult {
     const slug = resolveRepoSlug(run, targetRoot);
     if (!slug.ok) return slug;
 
     const epic = fetchIssue(run, targetRoot, epicNumber, "epic-not-found");
     if (!epic.ok) return epic;
+
+    if (opts.requireEpic) {
+        const parent = fetchParentNumber(run, targetRoot, slug.slug, epicNumber);
+        if (!parent.ok) return parent;
+        if (parent.parent !== null) {
+            return {
+                ok: false,
+                error: {
+                    problem: "not-an-epic",
+                    message:
+                        `#${epicNumber} is a story issue (sub-issue of #${parent.parent}), not an epic; ` +
+                        `pass its parent epic number to --from.`,
+                },
+            };
+        }
+    }
 
     const subs = fetchSubIssueNumbers(run, targetRoot, slug.slug, epicNumber);
     if (!subs.ok) return subs;

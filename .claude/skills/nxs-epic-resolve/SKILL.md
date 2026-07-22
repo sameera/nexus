@@ -33,12 +33,16 @@ never fabricated.
 ## Usage
 
 ```bash
-tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>]
+tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]
 ```
 
 -   `--epic <N>` — the epic issue number (required).
 -   `--out <path>` — override the default output path (`<targetRoot>/.nexus/tmp/epic-<N>/epic.md`).
 -   `--dir <startDir>` — the checkout to resolve the workspace from (default: the current directory).
+-   `--require-epic` — validate that the target is an epic before materializing: a story sub-issue
+    fails `not-an-epic` and a non-existent number fails `epic-not-found`, each with no output. This is
+    the `/nxs.epic --from` security boundary; the internal stages omit it (they resolve epics they
+    already know are epics).
 
 On success it prints one JSON object: `{ epic, targetRoot, outPath }` — read `outPath` for the
 materialized `epic.md`.
