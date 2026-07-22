@@ -31,3 +31,16 @@
   existing `<!-- nexus:analyze-receipt -->` machine-block precedent.
 - **Refuted alternative:** Map fields onto labels/project fields — `feature_path`/`concepts`/
   `complexity_drivers` do not map cleanly; a body machine-block is precedented and lossless.
+
+## 2026-07-22 — Born-at-close entry: resolve to committed queue path; distill tolerates no record
+
+- **Choice:** In `/nxs.close --pr` with no committed entry, Phase 0.5 materializes the epic via the
+  resolver into a fresh `.nexus/queue/<slug>-<local-id>/epic.md` (slug from the resolved frontmatter,
+  else `epic-<issue>`; local-id a fresh token), and Phase 7.6 commits it with the close record in one
+  commit. The entry carries **no `decision-record.md`**; `/nxs.distill` reads the record "if present"
+  and falls back to the close record's prose for the *why*.
+- **Why:** The materialized epic must land at a tracked (not gitignored) path to be the drain buffer
+  (AC1/AC3). A born-at-close entry has no planning-time record home yet (`hld-subissue-record`
+  deferred), so distill must not hard-fail on its absence — required for AC3 (distiller drains it).
+- **Refuted alternative:** Write a placeholder `decision-record.md` at close — rejected: it would be
+  a fabricated record; the close record already carries the mined *why*, and distill degrades cleanly.

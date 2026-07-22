@@ -95,7 +95,9 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 # Phase 0 — Preflight
 
 1. For each drainable entry, read `epic.md` frontmatter: `epic`/`title`, `link`, `feature`,
-   `slug`. Read `decision-record.md` and `close-record.md` in full.
+   `slug`. Read `close-record.md` in full, and `decision-record.md` in full **if present** — a
+   born-at-close entry for an issue-sourced epic (#114) carries none until the durable record home
+   (`hld-subissue-record`) lands, in which case the *why* comes from the close record alone.
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: the drain creates a branch and must not entangle unrelated work.
    (In continuation mode the tree is clean because the close committed its artifacts, and you are
@@ -302,7 +304,9 @@ committed.
 
 **Sources:** the *what* (behavior, integration points, behavioral invariants) from the diff; the
 *why* (key decisions, refuted alternatives, deviation rationale) from `decision-record.md` and
-`close-record.md`. Do **not** read `<entry>/<username>/**`. Engineer scratch is not a distill
+`close-record.md` — or from `close-record.md` alone when the entry carries no decision record
+(a born-at-close issue-sourced epic; the close record's Key Decisions + Deviation Rationale are then
+the sole *why* carrier). Do **not** read `<entry>/<username>/**`. Engineer scratch is not a distill
 input; the *why* comes only from `decision-record.md` and `close-record.md`.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`

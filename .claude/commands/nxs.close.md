@@ -38,18 +38,29 @@ $ARGUMENTS
 
 1. **`$ARGUMENTS` contains a file path** → use that `*epic.md` directly.
 2. **A file is open in the editor** (passed as context) → use that file as the `*epic.md`.
-3. **Otherwise** → stop and ask the user to either open the `*epic.md` in their editor and re-run, or
-   pass the path: `/nxs.close path/to/epic.md`.
+3. **`--pr <N>` with no path** → the epic is resolved from the PR and **born at close** (see below).
+4. **Otherwise** (no `--pr`, no path) → stop and ask the user to either open the `*epic.md` in their
+   editor and re-run, or pass the path: `/nxs.close path/to/epic.md`.
 
 If `$ARGUMENTS` also contains **`--pr <N>`** (string-matched, like `/nxs.epic --resume`), close runs
-the **post-merge worktree flow** in Phase 0.5 — the `*epic.md` path resolves as above but is then
-re-rooted into the worktree. Strip the `--pr <N>` token before the path resolution above.
+the **post-merge worktree flow** in Phase 0.5. Strip the `--pr <N>` token first. In `--pr` mode the
+`*epic.md` path is **optional**: under issue-sourced planning (#114) nothing is committed at planning,
+so if no path is given (the normal case) the epic is **resolved from the PR's linked issue and born at
+close** — materialized into a fresh committed queue entry in Phase 0.5. If a path IS given (an
+old-contract epic whose committed entry rode the PR), it resolves as above and is re-rooted into the
+worktree (invariant 14).
 
-**Never** run `find`, `ls`, or any search to locate the epic. The resolved `epic.md` fixes the **queue
-entry directory** (its parent); `decision-record.md` and `close-record.md` are its siblings there — no
-search is needed to find them.
+**Never** run `find`, `ls`, or any search to locate the epic. When a committed `epic.md` is resolved
+it fixes the **queue entry directory** (its parent); `decision-record.md` and `close-record.md` are
+its siblings there. On the born-at-close path the entry directory is **created** in Phase 0.5 (the
+resolver writes `epic.md` into it), and the close record joins it there — again, no search.
 
 # Phase 0 — Validate the epic
+
+**Born-at-close ordering:** on the born-at-close path (`--pr` with no committed `epic.md`), the
+`epic.md` does not exist yet — **Phase 0.5 materializes it first**, then this Phase-0 parsing runs
+against that materialized file. On every other path (`epic.md` given or in the editor) run Phase 0
+now, as written.
 
 1. Read and parse the `*epic.md` frontmatter. Extract:
     - `epic` (or `title`) — the epic title
@@ -96,25 +107,55 @@ single-repo and hub mode only.
     its close runs on the feature branch and migrates to the hub (the local, non-`--pr` flow), never
     this worktree flow. **The PR must be merged** — close, unlike analyze, may not run pre-merge.
 
-2. **Open the worktree on the distill branch** and derive the range:
+2. **Determine the epic issue number** `<epic-issue>`:
+    - If an `epic.md` path was given (Phase 0), take its `link`.
+    - Otherwise (born-at-close, the #114 norm) derive it from the **PR's linked issue** — the issue
+      the PR closes, then that issue's **parent epic** (`gh pr view <N> --json ...`). If it cannot be
+      determined unambiguously, stop and ask.
+
+3. **Open the worktree on the distill branch** and derive the range:
 
     ```bash
     tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts open --pr <N> --mode close \
-      --branch "distill/$(date +%Y-%m-%d)-<epic-slug>"
+      --branch "distill/$(date +%Y-%m-%d)-<epic-slug-or-epic-issue>"
     ```
 
     It prints `{ wtPath, range: { repo, base, head } }`. The branch is cut from the trunk
-    (post-merge `origin/main`), so `wtPath` holds the merged code **and** the committed queue entry.
-    `range` is the merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for
-    Phase 3 and the Phase 4 stamp.**
+    (post-merge `origin/main`), so `wtPath` holds the merged code. `range` is the
+    merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for Phase 3 and the
+    Phase 4 stamp.**
 
-3. **Operate inside `wtPath` for every phase below.** Set `QDIR` to the epic's entry **re-rooted
-   under `wtPath/.nexus/queue/…`** (same relative entry `$ARGUMENTS` resolves, but in the worktree);
-   `<feature-path>`, `<docs-root>`, the backlog, and the lesson all resolve **inside `wtPath`** too.
-   The role from step 1 **replaces the Phase 1.3 preflight** — do not run the close-migration
-   preflight in `--pr` mode (single-repo/hub only; no migration ever happens here).
+4. **Resolve `QDIR` — dual: born-at-close, else a committed entry (invariant 14, 15).** Operate
+   inside `wtPath` for every path operation below.
+    - **Committed entry present** — a path was given, or an entry for this epic already exists under
+      `wtPath/.nexus/queue/…` (an old-contract epic whose entry rode the PR): set `QDIR` to that entry
+      re-rooted under `wtPath/.nexus/queue/…`. Its `epic.md` is already committed; skip the
+      materialization below.
+    - **Born at close (nothing committed at planning)** — no committed entry exists. Materialize the
+      epic into a **fresh committed queue entry** so the queue is born here, not at planning:
 
-4. `--pr` is **mutually exclusive** with the local on-branch flow. If the preflight rejects the
+        ```bash
+        tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts \
+          --epic <epic-issue> --dir "$wtPath" --out "$wtPath/.nexus/tmp/born-<epic-issue>/epic.md"
+        LOCAL_ID="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
+        SLUG="$(<slug from the materialized epic.md frontmatter, else epic-<epic-issue>>)"
+        QDIR="$wtPath/.nexus/queue/${SLUG}-${LOCAL_ID}"
+        mkdir -p "$QDIR" && mv "$wtPath/.nexus/tmp/born-<epic-issue>/epic.md" "$QDIR/epic.md"
+        ```
+
+      On a non-zero resolver exit, report the diagnostic and stop (no entry is created). The
+      materialized `epic.md` now lives at a **tracked** `.nexus/queue/…` path (not the gitignored
+      `.nexus/tmp/`) — it is committed with the close record in Phase 7.6 as the born-at-close entry.
+      The entry carries **no `decision-record.md`** (nothing was committed at planning; the durable
+      record home is `hld-subissue-record`), so Phase 3 runs its downgraded, no-invariant deviation
+      pass.
+
+   Then run **Phase 0's frontmatter parsing** against `${QDIR}/epic.md` (title, `link`, `feature`,
+   `feature_path`, `complexity`). `<feature-path>`, `<docs-root>`, the backlog, and the lesson all
+   resolve **inside `wtPath`**. The role from step 1 **replaces the Phase 1.3 preflight** — do not run
+   the close-migration preflight in `--pr` mode (single-repo/hub only; no migration ever happens here).
+
+5. `--pr` is **mutually exclusive** with the local on-branch flow. If the preflight rejects the
    mode, **stop** — never silently fall back to the local path.
 
 # Phase 1 — Preconditions
@@ -397,10 +438,11 @@ CHECKPOINT: Epic Closure
 Ready to close epic "<Epic Title>" (#<epic-issue>).
 
 Written:
+0. [born-at-close only] Materialized epic → ${QDIR}/epic.md  (resolved from issue #<epic-issue>)
 1. Close record  → ${QDIR}/close-record.md
 2. Deferred scope → <feature-path>/backlog.md (<N> item(s))
 3. Process lesson → <docs-root>/delivery/lessons/<date>-<slug>.md
-   (in `--pr` mode all three are inside the worktree <wtPath>)
+   (in `--pr` mode all of these are inside the worktree <wtPath>)
 
 Preconditions: all <M> child story issues closed · analyze: <the Phase 1.2 outcome> ·
 workspace: <the Phase 1.3 role or the Phase 0.5 role in --pr mode>.
@@ -410,8 +452,9 @@ About to:
    — committed on the hub's current branch '<hub-branch>' (local git, recoverable)
 5. [member mode only] Remove the queue entry from this repo — committed on branch '<branch>'
    (local git, recoverable)
-5b. [--pr mode only] Commit the close record + backlog + lesson on branch
-    'distill/<date>-<slug>' and push it — durability; these artifacts have no feature PR to ride
+5b. [--pr mode only] Commit the born-at-close epic.md (if born here) + close record + backlog +
+    lesson on branch 'distill/<date>-<slug>' and push it — durability; these artifacts have no
+    feature PR to ride
 6. Post the close comment on epic issue #<epic-issue>  (irreversible)
 7. Close epic issue #<epic-issue>  (irreversible)
 ```
@@ -470,15 +513,22 @@ written inside the worktree; they have **no feature PR to ride to main**, so com
 distill branch and push it — pushing is the durability guarantee (until then the only copy is one
 worktree on one machine).
 
+**Born-at-close (invariant 15):** when Phase 0.5 materialized the epic into a fresh entry, the
+**`${QDIR}/epic.md`** is a new tracked file too — commit it in **this same commit**, so the born-at-
+close entry (materialized `epic.md` + `close-record.md`) lands atomically. The queue then holds only
+closed, drainable entries (Success Metric: 100% of trunk-queue entries carry a close record). On the
+committed-entry path `epic.md` was already tracked, so `git add` simply no-ops on it.
+
 ```bash
-git -C <wtPath> add close-record.md/backlog.md/lesson  # the three artifact paths, inside <wtPath>
-git -C <wtPath> commit -m "close: <epic-slug> — close record, backlog, lesson"
+git -C <wtPath> add "${QDIR}/epic.md" "${QDIR}/close-record.md" <backlog.md> <lesson>  # paths inside <wtPath>
+git -C <wtPath> commit -m "close: <epic-slug> — born-at-close epic, close record, backlog, lesson"
 git -C <wtPath> push -u origin "distill/<date>-<slug>"
 ```
 
 - The close record's `git rm` happens later, on this same branch, in `/nxs.distill` — so the record
   is add-then-deleted within the branch (durable via the epic-issue comment in Phase 8, and via the
-  concept pages + backlog + lesson the distillation-PR lands).
+  concept pages + backlog + lesson the distillation-PR lands). The born `epic.md` is consumed and
+  deleted with the whole entry when the distillation-PR merges.
 - If the push fails, continue to Phase 8 but end the run with an `ACTION REQUIRED: git -C <wtPath>
   push` — closure is not durable off this machine until the branch is pushed.
 
@@ -616,11 +666,21 @@ hand-off (the artifacts live on the pushed distill branch, and distill continues
   have no feature PR to ride); the close record is later `git rm`'d by `/nxs.distill` on the same
   branch, so the epic-issue comment is its durable copy. Never fall back to the local path when
   `--pr` was passed.
+- **The queue entry is born at close (invariant 15), not at planning.** Under issue-sourced planning
+  (#114) nothing is committed at planning, so in `--pr` mode with no committed entry, Phase 0.5
+  materializes the epic via the resolver into a fresh `.nexus/queue/<slug>-<id>/epic.md` and Phase 7.6
+  commits it with the close record in one commit — so every trunk-queue entry carries a close record
+  and the distiller receives a complete entry. This adds one materialization step to the existing
+  #101 post-merge flow; it is **not** a second close mechanism. Single-repo / single-PR only —
+  workspace and multi-PR born-at-close are out of scope (`hub-close-multi-pr`). A `decision-record.md`
+  is **not** written here (its durable home is `hld-subissue-record`); Phase 3 runs its downgraded
+  no-invariant deviation pass.
 
 # Usage
 
 ```
 /nxs.close                          # epic from the open editor file
 /nxs.close path/to/epic.md          # explicit epic path
-/nxs.close --pr 123 path/to/epic.md # post-merge close of PR #123 in a worktree on a distill branch
+/nxs.close --pr 123                 # post-merge close of PR #123; epic born at close from the PR's linked issue
+/nxs.close --pr 123 path/to/epic.md # post-merge close of an old-contract epic whose entry rode the PR
 ```
