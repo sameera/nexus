@@ -50,15 +50,20 @@ python ./scripts/nxs_gh_create_epic.py --no-project "<path-to-epic.md>"
 The script (`./scripts/nxs_gh_create_epic.py`):
 
 1. Parses YAML frontmatter for `epic` (title) and `type` (issue type name)
-2. Resolves the GitHub issue type with the following priority:
-   1. `type` field in the epic's YAML frontmatter
-   2. `github.epic-type` field in `.nexus/config/settings.yml` (or legacy `config.yml`/`config.json`)
-   3. Falls back to adding the `enhancement` **label** if neither is set
+2. Resolves the classification mode from `github.classification` in `.nexus/config/settings.yml`
+   (`types` | `labels` | `legacy-auto`; default `legacy-auto` when no `github:` block is present):
+   - **types** — applies the resolved epic issue-type (frontmatter `type` > `github.epic-type`);
+     no fallback label is ever added.
+   - **labels** — applies the epic label (`github.epic-label`, default `epic`); no issue-type
+     probe runs. The label is upserted (`gh label create --force`) before it is applied.
+   - **legacy-auto** — today's probe-then-fallback: resolve the type, try to set it, and if the
+     repo has no such issue-type, fall back to the epic label (default `epic`, **not** the former
+     `enhancement`) — upserted first, so filing never strands on a missing label.
 3. Creates temp file with markdown body (frontmatter stripped, non-durable queue/feature
    pointers dropped, and the `## User Stories` section removed — each story is filed as its
    own sub-issue, so keeping the full story bodies here would duplicate and drift them)
 4. Executes `gh issue create --title "<epic>" --body-file <temp>`
-   (adds `--label "enhancement"` only when falling back)
+   (adds `--label <epic-label>` when the resolved mode applies a label)
 5. Extracts issue number from returned URL
 6. Adds the issue to the specified project (or auto-discovered project)
 7. If an issue type was resolved, queries the repository's available issue types,
@@ -73,7 +78,7 @@ The script (`./scripts/nxs_gh_create_epic.py`):
 feature: "Feature Name"
 epic: "Epic Title" # Required - becomes issue title
 created: 2025-01-02
-type: Task # Optional - set as GitHub issue type; falls back to settings.yml github.epic-type, then "enhancement" label
+type: Task # Optional - issue-type name; resolved per github.classification (see Script Behavior). Falls back to settings.yml github.epic-type, then the epic label (default "epic")
 ---
 ```
 
