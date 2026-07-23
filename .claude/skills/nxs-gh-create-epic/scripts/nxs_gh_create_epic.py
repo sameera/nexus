@@ -22,72 +22,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-
-def _parse_simple_yaml(content: str) -> dict[str, dict[str, str]]:
-    """Parse the 2-level nested config.yml format without external dependencies."""
-    result: dict[str, dict[str, str]] = {}
-    current_section: str | None = None
-    for line in content.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if not line[0].isspace() and ":" in line:
-            key = line.split(":")[0].strip()
-            result[key] = {}
-            current_section = key
-        elif current_section and ":" in line:
-            key, _, value = line.partition(":")
-            result[current_section][key.strip()] = value.strip()
-    return result
-
-
-def read_delivery_config(project_root: Path) -> dict[str, str]:
-    """Read delivery config from settings.yml (canonical), falling back to the legacy
-    config.yml / config.json names.
-
-    Returns a normalized dict with keys: docRoot, project, epicType, issuesRepo.
-    """
-    delivery_dir = project_root / ".nexus" / "config"
-
-    # settings.yml is the committed config file this repo actually writes. config.yml is
-    # kept only as a legacy name: prior versions read config.yml (which never existed), so
-    # any github: config placed in settings.yml was silently dropped.
-    for yml_name in ("settings.yml", "config.yml"):
-        yml_path = delivery_dir / yml_name
-        if not yml_path.exists():
-            continue
-        try:
-            with open(yml_path, encoding="utf-8") as f:
-                raw = _parse_simple_yaml(f.read())
-            result: dict[str, str] = {}
-            cross_ref = raw.get("cross-ref", {})
-            github = raw.get("github", {})
-            if cross_ref.get("docs-root"):
-                result["docRoot"] = cross_ref["docs-root"]
-            if github.get("project"):
-                result["project"] = github["project"]
-            if github.get("epic-type"):
-                result["epicType"] = github["epic-type"]
-            if github.get("issues-repo"):
-                result["issuesRepo"] = github["issues-repo"]
-            return result
-        except OSError:
-            pass
-
-    json_path = delivery_dir / "config.json"
-    if json_path.exists():
-        try:
-            with open(json_path, encoding="utf-8") as f:
-                data = json.load(f)
-            # Support nested github object or flat keys
-            if isinstance(data.get("github"), dict):
-                if data["github"].get("issues-repo"):
-                    data["issuesRepo"] = data["github"]["issues-repo"]
-            return data
-        except (json.JSONDecodeError, OSError):
-            pass
-
-    return {}
+# The config resolver is defined once, in the shared module beside these skills, and imported
+# here — never re-copied (epic #121, decision-record Invariant 2). The path is relative to this
+# file so it resolves both in-repo and inside the vendored `.claude/` component tree.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
+from delivery_config import read_delivery_config  # noqa: E402
 
 
 class Colors:
