@@ -51,7 +51,7 @@
 
 ## github-publishing-config
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** Externalize GitHub issue-publishing decisions — classification mode (issue-types
   vs labels), Project V2 target (incl. first-class "none"), repo targeting for epics vs
   stories, and label mappings — into one declared `github:` block in
