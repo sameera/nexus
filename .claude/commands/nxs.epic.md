@@ -506,6 +506,11 @@ Report:
 - Epic title, complexity rating, and story count (with `story_type` breakdown).
 - **Nothing committed to `.nexus/queue/`** — the epic lives on GitHub issues; the queue entry is
   born at close. The `epic.md` draft stayed in session scratch.
+- **If the creation scripts printed "Seeded github config … — review and commit"** (STORY-121.07
+  write-back): a repo with no `github:` block had its resolved publishing decisions (classification
+  mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a
+  **tracked config file**, distinct from the no-queue-commit planning contract above — tell the user
+  to review that diff and commit it, so the fragile probe never runs again.
 - Epic issue link and the created story issue numbers, plus the implementation sequence (the table
   from Phase 6 step 5) — or, if the user chose `revise`, that no issues were created and how to
   resume (`/nxs.epic --resume`).

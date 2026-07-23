@@ -37,6 +37,7 @@ from delivery_config import (  # noqa: E402
     resolve_story_label,
     resolve_story_repo,
     set_issue_type,
+    write_github_block,
 )
 
 
@@ -333,11 +334,13 @@ def get_project_id_by_title(owner: str, title: str) -> str | None:
     return project.get("id")
 
 
-def get_repo_project_id() -> str | None:
-    """Get the node ID of the first project associated with the current repository.
-    
+def get_repo_project_id() -> tuple[str | None, str | None]:
+    """Discover the first project associated with the current repository.
+
     Returns:
-        The project node ID (e.g., "PVT_kwHOABC123") or None if no project found.
+        `(project_node_id, "owner/number")` — the node id used to add issues, and a concrete
+        `owner/number` reference write-back (STORY-121.07) can persist so a later run reads that
+        exact project instead of re-discovering. `(None, None)` when no project is found.
     """
     query = """
     query($owner: String!, $repo: String!) {
@@ -345,6 +348,7 @@ def get_repo_project_id() -> str | None:
             projectsV2(first: 1) {
                 nodes {
                     id
+                    number
                     title
                 }
             }
@@ -360,7 +364,7 @@ def get_repo_project_id() -> str | None:
         name_with_owner = name_result.stdout.strip()
         if "/" not in name_with_owner:
             print(f"Unexpected repository name format: {name_with_owner}", file=sys.stderr)
-            return None
+            return (None, None)
         owner, repo = name_with_owner.split("/", 1)
 
         cmd = [
@@ -377,14 +381,16 @@ def get_repo_project_id() -> str | None:
         if nodes:
             project = nodes[0]
             print(f"Found project: {project.get('title', 'Unknown')}")
-            return project.get("id")
-        return None
+            number = project.get("number")
+            ref = f"{owner}/{number}" if number is not None else None
+            return (project.get("id"), ref)
+        return (None, None)
     except subprocess.CalledProcessError as e:
         print(f"Error fetching repository projects: {e.stderr}", file=sys.stderr)
-        return None
+        return (None, None)
     except json.JSONDecodeError as e:
         print(f"Error parsing project response: {e}", file=sys.stderr)
-        return None
+        return (None, None)
 
 
 def add_issue_to_project(project_id: str, issue_id: str) -> bool:
@@ -972,6 +978,10 @@ def main():
     project_mode, project_target = resolve_project_target(merged)
     config_project_id = None
     repo_project_id = None
+    # Write-back (STORY-121.07) state: only the auto-discovery path yields a concrete project value
+    # to persist ("owner/number" when found, else "none").
+    ran_auto_discovery = False
+    discovered_project_ref: str | None = None
     if not args.no_project and not args.dry_run:
         if project_mode == "explicit":
             print(f"Looking up project from config: {project_target}")
@@ -980,7 +990,8 @@ def main():
                 print(f"Warning: Project '{project_target}' from config not found", file=sys.stderr)
         elif project_mode == "auto":
             print("Looking for repository project (fallback)...")
-            repo_project_id = get_repo_project_id()
+            ran_auto_discovery = True
+            repo_project_id, discovered_project_ref = get_repo_project_id()
             if not repo_project_id:
                 print("No repository project found (will use frontmatter project if available)")
         # project_mode == "none": deliberate absence — no config lookup, no auto-discovery, no warning.
@@ -1056,6 +1067,20 @@ def main():
                 dep_wired += 1
             else:
                 dep_failed.append((number, dep_ref))
+
+    # Write-back (STORY-121.07): persist the decisions this run reached once, so a repo with no
+    # github block never re-probes. Add-only — declared keys (incl. explicit auto/none) are never
+    # overwritten (Invariant 5); story-repo/issues-repo is not written here (an absent target means
+    # "the current repo" and is never pinned; a hub-inherited value stays inherited — Invariant 6).
+    decided = {"classification": "types" if CLASSIFICATION == "types" else "labels"}
+    if ran_auto_discovery:
+        decided["project"] = discovered_project_ref or "none"
+    seeded = write_github_block(project_root, decided)
+    if seeded["added"]:
+        print(
+            f"\n🌱 Seeded github config ({', '.join(seeded['added'])}) into "
+            ".nexus/config/settings.yml — review and commit"
+        )
 
     # Reconstruct the flags to echo in the resume hint (target_folder is added by the reporter).
     extra_args: list[str] = []
