@@ -15,6 +15,7 @@
  *   nexus workspace status             read-only workspace status (STORY-60.03)
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
  *   nexus workspace add-repo           add one member to an existing workspace (STORY-60.04)
+ *   nexus workspace github-defaults    print the hub's github-publishing defaults as JSON (STORY-121.05)
  */
 
 import * as path from "node:path";
@@ -42,10 +43,11 @@ const USAGE: string = [
     "      (default: the claude-components directory beside this artifact). Idempotent;",
     "      user-owned files such as .claude/settings.local.json are never touched.",
     "",
-    "  nexus workspace init        Declare a multi-repo workspace (hub + members).",
-    "  nexus workspace status      Read-only workspace status from any checkout.",
-    "  nexus workspace docs-root   Print the resolved repo-relative docs root.",
-    "  nexus workspace add-repo    Add the invoking checkout to an existing workspace.",
+    "  nexus workspace init            Declare a multi-repo workspace (hub + members).",
+    "  nexus workspace status          Read-only workspace status from any checkout.",
+    "  nexus workspace docs-root       Print the resolved repo-relative docs root.",
+    "  nexus workspace add-repo        Add the invoking checkout to an existing workspace.",
+    "  nexus workspace github-defaults Print the hub's github-publishing defaults as JSON.",
 ].join("\n");
 
 /** Where the vendored payload lives when running as a distributed artifact. */
@@ -201,6 +203,27 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         const result: ResolveResult = resolveWorkspace(io.cwd);
         (result.ok ? io.stdout : io.stderr)(renderWorkspaceStatus(result));
         return result.ok ? 0 : 1;
+    }
+    if (sub === "github-defaults") {
+        if (rest.length > 0) {
+            io.stderr(`unknown argument for workspace github-defaults: ${rest[0]}\n${USAGE}`);
+            return 2;
+        }
+        // The seam the Python publishing resolver reads for the `hub` layer of its precedence chain
+        // (epic #121, STORY-121.05). Resolve the workspace from the invoking checkout — from a
+        // member this finds the hub and reads its manifest — and print the hub's github defaults as
+        // a JSON object. Single-repo (no workspace artifact) prints `{}`; a resolver diagnostic
+        // prints `{}` on stdout AND the diagnostic on stderr with exit 1, so a caller that only
+        // reads stdout treats an unresolved workspace as "no defaults" rather than crashing.
+        const result: ResolveResult = resolveWorkspace(io.cwd);
+        if (!result.ok) {
+            io.stdout("{}");
+            io.stderr(renderWorkspaceStatus(result));
+            return 1;
+        }
+        const github = result.workspace.mode === "workspace" ? (result.workspace.github ?? {}) : {};
+        io.stdout(JSON.stringify(github));
+        return 0;
     }
     if (sub === "docs-root") {
         if (rest.length > 0) {

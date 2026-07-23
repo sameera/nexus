@@ -124,6 +124,51 @@ describe("parseAndValidateManifest — docs root", () => {
     });
 });
 
+// --- github defaults (epic #121, STORY-121.05) ------------------------------
+
+describe("parseAndValidateManifest — github defaults (STORY-121.05)", () => {
+    it("carries a top-level github: block as a flat string map", () => {
+        const raw =
+            VALID +
+            `github:\n  classification: labels\n  project: none\n  epic-repo: acme/docs-hub\n  story-repo: acme/web-app\n`;
+        const ws = asOk(parseAndValidateManifest(raw, FILE, HUB));
+        expect(ws.github).toEqual({
+            classification: "labels",
+            project: "none",
+            "epic-repo": "acme/docs-hub",
+            "story-repo": "acme/web-app",
+        });
+    });
+
+    it("leaves github undefined when the manifest declares no github block", () => {
+        const ws = asOk(parseAndValidateManifest(VALID, FILE, HUB));
+        expect(ws.github).toBeUndefined();
+    });
+
+    it("rejects an unknown key inside the github block", () => {
+        const raw = VALID + `github:\n  classification: labels\n  banana: yes\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("unknown-key");
+        expect(err.entry).toBe("github");
+        expect(err.message).toContain("banana");
+    });
+
+    it("rejects a github block that is not a mapping", () => {
+        const raw = VALID + `github: labels\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("wrong-type");
+        expect(err.entry).toBe("github");
+    });
+
+    it("rejects a github key whose value is not a scalar string", () => {
+        const raw = VALID + `github:\n  project:\n    nested: map\n`;
+        const err = asError(parseAndValidateManifest(raw, FILE, HUB));
+        expect(err.problem).toBe("wrong-type");
+        expect(err.entry).toBe("github");
+        expect(err.message).toContain("project");
+    });
+});
+
 // --- AC3: adding a member is recognized with no other change ----------------
 
 describe("parseAndValidateManifest — adding a member (AC3)", () => {

@@ -162,21 +162,25 @@ single-repo and hub mode only.
 
 ## 1.0 Resolve the issues repo (target of every issue op)
 
-Nexus files the epic and its story issues into the configured **issues-repo** (`github.issues-repo`),
-which may differ from the repo `/nxs.close` runs in. Resolve it once, **through the shared resolver** —
-never by parsing `settings.yml` yourself (decision-record Invariant 2) — so close addresses the same
-repository the creation scripts filed into. Historically close omitted this and always hit the current
-repo; resolving it here is the concrete bug STORY-121.04 fixes.
+Nexus files the epic issue into the configured **epic-repo** (`github.epic-repo`, falling back to
+`github.issues-repo`), which may differ from the repo `/nxs.close` runs in. Resolve it once, **through
+the shared resolver** — never by parsing `settings.yml` yourself (decision-record Invariant 2) — so
+close addresses the same repository the creation scripts filed the epic into. Close acts on the **epic**
+issue, so it resolves `epic-repo` specifically; the resolver applies the same precedence chain (including
+workspace hub defaults) the creation scripts use, so all consumers agree (Invariant 3). Historically
+close omitted this and always hit the current repo; resolving it here is the concrete bug STORY-121.04
+fixes, extended to per-epic/story repo targeting by STORY-121.05.
 
 ```bash
-ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve issues-repo --root "<root>")"
+ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root "<root>")"
 REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
 ```
 
 - `<root>` is the repo root in the local flow, or `$wtPath` in `--pr` mode (the config lives inside the
   worktree).
-- When `ISSUES_REPO` is empty the issues live in the current repo and `REPO_ARG` stays empty — today's
-  behavior, unchanged (an absent issues-repo means "the current repo" and is never pinned; Invariant 6).
+- When `ISSUES_REPO` is empty the epic issue lives in the current repo and `REPO_ARG` stays empty —
+  today's behavior, unchanged (an absent epic-repo/issues-repo means "the current repo" and is never
+  pinned; Invariant 6).
 - **Every `gh issue …` / `gh api …` call below that addresses the epic issue or a story issue MUST
   include `$REPO_ARG`.** For the sub-issues GraphQL query, take `owner`/`repo` from `$ISSUES_REPO` when
   set, otherwise the current repo.

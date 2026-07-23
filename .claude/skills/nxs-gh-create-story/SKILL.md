@@ -114,6 +114,14 @@ decides the fallback for every story:
 
 `--no-project` skips project assignment for the whole run regardless of the above.
 
+## Repo targeting (STORY-121.05)
+
+Story issues are filed into the resolved **story-repo**: `github.story-repo` if declared, else
+`github.issues-repo`, else the current repo (an absent target is never pinned). In a multi-repo
+workspace the resolver also consults the hub manifest's `github:` defaults as a fallback layer, so a
+member repo inherits the workspace `story-repo`/`issues-repo` default per key when it declares none.
+This is resolved independently of the epic's target, so epics and stories can land in different repos.
+
 ## Prerequisites
 
 -   `gh` CLI installed and authenticated

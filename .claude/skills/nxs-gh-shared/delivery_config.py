@@ -12,6 +12,8 @@ precedence, and write-back onto this same module.
 """
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 
@@ -71,6 +73,12 @@ def read_delivery_config(project_root: Path) -> dict[str, str]:
                 result["storyType"] = github["story-type"]
             if github.get("story-label"):
                 result["storyLabel"] = github["story-label"]
+            # Repo-targeting keys (STORY-121.05): the specific epic-repo/story-repo win over the
+            # general issues-repo, which stays the fallback for whichever is unspecified.
+            if github.get("epic-repo"):
+                result["epicRepo"] = github["epic-repo"]
+            if github.get("story-repo"):
+                result["storyRepo"] = github["story-repo"]
             return result
         except OSError:
             pass
@@ -228,6 +236,125 @@ def resolve_issues_repo(config, *, frontmatter=None, invocation=None, hub=None):
     )
 
 
+def resolve_epic_repo(config, *, frontmatter=None, invocation=None, hub=None):
+    """Resolve the repository the *epic* issue is filed into (STORY-121.05).
+
+    The specific ``epic-repo`` wins over the general ``issues-repo``, which is the fallback for
+    whichever is unspecified (decision-record Invariant 9). Each is resolved through the same
+    precedence chain, so a member inherits the hub's epic-repo when it declares none — which is
+    how the no-primary-code-repo case files the epic into the hub (AC3). Returns ``""`` when
+    neither key is set anywhere: an absent target means "the current repo" and is never pinned.
+    """
+    specific = resolve_setting(
+        "epicRepo", invocation=invocation, frontmatter=frontmatter, repo=config, hub=hub
+    )
+    if specific:
+        return specific
+    return resolve_issues_repo(config, frontmatter=frontmatter, invocation=invocation, hub=hub)
+
+
+def resolve_story_repo(config, *, frontmatter=None, invocation=None, hub=None):
+    """Resolve the repository *story* issues are filed into (STORY-121.05).
+
+    Mirrors ``resolve_epic_repo``: the specific ``story-repo`` wins over the general
+    ``issues-repo`` fallback, resolved through the shared chain (decision-record Invariant 9).
+    """
+    specific = resolve_setting(
+        "storyRepo", invocation=invocation, frontmatter=frontmatter, repo=config, hub=hub
+    )
+    if specific:
+        return specific
+    return resolve_issues_repo(config, frontmatter=frontmatter, invocation=invocation, hub=hub)
+
+
+# --- Workspace hub defaults (STORY-121.05) -------------------------------------------
+#
+# The `hub` layer of the precedence chain is workspace-wide github defaults declared in the hub
+# manifest (`<hub>/.nexus/config/workspace.yml`). That manifest is owned by the TypeScript
+# workspace resolver — the single source of workspace truth — so Python never parses it directly:
+# it shells out to the `workspace github-defaults` CLI verb, which resolves the workspace from any
+# checkout (a member finds its hub) and prints the hub's github block as JSON. The call is guarded
+# so a single-repo checkout (no workspace artifact) never spawns node — today's common case pays
+# nothing.
+
+
+def _read_pointer_hub_name(hub_yml: Path) -> str | None:
+    """Read the hub's bare sibling-directory name from a member's `hub.yml` pointer."""
+    try:
+        parsed = _parse_simple_yaml(hub_yml.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    return (parsed.get("hub", {}) or {}).get("name") or None
+
+
+def _workspace_cli_command(project_root: Path) -> list[str] | None:
+    """Build the argv that emits `workspace github-defaults`, or None when no CLI is available.
+
+    Uses the portable vendored `nexus.mjs` on a bare `node` — either this checkout's own
+    (`.nexus/tools/nexus.mjs`, a hub) or the hub's, located as the sibling named by a member's
+    `hub.yml`. Returns None when node or a bundle cannot be found, so the caller degrades to "no
+    hub defaults" rather than failing.
+    """
+    node = shutil.which("node")
+    if not node:
+        return None
+    candidates = [project_root / ".nexus" / "tools" / "nexus.mjs"]
+    hub_yml = project_root / ".nexus" / "config" / "hub.yml"
+    if hub_yml.exists():
+        hub_name = _read_pointer_hub_name(hub_yml)
+        if hub_name:
+            candidates.append(project_root.parent / hub_name / ".nexus" / "tools" / "nexus.mjs")
+    for mjs in candidates:
+        if mjs.exists():
+            return [node, str(mjs), "workspace", "github-defaults"]
+    return None
+
+
+def _normalize_hub_defaults(raw: str) -> dict[str, str]:
+    """Map the CLI's JSON github-block (github-key → value) onto the normalized resolver keys.
+
+    Tolerant by design: non-JSON, a non-object, or unknown keys yield an empty/partial dict — the
+    hub layer is best-effort and must never raise into the issue-creation path.
+    """
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    result: dict[str, str] = {}
+    for github_key, value in data.items():
+        normalized = _GITHUB_KEY_TO_NORMALIZED.get(github_key)
+        if normalized and isinstance(value, str) and value.strip():
+            result[normalized] = value.strip()
+    return result
+
+
+def read_hub_defaults(project_root: Path, run=None) -> dict[str, str]:
+    """Resolve workspace-wide github defaults for the `hub` precedence layer (STORY-121.05).
+
+    Guarded and best-effort: returns ``{}`` (spawning nothing) when the checkout declares no
+    workspace artifact — the single-repo common case. Otherwise it invokes the `workspace
+    github-defaults` CLI verb (cwd = ``project_root``) and normalizes its JSON. Any failure —
+    no CLI, a non-zero exit, unparseable output — yields ``{}``, so the hub layer can never break
+    publishing. ``run`` is an injectable ``(cmd) -> CompletedProcess`` for tests.
+    """
+    config_dir = project_root / ".nexus" / "config"
+    if not (config_dir / "hub.yml").exists() and not (config_dir / "workspace.yml").exists():
+        return {}
+    cmd = _workspace_cli_command(project_root)
+    if cmd is None:
+        return {}
+    if run is None:
+        def run(command):  # noqa: E731 — default runner binds cwd to the checkout
+            return subprocess.run(command, cwd=str(project_root), capture_output=True, text=True)
+    try:
+        result = run(cmd)
+    except OSError:
+        return {}
+    return _normalize_hub_defaults(getattr(result, "stdout", "") or "")
+
+
 # --- Shared gh helpers (STORY-121.02) ------------------------------------------------
 #
 # Issue-type lookup/set and the label upsert are defined once and imported by both creation
@@ -349,6 +476,8 @@ _GITHUB_KEY_TO_NORMALIZED = {
     "story-type": "storyType",
     "story-label": "storyLabel",
     "classification": "classification",
+    "epic-repo": "epicRepo",
+    "story-repo": "storyRepo",
 }
 
 
@@ -383,8 +512,16 @@ def _cli(argv):
     if args.command == "resolve":
         root = _find_config_root(Path(args.root))
         config = read_delivery_config(root)
-        normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
-        value = resolve_setting(normalized, repo=config)
+        # The hub layer (workspace-wide defaults) participates for every key, so a non-script
+        # consumer like /nxs.close resolves identically to the creation scripts (Invariant 3).
+        hub = read_hub_defaults(root)
+        if args.key == "epic-repo":
+            value = resolve_epic_repo(config, hub=hub)
+        elif args.key == "story-repo":
+            value = resolve_story_repo(config, hub=hub)
+        else:
+            normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
+            value = resolve_setting(normalized, repo=config, hub=hub)
         print(value if value else "")
         return 0
     return 1
