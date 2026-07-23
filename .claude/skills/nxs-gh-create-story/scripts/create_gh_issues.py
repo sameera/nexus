@@ -32,6 +32,7 @@ from delivery_config import (  # noqa: E402
     lookup_issue_type_id,
     read_delivery_config,
     resolve_classification,
+    resolve_issues_repo,
     resolve_project_target,
     resolve_story_label,
     set_issue_type,
@@ -614,14 +615,6 @@ def find_project_root(start_path: Path) -> Path:
     return Path.cwd()
 
 
-def read_issues_repo_from_config(project_root: Path) -> str:
-    """Read the target issues repository from delivery config (config.yml or config.json).
-
-    Returns the 'owner/repo' string from github.issues-repo, or empty string if not set.
-    """
-    return read_delivery_config(project_root).get("issuesRepo", "")
-
-
 def resolve_project_id(project_attr: str | None, config_project_id: str | None, repo_project_id: str | None) -> str | None:
     """Resolve the project ID to use for an issue.
 
@@ -929,15 +922,19 @@ def main():
 
     project_root = find_project_root(Path(target_folder))
 
-    # Read issues-repo from config (if set, all gh issue commands target that repo)
-    issues_repo: str | None = read_issues_repo_from_config(project_root) or None
+    # Read config once; every resolution goes through the one shared resolver, so this script,
+    # the epic script, /nxs.epic, and /nxs.close cannot disagree on any key (STORY-121.04).
+    global STORY_LABEL, CLASSIFICATION, STORY_TYPE_ID
+    config = read_delivery_config(project_root)
+
+    # Issues-repo resolves through the shared precedence chain (repo settings here). If set, all
+    # gh issue commands target that repo.
+    issues_repo: str | None = resolve_issues_repo(config) or None
     if issues_repo:
         print(f"Issues repo (from config): {issues_repo}")
 
     # Resolve the classification mode + story type/label names once (STORY-121.02). Default
     # legacy-auto keeps today's behavior: every story carries the `story` label, no issue type.
-    global STORY_LABEL, CLASSIFICATION, STORY_TYPE_ID
-    config = read_delivery_config(project_root)
     CLASSIFICATION = resolve_classification(config)
     STORY_LABEL = resolve_story_label(config)
     story_type = config.get("storyType")

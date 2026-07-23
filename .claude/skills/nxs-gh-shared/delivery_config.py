@@ -168,6 +168,66 @@ def resolve_project_target(config: dict[str, str]) -> tuple[str, str | None]:
     return ("explicit", raw)
 
 
+# --- Precedence chain (STORY-121.04) -------------------------------------------------
+#
+# Every consumer resolves a key through one precedence chain, so the four resolving consumers
+# (both creation scripts, `/nxs.epic` via those scripts, and `/nxs.close`) can never disagree
+# (decision-record Invariant 3/4). The chain is resolved most-specific-first: the imperative
+# invocation-time argument always wins, then per-item frontmatter, then the repo's declared
+# settings, then workspace hub defaults, then the built-in default that guarantees a value exists.
+
+#: The precedence order, most-specific first (decision-record Invariant 4). The `hub` layer is the
+#: seam workspace-wide defaults plug into (STORY-121.05); STORY-121.04 only establishes the chain,
+#: so callers pass `hub=None` until that story wires the manifest in.
+PRECEDENCE = ("invocation", "frontmatter", "repo", "hub", "builtin")
+
+
+def resolve_setting(key, *, invocation=None, frontmatter=None, repo=None, hub=None, builtin=None):
+    """Resolve one config key most-specific-first across the precedence chain.
+
+    Layers, highest precedence first (decision-record Invariant 4):
+      - ``invocation``  an imperative invocation-time argument (e.g. the ``--project`` flag) — the
+                        top override; it is an explicit operator command for this run and must win.
+      - ``frontmatter`` per-item intent (the epic/story frontmatter) — overrides a repo default for
+                        a one-off.
+      - ``repo``        the repo's declared ``.nexus/config/settings.yml`` github block.
+      - ``hub``         workspace hub defaults (STORY-121.05 fills this; ``None`` until then).
+      - ``builtin``     the built-in default — the last resort that guarantees a value exists.
+
+    Each of ``invocation``/``frontmatter``/``repo``/``hub`` is a mapping (or ``None``/absent). The
+    first layer carrying ``key`` with a non-empty value wins; an empty string or a missing key is
+    treated as "unset" and falls through. ``builtin`` may be a mapping keyed the same way or a bare
+    default value. Returns ``None`` when no layer sets the key and there is no built-in.
+    """
+    for layer in (invocation, frontmatter, repo, hub):
+        if not layer:
+            continue
+        value = layer.get(key)
+        if value not in (None, ""):
+            return value
+    if isinstance(builtin, dict):
+        return builtin.get(key)
+    return builtin
+
+
+def resolve_issues_repo(config, *, frontmatter=None, invocation=None, hub=None):
+    """Resolve the target issues repository (an ``owner/repo``) through the shared chain.
+
+    This is the one entry all four consumers use for issues-repo, so ``/nxs.close`` targets the
+    same repository the creation scripts filed into (STORY-121.04 AC2/AC3 — the concrete bug this
+    precedence work fixes). Returns ``""`` when no layer sets it: an absent issues-repo means "the
+    current repo" and, per decision-record Invariant 6, is never pinned to a concrete value.
+    """
+    return resolve_setting(
+        "issuesRepo",
+        invocation=invocation,
+        frontmatter=frontmatter,
+        repo=config,
+        hub=hub,
+        builtin="",
+    )
+
+
 # --- Shared gh helpers (STORY-121.02) ------------------------------------------------
 #
 # Issue-type lookup/set and the label upsert are defined once and imported by both creation
@@ -270,3 +330,67 @@ def ensure_label(
     if repo:
         cmd.extend(["-R", repo])
     return run(cmd).returncode == 0
+
+
+# --- Read-only resolve CLI (STORY-121.04) --------------------------------------------
+#
+# The non-script consumers — `/nxs.close`, and any future markdown command — obtain a resolved
+# value by invoking this CLI, never by parsing settings.yml themselves (decision-record Invariant
+# 2). `/nxs.close` calls `resolve issues-repo` to target the configured issues-repo when it
+# comments on and closes the epic issue (AC2). The keys are the github-block names as written in
+# settings.yml (e.g. `issues-repo`), mapped to the normalized keys `read_delivery_config` returns.
+
+#: github-block key (as written in settings.yml) → the normalized key `read_delivery_config` emits.
+_GITHUB_KEY_TO_NORMALIZED = {
+    "issues-repo": "issuesRepo",
+    "project": "project",
+    "epic-type": "epicType",
+    "epic-label": "epicLabel",
+    "story-type": "storyType",
+    "story-label": "storyLabel",
+    "classification": "classification",
+}
+
+
+def _find_config_root(start: Path) -> Path:
+    """Walk up from `start` to the nearest ancestor holding a `.nexus/config` dir.
+
+    Keyed to the config dir (not `.git`/`CLAUDE.md`) so a checkout with no config resolves to
+    `start` and reads as empty, rather than climbing into an unrelated repo above a temp dir.
+    """
+    current = start.resolve()
+    while current != current.parent:
+        if (current / ".nexus" / "config").is_dir():
+            return current
+        current = current.parent
+    return start.resolve()
+
+
+def _cli(argv):
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="delivery_config", description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    resolve_cmd = sub.add_parser(
+        "resolve", help="Resolve one github-block key through the shared precedence chain."
+    )
+    resolve_cmd.add_argument("key", help="github-block key as written in settings.yml, e.g. issues-repo")
+    resolve_cmd.add_argument(
+        "--root", default=".", help="Repo/worktree root to resolve config from (default: cwd)."
+    )
+    args = parser.parse_args(argv)
+
+    if args.command == "resolve":
+        root = _find_config_root(Path(args.root))
+        config = read_delivery_config(root)
+        normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
+        value = resolve_setting(normalized, repo=config)
+        print(value if value else "")
+        return 0
+    return 1
+
+
+if __name__ == "__main__":
+    import sys as _sys
+
+    raise SystemExit(_cli(_sys.argv[1:]))

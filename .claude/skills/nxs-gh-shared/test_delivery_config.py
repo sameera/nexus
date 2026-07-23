@@ -7,6 +7,7 @@ single source of truth has coverage the scripts cannot claim by proxy (STORY-121
 """
 
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -19,6 +20,7 @@ from delivery_config import (  # noqa: E402
     DEFAULT_EPIC_LABEL,
     DEFAULT_PROJECT,
     DEFAULT_STORY_LABEL,
+    PRECEDENCE,
     PROJECT_AUTO,
     PROJECT_NONE,
     _parse_simple_yaml,
@@ -27,10 +29,14 @@ from delivery_config import (  # noqa: E402
     read_delivery_config,
     resolve_classification,
     resolve_epic_label,
+    resolve_issues_repo,
     resolve_project_target,
+    resolve_setting,
     resolve_story_label,
     set_issue_type,
 )
+
+_MODULE = Path(__file__).resolve().parent / "delivery_config.py"
 
 
 class _Result:
@@ -261,6 +267,103 @@ class IssueTypeHelpers(unittest.TestCase):
         self.assertFalse(set_issue_type("I_1", "IT_1", FakeRun([_Result(1)])))
 
 
+class PrecedenceResolution(unittest.TestCase):
+    """STORY-121.04 AC1: one precedence chain, most-specific first —
+    invocation > frontmatter > repo settings > hub defaults > built-in, each adjacent pair."""
+
+    def test_precedence_order_is_declared_most_specific_first(self):
+        self.assertEqual(PRECEDENCE, ("invocation", "frontmatter", "repo", "hub", "builtin"))
+
+    def test_invocation_beats_frontmatter(self):
+        self.assertEqual(
+            resolve_setting("project", invocation={"project": "inv"}, frontmatter={"project": "fm"}),
+            "inv",
+        )
+
+    def test_frontmatter_beats_repo(self):
+        self.assertEqual(
+            resolve_setting("project", frontmatter={"project": "fm"}, repo={"project": "repo"}),
+            "fm",
+        )
+
+    def test_repo_beats_hub(self):
+        self.assertEqual(
+            resolve_setting("project", repo={"project": "repo"}, hub={"project": "hub"}),
+            "repo",
+        )
+
+    def test_hub_beats_builtin(self):
+        self.assertEqual(resolve_setting("project", hub={"project": "hub"}, builtin="bi"), "hub")
+
+    def test_builtin_is_the_last_resort(self):
+        self.assertEqual(resolve_setting("project", builtin="bi"), "bi")
+        self.assertIsNone(resolve_setting("project"))
+
+    def test_builtin_may_be_a_mapping(self):
+        self.assertEqual(
+            resolve_setting("classification", builtin={"classification": "legacy-auto"}),
+            "legacy-auto",
+        )
+
+    def test_empty_or_absent_higher_layer_falls_through(self):
+        # An empty string at a higher layer is "unset" — it never shadows a lower layer's value.
+        self.assertEqual(
+            resolve_setting("project", frontmatter={"project": ""}, repo={"project": "repo"}),
+            "repo",
+        )
+        self.assertEqual(
+            resolve_setting("project", invocation=None, frontmatter={}, repo={"project": "repo"}),
+            "repo",
+        )
+
+
+class IssuesRepoResolution(unittest.TestCase):
+    """STORY-121.04 AC2/AC3: issues-repo resolves through the one shared chain, so /nxs.close and
+    both creation scripts target the same repo."""
+
+    def test_from_repo_settings(self):
+        root = _write_config({"settings.yml": "github:\n  issues-repo: acme/hub\n"})
+        self.assertEqual(resolve_issues_repo(read_delivery_config(root)), "acme/hub")
+
+    def test_absent_is_empty_string(self):
+        self.assertEqual(resolve_issues_repo({}), "")
+
+    def test_frontmatter_and_invocation_override_repo(self):
+        cfg = {"issuesRepo": "acme/hub"}
+        self.assertEqual(resolve_issues_repo(cfg, frontmatter={"issuesRepo": "acme/fm"}), "acme/fm")
+        self.assertEqual(resolve_issues_repo(cfg, invocation={"issuesRepo": "acme/inv"}), "acme/inv")
+
+
+class ResolveCli(unittest.TestCase):
+    """The read-only `resolve` CLI that non-script consumers (/nxs.close) call to obtain a value
+    through the shared resolver instead of re-parsing settings themselves (Invariant 2)."""
+
+    def _run_cli(self, root, *cli_args):
+        return subprocess.run(
+            [sys.executable, str(_MODULE), *cli_args, "--root", str(root)],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_resolve_issues_repo_prints_configured_value(self):
+        root = _write_config({"settings.yml": "github:\n  issues-repo: acme/hub\n"})
+        out = self._run_cli(root, "resolve", "issues-repo")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "acme/hub")
+
+    def test_resolve_issues_repo_absent_prints_empty(self):
+        root = Path(tempfile.mkdtemp())
+        out = self._run_cli(root, "resolve", "issues-repo")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "")
+
+    def test_resolve_project_uses_github_key(self):
+        root = _write_config({"settings.yml": "github:\n  project: acme/12\n"})
+        out = self._run_cli(root, "resolve", "project")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "acme/12")
+
+
 class SingleSourceOfTruth(unittest.TestCase):
     """STORY-121.01 AC1: a search finds zero duplicate definitions of the resolver."""
 
@@ -269,6 +372,16 @@ class SingleSourceOfTruth(unittest.TestCase):
             src = script.read_text(encoding="utf-8")
             self.assertNotIn("def read_delivery_config", src, f"{script.name} redefines the resolver")
             self.assertNotIn("def _parse_simple_yaml", src, f"{script.name} redefines the YAML parser")
+
+    def test_scripts_do_not_redefine_the_issues_repo_reader(self):
+        # STORY-121.04: issues-repo resolution lives once in the shared module; neither script
+        # carries a private read_issues_repo_from_config copy that could drift from the chain.
+        for script in (_EPIC_SCRIPT, _STORY_SCRIPT):
+            src = script.read_text(encoding="utf-8")
+            self.assertNotIn(
+                "def read_issues_repo_from_config", src,
+                f"{script.name} redefines the issues-repo reader",
+            )
 
     def test_scripts_do_not_redefine_the_shared_gh_helpers(self):
         # Issue-type lookup/set and the label upsert live once in the shared module (STORY-121.02).
