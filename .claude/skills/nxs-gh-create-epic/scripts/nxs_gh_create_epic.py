@@ -30,9 +30,10 @@ from delivery_config import (  # noqa: E402
     ensure_label,
     lookup_issue_type_id,
     read_delivery_config,
+    read_hub_defaults,
     resolve_classification,
     resolve_epic_label,
-    resolve_issues_repo,
+    resolve_epic_repo,
     resolve_project_target,
     resolve_setting,
     set_issue_type,
@@ -640,22 +641,29 @@ def main() -> int:
     # disagree on any key (STORY-121.04, decision-record Invariant 3).
     project_root = find_project_root(epic_file)
     config = read_delivery_config(project_root)
+    # Workspace hub defaults are the `hub` layer of the precedence chain (STORY-121.05): a member
+    # inherits each key it does not itself declare. `merged` is repo-over-hub, for the single-dict
+    # resolvers below; the chain-based resolvers take `hub=` directly. Empty {} in single-repo mode,
+    # so nothing changes there.
+    hub = read_hub_defaults(project_root)
+    merged = {**hub, **{k: v for k, v in config.items() if v not in (None, "")}}
 
-    # Issues-repo resolves through the shared precedence chain (repo settings here; hub defaults
-    # and frontmatter plug in later). If set, all gh issue commands target that repo.
-    issues_repo: str | None = resolve_issues_repo(config) or None
+    # The epic issue is filed into the epic-repo (specific), falling back to issues-repo, then the
+    # hub default — so a member with no primary code repo inherits the hub's epic-repo and files
+    # the epic into the hub (STORY-121.05 AC3). If set, all gh issue commands target that repo.
+    issues_repo: str | None = resolve_epic_repo(config, hub=hub) or None
     if issues_repo:
-        print(f"📦 Issues repo (from config): {issues_repo}")
+        print(f"📦 Epic repo (from config): {issues_repo}")
 
     # Resolve the classification mechanism and the concrete names the epic will carry
     # (STORY-121.02). The mode decides types-vs-labels; frontmatter `type` (per-item intent)
     # wins over config `epic-type` for the issue-type NAME — resolved through the shared
     # precedence chain (STORY-121.04) — and `epic-label` (default `epic`) supplies the label.
     # `legacy-auto` (the built-in default) preserves today's outcome.
-    classification = resolve_classification(config)
-    epic_label = resolve_epic_label(config)
+    classification = resolve_classification(merged)
+    epic_label = resolve_epic_label(merged)
     resolved_type: str | None = resolve_setting(
-        "epicType", frontmatter={"epicType": frontmatter.get("type")}, repo=config
+        "epicType", frontmatter={"epicType": frontmatter.get("type")}, repo=config, hub=hub
     ) or None
 
     # issue_type = a type to APPLY after creation (types / legacy-auto with a type).
@@ -712,7 +720,7 @@ def main() -> int:
             if not project_id:
                 warn(f"Project '{args.project}' not found, issue will not be added to a project")
         else:
-            project_mode, project_target = resolve_project_target(config)
+            project_mode, project_target = resolve_project_target(merged)
             if project_mode == "explicit":
                 print(f"🔍 Looking up project from config: {project_target}")
                 project_id = get_project_id_by_name(project_target)

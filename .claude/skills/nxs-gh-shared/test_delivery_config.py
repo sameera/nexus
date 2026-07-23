@@ -23,16 +23,20 @@ from delivery_config import (  # noqa: E402
     PRECEDENCE,
     PROJECT_AUTO,
     PROJECT_NONE,
+    _normalize_hub_defaults,
     _parse_simple_yaml,
     ensure_label,
     lookup_issue_type_id,
     read_delivery_config,
+    read_hub_defaults,
     resolve_classification,
     resolve_epic_label,
+    resolve_epic_repo,
     resolve_issues_repo,
     resolve_project_target,
     resolve_setting,
     resolve_story_label,
+    resolve_story_repo,
     set_issue_type,
 )
 
@@ -334,6 +338,109 @@ class IssuesRepoResolution(unittest.TestCase):
         self.assertEqual(resolve_issues_repo(cfg, invocation={"issuesRepo": "acme/inv"}), "acme/inv")
 
 
+class EpicStoryRepoResolution(unittest.TestCase):
+    """STORY-121.05: epic-repo/story-repo are repo-level keys resolved through the shared chain;
+    the specific key wins over the general issues-repo, which is the fallback for whichever is
+    unspecified (decision-record Invariant 9)."""
+
+    def test_epic_repo_falls_back_to_issues_repo(self):
+        cfg = {"issuesRepo": "acme/hub"}
+        self.assertEqual(resolve_epic_repo(cfg), "acme/hub")
+        self.assertEqual(resolve_story_repo(cfg), "acme/hub")
+
+    def test_specific_epic_repo_beats_general_issues_repo(self):
+        cfg = {"issuesRepo": "acme/hub", "epicRepo": "acme/epics"}
+        self.assertEqual(resolve_epic_repo(cfg), "acme/epics")
+        # story-repo unset here, so stories still fall back to issues-repo
+        self.assertEqual(resolve_story_repo(cfg), "acme/hub")
+
+    def test_story_repo_specificity(self):
+        cfg = {"issuesRepo": "acme/hub", "storyRepo": "acme/web-app"}
+        self.assertEqual(resolve_story_repo(cfg), "acme/web-app")
+        self.assertEqual(resolve_epic_repo(cfg), "acme/hub")
+
+    def test_absent_everything_is_empty_string(self):
+        self.assertEqual(resolve_epic_repo({}), "")
+        self.assertEqual(resolve_story_repo({}), "")
+
+    def test_hub_epic_repo_beats_repo_issues_repo_no_code_repo_case(self):
+        # AC3: a member with no primary code repo does not declare epic-repo, so it inherits the
+        # hub's epic-repo (the hub repo) — the epic issue lands in the hub. Falls out of per-key
+        # hub inheritance + epic-repo specificity, no special-casing.
+        self.assertEqual(resolve_epic_repo({}, hub={"epicRepo": "acme/docs-hub"}), "acme/docs-hub")
+
+    def test_repo_epic_repo_overrides_hub(self):
+        # A member WITH its own code repo declares epic-repo locally, which wins over the hub.
+        self.assertEqual(
+            resolve_epic_repo({"epicRepo": "acme/web-app"}, hub={"epicRepo": "acme/docs-hub"}),
+            "acme/web-app",
+        )
+
+    def test_frontmatter_and_invocation_override(self):
+        cfg = {"epicRepo": "acme/epics"}
+        self.assertEqual(resolve_epic_repo(cfg, frontmatter={"epicRepo": "acme/fm"}), "acme/fm")
+        self.assertEqual(resolve_epic_repo(cfg, invocation={"epicRepo": "acme/inv"}), "acme/inv")
+
+    def test_read_delivery_config_surfaces_repo_targets(self):
+        root = _write_config(
+            {"settings.yml": "github:\n  epic-repo: acme/docs-hub\n  story-repo: acme/web-app\n"}
+        )
+        cfg = read_delivery_config(root)
+        self.assertEqual(cfg["epicRepo"], "acme/docs-hub")
+        self.assertEqual(cfg["storyRepo"], "acme/web-app")
+
+
+class HubDefaults(unittest.TestCase):
+    """STORY-121.05: the Python resolver reads workspace-wide github defaults (the `hub` layer)
+    by shelling out to the `workspace github-defaults` CLI verb — guarded so a single-repo
+    checkout (no workspace artifact) never spawns node."""
+
+    def test_no_workspace_artifact_returns_empty_without_running(self):
+        root = Path(tempfile.mkdtemp())
+        (root / ".nexus" / "config").mkdir(parents=True)
+        run = FakeRun([])
+        self.assertEqual(read_hub_defaults(root, run=run), {})
+        self.assertEqual(run.calls, [])  # guard short-circuits: no node spawn in single-repo
+
+    def test_artifact_present_but_no_cli_returns_empty(self):
+        # A member checkout (hub.yml present) but no vendored nexus.mjs anywhere → best-effort {}.
+        root = Path(tempfile.mkdtemp())
+        (root / ".nexus" / "config").mkdir(parents=True)
+        (root / ".nexus" / "config" / "hub.yml").write_text(
+            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n", encoding="utf-8"
+        )
+        run = FakeRun([])
+        self.assertEqual(read_hub_defaults(root, run=run), {})
+        self.assertEqual(run.calls, [])  # no CLI found → nothing run
+
+    def test_reads_defaults_via_injected_cli(self):
+        # hub.yml present AND a (dummy) vendored nexus.mjs exists → the verb is invoked and its
+        # JSON is normalized into the hub layer.
+        root = Path(tempfile.mkdtemp())
+        (root / ".nexus" / "config").mkdir(parents=True)
+        (root / ".nexus" / "config" / "hub.yml").write_text(
+            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n", encoding="utf-8"
+        )
+        (root / ".nexus" / "tools").mkdir(parents=True)
+        (root / ".nexus" / "tools" / "nexus.mjs").write_text("// bundle\n", encoding="utf-8")
+        run = FakeRun([_Result(0, stdout='{"project": "acme/1", "epic-repo": "acme/docs-hub"}')])
+        result = read_hub_defaults(root, run=run)
+        self.assertEqual(result, {"project": "acme/1", "epicRepo": "acme/docs-hub"})
+        self.assertIn("github-defaults", run.calls[0])
+
+    def test_normalize_maps_github_keys_and_drops_unknown(self):
+        raw = '{"project": "acme/1", "classification": "labels", "story-repo": "acme/w", "banana": "x"}'
+        self.assertEqual(
+            _normalize_hub_defaults(raw),
+            {"project": "acme/1", "classification": "labels", "storyRepo": "acme/w"},
+        )
+
+    def test_normalize_tolerates_garbage(self):
+        self.assertEqual(_normalize_hub_defaults("not json"), {})
+        self.assertEqual(_normalize_hub_defaults("[1,2,3]"), {})
+        self.assertEqual(_normalize_hub_defaults("{}"), {})
+
+
 class ResolveCli(unittest.TestCase):
     """The read-only `resolve` CLI that non-script consumers (/nxs.close) call to obtain a value
     through the shared resolver instead of re-parsing settings themselves (Invariant 2)."""
@@ -362,6 +469,21 @@ class ResolveCli(unittest.TestCase):
         out = self._run_cli(root, "resolve", "project")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(out.stdout.strip(), "acme/12")
+
+    def test_resolve_epic_repo_falls_back_to_issues_repo(self):
+        # STORY-121.05: /nxs.close resolves `epic-repo` (it targets the epic issue); with only
+        # issues-repo declared, epic-repo resolves to it — today's behavior preserved.
+        root = _write_config({"settings.yml": "github:\n  issues-repo: acme/hub\n"})
+        out = self._run_cli(root, "resolve", "epic-repo")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "acme/hub")
+
+    def test_resolve_epic_repo_prefers_specific(self):
+        root = _write_config(
+            {"settings.yml": "github:\n  issues-repo: acme/hub\n  epic-repo: acme/epics\n"}
+        )
+        out = self._run_cli(root, "resolve", "epic-repo")
+        self.assertEqual(out.stdout.strip(), "acme/epics")
 
 
 class SingleSourceOfTruth(unittest.TestCase):

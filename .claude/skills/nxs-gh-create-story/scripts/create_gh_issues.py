@@ -31,10 +31,11 @@ from delivery_config import (  # noqa: E402
     ensure_label,
     lookup_issue_type_id,
     read_delivery_config,
+    read_hub_defaults,
     resolve_classification,
-    resolve_issues_repo,
     resolve_project_target,
     resolve_story_label,
+    resolve_story_repo,
     set_issue_type,
 )
 
@@ -926,18 +927,23 @@ def main():
     # the epic script, /nxs.epic, and /nxs.close cannot disagree on any key (STORY-121.04).
     global STORY_LABEL, CLASSIFICATION, STORY_TYPE_ID
     config = read_delivery_config(project_root)
+    # Workspace hub defaults are the `hub` layer of the precedence chain (STORY-121.05): a member
+    # inherits each key it does not declare. `merged` is repo-over-hub for the single-dict
+    # resolvers; the chain-based resolvers take `hub=` directly. Empty {} in single-repo mode.
+    hub = read_hub_defaults(project_root)
+    merged = {**hub, **{k: v for k, v in config.items() if v not in (None, "")}}
 
-    # Issues-repo resolves through the shared precedence chain (repo settings here). If set, all
-    # gh issue commands target that repo.
-    issues_repo: str | None = resolve_issues_repo(config) or None
+    # Story issues are filed into the story-repo (specific), falling back to issues-repo, then the
+    # hub default (STORY-121.05). If set, all gh issue commands target that repo.
+    issues_repo: str | None = resolve_story_repo(config, hub=hub) or None
     if issues_repo:
-        print(f"Issues repo (from config): {issues_repo}")
+        print(f"Story repo (from config): {issues_repo}")
 
     # Resolve the classification mode + story type/label names once (STORY-121.02). Default
     # legacy-auto keeps today's behavior: every story carries the `story` label, no issue type.
-    CLASSIFICATION = resolve_classification(config)
-    STORY_LABEL = resolve_story_label(config)
-    story_type = config.get("storyType")
+    CLASSIFICATION = resolve_classification(merged)
+    STORY_LABEL = resolve_story_label(merged)
+    story_type = merged.get("storyType")
 
     if not args.dry_run:
         if CLASSIFICATION == "types":
@@ -963,7 +969,7 @@ def main():
     #   none     → no config lookup, no repo auto-discovery, no warning (the personal-repo case)
     #   explicit → look up exactly that project; no repo auto-discovery fallback
     #   auto     → today's repo auto-discovery (the built-in default when the key is absent)
-    project_mode, project_target = resolve_project_target(config)
+    project_mode, project_target = resolve_project_target(merged)
     config_project_id = None
     repo_project_id = None
     if not args.no_project and not args.dry_run:

@@ -74,6 +74,16 @@ export interface WorkspaceDescription {
         docsRoot: string;
     };
     members: MemberDescription[];
+    /**
+     * Workspace-wide GitHub-publishing defaults (epic #121, STORY-121.05): the optional top-level
+     * `github:` block, as a flat string→string map keyed by the same names the repo-level
+     * `.nexus/config/settings.yml` github block uses (`project`, `classification`, `issues-repo`,
+     * `epic-repo`, `story-repo`, …). Absent when the manifest declares no `github:` block. A member
+     * inherits each key it does not itself declare from here — the `hub` layer of the shared
+     * resolver's precedence chain (the Python resolver reads these via the `workspace
+     * github-defaults` CLI verb). The manifest only carries them; it never resolves precedence.
+     */
+    github?: Record<string, string>;
 }
 
 export type LoadResult =
@@ -83,7 +93,24 @@ export type LoadResult =
 const MANIFEST_RELATIVE_PATH = [".nexus", "config", "workspace.yml"];
 const HUB_KEYS = ["name", "remote", "docs-root"];
 const MEMBER_KEYS = ["name", "remote"];
-const TOP_LEVEL_KEYS = ["hub", "members"];
+const TOP_LEVEL_KEYS = ["hub", "members", "github"];
+/**
+ * Keys allowed in the optional top-level `github:` defaults block (STORY-121.05). These mirror the
+ * repo-level settings.yml github block the Python resolver reads, so a hub default and a repo
+ * override name the same key. An unknown key here is a reported error, matching the manifest's
+ * strict-validation stance for `hub`/`members`.
+ */
+const GITHUB_DEFAULT_KEYS = [
+    "project",
+    "classification",
+    "issues-repo",
+    "epic-repo",
+    "story-repo",
+    "epic-type",
+    "story-type",
+    "epic-label",
+    "story-label",
+];
 /** The hub-role default docs root when no explicit override is given: the repo root. */
 const DEFAULT_HUB_DOCS_ROOT = ".";
 /** The member-role docs root — unchanged regardless of hub configuration (epic #74 Assumption). */
@@ -259,6 +286,30 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
         });
     }
 
+    // --- github defaults (STORY-121.05) --------------------------------------
+    // Optional top-level `github:` block of workspace-wide publishing defaults. Validated with
+    // the same strictness as hub/members (a mapping of allowed string keys); carried verbatim,
+    // never resolved here — the Python resolver applies precedence over it.
+    let github: Record<string, string> | undefined;
+    if ("github" in doc) {
+        const githubRaw = doc.github;
+        if (!isMapping(githubRaw)) {
+            return fail("wrong-type", "github", `${name}: 'github' must be a mapping of publishing defaults`);
+        }
+        const collected: Record<string, string> = {};
+        for (const [key, value] of Object.entries(githubRaw)) {
+            if (!GITHUB_DEFAULT_KEYS.includes(key)) {
+                return fail("unknown-key", "github", `${name}: unknown key '${key}' on 'github'`);
+            }
+            const scalar = stringField(value);
+            if (!scalar) {
+                return fail("wrong-type", "github", `${name}: github key '${key}' must be a non-empty string`);
+            }
+            collected[key] = scalar.trim();
+        }
+        github = collected;
+    }
+
     return {
         ok: true,
         workspace: {
@@ -272,6 +323,7 @@ export function parseAndValidateManifest(raw: string, file: string, hubRoot: str
                 docsRoot: hubDocsRoot,
             },
             members,
+            ...(github ? { github } : {}),
         },
     };
 }

@@ -56,6 +56,13 @@ export interface ResolvedWorkspace {
     members: ResolvedMember[];
     /** Absolute path to the hub's vendored portable-tools directory (epic #44, Story 2). */
     portableToolsDir: string;
+    /**
+     * Workspace-wide GitHub-publishing defaults (epic #121, STORY-121.05), carried through from the
+     * manifest's optional top-level `github:` block. Absent when the manifest declares none. The
+     * `workspace github-defaults` CLI verb emits this so the Python resolver can layer it as the
+     * `hub` level of its precedence chain.
+     */
+    github?: Record<string, string>;
 }
 
 /** A checkout that declares no workspace: today's single-repo behavior applies. */
@@ -98,6 +105,7 @@ function annotate(ws: WorkspaceDescription): ResolvedWorkspace {
             checkout: isDirectory(m.expectedPath) ? "present" : "missing",
         })),
         portableToolsDir: path.join(ws.hubRoot, ...PORTABLE_TOOLS_RELATIVE_PATH),
+        ...(ws.github ? { github: ws.github } : {}),
     };
 }
 

@@ -177,6 +177,29 @@ members:
         }
     });
 
+    it("preserves an existing top-level github: defaults block when appending a member (STORY-121.05)", () => {
+        const withGithub =
+            EXISTING + `github:\n  classification: labels\n  project: none\n  epic-repo: acme/docs-hub\n`;
+        const hubRoot: string = path.join(makeParent(), "docs-hub");
+        fs.mkdirSync(path.join(hubRoot, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(hubRoot, ".nexus", "config", "workspace.yml"), withGithub);
+
+        const result = appendMemberToManifest(hubRoot, { name: "api", remote: "https://github.com/acme/api.git" });
+
+        expect(result.ok).toBe(true);
+        const loaded = loadWorkspaceFromHub(hubRoot);
+        expect(loaded.ok).toBe(true);
+        if (loaded.ok) {
+            expect(loaded.workspace.members.map((m) => m.name)).toEqual(["web-app", "api"]);
+            // The github defaults survive the structured edit and still validate.
+            expect(loaded.workspace.github).toEqual({
+                classification: "labels",
+                project: "none",
+                "epic-repo": "acme/docs-hub",
+            });
+        }
+    });
+
     it("appends into a manifest with no members list yet", () => {
         const hubRoot: string = path.join(makeParent(), "docs-hub");
         fs.mkdirSync(path.join(hubRoot, ".nexus", "config"), { recursive: true });

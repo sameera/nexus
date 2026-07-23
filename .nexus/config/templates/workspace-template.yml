@@ -34,6 +34,19 @@
 #       when the hub keeps its docs under a subdirectory instead. Members are unaffected: a
 #       member's docs root is always `docs`, regardless of this setting. Must be a repo-relative
 #       path (no absolute path, no '..' traversal) — validated the same way a bare name is.
+#
+# GITHUB PUBLISHING DEFAULTS (optional, epic #121)
+#     An optional top-level `github:` block declares workspace-wide GitHub-publishing defaults.
+#     A member INHERITS each key it does not declare in its own `.nexus/config/settings.yml`
+#     github block — per key, not all-or-nothing (a member overriding one key still inherits the
+#     rest). These are the same keys the repo-level settings.yml github block uses: `project`,
+#     `classification`, `issues-repo`, `epic-repo`, `story-repo`, `epic-type`, `story-type`,
+#     `epic-label`, `story-label` (any other key here is a reported error).
+#     - `epic-repo` / `story-repo` target the epic issue and the story issues respectively
+#       (`owner/repo`); each falls back to `issues-repo`, then to the member's current repo.
+#     - The no-code-repo case: set `epic-repo` to the HUB's own repo so a member with no primary
+#       code repo files its epic into the hub while its stories still land wherever `story-repo`
+#       (or the member's own settings) points.
 
 hub:
   name: docs-hub
@@ -45,3 +58,9 @@ members:
     remote: git@github.com:your-org/web-app.git
   - name: api
     remote: https://github.com/your-org/api.git
+
+# github:                          # optional — workspace-wide publishing defaults
+#   classification: labels         # types | labels | legacy-auto
+#   project: none                  # none | auto | owner/number | "Project Title"
+#   epic-repo: your-org/docs-hub   # epics land in the hub (the no-code-repo default)
+#   story-repo: your-org/web-app   # stories land in a code repo (or omit to use the member's own)

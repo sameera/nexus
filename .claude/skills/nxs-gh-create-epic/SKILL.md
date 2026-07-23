@@ -76,6 +76,14 @@ The script (`./scripts/nxs_gh_create_epic.py`):
 8. Updates frontmatter with `link: "#<issue-number>"`
 9. Cleans up temp file
 
+### Repo targeting (STORY-121.05)
+
+The epic issue is filed into the resolved **epic-repo**: `github.epic-repo` if declared, else
+`github.issues-repo`, else the current repo (an absent target is never pinned). In a multi-repo
+workspace the resolver also consults the hub manifest's `github:` defaults as a fallback layer —
+so a member repo that declares no `epic-repo` inherits the workspace default, and a member with no
+primary code repo files its epic into the hub (its hub default `epic-repo` points at the hub).
+
 ## Expected Frontmatter
 
 ```yaml
