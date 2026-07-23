@@ -29,6 +29,7 @@ from delivery_config import (  # noqa: E402
     lookup_issue_type_id,
     read_delivery_config,
     read_hub_defaults,
+    repo_has_issue_types,
     resolve_classification,
     resolve_epic_label,
     resolve_epic_repo,
@@ -38,6 +39,7 @@ from delivery_config import (  # noqa: E402
     resolve_story_label,
     resolve_story_repo,
     set_issue_type,
+    write_github_block,
 )
 
 _MODULE = Path(__file__).resolve().parent / "delivery_config.py"
@@ -441,6 +443,110 @@ class HubDefaults(unittest.TestCase):
         self.assertEqual(_normalize_hub_defaults("{}"), {})
 
 
+class WriteGithubBlock(unittest.TestCase):
+    """STORY-121.06/07: the one surgical, add-only settings.yml writer shared by setup-seeding
+    and runtime write-back. It preserves unrelated sections/comments, never overwrites a declared
+    key, and never writes an empty value (Invariants 5, 6, 10)."""
+
+    def _settings(self, content: str) -> Path:
+        return _write_config({"settings.yml": content})
+
+    def _read(self, root: Path) -> str:
+        return (root / ".nexus" / "config" / "settings.yml").read_text(encoding="utf-8")
+
+    def test_appends_a_fresh_block_preserving_existing_sections(self):
+        root = self._settings("cross-ref:\n  docs-root: https://example/docs\n")
+        report = write_github_block(root, {"classification": "labels", "project": "none"})
+        text = self._read(root)
+        # The pre-existing cross-ref block survives verbatim.
+        self.assertIn("cross-ref:\n  docs-root: https://example/docs\n", text)
+        self.assertIn("github:", text)
+        self.assertIn("  classification: labels", text)
+        self.assertIn("  project: none", text)
+        self.assertEqual(set(report["added"]), {"classification", "project"})
+        # Round-trips through the reader.
+        cfg = read_delivery_config(root)
+        self.assertEqual(resolve_classification(cfg), "labels")
+        self.assertEqual(resolve_project_target(cfg), ("none", None))
+
+    def test_inserts_only_absent_keys_into_an_existing_block(self):
+        root = self._settings("github:\n  classification: types\n")
+        report = write_github_block(root, {"classification": "labels", "project": "none"})
+        text = self._read(root)
+        # classification was already declared → untouched; only project is added.
+        self.assertIn("  classification: types", text)
+        self.assertNotIn("classification: labels", text)
+        self.assertIn("  project: none", text)
+        self.assertEqual(report["added"], ["project"])
+
+    def test_never_overwrites_a_declared_key_including_explicit_auto(self):
+        root = self._settings("github:\n  project: auto\n")
+        report = write_github_block(root, {"project": "none"})
+        self.assertIn("  project: auto", self._read(root))
+        self.assertEqual(report["added"], [])
+
+    def test_skips_empty_values(self):
+        root = self._settings("cross-ref:\n  docs-root: x\n")
+        report = write_github_block(root, {"classification": "labels", "issues-repo": ""})
+        text = self._read(root)
+        self.assertIn("  classification: labels", text)
+        self.assertNotIn("issues-repo", text)
+        self.assertEqual(report["added"], ["classification"])
+
+    def test_idempotent_second_run_is_a_no_op(self):
+        root = self._settings("cross-ref:\n  docs-root: x\n")
+        write_github_block(root, {"classification": "labels"})
+        before = self._read(root)
+        report = write_github_block(root, {"classification": "labels"})
+        self.assertEqual(report["added"], [])
+        self.assertEqual(self._read(root), before)
+
+    def test_writes_a_comment_above_a_fresh_block(self):
+        root = self._settings("cross-ref:\n  docs-root: x\n")
+        write_github_block(
+            root, {"classification": "labels", "project": "none"}, comment="seeded by setup — gh unavailable"
+        )
+        text = self._read(root)
+        self.assertIn("# seeded by setup — gh unavailable", text)
+        # The comment sits with the block, after the preserved cross-ref section.
+        self.assertLess(text.index("cross-ref:"), text.index("# seeded by setup"))
+        self.assertLess(text.index("# seeded by setup"), text.index("github:"))
+
+    def test_creates_settings_file_when_absent(self):
+        root = Path(tempfile.mkdtemp())  # no .nexus/config yet
+        report = write_github_block(root, {"classification": "labels"})
+        self.assertTrue((root / ".nexus" / "config" / "settings.yml").exists())
+        self.assertEqual(report["added"], ["classification"])
+        self.assertEqual(resolve_classification(read_delivery_config(root)), "labels")
+
+
+class RepoHasIssueTypes(unittest.TestCase):
+    """STORY-121.06: the setup-time probe for whether the repo/org exposes issue-types."""
+
+    def _resp(self, issue_types):
+        return json.dumps({"data": {"repository": {"issueTypes": issue_types}}})
+
+    def test_true_when_types_present(self):
+        run = FakeRun([_Result(0, stdout="acme/repo"), _Result(0, stdout=self._resp({"nodes": [{"id": "IT_1"}]}))])
+        self.assertIs(repo_has_issue_types(run), True)
+
+    def test_false_when_feature_absent_null(self):
+        run = FakeRun([_Result(0, stdout="acme/repo"), _Result(0, stdout=self._resp(None))])
+        self.assertIs(repo_has_issue_types(run), False)
+
+    def test_false_when_feature_present_but_no_types(self):
+        run = FakeRun([_Result(0, stdout="acme/repo"), _Result(0, stdout=self._resp({"nodes": []}))])
+        self.assertIs(repo_has_issue_types(run), False)
+
+    def test_none_when_query_fails(self):
+        run = FakeRun([_Result(0, stdout="acme/repo"), _Result(1, stderr="boom")])
+        self.assertIsNone(repo_has_issue_types(run))
+
+    def test_none_when_repo_cannot_be_resolved(self):
+        run = FakeRun([_Result(1, stderr="not a repo")])
+        self.assertIsNone(repo_has_issue_types(run))
+
+
 class ResolveCli(unittest.TestCase):
     """The read-only `resolve` CLI that non-script consumers (/nxs.close) call to obtain a value
     through the shared resolver instead of re-parsing settings themselves (Invariant 2)."""
@@ -484,6 +590,55 @@ class ResolveCli(unittest.TestCase):
         )
         out = self._run_cli(root, "resolve", "epic-repo")
         self.assertEqual(out.stdout.strip(), "acme/epics")
+
+
+class SeedCli(unittest.TestCase):
+    """STORY-121.06: the CLIs /nxs.setup uses to detect classification and surgically seed the
+    github block. `write-github` is the thin CLI over write_github_block; `detect-classification`
+    prints the setup-time probe result."""
+
+    def _run_cli(self, root, *cli_args):
+        return subprocess.run(
+            [sys.executable, str(_MODULE), *cli_args, "--root", str(root)],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_write_github_seeds_block_and_preserves_cross_ref(self):
+        root = _write_config({"settings.yml": "cross-ref:\n  docs-root: https://x/docs\n"})
+        out = self._run_cli(root, "write-github", "--classification", "labels", "--project", "none")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        text = (root / ".nexus" / "config" / "settings.yml").read_text(encoding="utf-8")
+        self.assertIn("cross-ref:", text)
+        self.assertIn("  classification: labels", text)
+        self.assertIn("  project: none", text)
+
+    def test_write_github_reports_no_changes_when_declared(self):
+        root = _write_config({"settings.yml": "github:\n  classification: types\n  project: auto\n"})
+        out = self._run_cli(root, "write-github", "--classification", "labels", "--project", "none")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        text = (root / ".nexus" / "config" / "settings.yml").read_text(encoding="utf-8")
+        self.assertIn("  classification: types", text)
+        self.assertIn("  project: auto", text)
+        self.assertNotIn("labels", text)
+
+    def test_write_github_records_fallback_comment(self):
+        root = _write_config({"settings.yml": "cross-ref:\n  docs-root: x\n"})
+        out = self._run_cli(
+            root, "write-github", "--classification", "labels", "--project", "none",
+            "--comment", "gh unavailable at setup",
+        )
+        self.assertEqual(out.returncode, 0, out.stderr)
+        text = (root / ".nexus" / "config" / "settings.yml").read_text(encoding="utf-8")
+        self.assertIn("# gh unavailable at setup", text)
+
+    def test_detect_classification_prints_a_valid_token(self):
+        # Hermetic smoke: whatever the gh state, the verb must print one of the three tokens and
+        # exit 0 (gh-unavailable degrades to 'unavailable', never a crash — AC3).
+        root = Path(tempfile.mkdtemp())
+        out = self._run_cli(root, "detect-classification")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn(out.stdout.strip(), {"types", "labels", "unavailable"})
 
 
 class SingleSourceOfTruth(unittest.TestCase):

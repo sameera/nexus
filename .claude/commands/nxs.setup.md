@@ -196,10 +196,42 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
 ## Phase 4: Scaffold the Nexus surfaces
 
 1. **`.nexus/config/issue-labels.yaml`** — seed it with this project's label set. Setup is the seeder for project-generated config.
-2. **`<docs-root>/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
-3. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
-4. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
-5. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
+2. **`.nexus/config/settings.yml` — seed the `github:` publishing block** (epic #121). Setup is the
+   **producer** of this block: it detects classification and project **now, while you are present to
+   confirm ambiguous choices**, replacing the crash-prone probe that otherwise ran at issue-creation
+   time. Detect, then write the block **surgically** — the write is add-only, so the existing
+   `cross-ref:` block, comments, and any key already declared are preserved untouched:
+    1. **Classification.** Run the probe (it never crashes — it degrades):
+        ```bash
+        python3 ./.claude/skills/nxs-gh-shared/delivery_config.py detect-classification
+        ```
+        It prints `types` (the repo/org exposes issue-types), `labels` (it does not), or
+        `unavailable` (gh could not be reached).
+    2. **Project.** When classification is **not** `unavailable`, list the repo owner's Project V2s:
+        ```bash
+        gh project list --owner "$(gh repo view --json owner --jq .owner.login)" --format json
+        ```
+        - **exactly one** candidate → use it as `<owner>/<number>`.
+        - **more than one** (ambiguous) → **ask the human** which project — or `none` — before writing.
+        - **none**, or the `project` scope is missing / the call fails → use `none`.
+    3. **gh unavailable (safe fallback).** If `detect-classification` printed `unavailable`, do **not**
+       probe further: seed the safe defaults `classification: labels` and `project: none`, and record
+       the fallback with `--comment` so the reason is visible for later review.
+    4. **Write** the resolved values (do **not** seed `issues-repo` — an absent target means "the
+       current repo" and is never pinned):
+        ```bash
+        python3 ./.claude/skills/nxs-gh-shared/delivery_config.py write-github \
+          --classification <types|labels> --project <none|auto|owner/number> \
+          # only on the gh-unavailable path:
+          # --comment "seeded by /nxs.setup — gh unavailable; safe defaults, review when online"
+        ```
+       The write is **uncommitted** — surface it in the Phase 7 summary as a config seed the user
+       reviews and commits (see Phase 7). In a multi-repo workspace, workspace-wide defaults may also
+       live in the hub manifest; this per-repo seed still only fills keys absent locally.
+3. **`<docs-root>/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
+4. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
+5. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
+6. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
    committed-path ignore for `.nexus/queue/**` — the whole point is that the per-user decision
    scratch (`.nexus/queue/<epic>/<username>/`) rides ordinary commits. Keep any pre-existing
    `.nexus/plans/` line as **retired** (it covers residual local scratch during migration);
@@ -263,6 +295,7 @@ Output a completion summary:
 - `<docs-root>/system/standards/[file].md` — [brief description]
 - `<docs-root>/product/context.md` — product context (interactive)
 - `.nexus/config/issue-labels.yaml` — task label set
+- `.nexus/config/settings.yml` — seeded the `github:` publishing block (`classification: <mode>`, `project: <target>`) — **review and commit** (if the gh-unavailable fallback ran, note the safe defaults and re-check when online)
 - `<docs-root>/delivery/lessons/README.md` — lessons convention
 - `.gitignore` — any pre-existing `.nexus/plans/` line kept as retired (no new ignore added; decision scratch is committed under `.nexus/queue/`)
 

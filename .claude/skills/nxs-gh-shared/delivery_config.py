@@ -421,6 +421,45 @@ def lookup_issue_type_id(type_name: str, run, repo: str | None = None) -> str | 
     return None
 
 
+def repo_has_issue_types(run, repo: str | None = None) -> bool | None:
+    """Whether `repo` (current repo if None) exposes usable GitHub issue-types (STORY-121.06).
+
+    The setup-time probe that decides the seeded classification mode: `types` when the repo/org
+    exposes issue-types, else `labels`. Returns True when the issue-types feature is present AND at
+    least one type is defined (there is something to apply), False when the feature is absent
+    (`issueTypes: null`) or no types are defined, and None when the probe cannot run (gh
+    unavailable, auth, network) — the signal setup uses to fall back to safe defaults (AC3).
+    """
+    resolved = _resolve_owner_repo(run, repo)
+    if resolved is None:
+        return None
+    owner, name = resolved
+    query = """
+    query($owner: String!, $repo: String!) {
+        repository(owner: $owner, name: $repo) {
+            issueTypes(first: 1) { nodes { id } }
+        }
+    }
+    """
+    result = run([
+        "gh", "api", "graphql",
+        "-f", f"query={query}",
+        "-f", f"owner={owner}",
+        "-f", f"repo={name}",
+    ])
+    if result.returncode != 0:
+        return None
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    repository = (data.get("data") or {}).get("repository") or {}
+    issue_types = repository.get("issueTypes")
+    if issue_types is None:  # feature not available on this repo/org
+        return False
+    return len(issue_types.get("nodes") or []) > 0
+
+
 def set_issue_type(issue_id: str, type_id: str, run) -> bool:
     """Set the issue type on an issue via the updateIssue GraphQL mutation. Returns success."""
     mutation = """
@@ -457,6 +496,124 @@ def ensure_label(
     if repo:
         cmd.extend(["-R", repo])
     return run(cmd).returncode == 0
+
+
+# --- Surgical settings.yml writer (STORY-121.06 / STORY-121.07) ----------------------
+#
+# The single, add-only merge that persists resolved publishing decisions into the repo's
+# settings.yml — shared by /nxs.setup seeding (a human present) and runtime write-back (the
+# unattended safety net), so the two producers can never drift. Stdlib-only, matching the
+# scripts' "runs on any checkout" posture: it is a bounded line-oriented merge over the shallow
+# 2-level format, never a full YAML round-trip. It ONLY adds keys that are absent — a declared
+# key (including an explicit `auto`/`none`) is never rewritten (decision-record Invariants 5,
+# 10) — and it never writes an empty value, so an absent issues-repo is never pinned (Invariant
+# 6). Everything outside the touched keys — the `cross-ref:` block, comments, ordering — is
+# preserved byte-for-byte.
+
+#: normalized resolver key → github-block key (as written in settings.yml); the inverse of the
+#: map the resolve CLI uses, so callers may pass either spelling to the writer.
+_NORMALIZED_TO_GITHUB_KEY = {v: k for k, v in {
+    "issues-repo": "issuesRepo",
+    "project": "project",
+    "epic-type": "epicType",
+    "epic-label": "epicLabel",
+    "story-type": "storyType",
+    "story-label": "storyLabel",
+    "classification": "classification",
+    "epic-repo": "epicRepo",
+    "story-repo": "storyRepo",
+}.items()}
+
+
+def _github_key(key: str) -> str:
+    """Accept either a github-block key (`epic-repo`) or a normalized key (`epicRepo`)."""
+    return _NORMALIZED_TO_GITHUB_KEY.get(key, key)
+
+
+def _is_top_level_line(line: str) -> bool:
+    """True for a `key:`-style line at column 0 (a top-level YAML key, not an indented child)."""
+    return bool(line) and not line[0].isspace() and not line.lstrip().startswith("#") and ":" in line
+
+
+def write_github_block(project_root, values, *, comment=None):
+    """Ensure each github-block key in `values` exists in settings.yml, adding only absent keys.
+
+    `values` is keyed by github-block names (`classification`, `project`, `issues-repo`,
+    `epic-repo`, `story-repo`, …) or their normalized equivalents; empty/None values are skipped.
+    The merge preserves every other section, comment, and byte, and never overwrites a key already
+    present in the `github:` block. `comment`, when a fresh block is created, is written as a
+    `# <comment>` line above it (setup uses this to record a gh-unavailable fallback).
+
+    Returns ``{"added": [github-keys…], "path": <settings.yml path>}``; ``added`` is empty (and the
+    file is left untouched) when every requested key is already present or every value is empty.
+    """
+    project_root = Path(project_root)
+    path = project_root / ".nexus" / "config" / "settings.yml"
+
+    # Normalize requested keys to github-block spelling, dropping empties (never pin an empty).
+    wanted: dict[str, str] = {}
+    for raw_key, raw_value in values.items():
+        value = (raw_value or "").strip() if isinstance(raw_value, str) else raw_value
+        if value:
+            wanted[_github_key(raw_key)] = value
+
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    lines = text.split("\n")
+
+    # Locate the top-level `github:` header, if any.
+    github_idx = next(
+        (i for i, line in enumerate(lines) if _is_top_level_line(line) and line.split(":", 1)[0].strip() == "github"),
+        None,
+    )
+
+    added: list[str] = []
+
+    if github_idx is None:
+        # No block yet — append a fresh one, preserving everything above byte-for-byte.
+        to_add = [(k, v) for k, v in wanted.items()]
+        if not to_add:
+            return {"added": [], "path": str(path)}
+        block: list[str] = []
+        if comment:
+            block.append(f"# {comment}")
+        block.append("github:")
+        for k, v in to_add:
+            block.append(f"  {k}: {v}")
+            added.append(k)
+        body = text
+        if body and not body.endswith("\n"):
+            body += "\n"
+        # A blank separator before the new block when the file already had content.
+        prefix = "\n" if body.strip() else ""
+        new_text = body + prefix + "\n".join(block) + "\n"
+    else:
+        # Existing block — find its child extent and the keys already present.
+        end = next(
+            (j for j in range(github_idx + 1, len(lines)) if _is_top_level_line(lines[j])),
+            len(lines),
+        )
+        existing_keys = set()
+        last_child = github_idx  # insert after this index (grows to the last child line)
+        for j in range(github_idx + 1, end):
+            stripped = lines[j].strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if ":" in lines[j] and lines[j][0].isspace():
+                existing_keys.add(lines[j].split(":", 1)[0].strip())
+                last_child = j
+        insert_lines = []
+        for k, v in wanted.items():
+            if k not in existing_keys:
+                insert_lines.append(f"  {k}: {v}")
+                added.append(k)
+        if not added:
+            return {"added": [], "path": str(path)}
+        lines[last_child + 1 : last_child + 1] = insert_lines
+        new_text = "\n".join(lines)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(new_text, encoding="utf-8")
+    return {"added": added, "path": str(path)}
 
 
 # --- Read-only resolve CLI (STORY-121.04) --------------------------------------------
@@ -507,6 +664,26 @@ def _cli(argv):
     resolve_cmd.add_argument(
         "--root", default=".", help="Repo/worktree root to resolve config from (default: cwd)."
     )
+
+    # STORY-121.06: the two commands /nxs.setup uses to seed the github block at bootstrap.
+    detect_cmd = sub.add_parser(
+        "detect-classification",
+        help="Probe whether the repo exposes issue-types; print types | labels | unavailable.",
+    )
+    detect_cmd.add_argument("--root", default=".", help="Repo root (informational; probe uses gh in cwd).")
+
+    write_cmd = sub.add_parser(
+        "write-github",
+        help="Surgically seed absent github-block keys into settings.yml (add-only).",
+    )
+    write_cmd.add_argument("--root", default=".", help="Repo root whose .nexus/config/settings.yml to seed.")
+    write_cmd.add_argument("--classification")
+    write_cmd.add_argument("--project")
+    write_cmd.add_argument("--issues-repo", dest="issues_repo")
+    write_cmd.add_argument("--epic-repo", dest="epic_repo")
+    write_cmd.add_argument("--story-repo", dest="story_repo")
+    write_cmd.add_argument("--comment", help="Comment written above a freshly created block (e.g. a fallback note).")
+
     args = parser.parse_args(argv)
 
     if args.command == "resolve":
@@ -524,6 +701,37 @@ def _cli(argv):
             value = resolve_setting(normalized, repo=config, hub=hub)
         print(value if value else "")
         return 0
+
+    if args.command == "detect-classification":
+        import subprocess as _subprocess
+
+        def _run(cmd):
+            return _subprocess.run(cmd, capture_output=True, text=True)
+
+        try:
+            has_types = repo_has_issue_types(_run)
+        except OSError:
+            has_types = None  # gh not installed — degrade, never crash (AC3)
+        print("unavailable" if has_types is None else ("types" if has_types else "labels"))
+        return 0
+
+    if args.command == "write-github":
+        # Target the given root directly (do NOT walk up): setup seeds THIS repo's settings.yml,
+        # creating .nexus/config if needed. Add-only; a declared key is never overwritten.
+        values = {
+            "classification": args.classification,
+            "project": args.project,
+            "issues-repo": args.issues_repo,
+            "epic-repo": args.epic_repo,
+            "story-repo": args.story_repo,
+        }
+        report = write_github_block(Path(args.root), values, comment=args.comment)
+        if report["added"]:
+            print(f"Seeded github block ({', '.join(report['added'])}) into {report['path']}")
+        else:
+            print(f"No changes — every requested key is already declared in {report['path']}")
+        return 0
+
     return 1
 
 
