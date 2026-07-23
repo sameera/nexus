@@ -17,13 +17,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import delivery_config  # noqa: E402
 from delivery_config import (  # noqa: E402
     DEFAULT_EPIC_LABEL,
+    DEFAULT_PROJECT,
     DEFAULT_STORY_LABEL,
+    PROJECT_AUTO,
+    PROJECT_NONE,
     _parse_simple_yaml,
     ensure_label,
     lookup_issue_type_id,
     read_delivery_config,
     resolve_classification,
     resolve_epic_label,
+    resolve_project_target,
     resolve_story_label,
     set_issue_type,
 )
@@ -167,6 +171,44 @@ class LabelDefaults(unittest.TestCase):
         self.assertEqual(cfg["epicLabel"], "epic")
         self.assertEqual(cfg["storyType"], "Story")
         self.assertEqual(cfg["storyLabel"], "story")
+
+
+class ProjectTargetResolution(unittest.TestCase):
+    """STORY-121.03: the Project V2 target resolves to none | auto | explicit."""
+
+    def test_absent_resolves_to_auto(self):
+        # No `github:` block (or no project key) reproduces today's discovery behavior.
+        self.assertEqual(DEFAULT_PROJECT, PROJECT_AUTO)
+        self.assertEqual(resolve_project_target({}), ("auto", None))
+
+    def test_none_is_first_class_and_case_insensitive(self):
+        self.assertEqual(resolve_project_target({"project": "none"}), ("none", None))
+        self.assertEqual(resolve_project_target({"project": "NONE"}), ("none", None))
+        self.assertEqual(PROJECT_NONE, "none")
+
+    def test_auto_is_explicit_value(self):
+        self.assertEqual(resolve_project_target({"project": "auto"}), ("auto", None))
+        self.assertEqual(resolve_project_target({"project": "Auto"}), ("auto", None))
+
+    def test_explicit_owner_number_target(self):
+        self.assertEqual(resolve_project_target({"project": "acme/7"}), ("explicit", "acme/7"))
+
+    def test_explicit_title_preserves_original_case(self):
+        # A project name/title is case-sensitive; only the mode keywords are folded.
+        self.assertEqual(
+            resolve_project_target({"project": "Backend Roadmap"}),
+            ("explicit", "Backend Roadmap"),
+        )
+
+    def test_reads_none_from_settings_yml(self):
+        root = _write_config({"settings.yml": "github:\n  project: none\n"})
+        self.assertEqual(resolve_project_target(read_delivery_config(root)), ("none", None))
+
+    def test_reads_explicit_from_settings_yml(self):
+        root = _write_config({"settings.yml": "github:\n  project: acme/12\n"})
+        self.assertEqual(
+            resolve_project_target(read_delivery_config(root)), ("explicit", "acme/12")
+        )
 
 
 class EnsureLabel(unittest.TestCase):

@@ -55,7 +55,7 @@ project: "acme-corp/app-roadmap"
 | `blocked_by` | No       | List of story `ref`s this story is blocked by (`[STORY-42.01, …]`), or `none`. Wired as native GitHub issue dependencies.    |
 | `labels`     | No       | Extra GitHub labels: `[label1, label2, ...]`. The canonical `story` label is always added automatically.                     |
 | `parent`     | No       | Parent **epic** issue reference (`#42` or full URL) — the story is linked as its sub-issue                                   |
-| `project`    | No       | GitHub project: `owner/number`, `number`, or project title. If omitted, auto-discovers from the repository.                  |
+| `project`    | No       | Per-story GitHub project override: `owner/number`, `number`, or project title. Wins over the `github.project` config target. If omitted, the config target decides (see Project Resolution). |
 
 ## Workflow
 
@@ -102,10 +102,17 @@ non-zero. A clean run prints **✅ Complete** and exits zero.
 
 ## Project Resolution
 
-1. Frontmatter `project` attribute.
-2. Delivery config (`.nexus/config/config.*` → `project`).
-3. Repository's linked project (auto-discovered).
-4. None (or `--no-project`) → skip project assignment.
+A per-story frontmatter `project` attribute is the top override — it is looked up and used for
+that story. Absent it, the declared `github.project` target in `.nexus/config/settings.yml`
+decides the fallback for every story:
+
+- **none** — no config lookup, no repository auto-discovery, no warning (the personal-repo case
+  with no project at all).
+- **explicit** (`owner/number` or a project title) — looks up exactly that project; no
+  auto-discovery fallback.
+- **auto** (or no `github:` block) — today's repository project auto-discovery.
+
+`--no-project` skips project assignment for the whole run regardless of the above.
 
 ## Prerequisites
 
