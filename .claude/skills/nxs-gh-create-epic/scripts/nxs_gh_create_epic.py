@@ -37,6 +37,7 @@ from delivery_config import (  # noqa: E402
     resolve_project_target,
     resolve_setting,
     set_issue_type,
+    write_github_block,
 )
 
 
@@ -420,21 +421,23 @@ def get_project_id_by_title(owner: str, title: str) -> str | None:
         return None
 
 
-def get_repo_project_id() -> str | None:
-    """Get the node ID of the first project associated with the current repository.
-    
+def get_repo_project_id() -> tuple[str | None, str | None]:
+    """Discover the first project associated with the current repository.
+
     Returns:
-        The project node ID (e.g., "PVT_kwHOABC123") or None if no project found.
+        `(project_node_id, "owner/number")` — the node id used to add the issue, and a concrete
+        `owner/number` reference write-back (STORY-121.07) can persist so a later run reads that
+        exact project instead of re-discovering. `(None, None)` when no project is found.
     """
     result = run_command(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])
     if result.returncode != 0:
         warn(f"Could not determine repository name: {result.stderr}")
-        return None
+        return (None, None)
 
     name_with_owner = result.stdout.strip()
     if "/" not in name_with_owner:
         warn(f"Unexpected repository name format: {name_with_owner}")
-        return None
+        return (None, None)
     owner, repo = name_with_owner.split("/", 1)
 
     query = """
@@ -443,6 +446,7 @@ def get_repo_project_id() -> str | None:
             projectsV2(first: 1) {
                 nodes {
                     id
+                    number
                     title
                 }
             }
@@ -460,7 +464,7 @@ def get_repo_project_id() -> str | None:
     result = run_command(cmd)
     if result.returncode != 0:
         warn(f"Error fetching repository projects: {result.stderr}")
-        return None
+        return (None, None)
 
     try:
         data = json.loads(result.stdout)
@@ -469,11 +473,13 @@ def get_repo_project_id() -> str | None:
         if nodes:
             project = nodes[0]
             print(f"📊 Found project: {project.get('title', 'Unknown')}")
-            return project.get("id")
-        return None
+            number = project.get("number")
+            ref = f"{owner}/{number}" if number is not None else None
+            return (project.get("id"), ref)
+        return (None, None)
     except json.JSONDecodeError as e:
         warn(f"Error parsing project response: {e}")
-        return None
+        return (None, None)
 
 
 def get_issue_id(issue_number: str, repo: str | None = None) -> str | None:
@@ -712,6 +718,11 @@ def main() -> int:
     #   explicit → add to exactly that project; no auto-discovery fallback
     #   auto     → today's repository auto-discovery (the built-in default when the key is absent)
     project_id = None
+    # Write-back (STORY-121.07) state: only the auto-discovery path yields a concrete project
+    # value to persist ("owner/number" when found, else "none"); an invocation --project/--no-project
+    # is a per-run command and is never frozen into config.
+    ran_auto_discovery = False
+    discovered_project_ref: str | None = None
     if not args.no_project:
         if args.project:
             # Use explicitly provided project (invocation-time override)
@@ -728,7 +739,8 @@ def main() -> int:
                     warn(f"Project '{project_target}' from config not found, issue will not be added to a project")
             elif project_mode == "auto":
                 print("🔍 Looking for repository project...")
-                project_id = get_repo_project_id()
+                ran_auto_discovery = True
+                project_id, discovered_project_ref = get_repo_project_id()
                 if not project_id:
                     warn("No project found for repository, issue will not be added to a project")
             # project_mode == "none": deliberate absence — no lookup, no add-to-project, no warning.
@@ -806,6 +818,28 @@ def main() -> int:
                     print(f"🏷️  Fallback label added: {applied_label}")
                 else:
                     warn(f"Could not add fallback label '{applied_label}' to issue #{issue_num}")
+
+        # Write-back (STORY-121.07): the first run on a repo with no github block persists the
+        # decisions it just reached, so the fragile probe/discovery runs at most once per repo.
+        # Add-only — a declared key (incl. explicit auto/none) is never overwritten (Invariant 5).
+        # issues-repo/epic-repo is deliberately NOT written here: an absent target means "the
+        # current repo" and is never pinned, and a hub-inherited value must stay inherited rather
+        # than be frozen into the local config (Invariant 6).
+        decided = {
+            "classification": "types"
+            if (classification == "types" or (classification == "legacy-auto" and type_applied))
+            else "labels",
+        }
+        if ran_auto_discovery:
+            # auto-discovery is the only path with a concrete project value to freeze; persist the
+            # discovered owner/number, or `none` when the repo genuinely has no project.
+            decided["project"] = discovered_project_ref or "none"
+        seeded = write_github_block(project_root, decided)
+        if seeded["added"]:
+            warn(
+                f"Seeded github config ({', '.join(seeded['added'])}) into "
+                ".nexus/config/settings.yml — review and commit"
+            )
 
         # Success output
         print()
