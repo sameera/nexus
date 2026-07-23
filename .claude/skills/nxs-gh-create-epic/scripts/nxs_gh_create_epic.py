@@ -32,7 +32,9 @@ from delivery_config import (  # noqa: E402
     read_delivery_config,
     resolve_classification,
     resolve_epic_label,
+    resolve_issues_repo,
     resolve_project_target,
+    resolve_setting,
     set_issue_type,
 )
 
@@ -242,14 +244,6 @@ def find_project_root(start_path: Path) -> Path:
         current = current.parent
 
     return Path.cwd()
-
-
-def read_issues_repo_from_config(project_root: Path) -> str:
-    """Read the target issues repository from delivery config (config.yml or config.json).
-
-    Returns the 'owner/repo' string from github.issues-repo, or empty string if not set.
-    """
-    return read_delivery_config(project_root).get("issuesRepo", "")
 
 
 def get_project_id_by_name(project_name: str) -> str | None:
@@ -641,22 +635,28 @@ def main() -> int:
         print('  epic: "Your Epic Title"')
         return 1
 
-    # Resolve project root once — used for all config reads below
+    # Resolve project root once and read config once — every resolution below goes through the
+    # one shared resolver, so this script, the story script, /nxs.epic, and /nxs.close cannot
+    # disagree on any key (STORY-121.04, decision-record Invariant 3).
     project_root = find_project_root(epic_file)
+    config = read_delivery_config(project_root)
 
-    # Read issues-repo from config (if set, all gh issue commands target that repo)
-    issues_repo: str | None = read_issues_repo_from_config(project_root) or None
+    # Issues-repo resolves through the shared precedence chain (repo settings here; hub defaults
+    # and frontmatter plug in later). If set, all gh issue commands target that repo.
+    issues_repo: str | None = resolve_issues_repo(config) or None
     if issues_repo:
         print(f"📦 Issues repo (from config): {issues_repo}")
 
     # Resolve the classification mechanism and the concrete names the epic will carry
     # (STORY-121.02). The mode decides types-vs-labels; frontmatter `type` (per-item intent)
-    # wins over config `epic-type` for the issue-type NAME, and `epic-label` (default `epic`)
-    # supplies the label. `legacy-auto` (the built-in default) preserves today's outcome.
-    config = read_delivery_config(project_root)
+    # wins over config `epic-type` for the issue-type NAME — resolved through the shared
+    # precedence chain (STORY-121.04) — and `epic-label` (default `epic`) supplies the label.
+    # `legacy-auto` (the built-in default) preserves today's outcome.
     classification = resolve_classification(config)
     epic_label = resolve_epic_label(config)
-    resolved_type: str | None = frontmatter.get("type", "") or config.get("epicType") or None
+    resolved_type: str | None = resolve_setting(
+        "epicType", frontmatter={"epicType": frontmatter.get("type")}, repo=config
+    ) or None
 
     # issue_type = a type to APPLY after creation (types / legacy-auto with a type).
     # create_label = a label passed at creation (labels mode, and the no-type legacy path).

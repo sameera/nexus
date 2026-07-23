@@ -160,6 +160,27 @@ single-repo and hub mode only.
 
 # Phase 1 — Preconditions
 
+## 1.0 Resolve the issues repo (target of every issue op)
+
+Nexus files the epic and its story issues into the configured **issues-repo** (`github.issues-repo`),
+which may differ from the repo `/nxs.close` runs in. Resolve it once, **through the shared resolver** —
+never by parsing `settings.yml` yourself (decision-record Invariant 2) — so close addresses the same
+repository the creation scripts filed into. Historically close omitted this and always hit the current
+repo; resolving it here is the concrete bug STORY-121.04 fixes.
+
+```bash
+ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve issues-repo --root "<root>")"
+REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
+```
+
+- `<root>` is the repo root in the local flow, or `$wtPath` in `--pr` mode (the config lives inside the
+  worktree).
+- When `ISSUES_REPO` is empty the issues live in the current repo and `REPO_ARG` stays empty — today's
+  behavior, unchanged (an absent issues-repo means "the current repo" and is never pinned; Invariant 6).
+- **Every `gh issue …` / `gh api …` call below that addresses the epic issue or a story issue MUST
+  include `$REPO_ARG`.** For the sub-issues GraphQL query, take `owner`/`repo` from `$ISSUES_REPO` when
+  set, otherwise the current repo.
+
 ## 1.1 Every child story issue is closed (hard block)
 
 The epic cannot close while any of its stories is still open. **Block here if any is open — do not
@@ -180,10 +201,10 @@ auto-close them, do not proceed.**
           --jq '.data.repository.issue.subIssues.nodes[] | "\(.number) \(.state) \(.title)"'
         ```
 
-2. Check each story issue's state:
+2. Check each story issue's state (in the resolved issues-repo — see Phase 1.0):
 
     ```bash
-    gh issue view <story-issue> --json number,title,state
+    gh issue view <story-issue> $REPO_ARG --json number,title,state
     ```
 
 3. **If any story issue is `OPEN`**, block and report the open ones, then stop:
@@ -275,10 +296,10 @@ any not already captured in the decision record. **Sources (C6), in priority ord
 1. **`epic.md`** and **`decision-record.md`** in `QDIR` — the planned decisions (baseline; the close
    record captures what *changed* against these, not a restatement).
 2. **Story issue comments** — read the comment thread on each child story issue for decisions recorded
-   during implementation:
+   during implementation (in the resolved issues-repo — see Phase 1.0):
 
     ```bash
-    gh issue view <story-issue> --json title,body,comments
+    gh issue view <story-issue> $REPO_ARG --json title,body,comments
     ```
 
 3. **Committed decision stubs** — `${QDIR}/*/decisions-*.md` (one per-user subdir per
@@ -547,9 +568,12 @@ Write the comment body to a scratch file (Key Decisions + Deviation Rationale co
 (avoids shell-escaping the prose), then close the epic issue:
 
 ```bash
-gh issue comment <epic-issue> --body-file "<scratch>/close-comment.md"
-gh issue close <epic-issue> --reason completed
+gh issue comment <epic-issue> $REPO_ARG --body-file "<scratch>/close-comment.md"
+gh issue close <epic-issue> $REPO_ARG --reason completed
 ```
+
+`$REPO_ARG` is the resolved issues-repo from Phase 1.0 — the epic issue lives there, not necessarily in
+the repo close runs from, so both the comment and the close must carry it.
 
 The comment body has this shape:
 
@@ -640,6 +664,11 @@ hand-off (the artifacts live on the pushed distill branch, and distill continues
   prose; the distiller deletes the queue entry post-merge. Link only durable targets (feature backlog,
   lesson file, concept pages, anchors, other issues).
 - Handle an already-closed epic issue gracefully.
+- **Every issue op targets the resolved issues-repo** — the epic and its story issues are filed into
+  `github.issues-repo`, resolved once in Phase 1.0 **through the shared resolver** (never by parsing
+  `settings.yml`). Every `gh issue`/`gh api` call addressing the epic or a story issue carries
+  `$REPO_ARG`; an empty value means the current repo (today's behavior). Close previously ignored this
+  configured repo — resolving and threading it is the concrete bug STORY-121.04 fixes.
 - **Scratch is hints, never authority** — a decision stub in `${QDIR}/*/decisions-*.md` or an
   engineer note enters the close record only when the diff confirms it or the human ratifies it
   as deviation rationale. The diff remains ground truth (0006).
