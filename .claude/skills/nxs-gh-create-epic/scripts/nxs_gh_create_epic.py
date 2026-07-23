@@ -22,11 +22,18 @@ import sys
 import tempfile
 from pathlib import Path
 
-# The config resolver is defined once, in the shared module beside these skills, and imported
-# here — never re-copied (epic #121, decision-record Invariant 2). The path is relative to this
-# file so it resolves both in-repo and inside the vendored `.claude/` component tree.
+# The config resolver and shared gh helpers are defined once, in the shared module beside these
+# skills, and imported here — never re-copied (epic #121, decision-record Invariant 2). The path
+# is relative to this file so it resolves both in-repo and inside the vendored `.claude/` tree.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
-from delivery_config import read_delivery_config  # noqa: E402
+from delivery_config import (  # noqa: E402
+    ensure_label,
+    lookup_issue_type_id,
+    read_delivery_config,
+    resolve_classification,
+    resolve_epic_label,
+    set_issue_type,
+)
 
 
 class Colors:
@@ -239,11 +246,6 @@ def find_project_root(start_path: Path) -> Path:
 def read_project_from_config(project_root: Path) -> str:
     """Read the GitHub project name from delivery config (config.yml or config.json)."""
     return read_delivery_config(project_root).get("project", "")
-
-
-def read_epic_type_from_config(project_root: Path) -> str:
-    """Read the default epic issue type from delivery config (config.yml or config.json)."""
-    return read_delivery_config(project_root).get("epicType", "")
 
 
 def read_issues_repo_from_config(project_root: Path) -> str:
@@ -538,92 +540,6 @@ def add_issue_to_project(project_id: str, issue_id: str) -> bool:
     return True
 
 
-def get_repo_issue_type_id(type_name: str) -> str | None:
-    """Look up the GraphQL node ID for a named issue type in the current repository.
-
-    Returns the type ID string, or None if the type is not found or the query fails.
-    """
-    result = run_command(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"])
-    if result.returncode != 0:
-        warn(f"Could not determine repository name: {result.stderr}")
-        return None
-
-    name_with_owner = result.stdout.strip()
-    if "/" not in name_with_owner:
-        warn(f"Unexpected repository name format: {name_with_owner}")
-        return None
-    owner, repo = name_with_owner.split("/", 1)
-
-    query = """
-    query($owner: String!, $repo: String!) {
-        repository(owner: $owner, name: $repo) {
-            issueTypes(first: 50) {
-                nodes {
-                    id
-                    name
-                }
-            }
-        }
-    }
-    """
-
-    cmd = [
-        "gh", "api", "graphql",
-        "-f", f"query={query}",
-        "-f", f"owner={owner}",
-        "-f", f"repo={repo}",
-    ]
-    result = run_command(cmd)
-    if result.returncode != 0:
-        warn(f"Could not fetch repository issue types: {result.stderr}")
-        return None
-
-    try:
-        data = json.loads(result.stdout)
-        # Repos without the issue-types feature return "issueTypes": null —
-        # .get(key, default) does not apply the default to an explicit null.
-        repository = (data.get("data") or {}).get("repository") or {}
-        nodes = (repository.get("issueTypes") or {}).get("nodes") or []
-        for node in nodes:
-            if node.get("name", "").lower() == type_name.lower():
-                return node.get("id")
-        return None
-    except json.JSONDecodeError as e:
-        warn(f"Error parsing issue types response: {e}")
-        return None
-
-
-def set_issue_type(issue_id: str, type_id: str) -> bool:
-    """Set the issue type on a GitHub issue via the updateIssue GraphQL mutation.
-
-    Returns True if successful, False otherwise.
-    """
-    mutation = """
-    mutation($issueId: ID!, $typeId: ID!) {
-        updateIssue(input: {id: $issueId, issueTypeId: $typeId}) {
-            issue {
-                number
-                issueType {
-                    name
-                }
-            }
-        }
-    }
-    """
-
-    cmd = [
-        "gh", "api", "graphql",
-        "-f", f"query={mutation}",
-        "-f", f"issueId={issue_id}",
-        "-f", f"typeId={type_id}",
-    ]
-    result = run_command(cmd)
-    if result.returncode != 0:
-        warn(f"Error setting issue type: {result.stderr}")
-        return False
-    return True
-
-
 def create_github_issue(
     title: str,
     body_file: Path,
@@ -737,17 +653,34 @@ def main() -> int:
     if issues_repo:
         print(f"📦 Issues repo (from config): {issues_repo}")
 
-    # Resolve issue type (priority: frontmatter 'type' > config.json 'epicType').
-    # If neither is set, fall back to adding the "enhancement" label instead.
-    issue_type: str | None = frontmatter.get("type", "") or None
-    fallback_label: str | None = None
-    if not issue_type:
-        issue_type = read_epic_type_from_config(project_root) or None
-        if issue_type:
-            print(f"🏷️  No 'type' in frontmatter, using epicType from config.json: {issue_type}")
-        else:
-            fallback_label = "enhancement"
-            warn("No 'type' in frontmatter or config.json, falling back to label: enhancement")
+    # Resolve the classification mechanism and the concrete names the epic will carry
+    # (STORY-121.02). The mode decides types-vs-labels; frontmatter `type` (per-item intent)
+    # wins over config `epic-type` for the issue-type NAME, and `epic-label` (default `epic`)
+    # supplies the label. `legacy-auto` (the built-in default) preserves today's outcome.
+    config = read_delivery_config(project_root)
+    classification = resolve_classification(config)
+    epic_label = resolve_epic_label(config)
+    resolved_type: str | None = frontmatter.get("type", "") or config.get("epicType") or None
+
+    # issue_type = a type to APPLY after creation (types / legacy-auto with a type).
+    # create_label = a label passed at creation (labels mode, and the no-type legacy path).
+    issue_type: str | None = None
+    create_label: str | None = None
+    if classification == "types":
+        issue_type = resolved_type
+        if not issue_type:
+            warn("classification: types but no epic issue-type resolved (frontmatter 'type' / github.epic-type) — filing untyped")
+    elif classification == "labels":
+        create_label = epic_label
+    else:  # legacy-auto (or absent) — probe-then-fallback; the fallback label is now `epic`.
+        issue_type = resolved_type
+        if not issue_type:
+            create_label = epic_label
+
+    # Track what actually lands, for the summary. `applied_label` starts as the create-time
+    # label; the legacy-auto path may set it when type-setting falls back.
+    applied_label: str | None = create_label
+    type_applied = False
 
     # Check if link already exists
     existing_link = frontmatter.get("link", "")
@@ -758,11 +691,11 @@ def main() -> int:
             print("Aborted.")
             return 0
 
-    print(f"📋 Epic Title: {epic_title}")
+    print(f"📋 Epic Title: {epic_title}  (classification: {classification})")
     if issue_type:
         print(f"🏷️  Type: {issue_type}")
-    else:
-        print(f"🏷️  Label (fallback): {fallback_label}")
+    elif create_label:
+        print(f"🏷️  Label: {create_label}")
 
     # Verify we have body content
     if not body.strip():
@@ -800,10 +733,19 @@ def main() -> int:
         temp_file = Path(tmp.name)
 
     try:
+        # Ensure a create-time label exists before it is applied — `gh issue create --label X`
+        # fails outright if X is absent, the exact strand this upsert removes (AC4 / Invariant 8).
+        if create_label:
+            if not ensure_label(
+                create_label, run_command, repo=issues_repo,
+                color="5319E7", description="Epic (created by nxs-gh-create-epic)",
+            ):
+                warn(f"Could not ensure '{create_label}' label — continuing (it may already exist)")
+
         print("🚀 Creating GitHub issue...")
 
         issue_url, issue_num = create_github_issue(
-            epic_title, temp_file, fallback_label=fallback_label, repo=issues_repo
+            epic_title, temp_file, fallback_label=create_label, repo=issues_repo
         )
 
         # Record the link immediately — the project/type steps below are
@@ -825,28 +767,39 @@ def main() -> int:
                 else:
                     warn("Failed to add issue to project")
 
-        # Set GitHub issue type when resolved from frontmatter or config
+        # Set the GitHub issue type when one was resolved (types / legacy-auto with a type).
         if issue_type:
             print(f"🏷️  Setting issue type: {issue_type}...")
-            type_id = get_repo_issue_type_id(issue_type)
-            type_set = bool(type_id and issue_id and set_issue_type(issue_id, type_id))
-            if type_set:
+            type_id = lookup_issue_type_id(issue_type, run_command, repo=issues_repo)
+            type_applied = bool(type_id and issue_id and set_issue_type(issue_id, type_id, run_command))
+            if type_applied:
                 print(f"🏷️  Issue type set: {issue_type}")
-            else:
+            elif classification == "types":
+                # Explicit types mode declared the repo types its issues; a missing/failed type
+                # is a config error to surface, not to paper over with a label (AC2). No fallback.
                 if type_id:
                     warn(f"Failed to set issue type '{issue_type}' on issue #{issue_num}")
                 else:
-                    warn(f"Issue type '{issue_type}' not found in repository — type not set")
-                # Without a type the issue would carry no classification at all —
-                # fall back to the type name as a label.
-                label = issue_type.lower()
-                label_cmd = ["gh", "issue", "edit", issue_num, "--add-label", label]
+                    warn(f"Issue type '{issue_type}' not found in repository — type not set (classification: types)")
+            else:
+                # legacy-auto: the repo has no such issue-type (e.g. a personal repo with none) —
+                # fall back to the epic label, upserted first so the add cannot strand.
+                if type_id:
+                    warn(f"Failed to set issue type '{issue_type}' on issue #{issue_num} — falling back to label")
+                else:
+                    warn(f"Issue type '{issue_type}' not found in repository — falling back to label '{epic_label}'")
+                applied_label = epic_label
+                ensure_label(
+                    applied_label, run_command, repo=issues_repo,
+                    color="5319E7", description="Epic (created by nxs-gh-create-epic)",
+                )
+                label_cmd = ["gh", "issue", "edit", issue_num, "--add-label", applied_label]
                 if issues_repo:
                     label_cmd.extend(["-R", issues_repo])
                 if run_command(label_cmd).returncode == 0:
-                    print(f"🏷️  Fallback label added: {label}")
+                    print(f"🏷️  Fallback label added: {applied_label}")
                 else:
-                    warn(f"Could not add fallback label '{label}' to issue #{issue_num}")
+                    warn(f"Could not add fallback label '{applied_label}' to issue #{issue_num}")
 
         # Success output
         print()
@@ -854,10 +807,10 @@ def main() -> int:
         print()
         print(f"   Issue:  #{issue_num}")
         print(f"   Title:  {epic_title}")
-        if issue_type:
+        if type_applied:
             print(f"   Type:   {issue_type}")
-        else:
-            print(f"   Label:  {fallback_label}")
+        elif applied_label:
+            print(f"   Label:  {applied_label}")
         print(f"   URL:    {issue_url}")
         if project_id:
             print("   Project: Added ✓")

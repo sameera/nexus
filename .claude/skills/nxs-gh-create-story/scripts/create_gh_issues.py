@@ -23,11 +23,24 @@ import tempfile
 import time
 from pathlib import Path
 
-# The config resolver is defined once, in the shared module beside these skills, and imported
-# here — never re-copied (epic #121, decision-record Invariant 2). The path is relative to this
-# file so it resolves both in-repo and inside the vendored `.claude/` component tree.
+# The config resolver and shared gh helpers are defined once, in the shared module beside these
+# skills, and imported here — never re-copied (epic #121, decision-record Invariant 2). The path
+# is relative to this file so it resolves both in-repo and inside the vendored `.claude/` tree.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
-from delivery_config import read_delivery_config  # noqa: E402
+from delivery_config import (  # noqa: E402
+    ensure_label,
+    lookup_issue_type_id,
+    read_delivery_config,
+    resolve_classification,
+    resolve_story_label,
+    set_issue_type,
+)
+
+
+def _run_plain(cmd: list[str]) -> subprocess.CompletedProcess:
+    """A non-retrying runner for the shared gh helpers, which expect a call that returns a
+    CompletedProcess rather than raising (unlike run_gh). Type/label decoration is best-effort."""
+    return subprocess.run(cmd, capture_output=True, text=True)
 
 # --- Retry / robustness controls -------------------------------------------------
 # Tuned from CLI args in main(); module-level so the low-level gh wrappers can read them.
@@ -404,28 +417,13 @@ def add_issue_to_project(project_id: str, issue_id: str) -> bool:
         return False
 
 
+# The default story label. main() overwrites it with the resolved github.story-label, and sets
+# the classification mode + story issue-type id below. Module-level (mirroring the RETRIES
+# globals) so process_task_file reads them without threading extra params. Default legacy-auto
+# keeps today's behavior: every story carries the `story` label and no issue type (STORY-121.02).
 STORY_LABEL = "story"
-
-
-def ensure_story_label(repo: str | None = None) -> None:
-    """Create the canonical `story` label if it does not already exist.
-
-    Idempotent: `gh label create --force` upserts, so re-running is harmless.
-    Every issue this skill creates is a user story, so the label is always applied.
-
-    Args:
-        repo: Optional 'owner/repo' to target (passed as -R). Uses current repo if omitted.
-    """
-    cmd = ["gh", "label", "create", STORY_LABEL, "--color", "BFD4F2",
-           "--description", "User story (created by nxs-gh-create-story)", "--force"]
-    if repo:
-        cmd.extend(["-R", repo])
-    try:
-        run_gh(cmd)
-    except GhError as e:
-        # Non-fatal: issue creation still works if the label already exists with a
-        # different color, or if the token lacks label-write scope but the label exists.
-        print(f"Warning: could not ensure '{STORY_LABEL}' label: {e.stderr}", file=sys.stderr)
+CLASSIFICATION = "legacy-auto"
+STORY_TYPE_ID: str | None = None
 
 
 def create_github_issue(title: str, labels: list[str], body_file: str, repo: str | None = None) -> str | None:
@@ -750,8 +748,9 @@ def process_task_file(
     if isinstance(labels, str):
         labels = [labels] if labels else []
 
-    # Every issue this skill creates is a story — apply the canonical label.
-    if STORY_LABEL not in labels:
+    # Every issue this skill creates is a story — apply the canonical label, unless the repo is
+    # in `types` mode (then the story issue-type classifies it instead; STORY-121.02).
+    if CLASSIFICATION != "types" and STORY_LABEL not in labels:
         labels = [STORY_LABEL, *labels]
 
     if not title:
@@ -784,6 +783,15 @@ def process_task_file(
             manifest[ref] = {"number": issue_number, "db_id": db_id, "url": issue_url, "title": title}
             if manifest_path:
                 save_manifest(manifest_path, manifest)
+
+        # In `types` mode, classify the story by its GitHub issue-type (STORY-121.02).
+        # Best-effort decoration: the issue already exists, so a failure only warns.
+        if CLASSIFICATION == "types" and STORY_TYPE_ID and issue_number:
+            type_issue_id = get_issue_id(issue_number, repo=issues_repo)
+            if type_issue_id and set_issue_type(type_issue_id, STORY_TYPE_ID, _run_plain):
+                print(f"  Issue type set")
+            else:
+                print(f"  Warning: could not set story issue type on #{issue_number}", file=sys.stderr)
 
         # Add to project unless skipped
         if not skip_project and issue_number:
@@ -930,10 +938,32 @@ def main():
     if issues_repo:
         print(f"Issues repo (from config): {issues_repo}")
 
-    # Ensure the canonical `story` label exists on the target repo before any
-    # `gh issue create --label story` call (skipped on dry runs).
+    # Resolve the classification mode + story type/label names once (STORY-121.02). Default
+    # legacy-auto keeps today's behavior: every story carries the `story` label, no issue type.
+    global STORY_LABEL, CLASSIFICATION, STORY_TYPE_ID
+    config = read_delivery_config(project_root)
+    CLASSIFICATION = resolve_classification(config)
+    STORY_LABEL = resolve_story_label(config)
+    story_type = config.get("storyType")
+
     if not args.dry_run:
-        ensure_story_label(repo=issues_repo)
+        if CLASSIFICATION == "types":
+            # Typed repo: resolve the story issue-type id once (applied per issue after creation);
+            # no canonical label is forced, parallel to the epic path.
+            if story_type:
+                STORY_TYPE_ID = lookup_issue_type_id(story_type, _run_plain, repo=issues_repo)
+                if STORY_TYPE_ID:
+                    print(f"Classification: types — story issue-type '{story_type}'")
+                else:
+                    print(f"Warning: classification: types but story-type '{story_type}' not found — stories filed untyped", file=sys.stderr)
+            else:
+                print("Warning: classification: types but no github.story-type configured — stories filed untyped", file=sys.stderr)
+        else:
+            # labels / legacy-auto: ensure the (configurable) story label exists before any
+            # `gh issue create --label <story-label>` call. Idempotent upsert.
+            if not ensure_label(STORY_LABEL, _run_plain, repo=issues_repo, color="BFD4F2",
+                                description="User story (created by nxs-gh-create-story)"):
+                print(f"Warning: could not ensure '{STORY_LABEL}' label", file=sys.stderr)
 
     # Resolve project from config.json (priority between frontmatter and repo auto-discovery)
     config_project_id = None
@@ -961,7 +991,7 @@ def main():
             labels = fm.get("labels", [])
             if isinstance(labels, str):
                 labels = [labels] if labels else []
-            if STORY_LABEL not in labels:
+            if CLASSIFICATION != "types" and STORY_LABEL not in labels:
                 labels = [STORY_LABEL, *labels]
             project = fm.get("project", "(auto)")
             ref = fm.get("ref", f.stem)
