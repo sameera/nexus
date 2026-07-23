@@ -129,6 +129,45 @@ def resolve_story_label(config: dict[str, str]) -> str:
     return (config.get("storyLabel") or "").strip() or DEFAULT_STORY_LABEL
 
 
+# --- Project V2 target (STORY-121.03) ------------------------------------------------
+#
+# The Project V2 target is declared config, resolved here once, so a repo with no project can
+# say so a single time (`none`) instead of paying an auto-discovery lookup and a false-alarm
+# "no project found" warning on every run — the personal-repo case, the epic's trigger. `auto`
+# is the built-in default when no block is present: it names and preserves today's discovery.
+
+#: The two reserved keywords. Any other value is an explicit target (`owner/number` or a title).
+PROJECT_NONE = "none"
+PROJECT_AUTO = "auto"
+DEFAULT_PROJECT = PROJECT_AUTO
+
+
+def resolve_project_target(config: dict[str, str]) -> tuple[str, str | None]:
+    """Resolve the Project V2 target into a `(mode, value)` pair.
+
+    `mode` is one of:
+      - ``"none"``:     no project lookup, no add-to-project call, no warning — deliberate
+                        absence (the personal-repo case with no project at all). `value` is None.
+      - ``"auto"``:     today's repository project auto-discovery. `value` is None. This is the
+                        built-in default when the key is absent, so a repo with no `github:`
+                        block reproduces today's behavior (decision-record Invariant 1).
+      - ``"explicit"``: an operator-declared target; `value` is the `owner/number` or project
+                        title to add to *exactly*, with no discovery fallback.
+
+    The two keywords are matched case-insensitively; an explicit target keeps its original case,
+    since project titles and owner refs are case-sensitive.
+    """
+    raw = (config.get("project") or "").strip()
+    if not raw:
+        return (DEFAULT_PROJECT, None)
+    keyword = raw.lower()
+    if keyword == PROJECT_NONE:
+        return (PROJECT_NONE, None)
+    if keyword == PROJECT_AUTO:
+        return (PROJECT_AUTO, None)
+    return ("explicit", raw)
+
+
 # --- Shared gh helpers (STORY-121.02) ------------------------------------------------
 #
 # Issue-type lookup/set and the label upsert are defined once and imported by both creation

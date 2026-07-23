@@ -32,6 +32,7 @@ from delivery_config import (  # noqa: E402
     lookup_issue_type_id,
     read_delivery_config,
     resolve_classification,
+    resolve_project_target,
     resolve_story_label,
     set_issue_type,
 )
@@ -613,11 +614,6 @@ def find_project_root(start_path: Path) -> Path:
     return Path.cwd()
 
 
-def read_project_from_config(project_root: Path) -> str:
-    """Read the GitHub project name from delivery config (config.yml or config.json)."""
-    return read_delivery_config(project_root).get("project", "")
-
-
 def read_issues_repo_from_config(project_root: Path) -> str:
     """Read the target issues repository from delivery config (config.yml or config.json).
 
@@ -965,23 +961,26 @@ def main():
                                 description="User story (created by nxs-gh-create-story)"):
                 print(f"Warning: could not ensure '{STORY_LABEL}' label", file=sys.stderr)
 
-    # Resolve project from config.json (priority between frontmatter and repo auto-discovery)
+    # Resolve the Project V2 target (STORY-121.03) once for all stories. A per-story frontmatter
+    # `project` still overrides this (resolve_project_id); the declared target decides the fallback:
+    #   none     → no config lookup, no repo auto-discovery, no warning (the personal-repo case)
+    #   explicit → look up exactly that project; no repo auto-discovery fallback
+    #   auto     → today's repo auto-discovery (the built-in default when the key is absent)
+    project_mode, project_target = resolve_project_target(config)
     config_project_id = None
-    if not args.no_project and not args.dry_run:
-        config_project = read_project_from_config(project_root)
-        if config_project:
-            print(f"Looking up project from config: {config_project}")
-            config_project_id = get_project_id_by_name(config_project)
-            if not config_project_id:
-                print(f"Warning: Project '{config_project}' from config.json not found", file=sys.stderr)
-
-    # Get fallback repo project ID unless disabled
     repo_project_id = None
     if not args.no_project and not args.dry_run:
-        print("Looking for repository project (fallback)...")
-        repo_project_id = get_repo_project_id()
-        if not repo_project_id:
-            print("No repository project found (will use frontmatter or config project if available)")
+        if project_mode == "explicit":
+            print(f"Looking up project from config: {project_target}")
+            config_project_id = get_project_id_by_name(project_target)
+            if not config_project_id:
+                print(f"Warning: Project '{project_target}' from config not found", file=sys.stderr)
+        elif project_mode == "auto":
+            print("Looking for repository project (fallback)...")
+            repo_project_id = get_repo_project_id()
+            if not repo_project_id:
+                print("No repository project found (will use frontmatter project if available)")
+        # project_mode == "none": deliberate absence — no config lookup, no auto-discovery, no warning.
 
     if args.dry_run:
         print("\nDry run - would process:")

@@ -32,6 +32,7 @@ from delivery_config import (  # noqa: E402
     read_delivery_config,
     resolve_classification,
     resolve_epic_label,
+    resolve_project_target,
     set_issue_type,
 )
 
@@ -241,11 +242,6 @@ def find_project_root(start_path: Path) -> Path:
         current = current.parent
 
     return Path.cwd()
-
-
-def read_project_from_config(project_root: Path) -> str:
-    """Read the GitHub project name from delivery config (config.yml or config.json)."""
-    return read_delivery_config(project_root).get("project", "")
 
 
 def read_issues_repo_from_config(project_root: Path) -> str:
@@ -702,30 +698,32 @@ def main() -> int:
         error("No content found after frontmatter")
         return 1
 
-    # Resolve project ID (priority: --project flag > config.json > repo auto-discovery)
+    # Resolve the Project V2 target (STORY-121.03). The --project flag is the invocation-time
+    # override and always wins; absent it, the declared `github.project` target decides the mode:
+    #   none     → no lookup, no add-to-project, no warning (the personal-repo case)
+    #   explicit → add to exactly that project; no auto-discovery fallback
+    #   auto     → today's repository auto-discovery (the built-in default when the key is absent)
     project_id = None
     if not args.no_project:
         if args.project:
-            # Use explicitly provided project
+            # Use explicitly provided project (invocation-time override)
             print(f"🔍 Looking up project: {args.project}")
             project_id = get_project_id_by_name(args.project)
             if not project_id:
                 warn(f"Project '{args.project}' not found, issue will not be added to a project")
         else:
-            # Check delivery config for project name
-            config_project = read_project_from_config(project_root)
-            if config_project:
-                print(f"🔍 Looking up project from config: {config_project}")
-                project_id = get_project_id_by_name(config_project)
+            project_mode, project_target = resolve_project_target(config)
+            if project_mode == "explicit":
+                print(f"🔍 Looking up project from config: {project_target}")
+                project_id = get_project_id_by_name(project_target)
                 if not project_id:
-                    warn(f"Project '{config_project}' from config.json not found, falling back to auto-discovery")
-
-            if not project_id:
-                # Auto-discover from repository
+                    warn(f"Project '{project_target}' from config not found, issue will not be added to a project")
+            elif project_mode == "auto":
                 print("🔍 Looking for repository project...")
                 project_id = get_repo_project_id()
                 if not project_id:
                     warn("No project found for repository, issue will not be added to a project")
+            # project_mode == "none": deliberate absence — no lookup, no add-to-project, no warning.
 
     # Create temp file with body content
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as tmp:

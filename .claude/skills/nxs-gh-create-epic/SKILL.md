@@ -25,7 +25,7 @@ python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
 
 | Flag                 | Description                                                                                                             |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `--project "<name>"` | Specify the GitHub project to add the issue to (e.g., `my-org/my-project`). If omitted, reads from `.nexus/config/settings.yml` (or legacy `config.yml`/`config.json`), then auto-discovers from repository. |
+| `--project "<name>"` | Specify the GitHub project to add the issue to (e.g., `my-org/my-project`). Invocation-time override — always wins. If omitted, the declared `github.project` target in `.nexus/config/settings.yml` decides (`none` \| `auto` \| an explicit target; see step 6). |
 | `-y`, `--yes`        | Skip confirmation if a link already exists                                                                              |
 | `--no-project`       | Skip adding the issue to any project                                                                                    |
 
@@ -65,7 +65,12 @@ The script (`./scripts/nxs_gh_create_epic.py`):
 4. Executes `gh issue create --title "<epic>" --body-file <temp>`
    (adds `--label <epic-label>` when the resolved mode applies a label)
 5. Extracts issue number from returned URL
-6. Adds the issue to the specified project (or auto-discovered project)
+6. Resolves the Project V2 target from `github.project` (the `--project` flag overrides it):
+   - **none** — no project lookup, no add-to-project call, no warning (the personal-repo case
+     with no project at all)
+   - **explicit** (`owner/number` or a project title) — adds to exactly that project; no
+     auto-discovery fallback
+   - **auto** (or no `github:` block) — today's repository project auto-discovery
 7. If an issue type was resolved, queries the repository's available issue types,
    matches by name, and calls the `updateIssue` GraphQL mutation to set it
 8. Updates frontmatter with `link: "#<issue-number>"`
