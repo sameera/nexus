@@ -1,6 +1,4 @@
-.claude/plans/lexical-squishing-meteor.md
-.nexus/plans/          # retired — decision scratch now committed under .nexus/queue/<epic>/<user>/
-.nexus/tmp/            # ephemeral materialized epics from the issue resolver (@nexus/epic-resolve)
+.nexus/tmp/
 __pycache__/
 tmp/**
 node_modules/
