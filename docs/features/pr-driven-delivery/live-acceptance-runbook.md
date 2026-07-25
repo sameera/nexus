@@ -17,6 +17,17 @@ recorded and filed; each fix is sized and scheduled separately.
 
 This is a **maintainer-invoked, on-demand** exercise. There is no CI to run it in.
 
+> **No longer the required path (2026-07-25).** Range derivation — the mechanic worth the evidence —
+> is now measured **read-only against this repo's own merged pull requests**, with no scratch repo,
+> no `delete_repo` scope, and no mutation. See the *How to run it* section of
+> [#135](https://github.com/sameera/nexus/issues/135) for the six-command version, and the
+> [record](live-acceptance-record.md) for what it found.
+>
+> This runbook is retained as the **controlled reproduction**: reach for it when a real PR misbehaves
+> and you need to provoke the failure somewhere disposable. The stories that made a full scratch-repo
+> run a gate — [#134](https://github.com/sameera/nexus/issues/134) and
+> [#136](https://github.com/sameera/nexus/issues/136) — were closed as not worth the credential scope.
+
 ---
 
 ## Before you start

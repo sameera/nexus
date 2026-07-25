@@ -93,6 +93,13 @@ fork-originated heads out of scope.
 
 No live run has been recorded yet.
 
+> **Superseded in part.** The scratch-repo run described below never happened, and the epic was
+> re-scoped on 2026-07-25 so that it no longer needs to. See
+> [*Run 2026-07-25 — read-only, against this repo's own merge history*](#run-2026-07-25--read-only-against-this-repos-own-merge-history),
+> which measures range derivation against real merged pull requests without provisioning anything.
+> The text below is kept as-written: its account of why the scratch-repo path stalled is still
+> accurate and is the reason the re-scope happened.
+
 ### Partial evidence: the harness's `gh` reader, validated read-only
 
 Observed **2026-07-25** against toolchain commit `17b316c674ec571c19232f4f64d3769141b492a1`.
@@ -143,3 +150,108 @@ repository it could not later delete.
 | # | What the unit tests assume | What is actually true | Filed as |
 |---|---|---|---|
 | D1 | Nothing — the packaging shape is not covered by the `libs/pr-worktree` specs at all. | A repo carrying only the **vendored** `.claude/` component tree cannot execute the flow: the commands invoke their helpers by repo-relative paths and those helpers resolve their libraries through workspace links. Provisioning has to seed the working toolchain tree and lend the clone a resolved dependency closure. | Recorded here; not repaired in epic #132 (its Out of Scope forbids it). To be sized separately. |
+
+---
+
+## Run 2026-07-25 — read-only, against this repo's own merge history
+
+- **toolchain commit:** `70d494760dcfab713ba899c05ca6625242cfc296` (`libs/pr-worktree/src/range.ts`
+  last changed at `4e73970ce075ef9c1477d2686c231058ab6e5495`, 2026-07-20; `libs/` clean at run time)
+- **scratch repo:** none — measured against `sameera/nexus` itself
+- **operator:** sameera
+- **method:** read-only `git` and `gh` against already-merged pull requests. No repository was
+  created, no branch pushed, no PR merged, no scope granted. Every fetched ref was deleted after use.
+
+### Why this run exists in this shape
+
+The scratch-repo exercise was blocked on granting `delete_repo` to the maintainer's credential, and
+the value it would have bought turned out to be smaller than assumed: on a single account the
+review-publishing path is unreachable anyway, and the close/distill chain runs for real on the next
+epic regardless. What the epic actually existed to measure — whether range derivation picks the
+right base against real GitHub — needs a real *merged* PR, not a *disposable* one. This repo has
+twelve of them.
+
+### Verdicts
+
+| Stage | Verdict |
+|---|---|
+| range: rebase (multi-commit) | **PASS** — 6/6 |
+| range: post-branch-delete head reachability | **PASS** — 4/4 with the branch actually deleted |
+| range: authoritative-set verification loop | **PASS** — 6/6 |
+| range: squash | NOT EXERCISED — no squash merge in this repo's history (see *Follow-up*) |
+| range: merge commit | NOT EXERCISED — none in this repo's history (see *Follow-up*) |
+| range: rebase (single-commit) | NOT EXERCISED — takes the unambiguous `commitCount <= 1` branch |
+| analyze --pr (receipt published + read back) | NOT EXERCISED — descoped, see #134 |
+| close --pr / distill chain | NOT EXERCISED — descoped, see #136 |
+| range refusal branch | NOT EXERCISED — unreachable live, as previously documented |
+| review publishing | NOT EXERCISED — unreachable on one account, as previously documented |
+
+### Observations
+
+Every merge in this repo's history is a **rebase merge**: the merge commit has one parent, the PR
+carried more than one commit, and `mergeCommit~N` — not `mergeCommit^1` — reproduces the PR's file
+set. That is the *ambiguous* branch at `libs/pr-worktree/src/range.ts:87`. It is not an edge case
+here; it is the normal path for every multi-commit PR.
+
+For each PR: `authoritative` = `git diff --name-only baseRefOid...pull/<N>/head`, queue paths
+excluded — the same set `deriveRange` computes at `range.ts:99`. Candidates are the two the code
+tries at `range.ts:109`.
+
+| PR | commits | branch still on remote | `pull/<N>/head` fetch | files | `merge^1` | `merge~N` |
+|---|---|---|---|---|---|---|
+| #131 | 2 | yes | OK | 12 | differ | **MATCH** |
+| #129 | 8 | yes | OK | 20 | differ | **MATCH** |
+| #86 | 8 | **no** | OK | 20 | differ | **MATCH** |
+| #79 | 6 | **no** | OK | 19 | differ | **MATCH** |
+| #99 | 2 | **no** | OK | 15 | differ | **MATCH** |
+| #73 | 3 | **no** | OK | 20 | differ | **MATCH** |
+
+In all six, the selected base `mergeCommit~N` equalled the PR's `baseRefOid` exactly — the expected
+identity for a rebase merge, and an independent confirmation that the right candidate was chosen:
+
+| PR | `mergeCommit` | `mergeCommit~N` | `baseRefOid` |
+|---|---|---|---|
+| #131 | `d89c8c1a5818aae13cf3d553d8b46443ccb307ec` | `288906382ecb248dc469d5cb52af2868f97bd5fe` | `288906382ecb248dc469d5cb52af2868f97bd5fe` |
+| #129 | `288906382ecb248dc469d5cb52af2868f97bd5fe` | `b19449990008f2a2843d3a62ec93d64dcc1d74f7` | `b19449990008f2a2843d3a62ec93d64dcc1d74f7` |
+| #86 | `23082c5d36f301eac7c7aa5b2aff616ad9fba6ab` | `504bfaa2421f3ab28427196c75d588a6bb7faf00` | `504bfaa2421f3ab28427196c75d588a6bb7faf00` |
+| #79 | `142dc6b0f8bd631b8f71dc44dbe25285413a57bf` | `ff410f32b5d89872ee2d8f8f951e74632d159db4` | `ff410f32b5d89872ee2d8f8f951e74632d159db4` |
+| #99 | `8e624e89370d93bcad126a93519b10a84e7faf23` | `34aab759aaf29ba6e7163ff36b2edcbdbe0a75e5` | `34aab759aaf29ba6e7163ff36b2edcbdbe0a75e5` |
+| #73 | `e70b9761da9d8da1a0f3814a89a2ce31de35a21f` | `b88edc2a50579e5dc3a2660a4de7bff2d50c1ced` | `b88edc2a50579e5dc3a2660a4de7bff2d50c1ced` |
+
+What this establishes, that the injected-runner specs could not:
+
+1. **`pull/<N>/head` survives branch deletion on real GitHub.** Four of the six PRs have no branch
+   left on the remote; the fetch succeeded for all four. The verification path's precondition holds.
+2. **The authoritative-set comparison selects correctly against real merges** — 6/6, with the wrong
+   candidate rejected every time rather than tied.
+3. **`mergeCommit^1` is wrong for every multi-commit PR in this repo.** The refuse-rather-than-guess
+   design at `range.ts:87-128` is load-bearing, not defensive.
+
+### Divergences from the injected-runner tests
+
+None — zero divergences observed. The live behavior matched what the specs assume in every case
+measured.
+
+| # | What the unit tests assume | What live GitHub did | Filed as |
+|---|---|---|---|
+| — | — | — | — |
+
+### Notes
+
+**Not covered, and honestly so.** This run measures range derivation only. It says nothing about the
+receipt publish-and-read-back loop, the close `--pr` merge gate, the shared distill worktree, or the
+distillation PR. Those stages are exercised for real by the next epic that runs the flow end to end;
+a failure there is loud and recoverable, unlike a silently-wrong range, which is why they were the
+stories worth dropping and this was the story worth keeping.
+
+**One check not performed.** The single production caller of `deriveRange`
+(`.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts:127`) always passes `verifyAgainstPrHead`,
+so there is no reachable path that stamps an unverified `mergeCommit^1`. That was read from the
+source, not exercised live.
+
+### Follow-up
+
+Squash and merge-commit strategies remain unmeasured because this repo has never used them. Rotate
+the merge button across the next three real PRs — one squash, one merge commit, one single-commit
+rebase — and re-run the table above against each. That closes the remaining coverage at the cost of
+three button clicks, with no scratch repo and no new credential scope.

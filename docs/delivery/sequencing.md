@@ -21,8 +21,8 @@ Wave 3.
 | Item | Size | blocked_by | Why first |
 |---|---|---|---|
 | **issue-sourced-planning** (#114) | L | none | Filed (#115–#119). The root: GitHub issues become the source of truth, `/nxs.epic` commits nothing at planning, the resolver (#115) materializes the epic from the issue graph, and the committed entry is born at *close*. Everything below reads the epic through the resolver. |
-| **github-publishing-config** | M | none | The `github:` config resolver (types/labels/project). Ship before hld-subissue-record and pipeline-gh-cli so they consume it instead of hardcoding label maps and getting reworked. Build the resolver **once** here — hld-subissue-record, pipeline-gh-cli, and workspace-setup-cli all want it. |
-| **pr-flow-live-acceptance-dry-run** | S | none | Cheap de-risking. The whole issue-sourced analyze/close/distill chain rides on `--pr` worktree mechanics never run against a real `gh`. Do it before betting Wave 3 on them. |
+| **github-publishing-config** (#121) | M | none | The `github:` config resolver (types/labels/project). Ship before hld-subissue-record and pipeline-gh-cli so they consume it instead of hardcoding label maps and getting reworked. Build the resolver **once** here — hld-subissue-record, pipeline-gh-cli, and workspace-setup-cli all want it. |
+| **pr-flow-live-acceptance-dry-run** (#132) | S | none | Cheap de-risking, and it came in cheaper than sized. Range derivation is verified against real merged PRs read-only — rebase PASS 6/6, zero divergences, and `mergeCommit^1` proved wrong for every multi-commit PR here, so the refuse-rather-than-guess design is load-bearing. Squash and merge-commit close out on the next real PRs (#135). No longer a blocker for Wave 3. |
 
 ## Wave 2 — the file→issue core (after issue-sourced-planning lands)
 

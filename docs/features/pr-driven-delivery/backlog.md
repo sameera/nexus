@@ -14,8 +14,8 @@
 
 ## pr-flow-live-acceptance-dry-run
 
-- **status:** proposed
-- **goal:** Run the PR flow end-to-end against a scratch hosted repo (squash, merge-commit, and rebase merges) as a live acceptance check — the mechanics are unit-tested with injected runners but never exercised against a real `gh`/PR in the build environment.
+- **status:** promoted (#132) — re-scoped 2026-07-25
+- **goal:** Verify range derivation against real merges of each strategy, so the distiller recomputes the diff the PR actually contained. Originally scoped as a full end-to-end run against a provisioned scratch repo; that was dropped once the same evidence proved obtainable read-only against this repo's own merged PRs. Rebase measured (6/6 PASS, zero divergences); squash and merge-commit pending on the next real PRs (#135). The scratch-repo stories (#134, #136) are closed — see the [record](live-acceptance-record.md).
 - **estimate:** S
 - **blocked_by:** none
 - **source:** deferred from epic PR-Driven Post-Merge Flow for Analyze, Close, and Distill (#101) (2026-07-20)
