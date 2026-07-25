@@ -1,42 +1,43 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning"]
-last_updated_by: "#114"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution"]
+last_updated_by: "#121"
 status: active
 verification: verified
 ---
 
 # Workspace Resolution
 
-Workspace resolution makes a multi-repo product a declared, discoverable thing: one manifest committed in the hub repo names the hub and its members, and a thin pointer committed in each member names only the hub. A single deterministic resolver reads these to produce an identical workspace description from any checkout, and falls back to single-repo behavior when neither artifact is present.
+Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub. One deterministic resolver reads these to produce an identical workspace description from any checkout, falling back to single-repo behavior when neither is present.
 
 ## How It Works
 
 The hub manifest is the single source of truth for the hub, its members, and each member's remote and checkout name. A member's pointer only locates the hub; on disagreement the manifest wins.
 
-A checkout's role follows its artifact: a manifest makes it the hub, a pointer a member that finds the hub as a named sibling and reads that manifest. Both entry points converge on a deep-equal description — the parity guarantee — which also fixes the hub's portable-tooling location and each repo's docs root. Carrying neither means single-repo mode, unchanged.
+A checkout's role follows its artifact: a manifest makes it the hub, a pointer a member that finds the hub as a named sibling and reads that manifest. Both converge on a deep-equal description — the parity guarantee — which also fixes the hub's portable-tooling location and each repo's docs root. Neither artifact means single-repo mode, unchanged.
 
-Two read-outs surface it: full status and resolved docs root.
+Three read-outs surface it: full status, resolved docs root, and the manifest's optional workspace-wide publishing defaults.
 
 ## Key Invariants
 
-1. The hub manifest is the sole authority for membership; a pointer locates the hub but never redeclares members; disagreement is reported, never inferred away.
+1. The hub manifest is the sole authority for membership; a pointer locates the hub but never redeclares members; disagreement is reported, never inferred.
 2. Resolution from the hub and from any member yields an identical workspace description.
-3. One deterministic resolver is the only producer of workspace context; no command re-derives workspace shape.
+3. One deterministic resolver is the only producer of workspace context; no command re-derives it. Declared publishing defaults are carried verbatim, never resolved here.
 4. Resolution is strictly read-only: it reports missing checkouts and never clones, fetches, or mutates.
 5. With neither artifact present, single-repo behavior is unchanged.
-6. Every failure names the artifact, the entry, and expected-versus-actual state — never generic.
-7. A missing member checkout is reported state; only a missing hub checkout, undeclared member, or malformed manifest is a hard failure.
+6. Every failure names the artifact, the entry, and expected-versus-actual state.
+7. A missing member checkout is reported state; only a missing hub, undeclared member, or malformed manifest is a hard failure.
 
 ## Integration Points
 
-- [remote-identity-normalization](remote-identity-normalization.md) — resolution compares git remotes through this rule to verify a pointer names the located hub and to reject a member sharing another member's or the hub's remote.
-- [bare-name-guard](bare-name-guard.md) — every manifest and pointer name is validated as a bare segment before it locates a checkout.
-- [portable-tooling](portable-tooling.md) — the resolved workspace context reports where a hub's vendored copy of this tooling lives.
-- [close-entry-migration](close-entry-migration.md) — a member close reads its role and hub here before relocating the entry.
-- [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer artifacts this resolver reads, re-resolving for parity.
+- [remote-identity-normalization](remote-identity-normalization.md) — resolution compares git remotes through this rule to verify a pointer names its hub and to reject a member sharing another's remote.
+- [bare-name-guard](bare-name-guard.md) — every manifest and pointer name is validated as a bare segment first.
+- [portable-tooling](portable-tooling.md) — the resolved context reports where a hub's vendored copy lives.
+- [close-entry-migration](close-entry-migration.md) — a member close reads its role and hub here before relocating an entry.
+- [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer this resolver reads, re-resolving for parity.
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
+- [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are that resolver's hub layer, inherited per key.
 
 ## Decision Log
 
@@ -71,3 +72,7 @@ The docs-root read-out reached most of the product-manager brief when the planni
 ### 2026-07-22 — #114 — Reciprocal link from issue-sourced-planning
 
 Mechanical reciprocity fan-out: the issue-sourced-planning page names this resolver as what selects the epic resolver's target — the hub's issues in a workspace, the local repo in single-repo mode.
+
+### 2026-07-24 — #121 — The manifest carries publishing defaults it never resolves
+
+Workspace-wide publishing defaults belong in the manifest because they are a shared workspace fact — a member must see them from the hub, which per-checkout local settings could never provide without breaking the parity guarantee. The manifest carries them verbatim and validates them as strictly as it validates the hub and members, but deliberately stops there: applying the precedence chain over them stays with the publishing resolver, so shape authority and resolution authority do not blur. Inheritance is per key rather than block-replacement, so a member overriding one default still inherits the rest. Refuted alternative: resolve the merged result here and hand consumers a finished value — fewer moving parts for the caller, but it would put a second copy of the precedence chain inside the shape authority, exactly the duplication the publishing epic exists to remove, and it would force this resolver to know about per-item frontmatter it has no business reading.
