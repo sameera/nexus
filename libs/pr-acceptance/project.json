@@ -1,0 +1,9 @@
+{
+  "name": "@nexus/pr-acceptance",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/pr-acceptance/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/pr-acceptance --web",
+  "targets": {}
+}
