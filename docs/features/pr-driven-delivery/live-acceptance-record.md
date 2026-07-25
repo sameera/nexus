@@ -93,6 +93,42 @@ fork-originated heads out of scope.
 
 No live run has been recorded yet.
 
+### Partial evidence: the harness's `gh` reader, validated read-only
+
+Observed **2026-07-25** against toolchain commit `17b316c674ec571c19232f4f64d3769141b492a1`.
+
+This is **not** a run of the flow. It is the one thing that could be checked against real GitHub
+without provisioning anything: whether the harness's `gh`-output readers parse live output the way
+their specs assume. Three read-only calls against existing `sameera/nexus` pull requests — no
+mutation of any kind.
+
+| Reader | PR | Observed | Verdict |
+|---|---|---|---|
+| `prEndpoints` | #131 (merged) | `state=MERGED`, `merged=true`, `commits=2`, `base=28890638…`, `head=29177241…`, `mergeCommit=d89c8c1a…` | PASS |
+| `prEndpoints` | #138 (open) | `state=OPEN`, `merged=false`, `commits=1`, `mergeCommit=null` | PASS |
+| `prChangedFiles` | #131 | 12 paths, queue entries excluded | PASS |
+| `verifyReceipt` | #131, #138 | `found=false` on PRs carrying no analyze receipt — reported, not errored | PASS |
+
+What this does **not** establish: anything about merge topology, range derivation, post-branch-delete
+reachability, the receipt publish-and-read-back loop, or the close/distill chain. Those are exactly
+what stories #134–#136 exist to measure, and they need a real hosted PR the harness controls.
+
+### Why the run has not happened
+
+The harness refuses to create a scratch repository unless the credential reports `delete_repo` —
+teardown must be able to remove what provision creates, or the exercise leaks a repository. The
+maintainer's credential currently reports `gist, read:org, repo, workflow`. Granting the scope is an
+interactive browser flow:
+
+```bash
+gh auth refresh -h github.com -s delete_repo
+```
+
+That guard is deliberate and is not to be relaxed to unblock a run. Equally, a local git-only
+simulation of the three merge strategies must **not** be substituted: the decision record refutes it
+explicitly, because the PR metadata and post-branch-delete reachability would be fabricated by the
+same beliefs under test, so a green result would prove nothing.
+
 The harness, the runbook, and this record shipped with **STORY-132.01** (#133). The three exercise
 stories — **STORY-132.02** (#134, analyze), **STORY-132.03** (#135, range across all three merge
 strategies), and **STORY-132.04** (#136, close and distill) — fill in the slots above from an actual
