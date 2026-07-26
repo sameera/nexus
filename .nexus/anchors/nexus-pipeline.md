@@ -1,6 +1,6 @@
 ---
 concept: nexus-pipeline
-source_sha: 1e0c90b776f0bd12a70388cb4643cd2bd7831766
+source_sha: e035ab54ee8d3e79c2d451011852b47045b8abb9
 generated: 2026-07-26
 ---
 
@@ -11,6 +11,6 @@ generated: 2026-07-26
 
 - `.claude/commands/nxs.setup.md` — the setup stage: bootstrap ground truth and product context.
 - `.claude/commands/nxs.epic.md` — the epic stage: intent to right-sized epic and filed stories, committing nothing at planning and declaring the design-warrant label from the complexity rollup.
-- `.claude/commands/nxs.decision-record.md` — the high-level-design stage: files the decision record as an approvable sub-issue of the epic (with the --from import and --revise revision flow) and drives the needs-design/in-progress label lifecycle.
+- `.claude/commands/nxs.decision-record.md` — the decision-record stage: files the decision record as an approvable sub-issue of the epic (with the --from import and --revise revision flow) and drives the needs-design/in-progress label lifecycle.
 - `.claude/commands/nxs.analyze.md` — the analyze stage: implementation-conformance gate that refuses to run while the record is unapproved and stamps the record it checked against, with a --pr mode.
 - `.claude/commands/nxs.close.md` — the close stage: blocks on any open sub-issue, evaluates both staleness axes, writes the close record into the queue, and closes the epic issue, with a --pr post-merge mode.

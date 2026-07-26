@@ -2,7 +2,7 @@
 title: "Pipeline Rail"
 aliases: ["stage rail", "pipeline stages", "stage read-out", "rail"]
 touches: [application-shell, gate-tray, artifact-peek-drawer]
-last_updated_by: sameera/prime#3
+last_updated_by: "#151"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The pipeline rail is a passive segmented read-out of the pipeline stages shown i
 
 ## How It Works
 
-The rail renders the ordered stage segments with arrow separators, centred in the top strip. Each segment reflects its status: done, active, gate with an attention pulse, or upcoming, each carrying the matching glyph and colour. A done segment presents as an artifact-preview affordance — hovering or clicking it previews that stage's artifact in the drawer, and it never advances or rewinds the run. A gate segment, when chosen, surfaces the pending gate by re-opening the gate tray. The rail is driven by local mock stage state, not a real pipeline; its job is to read out where the run stands, so no interaction on it changes the pipeline position.
+The rail renders the ordered stage segments with arrow separators, centred in the top strip. Each segment reflects its status: done, active, gate with an attention pulse, or upcoming, each carrying the matching glyph and colour. A done segment presents as an artifact-preview affordance — hovering or clicking it previews that stage's artifact in the drawer, and it never advances or rewinds the run. A gate segment, when chosen, surfaces the pending gate by re-opening the gate tray. The rail is driven by local mock stage state, not a real pipeline; its job is to read out where the run stands, so no interaction on it changes the pipeline position. A segment's chip may show a shortened form of its stage name when the full name does not fit the strip; the stage's identity keeps the full name, so only the visible label shortens.
 
 ## Key Invariants
 
@@ -34,3 +34,7 @@ The rail renders the ordered stage segments with arrow separators, centred in th
 ### 2026-07-02 — sameera/prime#3 — Passive read-out over an interactive wizard
 
 The rail is a passive read-out: segments preview artifacts and surface gates but never navigate the pipeline, so it shows where the run stands without steering it. Refuted alternative: an interactive stepper that advances or rewinds the run on click — the familiar wizard pattern a competent engineer reaches for — but it turns a status indicator into a controller, inviting the user to drive the pipeline from the rail when stage progression is owned by the gates and the commands, not the read-out.
+
+### 2026-07-26 — #151 — A chip may shorten its label; stage identity keeps the full name
+
+When the design stage was renamed for its artifact, the full stage name no longer fit the width-constrained six-stage strip, so the rail shows a shortened chip label while the stage's identity keeps the full name — the visible label is presentation, and the identity stays aligned with the pipeline vocabulary. Refuted alternative: render the full stage name and let the rail accommodate it — rejected because the strip is width-constrained and the shortened form was explicitly delegated to the engineer's judgment.

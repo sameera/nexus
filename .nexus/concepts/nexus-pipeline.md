@@ -2,27 +2,28 @@
 title: "Nexus Pipeline"
 aliases: ["delivery pipeline", "pipeline stages", "System A", "spec-driven pipeline"]
 touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture", "pr-driven-flow", "issue-sourced-planning", "decision-record"]
-last_updated_by: "#139"
+last_updated_by: "#151"
 status: active
 verification: verified
 ---
 
 # Nexus Pipeline
 
-Nexus is a lean, spec-driven delivery pipeline assisting product and project management — turning intent into validated, decision-grade specs. Its stages are setup, epic, high-level design, analyze, and close; it plans and gates the work but leaves implementation to engineers.
+Nexus is a lean, spec-driven delivery pipeline assisting product and project management — turning intent into validated, decision-grade specs. Its stages are setup, epic, decision record, analyze, and close; it plans and gates the work but leaves implementation to engineers.
 
 ## How It Works
 
-Setup bootstraps the project's ground truth and product context once. The epic stage turns a capability description into a right-sized epic with user stories, filing epic and story issues at one approval gate. High-level design files a focused decision record — decisions, alternatives, invariants, risks — as an approvable sub-issue of the epic issue. Analyze checks the code against the acceptance criteria and the record's invariants, refusing to run — and emitting nothing — while the record is unapproved. Close blocks on any open sub-issue, story or record alike, then emits a close record into the committed queue and closes the epic issue. Each stage keeps only what forces a human decision; code generation stays outside the pipeline. Under issue-sourced planning the epic is resolved from its issues; the queue entry is born at close and feeds the store after merge. Analyze and close can run against a pull request, and design can import an out-of-band doc, so externally planned work still distills.
+Setup bootstraps the project's ground truth and product context once. The epic stage turns a capability description into a right-sized epic, filing epic and story issues at one approval gate. The decision-record stage files a focused decision record as an approvable sub-issue of the epic issue. Analyze checks the code against the acceptance criteria and the record's invariants, refusing to run — and emitting nothing — while the record is unapproved. Close blocks on any open sub-issue, then emits a close record into the committed queue and closes the epic issue. Each stage keeps only what forces a human decision; code generation stays outside the pipeline. Under issue-sourced planning the epic is resolved from its issues; the queue entry is born at close and feeds the store after merge. Analyze and close can run against a pull request, and design can import an out-of-band doc, so externally planned work still distills.
 
 ## Key Invariants
 
 1. The pipeline assists product and project management; it does not own or gate implementation.
-2. The stages are setup, epic, high-level design, analyze, and close.
-3. Each stage keeps only outputs that force a human decision.
-4. The user story is the terminal planning unit; the pipeline does not decompose below it.
-5. Under issue-sourced planning the epic lives on its issues; the queue entry is born at close.
-6. An unapproved record blocks analyze and close, read from the issue graph alone.
+2. ~~The stages are setup, epic, high-level design, analyze, and close.~~
+3. The stages are setup, epic, decision record, analyze, and close.
+4. Each stage keeps only outputs that force a human decision.
+5. The user story is the terminal planning unit; the pipeline does not decompose below it.
+6. Under issue-sourced planning the epic lives on its issues; the queue entry is born at close.
+7. An unapproved record blocks analyze and close, read from the issue graph alone.
 
 ## Integration Points
 
@@ -64,3 +65,7 @@ The storage model changed pipeline-wide: the epic and its stories live on GitHub
 ### 2026-07-26 — #139 — The design stage files an approvable record; the gates read the issue graph
 
 The design stage now files its decision record as a sub-issue of the epic issue, and approval became the native act of closing it — so analyze refuses to run while the record is unapproved (producing nothing, since close reads a missing receipt as "analyze never ran"), and close broadened its all-stories-closed gate to any open sub-issue, which makes an unapproved record block the epic through a mechanism that already exists. The design-warrant itself is a label applied at filing and revocable by the design stage's no-design-needed outcome, so a simple epic completes the pipeline with no record and no waiver. Refuted alternative: a separate record-approval check at close — a parallel gate for what the existing open-sub-issue gate already expresses, with a bypass surface the broadened gate deliberately lacks.
+
+### 2026-07-26 — #151 — The design stage takes its artifact's name
+
+Since the record became an approvable sub-issue, the design stage no longer produces a high-level design document, yet the stage kept the old name — the last surface named for a retired artifact. The stage was renamed to match the decision record it actually files, as a hard cut with no deprecated alias: the command set is small and self-documenting, and the lean rule cuts anything that forces no decision. Historical documents keep the old name — they record what was true when written, and rewriting them would falsify history. Refuted alternative: keep a deprecated alias under the old name — rejected because an alias is an artifact nobody decides anything with, and the old name would keep teaching the retired vocabulary.
