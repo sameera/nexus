@@ -1,3 +1,14 @@
 packages:
   - 'libs/*'
   - 'apps/*'
+
+# Security overrides for transitive dependencies pinned to vulnerable versions.
+# nx pins axios and brace-expansion exactly; remove an entry once the upstream
+# range moves past the patched version on its own.
+overrides:
+  # GHSA-gcfj-64vw-6mp9, GHSA-7q8q-rj6j-mhjq, GHSA-mmx7-hfxf-jppx,
+  # GHSA-f4gw-2p7v-4548, GHSA-xj6q-8x83-jv6g — pinned to 1.16.x by nx.
+  axios: '^1.18.0'
+  # GHSA-3jxr-9vmj-r5cp — pinned to 5.0.6 by nx. The 1.x and 2.x majors
+  # resolve to patched releases already, so only the 5.x range needs pinning.
+  brace-expansion@5: '>=5.0.7'
