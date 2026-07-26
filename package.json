@@ -75,15 +75,6 @@
     "vite": "^8.0.0",
     "vitest": "~4.1.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "node-pty",
-      "nx"
-    ],
-    "patchedDependencies": {
-      "brace-expansion@5.0.8": "patches/brace-expansion@5.0.8.patch"
-    }
-  },
   "dependencies": {
     "express": "^5.2.1",
     "isbot": "^5.1.44",

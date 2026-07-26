@@ -4,8 +4,8 @@ packages:
 
 # Security overrides for transitive dependencies pinned to vulnerable versions.
 # Remove an entry once the upstream range moves past the patched version on its
-# own. brace-expansion additionally carries a patch, registered as
-# `pnpm.patchedDependencies` in package.json — see the note on that entry.
+# own. brace-expansion additionally carries a patch — see `patchedDependencies`
+# at the bottom of this file.
 overrides:
   # GHSA-gcfj-64vw-6mp9, GHSA-7q8q-rj6j-mhjq, GHSA-mmx7-hfxf-jppx,
   # GHSA-f4gw-2p7v-4548, GHSA-xj6q-8x83-jv6g — pinned to 1.16.x by nx.
@@ -14,15 +14,28 @@ overrides:
   # CVE-2026-14257 (unbounded expansion length, OOM crash). The second advisory
   # covers every version <= 5.0.7 across all majors and was fixed only in 5.0.8
   # — there is no 1.x or 2.x backport, so the whole tree has to move to 5.x.
-  # 5.x is a rewrite whose CommonJS entry exports a namespace object rather than
-  # a callable, which minimatch 3.x and 5.x rely on; the patch below restores
-  # callability. Drop the patch (and this note) once minimatch's own 3.x/5.x
-  # consumers depend on brace-expansion 5.x directly. This pin is exact on
-  # purpose: `patchedDependencies` keys on brace-expansion@5.0.8, so a range
-  # that drifted to a later release would silently stop applying the patch.
+  # 5.x is a rewrite that publishes `expand` as a named export only, while every
+  # minimatch below 10 wants a callable default (3.x/5.x `require()` it and call
+  # the result; 9.x default-imports it). The patch restores that shape on both
+  # the CommonJS and the ESM build. Drop the patch (and this note) once every
+  # minimatch below 10.x is out of the tree.
+  #
+  # Two consequences of pinning exactly rather than by range. It is deliberate:
+  # `patchedDependencies` keys on brace-expansion@5.0.8, so a range that drifted
+  # to a later release would silently stop applying the patch. But it also means
+  # Dependabot cannot bump this package — a future advisory against 5.0.8 stays
+  # open until someone manually moves the override, renames the patch file and
+  # re-runs `pnpm patch`. Nothing automated watches for that.
   brace-expansion: '5.0.8'
   # GHSA-v422-hmwv-36x6 / CVE-2026-12590 — invalid `limit` silently disables
   # size enforcement. Only the 1.x line is affected, via nx's express 4.x. Keep
   # this capped below 2.0.0: express 4.x cannot take body-parser 2.x, and a bare
   # '>=1.20.6' resolves to the 2.x line.
   body-parser@1: '^1.20.6'
+
+onlyBuiltDependencies:
+  - node-pty
+  - nx
+
+patchedDependencies:
+  brace-expansion@5.0.8: patches/brace-expansion@5.0.8.patch

@@ -11,7 +11,7 @@ overrides:
 
 patchedDependencies:
   brace-expansion@5.0.8:
-    hash: 9ce0db402a458bdfff647a5b5c3d1a8e967d1e2783937047d11613cc59a28cbf
+    hash: 5013c47803a885f8b237a443d4fcd97044a1c0db60ddf6bb51cacdca61c5f7c4
     path: patches/brace-expansion@5.0.8.patch
 
 importers:
@@ -8498,7 +8498,7 @@ snapshots:
 
   boolbase@1.0.0: {}
 
-  brace-expansion@5.0.8(patch_hash=9ce0db402a458bdfff647a5b5c3d1a8e967d1e2783937047d11613cc59a28cbf):
+  brace-expansion@5.0.8(patch_hash=5013c47803a885f8b237a443d4fcd97044a1c0db60ddf6bb51cacdca61c5f7c4):
     dependencies:
       balanced-match: 4.0.3
 
@@ -10226,19 +10226,19 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.8(patch_hash=9ce0db402a458bdfff647a5b5c3d1a8e967d1e2783937047d11613cc59a28cbf)
+      brace-expansion: 5.0.8(patch_hash=5013c47803a885f8b237a443d4fcd97044a1c0db60ddf6bb51cacdca61c5f7c4)
 
   minimatch@3.1.5:
     dependencies:
-      brace-expansion: 5.0.8(patch_hash=9ce0db402a458bdfff647a5b5c3d1a8e967d1e2783937047d11613cc59a28cbf)
+      brace-expansion: 5.0.8(patch_hash=5013c47803a885f8b237a443d4fcd97044a1c0db60ddf6bb51cacdca61c5f7c4)
 
   minimatch@5.1.9:
     dependencies:
-      brace-expansion: 5.0.8(patch_hash=9ce0db402a458bdfff647a5b5c3d1a8e967d1e2783937047d11613cc59a28cbf)
+      brace-expansion: 5.0.8(patch_hash=5013c47803a885f8b237a443d4fcd97044a1c0db60ddf6bb51cacdca61c5f7c4)
 
   minimatch@9.0.9:
     dependencies:
-      brace-expansion: 5.0.8(patch_hash=9ce0db402a458bdfff647a5b5c3d1a8e967d1e2783937047d11613cc59a28cbf)
+      brace-expansion: 5.0.8(patch_hash=5013c47803a885f8b237a443d4fcd97044a1c0db60ddf6bb51cacdca61c5f7c4)
 
   minimist@1.2.8: {}
 
@@ -10326,7 +10326,7 @@ snapshots:
       balanced-match: 4.0.3
       base64-js: 1.5.1
       bl: 4.1.0
-      brace-expansion: 5.0.8(patch_hash=9ce0db402a458bdfff647a5b5c3d1a8e967d1e2783937047d11613cc59a28cbf)
+      brace-expansion: 5.0.8(patch_hash=5013c47803a885f8b237a443d4fcd97044a1c0db60ddf6bb51cacdca61c5f7c4)
       buffer: 5.7.1
       call-bind-apply-helpers: 1.0.2
       chalk: 4.1.2
