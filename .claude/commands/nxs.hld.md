@@ -1,6 +1,6 @@
 ---
 name: nxs.hld
-description: Add the architectural decision record to a planned epic — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch. Next stage is implementation, then /nxs.analyze validates conformance.
+description: Add the architectural decision record to a planned epic — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch; with `--revise` it reopens an approved record, records what it supersedes, updates it, and re-closes it. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash, Task, AskUserQuestion
 model: inherit
@@ -43,6 +43,12 @@ This is the supported bridge for work designed outside the pipeline (CLAUDE.md: 
 enters Nexus only via the lead's `/nxs.hld --from` at approval"): the doc supplies the *why*, the
 queued `epic.md` still supplies the scope the record must cover. Strip the `--from <path>` token
 before resolving the entry path from the rest of `$ARGUMENTS`.
+
+**Revision mode — `--revise`.** If `$ARGUMENTS` contains `--revise` (string-matched), the epic's
+**approved** record is being changed rather than written for the first time: go to **Phase 4.5**,
+which reopens it, records what is being superseded, updates the body, and re-closes it. Strip the
+token before resolving the entry path. Without an existing closed record there is nothing to
+revise — say so and run the normal path instead.
 
 ## Interaction convention — actionable choice gates
 
@@ -132,8 +138,8 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
 
     - **Record sub-issue already exists** → this is a re-run or a revision. Go to Phase 4 (it
       targets the existing sub-issue; a second record is never filed). A record that is already
-      **closed** is approved and frozen — changing it is the revision flow, which starts by
-      reopening it.
+      **closed** is approved and frozen — changing it is **Phase 4.5**, whose first act is the
+      reopen.
     - **`needs-design` present, no record sub-issue** → the normal path. Continue to Phase 1.
     - **Neither present** (an S epic, or a hand-filed epic) → the epic claims no design is needed.
       Confirm with the lead via `AskUserQuestion` — **"Proceed without a record (Recommended)"** vs
@@ -298,8 +304,8 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
    the epic has a record sub-issue.
     - **Open record** → update it in place: `gh issue edit <record> $REPO_ARG --body-file
       "<scratch>/record-body.md"`. Then go to step 5.
-    - **Closed (approved) record** → its body is **frozen**. Do not edit it. A body change is
-      reachable only by reopening the record first (the revision flow) — stop here and report that.
+    - **Closed (approved) record** → its body is **frozen**. Do not edit it here. A body change is
+      reachable only through the reopen that starts **Phase 4.5** — go there.
     - **No record** → continue to step 3.
 
 3. **Create the sub-issue.** Its classification must match what the repo declares, resolved through
@@ -361,6 +367,83 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 **Never** write anything under `docs/` (permanent human artifacts only), and never emit a
 `{prefix}-hld.md`, a task index, or any per-task design.
 
+## Phase 4.5 — Revise an approved record (reopen → comment → update → re-close)
+
+Reached when the epic's record sub-issue is **closed** and the design must change (Phase 4 step 2,
+or an explicit `--revise`). This is the **only** path that edits an approved body.
+
+The freeze is what makes the record hash mean anything: if a closed body could change, "approved"
+would name a moving target and every downstream stamp would be unfalsifiable. Reopening is therefore
+not ceremony — it is the only way to make the body editable, and it re-fires the conformance and
+close blocks automatically until the record is approved again. No separate invalidation mechanism
+exists or is needed.
+
+Run these four acts **in order**, and do not skip one:
+
+1. **Capture the superseded state, then reopen.** Take the current body and its canonical digest
+   *before* anything changes, through the one digest program:
+
+    ```bash
+    gh issue view $RECORD $REPO_ARG --json body --jq .body > "<scratch>/superseded-body.md"
+    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    gh issue reopen $RECORD $REPO_ARG
+    ```
+
+    Keep the printed `digest` as `SUPERSEDED_HASH`.
+
+2. **Comment the supersession.** The reconstructability requirement is "from the comment trail
+   alone" — GitHub's own edit history is not reliably retrievable by tooling — so the comment must
+   **embed the superseded body verbatim**, not merely describe it. Write the comment to a scratch
+   file and post it with `--body-file` (never inline, so the prose is not shell-escaped):
+
+    ````markdown
+    ## Record revised — <YYYY-MM-DD>
+
+    **What changed:** <the substantive change, in one or two sentences>
+    **Why:** <what forced it — new constraint, refuted assumption, scope edit>
+    **Superseded body hash:** `<SUPERSEDED_HASH>`
+
+    <details><summary>Superseded record body (verbatim)</summary>
+
+    ```markdown
+    <the exact contents of <scratch>/superseded-body.md>
+    ```
+
+    </details>
+    ````
+
+    ```bash
+    gh issue comment $RECORD $REPO_ARG --body-file "<scratch>/revision-comment.md"
+    ```
+
+    Ask the lead for the *what changed* and *why* through `AskUserQuestion` if they are not already
+    evident from this run's analysis. A revision comment without them is not a record of anything.
+
+3. **Update the body** to the new record (Phase 3 prose rules apply unchanged — no frontmatter, no
+   machine comment):
+
+    ```bash
+    gh issue edit $RECORD $REPO_ARG --body-file "<scratch>/record-body.md"
+    ```
+
+4. **Re-close it** — the approval act, exactly as in Phase 4 step 6, and subject to the same gate:
+   approve now (`gh issue close $RECORD $REPO_ARG --reason completed`) or leave it open for a
+   reviewer to close. While it is open, conformance and close stay blocked.
+
+5. **Confirm the new identity.** Recompute the digest through the same program:
+
+    ```bash
+    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    ```
+
+    It **must differ** from `SUPERSEDED_HASH` — that difference is what makes any receipt stamped
+    against the earlier body detectably out of date. If the two are equal, the body did not actually
+    change: say so, and do not claim a revision happened.
+
+Report the revision: the record reference, the superseded hash, the new hash, and the record's
+state. Every earlier approved state stays recoverable from the comment trail alone, revision by
+revision.
+
 ## Phase 5 — Report
 
 Report concisely:
@@ -385,6 +468,7 @@ Report concisely:
 /nxs.hld path/to/epic.md             # design an explicit queue entry
 /nxs.hld --from docs/design/x.md     # import an existing design doc as the record's basis
 /nxs.hld --from ~/plan.md 118        # import a design doc, epic resolved from issue #118
+/nxs.hld --revise 118                # revise the approved record: reopen, comment, update, re-close
 ```
 
 # Constraints
@@ -400,8 +484,14 @@ Report concisely:
 - **One record per epic, and exactly one copy of it.** A re-run targets the existing record
   sub-issue and never files a second one; for an issue-sourced epic **no `decision-record.md` is
   written anywhere** — not into a committed queue entry, not into the gitignored scratch path.
-- **A closed record's body is frozen.** Every path here except the revision flow leaves an approved
-  body untouched; a body change is reachable only through a reopen. If the body could
+- **A closed record's body is frozen.** Every path here except Phase 4.5 leaves an approved body
+  untouched; a body change is reachable only through the reopen that phase begins with. Reopening
+  re-fires the conformance and close blocks until the record is approved again — that is the whole
+  invalidation mechanism, and there is no second one.
+- **A revision's comment carries the superseded body verbatim**, its hash, and the reason it was
+  superseded, dated — so every previously approved state is reconstructible from the comment trail
+  alone. The platform's own edit history is not reliably retrievable by tooling, so describing the
+  change instead of embedding it would lose the state. If the body could
   change while closed, "approved" would name a moving target and every downstream stamp would be
   unfalsifiable.
 - **Never write `docs/`.** `docs/` is permanent human artifacts only (0005). An old-contract epic's
