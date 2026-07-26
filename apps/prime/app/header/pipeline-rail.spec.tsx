@@ -13,7 +13,7 @@ import type { Stage } from "./pipeline-stages";
 const allStates: Stage[] = [
     { id: "setup", label: "setup", status: "done" },
     { id: "epic", label: "epic", status: "gate" },
-    { id: "hld", label: "hld", status: "active" },
+    { id: "decision-record", label: "record", status: "active" },
     { id: "tasks", label: "tasks", status: "upcoming" },
 ];
 
@@ -24,7 +24,7 @@ describe("PipelineRail", () => {
             "listitem",
         );
         expect(items).toHaveLength(6);
-        ["setup", "epic", "hld", "tasks", "analyze", "close"].forEach(
+        ["setup", "epic", "record", "tasks", "analyze", "close"].forEach(
             (label, i) => {
                 expect(within(items[i]).getByText(label)).toBeInTheDocument();
             },

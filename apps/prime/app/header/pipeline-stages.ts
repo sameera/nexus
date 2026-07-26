@@ -21,7 +21,7 @@ export interface Stage {
 export const defaultStages: Stage[] = [
     { id: "setup", label: "setup", status: "done" },
     { id: "epic", label: "epic", status: "gate" },
-    { id: "hld", label: "hld", status: "upcoming" },
+    { id: "decision-record", label: "record", status: "upcoming" },
     { id: "tasks", label: "tasks", status: "upcoming" },
     { id: "analyze", label: "analyze", status: "gate" },
     { id: "close", label: "close", status: "upcoming" },

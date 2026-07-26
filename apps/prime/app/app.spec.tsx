@@ -38,7 +38,7 @@ describe("App", () => {
             "listitem",
         );
         expect(stages).toHaveLength(6);
-        ["setup", "epic", "hld", "tasks", "analyze", "close"].forEach(
+        ["setup", "epic", "record", "tasks", "analyze", "close"].forEach(
             (label, i) => {
                 expect(within(stages[i]).getByText(label)).toBeInTheDocument();
             },
