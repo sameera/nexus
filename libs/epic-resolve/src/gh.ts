@@ -20,6 +20,8 @@ export interface IssueContent {
     title: string;
     body: string;
     state: string;
+    /** Label names, used to tell a decision-record sub-issue from a story (STORY-139.01). */
+    labels: string[];
 }
 
 export type RepoSlug = { owner: string; repo: string };
@@ -32,6 +34,12 @@ const SUB_ISSUES_QUERY =
     "query($owner:String!,$repo:String!,$num:Int!){" +
     "repository(owner:$owner,name:$repo){" +
     "issue(number:$num){subIssues(first:100){nodes{number title state}}}}}";
+
+/** The GraphQL query that reads each sub-issue's GitHub issue type (type-based classification). */
+const SUB_ISSUE_TYPES_QUERY =
+    "query($owner:String!,$repo:String!,$num:Int!){" +
+    "repository(owner:$owner,name:$repo){" +
+    "issue(number:$num){subIssues(first:100){nodes{number issueType{name}}}}}}";
 
 /** The GraphQL query that reads an issue's parent (non-null iff the issue is itself a sub-issue). */
 const PARENT_QUERY =
@@ -88,7 +96,7 @@ export function fetchIssue(
     number: number,
     notFoundProblem: EpicResolveDiagnostic["problem"],
 ): Ok<{ issue: IssueContent }> | Err {
-    const r = run("gh", ["issue", "view", String(number), "--json", "number,title,body,state"], { cwd });
+    const r = run("gh", ["issue", "view", String(number), "--json", "number,title,body,state,labels"], { cwd });
     if (r.status !== 0) {
         const msg = r.stderr.trim();
         const problem = /not found|could not resolve|no such|no issues/i.test(msg) ? notFoundProblem : "gh-failed";
@@ -120,8 +128,81 @@ export function fetchIssue(
             title: typeof doc["title"] === "string" ? doc["title"] : "",
             body: typeof doc["body"] === "string" ? doc["body"] : "",
             state: typeof doc["state"] === "string" ? doc["state"] : "",
+            labels: parseLabelNames(doc["labels"]),
         },
     };
+}
+
+/** Label names out of `gh issue view --json labels` ({name}[]); anything else reads as no labels. */
+function parseLabelNames(raw: unknown): string[] {
+    if (!Array.isArray(raw)) return [];
+    const names: string[] = [];
+    for (const entry of raw) {
+        if (entry !== null && typeof entry === "object" && typeof (entry as { name?: unknown }).name === "string") {
+            names.push((entry as { name: string }).name);
+        }
+    }
+    return names;
+}
+
+/**
+ * Read each sub-issue's GitHub issue type, for the type-based classification mode.
+ *
+ * Issue types are not exposed by `gh issue view --json`, so they come from GraphQL. The caller
+ * decides how a failure is treated: fatal when the declared mode classifies *by* type (the answer
+ * is load-bearing), tolerable under `legacy-auto`, where the label is the primary marker and a repo
+ * without the issue-types feature must keep resolving.
+ */
+export function fetchSubIssueTypes(
+    run: Runner,
+    cwd: string,
+    slug: RepoSlug,
+    epicNumber: number,
+): Ok<{ types: Map<number, string> }> | Err {
+    const r = run(
+        "gh",
+        [
+            "api",
+            "graphql",
+            "-f",
+            `query=${SUB_ISSUE_TYPES_QUERY}`,
+            "-F",
+            `owner=${slug.owner}`,
+            "-F",
+            `repo=${slug.repo}`,
+            "-F",
+            `num=${epicNumber}`,
+            "--jq",
+            '.data.repository.issue.subIssues.nodes[] | select(.issueType != null) | "\\(.number) \\(.issueType.name)"',
+        ],
+        { cwd },
+    );
+    if (r.status !== 0) {
+        return {
+            ok: false,
+            error: {
+                problem: "gh-failed",
+                message: `reading sub-issue types of #${epicNumber} failed: ${r.stderr.trim() || "unknown gh error"}`,
+            },
+        };
+    }
+    const types = new Map<number, string>();
+    for (const line of r.stdout.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed.length === 0) continue;
+        const space = trimmed.indexOf(" ");
+        if (space <= 0) {
+            return {
+                ok: false,
+                error: {
+                    problem: "malformed-json",
+                    message: `sub-issue type list for #${epicNumber} was not a clean stream: ${JSON.stringify(r.stdout)}`,
+                },
+            };
+        }
+        types.set(Number(trimmed.slice(0, space)), trimmed.slice(space + 1));
+    }
+    return { ok: true, types };
 }
 
 /** List an epic's sub-issue numbers in GitHub's return order (the resolver re-sorts canonically). */

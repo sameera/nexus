@@ -137,6 +137,32 @@ def resolve_story_label(config: dict[str, str]) -> str:
     return (config.get("storyLabel") or "").strip() or DEFAULT_STORY_LABEL
 
 
+# --- Decision-record classification (epic #139, STORY-139.01) -------------------------
+#
+# The epic's decision record lives as a sub-issue of the epic issue, so every consumer that walks
+# an epic's sub-issues must be able to tell that one from the stories. The marker names are
+# resolved HERE — the one shared publishing resolver — so the resolver skill, the design stage, and
+# the downstream gates cannot disagree, and no second config reader is introduced (decision-record
+# Invariant 4). Folding these into the declared `github:` block is the `github-publishing-config`
+# stub's job; until then the built-ins below are the whole answer, and `decision-record` is the
+# existing label this repo already files records under rather than a newly minted one.
+
+#: The label that marks a sub-issue as the epic's decision record (label and legacy-auto modes).
+DEFAULT_RECORD_LABEL = "decision-record"
+#: The GitHub issue type that marks it in `types` mode.
+DEFAULT_RECORD_TYPE = "Decision Record"
+
+
+def resolve_record_label(config: dict[str, str]) -> str:
+    """The label that classifies a sub-issue as the epic's decision record."""
+    return (config.get("recordLabel") or "").strip() or DEFAULT_RECORD_LABEL
+
+
+def resolve_record_type(config: dict[str, str]) -> str:
+    """The GitHub issue type that classifies a sub-issue as the epic's decision record."""
+    return (config.get("recordType") or "").strip() or DEFAULT_RECORD_TYPE
+
+
 # --- Project V2 target (STORY-121.03) ------------------------------------------------
 #
 # The Project V2 target is declared config, resolved here once, so a repo with no project can
@@ -696,6 +722,10 @@ def _cli(argv):
             value = resolve_epic_repo(config, hub=hub)
         elif args.key == "story-repo":
             value = resolve_story_repo(config, hub=hub)
+        elif args.key == "record-label":
+            value = resolve_record_label({**hub, **config})
+        elif args.key == "record-type":
+            value = resolve_record_type({**hub, **config})
         else:
             normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
             value = resolve_setting(normalized, repo=config, hub=hub)

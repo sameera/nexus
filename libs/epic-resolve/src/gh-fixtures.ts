@@ -3,9 +3,10 @@
  * `gh` calls from it — no network. Excluded from the lib build (see tsconfig.lib.json); imported by
  * the resolver specs the way pr-worktree's specs import git-fixtures.ts.
  *
- * It answers the four call shapes the read layer makes: `gh repo view`, `gh issue view <n>`,
- * `gh api graphql` (sub-issues), and `gh api …/dependencies/blocked_by`. Faults are injected per
- * call shape so a spec can prove fail-closed behavior at any fetch.
+ * It answers the call shapes the read layer makes: `gh repo view`, `gh issue view <n>`, `gh api
+ * graphql` (sub-issues, sub-issue types, parent), `gh api …/dependencies/blocked_by`, and the
+ * shared publishing resolver's `python3 … resolve <key>` seam. Faults are injected per call shape
+ * so a spec can prove fail-closed behavior at any fetch.
  */
 
 import { type RunResult, type Runner } from "./run.js";
@@ -17,6 +18,10 @@ export interface FixtureStory {
     state?: string;
     /** Issue numbers this story is blocked_by (its native GitHub dependency edges). */
     blockedBy?: number[];
+    /** Label names on the sub-issue (a record sub-issue carries the record label). */
+    labels?: string[];
+    /** The sub-issue's GitHub issue type name, for type-based classification. */
+    issueType?: string;
 }
 
 export interface FixtureGraph {
@@ -35,6 +40,15 @@ export interface FixtureGraph {
     failIssueView?: Set<number>;
     malformedIssues?: Set<number>;
     failBlockedBy?: Set<number>;
+    /** What the shared publishing resolver reports for `classification` (default: labels). */
+    classification?: string;
+    /** What it reports for `record-label` / `record-type` (defaults: the record contract's names). */
+    recordLabel?: string;
+    recordType?: string;
+    /** The shared publishing resolver cannot be invoked at all. */
+    failClassification?: boolean;
+    /** The sub-issue issue-type GraphQL query fails (a repo without the issue-types feature). */
+    failSubIssueTypes?: boolean;
 }
 
 function queryArg(args: string[]): string {
@@ -55,6 +69,16 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
         const ok = (stdout: string): RunResult => ({ status: 0, stdout, stderr: "" });
         const fail = (stderr: string): RunResult => ({ status: 1, stdout: "", stderr });
 
+        // The shared publishing resolver, invoked across the process seam for classification.
+        if (cmd === "python3" && args.includes("resolve")) {
+            if (graph.failClassification) return fail("python3: no such file");
+            const key = args[args.indexOf("resolve") + 1];
+            if (key === "classification") return ok((graph.classification ?? "labels") + "\n");
+            if (key === "record-label") return ok((graph.recordLabel ?? "decision-record") + "\n");
+            if (key === "record-type") return ok((graph.recordType ?? "Decision Record") + "\n");
+            return ok("\n");
+        }
+
         if (cmd !== "gh") return fail(`unexpected command: ${cmd}`);
 
         if (args[0] === "repo" && args[1] === "view") {
@@ -72,13 +96,20 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
                         title: graph.epic.title,
                         body: graph.epic.body,
                         state: graph.epic.state ?? "OPEN",
+                        labels: [],
                     }),
                 );
             }
             const story = storyByNumber.get(n);
             if (!story) return fail(`not found: #${n}`);
             return ok(
-                JSON.stringify({ number: n, title: story.title, body: story.body, state: story.state ?? "OPEN" }),
+                JSON.stringify({
+                    number: n,
+                    title: story.title,
+                    body: story.body,
+                    state: story.state ?? "OPEN",
+                    labels: (story.labels ?? []).map((name) => ({ name })),
+                }),
             );
         }
 
@@ -89,6 +120,11 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
                 const target = Number((args.find((a) => a.startsWith("num=")) ?? "num=0").slice(4));
                 const parent = graph.parents?.[target];
                 return ok(parent === undefined ? "" : `${parent}\n`);
+            }
+            if (query.includes("issueType{name}")) {
+                if (graph.failSubIssueTypes) return fail("Field 'issueType' doesn't exist on type 'Issue'");
+                const typed = stories.filter((s) => s.issueType !== undefined);
+                return ok(typed.length === 0 ? "" : typed.map((s) => `${s.number} ${s.issueType}`).join("\n") + "\n");
             }
             if (graph.failSubIssues) return fail("GraphQL error listing sub-issues");
             if (graph.malformedSubIssues) return ok("not-a-number\n");

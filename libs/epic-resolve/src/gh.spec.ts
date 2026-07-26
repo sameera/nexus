@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { fetchBlockedBy, fetchIssue, fetchParentNumber, fetchSubIssueNumbers, resolveRepoSlug } from "./gh.js";
+import {
+    fetchBlockedBy,
+    fetchIssue,
+    fetchParentNumber,
+    fetchSubIssueNumbers,
+    fetchSubIssueTypes,
+    resolveRepoSlug,
+} from "./gh.js";
 import { makeGhRunner } from "./gh-fixtures.js";
 import { type Runner } from "./run.js";
 
@@ -160,6 +167,75 @@ describe("fetchBlockedBy", () => {
     it("flags a non-number dependency stream as malformed", () => {
         const run: Runner = () => ({ status: 0, stdout: "oops\n", stderr: "" });
         const r = fetchBlockedBy(run, "/repo", 117);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("malformed-json");
+    });
+});
+
+describe("fetchIssue — label names (STORY-139.01 classification input)", () => {
+    it("reads the label names off the issue", () => {
+        const graph = {
+            ...GRAPH,
+            stories: [{ number: 116, title: "One", body: "b1", labels: ["story", "pipeline"] }],
+        };
+        const r = fetchIssue(makeGhRunner(graph), "/repo", 116, "subissue-fetch-failed");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.issue.labels).toEqual(["story", "pipeline"]);
+    });
+
+    it("reads no labels when the field is absent or misshapen, rather than failing", () => {
+        const run: Runner = () => ({
+            status: 0,
+            stdout: JSON.stringify({ number: 1, title: "t", body: "b", state: "OPEN", labels: ["bare", { name: 7 }] }),
+            stderr: "",
+        });
+        const r = fetchIssue(run, "/repo", 1, "subissue-fetch-failed");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.issue.labels).toEqual([]);
+    });
+});
+
+describe("fetchSubIssueTypes", () => {
+    it("maps each typed sub-issue to its issue-type name", () => {
+        const graph = {
+            ...GRAPH,
+            stories: [
+                { number: 116, title: "One", body: "b1", issueType: "Story" },
+                { number: 117, title: "Rec", body: "b2", issueType: "Decision Record" },
+            ],
+        };
+        const r = fetchSubIssueTypes(makeGhRunner(graph), "/repo", { owner: "a", repo: "b" }, 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.types.get(116)).toBe("Story");
+        expect(r.types.get(117)).toBe("Decision Record");
+    });
+
+    it("returns an empty map when no sub-issue carries a type", () => {
+        const r = fetchSubIssueTypes(makeGhRunner(GRAPH), "/repo", { owner: "a", repo: "b" }, 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.types.size).toBe(0);
+    });
+
+    it("reports gh-failed when the repo has no issue-types feature", () => {
+        const r = fetchSubIssueTypes(
+            makeGhRunner({ ...GRAPH, failSubIssueTypes: true }),
+            "/repo",
+            { owner: "a", repo: "b" },
+            115,
+        );
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
+    });
+
+    it("flags a stream that is not `<number> <type>` as malformed", () => {
+        const run: Runner = () => ({ status: 0, stdout: "garbage\n", stderr: "" });
+        const r = fetchSubIssueTypes(run, "/repo", { owner: "a", repo: "b" }, 115);
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("malformed-json");

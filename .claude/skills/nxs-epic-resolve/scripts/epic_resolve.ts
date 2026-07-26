@@ -15,7 +15,8 @@
  *
  *   epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]
  *       Resolve epic issue #N and write the materialized epic.md. Prints
- *       { epic, targetRoot, outPath }. --out overrides the default gitignored path
+ *       { epic, targetRoot, outPath, record } — `record` is { number, state } when the epic has a
+ *       decision-record sub-issue and `null` when it has none. --out overrides the default gitignored path
  *       (<targetRoot>/.nexus/tmp/epic-<N>/epic.md); --dir sets the checkout to resolve from
  *       (default: the current working directory); --require-epic validates the target is an epic
  *       (rejecting a story sub-issue or a non-existent number) before materializing — the `--from`
@@ -87,7 +88,7 @@ function main(): void {
     if (!resolved.ok) die(resolved.error);
 
     const outPath = writeMaterializedEpic(root, flags.epic, resolved.markdown, flags.out);
-    emit({ epic: flags.epic, targetRoot: root, outPath });
+    emit({ epic: flags.epic, targetRoot: root, outPath, record: resolved.record });
 }
 
 main();

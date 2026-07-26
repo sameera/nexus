@@ -145,6 +145,148 @@ describe("resolveEpic — Story 2: meta block round-trips the full frontmatter",
     });
 });
 
+describe("resolveEpic — STORY-139.01: a record sub-issue is not a story", () => {
+    function withRecord(overrides: Partial<FixtureGraph> = {}): FixtureGraph {
+        const base = graph();
+        return {
+            ...base,
+            stories: [
+                ...(base.stories ?? []),
+                { number: 119, title: "Decision Record: Planning", body: "Why we did it.", labels: ["decision-record"] },
+            ],
+            ...overrides,
+        };
+    }
+
+    it("keeps the story set to exactly the N stories, with the record absent from it", () => {
+        const r = resolveEpic(makeGhRunner(withRecord()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story 3: From flag");
+        expect(r.markdown).not.toContain("Decision Record: Planning");
+        expect(r.markdown).not.toContain("STORY-115.04");
+        // The record never appears as a row in the story sequence table.
+        const sequence = r.markdown.slice(r.markdown.indexOf("## Implementation Sequence"));
+        expect(sequence).not.toContain("#119");
+    });
+
+    it("carries the record's issue number and open/closed state as recoverable fields", () => {
+        const open = resolveEpic(makeGhRunner(withRecord()), "/repo", 115);
+        expect(open.ok).toBe(true);
+        if (!open.ok) return;
+        expect(open.markdown).toContain('record: "#119"');
+        expect(open.markdown).toContain("record_state: open");
+        expect(open.record).toEqual({ number: 119, state: "open" });
+
+        const closed = resolveEpic(
+            makeGhRunner(
+                withRecord({
+                    stories: [
+                        ...(graph().stories ?? []),
+                        {
+                            number: 119,
+                            title: "Decision Record: Planning",
+                            body: "Why we did it.",
+                            state: "CLOSED",
+                            labels: ["decision-record"],
+                        },
+                    ],
+                }),
+            ),
+            "/repo",
+            115,
+        );
+        expect(closed.ok).toBe(true);
+        if (!closed.ok) return;
+        expect(closed.markdown).toContain("record_state: closed");
+        expect(closed.record).toEqual({ number: 119, state: "closed" });
+    });
+
+    it("emits no record field, and byte-identical output, for an epic with no record sub-issue", () => {
+        const before = resolveEpic(makeGhRunner(graph()), "/repo", 115);
+        expect(before.ok).toBe(true);
+        if (!before.ok) return;
+        expect(before.markdown).not.toContain("record:");
+        expect(before.markdown).not.toContain("record_state:");
+        expect(before.record).toBeNull();
+        // The regression guard: adding a record to the epic must not perturb the story rendering.
+        const after = resolveEpic(makeGhRunner(withRecord()), "/repo", 115);
+        expect(after.ok).toBe(true);
+        if (!after.ok) return;
+        const strip = (md: string): string => md.replace(/^record(_state)?: .*\n/gm, "");
+        expect(strip(after.markdown)).toBe(before.markdown);
+    });
+
+    it("classifies by the configured issue type when the repo declares type-based publishing", () => {
+        const typed: FixtureGraph = {
+            ...graph(),
+            classification: "types",
+            stories: [
+                ...(graph().stories ?? []),
+                { number: 119, title: "Decision Record: Planning", body: "Why.", issueType: "Decision Record" },
+            ],
+        };
+        const r = resolveEpic(makeGhRunner(typed), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.record).toEqual({ number: 119, state: "open" });
+        expect(r.markdown).not.toContain("Decision Record: Planning");
+    });
+
+    it("keeps resolving under legacy-auto when the repo has no issue-types feature", () => {
+        const r = resolveEpic(makeGhRunner(withRecord({ classification: "legacy-auto", failSubIssueTypes: true })), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.record).toEqual({ number: 119, state: "open" });
+    });
+
+    it("aborts when the declared type-based classification cannot read the issue types", () => {
+        const r = resolveEpic(makeGhRunner(withRecord({ classification: "types", failSubIssueTypes: true })), "/repo", 115);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
+    });
+
+    it("fails closed when the record sub-issue cannot be fetched (no output)", () => {
+        const r = resolveEpic(makeGhRunner(withRecord({ failIssueView: new Set([119]) })), "/repo", 115);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("subissue-fetch-failed");
+    });
+
+    it("aborts rather than choosing when an epic carries two record sub-issues", () => {
+        const two = withRecord({
+            stories: [
+                ...(graph().stories ?? []),
+                { number: 119, title: "Record A", body: "a", labels: ["decision-record"] },
+                { number: 120, title: "Record B", body: "b", labels: ["decision-record"] },
+            ],
+        });
+        const r = resolveEpic(makeGhRunner(two), "/repo", 115);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("multiple-record-subissues");
+        expect(r.error.message).toContain("#119");
+        expect(r.error.message).toContain("#120");
+    });
+
+    it("aborts when the shared publishing resolver cannot classify", () => {
+        const r = resolveEpic(makeGhRunner(withRecord({ failClassification: true })), "/repo", 115);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("record-classification-unresolved");
+    });
+
+    it("never invokes the classification resolver for an epic with no sub-issues", () => {
+        const r = resolveEpic(
+            makeGhRunner({ epic: { number: 200, title: "Empty", body: "# Epic: Empty" }, stories: [], failClassification: true }),
+            "/repo",
+            200,
+        );
+        expect(r.ok).toBe(true);
+    });
+});
+
 describe("resolveEpic — AC4: dependency edges exact", () => {
     it("reproduces exactly the native blocked_by edges and invents none", () => {
         const r = resolveEpic(makeGhRunner(graph()), "/repo", 115);
