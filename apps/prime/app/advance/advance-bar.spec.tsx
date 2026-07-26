@@ -23,7 +23,9 @@ describe("Stage advance affordance", () => {
         const bar = screen.getByRole("region", { name: /stage advance/i });
 
         expect(within(bar).getByText(/stage complete/i)).toBeInTheDocument();
-        expect(within(bar).getByText(/nxs\.hld/)).toBeInTheDocument();
+        expect(
+            within(bar).getByText(/nxs\.decision-record/),
+        ).toBeInTheDocument();
         expect(
             within(bar).getByRole("button", { name: /run/i }),
         ).toBeInTheDocument();
@@ -49,6 +51,8 @@ describe("Stage advance affordance", () => {
 
         expect(advance()).toBeNull();
         // The surfaced command echoes verbatim — no injected `/`, no status suffix.
-        expect(within(terminal()).getByText("nxs.hld")).toBeInTheDocument();
+        expect(
+            within(terminal()).getByText("nxs.decision-record"),
+        ).toBeInTheDocument();
     });
 });

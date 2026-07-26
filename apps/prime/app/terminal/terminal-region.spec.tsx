@@ -84,11 +84,11 @@ describe("TerminalRegion command hand-off", () => {
     });
 
     it("injects no leading slash and no execution-status suffix", () => {
-        renderWithSubmit("nxs.hld");
+        renderWithSubmit("nxs.decision-record");
         const term = within(terminal());
-        expect(term.getByText("nxs.hld")).toBeInTheDocument();
+        expect(term.getByText("nxs.decision-record")).toBeInTheDocument();
         // Not slash-prefixed and not framed as running.
-        expect(term.queryByText(/\/nxs\.hld/)).toBeNull();
+        expect(term.queryByText(/\/nxs\.decision-record/)).toBeNull();
         expect(term.queryByText(/running/i)).toBeNull();
     });
 

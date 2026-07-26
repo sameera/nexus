@@ -28,8 +28,8 @@ import type { ReactElement, ReactNode } from "react";
  * here beside the surfaces it coordinates with, not duplicated in the region.
  */
 
-/* Mock next-stage command the advance affordance offers (mockup `Next: nxs.hld`). */
-const NEXT_COMMAND = "nxs.hld";
+/* Mock next-stage command the advance affordance offers (mockup `Next: nxs.decision-record`). */
+const NEXT_COMMAND = "nxs.decision-record";
 
 interface OverlayContextValue {
     /* The artifact key the peek drawer is showing, or `null` when it is closed. */
