@@ -1,6 +1,6 @@
 ---
 name: nxs-record-digest
-description: Compute the canonical digest of an epic's decision-record sub-issue — the one implementation every stage that stamps or verifies the record hash invokes. Fetches the record body from GitHub, applies the stated canonicalisation rule, and prints the full hexadecimal digest plus the record's approval state. Use from /nxs.hld, /nxs.analyze, /nxs.close, and /nxs.distill; never re-derive the value with a shell one-liner.
+description: Compute the canonical digest of an epic's decision-record sub-issue — the one implementation every stage that stamps or verifies the record hash invokes. Fetches the record body from GitHub, applies the stated canonicalisation rule, and prints the full hexadecimal digest plus the record's approval state. Use from /nxs.decision-record, /nxs.analyze, /nxs.close, and /nxs.distill; never re-derive the value with a shell one-liner.
 ---
 
 # nxs-record-digest

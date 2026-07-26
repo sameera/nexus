@@ -2,7 +2,7 @@
 DECISION RECORD TEMPLATE — replaces the 16-section HLD.
 
 WHAT THIS IS
-    The focused architectural decision record emitted by /nxs.hld into the
+    The focused architectural decision record emitted by /nxs.decision-record into the
     committed planning queue (.nexus/queue/<epic-slug>-<local-id>/). It is human
     prose only. It is the distiller's PRIMARY rationale source (the "why") and
     is read by System B post-merge.
@@ -102,7 +102,7 @@ date: {{YYYY-MM-DD}}
 
 ## Open Clarifications
 
-<!-- Normally EMPTY in the written record. /nxs.hld resolves every ⚠️ NEEDS
+<!-- Normally EMPTY in the written record. /nxs.decision-record resolves every ⚠️ NEEDS
      CLARIFICATION item at its Phase 2 gate (AskUserQuestion) and folds the
      answer into the relevant decision/invariant/approach before writing — the
      write is blocked while any remain unresolved. Leave this section empty

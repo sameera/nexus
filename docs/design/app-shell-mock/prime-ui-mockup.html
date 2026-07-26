@@ -470,7 +470,7 @@
         <!-- single advance affordance -->
         <div class="advance" id="advance">
             <span class="label">Stage complete.</span>
-            <span class="next" id="advanceNext">Next: nxs.hld</span>
+            <span class="next" id="advanceNext">Next: nxs.decision-record</span>
             <span class="hint">— runs in the terminal above; you watch it execute.</span>
             <button class="run" id="advanceRun">Run ⏎</button>
         </div>
@@ -732,7 +732,7 @@ const scenes = {
         typed.textContent = "";
         openGate(gateRightSizing, false);
         advance.classList.remove("show");
-        advanceNext.textContent = "Next: nxs.hld";
+        advanceNext.textContent = "Next: nxs.decision-record";
     },
     analyze() {
         setScrollback(sessionAnalyze);
@@ -747,7 +747,7 @@ const scenes = {
         closeGate();
         typed.textContent = "";
         advance.classList.add("show");
-        advanceNext.textContent = "Next: nxs.hld";
+        advanceNext.textContent = "Next: nxs.decision-record";
     },
     peek() {
         setScrollback(sessionEpic);
@@ -805,12 +805,12 @@ document.querySelectorAll(".seg").forEach(seg => {
 /* advance: runs the next command in the visible terminal */
 document.getElementById("advanceRun").addEventListener("click", () => {
     advance.classList.remove("show");
-    typed.textContent = "/nxs.hld";
+    typed.textContent = "/nxs.decision-record";
     setRail({ setup:"done", epic:"done", hld:"active" });
     setTimeout(() => {
         term.insertAdjacentHTML("beforeend",
             GAP +
-            L("", `<span class="prompt">❯</span> <span class="cmd">/nxs.hld</span>`) +
+            L("", `<span class="prompt">❯</span> <span class="cmd">/nxs.decision-record</span>`) +
             L("claude-tag", `● Claude Code`) +
             L("muted", `  Emitting focused decision record — chosen approach, key decisions, constraints…`));
         term.scrollTop = term.scrollHeight;

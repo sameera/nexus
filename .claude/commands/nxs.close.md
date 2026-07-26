@@ -701,7 +701,7 @@ hand-off (the artifacts live on the pushed distill branch, and distill continues
 # Recovery — re-stamp a closed entry whose record was revised after close
 
 The one state that strands an entry: the epic is closed, its `close-record.md` is committed, and the
-decision record is then revised (`/nxs.hld --revise`). The stamped `record_hash` no longer matches
+decision record is then revised (`/nxs.decision-record --revise`). The stamped `record_hash` no longer matches
 the record body, so `/nxs.distill` hard-errors that entry — deliberately, with **no drain-side
 waiver**, because the drain writes permanently into the knowledge store. The remedy is upstream, and
 it is this procedure. Run it against the stranded entry; it is not a second close mechanism and it
@@ -709,7 +709,7 @@ does not reopen the epic issue.
 
 1. **Finish the revision.** The record must be **approved again** — closed, `--reason completed`. A
    still-open record means the design has no approved state at all, and there is nothing legitimate
-   to stamp. `/nxs.hld --revise` ends with this act; if it was left open for review, wait for it.
+   to stamp. `/nxs.decision-record --revise` ends with this act; if it was left open for review, wait for it.
 
 2. **Judge the blast radius.** Read the revision comment on the record issue (it carries the
    superseded body verbatim, its hash, and why it was superseded):

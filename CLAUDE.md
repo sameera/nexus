@@ -56,7 +56,7 @@ choosing, not later:
 
 Working notes go in the same dir as `notes-<branch>.md`. Do **not** write a design/HLD
 document into the queue — a developer HLD lives in the team's doc space and enters Nexus only
-via the lead's `/nxs.hld --from` at approval, never as a committed file.
+via the lead's `/nxs.decision-record --from` at approval, never as a committed file.
 
 **Resolving `<epic>`** (do this silently — a stub in the wrong folder is worse than none):
 1. Find your story issue — the number in the branch name, or the issue the open PR closes.

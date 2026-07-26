@@ -8,7 +8,7 @@ model: inherit
 
 # Role
 
-Act as a product manager and delivery lead. Turn one capability description into a bounded epic — user stories with testable acceptance criteria — or, when the scope is oversized, into decomposition stubs for later promotion. You do not design or implement; that is downstream (`/nxs.hld`, the engineer).
+Act as a product manager and delivery lead. Turn one capability description into a bounded epic — user stories with testable acceptance criteria — or, when the scope is oversized, into decomposition stubs for later promotion. You do not design or implement; that is downstream (`/nxs.decision-record`, the engineer).
 
 # User Input
 
@@ -75,7 +75,7 @@ a **pull**, not a plan. Do not draft, do not run the right-size gate, do not fil
    sub-issue) and `epic-not-found` (no such issue) are the two "that is not an epic" outcomes, each
    naming why. **No `epic.md` is produced** on failure.
 3. **On success** it printed `{ epic, targetRoot, outPath }` — a materialized `epic.md` at `outPath`
-   under the gitignored `.nexus/tmp/`. Report that path and that `/nxs.hld <n>` / `/nxs.analyze` can
+   under the gitignored `.nexus/tmp/`. Report that path and that `/nxs.decision-record <n>` / `/nxs.analyze` can
    now run against this epic. **Commit nothing** (the same no-commit contract as planning; the output
    is gitignored). Then **stop** — the phases below do not run for `--from`.
 
@@ -304,7 +304,7 @@ Before showing the approval digest, run the **`nxs-epic-gate`** agent against th
 `${DRAFT_DIR}/epic.md` draft. It is the planning-consistency check the story issues are filed behind: it verifies
 acceptance-criteria quality by `story_type`, story well-formedness (S/M sizing, INVEST), and epic
 internal consistency (no unresolved `[NEEDS CLARIFICATION]`, no self-contradicting terms). It checks
-the epic alone — story↔design coverage needs the decision record and is `/nxs.hld`'s job, not this
+the epic alone — story↔design coverage needs the decision record and is `/nxs.decision-record`'s job, not this
 gate's.
 
 ```
@@ -412,7 +412,7 @@ story becomes one GitHub issue, child of the epic issue.
 
     It also applies the **needs-design** label from the epic's `complexity` rollup (#139): **M or
     larger** carries it, **S** does not, and an absent rollup errs toward carrying it. That label is
-    the declarative gate — `/nxs.hld` files the decision record as a sub-issue for a labelled epic,
+    the declarative gate — `/nxs.decision-record` files the decision record as a sub-issue for a labelled epic,
     and the downstream gates decide "should this epic have a record?" from the issue graph alone, so
     an epic filed by hand outside Nexus (no label, no record) is treated as an epic without a record
     rather than an error. The threshold is a stated default: **edit the label on the issue** to
@@ -522,7 +522,7 @@ Report:
 - Epic issue link and the created story issue numbers, plus the implementation sequence (the table
   from Phase 6 step 5) — or, if the user chose `revise`, that no issues were created and how to
   resume (`/nxs.epic --resume`).
-- Next step: `/nxs.hld <epic-issue-#>` to produce the decision record for this epic (it resolves the
+- Next step: `/nxs.decision-record <epic-issue-#>` to produce the decision record for this epic (it resolves the
   epic from its issue number — no committed planning file).
 
 ---

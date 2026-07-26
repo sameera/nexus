@@ -170,7 +170,7 @@ last_updated: [DATE]
 
 **Governing principle: a standard is a ledger of decisions, not a catalog of patterns.**
 
-The code is ground truth and self-updating. A coding agent re-reads these files on _every_ `/nxs.hld` invocation, so each line is a recurring context cost. Only write what an agent **cannot recover by reading the code itself**.
+The code is ground truth and self-updating. A coding agent re-reads these files on _every_ `/nxs.decision-record` invocation, so each line is a recurring context cost. Only write what an agent **cannot recover by reading the code itself**.
 
 **The test for every line you write:** could the agent learn this by looking at a neighboring source file? If yes, **cut it** — it is a copy that pays tokens forever and drifts silently. If no, it belongs here.
 

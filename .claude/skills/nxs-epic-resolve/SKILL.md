@@ -7,7 +7,7 @@ description: Rebuild a planned epic from its GitHub issue number — the epic bo
 
 Run the resolver that reconstructs an epic from the issue graph. It is the shared substrate for
 issue-sourced planning: with `/nxs.epic` committing nothing at planning time, every stage
-(`/nxs.hld`, `/nxs.analyze`, `/nxs.close`, `--from`) obtains the epic by resolving its issue number
+(`/nxs.decision-record`, `/nxs.analyze`, `/nxs.close`, `--from`) obtains the epic by resolving its issue number
 through this one helper, so they all see the same reconstruction.
 
 ## Purpose
