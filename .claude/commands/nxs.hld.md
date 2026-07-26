@@ -45,10 +45,14 @@ queued `epic.md` still supplies the scope the record must cover. Strip the `--fr
 before resolving the entry path from the rest of `$ARGUMENTS`.
 
 **Revision mode — `--revise`.** If `$ARGUMENTS` contains `--revise` (string-matched), the epic's
-**approved** record is being changed rather than written for the first time: go to **Phase 4.5**,
-which reopens it, records what is being superseded, updates the body, and re-closes it. Strip the
-token before resolving the entry path. Without an existing closed record there is nothing to
-revise — say so and run the normal path instead.
+**approved** record is being changed rather than written for the first time. The token selects
+**which filing path Phase 4 takes — it does not select where the run starts.** Run Phase 0.2's
+**resolution** steps 1–2 as usual (they establish `$REPO_ARG` and the label names every later `gh`
+call needs) but skip its step-3 **gate** — that gate answers "does this epic warrant a record", and a
+revision already presupposes the answer. Then run **Phases 1–3** to produce the new body, and file it
+through **Phase 4.5**, which reopens the record, records what is being superseded, updates the body,
+and re-closes it. Strip the token before resolving the entry path. Without an existing closed record
+there is nothing to revise — say so and run the normal path instead.
 
 ## Interaction convention — actionable choice gates
 
@@ -125,7 +129,9 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
     ```
 
     `<root>` is the repo root. An empty `ISSUES_REPO` means the epic lives in the current repo and
-    `REPO_ARG` stays empty. **Every `gh issue …` call below carries `$REPO_ARG`.**
+    `REPO_ARG` stays empty. **Every `gh` call below — `issue`, `label`, `api` — carries
+    `$REPO_ARG`**, and it is the only form used: a second spelling of the same argument is a second
+    thing to keep in sync.
 
 2. Read the epic issue's labels and its record sub-issue (the resolver already reported the latter
    as `record` in its JSON output / the materialized frontmatter's `record` + `record_state`):
@@ -136,10 +142,10 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
 
 3. **Decide the run's shape:**
 
-    - **Record sub-issue already exists** → this is a re-run or a revision. Go to Phase 4 (it
-      targets the existing sub-issue; a second record is never filed). A record that is already
-      **closed** is approved and frozen — changing it is **Phase 4.5**, whose first act is the
-      reopen.
+    - **Record sub-issue already exists** → this is a re-run or a revision. **Continue to Phase 1**
+      as normal — the body a re-run files still comes from Phases 1–3. Phase 4 step 2 then targets
+      the existing sub-issue; a second record is never filed. A record that is already **closed** is
+      approved and frozen — changing it is **Phase 4.5**, whose first act is the reopen.
     - **`needs-design` present, no record sub-issue** → the normal path. Continue to Phase 1.
     - **Neither present** (an S epic, or a hand-filed epic) → the epic claims no design is needed.
       Confirm with the lead via `AskUserQuestion` — **"Proceed without a record (Recommended)"** vs
@@ -287,6 +293,13 @@ and that body is the artifact the record hash is taken over. So:
 
 ## Phase 4 — File the record as a sub-issue of the epic
 
+**Phase 4 and Phase 4.5 are filing steps, never entry points.** Every path reaches them through
+Phases 1–3: the body they write (`<scratch>/record-body.md`) is produced by Phase 3 from the Phase 1
+analysis and is coverage-verified there. Phase 0.2 and the `--revise` token select *which* filing
+path is taken — file a new sub-issue, edit an open one, or reopen an approved one — never whether
+1–3 run. If `<scratch>/record-body.md` was not written by this run's Phase 3, stop: there is no new
+body to file, and filing a stale one would overwrite a live record.
+
 **Old-contract path (a committed queue entry):** write the filled template to
 `${QDIR}/decision-record.md` exactly as today and skip the rest of this phase. Both paths coexist;
 in-flight entries clear on their own.
@@ -309,20 +322,38 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
     - **No record** → continue to step 3.
 
 3. **Create the sub-issue.** Its classification must match what the repo declares, resolved through
-   the shared publishing resolver (Phase 0.2 already read `$RECORD_LABEL`; `classification` selects
-   label-vs-type). Create the label before applying it, so a repository that has never seen it never
-   fails a run half-way and never leaves the epic mislabelled:
+   the shared publishing resolver — `classification` selects label-vs-type, and the marker names
+   come from the same resolver (Phase 0.2 already read `$RECORD_LABEL`):
+
+    ```bash
+    CLASSIFICATION="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve classification --root "<root>")"
+    RECORD_TYPE="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve record-type --root "<root>")"
+    ```
+
+    **`labels` and `legacy-auto` modes** — create the label before applying it, so a repository that
+    has never seen it never fails a run half-way and never leaves the epic mislabelled:
 
     ```bash
     gh label create "$RECORD_LABEL" --color 5319E7 \
-        --description "Epic decision record (why: key decisions, invariants, risks)" --force ${ISSUES_REPO:+-R $ISSUES_REPO}
-    gh issue create $REPO_ARG --title "Decision Record: <epic title>" \
-        --body-file "<scratch>/record-body.md" --label "$RECORD_LABEL"
+        --description "Epic decision record (why: key decisions, invariants, risks)" --force $REPO_ARG
+    RECORD_URL="$(gh issue create $REPO_ARG --title "Decision Record: <epic title>" \
+        --body-file "<scratch>/record-body.md" --label "$RECORD_LABEL")"
     ```
 
-    In **types** classification mode, apply the resolved record issue type (`resolve record-type`)
-    with the `updateIssue` GraphQL mutation instead of the label — the same two-step the epic and
-    story creation skills use. Record the new issue number as `RECORD`.
+    **`types` mode** — the resolved record issue type replaces the label; do **not** pass
+    `--label`. Create the issue without a marker, then apply `$RECORD_TYPE` with the `updateIssue`
+    GraphQL mutation — the same two-step the epic and story creation skills use:
+
+    ```bash
+    RECORD_URL="$(gh issue create $REPO_ARG --title "Decision Record: <epic title>" \
+        --body-file "<scratch>/record-body.md")"
+    ```
+
+    In both modes `gh issue create` prints the issue **URL**; take its trailing path segment as the
+    issue number and record it as `RECORD` (`RECORD="${RECORD_URL##*/}"`) — the rest of this command
+    reports and addresses the record as `#$RECORD`. If the type application fails in `types` mode
+    (the repo has no such issue type), fall back to the label form above rather than filing an
+    unmarked record — an unmarked sub-issue reads back as a **story** to the resolver.
 
 4. **Link it as a sub-issue of the epic** (the native parent relationship, not a comment):
 
@@ -341,9 +372,15 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
    would say nothing about whether design had happened). Create any label before applying it:
 
     ```bash
-    gh label create "$IN_PROGRESS" --color 0E8A16 --description "Design approved; implementation under way" --force ${ISSUES_REPO:+-R $ISSUES_REPO}
+    gh label create "$IN_PROGRESS" --color 0E8A16 --description "Design filed; approval is the close of the record sub-issue" --force $REPO_ARG
     gh issue edit <epic-issue> $REPO_ARG --remove-label "$NEEDS_DESIGN" --add-label "$IN_PROGRESS"
     ```
+
+    The label says the **record exists**, not that it is approved — this step runs before the step-6
+    approval gate, and "Leave open for review" is a legitimate outcome. Approval lives in exactly one
+    place, the record sub-issue's state, and nothing here may imply otherwise: a label that read
+    "design approved" would assert approval the epic has not got, which is the precise confusion this
+    epic exists to remove.
 
 6. **Approval gate (`AskUserQuestion`).** Approval is the **close of the record sub-issue** — Nexus
    writes no approval field, label, or status anywhere, and the issue timeline supplies the approving
@@ -370,7 +407,10 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 ## Phase 4.5 — Revise an approved record (reopen → comment → update → re-close)
 
 Reached when the epic's record sub-issue is **closed** and the design must change (Phase 4 step 2,
-or an explicit `--revise`). This is the **only** path that edits an approved body.
+or an explicit `--revise`). This is the **only** path that edits an approved body. Like Phase 4 it is
+a filing step: Phases 1–3 have already run and `<scratch>/record-body.md` holds the new body — step 3
+below only publishes it. `$RECORD` is the record sub-issue Phase 0 already reported (the resolver's
+`record`, or Phase 0.2 step 2), and `$REPO_ARG` comes from Phase 0.2 step 1.
 
 The freeze is what makes the record hash mean anything: if a closed body could change, "approved"
 would name a moving target and every downstream stamp would be unfalsifiable. Reopening is therefore
@@ -443,6 +483,13 @@ Run these four acts **in order**, and do not skip one:
 Report the revision: the record reference, the superseded hash, the new hash, and the record's
 state. Every earlier approved state stays recoverable from the comment trail alone, revision by
 revision.
+
+**If the epic was already closed**, say so in the report and name the consequence: its committed
+`close-record.md` stamped the superseded hash, so `/nxs.distill` will hard-error that entry — there
+is deliberately no drain-side waiver. Recovery is the named procedure `/nxs.close` § **"Recovery —
+re-stamp a closed entry whose record was revised after close"**: re-approve (done above), re-stamp
+`record_hash`, rewrite the close record's Key Decisions / Deviation Rationale if the design and not
+just the wording moved, then re-run the drain.
 
 ## Phase 5 — Report
 

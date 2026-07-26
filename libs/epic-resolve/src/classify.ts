@@ -104,7 +104,13 @@ export function resolveRecordClassification(
 
 /** Whether one sub-issue is the epic's decision record, under the resolved classification. */
 export function classifySubIssue(classification: RecordClassification, markers: SubIssueMarkers): SubIssueKind {
-    const byLabel: boolean = markers.labels.some((name) => name === classification.recordLabel);
+    // Both comparisons fold case. GitHub label names are case-insensitively unique, and
+    // `gh label create --force` updates an existing label without renaming it — so a repo that
+    // already carries `Decision-Record` keeps that stored casing and reads back with it. An
+    // exact-match test would miss, classify the record as a story, and inject it into the story
+    // set: the exact corruption this module exists to prevent, reached silently.
+    const wanted: string = classification.recordLabel.toLowerCase();
+    const byLabel: boolean = markers.labels.some((name) => name.toLowerCase() === wanted);
     const byType: boolean =
         markers.issueType !== null && markers.issueType.toLowerCase() === classification.recordType.toLowerCase();
 

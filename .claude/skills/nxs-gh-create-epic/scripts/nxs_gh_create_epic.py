@@ -888,7 +888,13 @@ def main() -> int:
             print(f"   Type:   {issue_type}")
         elif applied_label:
             print(f"   Label:  {applied_label}")
-        print(f"   Design: {'needs a decision record (' + needs_design_label + ')' if needs_design else 'no record needed (S epic)'}")
+        # Name the rollup that actually exempted the epic — S and XS both do, so hard-coding "S"
+        # would misreport an XS epic's reason back to the lead.
+        rollup = (frontmatter.get("complexity") or "").strip() or "unstated"
+        design_note = (
+            f"needs a decision record ({needs_design_label})" if needs_design else f"no record needed ({rollup} epic)"
+        )
+        print(f"   Design: {design_note}")
         print(f"   URL:    {issue_url}")
         if project_id:
             print("   Project: Added ✓")

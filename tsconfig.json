@@ -22,6 +22,15 @@
       "path": "./libs/portable-tools"
     },
     {
+      "path": "./libs/pr-acceptance"
+    },
+    {
+      "path": "./libs/pr-worktree"
+    },
+    {
+      "path": "./libs/record-digest"
+    },
+    {
       "path": "./apps/prime"
     }
   ]
