@@ -290,7 +290,7 @@
 
 ## hld-subissue-record
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** The decision record becomes an `hld`-typed/labeled **sub-issue of the epic** instead of a
   queued `decision-record.md` — one copy, born durable, approval as a native GitHub act. `/nxs.hld`
   files the sub-issue (body = the record), stamps `hld: "#n"` into `epic.md` frontmatter, and swaps

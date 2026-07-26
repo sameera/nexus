@@ -20,3 +20,4 @@ hub docs repo holds the concept store and drains the queue.
 - **nxs-pm Path References Follow the Docs Root** — [#87](https://github.com/sameera/nexus/issues/87)
 - **Issue-Sourced Planning: Nothing Commits Until Close** — [#114](https://github.com/sameera/nexus/issues/114)
 - **GitHub Publishing Config** — [#121](https://github.com/sameera/nexus/issues/121)
+- **The Decision Record Becomes an Approvable Sub-Issue** — [#139](https://github.com/sameera/nexus/issues/139)
