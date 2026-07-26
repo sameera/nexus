@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.hld, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -20,7 +20,7 @@ you do not run the app, write tests, or change code.
 
 You also do **not** check the planning for internal consistency. Whether ACs are well-formed for their
 `story_type` is the **`nxs-epic-gate`** agent (at `/nxs.epic`); whether the design covers every story
-is verified in **`/nxs.hld`**. Both run earlier. By the time you run, the planning is fixed and the
+is verified in **`/nxs.decision-record`**. Both run earlier. By the time you run, the planning is fixed and the
 code exists; your job is to hold the code to it.
 
 # User Input
@@ -137,7 +137,7 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
     ```
 
     …or, for the claimed-but-unfiled case, name the missing record: the epic carries `needs-design`
-    but has no record sub-issue — run `/nxs.hld` (which files it), then re-run.
+    but has no record sub-issue — run `/nxs.decision-record` (which files it), then re-run.
 
     Producing **no** receipt rather than one marked "blocked" is deliberate: `/nxs.close` reads a
     missing receipt as "analyze never ran", which is the correct reading, and a third receipt state
@@ -358,7 +358,7 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 - **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`
-  agent (`/nxs.epic`); story↔design coverage is verified in `/nxs.hld`. Not here.
+  agent (`/nxs.epic`); story↔design coverage is verified in `/nxs.decision-record`. Not here.
 - **Engineer scratch is soft.** The per-user stubs are read-only context that can explain a
   divergence but never decide a verdict or gate the receipt; a missing scratch dir changes
   nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch.

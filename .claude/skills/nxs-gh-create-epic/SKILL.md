@@ -75,7 +75,7 @@ The script (`./scripts/nxs_gh_create_epic.py`):
    record — **M or larger** does, **S** does not, an absent or unrecognized rollup errs toward
    applying it. The label is created (upserted) before it is applied, so a repository that has
    never seen it never fails a run half-way or leaves the epic mislabelled. This label is the
-   declarative gate `/nxs.hld` and the downstream gates read; the lead overrides the stated
+   declarative gate `/nxs.decision-record` and the downstream gates read; the lead overrides the stated
    threshold by editing the label on the issue (epic #139).
 8. If an issue type was resolved, queries the repository's available issue types,
    matches by name, and calls the `updateIssue` GraphQL mutation to set it

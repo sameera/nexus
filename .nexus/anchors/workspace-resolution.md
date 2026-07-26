@@ -23,7 +23,7 @@ generated: 2026-07-24
 - `.claude/commands/nxs.epic.md` — resolves the feature container path once under the docs root, records it in the queue entry, and searches the stub-promotion glob across backlogs under the resolved root.
 - `.claude/commands/nxs.close.md` — reads the recorded feature path and writes deferred scope and the process lesson under it, never re-resolving the root.
 - `.claude/commands/nxs.setup.md` — scaffolds the product, system, and delivery docs under the resolved docs root.
-- `.claude/commands/nxs.hld.md` — hands the resolved context-doc locations into the design brief in place of fixed paths.
+- `.claude/commands/nxs.decision-record.md` — hands the resolved context-doc locations into the design brief in place of fixed paths.
 - `.claude/commands/nxs.council.md` — resolves the docs root once and threads it into the product-manager and architect briefs.
 - `.claude/agents/nxs-pm.md` — reads the product context from the resolved location the invoking command hands in; its prior-decisions check, project-templates check, and decision-record path also read the resolved docs root.
 - `.claude/agents/nxs-architect.md` — reads the system standards from the resolved location during its conformance pass.

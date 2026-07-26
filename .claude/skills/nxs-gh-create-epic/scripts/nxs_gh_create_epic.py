@@ -178,7 +178,7 @@ def strip_story_bodies(body: str) -> str:
     Each story is filed as its own GitHub sub-issue of the epic (see /nxs.epic Phase 6),
     which is the durable, editable working surface for the story text and its acceptance
     criteria. Repeating the full story bodies in the epic issue would duplicate that content
-    and let it drift. The stories stay in the queue `epic.md` (the digest, /nxs.hld,
+    and let it drift. The stories stay in the queue `epic.md` (the digest, /nxs.decision-record,
     /nxs.analyze and /nxs.distill read them there); GitHub renders the sub-issues under the
     epic. So drop the section here.
 
@@ -555,7 +555,7 @@ def apply_needs_design_label(
     """
     ensure_label(
         label, run, repo=repo,
-        color="D4C5F9", description="Epic warrants a decision record (nxs.hld files it as a sub-issue)",
+        color="D4C5F9", description="Epic warrants a decision record (nxs.decision-record files it as a sub-issue)",
     )
     cmd = ["gh", "issue", "edit", issue_num, "--add-label", label]
     if repo:
@@ -807,7 +807,7 @@ def main() -> int:
             if apply_needs_design_label(issue_num, needs_design_label, run_command, repo=issues_repo):
                 print(f"🏷️  Labeled '{needs_design_label}' (complexity {frontmatter.get('complexity') or 'unstated'})")
             else:
-                warn(f"Could not apply '{needs_design_label}' to issue #{issue_num} — apply it by hand before /nxs.hld")
+                warn(f"Could not apply '{needs_design_label}' to issue #{issue_num} — apply it by hand before /nxs.decision-record")
 
         # Fetch the issue node ID once — needed for both project and type operations
         issue_id: str | None = None

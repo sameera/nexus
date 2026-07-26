@@ -188,7 +188,7 @@ def epic_needs_design(complexity: str | None) -> bool:
     """Whether an epic of this complexity rollup warrants a decision record.
 
     M or larger does; S does not. An absent or unrecognized rollup errs toward needing design —
-    the same posture `/nxs.hld` takes when an epic carries no complexity (it defaults to L), so a
+    the same posture `/nxs.decision-record` takes when an epic carries no complexity (it defaults to L), so a
     hand-filed or malformed epic is never silently exempted from the design gate. The lead can
     always remove the label on the issue.
     """

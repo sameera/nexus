@@ -23,7 +23,7 @@ That context is carried forward across every phase.
 You work through four commands, in order:
 
 1. `nxs.epic`, figure out what problem you are actually solving
-2. `nxs.hld`, decide how the system should work at a high level
+2. `nxs.decision-record`, decide how the system should work at a high level
 3. `nxs.tasks`, break the work into pieces that make sense
 4. `nxs.dev`, write code for one piece at a time
 
@@ -61,9 +61,9 @@ Your job here is not to be clever. It is to make sure everyone agrees on what â€
 
 ---
 
-## Step 2: `nxs.hld`, Decide What You Are Building, Not How
+## Step 2: `nxs.decision-record`, Decide What You Are Building, Not How
 
-Once the problem is clear, you move to `nxs.hld`.
+Once the problem is clear, you move to `nxs.decision-record`.
 
 Now the AI talks about architecture.
 Components.

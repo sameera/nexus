@@ -113,8 +113,8 @@ Council mode: When invoked via nxs.council, provide strategic architectural pers
 
 ### Decision-Record Mode (Default)
 
-When invoked via `/nxs.hld`, you produce the **decision content** for one planned epic — the
-architectural "why" that `/nxs.hld` formats into the seeded `decision-record-template.md` and writes
+When invoked via `/nxs.decision-record`, you produce the **decision content** for one planned epic — the
+architectural "why" that `/nxs.decision-record` formats into the seeded `decision-record-template.md` and writes
 into the queue. You return analysis as human prose; you do **not** author or name any file.
 
 The unit of work is the **user story** (0009). There is no task layer and no `/nxs.tasks` command
@@ -131,7 +131,7 @@ the architecture. Output maps 1:1 onto the decision-record sections (see **Outpu
 - Risks (BLOCKER / ADDRESS only)
 - Open Clarifications (⚠️ NEEDS CLARIFICATION)
 
-**Tier by complexity (C5).** `/nxs.hld` passes the epic's `complexity` rating. Honor it explicitly:
+**Tier by complexity (C5).** `/nxs.decision-record` passes the epic's `complexity` rating. Honor it explicitly:
 
 - **S or M** → produce **Key Decisions + Constraints & Invariants** only. Omit the other sections
   rather than force-filling them.
@@ -147,7 +147,7 @@ rationale.
 
 ## Analysis Depth Decision Tree
 
-In Decision-Record Mode the depth tracks the epic's `complexity` rating that `/nxs.hld` passes: **S/M**
+In Decision-Record Mode the depth tracks the epic's `complexity` rating that `/nxs.decision-record` passes: **S/M**
 → Quick/Medium; **L/XL** → Deep. The depth governs how hard you analyze; the C5 tier (see
 **Decision-Record Mode** and **Output Format**) governs which sections you emit.
 
@@ -452,7 +452,7 @@ Low Severity        🟢 MONITOR         🟢 MONITOR          ⚪ ACCEPT
 ## Output Format
 
 In Decision-Record Mode your output maps **1:1** onto `decision-record-template.md`. Use these
-headings and this order; `/nxs.hld` drops your prose straight into the seeded template. Emit prose
+headings and this order; `/nxs.decision-record` drops your prose straight into the seeded template. Emit prose
 only — no frontmatter, no file name.
 
 The C5 tier (from the epic's `complexity` rating) selects which sections are required:

@@ -9,7 +9,7 @@ generated: 2026-07-26
 
 # Code Anchors: Approvable Decision Record
 
-- `.claude/commands/nxs.hld.md` — the design stage: the design-warrant gate read off the epic's labels, filing the record as a sub-issue of the epic (prose-only body, no frontmatter), the needs-design → in-progress label lifecycle, the no-design-needed outcome, and the --revise reopen/comment/update/re-close revision flow.
+- `.claude/commands/nxs.decision-record.md` — the design stage: the design-warrant gate read off the epic's labels, filing the record as a sub-issue of the epic (prose-only body, no frontmatter), the needs-design → in-progress label lifecycle, the no-design-needed outcome, and the --revise reopen/comment/update/re-close revision flow.
 - `.claude/commands/nxs.epic.md` — applies the needs-design label at epic filing from the complexity rollup.
 - `.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py` — upserts then applies the needs-design label to a freshly filed epic and reports the design-warrant decision.
 - `.claude/skills/nxs-gh-shared/delivery_config.py` — the record marker (label/type), needs-design and in-progress label resolution, and the design-exempt complexity threshold.

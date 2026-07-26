@@ -1,5 +1,5 @@
 ---
-name: nxs.hld
+name: nxs.decision-record
 description: Add the architectural decision record to a planned epic — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch; with `--revise` it reopens an approved record, records what it supersedes, updates it, and re-closes it. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash, Task, AskUserQuestion
@@ -40,7 +40,7 @@ resolve the entry from the current branch in Phase 0.
 `/nxs.epic --resume`), the decision record is derived from the **existing design doc** at `<path>` —
 a developer HLD, a plan, or any out-of-band design write — instead of a fresh from-scratch analysis.
 This is the supported bridge for work designed outside the pipeline (CLAUDE.md: "a developer HLD …
-enters Nexus only via the lead's `/nxs.hld --from` at approval"): the doc supplies the *why*, the
+enters Nexus only via the lead's `/nxs.decision-record --from` at approval"): the doc supplies the *why*, the
 queued `epic.md` still supplies the scope the record must cover. Strip the `--from <path>` token
 before resolving the entry path from the rest of `$ARGUMENTS`.
 
@@ -69,7 +69,7 @@ Run the phases in order.
 
 The epic and its story issues already exist (filed by `/nxs.epic`). Obtain the epic — either from a
 committed queue entry (an old-contract epic, including #114 itself) or, when nothing was committed at
-planning (#114), by resolving its issue number through the resolver. `/nxs.hld` **reads** the epic;
+planning (#114), by resolving its issue number through the resolver. `/nxs.decision-record` **reads** the epic;
 it never hard-fails with "queue entry not found" just because planning committed nothing.
 
 1. **Explicit path** — if `$ARGUMENTS` points at a queue entry / `epic.md` / its directory, use that.
@@ -510,12 +510,12 @@ Report concisely:
 # Usage
 
 ```
-/nxs.hld                              # committed entry from the current branch, else resolve from its linked epic issue
-/nxs.hld 118                          # resolve epic issue #118 via the resolver (no committed entry needed)
-/nxs.hld path/to/epic.md             # design an explicit queue entry
-/nxs.hld --from docs/design/x.md     # import an existing design doc as the record's basis
-/nxs.hld --from ~/plan.md 118        # import a design doc, epic resolved from issue #118
-/nxs.hld --revise 118                # revise the approved record: reopen, comment, update, re-close
+/nxs.decision-record                              # committed entry from the current branch, else resolve from its linked epic issue
+/nxs.decision-record 118                          # resolve epic issue #118 via the resolver (no committed entry needed)
+/nxs.decision-record path/to/epic.md             # design an explicit queue entry
+/nxs.decision-record --from docs/design/x.md     # import an existing design doc as the record's basis
+/nxs.decision-record --from ~/plan.md 118        # import a design doc, epic resolved from issue #118
+/nxs.decision-record --revise 118                # revise the approved record: reopen, comment, update, re-close
 ```
 
 # Constraints

@@ -12,7 +12,7 @@ unit of work is the **story** (0009); there is no task layer to trace.
 
 Your scope is the **epic alone** (`epic.md`). You run at epic time, before the decision record exists,
 so you do **not** check story↔design coverage or terminology against a design — that needs the
-decision record and is owned by `/nxs.hld`. You also do not look at implementation code — whether the
+decision record and is owned by `/nxs.decision-record`. You also do not look at implementation code — whether the
 built code matches the epic is `/nxs.analyze`. You read `epic.md`, judge it, and report.
 
 ## Input
@@ -81,7 +81,7 @@ edit the epic; you report so the caller can gate.
 ## Constraints
 
 - **Epic only.** Read `epic.md`. Do **not** read a decision record (coverage and terminology-vs-design
-  are `/nxs.hld`'s), implementation code, the diff, or git history (`/nxs.analyze`'s).
+  are `/nxs.decision-record`'s), implementation code, the diff, or git history (`/nxs.analyze`'s).
 - **No task analysis (0009).** Do not look for `TASK-*` files, `story_ref`, or task↔story traceability.
 - **No persisted report and no edits.** Findings are inline only; surface everything for the human to
   fix — do not rewrite stories or ACs.
