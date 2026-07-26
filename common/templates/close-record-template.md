@@ -38,6 +38,10 @@ epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, e.g. #42
 feature: "{{FEATURE_NAME}}"     # one-direction pointer: entry → parent feature
 date: {{YYYY-MM-DD}}
 analyze: {{ANALYZE_STATUS}}     # conformance gate: "ran <date> @ <sha>" or the recorded waiver
+record: {{RECORD_ISSUE_REF}}    # the decision record this epic was built against, e.g. #141 — an
+                                # ISSUE REFERENCE, never a queue path (the drain deletes queue paths).
+                                # Omit both record keys when the epic legitimately has no record.
+record_hash: {{RECORD_HASH}}    # the FULL canonical digest of the approved record body, never truncated
 range:                          # exact diff range of the landed change — one entry per touched repo
   - repo: {{REPO_IDENTITY}}     # normalized code-repo identity (host/owner/repo), from the close preflight
     base: {{BASE_SHA}}          # FULL commit SHA of the merge-base the branch forked from — never a ref
