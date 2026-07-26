@@ -1,0 +1,27 @@
+{
+  "name": "@nexus/record-digest",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./digest": {
+      "types": "./src/digest.ts",
+      "import": "./src/digest.ts",
+      "default": "./src/digest.ts"
+    },
+    "./fetch": {
+      "types": "./src/fetch.ts",
+      "import": "./src/fetch.ts",
+      "default": "./src/fetch.ts"
+    },
+    "./run": {
+      "types": "./src/run.ts",
+      "import": "./src/run.ts",
+      "default": "./src/run.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@nexus/close-migration": "workspace:*"
+  }
+}

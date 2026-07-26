@@ -1,0 +1,9 @@
+{
+  "name": "@nexus/record-digest",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/record-digest/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/record-digest --web",
+  "targets": {}
+}

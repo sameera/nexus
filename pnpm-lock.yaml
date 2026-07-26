@@ -45,6 +45,9 @@ importers:
       '@nexus/pr-worktree':
         specifier: workspace:*
         version: link:libs/pr-worktree
+      '@nexus/record-digest':
+        specifier: workspace:*
+        version: link:libs/record-digest
       '@nexus/workspace':
         specifier: workspace:*
         version: link:libs/workspace
@@ -272,6 +275,12 @@ importers:
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace
+
+  libs/record-digest:
+    dependencies:
+      '@nexus/close-migration':
+        specifier: workspace:*
+        version: link:../close-migration
 
   libs/workspace:
     dependencies:

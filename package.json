@@ -29,6 +29,7 @@
     "@nexus/close-migration": "workspace:*",
     "@nexus/epic-resolve": "workspace:*",
     "@nexus/pr-acceptance": "workspace:*",
+    "@nexus/record-digest": "workspace:*",
     "@nexus/pr-worktree": "workspace:*",
     "@nexus/workspace": "workspace:*",
     "@nx/eslint": "23.0.1",
