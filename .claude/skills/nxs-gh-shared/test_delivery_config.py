@@ -211,6 +211,38 @@ class RecordClassification(unittest.TestCase):
         self.assertEqual(resolve_record_label({"recordLabel": "adr"}), "adr")
         self.assertEqual(resolve_record_type({"recordType": "ADR"}), "ADR")
 
+    def test_a_declared_key_reaches_the_resolver_rather_than_being_ignored(self):
+        # A key the resolver READS but the config reader never POPULATES is silently lost to the
+        # built-in — the declaring repo gets no value and no warning. Read-through, end to end.
+        root = _write_config(
+            {
+                "settings.yml": (
+                    "github:\n"
+                    "  record-label: adr\n"
+                    "  record-type: ADR\n"
+                    "  needs-design-label: design-wanted\n"
+                    "  in-progress-label: wip\n"
+                )
+            }
+        )
+        cfg = read_delivery_config(root)
+        self.assertEqual(resolve_record_label(cfg), "adr")
+        self.assertEqual(resolve_record_type(cfg), "ADR")
+        self.assertEqual(resolve_needs_design_label(cfg), "design-wanted")
+        self.assertEqual(resolve_in_progress_label(cfg), "wip")
+
+    def test_an_empty_repo_value_falls_through_to_the_hub_instead_of_masking_it(self):
+        # These resolve through the shared precedence chain like every other key: an unset
+        # repo-level key is "unset", not "override with nothing".
+        hub = {"recordLabel": "hub-adr", "needsDesignLabel": "hub-design"}
+        self.assertEqual(resolve_record_label({"recordLabel": ""}, hub=hub), "hub-adr")
+        self.assertEqual(resolve_needs_design_label({}, hub=hub), "hub-design")
+        # The repo layer still wins when it declares a value.
+        self.assertEqual(resolve_record_label({"recordLabel": "repo-adr"}, hub=hub), "repo-adr")
+        # With neither layer set, the built-in is the last resort.
+        self.assertEqual(resolve_record_type({}, hub={}), "Decision Record")
+        self.assertEqual(resolve_in_progress_label({}, hub={}), "in-progress")
+
 
 class NeedsDesignGate(unittest.TestCase):
     """Whether an epic warrants a decision record (epic #139, STORY-139.03). The threshold is a

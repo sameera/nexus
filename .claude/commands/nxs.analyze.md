@@ -218,8 +218,9 @@ check the diff does not violate it. A change that breaks an invariant is **criti
 are the decisions the build "must preserve". Cite the file/line in the diff that breaks it.
 
 Skip this section only in **degraded** mode, which by Phase 0.5 means the epic genuinely has no
-record. The downgraded posture is the exception now, not the norm — it is never reached because the
-record had nowhere durable to live.
+record. That is now the exception rather than the norm: the record has a durable home (the record
+sub-issue), so degraded mode is reached only by the deliberate no-record outcome — never, as before,
+because the record had nowhere to live.
 
 ## 2.3 Success-metric coverage (epic level)
 

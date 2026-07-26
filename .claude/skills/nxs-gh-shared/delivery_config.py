@@ -58,27 +58,14 @@ def read_delivery_config(project_root: Path) -> dict[str, str]:
             github = raw.get("github", {})
             if cross_ref.get("docs-root"):
                 result["docRoot"] = cross_ref["docs-root"]
-            if github.get("project"):
-                result["project"] = github["project"]
-            if github.get("epic-type"):
-                result["epicType"] = github["epic-type"]
-            if github.get("issues-repo"):
-                result["issuesRepo"] = github["issues-repo"]
-            # Classification schema (STORY-121.02): mode + per-kind type/label name mappings.
-            if github.get("classification"):
-                result["classification"] = github["classification"]
-            if github.get("epic-label"):
-                result["epicLabel"] = github["epic-label"]
-            if github.get("story-type"):
-                result["storyType"] = github["story-type"]
-            if github.get("story-label"):
-                result["storyLabel"] = github["story-label"]
-            # Repo-targeting keys (STORY-121.05): the specific epic-repo/story-repo win over the
-            # general issues-repo, which stays the fallback for whichever is unspecified.
-            if github.get("epic-repo"):
-                result["epicRepo"] = github["epic-repo"]
-            if github.get("story-repo"):
-                result["storyRepo"] = github["story-repo"]
+            # Every declared github-block key is read through the ONE key map, which is also what
+            # the hub layer and the `resolve <key>` CLI use. Enumerating the keys here separately
+            # let a key be *read* by a resolver but never *populated* here — the declared value
+            # then lost silently to a built-in. One map means that drift cannot recur.
+            for github_key, normalized in _GITHUB_KEY_TO_NORMALIZED.items():
+                value = github.get(github_key)
+                if value:
+                    result[normalized] = value
             return result
         except OSError:
             pass
@@ -143,9 +130,11 @@ def resolve_story_label(config: dict[str, str]) -> str:
 # an epic's sub-issues must be able to tell that one from the stories. The marker names are
 # resolved HERE — the one shared publishing resolver — so the resolver skill, the design stage, and
 # the downstream gates cannot disagree, and no second config reader is introduced (decision-record
-# Invariant 4). Folding these into the declared `github:` block is the `github-publishing-config`
-# stub's job; until then the built-ins below are the whole answer, and `decision-record` is the
-# existing label this repo already files records under rather than a newly minted one.
+# Invariant 4). They read from the declared `github:` block (`record-label`, `record-type`,
+# `needs-design-label`, `in-progress-label`) through the same precedence chain as every other key,
+# falling back to the built-ins below; `decision-record` is the existing label this repo already
+# files records under rather than a newly minted one. Documenting the keys in the setup-seeded
+# settings template is the `github-publishing-config` stub's job.
 
 #: The label that marks a sub-issue as the epic's decision record (label and legacy-auto modes).
 DEFAULT_RECORD_LABEL = "decision-record"
@@ -153,14 +142,18 @@ DEFAULT_RECORD_LABEL = "decision-record"
 DEFAULT_RECORD_TYPE = "Decision Record"
 
 
-def resolve_record_label(config: dict[str, str]) -> str:
-    """The label that classifies a sub-issue as the epic's decision record."""
-    return (config.get("recordLabel") or "").strip() or DEFAULT_RECORD_LABEL
+def resolve_record_label(config: dict[str, str], *, hub: dict[str, str] | None = None) -> str:
+    """The label that classifies a sub-issue as the epic's decision record.
+
+    Goes through ``resolve_setting`` like every other key, so an empty repo-level value falls
+    through to the hub layer instead of masking it.
+    """
+    return (resolve_setting("recordLabel", repo=config, hub=hub) or "").strip() or DEFAULT_RECORD_LABEL
 
 
-def resolve_record_type(config: dict[str, str]) -> str:
+def resolve_record_type(config: dict[str, str], *, hub: dict[str, str] | None = None) -> str:
     """The GitHub issue type that classifies a sub-issue as the epic's decision record."""
-    return (config.get("recordType") or "").strip() or DEFAULT_RECORD_TYPE
+    return (resolve_setting("recordType", repo=config, hub=hub) or "").strip() or DEFAULT_RECORD_TYPE
 
 
 # --- The needs-design gate (epic #139, STORY-139.03) ---------------------------------
@@ -181,14 +174,14 @@ DEFAULT_IN_PROGRESS_LABEL = "in-progress"
 DESIGN_EXEMPT_COMPLEXITIES = ("s", "xs")
 
 
-def resolve_needs_design_label(config: dict[str, str]) -> str:
+def resolve_needs_design_label(config: dict[str, str], *, hub: dict[str, str] | None = None) -> str:
     """The label that declares an epic warrants a decision record."""
-    return (config.get("needsDesignLabel") or "").strip() or DEFAULT_NEEDS_DESIGN_LABEL
+    return (resolve_setting("needsDesignLabel", repo=config, hub=hub) or "").strip() or DEFAULT_NEEDS_DESIGN_LABEL
 
 
-def resolve_in_progress_label(config: dict[str, str]) -> str:
+def resolve_in_progress_label(config: dict[str, str], *, hub: dict[str, str] | None = None) -> str:
     """The label the design stage applies once the record has been filed."""
-    return (config.get("inProgressLabel") or "").strip() or DEFAULT_IN_PROGRESS_LABEL
+    return (resolve_setting("inProgressLabel", repo=config, hub=hub) or "").strip() or DEFAULT_IN_PROGRESS_LABEL
 
 
 def epic_needs_design(complexity: str | None) -> bool:
@@ -690,6 +683,10 @@ def write_github_block(project_root, values, *, comment=None):
 # settings.yml (e.g. `issues-repo`), mapped to the normalized keys `read_delivery_config` returns.
 
 #: github-block key (as written in settings.yml) → the normalized key `read_delivery_config` emits.
+#: The single source of truth for the block's schema: `read_delivery_config` reads settings.yml
+#: through it, `_normalize_hub_defaults` maps the hub's JSON through it, and the `resolve <key>`
+#: CLI translates its argument through it. Adding a key here is all that a new github-block key
+#: needs to be honoured end to end.
 _GITHUB_KEY_TO_NORMALIZED = {
     "issues-repo": "issuesRepo",
     "project": "project",
@@ -698,8 +695,15 @@ _GITHUB_KEY_TO_NORMALIZED = {
     "story-type": "storyType",
     "story-label": "storyLabel",
     "classification": "classification",
+    # Repo-targeting keys (STORY-121.05): the specific epic-repo/story-repo win over the general
+    # issues-repo, which stays the fallback for whichever is unspecified.
     "epic-repo": "epicRepo",
     "story-repo": "storyRepo",
+    # Decision-record + design-gate markers (epic #139).
+    "record-label": "recordLabel",
+    "record-type": "recordType",
+    "needs-design-label": "needsDesignLabel",
+    "in-progress-label": "inProgressLabel",
 }
 
 
@@ -762,13 +766,13 @@ def _cli(argv):
         elif args.key == "story-repo":
             value = resolve_story_repo(config, hub=hub)
         elif args.key == "record-label":
-            value = resolve_record_label({**hub, **config})
+            value = resolve_record_label(config, hub=hub)
         elif args.key == "record-type":
-            value = resolve_record_type({**hub, **config})
+            value = resolve_record_type(config, hub=hub)
         elif args.key == "needs-design-label":
-            value = resolve_needs_design_label({**hub, **config})
+            value = resolve_needs_design_label(config, hub=hub)
         elif args.key == "in-progress-label":
-            value = resolve_in_progress_label({**hub, **config})
+            value = resolve_in_progress_label(config, hub=hub)
         else:
             normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
             value = resolve_setting(normalized, repo=config, hub=hub)

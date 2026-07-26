@@ -115,14 +115,21 @@ artifacts (a close just prepared it — the close record, backlog append, and le
           fetched body as the *why*, and read **no** `decision-record.md` for that entry.
         - **Hashes differ** → **hard-error this entry and write nothing for it.** There is no
           drain-side waiver: the drain writes permanently into the knowledge store, so a waived
-          mismatch would file rationale for a design nobody approved. The remedy belongs upstream —
-          re-approve the record and re-close, so a fresh stamp exists. Report:
+          mismatch would file rationale for a design nobody approved. The remedy belongs upstream and
+          is a named procedure — **`/nxs.close` § "Recovery — re-stamp a closed entry whose record
+          was revised after close"**: re-approve the record, rewrite the close record's Key Decisions
+          and Deviation Rationale if the design (not just the wording) moved, re-stamp `record_hash`,
+          and re-run the drain. It is a re-stamp, not a second close, and it does not reopen the epic
+          issue. Report:
 
             ```
             Drain blocked for <entry>: record #<record> no longer matches the body approved at close.
               stamped at close: <hash from close-record.md>
               current body:     <recomputed hash>
-            Nothing was written for this entry. Re-approve the record and re-run /nxs.close for it.
+            Nothing was written for this entry.
+            Recover with /nxs.close § "Recovery — re-stamp a closed entry whose record was revised
+            after close": re-approve the record, then re-stamp record_hash in the entry's
+            close-record.md and re-run /nxs.distill.
             ```
 
         - **The record issue cannot be fetched** → same treatment: hard-error the entry, write

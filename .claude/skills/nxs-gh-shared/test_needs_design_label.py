@@ -85,6 +85,7 @@ class NeedsDesignLabelAtFiling(unittest.TestCase):
             env=env,
         )
         self.assertEqual(out.returncode, 0, out.stderr)
+        self.stdout = out.stdout
         return self.log.read_text(encoding="utf-8").splitlines()
 
     def test_m_or_larger_is_filed_with_the_needs_design_label(self):
@@ -99,6 +100,14 @@ class NeedsDesignLabelAtFiling(unittest.TestCase):
     def test_small_epic_is_filed_without_the_label(self):
         calls = self._file_epic("S")
         self.assertFalse(any("--add-label needs-design" in c for c in calls), calls)
+
+    def test_an_exempt_epic_is_told_which_rollup_exempted_it(self):
+        # S and XS both skip the record. Reporting "S epic" for an XS one tells the lead the wrong
+        # reason for a gate that was skipped — they cannot check a decision they were misinformed of.
+        for rollup in ("S", "XS"):
+            self.log.write_text("", encoding="utf-8")
+            self._file_epic(rollup)
+            self.assertIn(f"no record needed ({rollup} epic)", self.stdout)
 
     def test_the_label_is_created_before_it_is_applied(self):
         calls = self._file_epic("L")

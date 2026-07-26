@@ -147,8 +147,10 @@ single-repo and hub mode only.
       materialized `epic.md` now lives at a **tracked** `.nexus/queue/…` path (not the gitignored
       `.nexus/tmp/`) — it is committed with the close record in Phase 7.6 as the born-at-close entry.
       The entry carries **no `decision-record.md`** (nothing was committed at planning; the durable
-      record home is `hld-subissue-record`), so Phase 3 runs its downgraded, no-invariant deviation
-      pass.
+      record home is the epic's **record sub-issue**). That is not a downgrade: Phase 2 resolves the
+      deviation baseline per entry from what is actually present, so it fetches the record sub-issue's
+      body and Phase 3 runs the full invariant-aware pass. Only an epic with **no record at all**
+      falls back to the downgraded, no-invariant pass.
 
    Then run **Phase 0's frontmatter parsing** against `${QDIR}/epic.md` (title, `link`, `feature`,
    `feature_path`, `complexity`). `<feature-path>`, `<docs-root>`, the backlog, and the lesson all
@@ -695,6 +697,48 @@ hand-off (the artifacts live on the pushed distill branch, and distill continues
         cd <wtPath> && /nxs.distill
 
     (If the push failed:  ACTION REQUIRED — git -C <wtPath> push)
+
+# Recovery — re-stamp a closed entry whose record was revised after close
+
+The one state that strands an entry: the epic is closed, its `close-record.md` is committed, and the
+decision record is then revised (`/nxs.hld --revise`). The stamped `record_hash` no longer matches
+the record body, so `/nxs.distill` hard-errors that entry — deliberately, with **no drain-side
+waiver**, because the drain writes permanently into the knowledge store. The remedy is upstream, and
+it is this procedure. Run it against the stranded entry; it is not a second close mechanism and it
+does not reopen the epic issue.
+
+1. **Finish the revision.** The record must be **approved again** — closed, `--reason completed`. A
+   still-open record means the design has no approved state at all, and there is nothing legitimate
+   to stamp. `/nxs.hld --revise` ends with this act; if it was left open for review, wait for it.
+
+2. **Judge the blast radius.** Read the revision comment on the record issue (it carries the
+   superseded body verbatim, its hash, and why it was superseded):
+
+    - **The revision changed only the record's wording** — the shipped code still satisfies the same
+      decisions and invariants. Continue to step 3; the close record's prose stands.
+    - **The revision changed the design** — a decision, an invariant, or scope moved. The committed
+      close record's Key Decisions and Deviation Rationale were written against the superseded body
+      and are now wrong. Re-run **Phase 2 and Phase 3** against the new record body and rewrite those
+      two sections of `${QDIR}/close-record.md` before continuing. Everything else in the file —
+      `range`, backlog pointer, lesson pointer — is unaffected and is **not** regenerated.
+
+3. **Re-stamp.** Recompute the digest through the one digest program and write it into the entry's
+   `close-record.md` frontmatter:
+
+    ```bash
+    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    ```
+
+    Set `record_hash` to the **full** printed digest; `record` is unchanged (a revision reuses the
+    issue). Commit the entry. The stamp now names the body that is actually approved, which is the
+    whole point of the hash — never edit `record_hash` to silence the drain without step 1, since a
+    stamp taken over an unapproved body asserts an approval that never happened.
+
+4. **Re-run `/nxs.distill`.** The hash check passes and the entry drains normally.
+
+If the epic issue must also be re-closed (the revision reopened it, or the epic was reopened for
+other reasons), close it as usual before step 4 — `/nxs.distill` reads the entry, not the issue
+state, but a closed epic with an open issue misreports the pipeline.
 
 # Constraints
 

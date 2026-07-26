@@ -80,6 +80,18 @@ describe("classifySubIssue — record-positive, everything else is a story", () 
         expect(classifySubIssue(labels, { labels: ["story", "pipeline"], issueType: null })).toBe("story");
     });
 
+    it("matches the label case-insensitively, as GitHub's own label namespace is", () => {
+        // Label names are case-insensitively unique on GitHub, and `gh label create --force`
+        // updates an existing label without renaming it — so a repo that already carried
+        // `Decision-Record` reads back with that casing. An exact match would drop the record
+        // into the story set silently.
+        expect(classifySubIssue(labels, { labels: ["Decision-Record"], issueType: null })).toBe("record");
+        expect(classifySubIssue(labels, { labels: ["DECISION-RECORD"], issueType: null })).toBe("record");
+        expect(classifySubIssue(legacy, { labels: ["Decision-Record"], issueType: null })).toBe("record");
+        // Still record-positive: a differently-named label is a story, whatever its casing.
+        expect(classifySubIssue(labels, { labels: ["Decision Record"], issueType: null })).toBe("story");
+    });
+
     it("ignores a matching issue type when the mode is label-based", () => {
         expect(classifySubIssue(labels, { labels: [], issueType: "Decision Record" })).toBe("story");
     });
