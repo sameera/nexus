@@ -1,6 +1,6 @@
 ---
 name: nxs.hld
-description: Add the architectural decision record to a planned epic in the queue — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the queued epic and its stories; writes decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch. Next stage is implementation, then /nxs.analyze validates conformance.
+description: Add the architectural decision record to a planned epic — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash, Task, AskUserQuestion
 model: inherit
@@ -11,7 +11,12 @@ model: inherit
 Produce the **decision record** for one planned epic: the focused architectural "why" that the
 distiller later mines (the rationale). It must give design coverage for every story in the epic —
 coverage is verified here (Phase 3), not by a downstream gate. It is human prose, tiered by
-complexity, written into the epic's queue entry.
+complexity, and its home is a **sub-issue of the epic issue** — one copy, born durable, addressable
+by the issue-reference form the knowledge store already uses for provenance.
+
+**Approval is a native act:** closing that sub-issue. Nexus writes no approval field, so the
+approving account and the approval time come from the issue timeline, and an unapproved record
+visibly blocks every stage downstream of it.
 
 **The design spans the whole epic, not a single story.** One record covers the epic; its decisions and
 invariants must hold across every story (that is what coverage means). The **story** is the unit of
@@ -19,7 +24,8 @@ invariants must hold across every story (that is what coverage means). The **sto
 unit of design. Read all stories together and design for the epic.
 
 You delegate the analysis to the `nxs-architect` agent, then format its output into the seeded
-decision-record template and write it into the same committed queue entry that `/nxs.epic` created.
+decision-record template and file it as the record sub-issue (or, for an old-contract epic that has
+a committed queue entry, write it into that entry as before).
 
 # User Input
 
@@ -84,8 +90,9 @@ it never hard-fails with "queue entry not found" just because planning committed
         ```
 
       On a non-zero exit, report the diagnostic (`epic-resolve <problem>: <message>`) and stop. On
-      success it prints `{ epic, targetRoot, outPath }`; record `QDIR` = the directory of `outPath`
-      (a materialized `epic.md` under the gitignored `.nexus/tmp/`).
+      success it prints `{ epic, targetRoot, outPath, record }`; record `QDIR` = the directory of
+      `outPath` (a materialized `epic.md` under the gitignored `.nexus/tmp/`) and keep `record` —
+      the epic's decision-record sub-issue (`{ number, state }`), or `null` when it has none.
 4. `QDIR` **must** contain `epic.md`. If it does not, ERROR. Stop.
 
 **Decision-record home.** On the **committed-entry** path (an old-contract epic), `QDIR` is the
@@ -124,7 +131,9 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
 3. **Decide the run's shape:**
 
     - **Record sub-issue already exists** → this is a re-run or a revision. Go to Phase 4 (it
-      targets the existing sub-issue; a second record is never filed) or Phase 4.5 (revision).
+      targets the existing sub-issue; a second record is never filed). A record that is already
+      **closed** is approved and frozen — changing it is the revision flow, which starts by
+      reopening it.
     - **`needs-design` present, no record sub-issue** → the normal path. Continue to Phase 1.
     - **Neither present** (an S epic, or a hand-filed epic) → the epic claims no design is needed.
       Confirm with the lead via `AskUserQuestion` — **"Proceed without a record (Recommended)"** vs
@@ -251,39 +260,122 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
     | **S** or **M** | **Key Decisions** + **Constraints & Invariants** only. All other sections optional — omit if empty; do not force-fill. |
     | **L** or **XL** | **All** template sections required. A required section left empty needs a stated reason. |
 
-3. Fill the template from the architect's output. Set frontmatter `rating` to the epic's `complexity`,
-   `epic` to the epic issue ref (the `link` in `epic.md` frontmatter), `feature`/`title`/`date`
-   accordingly, and carry over `concepts:` from the epic if present.
+3. Fill the template from the architect's output.
 4. Delete all template guidance comments before writing.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or
    invariant. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
 
-## Phase 4 — Write the decision record
+**The record body is pure human prose** — on the issue-sourced path it becomes a GitHub issue body,
+and that body is the artifact the record hash is taken over. So:
 
-Write the filled template to **`${QDIR}/decision-record.md`** — in the queue entry, beside `epic.md`.
+- **No frontmatter and no hidden machine comment.** Strip the template's frontmatter entirely. Every
+  field it carried is recoverable elsewhere — the epic from the native parent relationship, the
+  complexity rating and concept list from the epic issue, the date and the approving account from the
+  issue timeline. Anything in the body that churns for a non-design reason (a re-run date, a rating
+  recomputed upstream) would produce false staleness and block a close for no reason.
+- Start the body at the `# Decision Record: <epic title>` heading.
+- **Old-contract epics only** (the committed-entry path) keep the template's frontmatter, exactly as
+  today — `rating` = the epic's `complexity`, `epic` = the epic issue ref, `feature`/`title`/`date`,
+  and `concepts:` carried over from the epic.
 
-- **Do not write while any open clarification is unresolved (Phase 2 gate).** The written record's
-  `## Open Clarifications` section must be empty.
-- Do **not** write anything under `docs/`. `docs/` is permanent human artifacts only (0005); planning
-  artifacts live in the committed queue (0006).
-- Do **not** emit a `{prefix}-hld.md`, a task index, or any per-task design.
-- `/nxs.analyze` reads this file as "the decision record" from the same entry — `decision-record.md` is
-  the name it expects.
+## Phase 4 — File the record as a sub-issue of the epic
+
+**Old-contract path (a committed queue entry):** write the filled template to
+`${QDIR}/decision-record.md` exactly as today and skip the rest of this phase. Both paths coexist;
+in-flight entries clear on their own.
+
+**Issue-sourced path (the norm):** the record's durable home is a **sub-issue of the epic issue**,
+carrying the record as its body — one copy, born durable, addressable by the same issue-reference
+form the knowledge store already uses for provenance. **Write no `decision-record.md` anywhere** —
+not into a committed queue entry, not into the gitignored scratch path.
+
+Do not proceed while any open clarification is unresolved (the Phase 2 gate).
+
+1. **Write the body to a scratch file** (`<scratch>/record-body.md`) — prose only, per Phase 3.
+
+2. **Existing record? Target it, never file a second one.** From Phase 0.2 you already know whether
+   the epic has a record sub-issue.
+    - **Open record** → update it in place: `gh issue edit <record> $REPO_ARG --body-file
+      "<scratch>/record-body.md"`. Then go to step 5.
+    - **Closed (approved) record** → its body is **frozen**. Do not edit it. A body change is
+      reachable only by reopening the record first (the revision flow) — stop here and report that.
+    - **No record** → continue to step 3.
+
+3. **Create the sub-issue.** Its classification must match what the repo declares, resolved through
+   the shared publishing resolver (Phase 0.2 already read `$RECORD_LABEL`; `classification` selects
+   label-vs-type). Create the label before applying it, so a repository that has never seen it never
+   fails a run half-way and never leaves the epic mislabelled:
+
+    ```bash
+    gh label create "$RECORD_LABEL" --color 5319E7 \
+        --description "Epic decision record (why: key decisions, invariants, risks)" --force ${ISSUES_REPO:+-R $ISSUES_REPO}
+    gh issue create $REPO_ARG --title "Decision Record: <epic title>" \
+        --body-file "<scratch>/record-body.md" --label "$RECORD_LABEL"
+    ```
+
+    In **types** classification mode, apply the resolved record issue type (`resolve record-type`)
+    with the `updateIssue` GraphQL mutation instead of the label — the same two-step the epic and
+    story creation skills use. Record the new issue number as `RECORD`.
+
+4. **Link it as a sub-issue of the epic** (the native parent relationship, not a comment):
+
+    ```bash
+    PARENT_ID="$(gh issue view <epic-issue> $REPO_ARG --json id --jq .id)"
+    CHILD_ID="$(gh issue view $RECORD $REPO_ARG --json id --jq .id)"
+    gh api graphql -H "GraphQL-Features: sub_issues" \
+      -f query='mutation($p:ID!,$c:ID!){addSubIssue(input:{issueId:$p,subIssueId:$c}){subIssue{number}}}' \
+      -F p="$PARENT_ID" -F c="$CHILD_ID"
+    ```
+
+    An "already linked" error on a re-run is success, not failure.
+
+5. **Move the epic's labels** — the pair reads as a state machine on the epic issue, so the
+   in-progress label is applied at design **completion**, not at filing (a label applied at filing
+   would say nothing about whether design had happened). Create any label before applying it:
+
+    ```bash
+    gh label create "$IN_PROGRESS" --color 0E8A16 --description "Design approved; implementation under way" --force ${ISSUES_REPO:+-R $ISSUES_REPO}
+    gh issue edit <epic-issue> $REPO_ARG --remove-label "$NEEDS_DESIGN" --add-label "$IN_PROGRESS"
+    ```
+
+6. **Approval gate (`AskUserQuestion`).** Approval is the **close of the record sub-issue** — Nexus
+   writes no approval field, label, or status anywhere, and the issue timeline supplies the approving
+   account and the approval time for free. Ask:
+
+    - **"Approve now"** → close it in this run: `gh issue close $RECORD $REPO_ARG --reason completed`.
+    - **"Leave open for review (Recommended when others must sign off)"** → leave it open and say so.
+      The lead (or a reviewer) closes it on GitHub later; that is **the same act**, so both paths
+      converge with no second approval mechanism.
+
+    Never close it as *not planned* to mean approval — a not-planned closure is a **withdrawn**
+    design and blocks exactly as an open record does.
+
+7. **Report the record's identity.** Read the canonical digest through the one digest program — never
+   an ad-hoc shell hash:
+
+    ```bash
+    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    ```
+
+**Never** write anything under `docs/` (permanent human artifacts only), and never emit a
+`{prefix}-hld.md`, a task index, or any per-task design.
 
 ## Phase 5 — Report
 
 Report concisely:
 
-- Decision-record path (`${QDIR}/decision-record.md`).
-- The epic it covers (title + issue ref) and its `complexity` rating.
+- The record: **issue reference** (`#<record>`) and its state — approved (closed) or open awaiting
+  approval — plus the canonical digest from step 7. On the old-contract path, the file path instead.
+- The epic it covers (title + issue ref), its `complexity` rating, and its labels now
+  (`needs-design` removed, `in-progress` applied).
 - Sections **filled** vs. **tiered out** under C5 (e.g. "S epic → Key Decisions + Invariants; other
   sections omitted").
-- Open clarifications: **none**, or **N resolved** at the Phase 2 gate (Open Clarifications section is
-  empty in the written record).
+- Open clarifications: **none**, or **N resolved** at the Phase 2 gate (the Open Clarifications
+  section is empty in the filed record).
 - Story coverage: confirm every user story is addressed.
-- Next step: implement the stories, then `/nxs.analyze` to check the code against each story's
-  acceptance criteria and this record's invariants.
+- Next step: implement the stories, then `/nxs.analyze` — which **will not run** while the record is
+  unapproved, so an open record must be closed before conformance can be checked.
 
 # Usage
 
@@ -301,13 +393,28 @@ Report concisely:
   implementation unit (0009) and `/nxs.tasks` is cut (0010). A design split is an edit to an existing
   story, not a new task.
 - **Human prose only.** System A emits no machine artifact; the distiller (System B) derives the
-  ConceptDelta later from the queued decision + close records and the diff (0006). Just write clean
-  prose.
-- **Queue, not `docs/`.** The decision record is committed planning state in
-  `.nexus/queue/<epic-slug>-<local-id>/`, the same entry `/nxs.epic` and `/nxs.analyze` use.
+  ConceptDelta later from the record + close record and the diff (0006). On the issue-sourced path
+  the body carries **no frontmatter and no hidden machine comment** — it is the hashed artifact, and
+  anything in it that churns for a non-design reason would report a design that did not change as
+  changed.
+- **One record per epic, and exactly one copy of it.** A re-run targets the existing record
+  sub-issue and never files a second one; for an issue-sourced epic **no `decision-record.md` is
+  written anywhere** — not into a committed queue entry, not into the gitignored scratch path.
+- **A closed record's body is frozen.** Every path here except the revision flow leaves an approved
+  body untouched; a body change is reachable only through a reopen. If the body could
+  change while closed, "approved" would name a moving target and every downstream stamp would be
+  unfalsifiable.
+- **Never write `docs/`.** `docs/` is permanent human artifacts only (0005). An old-contract epic's
+  record stays in its committed queue entry, as today.
+- **Labels are created before they are applied**, and this stage writes only the **epic's** labels
+  and its **record sub-issue** — it never touches a story issue.
+- **Approval is the close of the record sub-issue.** Never write an approval field, an `approved`
+  label, or a status anywhere, and never infer approval from any other signal. Nexus applies no
+  permission check of its own: whoever can close the sub-issue is the approver, and the timeline
+  records who and when.
 - **`--from` imports a design doc; it does not copy it.** The doc is the authoritative *why*
   source, but the record it produces is still abstracted domain prose (no code / file paths / type
   names) covering every story, and every decision still carries its *why* — a doc that states a
   choice without a rationale, or without the viable alternative it beat, raises an Open Clarification
   rather than shipping an unsupported entry. The source doc stays where it lives; only the record is
-  written into the queue.
+  filed.
