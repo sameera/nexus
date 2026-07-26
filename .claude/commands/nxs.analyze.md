@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Reads the queued epic + decision record and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.hld, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.hld, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -85,14 +85,74 @@ issue number (invariant 14):
 4. **File open in the editor** — infer the epic directory from it.
 5. Otherwise stop and ask for the epic path or the epic issue number.
 
-Load `epic.md` (stories, acceptance criteria, success metrics) and the **decision record** —
-`decision-record.md`, the `/nxs.hld` output — from the resolved entry. The decision record supplies
-the invariants to check. If it is absent — which is the interim norm for a resolver-path epic until
-the durable decision-record home (`hld-subissue-record`) lands — run in **no-invariant (downgraded)**
-mode (AC + success-metric conformance only, no invariant check) and **state that you did so**
-(invariant 13).
+Load `epic.md` (stories, acceptance criteria, success metrics) from the resolved entry, and read its
+frontmatter `link` to get the epic issue number; it anchors the story issues.
 
-Read `epic.md` frontmatter `link` to get the epic issue number; it anchors the story issues.
+## Phase 0.5 — Resolve the decision record (four states, one of which blocks)
+
+The decision record supplies the **invariants** to check, and its home is a **sub-issue of the epic
+issue** (#139). Resolve it before anything else — a blocked run must emit nothing at all.
+
+1. Resolve the target repo and the needs-design label name **through the shared publishing
+   resolver**, never by parsing `settings.yml` (see `/nxs.close` Phase 1.0):
+
+    ```bash
+    ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root "<root>")"
+    REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
+    NEEDS_DESIGN="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve needs-design-label --root "<root>")"
+    ```
+
+    `<root>` is the repo root, or `$wtPath` in `--pr` mode (the config lives inside the worktree).
+
+2. Read the two live facts off the issue graph: the epic's labels
+   (`gh issue view <epic-issue> $REPO_ARG --json labels`) and its record sub-issue — the resolver
+   already reported it as `record` (`{ number, state }` or `null`), and the materialized `epic.md`
+   frontmatter carries `record` / `record_state`.
+
+3. **Resolve to exactly one of four states:**
+
+    | State | Condition | Outcome |
+    | --- | --- | --- |
+    | **full** | record sub-issue exists and is **closed as completed** | Run in full mode; invariants come from the record issue body. |
+    | **block — unapproved** | record sub-issue is **open**, or closed as **not planned** | **Stop.** A not-planned closure is a withdrawn design, not an approval. |
+    | **block — claimed but unfiled** | epic carries the needs-design label but has **no** record sub-issue | **Stop.** The epic says it needs a record and none exists. |
+    | **degraded** | **no** record sub-issue **and no** needs-design claim | Run in the no-invariant mode and state that you did (invariant 13). |
+
+    An **old-contract** entry carrying a committed `decision-record.md` resolves to **full** from
+    that file, exactly as today — baseline precedence is per entry: record sub-issue, else committed
+    file, else no record.
+
+    A **fetch failure** — the record issue cannot be read, the body cannot be fetched — never reaches
+    degraded mode. Report the diagnostic and stop: degraded is for an epic that genuinely has no
+    record, never for one whose record could not be read.
+
+4. **On either block state, emit nothing at all** — no `analyze-receipt.md`, no PR review, no PR
+   comment. Report the block inline, naming the record issue and what to do:
+
+    ```
+    Conformance blocked: epic #<epic-issue> — decision record #<record> is <open | closed as not planned>.
+    Nothing was produced (no receipt, no review).
+
+    Approve the record by closing #<record> (that IS the approval), then re-run /nxs.analyze.
+    ```
+
+    …or, for the claimed-but-unfiled case, name the missing record: the epic carries `needs-design`
+    but has no record sub-issue — run `/nxs.hld` (which files it), then re-run.
+
+    Producing **no** receipt rather than one marked "blocked" is deliberate: `/nxs.close` reads a
+    missing receipt as "analyze never ran", which is the correct reading, and a third receipt state
+    would fork that logic.
+
+5. **In full mode, take the record's identity through the one digest program** — never an ad-hoc
+   shell hash, and never a hash of locally cached text:
+
+    ```bash
+    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    ```
+
+    Keep `digest` as `RECORD_HASH` and `#<record>` as the record reference; both are stamped into
+    the result in Phase 3. Read the invariants from the **record issue body** (the same fetch), not
+    from any local copy.
 
 # Phase 1 — Gather the implementation surface
 
@@ -150,11 +210,16 @@ For `system` stories, the AC states a measurable threshold — confirm the code 
 exists; if the threshold needs a benchmark you cannot read from the diff, mark it **unverifiable here**
 and name what must be measured (defer to `nxs-qa`), do not pass it silently.
 
-## 2.2 Invariant conformance (needs the decision record)
+## 2.2 Invariant conformance (full mode only)
 
-For each constraint/invariant in `decision-record.md` (and any security boundary it names), check the
-diff does not violate it. A change that breaks an invariant is **critical** — invariants are the
-decisions the build "must preserve". Cite the file/line in the diff that breaks it.
+For each constraint/invariant in the decision record — the **record issue body** resolved in Phase
+0.5, or an old-contract entry's committed `decision-record.md` — and any security boundary it names,
+check the diff does not violate it. A change that breaks an invariant is **critical** — invariants
+are the decisions the build "must preserve". Cite the file/line in the diff that breaks it.
+
+Skip this section only in **degraded** mode, which by Phase 0.5 means the epic genuinely has no
+record. The downgraded posture is the exception now, not the norm — it is never reached because the
+record had nowhere durable to live.
 
 ## 2.3 Success-metric coverage (epic level)
 
@@ -174,7 +239,7 @@ Return a concise summary:
 
 ```
 Conformance: <epic title> (<queue-entry-or-path>)  ·  epic #<link>
-Mode: full | downgraded (no decision record)
+Mode: full (record #<record> @ <RECORD_HASH>) | downgraded (epic has no decision record)
 Surface: <N> files changed, <N> stories (<M> closed / <O> open)
 
 Per-story AC conformance:
@@ -202,11 +267,18 @@ epic: "<link>"                        # e.g. "#11"
 date: <YYYY-MM-DD>
 head: <git rev-parse --short HEAD>    # the commit the analysis read
 mode: full | downgraded
+record: "#<record>"                   # full mode only — the decision record this checked against
+record_hash: <RECORD_HASH>            # full mode only — the FULL digest, never truncated
 findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
 ---
 
 <the summary block above, verbatim>
 ```
+
+`record` / `record_hash` are the second staleness axis: `/nxs.close` re-hashes the record issue and
+compares, so a design revised after this analysis is detectable and is named separately from a
+commit landing after it. Omit both keys entirely in downgraded mode — there is no record to name.
+Stamp the digest **in full**; no truncated form appears on any surface.
 
 The receipt is ephemeral queue content: the distiller deletes it with the entry post-merge. Never
 link it from an issue.
@@ -215,7 +287,7 @@ link it from an issue.
 
 In `--pr` mode the worktree is removed after this phase, so **do not write `analyze-receipt.md`**
 (it would vanish with the worktree). Instead publish the result on the PR so `/nxs.close --pr` can
-read it.
+read it. A **blocked** run (Phase 0.5) publishes nothing here either — no review, no comment.
 
 1. Write the review body to a scratch file: the summary block above **verbatim**, then a machine
    block `/nxs.close` parses back out (the `<!-- nexus:analyze-receipt -->` marker anchors it):
@@ -228,6 +300,8 @@ read it.
     date: <YYYY-MM-DD>
     head: <full 40-hex analyzedHead>     # the commit actually analyzed
     mode: full | downgraded
+    record: "#<record>"                  # full mode only — the record this checked against
+    record_hash: <RECORD_HASH>           # full mode only — the FULL digest, never truncated
     findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
     ```
     `````
@@ -267,9 +341,19 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 
 - **Conformance, not quality.** Compare code to intent. Do not run tests (that is `nxs-qa`), do not run
   a security audit (that is `security-review`), do not run the app.
-- **Read-only, one exception.** Never edit code, the epic, the decision record, or GitHub issues.
-  Findings are inline; the only file written is `analyze-receipt.md` beside the epic — never
-  `task-review.md` or any other report file.
+- **Read-only, one exception.** Never edit code, the epic, the decision record, or GitHub issues —
+  in particular, never close, reopen, or comment on the record sub-issue. Findings are inline; the
+  only file written is `analyze-receipt.md` beside the epic — never `task-review.md` or any other
+  report file.
+- **An unapproved record blocks, and a block emits nothing.** No receipt file, no PR review, no PR
+  comment — so a missing receipt keeps its single downstream meaning ("analyze never ran"). Approval
+  is the close of the record sub-issue; a not-planned closure is a withdrawn design and blocks too.
+- **Degraded mode is the exception, not the norm.** It is reachable only when the epic genuinely has
+  no record and makes no needs-design claim — never from a fetch failure, an unreadable record, a
+  not-planned closure, or a needs-design claim with no record filed.
+- **The record hash comes from the one digest program** (`nxs-record-digest`), computed over the
+  body as fetched from GitHub, and is stamped in full on both the receipt and the PR machine block
+  beside the analysed commit. Never re-derive it with a shell one-liner and never truncate it.
 - **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`
