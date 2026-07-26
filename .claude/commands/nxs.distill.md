@@ -1,6 +1,6 @@
 ---
 name: nxs.distill
-description: Drain the committed queue into the concept store via a reviewed distillation-PR. Reads each closed queue entry (epic + decision record + close record) plus the recomputed merged diff, synthesizes per-concept deltas, runs the deterministic steps (touches-reciprocity fan-out, code-anchor refresh, validator), then — after a checkpoint — opens the distillation-PR. Never writes .nexus/concepts/ on main; consumed queue entries are deleted only when that PR merges.
+description: Drain the committed queue into the concept store via a reviewed distillation-PR. Reads each closed queue entry (epic + close record) plus the epic's decision record — fetched from its record sub-issue and verified against the hash stamped at close — plus the recomputed merged diff, synthesizes per-concept deltas, runs the deterministic steps (touches-reciprocity fan-out, code-anchor refresh, validator), then — after a checkpoint — opens the distillation-PR. Never writes .nexus/concepts/ on main; consumed queue entries are deleted only when that PR merges.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -95,9 +95,46 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 # Phase 0 — Preflight
 
 1. For each drainable entry, read `epic.md` frontmatter: `epic`/`title`, `link`, `feature`,
-   `slug`. Read `close-record.md` in full, and `decision-record.md` in full **if present** — a
-   born-at-close entry for an issue-sourced epic (#114) carries none until the durable record home
-   (`hld-subissue-record`) lands, in which case the *why* comes from the close record alone.
+   `slug`. Read `close-record.md` in full — including its `record` / `record_hash` frontmatter, the
+   decision record this epic was built against and the digest of the body approved at close.
+
+    **Resolve the *why* source per entry, from what is present** (no flag, no mode switch):
+
+    1. **The record sub-issue** when the close record names one (`record: "#<n>"`) — fetch the body
+       and **verify it against the hash stamped at close**, through the one digest program. Resolve
+       the repo the record lives in once, through the shared publishing resolver (never by parsing
+       `settings.yml`), exactly as `/nxs.close` Phase 1.0 does:
+
+        ```bash
+        ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root .)"
+        gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body   # the why
+        tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+        ```
+
+        - **Hashes equal** → this is provably the rationale that was approved and analysed. Use the
+          fetched body as the *why*, and read **no** `decision-record.md` for that entry.
+        - **Hashes differ** → **hard-error this entry and write nothing for it.** There is no
+          drain-side waiver: the drain writes permanently into the knowledge store, so a waived
+          mismatch would file rationale for a design nobody approved. The remedy belongs upstream —
+          re-approve the record and re-close, so a fresh stamp exists. Report:
+
+            ```
+            Drain blocked for <entry>: record #<record> no longer matches the body approved at close.
+              stamped at close: <hash from close-record.md>
+              current body:     <recomputed hash>
+            Nothing was written for this entry. Re-approve the record and re-run /nxs.close for it.
+            ```
+
+        - **The record issue cannot be fetched** → same treatment: hard-error the entry, write
+          nothing. Never fall back to a stale local copy.
+
+    2. **A committed `decision-record.md`** in the entry — an old-contract entry, read in full
+       exactly as today, so entries in flight before this change drain unchanged.
+    3. **The close record alone** when the epic has no decision record at all — its Key Decisions
+       and Deviation Rationale are then the sole *why* carrier, unchanged from today.
+
+    The drain stays **read-only** against the record issue: it fetches and hashes, never edits,
+    closes, or comments.
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: the drain creates a branch and must not entangle unrelated work.
    (In continuation mode the tree is clean because the close committed its artifacts, and you are
@@ -303,11 +340,11 @@ Write each delta to the scratchpad for the Phase 6 digest; deltas are working ma
 committed.
 
 **Sources:** the *what* (behavior, integration points, behavioral invariants) from the diff; the
-*why* (key decisions, refuted alternatives, deviation rationale) from `decision-record.md` and
-`close-record.md` — or from `close-record.md` alone when the entry carries no decision record
-(a born-at-close issue-sourced epic; the close record's Key Decisions + Deviation Rationale are then
-the sole *why* carrier). Do **not** read `<entry>/<username>/**`. Engineer scratch is not a distill
-input; the *why* comes only from `decision-record.md` and `close-record.md`.
+*why* (key decisions, refuted alternatives, deviation rationale) from the **decision record resolved
+in Phase 0** — the hash-verified record issue body, an old-contract `decision-record.md`, or nothing
+at all — plus `close-record.md`. When the epic has no record, the close record's Key Decisions +
+Deviation Rationale are the sole *why* carrier. Do **not** read `<entry>/<username>/**`. Engineer
+scratch is not a distill input; the *why* comes only from the decision record and the close record.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
@@ -771,6 +808,12 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   degenerate introducing-commit diff and the collapsed single-PR consequence, then requires an
   explicit choice — merge first (recommended) or an explicit waiver that routes the diff through the
   recorded `range:` and bases the branch on HEAD. Detect, never substitute.
+- **The *why* is hash-verified, and a mismatch is a hard stop with no waiver** — for an entry whose
+  epic has a record sub-issue, the rationale is the fetched record body and no `decision-record.md`
+  is read; if its digest differs from the one stamped at close, that entry writes **nothing**. The
+  drain writes permanently into the knowledge store, so the softest control must not sit on the most
+  durable write: the remedy (re-approve, re-close with a fresh stamp) belongs upstream, where a
+  second approval act is visible. The drain is **read-only** against the record issue.
 - **No search when a path is given** — `$ARGUMENTS` resolves directly.
 - **Single-repo diff derivation is range-first** — the recorded `range:` is primary (exact, stamped
   by `/nxs.close` from the merged PR), the introducing-commit path a fallback for legacy entries
