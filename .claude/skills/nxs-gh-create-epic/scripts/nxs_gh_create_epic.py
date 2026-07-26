@@ -28,12 +28,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
 from delivery_config import (  # noqa: E402
     ensure_label,
+    epic_needs_design,
     lookup_issue_type_id,
     read_delivery_config,
     read_hub_defaults,
     resolve_classification,
     resolve_epic_label,
     resolve_epic_repo,
+    resolve_needs_design_label,
     resolve_project_target,
     resolve_setting,
     set_issue_type,
@@ -537,6 +539,30 @@ def add_issue_to_project(project_id: str, issue_id: str) -> bool:
     return True
 
 
+def apply_needs_design_label(
+    issue_num: str,
+    label: str,
+    run,
+    repo: str | None = None,
+) -> bool:
+    """Upsert then apply the needs-design label to a freshly filed epic (epic #139, STORY-139.03).
+
+    The label is the declarative gate the downstream stages read: it says "this epic warrants a
+    decision record" from the issue graph alone, with no Nexus-side memory — which is why an epic
+    filed by hand outside Nexus, carrying no label, is treated as an epic without a record rather
+    than an error. Creating the label before applying it means a repository that has never seen it
+    never fails a run half-way and never leaves the epic mislabelled (Invariant 14).
+    """
+    ensure_label(
+        label, run, repo=repo,
+        color="D4C5F9", description="Epic warrants a decision record (nxs.hld files it as a sub-issue)",
+    )
+    cmd = ["gh", "issue", "edit", issue_num, "--add-label", label]
+    if repo:
+        cmd.extend(["-R", repo])
+    return run(cmd).returncode == 0
+
+
 def create_github_issue(
     title: str,
     body_file: Path,
@@ -772,6 +798,17 @@ def main() -> int:
         updated_content = update_frontmatter_with_link(content, issue_num)
         epic_file.write_text(updated_content, encoding="utf-8")
 
+        # The needs-design gate (STORY-139.03): an epic whose complexity rollup is M or larger
+        # carries the label; an S epic does not. The rollup is the epic's own frontmatter, so the
+        # decision is made once, at filing, and lives on the issue where the lead can edit it.
+        needs_design = epic_needs_design(frontmatter.get("complexity"))
+        needs_design_label = resolve_needs_design_label(merged)
+        if needs_design:
+            if apply_needs_design_label(issue_num, needs_design_label, run_command, repo=issues_repo):
+                print(f"🏷️  Labeled '{needs_design_label}' (complexity {frontmatter.get('complexity') or 'unstated'})")
+            else:
+                warn(f"Could not apply '{needs_design_label}' to issue #{issue_num} — apply it by hand before /nxs.hld")
+
         # Fetch the issue node ID once — needed for both project and type operations
         issue_id: str | None = None
         if project_id or issue_type:
@@ -851,6 +888,7 @@ def main() -> int:
             print(f"   Type:   {issue_type}")
         elif applied_label:
             print(f"   Label:  {applied_label}")
+        print(f"   Design: {'needs a decision record (' + needs_design_label + ')' if needs_design else 'no record needed (S epic)'}")
         print(f"   URL:    {issue_url}")
         if project_id:
             print("   Project: Added ✓")

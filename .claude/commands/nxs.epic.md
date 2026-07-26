@@ -410,6 +410,14 @@ story becomes one GitHub issue, child of the epic issue.
     Because the number is now recorded in the draft, re-running is safe — the epic issue is created
     at most once.
 
+    It also applies the **needs-design** label from the epic's `complexity` rollup (#139): **M or
+    larger** carries it, **S** does not, and an absent rollup errs toward carrying it. That label is
+    the declarative gate — `/nxs.hld` files the decision record as a sub-issue for a labelled epic,
+    and the downstream gates decide "should this epic have a record?" from the issue graph alone, so
+    an epic filed by hand outside Nexus (no label, no record) is treated as an epic without a record
+    rather than an error. The threshold is a stated default: **edit the label on the issue** to
+    override it either way; nothing here is remembered off the issue.
+
 2. **Sequence the stories.** Order by dependency: foundational first (core data / shared surface),
    then dependents, then polish. Assign each a stable ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in
    order) and record `blocked_by` as a list of story refs or `none`. Do **not** split or merge —

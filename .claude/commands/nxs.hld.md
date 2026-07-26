@@ -88,12 +88,64 @@ it never hard-fails with "queue entry not found" just because planning committed
       (a materialized `epic.md` under the gitignored `.nexus/tmp/`).
 4. `QDIR` **must** contain `epic.md`. If it does not, ERROR. Stop.
 
-**Interim decision-record home.** On the **committed-entry** path, `QDIR` is the committed queue entry
-and the record is committed there as today. On the **resolver** path there is no committed entry for
-the record to sit beside, so `/nxs.hld` writes `decision-record.md` beside the materialized `epic.md`
-in `QDIR` (ephemeral, gitignored). The durable home — an `hld` sub-issue — is the sibling stub
-`hld-subissue-record`; until it lands the record is transitional here, and `/nxs.analyze` degrades to
-no-invariant mode when it cannot resolve a record (its ratified interim posture).
+**Decision-record home.** On the **committed-entry** path (an old-contract epic), `QDIR` is the
+committed queue entry and the record is committed there as today. On the **resolver** path the
+record's home is a **sub-issue of the epic issue** (#139) — see Phase 4 — and **no
+`decision-record.md` is written anywhere** for such an epic.
+
+## Phase 0.2 — Does this epic warrant a decision record?
+
+Not every epic needs one. The answer is read from the **issue graph**, never remembered: the
+**needs-design** label on the epic issue is the claim, and the record sub-issue is the artifact.
+That is what makes an epic filed by hand outside Nexus — no label, no record — work for free.
+
+1. Resolve the target repo and the label names **through the shared publishing resolver** — never by
+   parsing `settings.yml` yourself. The epic issue may live in a repo other than the one this
+   command runs in, exactly as `/nxs.close` Phase 1.0 resolves it:
+
+    ```bash
+    ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root "<root>")"
+    REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
+    NEEDS_DESIGN="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve needs-design-label --root "<root>")"
+    IN_PROGRESS="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve in-progress-label --root "<root>")"
+    RECORD_LABEL="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve record-label --root "<root>")"
+    ```
+
+    `<root>` is the repo root. An empty `ISSUES_REPO` means the epic lives in the current repo and
+    `REPO_ARG` stays empty. **Every `gh issue …` call below carries `$REPO_ARG`.**
+
+2. Read the epic issue's labels and its record sub-issue (the resolver already reported the latter
+   as `record` in its JSON output / the materialized frontmatter's `record` + `record_state`):
+
+    ```bash
+    gh issue view <epic-issue> $REPO_ARG --json labels --jq '[.labels[].name]'
+    ```
+
+3. **Decide the run's shape:**
+
+    - **Record sub-issue already exists** → this is a re-run or a revision. Go to Phase 4 (it
+      targets the existing sub-issue; a second record is never filed) or Phase 4.5 (revision).
+    - **`needs-design` present, no record sub-issue** → the normal path. Continue to Phase 1.
+    - **Neither present** (an S epic, or a hand-filed epic) → the epic claims no design is needed.
+      Confirm with the lead via `AskUserQuestion` — **"Proceed without a record (Recommended)"** vs
+      **"Design it anyway"**. On the first, stop and report that the epic proceeds without a decision
+      record (file nothing, change no label). On the second, continue to Phase 1 and let Phase 4
+      apply the labels as usual.
+
+4. **The no-design-needed outcome is available at every checkpoint below.** Whenever the analysis
+   (or the lead's judgement at the Phase 2 / Phase 3.5 gates) concludes that no record is warranted:
+
+    - file **no** sub-issue and write **no** record file;
+    - remove the needs-design label from the epic issue —
+
+        ```bash
+        gh issue edit <epic-issue> $REPO_ARG --remove-label "$NEEDS_DESIGN"
+        ```
+
+    - report plainly that **the epic proceeds without a decision record**, and stop.
+
+    This is the only deliberate way to reach "this epic legitimately has no record" — which is also
+    the only state in which `/nxs.analyze` may run in its degraded no-invariant mode.
 
 ## Phase 0.5 — Load the design doc (import mode only)
 

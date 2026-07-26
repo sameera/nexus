@@ -163,6 +163,45 @@ def resolve_record_type(config: dict[str, str]) -> str:
     return (config.get("recordType") or "").strip() or DEFAULT_RECORD_TYPE
 
 
+# --- The needs-design gate (epic #139, STORY-139.03) ---------------------------------
+#
+# Whether an epic warrants a decision record is declared by a LABEL ON THE EPIC ISSUE, not by
+# Nexus-side bookkeeping: the downstream gates must answer "should this epic have a record?" from
+# the issue graph alone, which is exactly what makes an epic filed by hand outside Nexus work for
+# free rather than erroring. The label is applied at filing from the complexity rollup, editable by
+# the lead like any other label, and removed by the design stage's no-design-needed outcome.
+
+#: Applied to an epic that warrants a decision record; removed when the lead decides none is needed.
+DEFAULT_NEEDS_DESIGN_LABEL = "needs-design"
+#: Applied by the design stage on completion — the pair reads as a state machine on the epic issue.
+DEFAULT_IN_PROGRESS_LABEL = "in-progress"
+
+#: The stated default threshold is "M or larger warrants a record", expressed as the set that does
+#: NOT — so an absent or unrecognized rollup errs toward needing design rather than skipping it.
+DESIGN_EXEMPT_COMPLEXITIES = ("s", "xs")
+
+
+def resolve_needs_design_label(config: dict[str, str]) -> str:
+    """The label that declares an epic warrants a decision record."""
+    return (config.get("needsDesignLabel") or "").strip() or DEFAULT_NEEDS_DESIGN_LABEL
+
+
+def resolve_in_progress_label(config: dict[str, str]) -> str:
+    """The label the design stage applies once the record has been filed."""
+    return (config.get("inProgressLabel") or "").strip() or DEFAULT_IN_PROGRESS_LABEL
+
+
+def epic_needs_design(complexity: str | None) -> bool:
+    """Whether an epic of this complexity rollup warrants a decision record.
+
+    M or larger does; S does not. An absent or unrecognized rollup errs toward needing design —
+    the same posture `/nxs.hld` takes when an epic carries no complexity (it defaults to L), so a
+    hand-filed or malformed epic is never silently exempted from the design gate. The lead can
+    always remove the label on the issue.
+    """
+    return (complexity or "").strip().lower() not in DESIGN_EXEMPT_COMPLEXITIES
+
+
 # --- Project V2 target (STORY-121.03) ------------------------------------------------
 #
 # The Project V2 target is declared config, resolved here once, so a repo with no project can
@@ -726,6 +765,10 @@ def _cli(argv):
             value = resolve_record_label({**hub, **config})
         elif args.key == "record-type":
             value = resolve_record_type({**hub, **config})
+        elif args.key == "needs-design-label":
+            value = resolve_needs_design_label({**hub, **config})
+        elif args.key == "in-progress-label":
+            value = resolve_in_progress_label({**hub, **config})
         else:
             normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
             value = resolve_setting(normalized, repo=config, hub=hub)
