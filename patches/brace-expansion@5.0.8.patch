@@ -1,0 +1,40 @@
+diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
+index be9df86be09c7655787a65c55ae6da01858894c3..a5d61057ec2f0d21f8cfa4366fc7c28256ba17bb 100644
+--- a/dist/commonjs/index.js
++++ b/dist/commonjs/index.js
+@@ -261,3 +261,21 @@ function expand_(str, max, maxLength, isTop) {
+     return acc;
+ }
+ //# sourceMappingURL=index.js.map
++// --- nexus patch: GHSA-mh99-v99m-4gvg / CVE-2026-14257 ---
++// The OOM fix landed only in 5.0.8, with no 1.x or 2.x backport, so the whole
++// dependency tree is pinned to 5.x. But 5.x is a rewrite: it publishes `expand`
++// as a named export only. Every minimatch below 10 wants it as a callable
++// default instead — 3.x and 5.x (via eslint and rollup's glob) do
++// `require('brace-expansion')` and invoke the result, and 9.x (via @swc/cli)
++// default-imports it. So re-export the namespace as a callable here, and add a
++// matching default export to the ESM build. Only minimatch 10 uses the 5.x
++// shape natively; it imports `{ expand }` and is unaffected by either half.
++// Remove once every minimatch below 10.x is out of the tree.
++//
++// Load-bearing subtlety: `exports.__esModule` is non-enumerable, so the
++// `Object.assign` below does not copy it. That is what makes minimatch 9's
++// `__importDefault` wrap this function as `.default` rather than treat it as an
++// already-ESM namespace. Do not add `__esModule` to the re-export.
++const __namespace = Object.assign({}, exports);
++module.exports = __namespace.expand;
++Object.assign(module.exports, __namespace);
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+index 6dc0392fc0feedb811e63d70a30be2736af17a3a..dfb325cc6ee240d1686d175eae3451a1cdf3d209 100644
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -257,3 +257,9 @@ function expand_(str, max, maxLength, isTop) {
+     return acc;
+ }
+ //# sourceMappingURL=index.js.map
++// --- nexus patch: GHSA-mh99-v99m-4gvg / CVE-2026-14257 ---
++// See the note in dist/commonjs/index.js. minimatch 9.x does
++// `import expand from 'brace-expansion'`, which fails to link against 5.x's
++// named-only exports. The named `expand` above is untouched, so minimatch 10
++// keeps working. Remove with the CommonJS half.
++export default expand;
