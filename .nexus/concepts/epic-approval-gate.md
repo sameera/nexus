@@ -1,19 +1,19 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "stub decomposition"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution"]
-last_updated_by: "#121"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record"]
+last_updated_by: "#139"
 status: active
 verification: verified
 ---
 
 # Epic Approval Gate
 
-The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves. The digest — not the full epic document — is the read surface at the one checkpoint that matters, and open questions block it.
+The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves. The digest, not the full epic document, is the read surface at the one checkpoint, and open questions block it.
 
 ## How It Works
 
-The epic stage takes a natural-language capability description directly, with no separate brief as a precondition. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions are the only pre-filing safeguard and must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Under issue-sourced planning it commits nothing to the queue at planning — the draft stays in session scratch — files issue-first, and reuses an already-filed epic issue on a re-run rather than creating a second. Scope too large to ship as one epic decomposes into backlog stubs — a slug, functional goal, candidate story-group titles, and complexity — rather than several fully generated epics, which would be over-generation. Each stub is promoted to a full epic later, on demand.
+The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning it commits nothing at planning — the draft stays in session scratch — files issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stubs — slug, functional goal, candidate story-group titles, complexity — rather than several fully generated epics. A stub is promoted to a full epic later, on demand.
 
 ## Key Invariants
 
@@ -22,15 +22,16 @@ The epic stage takes a natural-language capability description directly, with no
 3. Open questions block filing; they are the only pre-filing safeguard.
 4. Oversized scope becomes backlog stubs, not multiple fully generated epics.
 5. The epic stage takes intent directly; no separate brief is a precondition.
-6. Filing commits nothing to the queue at planning: the epic issue is created before its story children, and a re-run reuses an already-filed epic issue rather than creating a second.
+6. Filing commits nothing at planning: the epic issue precedes its story children, and a re-run reuses an already-filed one.
 7. The epic and its stories resolve their target repository independently; later stages address the epic where it was filed.
 
 ## Integration Points
 
-- [nexus-pipeline](nexus-pipeline.md) — the stage of the pipeline where planning is gated and filed.
+- [nexus-pipeline](nexus-pipeline.md) — where planning is gated and filed.
 - [story-as-unit](story-as-unit.md) — the unit the gate files one issue per.
-- [issue-sourced-planning](issue-sourced-planning.md) — the source-of-truth model this gate files into: issues, not a committed planning file.
+- [issue-sourced-planning](issue-sourced-planning.md) — the model this gate files into: issues, not a committed file.
 - [publishing-config-resolution](publishing-config-resolution.md) — decides the repository, classification, and project for every issue this gate files.
+- [decision-record](decision-record.md) — filing applies its needs-design label from the complexity rollup.
 
 ## Decision Log
 
@@ -49,3 +50,7 @@ The gate still files the epic and its story issues at one approval, but now comm
 ### 2026-07-24 — #121 — Filing targets are resolved per issue kind, not assumed to be the current repo
 
 Where an issue lands became a resolved decision rather than an implicit one, and the epic and the stories resolve it separately. Separate targeting is what expresses the real shape of a multi-repo product — epics are cross-cutting planning artifacts while stories belong beside the code — and it is the only form that handles a repo with no primary code repo of its own, which files its epic into the hub. Resolving the target also fixes a concrete asymmetry: filing honoured a configured target while close ignored it and always acted on the repo it ran in, so an epic filed elsewhere could not be closed. The epic's fallback label became epic-specific in the same pass, made safe by upserting the label before applying it, since the previous generic label neither classified the issue as an epic nor matched what the sibling story path applied. Refuted alternative: one target for both the epic and its stories — simpler to declare and one fewer key, but it cannot express epics in the hub with stories in the code repo, and it strands the no-code-repo case entirely.
+
+### 2026-07-26 — #139 — Filing declares the design-warrant on the epic issue
+
+Whether an epic warrants a decision record is now decided once, at filing, from the epic's own complexity rollup — medium or larger gets the needs-design label — and lives on the issue where the lead can edit it, so every downstream stage answers "should this epic have a record" from the issue graph with no remembered state, and a hand-filed epic without the label is simply an epic without a record. Small and extra-small are both exempt, since the stated threshold is medium-or-larger; an absent or unrecognized rollup errs toward needing design rather than silently skipping the gate. Refuted alternative: derive the need from the epic's embedded machine metadata — absent on hand-filed epics and not editable in the issue interface, exactly where the label form works for free.

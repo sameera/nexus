@@ -1,8 +1,8 @@
 ---
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
-touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning"]
-last_updated_by: "#114"
+touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest"]
+last_updated_by: "#139"
 status: active
 verification: verified
 ---
@@ -13,26 +13,28 @@ The committed queue is the single handoff surface between the delivery pipeline 
 
 ## How It Works
 
-Each epic gets one committed folder — the epic, decision record, and close record — visible from every checkout. Presence is the only state: an unconsumed entry exists, so there is no separate status file. Under issue-sourced planning nothing is committed at planning, so the entry is born at close; the queue holds only closed, drainable entries, each drained after the epic merges. Abandoned epics never reach the trunk and never distill. A drained entry is deleted but stays recoverable through history. The queue holds only gated human artifacts, never an ungated machine block. It also carries decision-only memos — a reviewed decision file with no diff, drained diff-less into the concepts' decision logs. An entry also carries the epic's per-user engineer scratch — hint-only, drained with the entry, never read.
+Each epic gets one committed folder — the epic and close record; only an old-contract entry still holds a decision-record file, the record now living on its sub-issue with its reference and approved-body hash stamped in the close record. Presence is the only state: no separate status file. Under issue-sourced planning the entry is born at close; the queue holds only closed, drainable entries, drained after the epic merges. Abandoned epics never reach the trunk and never distill. A drained entry is deleted but stays recoverable through history. The queue holds only gated human artifacts, never an ungated machine block. It also carries decision-only memos, drained diff-less into the concepts' decision logs. An entry also carries the epic's per-user engineer scratch — hint-only, drained with the entry, never read.
 
 ## Key Invariants
 
 1. One committed folder per epic holds that epic's human planning artifacts.
-2. The queue is committed and never ignored by version control; under issue-sourced planning the entry is born at close, so every entry on the trunk carries a close record.
+2. The queue is committed, never ignored; under issue-sourced planning every entry on the trunk carries a close record.
 3. Presence equals unconsumed — there is no separate state file.
 4. An entry is drained only after its epic merges; abandoned epics never distill.
 5. A drained entry is deleted but stays recoverable through history.
-6. Everything the distiller drains passed a human gate; the per-user scratch that also rides inside the entry is hint-only, never read.
-7. An entry is an epic entry or a single-file decision memo; a memo drains diff-less into the relevant concepts' decision logs.
+6. Everything drained passed a human gate; the per-user scratch riding inside is hint-only, never read.
+7. An entry is an epic entry or a single-file decision memo, drained diff-less into decision logs.
 
 ## Integration Points
 
 - [distiller](distiller.md) — drains each queue entry into the knowledge store.
-- [nexus-pipeline](nexus-pipeline.md) — the pipeline whose stages fill the entry across an epic's life.
-- [scratch-capture](scratch-capture.md) — the per-user scratch riding inside each entry, hint-only, never read into the store.
+- [nexus-pipeline](nexus-pipeline.md) — the pipeline whose stages fill the entry.
+- [scratch-capture](scratch-capture.md) — the per-user scratch riding inside each entry, never read into the store.
 - [close-entry-migration](close-entry-migration.md) — a closed member entry migrates to the hub queue, not the code repo's trunk.
-- [pr-driven-flow](pr-driven-flow.md) — the post-merge flow whose close record this queue receives on the distillation branch.
+- [pr-driven-flow](pr-driven-flow.md) — the flow whose close record arrives on the distillation branch.
 - [issue-sourced-planning](issue-sourced-planning.md) — the model under which this entry is born at close.
+- [decision-record](decision-record.md) — no longer stored here; only old-contract entries still carry its file.
+- [record-digest](record-digest.md) — the approved-body hash the close record stamps for the drain to verify.
 
 ## Decision Log
 
@@ -63,3 +65,7 @@ The queue's entry reaches the trunk with the work, but its close record no longe
 ### 2026-07-22 — #114 — The entry is born at close, not at planning
 
 Under issue-sourced planning nothing is committed to the queue at planning time, so the committed entry — the materialized epic plus its close record — is written at close instead. This makes the queue a closed-only drain buffer: every entry present on the trunk carries a close record, and the planning-time, close-record-absent entry no longer exists. Old-contract epics whose entry was already committed at planning still drain as before; the two coexist only until those in flight clear. Refuted alternative: keep committing the epic at planning and regenerate it from issues at each stage — a committed cache, but the cache is itself the second copy that drifts, and born-at-close removes it while preserving the presence-equals-unconsumed invariant.
+
+### 2026-07-26 — #139 — The decision record leaves the entry; the close record stamps its reference and hash
+
+The queue is a drain buffer the distiller deletes, so a decision record stored here evaporated by design — its home moved to the epic's record sub-issue, and the entry's close record now carries the record's issue reference and approved-body hash instead, keeping the baseline self-contained after the drain deletes the queue files. Old-contract entries keep their committed record file and drain exactly as before; the two shapes coexist until in-flight entries clear. Refuted alternative: migrate committed records onto sub-issues in one pass — a single code path afterwards, but it rewrites closed history against a small affected population that clears on its own.
