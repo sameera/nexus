@@ -71,10 +71,16 @@ The script (`./scripts/nxs_gh_create_epic.py`):
    - **explicit** (`owner/number` or a project title) — adds to exactly that project; no
      auto-discovery fallback
    - **auto** (or no `github:` block) — today's repository project auto-discovery
-7. If an issue type was resolved, queries the repository's available issue types,
+7. Applies the **needs-design** label when the epic's `complexity` rollup warrants a decision
+   record — **M or larger** does, **S** does not, an absent or unrecognized rollup errs toward
+   applying it. The label is created (upserted) before it is applied, so a repository that has
+   never seen it never fails a run half-way or leaves the epic mislabelled. This label is the
+   declarative gate `/nxs.hld` and the downstream gates read; the lead overrides the stated
+   threshold by editing the label on the issue (epic #139).
+8. If an issue type was resolved, queries the repository's available issue types,
    matches by name, and calls the `updateIssue` GraphQL mutation to set it
-8. Updates frontmatter with `link: "#<issue-number>"`
-9. Cleans up temp file
+9. Updates frontmatter with `link: "#<issue-number>"`
+10. Cleans up temp file
 
 ### Repo targeting (STORY-121.05)
 

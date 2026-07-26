@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import delivery_config  # noqa: E402
 from delivery_config import (  # noqa: E402
     DEFAULT_EPIC_LABEL,
+    DEFAULT_IN_PROGRESS_LABEL,
+    DEFAULT_NEEDS_DESIGN_LABEL,
     DEFAULT_RECORD_LABEL,
     DEFAULT_RECORD_TYPE,
     DEFAULT_PROJECT,
@@ -28,6 +30,7 @@ from delivery_config import (  # noqa: E402
     _normalize_hub_defaults,
     _parse_simple_yaml,
     ensure_label,
+    epic_needs_design,
     lookup_issue_type_id,
     read_delivery_config,
     read_hub_defaults,
@@ -36,6 +39,8 @@ from delivery_config import (  # noqa: E402
     resolve_epic_label,
     resolve_epic_repo,
     resolve_issues_repo,
+    resolve_in_progress_label,
+    resolve_needs_design_label,
     resolve_project_target,
     resolve_record_label,
     resolve_record_type,
@@ -205,6 +210,31 @@ class RecordClassification(unittest.TestCase):
     def test_configured_names_win(self):
         self.assertEqual(resolve_record_label({"recordLabel": "adr"}), "adr")
         self.assertEqual(resolve_record_type({"recordType": "ADR"}), "ADR")
+
+
+class NeedsDesignGate(unittest.TestCase):
+    """Whether an epic warrants a decision record (epic #139, STORY-139.03). The threshold is a
+    stated default so the behaviour is predictable; the lead overrides by editing the label."""
+
+    def test_m_or_larger_warrants_a_record(self):
+        for rollup in ("M", "L", "XL", "m", "l", " xl "):
+            self.assertTrue(epic_needs_design(rollup), rollup)
+
+    def test_small_epics_do_not(self):
+        for rollup in ("S", "s", "XS"):
+            self.assertFalse(epic_needs_design(rollup), rollup)
+
+    def test_absent_or_unrecognized_rollup_errs_toward_needing_design(self):
+        for rollup in (None, "", "   ", "medium-ish"):
+            self.assertTrue(epic_needs_design(rollup), repr(rollup))
+
+    def test_label_names(self):
+        self.assertEqual(DEFAULT_NEEDS_DESIGN_LABEL, "needs-design")
+        self.assertEqual(DEFAULT_IN_PROGRESS_LABEL, "in-progress")
+        self.assertEqual(resolve_needs_design_label({}), "needs-design")
+        self.assertEqual(resolve_in_progress_label({}), "in-progress")
+        self.assertEqual(resolve_needs_design_label({"needsDesignLabel": "design-wanted"}), "design-wanted")
+        self.assertEqual(resolve_in_progress_label({"inProgressLabel": "wip"}), "wip")
 
 
 class ProjectTargetResolution(unittest.TestCase):
@@ -601,6 +631,14 @@ class ResolveCli(unittest.TestCase):
         rtype = self._run_cli(root, "resolve", "record-type")
         self.assertEqual(rtype.returncode, 0, rtype.stderr)
         self.assertEqual(rtype.stdout.strip(), "Decision Record")
+
+    def test_resolve_lifecycle_label_names(self):
+        """The design stage reads these names through the same resolver the filing script uses."""
+        root = Path(tempfile.mkdtemp())
+        for key, expected in (("needs-design-label", "needs-design"), ("in-progress-label", "in-progress")):
+            out = self._run_cli(root, "resolve", key)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            self.assertEqual(out.stdout.strip(), expected)
 
     def test_resolve_project_uses_github_key(self):
         root = _write_config({"settings.yml": "github:\n  project: acme/12\n"})
