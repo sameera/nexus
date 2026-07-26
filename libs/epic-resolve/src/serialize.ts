@@ -7,6 +7,10 @@
  * `blocked_by` edges (never a stale table baked into the issue body), and no volatile field
  * (timestamp, run id) is ever emitted — so the same graph always serializes to byte-identical text.
  *
+ * When the epic has a decision-record sub-issue (epic #139) its number and open/closed state are
+ * emitted as frontmatter fields, so every downstream stage recovers the record without re-walking
+ * the issue graph. They are omitted entirely — never emitted as a placeholder — when there is none.
+ *
  * Frontmatter comes from the epic issue's embedded meta block when present (Story 2) — the raw
  * planning frontmatter carried through verbatim, with `link` reset to the issue number — so the
  * full field shape round-trips. A bare issue with no meta block (e.g. hand-filed) falls back to the
@@ -29,12 +33,20 @@ export interface EpicStory {
     body: string;
 }
 
+/** The epic's decision-record sub-issue: its number, and whether it is approved (closed). */
+export interface EpicRecord {
+    number: number;
+    state: "open" | "closed";
+}
+
 export interface SerializeInput {
     epic: EpicHeader;
     /** Stories in any order — the serializer sorts them canonically. */
     stories: EpicStory[];
     /** story issue number → the issue numbers it is blocked_by. */
     blockedBy: Map<number, number[]>;
+    /** The decision-record sub-issue, or null/absent when the epic has none. */
+    record?: EpicRecord | null;
 }
 
 /** H2 section titles that the rebuilt `## User Stories` block is inserted before. */
@@ -90,11 +102,15 @@ function splitH2(body: string): { preamble: string; sections: Section[] } {
  * frontmatter verbatim (only `link` reset to the issue number). Otherwise emit the recoverable-only
  * fields — never fabricating the ones the filing skills strip.
  */
-function renderFrontmatter(epic: EpicHeader): string {
+function renderFrontmatter(epic: EpicHeader, record: EpicRecord | null): string {
+    // The record fields are emitted ONLY when the epic actually has a record sub-issue — never a
+    // placeholder — so an epic without one serializes exactly as it did before epic #139.
+    const recordFields: string[] =
+        record === null ? [] : [`record: "#${record.number}"`, `record_state: ${record.state}`];
     if (epic.rawFrontmatter != null && epic.rawFrontmatter.trim().length > 0) {
-        return ["---", withLink(epic.rawFrontmatter, epic.number), "---"].join("\n");
+        return ["---", withLink(epic.rawFrontmatter, epic.number), ...recordFields, "---"].join("\n");
     }
-    return ["---", `epic: ${JSON.stringify(epic.title)}`, `link: "#${epic.number}"`, "---"].join("\n");
+    return ["---", `epic: ${JSON.stringify(epic.title)}`, `link: "#${epic.number}"`, ...recordFields, "---"].join("\n");
 }
 
 /** `STORY-<epic>.<seq>` — zero-padded to two digits, matching the pipeline's story-ref shape. */
@@ -134,7 +150,7 @@ export function serializeEpic(input: SerializeInput): string {
     const { preamble, sections } = splitH2(input.epic.body);
     const carried = sections.filter((s) => !REBUILT_TITLES.has(s.title));
 
-    const frontmatter = renderFrontmatter(input.epic);
+    const frontmatter = renderFrontmatter(input.epic, input.record ?? null);
     const userStories = renderUserStories(stories);
 
     const blocks: string[] = [frontmatter];

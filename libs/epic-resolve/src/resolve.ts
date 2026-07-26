@@ -7,16 +7,29 @@
  * Fail-closed (Invariant 2): the epic, its sub-issue list, every referenced story, and every
  * story's `blocked_by` edges must all fetch cleanly. The first failure returns a diagnostic and
  * nothing is serialized — never a partial or silently truncated epic.
+ *
+ * The sub-issue set is not homogeneous (epic #139): one sub-issue may be the epic's **decision
+ * record**. It is identified record-positively (see classify.ts), kept out of the story set, and
+ * surfaced as its own recoverable field — so no downstream stage that iterates stories ever acts on
+ * a phantom story, and an epic with no record sub-issue resolves byte-identically to before.
  */
 
+import { classifySubIssue, resolveRecordClassification, type RecordClassification } from "./classify.js";
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
-import { fetchBlockedBy, fetchIssue, fetchParentNumber, fetchSubIssueNumbers, resolveRepoSlug } from "./gh.js";
+import {
+    fetchBlockedBy,
+    fetchIssue,
+    fetchParentNumber,
+    fetchSubIssueNumbers,
+    fetchSubIssueTypes,
+    resolveRepoSlug,
+} from "./gh.js";
 import { extractMeta } from "./meta.js";
 import { type Runner } from "./run.js";
-import { type EpicStory, serializeEpic } from "./serialize.js";
+import { type EpicRecord, type EpicStory, serializeEpic } from "./serialize.js";
 
 export type ResolveEpicResult =
-    | { ok: true; markdown: string }
+    | { ok: true; markdown: string; record: EpicRecord | null }
     | { ok: false; error: EpicResolveDiagnostic };
 
 export interface ResolveEpicOptions {
@@ -68,12 +81,58 @@ export function resolveEpic(
     const subs = fetchSubIssueNumbers(run, targetRoot, slug.slug, epicNumber);
     if (!subs.ok) return subs;
 
+    // Classification is resolved once per run, and only when there is something to classify — an
+    // epic with no sub-issues never invokes the resolver, so it cannot fail on a checkout that
+    // carries no publishing resolver at all.
+    let classification: RecordClassification | null = null;
+    let issueTypes = new Map<number, string>();
+    if (subs.numbers.length > 0) {
+        const resolved = resolveRecordClassification(run, targetRoot);
+        if (!resolved.ok) return resolved;
+        classification = resolved.classification;
+        if (classification.mode !== "labels") {
+            const types = fetchSubIssueTypes(run, targetRoot, slug.slug, epicNumber);
+            // Under `types` the answer decides classification, so a failure is fatal. Under
+            // `legacy-auto` the label is the primary marker and a repo without the issue-types
+            // feature must keep resolving exactly as before.
+            if (!types.ok && classification.mode === "types") return types;
+            if (types.ok) issueTypes = types.types;
+        }
+    }
+
     const stories: EpicStory[] = [];
     const blockedBy = new Map<number, number[]>();
+    let record: EpicRecord | null = null;
     for (const subNumber of subs.numbers) {
-        const story = fetchIssue(run, targetRoot, subNumber, "subissue-fetch-failed");
-        if (!story.ok) return story;
-        stories.push({ number: story.issue.number, title: story.issue.title, body: story.issue.body });
+        const sub = fetchIssue(run, targetRoot, subNumber, "subissue-fetch-failed");
+        if (!sub.ok) return sub;
+
+        const kind =
+            classification === null
+                ? "story"
+                : classifySubIssue(classification, {
+                      labels: sub.issue.labels,
+                      issueType: issueTypes.get(subNumber) ?? null,
+                  });
+
+        if (kind === "record") {
+            if (record !== null) {
+                return {
+                    ok: false,
+                    error: {
+                        problem: "multiple-record-subissues",
+                        message:
+                            `epic #${epicNumber} has more than one decision-record sub-issue ` +
+                            `(#${record.number} and #${subNumber}); an epic has at most one — ` +
+                            `detach or reclassify the extra one and re-run.`,
+                    },
+                };
+            }
+            record = { number: subNumber, state: sub.issue.state.toLowerCase() === "closed" ? "closed" : "open" };
+            continue;
+        }
+
+        stories.push({ number: sub.issue.number, title: sub.issue.title, body: sub.issue.body });
 
         const deps = fetchBlockedBy(run, targetRoot, subNumber);
         if (!deps.ok) return deps;
@@ -83,10 +142,12 @@ export function resolveEpic(
     const { rawFrontmatter, body } = extractMeta(epic.issue.body);
     return {
         ok: true,
+        record,
         markdown: serializeEpic({
             epic: { number: epic.issue.number, title: epic.issue.title, body, rawFrontmatter },
             stories,
             blockedBy,
+            record,
         }),
     };
 }

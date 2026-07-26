@@ -19,6 +19,11 @@
       "import": "./src/render.ts",
       "default": "./src/render.ts"
     },
+    "./classify": {
+      "types": "./src/classify.ts",
+      "import": "./src/classify.ts",
+      "default": "./src/classify.ts"
+    },
     "./gh": {
       "types": "./src/gh.ts",
       "import": "./src/gh.ts",

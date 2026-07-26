@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import delivery_config  # noqa: E402
 from delivery_config import (  # noqa: E402
     DEFAULT_EPIC_LABEL,
+    DEFAULT_RECORD_LABEL,
+    DEFAULT_RECORD_TYPE,
     DEFAULT_PROJECT,
     DEFAULT_STORY_LABEL,
     PRECEDENCE,
@@ -35,6 +37,8 @@ from delivery_config import (  # noqa: E402
     resolve_epic_repo,
     resolve_issues_repo,
     resolve_project_target,
+    resolve_record_label,
+    resolve_record_type,
     resolve_setting,
     resolve_story_label,
     resolve_story_repo,
@@ -183,6 +187,24 @@ class LabelDefaults(unittest.TestCase):
         self.assertEqual(cfg["epicLabel"], "epic")
         self.assertEqual(cfg["storyType"], "Story")
         self.assertEqual(cfg["storyLabel"], "story")
+
+
+class RecordClassification(unittest.TestCase):
+    """The decision-record sub-issue marker (epic #139): one resolver supplies it to every
+    consumer — the epic resolver, the design stage, and the downstream gates — so none of them
+    can classify a record sub-issue differently."""
+
+    def test_record_label_default_is_the_existing_decision_record_label(self):
+        self.assertEqual(DEFAULT_RECORD_LABEL, "decision-record")
+        self.assertEqual(resolve_record_label({}), "decision-record")
+
+    def test_record_type_default(self):
+        self.assertEqual(DEFAULT_RECORD_TYPE, "Decision Record")
+        self.assertEqual(resolve_record_type({}), "Decision Record")
+
+    def test_configured_names_win(self):
+        self.assertEqual(resolve_record_label({"recordLabel": "adr"}), "adr")
+        self.assertEqual(resolve_record_type({"recordType": "ADR"}), "ADR")
 
 
 class ProjectTargetResolution(unittest.TestCase):
@@ -569,6 +591,16 @@ class ResolveCli(unittest.TestCase):
         out = self._run_cli(root, "resolve", "issues-repo")
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertEqual(out.stdout.strip(), "")
+
+    def test_resolve_record_marker_names(self):
+        """The epic resolver reads these across the process seam; they must always have a value."""
+        root = Path(tempfile.mkdtemp())
+        label = self._run_cli(root, "resolve", "record-label")
+        self.assertEqual(label.returncode, 0, label.stderr)
+        self.assertEqual(label.stdout.strip(), "decision-record")
+        rtype = self._run_cli(root, "resolve", "record-type")
+        self.assertEqual(rtype.returncode, 0, rtype.stderr)
+        self.assertEqual(rtype.stdout.strip(), "Decision Record")
 
     def test_resolve_project_uses_github_key(self):
         root = _write_config({"settings.yml": "github:\n  project: acme/12\n"})

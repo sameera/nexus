@@ -14,6 +14,8 @@ export type EpicResolveProblem =
     | "malformed-json"
     | "subissue-fetch-failed"
     | "not-an-epic"
+    | "record-classification-unresolved"
+    | "multiple-record-subissues"
     | "usage";
 
 export interface EpicResolveDiagnostic {
