@@ -3,12 +3,26 @@ packages:
   - 'apps/*'
 
 # Security overrides for transitive dependencies pinned to vulnerable versions.
-# nx pins axios and brace-expansion exactly; remove an entry once the upstream
-# range moves past the patched version on its own.
+# Remove an entry once the upstream range moves past the patched version on its
+# own. brace-expansion additionally carries a patch, registered as
+# `pnpm.patchedDependencies` in package.json — see the note on that entry.
 overrides:
   # GHSA-gcfj-64vw-6mp9, GHSA-7q8q-rj6j-mhjq, GHSA-mmx7-hfxf-jppx,
   # GHSA-f4gw-2p7v-4548, GHSA-xj6q-8x83-jv6g — pinned to 1.16.x by nx.
   axios: '^1.18.0'
-  # GHSA-3jxr-9vmj-r5cp — pinned to 5.0.6 by nx. The 1.x and 2.x majors
-  # resolve to patched releases already, so only the 5.x range needs pinning.
-  brace-expansion@5: '>=5.0.7'
+  # GHSA-3jxr-9vmj-r5cp (exponential-time expansion) and GHSA-mh99-v99m-4gvg /
+  # CVE-2026-14257 (unbounded expansion length, OOM crash). The second advisory
+  # covers every version <= 5.0.7 across all majors and was fixed only in 5.0.8
+  # — there is no 1.x or 2.x backport, so the whole tree has to move to 5.x.
+  # 5.x is a rewrite whose CommonJS entry exports a namespace object rather than
+  # a callable, which minimatch 3.x and 5.x rely on; the patch below restores
+  # callability. Drop the patch (and this note) once minimatch's own 3.x/5.x
+  # consumers depend on brace-expansion 5.x directly. This pin is exact on
+  # purpose: `patchedDependencies` keys on brace-expansion@5.0.8, so a range
+  # that drifted to a later release would silently stop applying the patch.
+  brace-expansion: '5.0.8'
+  # GHSA-v422-hmwv-36x6 / CVE-2026-12590 — invalid `limit` silently disables
+  # size enforcement. Only the 1.x line is affected, via nx's express 4.x. Keep
+  # this capped below 2.0.0: express 4.x cannot take body-parser 2.x, and a bare
+  # '>=1.20.6' resolves to the 2.x line.
+  body-parser@1: '^1.20.6'

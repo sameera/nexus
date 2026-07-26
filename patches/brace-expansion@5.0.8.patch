@@ -1,0 +1,19 @@
+diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
+index be9df86be09c7655787a65c55ae6da01858894c3..1ec7d6aa0729dc63619c10befe125d1937502534 100644
+--- a/dist/commonjs/index.js
++++ b/dist/commonjs/index.js
+@@ -261,3 +261,14 @@ function expand_(str, max, maxLength, isTop) {
+     return acc;
+ }
+ //# sourceMappingURL=index.js.map
++// --- nexus patch: GHSA-mh99-v99m-4gvg / CVE-2026-14257 ---
++// The OOM fix landed only in 5.0.8, with no 1.x or 2.x backport, so the whole
++// dependency tree is pinned to 5.x. But 5.x is a rewrite: its CommonJS entry
++// exports a namespace object, whereas minimatch 3.x and 5.x — still reachable
++// via eslint and rollup's glob — do `require('brace-expansion')` and invoke the
++// result directly. Re-export the namespace as a callable so one version serves
++// both shapes. Named exports are kept for 5.x-aware consumers; the ESM build is
++// deliberately left untouched. Remove once minimatch 3.x/5.x are out of the tree.
++const __namespace = Object.assign({}, exports);
++module.exports = __namespace.expand;
++Object.assign(module.exports, __namespace);
