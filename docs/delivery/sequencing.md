@@ -38,26 +38,34 @@ the record's `hld: "#n"` linkage lives on the epic issue, not a frontmatter stam
 committed at planning there is no entry to delete, so abandoning is just closing the
 epic issue.)
 
-## Wave 3 — per-story PR chain (strict linear line)
+## Wave 3 — per-story PR chain (linear line, plus one item off it)
 
 ```
-nxs-pr-command → story-analyze-hub → epic-analyze-receipt → hub-close-multi-pr → multi-range-distill
+scratch-resolve-record-amend (independent)
+
+story-analyze-hub → epic-analyze-receipt → hub-close-multi-pr → multi-range-distill
 ```
 
-| Item                     | Size | blocked_by                                    |
-| ------------------------ | ---- | --------------------------------------------- |
-| **nxs-pr-command**       | M    | issue-sourced-planning (#114)                 |
-| **story-analyze-hub**    | M    | issue-sourced-planning (#114), nxs-pr-command |
-| **epic-analyze-receipt** | S    | story-analyze-hub                             |
-| **hub-close-multi-pr**   | M    | epic-analyze-receipt                          |
-| **multi-range-distill**  | M    | hub-close-multi-pr                            |
+| Item                             | Size | blocked_by                    |
+| -------------------------------- | ---- | ----------------------------- |
+| **scratch-resolve-record-amend** | S    | issue-sourced-planning (#114) |
+| **story-analyze-hub**            | M    | issue-sourced-planning (#114) |
+| **epic-analyze-receipt**         | S    | story-analyze-hub             |
+| **hub-close-multi-pr**           | M    | epic-analyze-receipt          |
+| **multi-range-distill**          | M    | hub-close-multi-pr            |
 
-The bulk of the work and a hard dependency chain. `nxs-pr-command` deletes branch
-scratch before PR open ("nothing needs cleanup on member main"). `story-analyze-hub`
-must reconcile where its per-story analyze record lands — under #114 there is no
-planning-time entry, so the record either aggregates at born-at-close or rides the
-PR-review machine block. `hub-close-multi-pr` absorbs the producer side of
-`cross-repo-range-recording`.
+The bulk of the work and, from `story-analyze-hub` on, a hard dependency chain.
+`scratch-resolve-record-amend` (#157, re-scoped 2026-07-27) is no longer part of that
+line: `nxs-pr-command` was cancelled with the `nxs.pr` command it named, so nothing
+deletes branch scratch before PR open and nothing downstream parses a PR-body block —
+committed scratch reaches close as it does today and the drain remains the only cleanup.
+What survives is small and independent: capture keys its path on the epic issue number so
+stubs are written at all during implementation, and close amends the decision record when
+the diff refutes one of its decisions. Run it first anyway — it is what makes the scratch
+`story-analyze-hub` reads non-empty. `story-analyze-hub` must still reconcile where its
+per-story analyze record lands — under #114 there is no planning-time entry, so the record
+either aggregates at born-at-close or rides the PR-review machine block.
+`hub-close-multi-pr` absorbs the producer side of `cross-repo-range-recording`.
 
 ## Wave 4 — consolidate + retire
 

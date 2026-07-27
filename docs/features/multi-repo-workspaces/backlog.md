@@ -192,18 +192,28 @@
 - **source:** decomposition of "Refactor multi-repo workspaces around PR-driven delivery (hub-born queue)" (2026-07-20)
 - **candidate stories:** hld resolves the hub entry and stamps the read SHA; Decision record lands via lead-reviewed hub PR; Analyze flags entry drift after design
 
-## nxs-pr-command
+## scratch-resolve-record-amend
 
 - **status:** promoted
-- **goal:** A new engineer-facing `nxs.pr` command — the only Nexus command an engineer must run —
-  raises the story PR: derives a deviation block from the branch's scratch stubs, stamps story/epic
-  IDs and the derived-from SHA into a machine-readable block in the PR body, and deletes the scratch
-  from the branch tip before opening the PR, so nothing ever needs cleanup on member main. Skipping
-  or absence is explicit in the block, never silent.
-- **estimate:** M
+- **renamed_from:** nxs-pr-command (2026-07-27) — same promoted epic (#157), re-scoped. The
+  engineer-facing `nxs.pr` command, the PR-body rationale block, and tip removal are **cancelled**:
+  committed scratch already reaches the lead durably and the distiller's drain already deletes it, so
+  the carrier machinery paid for a problem that did not exist. See #163 for the refuted alternatives
+  (PR-body block, engineer-run command at PR time, pre-push hook, `pull_request` Action, gitignored
+  scratch, `/nxs.merge`, verbatim-stub archive).
+- **goal:** Fix the one real defect the carrier design was hiding, and draw its missing consequence.
+  Capture keys the per-user scratch path on the **epic issue number**
+  (`.nexus/queue/epic-<n>/<user>/`) so stubs are written during implementation, when no queue entry
+  exists — today resolution matches a born-at-close entry and silently writes nothing for the whole
+  implementation phase. The born-at-close entry takes that same directory name, so nothing is moved at
+  close. And `/nxs.close` amends the decision record: when its close-from-diff pass finds decisions
+  that supersede what the approved record decided, it posts one advisory comment on the record
+  sub-issue — prose only, never raw stubs, never a body edit, so the stamped digest stays valid.
+  Silence means the implementation conformed.
+- **estimate:** S
 - **blocked_by:** [hub-born-queue]
-- **source:** decomposition of "Refactor multi-repo workspaces around PR-driven delivery (hub-born queue)" (2026-07-20)
-- **candidate stories:** Deviation block derived from branch scratch; Machine-readable block with story/epic IDs and derived-from SHA; Scratch removed from the branch tip before PR open; Explicit skip and absence paths
+- **source:** decomposition of "Refactor multi-repo workspaces around PR-driven delivery (hub-born queue)" (2026-07-20); re-scoped 2026-07-27
+- **candidate stories:** Scratch path resolves from the epic issue number during implementation; Close amends the decision record with superseding decisions
 
 ## story-analyze-hub
 
@@ -212,15 +222,20 @@
   *close*, so there is no planning-time hub entry for a per-story `analyze-record.<story-id>.md` to
   land in before close. The PR-review verdict is unaffected; the committed-record home must be
   reconsidered at promotion (aggregate at born-at-close, or carry it in the PR-review machine block).
+- **note (2026-07-27):** the `nxs.pr` block this stub hard-failed on no longer exists — the command is
+  cancelled (see `scratch-resolve-record-amend`). Per-story analyze reads the engineer's **committed**
+  scratch from the member checkout, and that read is soft: absent scratch changes no verdict, so there
+  is nothing here to hard-fail on. `scratch-resolve-record-amend` therefore drops out of `blocked_by`;
+  it is preferred-first, not required, since it is what makes the scratch this stub reads non-empty.
 - **goal:** `/nxs.analyze` runs per story from the hub against a member PR: pr-worktree is
   parameterized by member repo (the member-unsupported gate is deleted), conformance checks the
   story's ACs and the decision record's invariants at the PR head, the verdict posts as a PR review,
   and `analyze-record.<story-id>.md` (story ID, PR number, analyzed head SHA, verdict) is committed
-  into the hub entry. A PR without the nxs.pr block hard-fails with a named diagnostic.
+  into the hub entry.
 - **estimate:** M
-- **blocked_by:** [hub-born-queue, nxs-pr-command]
+- **blocked_by:** [hub-born-queue]
 - **source:** decomposition of "Refactor multi-repo workspaces around PR-driven delivery (hub-born queue)" (2026-07-20)
-- **candidate stories:** pr-worktree targets a declared member repo; Per-story conformance against ACs and record invariants; analyze-record file committed to the hub entry; Hard fail on a missing nxs.pr block
+- **candidate stories:** pr-worktree targets a declared member repo; Per-story conformance against ACs and record invariants; analyze-record file committed to the hub entry
 
 ## epic-analyze-receipt
 
@@ -240,12 +255,15 @@
 - **goal:** `/nxs.close` closes a hub-born epic over N story PRs: gates on stories closed, story PRs
   merged, and a current epic receipt (per-story waivers for storyless work); stamps one
   merge-anchored `{repo, base, head}` per story PR into the close record's list-shaped range (the
-  same shape that later serves cross-repo epics); mines deviation blocks from the merged PR bodies;
-  and writes the close artifacts on the distill branch.
+  same shape that later serves cross-repo epics); and writes the close artifacts on the distill branch.
+- **note (2026-07-27):** the "mines deviation blocks from the merged PR bodies" clause is dropped — the
+  PR-body rationale block is cancelled (see `scratch-resolve-record-amend`). Close's *why* sources are
+  unchanged: every story PR's committed scratch is inside the queue entry post-merge, so a multi-PR
+  epic's rationale arrives without any per-PR mining.
 - **estimate:** M
 - **blocked_by:** [epic-analyze-receipt]
 - **source:** decomposition of "Refactor multi-repo workspaces around PR-driven delivery (hub-born queue)" (2026-07-20) — absorbs the producer-side seam of `cross-repo-range-recording` (per-story multi-entry stamping lands here; that stub's touched-repo detection remains its own scope)
-- **candidate stories:** Close gates on merged story PRs and a current receipt; Merge-anchored range list, one entry per story PR; Deviation mining from merged PR bodies; Storyless-story waivers; Close artifacts on the distill branch
+- **candidate stories:** Close gates on merged story PRs and a current receipt; Merge-anchored range list, one entry per story PR; Storyless-story waivers; Close artifacts on the distill branch
 
 ## multi-range-distill
 
