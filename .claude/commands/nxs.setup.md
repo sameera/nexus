@@ -233,7 +233,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
 5. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
 6. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
    committed-path ignore for `.nexus/queue/**` — the whole point is that the per-user decision
-   scratch (`.nexus/queue/<epic>/<username>/`) rides ordinary commits. Keep any pre-existing
+   scratch (`.nexus/queue/epic-<epic-issue-number>/<username>/`) rides ordinary commits. Keep any pre-existing
    `.nexus/plans/` line as **retired** (it covers residual local scratch during migration);
    un-ignoring it would surface every engineer's stale local scratch as untracked noise. Do not
    seed a plan-capture hook or any opt-in registration — the agent writes the scratch directly,
@@ -260,9 +260,9 @@ After the docs exist:
     > picked between viable approaches — append a stub to your per-user scratch inside the
     > epic's queue entry, at the moment of choosing, not later:
     >
-    >     .nexus/queue/<epic>/<your-username>/decisions-<branch>.md
+    >     .nexus/queue/epic-<epic-issue-number>/<your-username>/decisions-<branch>.md
     >
-    > - `<epic>` — the queue-entry directory for the epic your story belongs to.
+    > - `<epic-issue-number>` — the GitHub issue number of the epic your story belongs to.
     > - `<your-username>` — your GitHub login (`gh api user --jq .login`; fall back to a slug of
     >   `git config user.name`).
     > - `<branch>` — current branch with `/` → `-`. Append-only; one file per branch.
@@ -272,10 +272,11 @@ After the docs exist:
     >     - **Why:** <one sentence>
     >     - **Refuted alternative:** <the viable option not taken, or "none">
     >
-    > **Resolving `<epic>`** (do this silently — a stub in the wrong folder is worse than none):
-    > find your story issue (the number in the branch name, or the issue the open PR closes),
-    > `gh` its parent epic issue, and match that number to a queue entry whose `epic.md` `link`
-    > equals it; else match the branch slug against queue-entry dir names; else **write nothing**.
+    > **Resolving `<epic-issue-number>`** (do this silently — a stub in the wrong folder is worse
+    > than none): find your story issue (the number in the branch name, or the issue the open PR
+    > closes), `gh` its **parent epic issue**, and take that number; else **write nothing**.
+    > Resolution is issue-only — never look for a queue entry, an `epic.md`, or a matching directory
+    > name: the entry is born at close, at this same `epic-<epic-issue-number>` directory.
     >
     > This scratch is committed — ordinary commits carry it through the PR. It is a pre-checkpoint
     > hint the lead-run stages (hld, analyze, close) mine and verify against the diff, never

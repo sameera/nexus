@@ -42,9 +42,9 @@ When you make a non-obvious implementation choice — you picked between viable 
 append a stub to your per-user scratch inside the epic's queue entry, at the moment of
 choosing, not later:
 
-    .nexus/queue/<epic>/<your-username>/decisions-<branch>.md
+    .nexus/queue/epic-<epic-issue-number>/<your-username>/decisions-<branch>.md
 
-- `<epic>` — the queue-entry directory for the epic your story belongs to (resolved below).
+- `<epic-issue-number>` — the GitHub issue number of the epic your story belongs to (resolved below).
 - `<your-username>` — your GitHub login (`gh api user --jq .login`; fall back to a slug of
   `git config user.name`).
 - `<branch>` — current branch with `/` → `-`. Append-only; one file per branch.
@@ -58,12 +58,15 @@ Working notes go in the same dir as `notes-<branch>.md`. Do **not** write a desi
 document into the queue — a developer HLD lives in the team's doc space and enters Nexus only
 via the lead's `/nxs.decision-record --from` at approval, never as a committed file.
 
-**Resolving `<epic>`** (do this silently — a stub in the wrong folder is worse than none):
+**Resolving `<epic-issue-number>`** (do this silently — a stub in the wrong folder is worse than none):
 1. Find your story issue — the number in the branch name, or the issue the open PR closes.
-2. `gh` the story's parent epic issue, then match its number to a queue entry whose `epic.md`
-   frontmatter `link` equals it. That entry's directory is `<epic>`.
-3. If step 2 fails, fall back to matching the branch slug against queue-entry directory names.
-4. If still unresolved, **write nothing** — skip silently.
+2. `gh` that story issue's **parent epic issue**; its number is `<epic-issue-number>`.
+3. If unresolved, **write nothing** — skip silently.
+
+Resolution is issue-only: do **not** look for a queue entry, an `epic.md`, or a matching directory
+name. The epic's queue entry is born at close, so during implementation there is nothing in the tree
+to match against — the epic issue number is resolvable at any point in the epic's life, and close
+births the entry at this same `epic-<epic-issue-number>` directory.
 
 This scratch is committed: ordinary commits carry it through your PR. It is a pre-checkpoint
 hint the lead-run stages (hld, analyze, close) mine and verify against the diff — never
