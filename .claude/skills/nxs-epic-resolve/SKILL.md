@@ -49,6 +49,20 @@ close's all-stories-closed gate) would act on a phantom story.
 -   **At most one.** Two record sub-issues abort with `multiple-record-subissues`; the resolver never
     silently picks one.
 
+## Withdrawn stories
+
+Re-scoping an epic leaves its cancelled stories behind as closed sub-issues — that is where the
+supersession trail belongs — but they are no longer scope. Label such a story **`wontfix`** or
+**`invalid`** and the resolver drops it: it is absent from `## User Stories`, the surviving stories
+renumber from one, and any `blocked_by` edge onto it is dropped rather than dangling a bare `#<n>`.
+
+-   **Closure state is not the signal.** A delivered story is closed too, so withdrawal must be said
+    explicitly. Closing as *not planned* alone does not remove a story from the materialization.
+-   **The match is exact**, case-folded like GitHub's label namespace — `wontfix-followup` is a live
+    story, not a withdrawal.
+-   **Never the record.** A record sub-issue is kept whatever labels it carries; its own withdrawal is
+    the approval question, which downstream stages decide from `record_state`.
+
 ## Usage
 
 ```bash
