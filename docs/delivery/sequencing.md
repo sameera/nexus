@@ -9,7 +9,7 @@ substrate items feeding a later CLI consolidation.
 
 Committing to this sequence commits to **GitHub issues as the source of truth** —
 `/nxs.epic` commits nothing at planning, a resolver materializes the epic from the
-issue graph, and the committed queue entry is born at *close*. This supersedes both
+issue graph, and the committed queue entry is born at _close_. This supersedes both
 the older migrate-at-close model and the interim hub-born-at-planning model (#109,
 abandoned 2026-07-21; replaced by #114, filed with stories #115–#119). Consequence:
 the already-promoted `close-entry-migration` (#49) and `distill-multi-repo` (#54)
@@ -18,20 +18,20 @@ Wave 3.
 
 ## Wave 1 — foundations (start now / in flight)
 
-| Item | Size | blocked_by | Why first |
-|---|---|---|---|
-| **issue-sourced-planning** (#114) | L | none | Filed (#115–#119). The root: GitHub issues become the source of truth, `/nxs.epic` commits nothing at planning, the resolver (#115) materializes the epic from the issue graph, and the committed entry is born at *close*. Everything below reads the epic through the resolver. |
-| **github-publishing-config** (#121) | M | none | The `github:` config resolver (types/labels/project). Ship before hld-subissue-record and pipeline-gh-cli so they consume it instead of hardcoding label maps and getting reworked. Build the resolver **once** here — hld-subissue-record, pipeline-gh-cli, and workspace-setup-cli all want it. |
-| **pr-flow-live-acceptance-dry-run** (#132) | S | none | Cheap de-risking, and it came in cheaper than sized. Range derivation is verified against real merged PRs read-only — rebase PASS 6/6, zero divergences, and `mergeCommit^1` proved wrong for every multi-commit PR here, so the refuse-rather-than-guess design is load-bearing. Squash and merge-commit close out on the next real PRs (#135). No longer a blocker for Wave 3. |
+| Item                                       | Size | blocked_by | Why first                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------ | ---- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **issue-sourced-planning** (#114)          | L    | none       | Filed (#115–#119). The root: GitHub issues become the source of truth, `/nxs.epic` commits nothing at planning, the resolver (#115) materializes the epic from the issue graph, and the committed entry is born at _close_. Everything below reads the epic through the resolver.                                                                                                |
+| **github-publishing-config** (#121)        | M    | none       | The `github:` config resolver (types/labels/project). Ship before hld-subissue-record and pipeline-gh-cli so they consume it instead of hardcoding label maps and getting reworked. Build the resolver **once** here — hld-subissue-record, pipeline-gh-cli, and workspace-setup-cli all want it.                                                                                |
+| **pr-flow-live-acceptance-dry-run** (#132) | S    | none       | Cheap de-risking, and it came in cheaper than sized. Range derivation is verified against real merged PRs read-only — rebase PASS 6/6, zero divergences, and `mergeCommit^1` proved wrong for every multi-commit PR here, so the refuse-rather-than-guess design is load-bearing. Squash and merge-commit close out on the next real PRs (#135). No longer a blocker for Wave 3. |
 
 ## Wave 2 — the file→issue core (after issue-sourced-planning lands)
 
-| Item | Size | blocked_by |
-|---|---|---|
-| **hld-subissue-record** | M | wants #114 (no committed `epic.md`) + github-publishing-config's `hld` type/label mapping |
+| Item                           | Size | blocked_by                                                                                |
+| ------------------------------ | ---- | ----------------------------------------------------------------------------------------- |
+| **hld-subissue-record** (#139) | M    | wants #114 (no committed `epic.md`) + github-publishing-config's `hld` type/label mapping |
 
 `hld-subissue-record` is the sharpest remaining file→issue move: `decision-record.md`
-→ an `hld` sub-issue, where closing the issue *is* approval. Supersedes
+→ an `hld` sub-issue, where closing the issue _is_ approval. Supersedes
 `hub-design-gate` outright, and pairs with #114 — once planning commits no `epic.md`,
 the record's `hld: "#n"` linkage lives on the epic issue, not a frontmatter stamp.
 (`entry-abandonment` dropped from this wave — #114 dissolves it: with nothing
@@ -44,13 +44,13 @@ epic issue.)
 nxs-pr-command → story-analyze-hub → epic-analyze-receipt → hub-close-multi-pr → multi-range-distill
 ```
 
-| Item | Size | blocked_by |
-|---|---|---|
-| **nxs-pr-command** | M | issue-sourced-planning (#114) |
-| **story-analyze-hub** | M | issue-sourced-planning (#114), nxs-pr-command |
-| **epic-analyze-receipt** | S | story-analyze-hub |
-| **hub-close-multi-pr** | M | epic-analyze-receipt |
-| **multi-range-distill** | M | hub-close-multi-pr |
+| Item                     | Size | blocked_by                                    |
+| ------------------------ | ---- | --------------------------------------------- |
+| **nxs-pr-command**       | M    | issue-sourced-planning (#114)                 |
+| **story-analyze-hub**    | M    | issue-sourced-planning (#114), nxs-pr-command |
+| **epic-analyze-receipt** | S    | story-analyze-hub                             |
+| **hub-close-multi-pr**   | M    | epic-analyze-receipt                          |
+| **multi-range-distill**  | M    | hub-close-multi-pr                            |
 
 The bulk of the work and a hard dependency chain. `nxs-pr-command` deletes branch
 scratch before PR open ("nothing needs cleanup on member main"). `story-analyze-hub`
@@ -61,15 +61,15 @@ PR-review machine block. `hub-close-multi-pr` absorbs the producer side of
 
 ## Wave 4 — consolidate + retire
 
-| Item | Size | blocked_by |
-|---|---|---|
-| **pipeline-gh-cli** | M | hld-subissue-record — can start once Wave 2 lands, in parallel with the Wave 3 tail |
-| **legacy-flow-retirement** | S | hub-close-multi-pr, multi-range-distill |
+| Item                       | Size | blocked_by                                                                          |
+| -------------------------- | ---- | ----------------------------------------------------------------------------------- |
+| **pipeline-gh-cli**        | M    | hld-subissue-record — can start once Wave 2 lands, in parallel with the Wave 3 tail |
+| **legacy-flow-retirement** | S    | hub-close-multi-pr, multi-range-distill                                             |
 
 `pipeline-gh-cli` turns each state transition into an idempotent `nexus` verb + a
 CI-callable gate. `legacy-flow-retirement` is where "less committed files" is fully
 realized: it deletes the member close-and-migrate choreography and the migration
-helper, leaving the distillation-PR merge as the *only* cleanup anywhere.
+helper, leaving the distillation-PR merge as the _only_ cleanup anywhere.
 
 ## Pulled out of the line
 
