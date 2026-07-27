@@ -20,11 +20,11 @@ describe("resolveEpic — AC1: all-or-nothing over N stories", () => {
         const r = resolveEpic(makeGhRunner(graph()), "/repo", 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.markdown).toContain("### Story 1: Resolver");
-        expect(r.markdown).toContain("### Story 2: Planning files");
-        expect(r.markdown).toContain("### Story 3: From flag");
-        expect(r.markdown).toContain("| STORY-115.02 | #117 | STORY-115.01 |");
-        expect(r.markdown).toContain("| STORY-115.03 | #118 | STORY-115.01 |");
+        expect(r.markdown).toContain("### Story #116: Resolver");
+        expect(r.markdown).toContain("### Story #117: Planning files");
+        expect(r.markdown).toContain("### Story #118: From flag");
+        expect(r.markdown).toContain("| #117 | #116 |");
+        expect(r.markdown).toContain("| #118 | #116 |");
     });
 
     it("resolves an epic with zero sub-issues (empty User Stories, empty sequence table)", () => {
@@ -32,7 +32,7 @@ describe("resolveEpic — AC1: all-or-nothing over N stories", () => {
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.markdown).toContain("## User Stories");
-        expect(r.markdown).toContain("| STORY | Issue | blocked_by |");
+        expect(r.markdown).toContain("| Issue | blocked_by |");
     });
 
     it("fails closed when a referenced sub-issue cannot be fetched (no markdown produced)", () => {
@@ -69,7 +69,7 @@ describe("resolveEpic — Story 3: --from epic-vs-story validation (requireEpic)
         const r = resolveEpic(makeGhRunner(graph()), "/repo", 115, { requireEpic: true });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.markdown).toContain("### Story 1: Resolver");
+        expect(r.markdown).toContain("### Story #116: Resolver");
     });
 
     it("rejects a story issue (has a parent) with not-an-epic, producing no markdown", () => {
@@ -162,9 +162,9 @@ describe("resolveEpic — STORY-139.01: a record sub-issue is not a story", () =
         const r = resolveEpic(makeGhRunner(withRecord()), "/repo", 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.markdown).toContain("### Story 3: From flag");
+        expect(r.markdown).toContain("### Story #118: From flag");
         expect(r.markdown).not.toContain("Decision Record: Planning");
-        expect(r.markdown).not.toContain("STORY-115.04");
+        expect(r.markdown).not.toContain("### Story #119");
         // The record never appears as a row in the story sequence table.
         const sequence = r.markdown.slice(r.markdown.indexOf("## Implementation Sequence"));
         expect(sequence).not.toContain("#119");
@@ -303,7 +303,7 @@ describe("resolveEpic — a withdrawn story is not live scope", () => {
         const r = resolveEpic(makeGhRunner(rescoped()), "/repo", 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.markdown).toContain("### Story 1: Survivor");
+        expect(r.markdown).toContain("### Story #118: Survivor");
         expect(r.markdown).not.toContain("Cancelled");
         expect(r.markdown).not.toContain("Misfiled");
     });
@@ -312,7 +312,7 @@ describe("resolveEpic — a withdrawn story is not live scope", () => {
         const r = resolveEpic(makeGhRunner(rescoped()), "/repo", 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.markdown).toContain("| STORY-115.01 | #118 |");
+        expect(r.markdown).toContain("| #118 |");
         expect(r.markdown).not.toContain("#116");
         expect(r.markdown).not.toContain("#117");
     });
@@ -321,7 +321,7 @@ describe("resolveEpic — a withdrawn story is not live scope", () => {
         const r = resolveEpic(makeGhRunner(rescoped()), "/repo", 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.markdown).toContain("| STORY-115.01 | #118 | none |");
+        expect(r.markdown).toContain("| #118 | none |");
     });
 
     it("keeps a closed story that was delivered, not withdrawn", () => {
@@ -332,7 +332,7 @@ describe("resolveEpic — a withdrawn story is not live scope", () => {
         const r = resolveEpic(makeGhRunner(delivered), "/repo", 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.markdown).toContain("### Story 1: Shipped");
+        expect(r.markdown).toContain("### Story #116: Shipped");
     });
 
     it("still resolves when every story was withdrawn (an emptied epic, not a failure)", () => {
@@ -344,7 +344,7 @@ describe("resolveEpic — a withdrawn story is not live scope", () => {
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.markdown).toContain("## User Stories");
-        expect(r.markdown).not.toContain("### Story 1");
+        expect(r.markdown).not.toContain("### Story #");
     });
 
     it("never drops the decision record, whatever labels it carries", () => {
@@ -371,9 +371,9 @@ describe("resolveEpic — AC4: dependency edges exact", () => {
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         const seq = r.markdown.slice(r.markdown.indexOf("## Implementation Sequence"));
-        // Exactly two edges: 117→116 and 118→116, both rendered as STORY-115.01. #116 itself has none.
-        expect(seq).toContain("| STORY-115.01 | #116 | none |");
-        expect(seq).toContain("| STORY-115.02 | #117 | STORY-115.01 |");
-        expect(seq).toContain("| STORY-115.03 | #118 | STORY-115.01 |");
+        // Exactly two edges: 117→116 and 118→116. #116 itself has none.
+        expect(seq).toContain("| #116 | none |");
+        expect(seq).toContain("| #117 | #116 |");
+        expect(seq).toContain("| #118 | #116 |");
     });
 });

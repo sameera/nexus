@@ -50,7 +50,7 @@ project: "acme-corp/app-roadmap"
 
 | Field        | Required | Description                                                                                                                  |
 | ------------ | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `ref`        | No       | Stable planning-time key (`STORY-{EPIC}.{SEQ}`). Used only to resolve `blocked_by`; **not** shown on the issue. Defaults to the filename stem. |
+| `ref`        | No       | Authoring key for this batch (`STORY-{EPIC}.{SEQ}`), whose whole purpose is to resolve `blocked_by` before the issues have numbers. **Not** shown on the issue and dead once the batch is filed — from then on a story's only name is `#<issue>`. Defaults to the filename stem. |
 | `title`      | Yes      | Issue title — the plain story title (no `STORY-…` prefix; the epic link and dependencies carry the structure).               |
 | `blocked_by` | No       | List of story `ref`s this story is blocked by (`[STORY-42.01, …]`), or `none`. Wired as native GitHub issue dependencies.    |
 | `labels`     | No       | Extra GitHub labels: `[label1, label2, ...]`. The canonical `story` label is always added automatically.                     |

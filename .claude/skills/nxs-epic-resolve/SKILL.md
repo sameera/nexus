@@ -25,6 +25,11 @@ an ephemeral, gitignored path. The output is:
     output; a dropped story never masquerades as an epic with fewer stories.
 -   **Ephemeral** — written under `.nexus/tmp/` (gitignored), so a run leaves `git status` reporting
     no new tracked file.
+-   **Keyed on issue numbers only** — a story is `### Story #<issue>:` and the sequence table's rows
+    and `blocked_by` cells are `#<issue>`. The `STORY-<epic>.<seq>` ref belongs to `/nxs.epic`'s
+    pre-filing batch, where no issue numbers exist yet; re-deriving it here would give each story a
+    second, **positional** name that shifts whenever the epic is re-scoped while the issue number
+    beside it stayed correct.
 
 Frontmatter carries only what a bare epic issue recoverably provides — the `epic` title and the
 `link` number. Fields the filing skills strip (`complexity`, `feature_path`, `slug`, …) are omitted,
@@ -53,8 +58,9 @@ close's all-stories-closed gate) would act on a phantom story.
 
 Re-scoping an epic leaves its cancelled stories behind as closed sub-issues — that is where the
 supersession trail belongs — but they are no longer scope. Label such a story **`wontfix`** or
-**`invalid`** and the resolver drops it: it is absent from `## User Stories`, the surviving stories
-renumber from one, and any `blocked_by` edge onto it is dropped rather than dangling a bare `#<n>`.
+**`invalid`** and the resolver drops it: it is absent from `## User Stories` and from the sequence
+table, and any `blocked_by` edge onto it is dropped rather than dangling a pointer to work that will
+never ship. The surviving stories keep their own names, because those names are their issue numbers.
 
 -   **Closure state is not the signal.** A delivered story is closed too, so withdrawal must be said
     explicitly. Closing as *not planned* alone does not remove a story from the materialization.

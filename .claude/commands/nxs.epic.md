@@ -419,9 +419,13 @@ story becomes one GitHub issue, child of the epic issue.
     override it either way; nothing here is remembered off the issue.
 
 2. **Sequence the stories.** Order by dependency: foundational first (core data / shared surface),
-   then dependents, then polish. Assign each a stable ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in
-   order) and record `blocked_by` as a list of story refs or `none`. Do **not** split or merge —
-   sizing happened in Phase 3.
+   then dependents, then polish. Assign each a ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in order)
+   and record `blocked_by` as a list of story refs or `none`. Do **not** split or merge — sizing
+   happened in Phase 3.
+
+   The ref is an **authoring key with the lifetime of this batch**, not a name for the story: it exists
+   only so a story can name its blockers before `gh issue create` has minted any issue numbers. It is
+   never written to an issue, never reported after filing, and never re-derived downstream.
 
 3. **Write transient story work-items** to the scratchpad, one `STORY-<EPIC>.<SEQ>.md` per story, with
    the frontmatter the creation skill consumes and the story body as the issue body:
@@ -474,11 +478,16 @@ story becomes one GitHub issue, child of the epic issue.
    step 2 in memory only — surface it in the Phase 7 completion report:
 
     ```markdown
-    | STORY | Issue | blocked_by |
-    |---|---|---|
-    | STORY-<EPIC>.01 | #<n> | none |
-    | STORY-<EPIC>.02 | #<n> | STORY-<EPIC>.01 |
+    | Issue | blocked_by |
+    |---|---|
+    | #<n> | none |
+    | #<m> | #<n> |
     ```
+
+    Report the sequence by **issue number** — the `STORY-<EPIC>.<SEQ>` refs died at step 4. They exist
+    only to wire `blocked_by` inside a batch that has no issue numbers yet; once the issues are filed a
+    story has exactly one name, and the ref is positional, so keeping it would hand every story a second
+    name that silently shifts whenever the epic is re-scoped.
 
 6. **Write the feature nav index.** Now that the issue exists, write `<feature-path>/README.md`
    with an `## Epics` entry that links **directly to the epic issue `#<EPIC>`** — no draft, no later
@@ -608,6 +617,10 @@ Notes on the shape (vs. the pre-refactor epic):
 - **No glossary.** Terms that name durable concepts are routed to a concept page's `aliases:` at close time (System B), not stored in the epic.
 - **No Business Value section** — it is speculative generation (nobody specifies it upfront). The WHY lives in `## Description`; the measurable outcomes live in `## Success Metrics`.
 - **Personas are deviations-only** — the canonical set is `<docs-root>/product/context.md`.
+- **`### Story 1:` numbering is a pre-filing artifact of this draft**, which exists before any issue
+  is created and so has no issue numbers to use. It is not the shape of a materialized epic: once the
+  issues exist, the resolver identifies each story as `### Story #<issue>:` and the sequence table
+  keys on `#<issue>`. Nothing downstream ever refers to a filed story by position.
 
 ---
 

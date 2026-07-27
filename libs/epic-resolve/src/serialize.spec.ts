@@ -91,50 +91,64 @@ describe("serializeEpic — section placement", () => {
 });
 
 describe("serializeEpic — user stories", () => {
-    it("renders one ### Story heading per story in ascending-number order with its body", () => {
+    it("identifies each story by its issue number, in ascending order, with its body", () => {
         const md = serializeEpic(input());
-        expect(md).toContain("### Story 1: First story");
-        expect(md).toContain("### Story 2: Second story");
-        expect(md.indexOf("### Story 1:")).toBeLessThan(md.indexOf("### Story 2:"));
+        expect(md).toContain("### Story #116: First story");
+        expect(md).toContain("### Story #117: Second story");
+        expect(md.indexOf("#116:")).toBeLessThan(md.indexOf("#117:"));
         expect(md).toContain("**As a** dev **I want** X.");
+    });
+
+    it("carries no positional story ref anywhere — the issue number is the only identifier", () => {
+        // A positional ref is re-derived from sort order on every resolve, so it renames a story
+        // whenever the epic is re-scoped. Two ways to name one story is one too many.
+        const md = serializeEpic(input());
+        expect(md).not.toMatch(/STORY-\d+\.\d+/);
+        expect(md).not.toContain("### Story 1:");
     });
 
     it("renders a heading-only story when its body is empty", () => {
         const md = serializeEpic(
             input({ stories: [{ number: 116, title: "Bodyless", body: "  \n  " }], blockedBy: new Map([[116, []]]) }),
         );
-        expect(md).toContain("### Story 1: Bodyless");
+        expect(md).toContain("### Story #116: Bodyless");
     });
 });
 
 describe("serializeEpic — implementation sequence (AC4)", () => {
-    it("reproduces every blocked_by edge as story refs, inventing none", () => {
+    it("reproduces every blocked_by edge as issue refs, inventing none", () => {
         const md = serializeEpic(input());
-        expect(md).toContain("| STORY | Issue | blocked_by |");
-        expect(md).toContain("| STORY-115.01 | #116 | none |");
-        expect(md).toContain("| STORY-115.02 | #117 | STORY-115.01 |");
+        expect(md).toContain("| Issue | blocked_by |");
+        expect(md).toContain("| #116 | none |");
+        expect(md).toContain("| #117 | #116 |");
     });
 
     it("renders `none` for every story when there are no dependencies", () => {
         const md = serializeEpic(input({ blockedBy: new Map([[116, []], [117, []]]) }));
         const seqStart = md.indexOf("## Implementation Sequence");
         const seq = md.slice(seqStart);
-        expect(seq).toContain("| STORY-115.01 | #116 | none |");
-        expect(seq).toContain("| STORY-115.02 | #117 | none |");
-        expect(seq).not.toMatch(/blocked_by \|\n\|---.*\n.*STORY-115\.0\d.*STORY-115/);
+        expect(seq).toContain("| #116 | none |");
+        expect(seq).toContain("| #117 | none |");
     });
 
-    it("renders an out-of-epic blocker as its raw issue ref, still not inventing an in-epic edge", () => {
+    it("renders an out-of-epic blocker the same way an in-epic one is rendered", () => {
+        // With the issue number as the only identifier, an in-epic and an out-of-epic blocker need
+        // no different notation — which is what made the positional ref leak in the first place.
         const md = serializeEpic(input({ blockedBy: new Map([[116, [999]], [117, [116]]]) }));
-        expect(md).toContain("| STORY-115.01 | #116 | #999 |");
-        expect(md).toContain("| STORY-115.02 | #117 | STORY-115.01 |");
+        expect(md).toContain("| #116 | #999 |");
+        expect(md).toContain("| #117 | #116 |");
+    });
+
+    it("sorts multiple blockers by issue number", () => {
+        const md = serializeEpic(input({ blockedBy: new Map([[116, []], [117, [999, 116]]]) }));
+        expect(md).toContain("| #117 | #116, #999 |");
     });
 
     it("drops a stale Implementation Sequence baked into the epic body and rebuilds from live deps", () => {
-        const staleBody = EPIC_BODY + "\n\n## Implementation Sequence\n\n| STORY | Issue | blocked_by |\n|---|---|---|\n| STORY-115.01 | #116 | STORY-115.02 |";
+        const staleBody = EPIC_BODY + "\n\n## Implementation Sequence\n\n| Issue | blocked_by |\n|---|---|\n| #116 | #117 |";
         const md = serializeEpic(input({ epic: { number: 115, title: "Sample", body: staleBody } }));
         expect(md.match(/## Implementation Sequence/g)?.length).toBe(1);
-        expect(md).toContain("| STORY-115.02 | #117 | STORY-115.01 |"); // live edge, not the stale reversed one
+        expect(md).toContain("| #117 | #116 |"); // live edge, not the stale reversed one
     });
 });
 

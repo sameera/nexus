@@ -7,6 +7,11 @@
  * `blocked_by` edges (never a stale table baked into the issue body), and no volatile field
  * (timestamp, run id) is ever emitted — so the same graph always serializes to byte-identical text.
  *
+ * A story is named by its **issue number and nothing else**. The pipeline's `STORY-<epic>.<seq>` ref
+ * is an authoring key for the pre-filing batch, where no issue numbers exist yet; re-deriving it here
+ * would give every story a second name that is positional — silently reassigned whenever the epic is
+ * re-scoped and the surviving stories shift — while the issue number beside it stayed correct.
+ *
  * When the epic has a decision-record sub-issue (epic #139) its number and open/closed state are
  * emitted as frontmatter fields, so every downstream stage recovers the record without re-walking
  * the issue graph. They are omitted entirely — never emitted as a placeholder — when there is none.
@@ -113,35 +118,24 @@ function renderFrontmatter(epic: EpicHeader, record: EpicRecord | null): string 
     return ["---", `epic: ${JSON.stringify(epic.title)}`, `link: "#${epic.number}"`, ...recordFields, "---"].join("\n");
 }
 
-/** `STORY-<epic>.<seq>` — zero-padded to two digits, matching the pipeline's story-ref shape. */
-function storyRef(epicNumber: number, seq: number): string {
-    return `STORY-${epicNumber}.${String(seq).padStart(2, "0")}`;
-}
-
 function renderUserStories(stories: EpicStory[]): string {
     const parts: string[] = ["## User Stories"];
-    stories.forEach((story, index) => {
-        const heading = `### Story ${index + 1}: ${story.title}`;
+    for (const story of stories) {
+        const heading = `### Story #${story.number}: ${story.title}`;
         const body = trimBlock(story.body);
         parts.push(body.length > 0 ? `${heading}\n\n${body}` : heading);
-    });
+    }
     return parts.join("\n\n");
 }
 
-function renderSequence(epicNumber: number, stories: EpicStory[], blockedBy: Map<number, number[]>): string {
-    const refByNumber = new Map<number, string>();
-    stories.forEach((story, index) => refByNumber.set(story.number, storyRef(epicNumber, index + 1)));
-
-    const rows = stories.map((story, index) => {
+function renderSequence(stories: EpicStory[], blockedBy: Map<number, number[]>): string {
+    const rows = stories.map((story) => {
         const blockers = [...(blockedBy.get(story.number) ?? [])].sort((a, b) => a - b);
-        const cell =
-            blockers.length === 0
-                ? "none"
-                : blockers.map((n) => refByNumber.get(n) ?? `#${n}`).join(", ");
-        return `| ${storyRef(epicNumber, index + 1)} | #${story.number} | ${cell} |`;
+        const cell = blockers.length === 0 ? "none" : blockers.map((n) => `#${n}`).join(", ");
+        return `| #${story.number} | ${cell} |`;
     });
 
-    return ["## Implementation Sequence", "", "| STORY | Issue | blocked_by |", "|---|---|---|", ...rows].join("\n");
+    return ["## Implementation Sequence", "", "| Issue | blocked_by |", "|---|---|", ...rows].join("\n");
 }
 
 /** Reconstruct the `epic.md` markdown for one resolved epic. Deterministic over its input. */
@@ -167,7 +161,7 @@ export function serializeEpic(input: SerializeInput): string {
     }
     if (!inserted) blocks.push(userStories);
 
-    blocks.push(renderSequence(input.epic.number, stories, input.blockedBy));
+    blocks.push(renderSequence(stories, input.blockedBy));
 
     return blocks.join("\n\n") + "\n";
 }
