@@ -77,8 +77,11 @@ it never hard-fails with "queue entry not found" just because planning committed
 2. **Committed entry (transitional)** — else glob:
 
     ```bash
-    ls -d .nexus/queue/*/ 2>/dev/null
+    ls -d .nexus/queue/*/epic.md 2>/dev/null   # an entry is a dir carrying epic.md
     ```
+
+    A `.nexus/queue/epic-<n>/` holding only per-user decision scratch (`--revise` on an epic already
+    in implementation) is **not** a committed entry — hence the `epic.md` requirement.
 
     - **≥1 entry** → today's behavior: **1** → use it; **>1** → read each `epic.md` title and ask
       which via `AskUserQuestion` (label = epic title, description = queue path + complexity). Record

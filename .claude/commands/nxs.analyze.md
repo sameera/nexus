@@ -72,8 +72,11 @@ Resolve in priority order — **dual-read**: a committed entry when one exists, 
 issue number (invariant 14):
 
 1. **Explicit path in `$ARGUMENTS`** — a queue entry, an `epic.md`, or its directory.
-2. **Committed queue entry in the current tree** — glob `.nexus/queue/*/`; a single entry is used,
-   multiple prompt a selection. (Old-contract epics, including #114 itself.)
+2. **Committed queue entry in the current tree** — glob `.nexus/queue/*/epic.md`; a single entry is
+   used, multiple prompt a selection. (Old-contract epics, including #114 itself.) The `epic.md`
+   requirement matters: an in-flight epic's `.nexus/queue/epic-<n>/` holds only per-user scratch and is
+   **not** an entry — treating it as one would fail on a missing `epic.md` instead of resolving from
+   the issue.
 3. **Resolve from the issue number (invariant 11)** — if no committed entry exists, reconstruct the
    epic instead of failing with "queue entry not found":
     - Epic issue number (invariant 12): the explicit `#<n>` / `<n>` in `$ARGUMENTS`, else derived from
@@ -184,8 +187,12 @@ Determine what was actually built for this epic. Use, in order of availability:
 3. **Targeted code reads.** Where the diff is large or a story's AC names a behavior, grep/read the
    touched files to confirm the behavior exists, rather than trusting the diff stat alone.
 
-4. **Committed engineer scratch (soft, on the PR head).** If the entry carries per-user
-   stubs — `${QDIR}/*/decisions-*.md`, `${QDIR}/*/notes-*.md` — read them as *context only*.
+4. **Committed engineer scratch (soft, on the PR head).** Read the epic's **scratch home** —
+   `<tree>/.nexus/queue/epic-<epic-issue>/`, keyed on the epic issue number by the capture rule, and
+   `<tree>` is `wtPath` in `--pr` mode. Note it is resolved from the issue number, **not** from `QDIR`:
+   a resolver-materialized epic lives under `.nexus/tmp/`, which never holds scratch. For an
+   old-contract committed entry also read `${QDIR}/*/`. If stubs are
+   present — `decisions-*.md`, `notes-*.md` — read them as *context only*.
    They surface the engineer's stated rationale for a divergence at review time (visible now
    because the scratch is committed to the PR head, not machine-local). Use them to explain
    scope drift (§2.4) and, in **downgraded** mode, to reconstruct likely invariants the
@@ -361,7 +368,9 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
   agent (`/nxs.epic`); story↔design coverage is verified in `/nxs.decision-record`. Not here.
 - **Engineer scratch is soft.** The per-user stubs are read-only context that can explain a
   divergence but never decide a verdict or gate the receipt; a missing scratch dir changes
-  nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch.
+  nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch. Its
+  home is `.nexus/queue/epic-<epic-issue>/` — resolved from the epic issue number, never from `QDIR`,
+  which under issue-sourced planning is a gitignored `.nexus/tmp/` materialization.
 - **`--pr` mode runs in a worktree and publishes a review, not a file.** Single-repo and hub only
   (the helper rejects member repos). Every read happens inside the worktree; the worktree is always
   removed at the end and on error. The conformance result is a PR review (comment fallback when the
