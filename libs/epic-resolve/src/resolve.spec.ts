@@ -287,6 +287,84 @@ describe("resolveEpic — STORY-139.01: a record sub-issue is not a story", () =
     });
 });
 
+describe("resolveEpic — a withdrawn story is not live scope", () => {
+    function rescoped(): FixtureGraph {
+        return {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [
+                { number: 116, title: "Cancelled", body: "**As a** stage **I want** X.", state: "CLOSED", labels: ["story", "wontfix"] },
+                { number: 117, title: "Misfiled", body: "**As a** PM **I want** Y.", state: "CLOSED", labels: ["story", "invalid"] },
+                { number: 118, title: "Survivor", body: "**As an** engineer **I want** Z.", labels: ["story"], blockedBy: [116] },
+            ],
+        };
+    }
+
+    it("materializes only the stories that are still in scope", () => {
+        const r = resolveEpic(makeGhRunner(rescoped()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story 1: Survivor");
+        expect(r.markdown).not.toContain("Cancelled");
+        expect(r.markdown).not.toContain("Misfiled");
+    });
+
+    it("renumbers the surviving stories from one, leaving no gap where a withdrawn one was", () => {
+        const r = resolveEpic(makeGhRunner(rescoped()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("| STORY-115.01 | #118 |");
+        expect(r.markdown).not.toContain("#116");
+        expect(r.markdown).not.toContain("#117");
+    });
+
+    it("drops a dependency edge onto a withdrawn story rather than dangling a reference to it", () => {
+        const r = resolveEpic(makeGhRunner(rescoped()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("| STORY-115.01 | #118 | none |");
+    });
+
+    it("keeps a closed story that was delivered, not withdrawn", () => {
+        const delivered: FixtureGraph = {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [{ number: 116, title: "Shipped", body: "**As a** stage **I want** X.", state: "CLOSED", labels: ["story"] }],
+        };
+        const r = resolveEpic(makeGhRunner(delivered), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story 1: Shipped");
+    });
+
+    it("still resolves when every story was withdrawn (an emptied epic, not a failure)", () => {
+        const emptied: FixtureGraph = {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [{ number: 116, title: "Cancelled", body: "x", state: "CLOSED", labels: ["wontfix"] }],
+        };
+        const r = resolveEpic(makeGhRunner(emptied), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("## User Stories");
+        expect(r.markdown).not.toContain("### Story 1");
+    });
+
+    it("never drops the decision record, whatever labels it carries", () => {
+        const labelled: FixtureGraph = {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [
+                { number: 119, title: "Decision Record: Planning", body: "why", state: "CLOSED", labels: ["decision-record", "wontfix"] },
+                { number: 118, title: "Survivor", body: "z", labels: ["story"] },
+            ],
+        };
+        const r = resolveEpic(makeGhRunner(labelled), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        // The record's own withdrawal is the approval question, decided by state — a stage that
+        // gates on it must still see the record, not an epic that appears to have none.
+        expect(r.record).toEqual({ number: 119, state: "closed" });
+        expect(r.markdown).toContain('record: "#119"');
+    });
+});
+
 describe("resolveEpic — AC4: dependency edges exact", () => {
     it("reproduces exactly the native blocked_by edges and invents none", () => {
         const r = resolveEpic(makeGhRunner(graph()), "/repo", 115);

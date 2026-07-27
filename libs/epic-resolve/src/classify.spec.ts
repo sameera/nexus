@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifySubIssue, resolveRecordClassification } from "./classify.js";
+import { classifySubIssue, isWithdrawnStory, resolveRecordClassification } from "./classify.js";
 import { type RunResult, type Runner } from "./run.js";
 
 /** A Runner that answers the shared publishing resolver's `resolve <key>` calls from a map. */
@@ -110,5 +110,29 @@ describe("classifySubIssue — record-positive, everything else is a story", () 
         expect(classifySubIssue(legacy, { labels: ["decision-record"], issueType: null })).toBe("record");
         expect(classifySubIssue(legacy, { labels: [], issueType: "Decision Record" })).toBe("record");
         expect(classifySubIssue(legacy, { labels: ["story"], issueType: "Story" })).toBe("story");
+    });
+});
+
+describe("isWithdrawnStory — a cancelled story is not live scope", () => {
+    it("recognises the withdrawal labels", () => {
+        expect(isWithdrawnStory(["story", "wontfix"])).toBe(true);
+        expect(isWithdrawnStory(["story", "invalid"])).toBe(true);
+    });
+
+    it("leaves an ordinary story alone", () => {
+        expect(isWithdrawnStory(["story", "pipeline"])).toBe(false);
+        expect(isWithdrawnStory([])).toBe(false);
+    });
+
+    it("folds case, as GitHub's label namespace does", () => {
+        expect(isWithdrawnStory(["WontFix"])).toBe(true);
+        expect(isWithdrawnStory(["INVALID"])).toBe(true);
+    });
+
+    it("does not treat a merely similar label as withdrawal", () => {
+        // Withdrawal drops work out of the epic, so the marker is exact — never a substring or a
+        // prefix, or `wontfix-followup` would silently delete live scope.
+        expect(isWithdrawnStory(["wontfix-followup"])).toBe(false);
+        expect(isWithdrawnStory(["invalidated-assumption"])).toBe(false);
     });
 });

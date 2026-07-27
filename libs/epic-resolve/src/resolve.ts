@@ -12,9 +12,20 @@
  * record**. It is identified record-positively (see classify.ts), kept out of the story set, and
  * surfaced as its own recoverable field — so no downstream stage that iterates stories ever acts on
  * a phantom story, and an epic with no record sub-issue resolves byte-identically to before.
+ *
+ * A story sub-issue may also have been **withdrawn** — cancelled or misfiled when the epic was
+ * re-scoped. It stays a sub-issue on GitHub (that is where its supersession trail belongs) but is
+ * dropped from the materialized epic, along with any dependency edge onto it: otherwise every stage
+ * that iterates stories checks acceptance criteria for work that will never ship. The record is never
+ * dropped this way — its own withdrawal is the approval question, decided by state.
  */
 
-import { classifySubIssue, resolveRecordClassification, type RecordClassification } from "./classify.js";
+import {
+    classifySubIssue,
+    isWithdrawnStory,
+    resolveRecordClassification,
+    type RecordClassification,
+} from "./classify.js";
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
 import {
     fetchBlockedBy,
@@ -102,6 +113,7 @@ export function resolveEpic(
 
     const stories: EpicStory[] = [];
     const blockedBy = new Map<number, number[]>();
+    const withdrawn = new Set<number>();
     let record: EpicRecord | null = null;
     for (const subNumber of subs.numbers) {
         const sub = fetchIssue(run, targetRoot, subNumber, "subissue-fetch-failed");
@@ -132,11 +144,31 @@ export function resolveEpic(
             continue;
         }
 
+        // A withdrawn story is out of the epic's scope, so it is dropped before it can reach the
+        // story set. Its closure state cannot decide this — a delivered story is closed too — and it
+        // stays a sub-issue on GitHub, where its supersession trail belongs.
+        if (isWithdrawnStory(sub.issue.labels)) {
+            withdrawn.add(subNumber);
+            continue;
+        }
+
         stories.push({ number: sub.issue.number, title: sub.issue.title, body: sub.issue.body });
 
         const deps = fetchBlockedBy(run, targetRoot, subNumber);
         if (!deps.ok) return deps;
         blockedBy.set(subNumber, deps.numbers);
+    }
+
+    // An edge onto a withdrawn story would render as a bare `#<n>` — a dangling pointer to work that
+    // will never ship. The blocker is gone, so the edge is gone. Applied after the walk, because a
+    // story may be blocked by one withdrawn later in the sub-issue order.
+    if (withdrawn.size > 0) {
+        for (const [storyNumber, deps] of blockedBy) {
+            blockedBy.set(
+                storyNumber,
+                deps.filter((n) => !withdrawn.has(n)),
+            );
+        }
     }
 
     const { rawFrontmatter, body } = extractMeta(epic.issue.body);

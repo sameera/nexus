@@ -41,6 +41,26 @@ export interface SubIssueMarkers {
 
 export type SubIssueKind = "record" | "story";
 
+/**
+ * Labels that mark a story sub-issue as **withdrawn** — cancelled or misfiled work that is no longer
+ * part of the epic's scope. GitHub's own default label names, so no repo has to declare anything.
+ */
+const WITHDRAWAL_LABELS: ReadonlySet<string> = new Set<string>(["wontfix", "invalid"]);
+
+/**
+ * Whether a story sub-issue has been withdrawn from the epic's scope.
+ *
+ * A re-scoped epic keeps its cancelled stories as closed sub-issues — the supersession trail lives on
+ * them — but the materialized epic must not present them as live scope, or every stage that iterates
+ * stories checks acceptance criteria for work that will never ship. Closure state alone cannot carry
+ * this: a *delivered* story is closed too. So the signal is an explicit label, and the match is exact
+ * (case-folded, as GitHub's label namespace is) — a substring rule would let `wontfix-followup`
+ * silently delete live scope.
+ */
+export function isWithdrawnStory(labels: string[]): boolean {
+    return labels.some((name) => WITHDRAWAL_LABELS.has(name.toLowerCase()));
+}
+
 type Ok<T> = { ok: true } & T;
 type Err = { ok: false; error: EpicResolveDiagnostic };
 
