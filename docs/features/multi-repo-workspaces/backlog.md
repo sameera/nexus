@@ -194,7 +194,7 @@
 
 ## nxs-pr-command
 
-- **status:** proposed
+- **status:** promoted
 - **goal:** A new engineer-facing `nxs.pr` command — the only Nexus command an engineer must run —
   raises the story PR: derives a deviation block from the branch's scratch stubs, stamps story/epic
   IDs and the derived-from SHA into a machine-readable block in the PR body, and deletes the scratch

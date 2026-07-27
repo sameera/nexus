@@ -21,3 +21,4 @@ hub docs repo holds the concept store and drains the queue.
 - **Issue-Sourced Planning: Nothing Commits Until Close** — [#114](https://github.com/sameera/nexus/issues/114)
 - **GitHub Publishing Config** — [#121](https://github.com/sameera/nexus/issues/121)
 - **The Decision Record Becomes an Approvable Sub-Issue** — [#139](https://github.com/sameera/nexus/issues/139)
+- **The Engineer's PR Command: Rationale Rides the PR Body** — [#157](https://github.com/sameera/nexus/issues/157)
