@@ -127,23 +127,28 @@ single-repo and hub mode only.
 
 4. **Resolve `QDIR` — dual: born-at-close, else a committed entry (invariant 14, 15).** Operate
    inside `wtPath` for every path operation below.
-    - **Committed entry present** — a path was given, or an entry for this epic already exists under
-      `wtPath/.nexus/queue/…` (an old-contract epic whose entry rode the PR): set `QDIR` to that entry
-      re-rooted under `wtPath/.nexus/queue/…`. Its `epic.md` is already committed; skip the
-      materialization below.
+    - **Committed entry present** — a path was given, or a directory **containing `epic.md`** for this
+      epic already exists under `wtPath/.nexus/queue/…` (an old-contract epic whose entry rode the PR):
+      set `QDIR` to that entry re-rooted under `wtPath/.nexus/queue/…`. Its `epic.md` is already
+      committed; skip the materialization below. A `.nexus/queue/epic-<epic-issue>/` directory holding
+      only per-user scratch dirs is **not** a committed entry — it is this epic's scratch home, written
+      during implementation by the capture rule, and it is the directory the born-at-close entry below
+      materializes into.
     - **Born at close (nothing committed at planning)** — no committed entry exists. Materialize the
-      epic into a **fresh committed queue entry** so the queue is born here, not at planning:
+      epic into the epic's **committed queue entry** so the queue is born here, not at planning. The
+      entry directory is `epic-<epic-issue>` — the same path the capture rule writes scratch to, so a
+      branch that captured stubs already created it and its stubs are in the entry with nothing moved:
 
         ```bash
         tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts \
           --epic <epic-issue> --dir "$wtPath" --out "$wtPath/.nexus/tmp/born-<epic-issue>/epic.md"
-        LOCAL_ID="$(python3 -c 'import secrets; print(secrets.token_hex(4))')"
-        SLUG="$(<slug from the materialized epic.md frontmatter, else epic-<epic-issue>>)"
-        QDIR="$wtPath/.nexus/queue/${SLUG}-${LOCAL_ID}"
+        QDIR="$wtPath/.nexus/queue/epic-<epic-issue>"
         mkdir -p "$QDIR" && mv "$wtPath/.nexus/tmp/born-<epic-issue>/epic.md" "$QDIR/epic.md"
         ```
 
-      On a non-zero resolver exit, report the diagnostic and stop (no entry is created). The
+      `mkdir -p` is deliberate: the directory may already exist and hold committed scratch, which is
+      left exactly where it is. On a non-zero resolver exit, report the diagnostic and stop (no entry
+      is created). The
       materialized `epic.md` now lives at a **tracked** `.nexus/queue/…` path (not the gitignored
       `.nexus/tmp/`) — it is committed with the close record in Phase 7.6 as the born-at-close entry.
       The entry carries **no `decision-record.md`** (nothing was committed at planning; the durable
@@ -345,12 +350,16 @@ any not already captured in the decision record. **Sources (C6), in priority ord
     gh issue view <story-issue> $REPO_ARG --json title,body,comments
     ```
 
-3. **Committed decision stubs** — `${QDIR}/*/decisions-*.md` (one per-user subdir per
-   engineer; per-branch files). `QDIR` is already the epic's queue entry, so no branch→epic
-   mapping is needed:
+3. **Committed decision stubs** — `${SDIR}/*/decisions-*.md` (one per-user subdir per
+   engineer; per-branch files), where `SDIR` is the epic's **scratch home**, no branch→epic mapping
+   needed. Capture keys the scratch path on the epic issue number, so `SDIR` is
+   `<tree>/.nexus/queue/epic-<epic-issue>` — which *is* `${QDIR}` for a born-at-close entry. For an
+   old-contract entry whose directory is slug-named, read both it and the epic-issue path; either is
+   valid input and neither is required:
 
     ```bash
-    ls "${QDIR}"/*/decisions-*.md 2>/dev/null
+    SDIR="$(dirname "${QDIR}")/epic-<epic-issue>"
+    ls "${QDIR}"/*/decisions-*.md "${SDIR}"/*/decisions-*.md 2>/dev/null   # SDIR == QDIR when born at close
     ```
 
     Each stub records a choice, its why, and the refuted alternative — captured at the
@@ -409,13 +418,21 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
    each happened** (one prompt covering the list; use `AskUserQuestion` if the set is small and
    discrete, otherwise ask for the rationale inline). Only deviations get an entry.
 
-5. **Consult committed engineer notes as weak hints** — `${QDIR}/*/notes-*.md`, if any.
+5. **Consult committed engineer notes as weak hints** — `${QDIR}/*/notes-*.md` and
+   `${SDIR}/*/notes-*.md` (Phase 2), if any.
    Working scratch, routinely diverges from what ships; use only to *notice* deviations
    (notes said X, the diff shows Y — ask about it), never as a source of record. (No
    `hld-*.md` glob — developer HLDs are not captured in the queue; see the layout spec.)
 
+6. **Mark the superseding subset** — of the deviations above, which ones **change what the record
+   decided**? The admission test is a contradiction: the record decided X and the shipped code does
+   **not**-X — an approved choice refuted, replaced, or inverted. A deviation that merely elaborates,
+   extends, or implements something the record left unstated is **not** superseding. Carry the marked
+   subset (record's decision · what shipped · the human's why) into Phase 8.1; it is a subset of the
+   Deviation Rationale, never a separate collection, and it is empty on a conformant close.
+
 If the diff shows **no** deviation from the decision record, record that plainly — the Deviation
-Rationale section is then empty (a matched implementation, not a gap).
+Rationale section is then empty (a matched implementation, not a gap), and nothing is marked in step 6.
 
 # Phase 4 — Write the close record
 
@@ -606,9 +623,46 @@ git -C <wtPath> push -u origin "distill/<date>-<slug>"
 - If the push fails, continue to Phase 8 but end the run with an `ACTION REQUIRED: git -C <wtPath>
   push` — closure is not durable off this machine until the branch is pushed.
 
-# Phase 8 — Post the comment and close the epic issue
+# Phase 8 — Post the comments and close the epic issue
 
 In member mode this phase runs only after Phase 7.5 succeeded; in `--pr` mode, only after Phase 7.6.
+
+## 8.1 Amend the decision record (advisory; only when the record was superseded)
+
+If Phase 3.6 marked **nothing**, do nothing here — no comment, and nothing reported as missing.
+Silence on the record thread means the implementation conformed to it. Skip this step entirely when
+the epic has no record at all.
+
+Otherwise post **one** comment on the epic's **decision-record sub-issue** — the record is the durable
+answer to "why is it built this way", and a reader of that design must not be told a choice was made
+that the shipped code refuted. Write the body to a scratch file and post it with `--body-file`:
+
+```bash
+gh issue comment <record> $REPO_ARG --body-file "<scratch>/record-amendment.md"
+```
+
+```markdown
+## Amended at close — <N> decision(s) superseded
+
+`/nxs.close` verified these against the shipped diff (`<base>`…`<head>`). The record body stands as
+approved; this comment is the correction, not a re-decision.
+
+- **<what the record decided>** → **shipped:** <what the code does instead>. <why>
+- …
+```
+
+- **Prose only, never raw scratch.** Decision stubs and notes are input evidence to Phase 3; no stub
+  text is posted. Only diff-verified superseding decisions appear.
+- **The body is never edited**, nor the title, labels, or state. The record hash every stage stamps is
+  canonicalised over the issue *body* alone (`nxs-record-digest`), so this comment leaves every stamped
+  receipt valid — a body edit would report an approved design as changed. Never reopen the record and
+  never `--revise` it from here; that is the lead's pre-implementation mechanism.
+- **Advisory tier.** It gates nothing. A `gh` failure is reported and the run continues to 8.2 — close's
+  real gates are sub-issue state and the conformance verdict.
+- **Self-contained.** Like the epic comment below, it links nothing under `.nexus/queue/`.
+
+## 8.2 Post the close comment and close the epic issue
+
 GitHub ops target the **epic issue** via `link`. The epic issue is a **durable** surface; the queue
 `close-record.md` is **ephemeral** — the distiller deletes it post-merge. So the comment carries the
 close record's **prose inline** (Key Decisions + Deviation Rationale); it must **never** link into
@@ -664,12 +718,13 @@ the durable surface must show the epic closed on a waiver -->
 EPIC CLOSED: <Epic Title>
 
 GitHub epic issue: #<epic-issue> — closed
+Record amendment:  #<record> — <N> superseding decision(s) posted | none (implementation conformed)
 Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
 Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
 Deferred scope:    <feature-path>/backlog.md  (<N> item(s))
 Process lesson:    <docs-root>/delivery/lessons/<date>-<slug>.md
-Scratch mined:     ${QDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the
+Scratch mined:     ${SDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the
                    committed entry (distiller drains it with the entry post-merge)
 
 Key decisions captured: <count>
@@ -778,9 +833,22 @@ state, but a closed epic with an open issue misreports the pipeline.
   `settings.yml`). Every `gh issue`/`gh api` call addressing the epic or a story issue carries
   `$REPO_ARG`; an empty value means the current repo (today's behavior). Close previously ignored this
   configured repo — resolving and threading it is the concrete bug STORY-121.04 fixes.
-- **Scratch is hints, never authority** — a decision stub in `${QDIR}/*/decisions-*.md` or an
+- **Scratch is hints, never authority** — a decision stub in `${SDIR}/*/decisions-*.md` or an
   engineer note enters the close record only when the diff confirms it or the human ratifies it
   as deviation rationale. The diff remains ground truth (0006).
+- **The scratch home is keyed on the epic issue number** — capture writes
+  `.nexus/queue/epic-<epic-issue>/<username>/`, resolvable during implementation when no entry exists,
+  so the born-at-close entry takes that same directory name and `SDIR` == `QDIR`. Close never moves,
+  renames, or adopts a scratch directory; for an old-contract slug-named entry it reads both locations
+  and requires neither.
+- **Close amends the record, it never edits it** — when the Phase 3 diff pass finds decisions that
+  supersede what the approved record decided, Phase 8.1 posts exactly **one** comment on the record
+  sub-issue; nothing marked means no comment (silence is the conformance signal). The comment carries
+  close's own prose, never raw stub text, and never an archive of the scratch — an archive forces no
+  human decision. Close never edits the record's body, title, labels, or state, and never reopens or
+  revises it: the stamped digest is canonicalised over the body alone, so an amendment must leave every
+  stamped receipt valid. The amendment is **advisory** — it gates nothing, and a failure to post it is
+  reported, never fatal.
 - **The distiller ignores the per-user scratch dirs.** They live inside the committed entry
   but are never read into a `ConceptDelta`; the close record's prose is the only carrier of
   rationale onward. The entry (scratch included) is deleted when the distillation-PR merges.
@@ -806,7 +874,9 @@ state, but a closed epic with an open issue misreports the pipeline.
   `--pr` was passed.
 - **The queue entry is born at close (invariant 15), not at planning.** Under issue-sourced planning
   (#114) nothing is committed at planning, so in `--pr` mode with no committed entry, Phase 0.5
-  materializes the epic via the resolver into a fresh `.nexus/queue/<slug>-<id>/epic.md` and Phase 7.6
+  materializes the epic via the resolver into `.nexus/queue/epic-<epic-issue>/epic.md` — the same
+  directory the capture rule wrote scratch to, so an epic whose branch captured stubs already has the
+  directory and its stubs land in the entry untouched — and Phase 7.6
   commits it with the close record in one commit — so every trunk-queue entry carries a close record
   and the distiller receives a complete entry. This adds one materialization step to the existing
   #101 post-merge flow; it is **not** a second close mechanism. Single-repo / single-PR only —
