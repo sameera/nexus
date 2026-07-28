@@ -660,8 +660,10 @@ approved; this comment is the correction, not a re-decision.
   canonicalised over the issue *body* alone (`nxs-record-digest`), so this comment leaves every stamped
   receipt valid — a body edit would report an approved design as changed. Never reopen the record and
   never `--revise` it from here; that is the lead's pre-implementation mechanism.
-- **Advisory tier.** It gates nothing. A `gh` failure is reported and the run continues to 8.2 — close's
-  real gates are sub-issue state and the conformance verdict.
+- **Advisory tier.** It gates nothing. A `gh` failure is reported on the Phase 9 `Record amendment`
+  line (the `NOT POSTED` variant, naming the error) and the run continues to 8.2 — close's real gates
+  are sub-issue state and the conformance verdict. The superseding decisions are already in the close
+  record's Deviation Rationale, so a failed post loses no content.
 - **Self-contained.** Like the epic comment below, it links nothing under `.nexus/queue/`.
 
 ## 8.2 Post the close comment and close the epic issue
@@ -721,7 +723,10 @@ the durable surface must show the epic closed on a waiver -->
 EPIC CLOSED: <Epic Title>
 
 GitHub epic issue: #<epic-issue> — closed
-Record amendment:  #<record> — <N> superseding decision(s) posted | none (implementation conformed)
+Record amendment:  #<record> — <N> superseding decision(s) posted
+                            | none (implementation conformed)
+                            | NOT POSTED — <gh error>; <N> superseding decision(s) stand in the
+                              close record's Deviation Rationale. Close not blocked.
 Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
 Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
@@ -734,7 +739,13 @@ Key decisions captured: <count>
 Deviations recorded:    <count>
 ```
 
-(Use "none" when no per-user dir was present.)
+(On the Scratch-mined line, use "none" when no per-user dir was present.)
+
+The **Record amendment** line takes exactly one of the three variants above, from Phase 8.1 —
+`posted` and `NOT POSTED` both carry the count Phase 3.6 marked, and `none` means the pass ran and
+found nothing that superseded the record. **Omit the line entirely when the epic has no decision
+record**: 8.1 attempted nothing, and an absent record is not a missing amendment. Never report a
+`none` for an epic that has no record — that would claim a conformance check that never ran.
 
 In member mode, end the report with the durability instruction — closure is not durable until
 the hub commit is pushed:
