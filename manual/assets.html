@@ -437,7 +437,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
         <p style="font-size:13px; color:var(--muted); margin:8px 0 0;">Volume is legitimate here — distilled, grep-retrievable knowledge that informs future planning.</p>
       </div>
     </div>
-    <p style="margin-top:16px;"><small>A fourth, shadow surface — gitignored per-branch scratch — captures in-flight decisions and never survives the epic. More on it later.</small></p>
+    <p style="margin-top:16px;"><small>A fourth surface — committed per-user scratch inside the epic&rsquo;s queue entry — captures in-flight decisions and drains with the entry. More on it later.</small></p>
   </div>
 </section>
 
@@ -457,7 +457,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
       </div>
       <div class="step" style="--nc: var(--faint)">
         <div class="rail"><div class="node"></div></div>
-        <div class="body"><h2>Engineers implement the stories</h2><p>Nexus plans and gates the work; it does not write the code. In-flight decisions optionally land in gitignored scratch.</p></div>
+        <div class="body"><h2>Engineers implement the stories</h2><p>Nexus plans and gates the work; it does not write the code. In-flight decisions optionally land in committed per-user scratch inside the epic&rsquo;s queue entry.</p></div>
       </div>
       <div class="step" style="--nc: var(--queue)">
         <div class="rail"><div class="node"></div></div>
@@ -480,7 +480,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
   <div class="slide-inner">
     <div class="eyebrow">Committed queue · container</div>
     <h1>The committed queue</h1>
-    <span class="path">.nexus/queue/&lt;epic-slug&gt;-&lt;id&gt;/</span>
+    <span class="path">.nexus/queue/epic-&lt;issue-number&gt;/</span>
     <div class="cols">
       <div>
         <h2>What it is</h2>

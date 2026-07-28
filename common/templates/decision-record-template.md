@@ -3,7 +3,7 @@ DECISION RECORD TEMPLATE — replaces the 16-section HLD.
 
 WHAT THIS IS
     The focused architectural decision record emitted by /nxs.decision-record into the
-    committed planning queue (.nexus/queue/<epic-slug>-<local-id>/). It is human
+    committed planning queue (.nexus/queue/epic-<epic-issue-number>/). It is human
     prose only. It is the distiller's PRIMARY rationale source (the "why") and
     is read by System B post-merge.
 

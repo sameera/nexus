@@ -16,7 +16,8 @@ The close record is **human prose only** (0006): key decisions, a pointer to def
 **deviation rationale** produced by the close-from-diff forcing function. There is **no `ConceptDelta`
 block, no `PIR.md`, and no task-file mining** — the task layer is gone (0009); decisions are mined from
 the epic, the story issue comments, and the close review (C6). Durability is structural: the close
-record is committed into `.nexus/queue/<epic-slug>-<local-id>/` and travels to main with the PR, where the
+record is committed into `.nexus/queue/epic-<epic-issue>/` — the entry's name is the epic issue number,
+the same directory the capture rule wrote scratch to — and travels to main with the PR, where the
 distiller consumes and deletes it.
 
 # Interaction convention — actionable choice gate
@@ -353,13 +354,15 @@ any not already captured in the decision record. **Sources (C6), in priority ord
 3. **Committed decision stubs** — `${SDIR}/*/decisions-*.md` (one per-user subdir per
    engineer; per-branch files), where `SDIR` is the epic's **scratch home**, no branch→epic mapping
    needed. Capture keys the scratch path on the epic issue number, so `SDIR` is
-   `<tree>/.nexus/queue/epic-<epic-issue>` — which *is* `${QDIR}` for a born-at-close entry. For an
-   old-contract entry whose directory is slug-named, read both it and the epic-issue path; either is
-   valid input and neither is required:
+   `<root>/.nexus/queue/epic-<epic-issue>` — resolved from the **epic issue number**, never from
+   `QDIR`: under issue-sourced planning a locally resolved `epic.md` is a materialization under
+   `.nexus/tmp/`, which never holds scratch, so deriving the scratch home from the entry's parent
+   would silently miss every stub. For an old-contract entry whose directory is slug-named, read both
+   it and the epic-issue path; either is valid input and neither is required:
 
     ```bash
-    SDIR="$(dirname "${QDIR}")/epic-<epic-issue>"
-    ls "${QDIR}"/*/decisions-*.md "${SDIR}"/*/decisions-*.md 2>/dev/null   # SDIR == QDIR when born at close
+    SDIR="<root>/.nexus/queue/epic-<epic-issue>"   # <root> per Phase 1.0: repo root, or $wtPath in --pr mode
+    ls "${QDIR}"/*/decisions-*.md "${SDIR}"/*/decisions-*.md 2>/dev/null   # SDIR == QDIR for a born-at-close entry
     ```
 
     Each stub records a choice, its why, and the refuted alternative — captured at the
@@ -838,9 +841,11 @@ state, but a closed epic with an open issue misreports the pipeline.
   as deviation rationale. The diff remains ground truth (0006).
 - **The scratch home is keyed on the epic issue number** — capture writes
   `.nexus/queue/epic-<epic-issue>/<username>/`, resolvable during implementation when no entry exists,
-  so the born-at-close entry takes that same directory name and `SDIR` == `QDIR`. Close never moves,
-  renames, or adopts a scratch directory; for an old-contract slug-named entry it reads both locations
-  and requires neither.
+  so the born-at-close entry takes that same directory name. Close resolves `SDIR` from the epic issue
+  number and the tree root, **never** from `QDIR`'s parent: the two coincide only for a born-at-close
+  entry, and a locally resolved `epic.md` sits under `.nexus/tmp/`, which holds no scratch. Close never
+  moves, renames, or adopts a scratch directory; for an old-contract slug-named entry it reads both
+  locations and requires neither.
 - **Close amends the record, it never edits it** — when the Phase 3 diff pass finds decisions that
   supersede what the approved record decided, Phase 8.1 posts exactly **one** comment on the record
   sub-issue; nothing marked means no comment (silence is the conformance signal). The comment carries
