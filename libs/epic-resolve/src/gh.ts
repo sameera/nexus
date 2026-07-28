@@ -20,6 +20,8 @@ export interface IssueContent {
     title: string;
     body: string;
     state: string;
+    /** GitHub's closure reason (e.g. `NOT_PLANNED`, `DUPLICATE`, `COMPLETED`), or "" when open/unset. */
+    stateReason: string;
     /** Label names, used to tell a decision-record sub-issue from a story (STORY-139.01). */
     labels: string[];
 }
@@ -96,7 +98,7 @@ export function fetchIssue(
     number: number,
     notFoundProblem: EpicResolveDiagnostic["problem"],
 ): Ok<{ issue: IssueContent }> | Err {
-    const r = run("gh", ["issue", "view", String(number), "--json", "number,title,body,state,labels"], { cwd });
+    const r = run("gh", ["issue", "view", String(number), "--json", "number,title,body,state,stateReason,labels"], { cwd });
     if (r.status !== 0) {
         const msg = r.stderr.trim();
         const problem = /not found|could not resolve|no such|no issues/i.test(msg) ? notFoundProblem : "gh-failed";
@@ -128,6 +130,7 @@ export function fetchIssue(
             title: typeof doc["title"] === "string" ? doc["title"] : "",
             body: typeof doc["body"] === "string" ? doc["body"] : "",
             state: typeof doc["state"] === "string" ? doc["state"] : "",
+            stateReason: typeof doc["stateReason"] === "string" ? doc["stateReason"] : "",
             labels: parseLabelNames(doc["labels"]),
         },
     };

@@ -115,24 +115,50 @@ describe("classifySubIssue — record-positive, everything else is a story", () 
 
 describe("isWithdrawnStory — a cancelled story is not live scope", () => {
     it("recognises the withdrawal labels", () => {
-        expect(isWithdrawnStory(["story", "wontfix"])).toBe(true);
-        expect(isWithdrawnStory(["story", "invalid"])).toBe(true);
+        expect(isWithdrawnStory(["story", "wontfix"], "OPEN", "")).toBe(true);
+        expect(isWithdrawnStory(["story", "invalid"], "OPEN", "")).toBe(true);
     });
 
     it("leaves an ordinary story alone", () => {
-        expect(isWithdrawnStory(["story", "pipeline"])).toBe(false);
-        expect(isWithdrawnStory([])).toBe(false);
+        expect(isWithdrawnStory(["story", "pipeline"], "OPEN", "")).toBe(false);
+        expect(isWithdrawnStory([], "OPEN", "")).toBe(false);
     });
 
     it("folds case, as GitHub's label namespace does", () => {
-        expect(isWithdrawnStory(["WontFix"])).toBe(true);
-        expect(isWithdrawnStory(["INVALID"])).toBe(true);
+        expect(isWithdrawnStory(["WontFix"], "OPEN", "")).toBe(true);
+        expect(isWithdrawnStory(["INVALID"], "OPEN", "")).toBe(true);
     });
 
     it("does not treat a merely similar label as withdrawal", () => {
         // Withdrawal drops work out of the epic, so the marker is exact — never a substring or a
         // prefix, or `wontfix-followup` would silently delete live scope.
-        expect(isWithdrawnStory(["wontfix-followup"])).toBe(false);
-        expect(isWithdrawnStory(["invalidated-assumption"])).toBe(false);
+        expect(isWithdrawnStory(["wontfix-followup"], "OPEN", "")).toBe(false);
+        expect(isWithdrawnStory(["invalidated-assumption"], "OPEN", "")).toBe(false);
+    });
+
+    it("treats a closure reason of not planned or duplicate as withdrawal too", () => {
+        expect(isWithdrawnStory([], "CLOSED", "NOT_PLANNED")).toBe(true);
+        expect(isWithdrawnStory([], "CLOSED", "DUPLICATE")).toBe(true);
+    });
+
+    it("never treats completion as withdrawal — a delivered story is closed too", () => {
+        expect(isWithdrawnStory([], "CLOSED", "COMPLETED")).toBe(false);
+    });
+
+    it("leaves a plain close with no cancellation reason alone", () => {
+        expect(isWithdrawnStory([], "CLOSED", "")).toBe(false);
+    });
+
+    it("does not withdraw on the reason alone while the story is still open", () => {
+        // A reason is only recordable at closure; while open, the label is the only signal.
+        expect(isWithdrawnStory([], "OPEN", "NOT_PLANNED")).toBe(false);
+    });
+
+    it("folds case on the closure reason, as GitHub's enum casing is not to be trusted verbatim", () => {
+        expect(isWithdrawnStory([], "closed", "not_planned")).toBe(true);
+    });
+
+    it("withdraws when either signal alone suffices, and combining them changes nothing", () => {
+        expect(isWithdrawnStory(["wontfix"], "CLOSED", "NOT_PLANNED")).toBe(true);
     });
 });

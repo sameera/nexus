@@ -365,6 +365,89 @@ describe("resolveEpic — a withdrawn story is not live scope", () => {
     });
 });
 
+describe("resolveEpic — a story withdrawn by closure reason is not live scope (#168)", () => {
+    function rescopedByClosure(): FixtureGraph {
+        return {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [
+                { number: 116, title: "Cancelled", body: "**As a** stage **I want** X.", state: "CLOSED", stateReason: "NOT_PLANNED" },
+                { number: 117, title: "Duped", body: "**As a** PM **I want** Y.", state: "CLOSED", stateReason: "DUPLICATE" },
+                { number: 118, title: "Survivor", body: "**As an** engineer **I want** Z.", labels: ["story"], blockedBy: [116] },
+            ],
+        };
+    }
+
+    it("drops a story closed as not planned, AC1", () => {
+        const r = resolveEpic(makeGhRunner(rescopedByClosure()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story #118: Survivor");
+        expect(r.markdown).not.toContain("Cancelled");
+    });
+
+    it("drops a story closed as a duplicate, AC2", () => {
+        const r = resolveEpic(makeGhRunner(rescopedByClosure()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).not.toContain("Duped");
+    });
+
+    it("keeps a story closed as completed — only the withdrawing reasons withdraw, AC3", () => {
+        const delivered: FixtureGraph = {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [{ number: 116, title: "Shipped", body: "x", state: "CLOSED", stateReason: "COMPLETED" }],
+        };
+        const r = resolveEpic(makeGhRunner(delivered), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story #116: Shipped");
+    });
+
+    it("treats a reopened story as live scope again — its state is no longer closed, AC4", () => {
+        const reopened: FixtureGraph = {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [{ number: 116, title: "Un-cancelled", body: "x", state: "OPEN", stateReason: "" }],
+        };
+        const r = resolveEpic(makeGhRunner(reopened), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story #116: Un-cancelled");
+    });
+
+    it("still withdraws an open story carrying a withdrawal label, AC5", () => {
+        const labelled: FixtureGraph = {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [{ number: 116, title: "Live-labelled withdrawal", body: "x", labels: ["wontfix"] }],
+        };
+        const r = resolveEpic(makeGhRunner(labelled), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).not.toContain("Live-labelled withdrawal");
+    });
+
+    it("drops a dependency edge onto a story withdrawn by closure reason rather than dangling it, AC6", () => {
+        const r = resolveEpic(makeGhRunner(rescopedByClosure()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("| #118 | none |");
+    });
+
+    it("never drops a decision-record sub-issue closed as not planned, AC7", () => {
+        const labelled: FixtureGraph = {
+            epic: { number: 115, title: "Planning", body: BODY },
+            stories: [
+                { number: 119, title: "Decision Record: Planning", body: "why", state: "CLOSED", stateReason: "NOT_PLANNED", labels: ["decision-record"] },
+                { number: 118, title: "Survivor", body: "z", labels: ["story"] },
+            ],
+        };
+        const r = resolveEpic(makeGhRunner(labelled), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.record).toEqual({ number: 119, state: "closed" });
+        expect(r.markdown).toContain('record: "#119"');
+    });
+});
+
 describe("resolveEpic — AC4: dependency edges exact", () => {
     it("reproduces exactly the native blocked_by edges and invents none", () => {
         const r = resolveEpic(makeGhRunner(graph()), "/repo", 115);

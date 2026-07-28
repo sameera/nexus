@@ -48,17 +48,30 @@ export type SubIssueKind = "record" | "story";
 const WITHDRAWAL_LABELS: ReadonlySet<string> = new Set<string>(["wontfix", "invalid"]);
 
 /**
+ * Closure reasons that mark a story sub-issue as withdrawn — GitHub's own `IssueStateReason` values
+ * for a cancelled or misfiled issue. `completed` is deliberately absent: a delivered story is closed
+ * too, and closure alone must never withdraw it.
+ */
+const WITHDRAWAL_STATE_REASONS: ReadonlySet<string> = new Set<string>(["not_planned", "duplicate"]);
+
+/**
  * Whether a story sub-issue has been withdrawn from the epic's scope.
  *
  * A re-scoped epic keeps its cancelled stories as closed sub-issues — the supersession trail lives on
  * them — but the materialized epic must not present them as live scope, or every stage that iterates
- * stories checks acceptance criteria for work that will never ship. Closure state alone cannot carry
- * this: a *delivered* story is closed too. So the signal is an explicit label, and the match is exact
- * (case-folded, as GitHub's label namespace is) — a substring rule would let `wontfix-followup`
- * silently delete live scope.
+ * stories checks acceptance criteria for work that will never ship. The signal is either of two,
+ * either alone sufficing: an explicit label (matched exact and case-folded — a substring rule would
+ * let `wontfix-followup` silently delete live scope), or a closure with a reason of *not planned* or
+ * *duplicate* — the declaration a lead makes by closing a story through GitHub's own close dialogue.
+ * Closure state alone still cannot carry this without the reason: a *delivered* story is closed too,
+ * as *completed*. A reason is only recordable at closure, so while a story is still open the label is
+ * the only signal; once a withdrawn story is reopened its state is no longer closed, so it reads as
+ * live scope again with no special-casing needed.
  */
-export function isWithdrawnStory(labels: string[]): boolean {
-    return labels.some((name) => WITHDRAWAL_LABELS.has(name.toLowerCase()));
+export function isWithdrawnStory(labels: string[], state: string, stateReason: string): boolean {
+    const byLabel = labels.some((name) => WITHDRAWAL_LABELS.has(name.toLowerCase()));
+    const byClosure = state.toUpperCase() === "CLOSED" && WITHDRAWAL_STATE_REASONS.has(stateReason.toLowerCase());
+    return byLabel || byClosure;
 }
 
 type Ok<T> = { ok: true } & T;

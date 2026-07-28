@@ -16,6 +16,8 @@ export interface FixtureStory {
     title: string;
     body: string;
     state?: string;
+    /** GitHub's closure reason (e.g. "NOT_PLANNED", "DUPLICATE"), for closure-based withdrawal. */
+    stateReason?: string;
     /** Issue numbers this story is blocked_by (its native GitHub dependency edges). */
     blockedBy?: number[];
     /** Label names on the sub-issue (a record sub-issue carries the record label). */
@@ -96,6 +98,7 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
                         title: graph.epic.title,
                         body: graph.epic.body,
                         state: graph.epic.state ?? "OPEN",
+                        stateReason: "",
                         labels: [],
                     }),
                 );
@@ -108,6 +111,7 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
                     title: story.title,
                     body: story.body,
                     state: story.state ?? "OPEN",
+                    stateReason: story.stateReason ?? "",
                     labels: (story.labels ?? []).map((name) => ({ name })),
                 }),
             );

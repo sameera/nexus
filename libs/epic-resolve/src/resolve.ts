@@ -14,10 +14,12 @@
  * a phantom story, and an epic with no record sub-issue resolves byte-identically to before.
  *
  * A story sub-issue may also have been **withdrawn** — cancelled or misfiled when the epic was
- * re-scoped. It stays a sub-issue on GitHub (that is where its supersession trail belongs) but is
- * dropped from the materialized epic, along with any dependency edge onto it: otherwise every stage
- * that iterates stories checks acceptance criteria for work that will never ship. The record is never
- * dropped this way — its own withdrawal is the approval question, decided by state.
+ * re-scoped, signalled by an explicit label or by a closure reason of *not planned* or *duplicate*
+ * (see classify.ts), either alone sufficing. It stays a sub-issue on GitHub (that is where its
+ * supersession trail belongs) but is dropped from the materialized epic, along with any dependency
+ * edge onto it: otherwise every stage that iterates stories checks acceptance criteria for work that
+ * will never ship. The record is never dropped this way — its own withdrawal is the approval
+ * question, decided by state.
  */
 
 import {
@@ -147,7 +149,7 @@ export function resolveEpic(
         // A withdrawn story is out of the epic's scope, so it is dropped before it can reach the
         // story set. Its closure state cannot decide this — a delivered story is closed too — and it
         // stays a sub-issue on GitHub, where its supersession trail belongs.
-        if (isWithdrawnStory(sub.issue.labels)) {
+        if (isWithdrawnStory(sub.issue.labels, sub.issue.state, sub.issue.stateReason)) {
             withdrawn.add(subNumber);
             continue;
         }
