@@ -2,7 +2,7 @@
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
 touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest"]
-last_updated_by: "#139"
+last_updated_by: "#157"
 status: active
 verification: verified
 ---
@@ -13,28 +13,28 @@ The committed queue is the single handoff surface between the delivery pipeline 
 
 ## How It Works
 
-Each epic gets one committed folder — the epic and close record; only an old-contract entry still holds a decision-record file, the record now living on its sub-issue with its reference and approved-body hash stamped in the close record. Presence is the only state: no separate status file. Under issue-sourced planning the entry is born at close; the queue holds only closed, drainable entries, drained after the epic merges. Abandoned epics never reach the trunk and never distill. A drained entry is deleted but stays recoverable through history. The queue holds only gated human artifacts, never an ungated machine block. It also carries decision-only memos, drained diff-less into the concepts' decision logs. An entry also carries the epic's per-user engineer scratch — hint-only, drained with the entry, never read.
+Each epic gets one committed folder, named for its issue number — the directory scratch capture already created during implementation is the entry itself, nothing moved or adopted. It holds the epic and close record; an old-contract entry alone still carries a decision-record file, since the record now lives on its sub-issue. Presence is the only state — no separate status file. Under issue-sourced planning the entry is born at close, so the queue holds only closed, drainable entries; abandoned epics never reach the trunk and never distill. A drained entry is deleted but stays recoverable through history. The queue holds only gated artifacts, never an ungated machine block — though it also carries decision-only memos drained diff-less into concept logs, and per-user scratch, hint-only and never read.
 
 ## Key Invariants
 
-1. One committed folder per epic holds that epic's human planning artifacts.
-2. The queue is committed, never ignored; under issue-sourced planning every entry on the trunk carries a close record.
-3. Presence equals unconsumed — there is no separate state file.
+1. One committed folder per epic, named for the epic's issue number, holds that epic's human planning artifacts; an old-contract slug-named entry is read as-is.
+2. The queue is committed, never ignored; every entry on the trunk carries a close record.
+3. Presence equals unconsumed, with no separate state file.
 4. An entry is drained only after its epic merges; abandoned epics never distill.
 5. A drained entry is deleted but stays recoverable through history.
 6. Everything drained passed a human gate; the per-user scratch riding inside is hint-only, never read.
-7. An entry is an epic entry or a single-file decision memo, drained diff-less into decision logs.
+7. An entry is an epic entry or a single-file decision memo, drained diff-less into logs.
 
 ## Integration Points
 
 - [distiller](distiller.md) — drains each queue entry into the knowledge store.
 - [nexus-pipeline](nexus-pipeline.md) — the pipeline whose stages fill the entry.
-- [scratch-capture](scratch-capture.md) — the per-user scratch riding inside each entry, never read into the store.
-- [close-entry-migration](close-entry-migration.md) — a closed member entry migrates to the hub queue, not the code repo's trunk.
+- [scratch-capture](scratch-capture.md) — the per-user scratch riding inside, never read into the store.
+- [close-entry-migration](close-entry-migration.md) — a closed member entry migrates to the hub queue, not this trunk.
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose close record arrives on the distillation branch.
 - [issue-sourced-planning](issue-sourced-planning.md) — the model under which this entry is born at close.
-- [decision-record](decision-record.md) — no longer stored here; only old-contract entries still carry its file.
-- [record-digest](record-digest.md) — the approved-body hash the close record stamps for the drain to verify.
+- [decision-record](decision-record.md) — no longer stored here; old-contract entries alone still carry its file.
+- [record-digest](record-digest.md) — the approved-body hash the close record stamps for the drain.
 
 ## Decision Log
 
@@ -69,3 +69,7 @@ Under issue-sourced planning nothing is committed to the queue at planning time,
 ### 2026-07-26 — #139 — The decision record leaves the entry; the close record stamps its reference and hash
 
 The queue is a drain buffer the distiller deletes, so a decision record stored here evaporated by design — its home moved to the epic's record sub-issue, and the entry's close record now carries the record's issue reference and approved-body hash instead, keeping the baseline self-contained after the drain deletes the queue files. Old-contract entries keep their committed record file and drain exactly as before; the two shapes coexist until in-flight entries clear. Refuted alternative: migrate committed records onto sub-issues in one pass — a single code path afterwards, but it rewrites closed history against a small affected population that clears on its own.
+
+### 2026-07-28 — #157 — The entry is named for the epic issue number, not a slug plus a random id
+
+The born-at-close entry now takes the epic's issue number as its whole name, so the directory scratch capture wrote to during implementation — keyed on that same number — is the entry the close stage materializes into, with nothing moved, renamed, or adopted. This removes the last consumer of slug-matching heuristics over queue directory names, since the issue number is already unique and already the pipeline's join key. Refuted alternative: keep the slug-plus-random-id name and have close adopt the capture directory into the entry it creates — preserves a human-readable directory name, but makes close move committed files and leaves a window where an epic has two live scratch locations.

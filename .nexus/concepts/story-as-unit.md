@@ -1,10 +1,10 @@
 ---
 title: "Story as Unit"
 aliases: ["user story as unit", "story-as-implementation-unit", "terminal planning unit", "no task layer"]
-touches: ["nexus-pipeline", "epic-approval-gate"]
+touches: ["nexus-pipeline", "epic-approval-gate", "story-identity"]
 last_updated_by: "bootstrap"
 status: active
-verification: unverified
+verification: verified
 ---
 
 # Story as Unit
@@ -26,9 +26,15 @@ Each story is sized within its epic, and the epic's complexity is a bottom-up ro
 
 - [nexus-pipeline](nexus-pipeline.md) — the pipeline that stops decomposing at the story.
 - [epic-approval-gate](epic-approval-gate.md) — the gate that files one issue per story.
+- [story-identity](story-identity.md) — how the filed story this unit produces is named and, later, withdrawn.
 
 ## Decision Log
 
 ### 2026-06-29 — bootstrap — 0009: the story is the terminal unit
 
 Made the user story the terminal planning unit and cut the technical-task layer. The considered alternative — keeping tasks as the unit of implementation — was rejected: the task layer had no downstream consumer, forced no decision the story's acceptance criteria did not already encode, and its horizontal slicing manufactured non-shippable half-solutions that needed dedicated merge remediation.
+
+### 2026-07-28 — manual — Reciprocal link from story-identity
+
+Mechanical reciprocity fan-out: the story-identity page names this unit as what a story's
+issue-number identity and withdrawal lifecycle attach to.
