@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 43 active concepts. Each links to its full page
+Orientation map of the concept store — 44 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -15,8 +15,8 @@ Orientation map of the concept store — 43 active concepts. Each links to its f
 - [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the single handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
 - [Concept Store](../.nexus/concepts/concept-store.md) — The concept store is Nexus's machine knowledge surface: one distilled concept per file, keyed by a readable slug, holding current behavior, hard invariants, blast radius, and the durable why.
 - [Approvable Decision Record](../.nexus/concepts/decision-record.md) — An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form.
+- [Issue-Sourced Planning](../.nexus/concepts/issue-sourced-planning.md) — Issue-Sourced Planning makes GitHub issues the single source of truth for epic and story planning: nothing is committed at planning, and one deterministic resolver reconstructs the epic from its issue number.
 - [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub.
-- [Issue-Sourced Planning](../.nexus/concepts/issue-sourced-planning.md) — Issue-Sourced Planning makes GitHub issues the single source of truth for epic and story planning: nothing is committed at planning, and one deterministic resolver reconstructs the epic from its issue number on demand.
 - [Taxonomy Drift Advisory](../.nexus/concepts/drift-advisory.md) — The drift advisory is a deterministic, non-blocking step of the drain that reads the concept link graph and each page's filing and reports taxonomy decay as text in the distillation-PR body.
 - [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
 - [PR-Driven Post-Merge Flow](../.nexus/concepts/pr-driven-flow.md) — The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch.
@@ -33,13 +33,14 @@ Orientation map of the concept store — 43 active concepts. Each links to its f
 - [Nexus Setup CLI](../.nexus/concepts/nexus-setup-cli.md) — The Nexus Setup CLI is the portable `nexus` command that owns the *structural* half of getting Nexus into a repo or a whole multi-repo workspace — installing components and declaring or growing a workspace.
 - [Portable Tooling](../.nexus/concepts/portable-tooling.md) — Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime.
 - [Scratch Capture](../.nexus/concepts/scratch-capture.md) — Scratch capture is the committed per-user surface inside an epic's queue entry where an engineer's agent records in-flight decision stubs and working notes at the moment of choosing.
+- [Story as Unit](../.nexus/concepts/story-as-unit.md) — The user story is Nexus's terminal planning unit and its issue granularity.
 - [Two-Store Split](../.nexus/concepts/two-store-split.md) — Nexus keeps two knowledge surfaces that never share an artifact: a lean human-judgment surface for what a person must read and decide, and a machine knowledge surface where distilled volume is legitimate.
 - [Append-Only Decision Log](../.nexus/concepts/append-only-decision-log.md) — Every concept page carries a Decision Log — the append-only, immutable record of why the concept is the way it is.
 - [Domain Taxonomy](../.nexus/concepts/domain-taxonomy.md) — Domain taxonomy is a curated, two-level grouping for concept pages — domains and optional subdomains — authored in a registry that lives beside the atlas.
 - [Provenance Reference](../.nexus/concepts/provenance-reference.md) — A provenance reference links a concept page or a log entry back to the issue that originated it, so an agent can hop from a compressed page to the full context it distilled away.
 - [Registry Seeding](../.nexus/concepts/registry-seeding.md) — Registry seeding is a one-time adoption tool for a store that has no domain registry yet.
 - [Remote Identity Normalization](../.nexus/concepts/remote-identity-normalization.md) — A single git remote can be written many equivalent ways — as a secure-shell address or a web address, with or without a trailing suffix, with an upper- or lower-cased host.
-- [Story as Unit](../.nexus/concepts/story-as-unit.md) — The user story is Nexus's terminal planning unit and its issue granularity.
+- [Story Identity](../.nexus/concepts/story-identity.md) — A filed story is identified by its issue number alone, and nothing else — the pipeline's pre-filing sequence ref never survives filing, so a re-scope that withdraws stories never renames a survivor.
 - [Bare-Name Guard](../.nexus/concepts/bare-name-guard.md) — The bare-name guard is the security boundary of workspace resolution: a name declared in a workspace artifact may only be a bare directory segment, and the hub's optional docs-root override may only be a non-escaping repo-relative path.
 - [Config Write-Back](../.nexus/concepts/config-write-back.md) — Config write-back is how the declared publishing block comes to exist without anyone hand-authoring it: setup seeds it at bootstrap while a human can resolve ambiguity, and the first unattended fallback run persists what it just reached.
 
