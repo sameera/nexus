@@ -1,7 +1,7 @@
 ---
 title: "Nexus Pipeline"
 aliases: ["delivery pipeline", "pipeline stages", "System A", "spec-driven pipeline"]
-touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture", "pr-driven-flow", "issue-sourced-planning", "decision-record"]
+touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture", "pr-driven-flow", "issue-sourced-planning", "decision-record", "conformance-gate"]
 last_updated_by: "#151"
 status: active
 verification: verified
@@ -13,7 +13,7 @@ Nexus is a lean, spec-driven delivery pipeline assisting product and project man
 
 ## How It Works
 
-Setup bootstraps the project's ground truth and product context once. The epic stage turns a capability description into a right-sized epic, filing epic and story issues at one approval gate. The decision-record stage files a focused decision record as an approvable sub-issue of the epic issue. Analyze checks the code against the acceptance criteria and the record's invariants, refusing to run — and emitting nothing — while the record is unapproved. Close blocks on any open sub-issue, then emits a close record into the committed queue and closes the epic issue. Each stage keeps only what forces a human decision; code generation stays outside the pipeline. Under issue-sourced planning the epic is resolved from its issues; the queue entry is born at close and feeds the store after merge. Analyze and close can run against a pull request, and design can import an out-of-band doc, so externally planned work still distills.
+Setup bootstraps the project's ground truth and product context. The epic stage turns a capability description into a right-sized epic, filing its stories at one approval gate. The decision-record stage files a record as an approvable sub-issue of the epic issue. Analyze checks the code against the acceptance criteria and the record's invariants, refusing to run while the record is unapproved. Close blocks on any open sub-issue, then emits a close record into the queue and closes the epic. Each stage keeps only what forces a human decision; code generation stays outside it. Under issue-sourced planning the epic resolves from its issues; the queue entry is born at close and feeds the store after merge. Analyze and close can run against a pull request, and design can import an out-of-band doc, so external work still distills.
 
 ## Key Invariants
 
@@ -35,6 +35,7 @@ Setup bootstraps the project's ground truth and product context once. The epic s
 - [pr-driven-flow](pr-driven-flow.md) — the pull-request variant of analyze and close.
 - [issue-sourced-planning](issue-sourced-planning.md) — the storage model: issues, not a committed file.
 - [decision-record](decision-record.md) — the design stage's artifact; analyze and close block while it is unapproved.
+- [conformance-gate](conformance-gate.md) — the receipt analyze leaves and close reads as a hard precondition.
 
 ## Decision Log
 
@@ -69,3 +70,8 @@ The design stage now files its decision record as a sub-issue of the epic issue,
 ### 2026-07-26 — #151 — The design stage takes its artifact's name
 
 Since the record became an approvable sub-issue, the design stage no longer produces a high-level design document, yet the stage kept the old name — the last surface named for a retired artifact. The stage was renamed to match the decision record it actually files, as a hard cut with no deprecated alias: the command set is small and self-documenting, and the lean rule cuts anything that forces no decision. Historical documents keep the old name — they record what was true when written, and rewriting them would falsify history. Refuted alternative: keep a deprecated alias under the old name — rejected because an alias is an artifact nobody decides anything with, and the old name would keep teaching the retired vocabulary.
+
+### 2026-07-28 — manual — Reciprocal link from conformance-gate
+
+Mechanical reciprocity fan-out: the conformance-gate page names this pipeline as the stage
+pair — analyze and close — its receipt sits between.

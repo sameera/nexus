@@ -1,7 +1,7 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue"]
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate"]
 last_updated_by: "#101"
 status: active
 verification: verified
@@ -13,7 +13,7 @@ The lead can run the conformance, closure, and distillation stages against a pul
 
 ## How It Works
 
-Two new shared pieces live in one tested helper the stage specs call: resolving a pull request's merge state and commit identifiers, and the worktree lifecycle with a merge-strategy-safe commit range. Conformance runs in a worktree at the pull-request head and publishes its verdict as a review carrying a machine-readable receipt the closure reads back, falling back to a comment when the lead authored the pull request. After the merge, closure runs in a worktree on a fresh distillation branch cut from the trunk, reads that verdict, commits and pushes the close artifacts, and hands off; distillation continues in the same worktree and opens the distillation pull request. The stamped range anchors on the merge commit, permanent on the trunk, and is verified against the pull-request head, so it is correct for a squash, a true merge, or a rebase.
+One tested helper the stage specs call resolves a pull request's merge state and commit identifiers, and the worktree lifecycle with a merge-strategy-safe commit range. Conformance runs in a worktree at the pull-request head and publishes its verdict as a review carrying the machine-readable receipt closure reads back, falling back to a comment if the lead authored it. After the merge, closure runs in a worktree on a fresh distillation branch off the trunk, reads that verdict, commits and pushes the close artifacts, and hands off; distillation continues there and opens its pull request. The stamped range anchors on the merge commit, permanent on the trunk, and verified against the pull-request head, so it holds for any merge strategy.
 
 ## Key Invariants
 
@@ -29,9 +29,15 @@ Two new shared pieces live in one tested helper the stage specs call: resolving 
 - [distiller](distiller.md) — the drain that continues in the shared worktree and derives its diff from the stamped range.
 - [distillation-pr](distillation-pr.md) — the reviewed write the closure hand-off prepares and distillation opens.
 - [committed-queue](committed-queue.md) — the queue whose close record travels on the distillation branch here, there being no feature pull request after the merge.
+- [conformance-gate](conformance-gate.md) — here the gate's receipt is a published review, not a local artifact, since the worktree holding one is already gone.
 
 ## Decision Log
 
 ### 2026-07-20 — #101 — Run conformance, closure, and distillation against a pull request in a shared worktree
 
 The conformance, closure, and distillation stages gained an additive pull-request mode: conformance checks the possibly-open pull request and posts its verdict to the merge box, and after the merge closure and distillation run in one shared worktree cut from the trunk, so the drain reads an already-merged diff that cannot drift. The must-be-correct git mechanics — merge-state resolution, a range anchored on the merge commit and verified against the pull-request head, and the worktree lifecycle — live in one tested helper rather than inline spec prose, because worktree cleanup and range correctness would otherwise be unverified model discipline. Refuted alternative: describe the git commands inline in the specs — lighter, and needing no new package, but it leaves the deterministic parts untested.
+
+### 2026-07-28 — manual — Reciprocal link from conformance-gate
+
+Mechanical reciprocity fan-out: the conformance-gate page names this flow as the mode where
+its receipt takes the form of a published review instead of a local artifact.

@@ -82,6 +82,16 @@ the cap and the "split, don't grow" rule are the contract.)
 source and belong in `docs/system/standards/` or source comments, not here. A page that
 needs them is describing implementation, not a concept.
 
+**Clarification (2026-07-28, amends this section).** The ban is on *literal* identifiers —
+a path, a schema field name, a marker string — that drift the moment the artifact is
+refactored. It is not a ban on naming and describing a durable cross-stage artifact
+behaviorally: what it proves, who produces it, who consumes it, what its absence or a
+mismatch means. `record-digest.md` already does this correctly — it describes the digest's
+behavior and invariants without ever stating a field name or storage location. The test: if
+the page needs the literal path or schema to make its point, it is describing
+implementation and doesn't belong; if it can state the contract without them, it belongs.
+This clarification was prompted by a real gap it caught — see `decision-log.md`.
+
 ### 2.3 Append-only / decision-log semantics (warranted)
 
 The Decision Log is **append-only and immutable**:

@@ -1,7 +1,7 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest"]
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate"]
 last_updated_by: "#139"
 status: active
 verification: verified
@@ -13,7 +13,7 @@ An epic's decision record — the architectural why the design stage produces �
 
 ## How It Works
 
-The design-warrant is read from the issue graph, never remembered: filing labels the epic needs-design when its complexity rollup is medium or larger; the design stage's no-design-needed outcome removes the label without filing anything; a hand-filed epic with neither is simply an epic without one. The design stage files the record body as pure human prose — no frontmatter or machine block, so nothing churns for a non-design reason — and swaps needs-design for in-progress, asserting the record exists, not that it is approved. A re-run targets the existing sub-issue, never filing a second. A closed record is frozen: a revision reopens it, embeds the superseded body and hash in a dated comment, updates, and re-closes, so every approved state stays reconstructible from the trail. A record closed as not planned is withdrawn, not approved; it blocks like an open one.
+The design-warrant is read from the issue graph, never remembered: filing labels the epic needs-design when its complexity rollup is medium or larger; the design stage's no-design-needed outcome removes the label without filing anything; a hand-filed epic with neither is an epic without one. The design stage files the record body as pure human prose — no frontmatter or machine block — and swaps needs-design for in-progress, asserting the record exists, not that it is approved. A re-run targets the existing sub-issue, never a second. A closed record is frozen: a revision reopens it, embeds the superseded body and hash in a dated comment, updates, and re-closes, so every approved state stays reconstructible. A record closed as not planned is withdrawn, not approved; it blocks like an open one.
 
 ## Key Invariants
 
@@ -34,9 +34,15 @@ The design-warrant is read from the issue graph, never remembered: filing labels
 - [committed-queue](committed-queue.md) — old-contract entries keep a committed record file until they clear.
 - [distiller](distiller.md) — the drain sources an entry's why from the record body, hash-verified.
 - [record-digest](record-digest.md) — the canonical digest of the approved body.
+- [conformance-gate](conformance-gate.md) — blocked entirely, emitting nothing, while this record is unapproved.
 
 ## Decision Log
 
 ### 2026-07-26 — #139 — The decision record becomes an approvable sub-issue
 
 The record had no durable home — it lived in the drain buffer the distiller deletes, or latterly in an ignored scratch path — so its home moved to a sub-issue of the epic issue, with approval the native act of closing it: one copy, born durable, with the approving account and time read from the timeline instead of a Nexus-authored field. The needs-design label makes the design-warrant explicit and revisable, so a simple epic completes the pipeline with no record and no waiver, and a hand-filed epic works with no remembered state. A closed body is frozen because the hash means nothing against a moving target; revision reopens, embeds the superseded body and its hash in a dated comment, and re-closes, since the platform's edit history is not reliably retrievable by tooling. Refuted alternative: keep authoring the record as a committed file and mirror it onto an issue — durable, but it re-creates the two-copy drift issue-sourced planning removed and leaves which copy is hashed unanswerable.
+
+### 2026-07-28 — manual — Reciprocal link from conformance-gate
+
+Mechanical reciprocity fan-out: the conformance-gate page names this record's approval state
+as what makes the gate meaningful — unapproved blocks analyze outright.

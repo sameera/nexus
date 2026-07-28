@@ -8,6 +8,19 @@ themselves (0005–0007) keep their own status banners.
 
 Most recent first.
 
+## 2026-07-28 — amendment to 0003 §2.2: the file-path/code ban is on literal identifiers, not on describing an artifact's contract
+
+**Amends 0003 §2.2** (the "no code blocks, no file paths" rule for concept-page bodies).
+Surfaced while explaining the pipeline: the analyze→close conformance receipt has no concept
+page, and the rule read — over-broadly — as forbidding one, since the receipt is a named
+artifact. But `record-digest.md` already proves the correct reading: it describes the
+digest's behavior, who stamps it, who verifies it, and what a mismatch means, without ever
+stating a field name or a storage path. The rule bans the *literal* identifier (rots on
+refactor), not the *contract* of a durable cross-stage artifact (a reader needs it to
+understand the system). Clarifying text added directly to 0003 §2.2. Filled the gap it
+exposed as a new manually-curated page, [`conformance-gate.md`](../../../../../.nexus/concepts/conformance-gate.md)
+(see that page's own Decision Log for why manual curation, not a distill, was used).
+
 ## 2026-07-02 — 0011: dogfood re-evaluation of 0001–0010 (R1–R7 all accepted)
 
 **0001–0010 re-read end-to-end** against the restated objective — validate the Nexus pipeline
