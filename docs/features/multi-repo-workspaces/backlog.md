@@ -209,11 +209,14 @@
   close. And `/nxs.close` amends the decision record: when its close-from-diff pass finds decisions
   that supersede what the approved record decided, it posts one advisory comment on the record
   sub-issue — prose only, never raw stubs, never a body edit, so the stamped digest stays valid.
-  Silence means the implementation conformed.
-- **estimate:** S
+  Silence means the implementation conformed. The same key settles story identity: a filed story is
+  named by its issue number alone (the positional `STORY-<epic>.<seq>` ref dies at filing), and a
+  story withdrawn from scope — labelled `wontfix` or `invalid` — drops out of the materialized epic
+  instead of reading as live work.
+- **estimate:** M
 - **blocked_by:** [hub-born-queue]
 - **source:** decomposition of "Refactor multi-repo workspaces around PR-driven delivery (hub-born queue)" (2026-07-20); re-scoped 2026-07-27
-- **candidate stories:** Scratch path resolves from the epic issue number during implementation; Close amends the decision record with superseding decisions
+- **candidate stories:** Scratch path resolves from the epic issue number during implementation; Close amends the decision record with superseding decisions; A withdrawn story drops out of the materialized epic; A filed story is named by its issue number alone
 
 ## story-analyze-hub
 
