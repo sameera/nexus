@@ -50,7 +50,7 @@ project: "acme-corp/app-roadmap"
 
 | Field        | Required | Description                                                                                                                  |
 | ------------ | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `ref`        | No       | Authoring key for this batch (`STORY-{EPIC}.{SEQ}`), whose whole purpose is to resolve `blocked_by` before the issues have numbers. **Not** shown on the issue and dead once the batch is filed — from then on a story's only name is `#<issue>`. Defaults to the filename stem. |
+| `ref`        | No       | Authoring key for this batch (`STORY-{EPIC}.{SEQ}`), whose whole purpose is to name a sibling story before the issues have numbers. **Not** shown on the issue and dead once the batch is filed — from then on a story's only name is `#<issue>`. Usable in `blocked_by` **and in the body prose**; pass 3 rewrites body refs to `#<issue>`. Defaults to the filename stem. |
 | `title`      | Yes      | Issue title — the plain story title (no `STORY-…` prefix; the epic link and dependencies carry the structure).               |
 | `blocked_by` | No       | List of story `ref`s this story is blocked by (`[STORY-42.01, …]`), or `none`. Wired as native GitHub issue dependencies.    |
 | `labels`     | No       | Extra GitHub labels: `[label1, label2, ...]`. The canonical `story` label is always added automatically.                     |
@@ -59,8 +59,8 @@ project: "acme-corp/app-roadmap"
 
 ## Workflow
 
-The script runs in **two passes** so that `blocked_by` can reference stories created in the same batch
-(their issue numbers don't exist until pass 1 finishes).
+The script runs in **three passes** so that a story can reference a sibling created in the same batch
+(their issue numbers don't exist until pass 1 finishes) — in `blocked_by` and in its body prose alike.
 
 1. Script finds all `STORY-*.md` files in the folder.
 2. Ensures the canonical `story` label exists on the target repo (`gh label create story --force` — idempotent).
@@ -77,6 +77,17 @@ The script runs in **two passes** so that `blocked_by` can reference stories cre
     `POST repos/{owner}/{repo}/issues/{n}/dependencies/blocked_by` with `issue_id=<blocker database id>`.
     A `blocked_by` ref not found in the batch is warned and skipped. (Dependencies are REST-only — there
     is no GraphQL mutation; the `issue_id` is the REST `.id`, not the issue number or node id.)
+5. **Pass 3 — resolve body refs.** A `STORY-{EPIC}.{SEQ}` written into an issue's *prose* would otherwise
+    orphan the moment the batch ends: nothing downstream re-derives the ref, so it becomes dead text. With
+    every number now minted, each story body — **and the epic body**, filed before any story existed — is
+    read back from GitHub, its refs rewritten to `#<issue>`, and pushed via `gh issue edit --body-file`.
+    - Refs are read back from the live issue, not the local file, so a human edit made between a failed
+      run and its resume is never reverted; only the ref tokens change.
+    - Backticks around a ref are dropped with it — GitHub does not autolink inside a code span.
+    - A body with no refs is **not** edited, which is what makes a re-run a no-op: a rewritten body no
+      longer holds the tokens that would trigger another write.
+    - A ref naming a story outside the batch is left verbatim and **fails the run closed** (⚠️ INCOMPLETE),
+      since the fix belongs in the source `STORY-*.md`, not in a mangled issue body.
 
 ## Robustness — no partial issue lists
 
@@ -93,10 +104,11 @@ trying to be atomic. Three mechanisms:
     command after a failure completes the remainder with **zero duplicates**. The ledger is deleted on a
     fully clean run (keep it with `--keep-manifest`).
 -   **Idempotent linking.** Sub-issue links and `blocked_by` dependencies check for / tolerate an existing
-    relationship, so pass 2 re-runs converge instead of erroring or duplicating.
+    relationship, so pass 2 re-runs converge instead of erroring or duplicating. Pass 3 converges the same
+    way for a different reason — it writes only when a ref is still present to rewrite.
 
-At the end the script prints a **SUMMARY**: counts of issues created / reused / failed and dependencies
-wired / already-present / unresolved / failed. If anything is incomplete it prints an **⚠️ action-required**
+At the end the script prints a **SUMMARY**: counts of issues created / reused / failed, dependencies
+wired / already-present / unresolved / failed, and bodies rewritten / unresolved / failed. If anything is incomplete it prints an **⚠️ action-required**
 block listing exactly what failed, the ledger path, and the exact command to re-run to resume — and exits
 non-zero. A clean run prints **✅ Complete** and exits zero.
 

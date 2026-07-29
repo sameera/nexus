@@ -424,8 +424,13 @@ story becomes one GitHub issue, child of the epic issue.
    happened in Phase 3.
 
    The ref is an **authoring key with the lifetime of this batch**, not a name for the story: it exists
-   only so a story can name its blockers before `gh issue create` has minted any issue numbers. It is
-   never written to an issue, never reported after filing, and never re-derived downstream.
+   only so a story can name a sibling before `gh issue create` has minted any issue numbers. It never
+   survives filing on an issue, is never reported after filing, and is never re-derived downstream.
+
+   Use it wherever a story must name a sibling — in `blocked_by` **and in body prose** (`extends
+   STORY-<EPIC>.<SEQ>`). Step 4's pass 3 rewrites every prose ref to `#<issue>` once the numbers exist,
+   so the ref never reaches a reader. Never hand-write a `#<n>` for a story in this batch: the number
+   is not knowable at authoring time, and a guess points at an unrelated issue.
 
 3. **Write transient story work-items** to the scratchpad, one `STORY-<EPIC>.<SEQ>.md` per story, with
    the frontmatter the creation skill consumes and the story body as the issue body:
@@ -460,9 +465,12 @@ story becomes one GitHub issue, child of the epic issue.
     python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>"
     ```
 
-    The skill runs two passes: pass 1 creates each issue (clean title), links it as a sub-issue of
+    The skill runs three passes: pass 1 creates each issue (clean title), links it as a sub-issue of
     `#<EPIC>`, and adds it to the project, recording each `ref → issue` mapping; pass 2 wires the
-    **native GitHub `blocked_by` dependencies** from each story's `blocked_by` refs.
+    **native GitHub `blocked_by` dependencies** from each story's `blocked_by` refs; pass 3 rewrites
+    every `STORY-<EPIC>.<SEQ>` left in a story **body** — and in the epic issue's own body — to the
+    `#<issue>` it now resolves to, so no ref survives filing as dead text. A prose ref naming a story
+    outside this batch fails the run closed; fix it in the source `STORY-*.md` and re-run.
 
     The skill is **resumable and idempotent**: it retries transient GitHub failures, records progress to
     a `.nxs-created.json` ledger in the folder, and ends with a SUMMARY. **If it prints
