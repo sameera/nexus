@@ -10,6 +10,7 @@ Run conformance, closure, and distillation against a merged pull request instead
 
 - **PR-Driven Post-Merge Flow for Analyze, Close, and Distill** — [#101](https://github.com/sameera/nexus/issues/101)
 - **Live Acceptance Dry-Run of the PR Post-Merge Flow** — [#132](https://github.com/sameera/nexus/issues/132)
+- **Tmp-First Analyze & Close Artifacts, with GitHub Fallback for Distill** — [#170](https://github.com/sameera/nexus/issues/170)
 
 ## Live acceptance
 
