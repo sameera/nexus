@@ -2,9 +2,11 @@
 """
 Create GitHub issues from STORY-*.md work-item files in a target folder.
 
-Two passes: pass 1 creates one issue per story (frontmatter: ref, title, blocked_by,
+Three passes: pass 1 creates one issue per story (frontmatter: ref, title, blocked_by,
 labels, parent, project), links it as a sub-issue of the parent epic, and adds it to a
-project; pass 2 wires native GitHub `blocked_by` dependencies from the story refs.
+project; pass 2 wires native GitHub `blocked_by` dependencies from the story refs; pass 3
+rewrites any `STORY-<EPIC>.<SEQ>` ref left in an issue *body* (story or epic) to the
+`#<number>` it now resolves to, so a filed story carries exactly one name.
 
 Robust to partial failure: transient gh errors are retried with backoff, progress is
 recorded to a `.nxs-created.json` resume ledger, linking is idempotent, and the run ends
@@ -577,6 +579,84 @@ def normalize_ref(ref: str) -> str:
     return ref.strip().removeprefix("STORY-").removeprefix("story-").strip().lower()
 
 
+# A story ref as it appears in issue *prose*, with or without the code-span backticks authors
+# tend to wrap it in. The ref body must start and end alphanumeric, so a sentence-ending period
+# ("see STORY-170.02.") stays outside the match. Only the `STORY-` prefixed form is a ref — a
+# bare "170.02" is indistinguishable from a version number and is deliberately not matched.
+_BODY_REF_RE = re.compile(
+    r"`STORY-(?P<quoted>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)`"
+    r"|\bSTORY-(?P<plain>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)",
+    re.IGNORECASE,
+)
+
+
+def rewrite_story_refs(body: str, ref_to_number: dict[str, str]) -> tuple[str, list[str]]:
+    """Replace every `STORY-<EPIC>.<SEQ>` ref in an issue body with its `#<number>`.
+
+    The ref is an authoring key with the lifetime of the filing batch: it lets a story name a
+    sibling before `gh issue create` has minted any issue numbers. Left in a filed body it is a
+    dead string, since nothing downstream re-derives it. Rewriting it to the issue number turns
+    it into a permanent, clickable GitHub autolink and keeps the issue number a story's only name.
+
+    Backticks around a ref are dropped along with it — GitHub does not autolink inside a code
+    span, so `#173` would render as literal text rather than a link.
+
+    Args:
+        body: The issue body as it currently stands on GitHub.
+        ref_to_number: Normalized ref → issue number, spanning every issue known to exist.
+
+    Returns:
+        (rewritten body, refs that resolved to nothing). An unresolvable ref is left verbatim
+        so the author can fix it at the source file rather than hunt a mangled body.
+    """
+    unresolved: list[str] = []
+
+    def _replace(match: re.Match) -> str:
+        raw = match.group("quoted") or match.group("plain")
+        number = ref_to_number.get(normalize_ref(raw))
+        if not number:
+            unresolved.append(f"STORY-{raw}")
+            return match.group(0)
+        return f"#{number}"
+
+    return _BODY_REF_RE.sub(_replace, body), unresolved
+
+
+def get_issue_body(issue_number: str, repo: str | None = None) -> str | None:
+    """Read an issue's current body from GitHub.
+
+    Read-back rather than reuse of the local file: on a resumed run the issue may have been
+    created hours earlier and edited by a human since, and pushing the local body would silently
+    revert those edits. Only the ref tokens are ever changed.
+    """
+    cmd = ["gh", "issue", "view", str(issue_number).lstrip("#"), "--json", "body", "--jq", ".body"]
+    if repo:
+        cmd[3:3] = ["-R", repo]
+    try:
+        return run_gh(cmd).stdout
+    except GhError as e:
+        print(f"Error reading body of #{issue_number}: {e.stderr}", file=sys.stderr)
+        return None
+
+
+def set_issue_body(issue_number: str, body: str, repo: str | None = None) -> bool:
+    """Overwrite an issue's body. Written via --body-file so no shell quoting can corrupt it."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as tmp:
+        tmp.write(body)
+        tmp_path = tmp.name
+    cmd = ["gh", "issue", "edit", str(issue_number).lstrip("#"), "--body-file", tmp_path]
+    if repo:
+        cmd.extend(["-R", repo])
+    try:
+        run_gh(cmd)
+        return True
+    except GhError as e:
+        print(f"Error rewriting body of #{issue_number}: {e.stderr}", file=sys.stderr)
+        return False
+    finally:
+        os.unlink(tmp_path)
+
+
 def get_blocked_by_db_ids(dependent_number: str, repo: str | None = None) -> set[str] | None:
     """Return the set of REST database ids the issue is already blocked_by.
 
@@ -738,7 +818,8 @@ def process_task_file(
                 if manifest_path:
                     save_manifest(manifest_path, manifest)
         print(f"  Resuming: ref '{ref}' already created as #{number} — skipping creation")
-        return {"ref": ref, "number": number, "db_id": db_id, "blocked_by": blocked_by, "reused": True}
+        return {"ref": ref, "number": number, "db_id": db_id, "blocked_by": blocked_by,
+                "parent": parent, "reused": True}
 
     # Ensure labels is a list
     if isinstance(labels, str):
@@ -807,7 +888,8 @@ def process_task_file(
             else:
                 print(f"  Warning: Failed to create sub-issue relationship", file=sys.stderr)
 
-        return {"ref": ref, "number": issue_number, "db_id": db_id, "blocked_by": blocked_by, "reused": False}
+        return {"ref": ref, "number": issue_number, "db_id": db_id, "blocked_by": blocked_by,
+                "parent": parent, "reused": False}
 
     finally:
         # Clean up temporary file
@@ -824,12 +906,15 @@ def print_final_report(
     dep_present: int,
     dep_unresolved: list[tuple[str, str]],
     dep_failed: list[tuple[str, str]],
+    body_rewritten: int,
+    body_unresolved: list[tuple[str, str]],
+    body_failed: list[str],
     manifest_path: str,
     target_folder: str,
     extra_args: list[str],
 ) -> bool:
     """Render the end-of-run summary. Returns True if the run is fully complete."""
-    incomplete = bool(create_failed or dep_unresolved or dep_failed)
+    incomplete = bool(create_failed or dep_unresolved or dep_failed or body_unresolved or body_failed)
 
     print("\n" + "=" * 60)
     print("SUMMARY")
@@ -838,9 +923,12 @@ def print_final_report(
           f"{len(create_failed)} FAILED  (of {total})")
     print(f"Dependencies: {dep_wired} wired, {dep_present} already present, "
           f"{len(dep_unresolved)} unresolved, {len(dep_failed)} FAILED")
+    print(f"Body refs:    {body_rewritten} bod(ies) rewritten, "
+          f"{len(body_unresolved)} unresolved, {len(body_failed)} FAILED")
 
     if not incomplete:
-        print("\n✅ Complete — every story issue created and every dependency wired.")
+        print("\n✅ Complete — every story issue created, every dependency wired, "
+              "every body ref resolved.")
         print("=" * 60)
         return True
 
@@ -862,6 +950,17 @@ def print_final_report(
         print(f"\n  Failed dependency links after retries ({len(dep_failed)}):")
         for dependent, dep_ref in dep_failed:
             print(f"    - #{dependent} blocked_by '{dep_ref}'")
+
+    if body_unresolved:
+        print(f"\n  Unresolved body refs ({len(body_unresolved)}) — named story not in this batch;")
+        print("  fix the ref in the source STORY-*.md (or replace it with the issue number), then re-run:")
+        for number, bad_ref in body_unresolved:
+            print(f"    - #{number} references '{bad_ref}'")
+
+    if body_failed:
+        print(f"\n  Failed body rewrites after retries ({len(body_failed)}):")
+        for number in body_failed:
+            print(f"    - #{number}")
 
     print(f"\n  Progress saved to: {manifest_path}")
     print("  Re-run the SAME command to resume — already-created issues are skipped and")
@@ -1068,6 +1167,48 @@ def main():
             else:
                 dep_failed.append((number, dep_ref))
 
+    # Pass 3: rewrite story refs left in issue bodies to the issue numbers they now resolve to.
+    # It has to be its own pass, after pass 1 has minted every number: a story may name a sibling
+    # that is created later in the batch, so no number exists for it at creation time.
+    ref_to_number = {r["ref"]: r["number"] for r in created if r.get("number")}
+    for ref, entry in manifest.items():
+        if entry.get("number"):
+            ref_to_number.setdefault(ref, entry["number"])
+
+    # The epic is filed before any story exists, so its body carries the same exposure. Every
+    # story in a batch shares one parent; take the first that declares it.
+    body_targets = [r["number"] for r in created if r.get("number")]
+    epic_ref = next((r.get("parent") for r in created if r.get("parent")), None)
+    epic_number = re.sub(r"^.*?(\d+)$", r"\1", epic_ref.strip()) if epic_ref else None
+    if epic_number and epic_number.isdigit() and epic_number not in body_targets:
+        body_targets.append(epic_number)
+
+    body_rewritten = 0
+    body_unresolved: list[tuple[str, str]] = []
+    body_failed: list[str] = []
+    for number in body_targets:
+        body = get_issue_body(number, repo=issues_repo)
+        if body is None:
+            body_failed.append(number)
+            continue
+        new_body, unresolved = rewrite_story_refs(body, ref_to_number)
+        for bad_ref in unresolved:
+            print(f"  Unresolved: body ref '{bad_ref}' in #{number} not among created issues",
+                  file=sys.stderr)
+            body_unresolved.append((number, bad_ref))
+        # No refs left to resolve means no write — this is what makes a re-run a no-op, since a
+        # rewritten body no longer contains the tokens that would trigger another edit.
+        if new_body == body:
+            continue
+        if set_issue_body(number, new_body, repo=issues_repo):
+            print(f"  #{number} body refs rewritten to issue numbers")
+            body_rewritten += 1
+        else:
+            body_failed.append(number)
+
+    print(f"\nPass 3: {body_rewritten} bod(ies) rewritten, {len(body_unresolved)} unresolved ref(s), "
+          f"{len(body_failed)} failed")
+
     # Write-back (STORY-121.07): persist the decisions this run reached once, so a repo with no
     # github block never re-probes. Add-only — declared keys (incl. explicit auto/none) are never
     # overwritten (Invariant 5); story-repo/issues-repo is not written here (an absent target means
@@ -1098,6 +1239,9 @@ def main():
         dep_present=dep_present,
         dep_unresolved=dep_unresolved,
         dep_failed=dep_failed,
+        body_rewritten=body_rewritten,
+        body_unresolved=body_unresolved,
+        body_failed=body_failed,
         manifest_path=manifest_path,
         target_folder=target_folder,
         extra_args=extra_args,
