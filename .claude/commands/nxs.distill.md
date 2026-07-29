@@ -470,9 +470,31 @@ manual curation, out of this drain's scope).
     - `retire` → set `status: deprecated`, append the Decision Log entry, `git mv` the page to
       `.nexus/concepts/_archive/`. **Never `domain:`** — same create-only rule.
     - Decision Log entries are headed `### <YYYY-MM-DD> — <ref> — <short title>`.
-    - Body stays under the **400-word cap** (excluding frontmatter + Decision Log); if the content
-      doesn't fit, the concept is too broad — **split it into two pages, don't grow it**.
-4. **Verification flag (R6):** every page this drain creates or updates gets
+    - Body stays under the **400-word cap** (excluding frontmatter + Decision Log). An `update`
+      may only remove content its own delta supersedes — **never compress or drop still-true
+      content to make room under the cap**. If the patched body would exceed the cap, the concept
+      is too broad: run step 4 and split it.
+4. **Splitting at the cap (0003 §2.2 — split, don't grow).** A page whose patched body would
+   exceed the cap is describing two concepts. Split it inside the same entry commit:
+    - **Choose the seam by retrieval, not by size.** Each half must be loadable on its own — its
+      own decisive Summary, its own invariants, its own touches. If every task that loads one
+      half would also load the other, the seam is wrong; find another. If no independent seam
+      exists the page is genuinely dense, and eviction becomes the last resort — allowed only
+      when the appended Decision Log entry states exactly what was dropped, and the PR body calls
+      it out for the reviewer.
+    - **Synthesize a `create` delta for the new page**, under all Phase 3 rules — slug
+      uniqueness, §8.3 boundary, domain filing (`domain`/`domain_fit` + drafts when forced; the
+      Phase 6.1 gate consumes it like any other create). Seed its Decision Log with a single
+      birth entry recording the split (`split from <parent-slug>`) — **never copy entries from
+      the parent**; the parent's log is immutable and stays whole.
+    - **Rewrite the original's `update` delta**: body slimmed to the retained concept; its one
+      appended Decision Log entry records what moved where and why. Move the `aliases` that now
+      resolve to the new page. The two halves `touches` each other, and any of the original's
+      `touches` whose interaction now belongs to the new half re-point to it (Phase 5 C11
+      reciprocity fan-out propagates the rest).
+    - The seam is a judgment call the distillation-PR review approves — the diff shows the
+      slimmed original beside the new page. Mark both in the PR body (Phase 7 `Split:` line).
+5. **Verification flag (R6):** every page this drain creates or updates gets
    `verification: verified` — the drain is reviewed (the distillation-PR) and grounded in shipped
    code. This includes flipping a pre-existing `unverified` (bootstrap/manual) page that a delta
    touches: re-check its body against the current code while patching it (C13: bootstrap pages
@@ -746,6 +768,9 @@ Drained queue entries: `<entry paths>` (provenance: <ref(s)>)
 - **Why (Decision Log entry):** <the entry's short title + one-line why>
 - **Provenance:** <ref> (<link to the issue>)
 - **Reciprocal edits:** <slugs, or none>
+- **Split:** <only when Phase 4 step 4 fired: `<parent-slug> → <new-slug>` + one line on the
+  seam, on both halves' sections — or, for a last-resort eviction, what was dropped and why no
+  seam existed. Omit the line otherwise.>
 
 ## Taxonomy drift advisory (epic #94, STORY-94.02 — advisory only, never blocks)
 <Paste the Phase 6.3 captured advisory markdown verbatim here. If it was empty, write
