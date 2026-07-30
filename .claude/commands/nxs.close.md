@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic. Emits a human-prose close record into the committed queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), appends deferred scope to the feature backlog, writes the process lesson as its own file, then — after a checkpoint — comments on and closes the epic GitHub issue. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), appends deferred scope to the feature backlog, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -15,10 +15,15 @@ issue.
 The close record is **human prose only** (0006): key decisions, a pointer to deferred scope, and the
 **deviation rationale** produced by the close-from-diff forcing function. There is **no `ConceptDelta`
 block, no `PIR.md`, and no task-file mining** — the task layer is gone (0009); decisions are mined from
-the epic, the story issue comments, and the close review (C6). Durability is structural: the close
-record is committed into `.nexus/queue/epic-<epic-issue>/` — the entry's name is the epic issue number,
-the same directory the capture rule wrote scratch to — and travels to main with the PR, where the
-distiller consumes and deletes it.
+the epic, the story issue comments, and the close review (C6).
+
+**Durability lives on the epic issue, not in the file** (record #176): the close comment posted in
+Phase 8.2 is the single durable copy of a close's rationale, in every mode. The close-record *file*
+is hand-off content. For an **issue-sourced local close** (#172) it lands under the gitignored
+`.nexus/tmp/epic-<epic-issue>/` beside the materialized `epic.md`, where the same-sitting
+`/nxs.distill` consumes it — never committed, never described as committed on any surface. An
+**old-contract entry** keeps its committed `.nexus/queue/` placement, travels to main with the PR,
+and the distiller consumes and deletes it there — unchanged.
 
 # Interaction convention — actionable choice gate
 
@@ -40,8 +45,20 @@ $ARGUMENTS
 1. **`$ARGUMENTS` contains a file path** → use that `*epic.md` directly.
 2. **A file is open in the editor** (passed as context) → use that file as the `*epic.md`.
 3. **`--pr <N>` with no path** → the epic is resolved from the PR and **born at close** (see below).
-4. **Otherwise** (no `--pr`, no path) → stop and ask the user to either open the `*epic.md` in their
-   editor and re-run, or pass the path: `/nxs.close path/to/epic.md`.
+4. **No path, no `--pr`, but the epic issue number is resolvable** — an explicit `#<n>` / `<n>` in
+   `$ARGUMENTS`, else the current branch's linked issue → its parent epic — → resolve the epic into
+   the gitignored `.nexus/tmp/` (the issue-sourced local norm, #114 / #172):
+
+    ```bash
+    tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>
+    ```
+
+   Use the printed `outPath`'s directory (`.nexus/tmp/epic-<n>/`) as the entry. A same-sitting
+   `/nxs.analyze` already materialized this same directory and left `analyze-receipt.md` beside it
+   (#171); re-resolving is byte-identical against an unchanged issue graph. On a non-zero resolver
+   exit, report the diagnostic and stop.
+5. **Otherwise** → stop and ask the user to either open the `*epic.md` in their editor and re-run,
+   pass the path (`/nxs.close path/to/epic.md`), or pass the epic issue number.
 
 If `$ARGUMENTS` also contains **`--pr <N>`** (string-matched, like `/nxs.epic --resume`), close runs
 the **post-merge worktree flow** in Phase 0.5. Strip the `--pr <N>` token first. In `--pr` mode the
@@ -79,7 +96,8 @@ now, as written.
           prefix, no `.`-named segment).
     - `complexity` — the story-size rollup (used for lesson framing)
 
-2. Set `QDIR` = the directory containing `*epic.md` (the committed queue entry).
+2. Set `QDIR` = the directory containing `*epic.md` — a committed queue entry, or the ephemeral
+   `.nexus/tmp/epic-<n>/` materialization for an issue-sourced local close (#172).
 
 3. **Validate `link`.** It MUST exist and contain an issue number. If missing, stop and report:
 
@@ -465,8 +483,17 @@ Fill the seeded template and write it into the queue entry.
       is appended in Phase 5, not restated here).
     - **Process Lesson** — a **pointer only** to the lesson file written in Phase 6.
 
-3. Write it to **`${QDIR}/close-record.md`** — in the committed queue entry, beside `epic.md`. Do
-   **not** emit a `ConceptDelta` block; the record is human prose only.
+3. Write it to **`${QDIR}/close-record.md`**, beside `epic.md`. Placement follows the entry (#172):
+    - **Issue-sourced local close** (`QDIR` under `.nexus/tmp/`) — the close record lands there as
+      ephemeral hand-off content for the same-sitting `/nxs.distill`. No manual `git add` or
+      `git commit` is needed to hand off, and none is run: nothing durable depends on this file
+      surviving (the durable copy is the Phase 8.2 close comment).
+    - **Old-contract entry** (committed `epic.md` under `.nexus/queue/`) — the close record still
+      lands in that committed directory, unchanged from before.
+    - **`--pr` mode** — unchanged: Phase 0.5 / Phase 7.6 commit the born-at-close `epic.md` +
+      `close-record.md` onto the distill branch, because those artifacts have no feature PR to ride.
+
+   Do **not** emit a `ConceptDelta` block; the record is human prose only.
 
 # Phase 5 — Append deferred scope to the feature backlog
 
@@ -533,6 +560,9 @@ Ready to close epic "<Epic Title>" (#<epic-issue>).
 Written:
 0. [born-at-close only] Materialized epic → ${QDIR}/epic.md  (resolved from issue #<epic-issue>)
 1. Close record  → ${QDIR}/close-record.md
+   [issue-sourced local: items 0–1 are ephemeral hand-off content under .nexus/tmp/ —
+    consumed by /nxs.distill in this sitting; the durable copy of the rationale is the
+    close comment posted in step 6]
 2. Deferred scope → <feature-path>/backlog.md (<N> item(s))
 3. Process lesson → <docs-root>/delivery/lessons/<date>-<slug>.md
    (in `--pr` mode all of these are inside the worktree <wtPath>)
@@ -554,7 +584,9 @@ About to:
 ```
 
 In single-repo and hub mode without `--pr`, omit items 4–5b (and renumber) — the list reads exactly
-as today. In `--pr` mode, omit items 4–5 (never migrated) but keep 5b.
+as today. In `--pr` mode, omit items 4–5 (never migrated) but keep 5b. When `QDIR` is a `.nexus/tmp/`
+materialization, the summary describes the entry's artifacts as **ephemeral hand-off content** —
+never as "committed" (#172; record #176 invariant 1).
 
 Then ask via **`AskUserQuestion`** (not free text). Three options:
 
@@ -668,10 +700,14 @@ approved; this comment is the correction, not a re-decision.
 
 ## 8.2 Post the close comment and close the epic issue
 
-GitHub ops target the **epic issue** via `link`. The epic issue is a **durable** surface; the queue
-`close-record.md` is **ephemeral** — the distiller deletes it post-merge. So the comment carries the
-close record's **prose inline** (Key Decisions + Deviation Rationale); it must **never** link into
-`.nexus/queue/`, or the link dangles the moment the distillation PR merges. Durable pointers — the
+GitHub ops target the **epic issue** via `link`. The epic issue is a **durable** surface; the
+close-record file is **ephemeral** in every placement — a committed entry drains post-merge, and a
+`.nexus/tmp/` entry is hand-off only. **This comment is the single durable copy of the close's
+rationale** (record #176, invariant 4) — for an issue-sourced local close, nothing else survives —
+so nothing in this comment-writing step may be skipped or thinned because the file moved to
+`.nexus/tmp/` (#172). The comment carries the close record's **prose inline** (Key Decisions +
+Deviation Rationale, in full); it must **never** link into `.nexus/queue/` or `.nexus/tmp/`, or the
+link dangles the moment the entry is consumed. Durable pointers — the
 feature backlog and the lesson file, both under the resolved docs root — may be included as bare paths
 (or absolute GitHub URLs via `nxs-abs-doc-path`); nothing in the queue may be linked.
 
@@ -689,10 +725,10 @@ the repo close runs from, so both the comment and the close must carry it.
 
 The comment body has this shape:
 
-```markdown
+`````markdown
 ## Close Record
 
-Epic closed. Durable record below — the queue `close-record.md` drains post-merge.
+Epic closed. Durable record below — the ephemeral `close-record.md` is hand-off only.
 
 Decision record: #<record> @ `<full record hash>`   <!-- omit when the epic has no record -->
 
@@ -709,13 +745,45 @@ the durable surface must show the epic closed on a waiver -->
 ### Pointers (durable)
 - Deferred scope → <feature-path>/backlog.md
 - Process lesson → <docs-root>/delivery/lessons/<date>-<slug>.md
+
+<!-- nexus:close-record -->
+```yaml
+epic: "#<epic-issue>"
+date: <YYYY-MM-DD>
+record: "#<record>"              # omit when the epic has no record
+record_hash: <RECORD_HASH>       # full digest, never truncated; omit with `record`
+analyze: <clean | the Phase 1.2 waiver text>
+range:
+  - repo: <the Phase 4 range repo identity>
+    base: <full 40-hex $BASE>
+    head: <full 40-hex $HEAD_SHA>
 ```
+`````
+
+The marker-anchored fenced block is **mandatory in every mode** (record #176, invariant 5): it stamps
+the facts the prose cannot recover — the record reference and its full approved-body hash, the
+conformance verdict, and the **full-SHA landed range**, exactly the range Phase 3 diffed, never
+recomputed later. It makes the epic issue a complete substitute for the close-record file, which is
+what `/nxs.distill`'s GitHub recovery reads (#174). The shape mirrors the `nexus:analyze-receipt`
+block `/nxs.analyze --pr` already publishes; the prose sections above it stay unchanged and in full.
 
 **Error handling:**
 
 - Epic issue already closed → report and continue to the completion summary.
-- `gh` fails → report the error, preserve state (artifacts already written), and print the manual
-  commands above.
+- `gh` fails on the **close comment** → **never report success as if the rationale were safe.** For
+  an issue-sourced local close this comment is the *only* durable copy (record #176, invariant 4):
+  preserve the composed body at its scratch path, do **not** close the epic issue, and end the run
+  with an explicit instruction —
+
+    ```
+    ACTION REQUIRED — the close comment did not post; the rationale has NO durable copy yet.
+    Body preserved at <scratch>/close-comment.md. Post it, then close the issue:
+        gh issue comment <epic-issue> $REPO_ARG --body-file "<scratch>/close-comment.md"
+        gh issue close <epic-issue> $REPO_ARG --reason completed
+    ```
+
+- `gh` fails on the issue close (comment already posted) → report the error, preserve state, and
+  print the manual close command.
 
 # Phase 9 — Report completion
 
@@ -727,7 +795,10 @@ Record amendment:  #<record> — <N> superseding decision(s) posted
                             | none (implementation conformed)
                             | NOT POSTED — <gh error>; <N> superseding decision(s) stand in the
                               close record's Deviation Rationale. Close not blocked.
-Close record:      ${QDIR}/close-record.md   (committed; distiller consumes it post-merge)
+Close record:      ${QDIR}/close-record.md
+                   (issue-sourced local: ephemeral hand-off under .nexus/tmp/ — /nxs.distill
+                    consumes it; the durable copy is the epic issue's close comment)
+                   | (old-contract: committed; distiller consumes it post-merge)
 Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
 Deferred scope:    <feature-path>/backlog.md  (<N> item(s))
@@ -839,8 +910,16 @@ state, but a closed epic with an open issue misreports the pipeline.
   else the close record alone. No flag, no mode switch, no migration: in-flight entries clear on
   their own.
 - **Never link an ephemeral queue file from the issue** — the close comment inlines the close-record
-  prose; the distiller deletes the queue entry post-merge. Link only durable targets (feature backlog,
-  lesson file, concept pages, anchors, other issues).
+  prose; the distiller deletes the queue entry post-merge, and a `.nexus/tmp/` path is machine-local.
+  Link only durable targets (feature backlog, lesson file, concept pages, anchors, other issues).
+- **Artifact placement is contractual (#172).** Issue-sourced local close → `close-record.md` (and
+  the materialized `epic.md`) live under `.nexus/tmp/epic-<n>/` as ephemeral hand-off content —
+  never committed, never described as committed, no manual git step to hand off to `/nxs.distill`.
+  Old-contract entry → committed `.nexus/queue/` placement unchanged. `--pr` mode → Phase 0.5 /
+  Phase 7.6 unchanged. The epic issue's close comment is the single durable copy of a local close's
+  rationale (record #176, invariant 4) and carries the full prose plus the marker-anchored machine
+  block (invariant 5) — nothing in the comment-writing step may be skipped or thinned because the
+  file is ephemeral.
 - Handle an already-closed epic issue gracefully.
 - **Every issue op targets the resolved issues-repo** — the epic and its story issues are filed into
   `github.issues-repo`, resolved once in Phase 1.0 **through the shared resolver** (never by parsing
@@ -904,8 +983,9 @@ state, but a closed epic with an open issue misreports the pipeline.
 # Usage
 
 ```
-/nxs.close                          # epic from the open editor file
+/nxs.close                          # epic from the open editor file, else the branch's linked epic issue
 /nxs.close path/to/epic.md          # explicit epic path
+/nxs.close 118                      # issue-sourced local close: resolve epic #118 into .nexus/tmp/
 /nxs.close --pr 123                 # post-merge close of PR #123; epic born at close from the PR's linked issue
 /nxs.close --pr 123 path/to/epic.md # post-merge close of an old-contract epic whose entry rode the PR
 ```
