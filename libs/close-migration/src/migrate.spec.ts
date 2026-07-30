@@ -1,7 +1,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { buildWorkspaceFixture, commitAll, initRepo, makeParent, sh } from "./git-fixtures";
+import {
+    addEphemeralEntry,
+    buildWorkspaceFixture,
+    commitAll,
+    initRepo,
+    makeParent,
+    sh,
+} from "./git-fixtures";
 import { type MigrateResult, migrateEntry } from "./migrate";
 import { type Runner, defaultRunner } from "./run";
 
@@ -313,6 +320,82 @@ describe("migrateEntry", () => {
         const entryDir = path.join(memberRoot, ".nexus", "queue", entryName);
         fs.mkdirSync(entryDir, { recursive: true });
         fs.writeFileSync(path.join(entryDir, "epic.md"), "# untracked epic\n");
+        const beforeCount = sh(memberRoot, "git", "rev-list", "--count", "HEAD");
+
+        const outcome = asOk(migrateEntry(entryDir));
+
+        expect(outcome.removalCommit).toBeNull();
+        expect(fs.existsSync(entryDir)).toBe(false);
+        expect(sh(memberRoot, "git", "rev-list", "--count", "HEAD")).toBe(beforeCount);
+    });
+
+    // --- #175: ephemeral .nexus/tmp source — the migration's unit is the epic ---
+
+    it("migrates an ephemeral .nexus/tmp entry into the hub queue byte-for-byte despite the gitignored source", () => {
+        const { hubRoot, memberRoot } = fixture();
+        const { entryDir, entryName } = addEphemeralEntry(memberRoot, 170, false);
+        const closeSource = fs
+            .readFileSync(path.join(entryDir, "close-record.md"), "utf8")
+            .replace(/\n$/, "");
+
+        const outcome = asOk(migrateEntry(entryDir));
+
+        expect(outcome.entryName).toBe(entryName);
+        expect(outcome.hubCommit).toMatch(/^[0-9a-f]{40}$/);
+        const files = sh(hubRoot, "git", "show", "--name-only", "--format=", "HEAD")
+            .split("\n")
+            .filter(Boolean)
+            .sort();
+        expect(files).toEqual(
+            ["analyze-receipt.md", "close-record.md", "epic.md"].map(
+                (f) => `.nexus/queue/${entryName}/${f}`,
+            ),
+        );
+        const blob = sh(hubRoot, "git", "show", `HEAD:.nexus/queue/${entryName}/close-record.md`);
+        expect(blob).toBe(closeSource);
+    });
+
+    it("migrates the union — committed per-user scratch joins the ephemeral artifacts in one hub entry", () => {
+        const { hubRoot, memberRoot } = fixture();
+        const { entryDir, entryName } = addEphemeralEntry(memberRoot, 170, true);
+
+        asOk(migrateEntry(entryDir));
+
+        const files = sh(hubRoot, "git", "show", "--name-only", "--format=", "HEAD")
+            .split("\n")
+            .filter(Boolean)
+            .sort();
+        expect(files).toEqual(
+            [
+                "analyze-receipt.md",
+                "close-record.md",
+                "epic.md",
+                "sameera/decisions-feat-branch.md",
+            ].map((f) => `.nexus/queue/${entryName}/${f}`),
+        );
+    });
+
+    it("ends with the entry in exactly one place: tmp copy gone, scratch removal committed in the member", () => {
+        const { memberRoot } = fixture();
+        const { entryDir, entryName, scratchDir } = addEphemeralEntry(memberRoot, 170, true);
+
+        const outcome = asOk(migrateEntry(entryDir));
+
+        expect(fs.existsSync(entryDir)).toBe(false);
+        expect(fs.existsSync(scratchDir)).toBe(false);
+        expect(outcome.removalCommit).toMatch(/^[0-9a-f]{40}$/);
+        expect(
+            sh(memberRoot, "git", "status", "--porcelain", "--", `.nexus/queue/${entryName}`),
+        ).toBe("");
+        const removedFiles = sh(memberRoot, "git", "show", "--name-only", "--format=", "HEAD")
+            .split("\n")
+            .filter(Boolean);
+        expect(removedFiles).toEqual([`.nexus/queue/${entryName}/sameera/decisions-feat-branch.md`]);
+    });
+
+    it("removes an ephemeral entry with no scratch without creating a removal commit", () => {
+        const { memberRoot } = fixture();
+        const { entryDir } = addEphemeralEntry(memberRoot, 171, false);
         const beforeCount = sh(memberRoot, "git", "rev-list", "--count", "HEAD");
 
         const outcome = asOk(migrateEntry(entryDir));

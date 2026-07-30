@@ -26,24 +26,31 @@ export type MigrateResult =
     | { ok: true; outcome: MigrateOutcome }
     | { ok: false; error: MigrationDiagnostic };
 
-/** Sorted relative-path → git blob SHA for every file under entryDir (untracked included). */
-function sourceManifest(entryDir: string, run: Runner): Map<string, string> {
+/**
+ * Sorted relative-path → git blob SHA for every file under the source roots (untracked and
+ * gitignored included — the walk reads the filesystem and hashes content directly, so ignore
+ * status never affects what is copied or verified). Later roots win on a colliding relative
+ * path, matching the copy order in migrateEntry.
+ */
+function sourceManifest(sourceRoots: string[], run: Runner): Map<string, string> {
     const manifest = new Map<string, string>();
-    const walk = (dir: string, relPrefix: string) => {
+    const walk = (root: string, dir: string, relPrefix: string) => {
         for (const name of fs.readdirSync(dir).sort()) {
             const abs = path.join(dir, name);
             const rel = relPrefix ? `${relPrefix}/${name}` : name;
             if (fs.statSync(abs).isDirectory()) {
-                walk(abs, rel);
+                walk(root, abs, rel);
             } else {
-                const sha = git(run, entryDir, "hash-object", abs);
+                const sha = git(run, root, "hash-object", abs);
                 if (sha) {
                     manifest.set(rel, sha);
                 }
             }
         }
     };
-    walk(entryDir, "");
+    for (const root of sourceRoots) {
+        walk(root, root, "");
+    }
     return manifest;
 }
 
@@ -134,11 +141,22 @@ export function migrateEntry(entryDir: string, run: Runner = defaultRunner): Mig
     const hubRoot = preflight.hub.root;
     const hubBranch = preflight.hub.branch;
     const entryName = path.basename(entryDir);
+    // The migration's unit is the epic, and the source-relative and destination-relative paths
+    // are derived separately: `relPath` is the hub destination AND the code repo's committed
+    // home for this epic (`.nexus/queue/<entryName>`), while the entry may live at an
+    // ephemeral, gitignored source path (`.nexus/tmp/epic-<n>`, the tmp-first local close).
+    // For an ephemeral source, the hub entry is the UNION of the ephemeral artifacts and the
+    // committed per-user scratch at `relPath` — one entry, in one place, nothing stranded.
     const relPath = `.nexus/queue/${entryName}`;
     const dest = path.join(hubRoot, ".nexus", "queue", entryName);
+    const sourceRelPath = path.relative(codeRoot, entryDir).split(path.sep).join("/");
+    const sourceIsCommittedHome = sourceRelPath === relPath;
+    const scratchDir = path.join(codeRoot, ".nexus", "queue", entryName);
+    const includeScratch = !sourceIsCommittedHome && fs.existsSync(scratchDir);
 
-    // --- 2. Source manifest -----------------------------------------------
-    const manifest = sourceManifest(entryDir, run);
+    // --- 2. Source manifest (scratch first — entry artifacts win on a collision) ---
+    const sourceRoots = includeScratch ? [scratchDir, entryDir] : [entryDir];
+    const manifest = sourceManifest(sourceRoots, run);
 
     let alreadyMigrated = false;
     let hubCommit: string;
@@ -165,9 +183,11 @@ export function migrateEntry(entryDir: string, run: Runner = defaultRunner): Mig
             };
         }
     } else {
-        // --- 4. Copy -------------------------------------------------------
+        // --- 4. Copy (same order as the manifest: scratch first, entry over it) -----
         fs.mkdirSync(path.join(hubRoot, ".nexus", "queue"), { recursive: true });
-        fs.cpSync(entryDir, dest, { recursive: true });
+        for (const root of sourceRoots) {
+            fs.cpSync(root, dest, { recursive: true });
+        }
 
         const cleanup = () => {
             git(run, hubRoot, "reset", "-q", "--", relPath);
@@ -225,9 +245,15 @@ export function migrateEntry(entryDir: string, run: Runner = defaultRunner): Mig
 
     // --- 7. Remove — only reached when step 6 verified, or on the alreadyMigrated path ---
     // `git add -A -- <path>` errors ("did not match any files") when the path has never been
-    // tracked, so only touch the index when the entry actually has tracked content to remove.
+    // tracked, so only touch the index when the epic actually has tracked content at its
+    // committed home. Both source locations go: the entry dir (ephemeral tmp copy, or the
+    // committed entry itself) and, for an ephemeral source, the committed scratch home — a
+    // later drain in this checkout must not rediscover either as a second drainable entry.
     const trackedBefore = git(run, codeRoot, "ls-files", "--", relPath);
     fs.rmSync(entryDir, { recursive: true, force: true });
+    if (includeScratch) {
+        fs.rmSync(scratchDir, { recursive: true, force: true });
+    }
 
     let removalCommit: string | null = null;
     if (trackedBefore) {
