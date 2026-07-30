@@ -35,7 +35,16 @@ Migrate — mutating, gated to member mode:
 
 ```bash
 tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts migrate .nexus/queue/<entry-dir>
+tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts migrate .nexus/tmp/epic-<n>
 ```
+
+The source may be a committed queue entry (the old contract) or the gitignored
+`.nexus/tmp/epic-<n>/` materialization a tmp-first local close writes (#172/#175). The
+**migration unit is the epic**: for an ephemeral source, the hub entry is the union of the
+ephemeral artifacts and the epic's committed per-user scratch at `.nexus/queue/epic-<n>/`, and
+both local copies are removed once the hub commit verifies — one entry, in one place, nothing
+left for a later `/nxs.distill` in the member checkout to rediscover. Ignore status never affects
+what is copied or verified: the helper walks the filesystem and hashes content directly.
 
 ## What it reports
 

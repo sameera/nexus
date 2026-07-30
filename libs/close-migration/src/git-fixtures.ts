@@ -81,3 +81,37 @@ export function buildWorkspaceFixture(parent: string): WorkspaceFixture {
     fs.writeFileSync(path.join(entryDir, "analyze-receipt.md"), "# receipt\n");
     return { parent, hubRoot, memberRoot, entryName, entryDir };
 }
+
+export interface EphemeralEntryFixture {
+    entryName: string;
+    entryDir: string; // <memberRoot>/.nexus/tmp/epic-<n> — gitignored, all files untracked
+    scratchDir: string; // <memberRoot>/.nexus/queue/epic-<n> — the committed per-user scratch home
+}
+
+/**
+ * Arrange an issue-sourced epic the way a tmp-first local close leaves it: the entry's
+ * artifacts under the gitignored .nexus/tmp/, and (optionally) committed per-user decision
+ * scratch under .nexus/queue/epic-<n>/.
+ */
+export function addEphemeralEntry(
+    memberRoot: string,
+    epicIssue: number,
+    withScratch: boolean,
+): EphemeralEntryFixture {
+    const entryName = `epic-${epicIssue}`;
+    fs.appendFileSync(path.join(memberRoot, ".gitignore"), ".nexus/tmp/\n");
+    const scratchDir = path.join(memberRoot, ".nexus", "queue", entryName);
+    if (withScratch) {
+        const userDir = path.join(scratchDir, "sameera");
+        fs.mkdirSync(userDir, { recursive: true });
+        fs.writeFileSync(path.join(userDir, "decisions-feat-branch.md"), "## decision stub\n");
+    }
+    commitAll(memberRoot, `ignore tmp; scratch for ${entryName}`);
+
+    const entryDir = path.join(memberRoot, ".nexus", "tmp", entryName);
+    fs.mkdirSync(entryDir, { recursive: true });
+    fs.writeFileSync(path.join(entryDir, "epic.md"), `# epic #${epicIssue}\n`);
+    fs.writeFileSync(path.join(entryDir, "close-record.md"), "# close (tmp)\n");
+    fs.writeFileSync(path.join(entryDir, "analyze-receipt.md"), "# receipt (tmp)\n");
+    return { entryName, entryDir, scratchDir };
+}
