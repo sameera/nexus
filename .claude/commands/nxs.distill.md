@@ -1,6 +1,6 @@
 ---
 name: nxs.distill
-description: Drain the committed queue into the concept store via a reviewed distillation-PR. Reads each closed queue entry (epic + close record) plus the epic's decision record — fetched from its record sub-issue and verified against the hash stamped at close — plus the recomputed merged diff, synthesizes per-concept deltas, runs the deterministic steps (touches-reciprocity fan-out, code-anchor refresh, validator), then — after a checkpoint — opens the distillation-PR. Never writes .nexus/concepts/ on main; consumed queue entries are deleted only when that PR merges.
+description: Drain the queue — committed entries and same-sitting ephemeral .nexus/tmp entries alike — into the concept store via a reviewed distillation-PR. Reads each closed queue entry (epic + close record) plus the epic's decision record — fetched from its record sub-issue and verified against the hash stamped at close — plus the recomputed merged diff, synthesizes per-concept deltas, runs the deterministic steps (touches-reciprocity fan-out, code-anchor refresh, validator), then — after a checkpoint — opens the distillation-PR. Never writes .nexus/concepts/ on main; consumed queue entries are deleted only when that PR merges.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -8,9 +8,10 @@ model: inherit
 
 # Role
 
-You are the **System B distiller** (0006/0007, slimmed per 0011 R5). You drain committed queue
-entries — the human planning artifacts System A left behind — into `.nexus/concepts/`, the machine
-knowledge store. The *what* comes from the merged git diff; the *why* comes from the decision and
+You are the **System B distiller** (0006/0007, slimmed per 0011 R5). You drain queue entries — the
+human planning artifacts System A left behind, whether committed under `.nexus/queue/` or written
+ephemerally under the gitignored `.nexus/tmp/` by a same-sitting local close (#173) — into
+`.nexus/concepts/`, the machine knowledge store. The *what* comes from the merged git diff; the *why* comes from the decision and
 close records. You infer the concept mapping yourself: System A emits nothing structured.
 
 The split is **judgment as prompt, mechanics as code** (0004 B0):
@@ -54,6 +55,32 @@ $ARGUMENTS
    or a file inside one — resolve to the directory) → drain exactly that entry.
 2. **No arguments** → scan `.nexus/queue/**` for entry directories (a directory containing an
    `epic.md`). **Presence = unconsumed** — there is no state file to consult.
+
+   **Also scan `.nexus/tmp/`** for **ephemeral entries** (#173) in the same run: a directory
+   `.nexus/tmp/epic-<n>/` is a drainable entry **only when it carries both `epic.md` and
+   `close-record.md`** (record #176, invariant 6). An epic-only materialization is resolver
+   scratch — never listed, never warned about, never aged. For an ephemeral candidate,
+   **presence alone is not the consumption signal** — nothing ever commits a deletion of a tmp
+   path, so derive consumption from the store (invariant 8): fetch the trunk
+   (`git fetch origin main`), then check whether the concept store **at the trunk** carries this
+   epic's provenance in a **structured provenance position** — a `last_updated_by:` frontmatter
+   value or a `### <date> — <ref> — …` Decision Log heading in `${TRUNK}:.nexus/concepts/**`,
+   matched on the whole provenance token (`#<n>`, or the qualified `<owner>/<repo>#<n>` form),
+   never on free prose.
+    - **Provenance present** → the entry is **consumed** — its distillation-PR merged. Do not
+      rediscover or re-drain it; delete the ephemeral directory (no commit — it is derived,
+      disposable content whose consumption is already durable at the trunk; invariant 12) and
+      report the cleanup.
+    - **Provenance absent** → the entry is **unconsumed**: drain it this run. It is never
+      auto-deleted, whatever its age (invariant 9) — a distillation-PR closed unmerged leaves it
+      here, rediscoverable, by design.
+    - **Accepted consequence** (record #176): a drain that produced zero concept deltas leaves no
+      provenance and is re-offered on the next run. Report that plainly and name the ephemeral
+      directory as safe to delete by hand — never delete it yourself.
+
+   Ephemeral entries **never enter drain-SLO accounting** (invariant 7) — drain-SLO is a property
+   of durable queues, and a local tmp directory says nothing about any other machine. Never list
+   an ephemeral entry in the drain-SLO report, breach or otherwise.
 3. For every candidate entry, require **`close-record.md`**. An entry without one is **not yet
    closed**: list it with a warning and skip it — never distill an unclosed epic, and **never
    delete it** (C12: undrained entries are never auto-deleted; an old undrained entry is a
@@ -184,12 +211,35 @@ artifacts (a close just prepared it — the close record, backlog append, and le
     git merge-base --is-ancestor <range.head> "$TRUNK" && echo merged || echo not-merged
     ```
 
-    In the ordinary (non-continuation) drain, keep the `epic.md`-presence proxy:
+    In the ordinary (non-continuation) drain, keep the `epic.md`-presence proxy **for committed
+    entries only**:
 
     ```bash
     TRUNK="$(git rev-parse -q --verify origin/main || git rev-parse -q --verify main)"
     git cat-file -e "${TRUNK}:<entry-path>/epic.md" 2>/dev/null && echo merged || echo not-merged
     ```
+
+    **For an ephemeral `.nexus/tmp/` entry — or any entry not present at the trunk — the proxy is
+    meaningless** (a file that never left `.nexus/tmp/` is absent from the trunk whatever the state
+    of the code) and the precondition is the **two-test form** (#173; record #176, invariant 10),
+    evaluated against the entry's recorded `range:` head:
+
+    1. **Reachability:** `git merge-base --is-ancestor <range.head> "$TRUNK"` — satisfied for a
+       merge-commit landing.
+    2. **Merged-PR resolution:** when reachability fails, resolve the head to its associated pull
+       request and test that PR merged —
+       `gh api "repos/{owner}/{repo}/commits/<range.head>/pulls" --jq '.[].merged_at'` (any
+       non-null `merged_at` passes). This is the same squash-and-rebase-safe resolution the
+       PR-worktree helper performs at close: a **local close stamps the pre-merge feature-branch
+       tip** as its range head, so a squash or rebase merge means that commit never becomes a trunk
+       ancestor — reachability alone would report every squash-merged local epic as not-merged,
+       firing the waiver gate on the normal path and training the operator to waive it.
+
+    Only when **both** tests fail does the existing not-merged gate below fire, unchanged — never
+    silently. A recorded range head that **cannot be resolved locally at all** (the SHA is unknown
+    to this repo and no PR resolves it) is the named per-entry hard error
+    `range-unresolvable` (invariant 11): report it, drain nothing for that entry — never a silent
+    empty diff, never a partial one, never an invented range.
 
     - **merged** → continue silently. Phase 1 and Phase 4 take their normal single-repo path
       (branch cut from the trunk, introducing-commit diff); continuation mode stays on its branch
@@ -642,6 +692,25 @@ Run these for each entry, in order, before its commit:
    The entry leaves `.nexus/queue/**` only on this branch; main still holds it until the PR merges,
    and it stays recoverable via git history thereafter.
 
+   **For an ephemeral `.nexus/tmp/` entry the committed deletion is re-aimed, not skipped** (#173;
+   record #176, invariant 12). Nothing under `.nexus/tmp/` is tracked, so there is no entry dir to
+   `git rm` — but something committed usually is: the epic's **per-user scratch directory**,
+   `.nexus/queue/epic-<n>/`, written during implementation by the capture rule. A literal skip
+   would leave every closed epic's scratch on the trunk with nothing to ever delete it. So:
+
+    ```bash
+    # ephemeral entry — target the committed scratch home, when one exists:
+    git rm -r .nexus/queue/epic-<n>   # skip only if the directory does not exist or is untracked
+    git add .nexus/concepts .nexus/anchors <resolved-atlas-path>
+    git commit
+    ```
+
+   Never `git rm` (or stage) any path under `.nexus/tmp/`. The ephemeral directory itself is
+   **not** deleted here — its consumption is derived from the trunk store after the PR merges
+   (Input Resolution 2), and the next run cleans it without a commit. This preserves scratch's
+   existing lifecycle exactly: deleted atomically with the page writes when the distillation-PR
+   merges.
+
 # Phase 6 — Checkpoint (before any GitHub write)
 
 ## Phase 6.1 — Taxonomy gate (forced fits only; epic #94, STORY-94.01)
@@ -708,7 +777,10 @@ PR body. **If Phase 2 found no registry, skip this step entirely** (byte-for-byt
 CHECKPOINT: Distillation-PR
 
 Drained entries:
-- <local-id> — <epic title> (<provenance ref>)
+- <local-id> — <epic title> (<provenance ref>) — source: <committed queue | .nexus/tmp (ephemeral)>
+  ↳ deletion landing with the merge: <the entry dir | the committed scratch dir .nexus/queue/epic-<n>/ | nothing committed to delete>
+    (a .nexus/tmp/ entry itself is NOT deleted by this PR — it is cleaned, uncommitted, by the
+     next run once its provenance is on the trunk)
 
 Concept deltas:
 - <slug> — <create|update|retire> — <sections changed> — log: "<entry title>"
@@ -786,6 +858,9 @@ Drained queue entries: `<entry paths>` (provenance: <ref(s)>)
 This PR already removes the drained entries on the branch, so the merge deletes them from main
 atomically with the page writes — **no manual post-merge step**:
 - `<entry-path>` (recoverable via git history)
+- For an ephemeral `.nexus/tmp/` entry: the committed removal is the epic's scratch dir
+  `.nexus/queue/epic-<n>/` (when one existed); the tmp copy is machine-local and is cleaned,
+  uncommitted, by the next run once this PR's provenance is on the trunk.
 ```
 
 In continuation mode the entry's `close-record.md` was added by the close earlier on this same
@@ -865,7 +940,21 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
 - **No machinery**: no recipe/template files, no state file, no retrieval index (0003 §7 —
   glob/rg is the index; the atlas (at the resolved docs root) is a derived human-orientation
   page regenerated by this phase's atlas-regeneration step, never a retrieval surface).
-  Idempotency is structural: entry presence = unconsumed.
+  Idempotency is structural: entry presence = unconsumed — and for an ephemeral entry, whose
+  presence nothing committed can end, consumption is **derived**: the entry is consumed exactly
+  when the concept store at the fetched trunk carries its provenance in a structured provenance
+  position (invariant 8). No marker file, no state file, no timing logic — the mark cannot exist
+  before the merge because it *is* the merge, and a PR closed unmerged leaves the entry
+  rediscoverable.
+- **Ephemeral entries (#173):** a `.nexus/tmp/epic-<n>/` directory is drainable only with both
+  `epic.md` and `close-record.md` (an epic-only materialization is resolver scratch — never
+  listed, warned about, or aged; invariant 6); it never enters drain-SLO accounting
+  (invariant 7); unconsumed, it is never auto-deleted whatever its age (invariant 9); its merge
+  precondition is the two-test form — range-head reachability, else merged-PR resolution
+  (invariant 10) — and an unresolvable recorded range is the named per-entry hard error
+  `range-unresolvable` (invariant 11); its committed removal targets the epic's scratch dir, never
+  a `.nexus/tmp/` path (invariant 12); and the checkpoint digest names its source and what is
+  actually deleted where (invariant 13).
 - **Every changed page gains exactly one Decision Log entry per queue entry**; prior entries are
   never edited, reordered, or deleted.
 - **Domain filing (epic #94, STORY-94.01) is gated on registry presence.** A registry present at
@@ -896,8 +985,10 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
 # Usage
 
 ```
-/nxs.distill                                 # drain every closed entry in .nexus/queue/**
+/nxs.distill                                 # drain every closed entry in .nexus/queue/** and
+                                             #  every unconsumed ephemeral entry in .nexus/tmp/
 /nxs.distill .nexus/queue/fe205650/          # drain one specific entry
+/nxs.distill .nexus/tmp/epic-118/            # drain one specific ephemeral entry
 /nxs.distill                                 # (on a close-prepared distill/* branch, inside the
                                              #  close worktree) continuation mode — drains that
                                              #  branch's one entry and opens its distillation-PR
