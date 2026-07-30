@@ -19,3 +19,19 @@
 - **estimate:** S
 - **blocked_by:** none
 - **source:** deferred from epic PR-Driven Post-Merge Flow for Analyze, Close, and Distill (#101) (2026-07-20)
+
+## revendor-claude-components-bundle
+
+- **status:** proposed
+- **goal:** Re-vendor the `claude-components` bundle so its committed fingerprint matches a fresh build and `libs/portable-tools/src/parity.spec.ts` passes on main.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic Tmp-First Analyze & Close Artifacts, with GitHub Fallback for Distill (#170) (2026-07-30)
+
+## provenance-prose-match-test
+
+- **status:** proposed
+- **goal:** Add an executable test that a free-prose mention of an epic number does not mark an undrained ephemeral entry consumed — the whole-token, structured-position rule of record #176 invariant 8 currently ships as prompt-spec only, leaving its ADDRESS-tier risk mitigation untested.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic Tmp-First Analyze & Close Artifacts, with GitHub Fallback for Distill (#170) (2026-07-30)
