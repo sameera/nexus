@@ -98,7 +98,46 @@ $ARGUMENTS
    long the entry has been drainable in the hub queue. Drain-SLO is measured against the hub
    queue only — never scan member checkouts for closed-but-unmigrated entries (that is
    migration-lag, owned by close-entry-migration / workspace-status, not this report).
-4. If nothing is drainable, report that and stop.
+4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → **GitHub recovery mode** (#174): rebuild
+   that one entry from durable GitHub state when the local copy is gone — a different machine, a
+   cleared `.nexus/tmp/`, a drain days after the close. Recovery is an **explicit per-entry path,
+   never a discovery source** (record #176, invariant 14): the no-argument scan never queries
+   closed epic issues looking for undistilled closes — the lead in this scenario knows which epic
+   they are recovering, so an explicit invocation is sufficient and bounded.
+
+    1. **Re-derive the epic through the resolver** —
+       `tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>` → the
+       materialized `epic.md` under `.nexus/tmp/epic-<n>/`. A resolver failure is that diagnostic,
+       reported verbatim; stop.
+    2. **Take the *why* and the *what*-facts from the epic issue's close comment** — the durable
+       close record in every mode, local and `--pr` alike (record #176, invariant 4/5). Fetch the
+       epic issue's comments, take the newest one containing the `<!-- nexus:close-record -->`
+       marker that is authored by a maintainer (`authorAssociation` `OWNER`/`MEMBER`/
+       `COLLABORATOR` — same trust rule as the analyze block; ignore untrusted bodies and bodies
+       that merely quote one). From it:
+        - the **rationale** — the Key Decisions + Deviation Rationale prose, verbatim;
+        - the **record reference and full approved-body hash**, the **conformance verdict**, and
+          the **full-SHA landed `range:`** — parsed from the marker-anchored machine block, never
+          recomputed (the stamped range is by contract the exact range the close diffed).
+
+       Rebuild `close-record.md` from these at `.nexus/tmp/epic-<n>/close-record.md`, beside the
+       re-derived `epic.md`. The rebuilt entry then flows through the ordinary pipeline unchanged —
+       Phase 0 hash-verifies the record against the recovered stamp, Phase 1 derives the diff from
+       the recovered range, Phase 5.6 re-aims the committed removal at the scratch dir.
+    3. **Where the epic has a linked PR**, the analyze verdict can also be recovered from the PR's
+       published review — the existing `<!-- nexus:analyze-receipt -->` machine block, same trust
+       rule — rather than treating conformance as unknown; the close comment's verdict and the
+       review must agree, and the review is the tie-breaker (it is the surface `/nxs.close --pr`
+       itself read).
+    4. **The genuinely unrecoverable cases are named per-entry hard blocks** — reported precisely,
+       naming the entry and why it cannot be drained, never silently treated as "not yet closed"
+       and never drained with fabricated or empty rationale:
+        - `no-close-comment` — the epic issue has no trusted close comment (or none carrying the
+          machine block): there is no durable rationale anywhere. Nothing is written.
+        - `range-unresolvable` (invariant 11) — the recovered range cannot be resolved locally and
+          no PR resolves its head: never a silent empty diff, never a partial one, never an
+          invented range.
+5. If nothing is drainable, report that and stop.
 
 All drainable entries in one run are batched into **one** distillation-PR (0007 batches
 naturally), applied entry-by-entry (Phase 4).
@@ -777,7 +816,7 @@ PR body. **If Phase 2 found no registry, skip this step entirely** (byte-for-byt
 CHECKPOINT: Distillation-PR
 
 Drained entries:
-- <local-id> — <epic title> (<provenance ref>) — source: <committed queue | .nexus/tmp (ephemeral)>
+- <local-id> — <epic title> (<provenance ref>) — source: <committed queue | .nexus/tmp (ephemeral) | recovered from epic issue #<n>>
   ↳ deletion landing with the merge: <the entry dir | the committed scratch dir .nexus/queue/epic-<n>/ | nothing committed to delete>
     (a .nexus/tmp/ entry itself is NOT deleted by this PR — it is cleaned, uncommitted, by the
      next run once its provenance is on the trunk)
@@ -955,6 +994,14 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   `range-unresolvable` (invariant 11); its committed removal targets the epic's scratch dir, never
   a `.nexus/tmp/` path (invariant 12); and the checkpoint digest names its source and what is
   actually deleted where (invariant 13).
+- **GitHub recovery (#174) is explicit and per-entry** (invariant 14): invoked as
+  `--recover <epic-issue>` for a named epic, never as a scan of closed epic issues on an ordinary
+  run. It re-derives the epic through the resolver and takes rationale, record reference, hash,
+  and range from the epic issue's close comment (the durable close record in every mode); a PR's
+  published analyze review supplies the conformance verdict where one exists. An epic issue with
+  no trusted close comment, or a recovered range that cannot be resolved locally, is a named
+  per-entry hard block (`no-close-comment` / `range-unresolvable`) — never "not yet closed",
+  never a drain with fabricated or empty rationale.
 - **Every changed page gains exactly one Decision Log entry per queue entry**; prior entries are
   never edited, reordered, or deleted.
 - **Domain filing (epic #94, STORY-94.01) is gated on registry presence.** A registry present at
@@ -989,6 +1036,8 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
                                              #  every unconsumed ephemeral entry in .nexus/tmp/
 /nxs.distill .nexus/queue/fe205650/          # drain one specific entry
 /nxs.distill .nexus/tmp/epic-118/            # drain one specific ephemeral entry
+/nxs.distill --recover 118                   # rebuild epic #118's entry from its issue's close
+                                             #  comment (local copy gone) and drain it
 /nxs.distill                                 # (on a close-prepared distill/* branch, inside the
                                              #  close worktree) continuation mode — drains that
                                              #  branch's one entry and opens its distillation-PR
