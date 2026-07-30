@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md into the queue entry (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -267,7 +267,19 @@ the epic; it reports so the user can gate.
 
 Then write the **receipt** — the proof this gate ran, which `/nxs.close` checks as a precondition.
 Write it to **`analyze-receipt.md`** beside the resolved `epic.md`, overwriting any previous receipt
-(a re-run supersedes it). This is the command's only write:
+(a re-run supersedes it). This is the command's only write.
+
+**Where the receipt lives is a contract, not an accident of where the epic resolved** (#171):
+
+- **Issue-sourced epic** (resolver-materialized, no committed entry — the #114 norm): the receipt is
+  written under **`.nexus/tmp/epic-<n>/`**, beside the materialized `epic.md`. This placement is
+  intentional: the receipt is ephemeral hand-off content for the same-sitting `/nxs.close` →
+  `/nxs.distill` flow, and both commands depend on finding it there without re-deriving it. It is
+  never committed, never linked from an issue, and never described as committed on any surface
+  (record #176, invariant 1).
+- **Old-contract entry** (an `epic.md` already committed under `.nexus/queue/`): the receipt is still
+  written into that committed directory, unchanged from before.
+- **`--pr` mode**: no receipt file at all — the result is a published PR review (below), unchanged.
 
 ```markdown
 ---
@@ -288,8 +300,9 @@ compares, so a design revised after this analysis is detectable and is named sep
 commit landing after it. Omit both keys entirely in downgraded mode — there is no record to name.
 Stamp the digest **in full**; no truncated form appears on any surface.
 
-The receipt is ephemeral queue content: the distiller deletes it with the entry post-merge. Never
-link it from an issue.
+The receipt is ephemeral in both placements: a committed entry is deleted whole by the distiller
+post-merge, and a `.nexus/tmp/` entry is hand-off content consumed by the drain. Never link it from
+an issue.
 
 ## PR mode — publish a review, not a receipt file
 
@@ -362,6 +375,11 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 - **The record hash comes from the one digest program** (`nxs-record-digest`), computed over the
   body as fetched from GitHub, and is stamped in full on both the receipt and the PR machine block
   beside the analysed commit. Never re-derive it with a shell one-liner and never truncate it.
+- **Receipt placement is contractual (#171).** Issue-sourced epic → `analyze-receipt.md` under
+  `.nexus/tmp/epic-<n>/`, beside the materialized `epic.md`; old-contract committed entry → into
+  that committed directory, unchanged; `--pr` → PR review only, no receipt file. Downstream
+  commands (`/nxs.close`, `/nxs.distill`) rely on this placement — never write the receipt anywhere
+  else.
 - **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`
