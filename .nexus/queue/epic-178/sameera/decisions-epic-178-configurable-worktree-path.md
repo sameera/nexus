@@ -18,6 +18,16 @@
 - **Refuted alternative:** Export the gate and have each stage script call it before opening — makes
   it bypassable, which is exactly what the record rejects.
 
+## 2026-07-31 — The ignore query asks about the per-checkout directory, not the base
+
+- **Choice:** `git check-ignore` is run against `<base>/<checkout-segment>` — the directory the flow
+  will actually write — while the diagnostic still names the configured base.
+- **Why:** A `worktrees/` rule matches directories, and git cannot tell that a base which does not
+  exist yet is one, so asking about the base returns "not ignored" and refuses a correctly
+  configured repo. A nested path answers honestly with nothing pre-created.
+- **Refuted alternative:** Append a trailing separator to the base in the query — relies on an
+  undocumented reading of how git types the path, and still says nothing about what gets written.
+
 ## 2026-07-31 — Fixture repos carry a copy of the real resolver
 
 - **Choice:** `initRepo` copies this checkout's `delivery_config.py` into every fixture repo, so the

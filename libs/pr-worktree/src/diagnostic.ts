@@ -23,6 +23,8 @@ export type PrWorktreeProblem =
     | "range-unrecognized"
     | "git-failed"
     | "worktree-base-unresolved"
+    | "worktree-base-in-repo"
+    | "worktree-base-uncreatable"
     | "worktree-conflict"
     | "worktree-add-failed"
     | "worktree-remove-failed"
