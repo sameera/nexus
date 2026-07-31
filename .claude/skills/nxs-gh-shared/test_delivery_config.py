@@ -521,6 +521,21 @@ class HubDefaults(unittest.TestCase):
             {"project": "acme/1", "classification": "labels", "storyRepo": "acme/w"},
         )
 
+    def test_worktree_path_is_inherited_from_the_hub_and_overridden_by_the_repo(self):
+        """Epic #178: a hub declares the worktree base once for every repo in the workspace."""
+        hub = _normalize_hub_defaults('{"worktree-path": "/srv/hub-worktrees"}')
+        self.assertEqual(hub, {"worktreePath": "/srv/hub-worktrees"})
+        # Repo declares none → the hub's base is what the flow uses.
+        self.assertEqual(resolve_setting("worktreePath", repo={}, hub=hub), "/srv/hub-worktrees")
+        # Both declare → the repo wins.
+        self.assertEqual(
+            resolve_setting("worktreePath", repo={"worktreePath": "/srv/repo-worktrees"}, hub=hub),
+            "/srv/repo-worktrees",
+        )
+        # Neither declares → nothing, so the consumer's built-in temp base applies. The hub layer
+        # contributes no default of its own.
+        self.assertIsNone(resolve_setting("worktreePath", repo={}, hub={}))
+
     def test_normalize_tolerates_garbage(self):
         self.assertEqual(_normalize_hub_defaults("not json"), {})
         self.assertEqual(_normalize_hub_defaults("[1,2,3]"), {})

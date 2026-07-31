@@ -145,6 +145,14 @@ describe("parseAndValidateManifest — github defaults (STORY-121.05)", () => {
         expect(ws.github).toBeUndefined();
     });
 
+    it("accepts a hub-declared worktree-path default", () => {
+        // Epic #178: the allowlist rejects unlisted keys outright, so a hub cannot declare the
+        // worktree base at all until the key is registered here as well as in the resolver's map.
+        const raw = VALID + `github:\n  worktree-path: /srv/nexus-worktrees\n`;
+        const ws = asOk(parseAndValidateManifest(raw, FILE, HUB));
+        expect(ws.github).toEqual({ "worktree-path": "/srv/nexus-worktrees" });
+    });
+
     it("rejects an unknown key inside the github block", () => {
         const raw = VALID + `github:\n  classification: labels\n  banana: yes\n`;
         const err = asError(parseAndValidateManifest(raw, FILE, HUB));
