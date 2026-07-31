@@ -1,45 +1,47 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest"]
-last_updated_by: "#139"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record"]
+last_updated_by: "#170"
 status: active
 verification: verified
 ---
 
 # Distiller
 
-The distiller drains committed queue entries into the concept store — what changed from the merged diff, why from the queued records — inferring the mapping itself and applying it through a reviewed pull request.
+The distiller drains queue entries into the concept store — what changed from the merged diff, why from the closed records — inferring the mapping and applying it through a reviewed pull request.
 
 ## How It Works
 
-The distiller runs after merges, scanning for unconsumed entries. For each it recomputes the diff from history (never stored), resolves the why per entry — the record issue body verified against the hash stamped at close, else a committed decision record, else the close record — and maps both to per-concept deltas. Its work splits: judgment is the model's (mapping, prose, domain filing, slug collisions); mechanics are code (reciprocity, anchor refresh, atlas, validator, drift advisory). The distiller writes the store only through the merge consuming each entry.
+It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area alike. For each it recomputes the diff from history, resolves the why by precedence, and maps both to per-concept deltas. An entry absent from the trunk is gated on its recorded range head reaching the trunk or resolving to a merged pull request, never on a file's presence. A lost entry is rebuilt on explicit request from its close comment. It writes the store only through the merge consuming each entry.
 
 ## Key Invariants
 
-1. The distiller is the single producer of the concept store.
+1. It is the single producer of the concept store.
 2. The what is the recomputed, never-stored diff; the why is the hash-verified record issue body, else the committed decision record, else the close record; a mismatch hard-errors with no waiver.
-3. Judgment (concept mapping and prose) is the model's; the reciprocity, anchor, and validator steps are deterministic.
+3. Judgment is the model's; the reciprocity, anchor, and validator steps are deterministic.
 4. A validation failure blocks the apply; a failing page is never shipped.
-5. The distiller infers the concept mapping itself — the pipeline emits no structured concept list.
-6. Draining is a manually-invoked curated step, not an automated trigger; only detecting undrained entries and deleting consumed ones are deterministic.
-7. Input is only the gated queue and recomputed diff, never plans or ungated capture; decision-only memos drain diff-less into decision logs.
+5. It infers the concept mapping itself — the pipeline emits no structured concept list.
+6. Draining is a manually-invoked curated step, not an automated trigger; recovery from a closed epic issue is an explicit per-entry request, never a discovery scan.
+7. Input is only gated entries and the recomputed diff, never plans or ungated capture; decision-only memos drain diff-less into logs.
 
 ## Integration Points
 
-- [concept-store](concept-store.md) — the store the distiller is sole producer of.
+- [concept-store](concept-store.md) — the store it is sole producer of.
 - [committed-queue](committed-queue.md) — the entries it drains.
 - [distillation-pr](distillation-pr.md) — the reviewed write it applies through.
 - [code-anchors](code-anchors.md) — derived sidecars regenerated per touched concept.
 - [scratch-capture](scratch-capture.md) — an input boundary, never read.
-- [portable-tooling](portable-tooling.md) — the offline validator and atlas generator a hub drain runs.
-- [close-entry-migration](close-entry-migration.md) — the migrated entry and range a relocated epic drains from.
-- [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decision and three-way gate.
-- [drift-advisory](drift-advisory.md) — the non-blocking decay report in the PR.
-- [pr-driven-flow](pr-driven-flow.md) — the post-merge flow whose stamped range supplies the diff.
+- [portable-tooling](portable-tooling.md) — the offline tooling a hub drain runs.
+- [close-entry-migration](close-entry-migration.md) — the migrated entry a relocated epic drains from.
+- [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decision and gate.
+- [drift-advisory](drift-advisory.md) — the non-blocking decay report.
+- [pr-driven-flow](pr-driven-flow.md) — the flow whose stamped range supplies the diff.
 - [issue-sourced-planning](issue-sourced-planning.md) — the model producing born-at-close entries.
-- [decision-record](decision-record.md) — the record issue an entry's why is fetched from.
-- [record-digest](record-digest.md) — the verification gating that fetch; a mismatch drains nothing.
+- [decision-record](decision-record.md) — the record issue the why is fetched from.
+- [record-digest](record-digest.md) — the verification gating that fetch.
+- [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored entries it also discovers and drains.
+- [durable-close-record](durable-close-record.md) — the close comment a lost entry is rebuilt from.
 
 ## Decision Log
 
@@ -98,3 +100,7 @@ Under issue-sourced planning the committed entry is born at close and, until the
 ### 2026-07-26 — #139 — The why is fetched from the record issue and hash-verified
 
 With the decision record living on an approvable sub-issue, the drain's why source became a per-entry precedence: the record issue body — fetched fresh and verified against the hash stamped at close — else a committed decision record (old-contract entries drain unchanged), else the close record alone. A mismatch hard-errors and writes nothing for that entry: the drain writes permanently into the knowledge store, so a waived mismatch would file rationale for a design nobody approved; the remedy is upstream, a re-approval and re-stamp where the second approval act is visible. Refuted alternative: give the drain the same explicit waiver close has, for symmetry across the gates — rejected because it puts the softest control on the most durable write.
+
+### 2026-07-31 — #170 — The drain reaches past the committed queue: ephemeral entries and issue recovery
+
+With a local close's artifacts now version-ignored, the drain gained three capabilities on the same model rather than a parallel one: it discovers ephemeral entries beside committed ones, it derives an ephemeral entry's consumption from the store at the trunk instead of from a deletion it cannot perform, and — on an explicit per-entry request — it rebuilds a lost entry from the epic issue's close comment, whose stamped block carries the record reference, hash, conformance verdict, and landed range. The file-presence merge proxy was replaced for any entry absent from the trunk by range-head reachability with a merged-pull-request second test, because a local close stamps its pre-merge branch tip and a squash or rebase merge means that commit never becomes a trunk ancestor — reachability alone would report every squash-merged local epic as not-merged and train the operator to waive the gate. Refuted alternative: scan closed epic issues for undistilled close comments on every run — it would make drain health genuinely complete, seeing epics closed but never drained, which nothing sees today, but it costs an unbounded issue query per drain, adds a network failure mode, and would surface every historically-closed epic on its first run.

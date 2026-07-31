@@ -1,25 +1,25 @@
 ---
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
-touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest"]
-last_updated_by: "#157"
+touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry"]
+last_updated_by: "#170"
 status: active
 verification: verified
 ---
 
 # Committed Queue
 
-The committed queue is the single handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts. It is not ignored by version control — it reaches the trunk with the work, and the distiller drains it afterward.
+The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts. It reaches the trunk with the work and the distiller drains it afterward — no longer the only handoff shape, since a local close hands off through an ephemeral counterpart.
 
 ## How It Works
 
-Each epic gets one committed folder, named for its issue number — the directory scratch capture already created during implementation is the entry itself, nothing moved or adopted. It holds the epic and close record; an old-contract entry alone still carries a decision-record file, since the record now lives on its sub-issue. Presence is the only state — no separate status file. Under issue-sourced planning the entry is born at close, so the queue holds only closed, drainable entries; abandoned epics never reach the trunk and never distill. A drained entry is deleted but stays recoverable through history. The queue holds only gated artifacts, never an ungated machine block — though it also carries decision-only memos drained diff-less into concept logs, and per-user scratch, hint-only and never read.
+The folder is the directory scratch capture already created during implementation — nothing moved or adopted. It holds the epic and close record; an old-contract entry alone still carries a decision-record file. Entries arrive from the pull-request flow, old-contract epics, and migrated member closes. A local close commits nothing here but the epic's per-user scratch, the target of the drain's removal. Under issue-sourced planning the entry is born at close, so the queue holds only closed, drainable entries. It holds only gated artifacts, never an ungated machine block.
 
 ## Key Invariants
 
 1. One committed folder per epic, named for the epic's issue number, holds that epic's human planning artifacts; an old-contract slug-named entry is read as-is.
 2. The queue is committed, never ignored; every entry on the trunk carries a close record.
-3. Presence equals unconsumed, with no separate state file.
+3. Presence equals unconsumed here, with no separate state file; the ephemeral counterpart derives the same fact from the trunk store instead.
 4. An entry is drained only after its epic merges; abandoned epics never distill.
 5. A drained entry is deleted but stays recoverable through history.
 6. Everything drained passed a human gate; the per-user scratch riding inside is hint-only, never read.
@@ -35,6 +35,8 @@ Each epic gets one committed folder, named for its issue number — the director
 - [issue-sourced-planning](issue-sourced-planning.md) — the model under which this entry is born at close.
 - [decision-record](decision-record.md) — no longer stored here; old-contract entries alone still carry its file.
 - [record-digest](record-digest.md) — the approved-body hash the close record stamps for the drain.
+- [durable-close-record](durable-close-record.md) — the close comment carrying this entry's rationale durably.
+- [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored counterpart a local close uses.
 
 ## Decision Log
 
@@ -73,3 +75,7 @@ The queue is a drain buffer the distiller deletes, so a decision record stored h
 ### 2026-07-28 — #157 — The entry is named for the epic issue number, not a slug plus a random id
 
 The born-at-close entry now takes the epic's issue number as its whole name, so the directory scratch capture wrote to during implementation — keyed on that same number — is the entry the close stage materializes into, with nothing moved, renamed, or adopted. This removes the last consumer of slug-matching heuristics over queue directory names, since the issue number is already unique and already the pipeline's join key. Refuted alternative: keep the slug-plus-random-id name and have close adopt the capture directory into the entry it creates — preserves a human-readable directory name, but makes close move committed files and leaves a window where an epic has two live scratch locations.
+
+### 2026-07-31 — #170 — The durable hand-off surface, no longer the only one
+
+A local close no longer writes here at all: its epic, receipt, and close record became version-ignored hand-off content, leaving this queue to serve the pull-request flow, old-contract epics, and migrated member closes — plus the per-user scratch every implementation still commits, which is what a drain's committed removal is now re-aimed at. The presence-equals-unconsumed rule survives intact for this surface and is generalized rather than replaced for the ephemeral one, which derives the same fact from the trunk store. Refuted alternative: commit the local close's artifacts here too, mirroring the born-at-close mechanism the pull-request flow uses — one shape instead of two, but the local flow has no pull request of its own to carry that commit to the trunk, so it forces a manual commit and push of files nothing durable depends on.
