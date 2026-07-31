@@ -46,6 +46,11 @@ github:
 -   One resolved base serves the whole flow: `/nxs.analyze --pr`, `/nxs.close --pr`, and the
     `/nxs.distill` continuation of close's worktree.
 
+A **workspace hub** can declare the same key in its manifest's `github:` defaults, and every repo in
+the workspace that declares none inherits it; a repo's own value always wins. Note that a *relative*
+hub default anchors on each consuming repo's own root, so it gives every repo a different location —
+a hub that wants one shared location must declare an **absolute** path.
+
 ## Usage
 
 Preflight — read-only gate. `--mode close` exits non-zero unless the PR is merged:

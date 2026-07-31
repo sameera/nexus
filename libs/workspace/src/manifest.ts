@@ -110,6 +110,10 @@ const GITHUB_DEFAULT_KEYS = [
     "story-type",
     "epic-label",
     "story-label",
+    // Epic #178: where the `--pr` flow creates its worktrees. Registration here is not optional
+    // bookkeeping — the allowlist rejects unlisted keys outright, so without it a hub declaring the
+    // key fails validation and the workspace-wide default can never be expressed at all.
+    "worktree-path",
 ];
 /** The hub-role default docs root when no explicit override is given: the repo root. */
 const DEFAULT_HUB_DOCS_ROOT = ".";
