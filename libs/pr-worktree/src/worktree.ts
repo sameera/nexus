@@ -109,11 +109,39 @@ export function resolveWorktreeBase(
     return { ok: true, base: declared ? normalizeDeclaredBase(declared, repoRoot) : builtinWorktreeBase() };
 }
 
+/** Whether `candidate` lies inside `repoRoot`'s working tree (the root itself counts). */
+function isInsideWorkingTree(candidate: string, repoRoot: string): boolean {
+    const rel: string = path.relative(path.resolve(repoRoot), candidate);
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
 /**
- * Resolve the base and return the per-checkout directory worktrees go in, creating it.
+ * Whether git ignores `candidate`.
+ *
+ * The question is asked of git itself so that every exclusion mechanism counts — the repo's
+ * `.gitignore`, global excludes, and `info/exclude` — which is the operator's actual mental model of
+ * "ignored". git answers correctly for absolute paths and for paths that do not exist yet, so
+ * nothing has to be created to ask. A query that errors is treated as *not* ignored: we cannot
+ * confirm the base is safe, and the failure this gate exists to prevent is silent.
+ *
+ * The path asked about is the per-checkout directory the flow will actually write, not the base
+ * above it. A `worktrees/` ignore rule matches directories, and git cannot tell that a base which
+ * does not exist yet is one — asking about a path *nested* under it gets the honest answer without
+ * pre-creating anything.
+ */
+function gitIgnores(run: Runner, repoRoot: string, candidate: string): boolean {
+    return run("git", ["-C", repoRoot, "check-ignore", "-q", candidate], { cwd: repoRoot }).status === 0;
+}
+
+/**
+ * Resolve the base, refuse an unusable one, and return the per-checkout directory worktrees go in.
  *
  * Every worktree-opening path funnels through here, so the base is resolved identically within a run
- * and one declared base serves analyze, close, and distill's continuation alike.
+ * (one declared base serves analyze, close, and distill's continuation alike) and the gate is
+ * unbypassable. The checks run *before* anything is created: `/nxs.close --pr` commits and pushes
+ * from inside its worktree, so a non-ignored in-repo base would sweep a full second checkout into
+ * the repo's own index — and git will happily create such a worktree, so there is no later failure
+ * to interpret. A rejected base leaves the checkout exactly as it was found.
  */
 function prepareWorktreeDir(
     run: Runner,
@@ -121,8 +149,34 @@ function prepareWorktreeDir(
 ): { ok: true; dir: string } | { ok: false; error: PrWorktreeDiagnostic } {
     const resolved = resolveWorktreeBase(run, repoRoot);
     if (!resolved.ok) return resolved;
-    const dir: string = path.join(resolved.base, checkoutSegment(repoRoot));
-    fs.mkdirSync(dir, { recursive: true });
+    const base: string = resolved.base;
+    const dir: string = path.join(base, checkoutSegment(repoRoot));
+
+    if (isInsideWorkingTree(base, repoRoot) && !gitIgnores(run, repoRoot, dir)) {
+        return {
+            ok: false,
+            error: {
+                problem: "worktree-base-in-repo",
+                message:
+                    `the configured worktree base ${base} is inside this repository's working tree and git ` +
+                    `does not ignore it; gitignore that path or move the base outside ${repoRoot}.`,
+            },
+        };
+    }
+
+    try {
+        fs.mkdirSync(dir, { recursive: true });
+    } catch (err) {
+        return {
+            ok: false,
+            error: {
+                problem: "worktree-base-uncreatable",
+                message:
+                    `the configured worktree base ${base} could not be created: ` +
+                    `${err instanceof Error ? err.message : String(err)}. Fix the path or its permissions.`,
+            },
+        };
+    }
     return { ok: true, dir };
 }
 

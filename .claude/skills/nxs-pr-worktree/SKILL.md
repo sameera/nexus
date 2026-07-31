@@ -46,6 +46,12 @@ github:
 -   One resolved base serves the whole flow: `/nxs.analyze --pr`, `/nxs.close --pr`, and the
     `/nxs.distill` continuation of close's worktree.
 
+**Prefer a base outside the repository.** An in-repo base is allowed once git ignores it, but the
+ignore rule only protects git: project discovery, test collection, linters, and file globs still
+recurse into what is a second complete checkout of the same repo, and an aggressive clean of ignored
+files in the outer repo will destroy a live worktree. A base git does *not* ignore is refused
+outright (`worktree-base-in-repo`), before anything is created.
+
 A **workspace hub** can declare the same key in its manifest's `github:` defaults, and every repo in
 the workspace that declares none inherits it; a repo's own value always wins. Note that a *relative*
 hub default anchors on each consuming repo's own root, so it gives every repo a different location —
@@ -90,3 +96,9 @@ tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts remove <wtPath>
     or non-ancestor range — a wrong range would distill the wrong pages later.
 -   Read-only except the worktree add/remove and the fetches it performs; it never pushes, commits,
     or edits tracked files.
+-   An unusable worktree base stops the run before any directory is created and before any `git
+    worktree add` is attempted, leaving the checkout as it was found: `worktree-base-in-repo` (in the
+    working tree and not ignored), `worktree-base-uncreatable` (quoting the underlying reason), and
+    `worktree-base-unresolved` (the shared publishing resolver failed — never a silent fallback to
+    the temp base, which would write a commit-bearing checkout where the operator configured away
+    from).

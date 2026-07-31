@@ -161,6 +161,78 @@ describe("a repo declares where its --pr worktrees are created", () => {
     });
 });
 
+describe("an unusable configured base stops the run", () => {
+    /** Everything git can see about the checkout — the "left as it was found" evidence. */
+    function snapshot(repo: string): { status: string; worktrees: string } {
+        return {
+            status: sh(repo, "git", "status", "--porcelain"),
+            worktrees: sh(repo, "git", "worktree", "list", "--porcelain"),
+        };
+    }
+
+    it("refuses a base inside the repo that git does not ignore, creating nothing", () => {
+        const repo = repoWithPr();
+        const base = path.join(repo, "build", "worktrees");
+        declareGithubKey(repo, "worktree-path", base);
+        const before = snapshot(repo);
+
+        const r = openAnalyzeWorktree(defaultRunner, repo, 1);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("worktree-base-in-repo");
+        expect(r.error.message).toContain(base);
+        expect(fs.existsSync(base)).toBe(false);
+        expect(snapshot(repo)).toEqual(before);
+    });
+
+    it("allows a base inside the repo once git ignores it", () => {
+        const repo = repoWithPr();
+        const base = path.join(repo, "ignored-worktrees");
+        fs.writeFileSync(path.join(repo, ".gitignore"), "ignored-worktrees/\n");
+        declareGithubKey(repo, "worktree-path", base);
+
+        const r = openAnalyzeWorktree(defaultRunner, repo, 1);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        opened(repo, r.wtPath);
+        expect(r.wtPath.startsWith(base + path.sep)).toBe(true);
+        expect(fs.existsSync(r.wtPath)).toBe(true);
+    });
+
+    it("reports why a base cannot be created instead of throwing", () => {
+        const repo = repoWithPr();
+        const blocker = path.join(makeParent(tracked), "not-a-directory");
+        fs.writeFileSync(blocker, "I am a file\n");
+        const base = path.join(blocker, "worktrees");
+        declareGithubKey(repo, "worktree-path", base);
+        const before = snapshot(repo);
+
+        const r = openCloseWorktree(defaultRunner, repo, "distill/2026-07-31-d");
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("worktree-base-uncreatable");
+        expect(r.error.message).toContain(base);
+        expect(r.error.message).toContain("ENOTDIR");
+        expect(snapshot(repo)).toEqual(before);
+    });
+
+    it("reports a permission failure the same way", () => {
+        if (process.getuid?.() === 0) return; // root ignores the mode bits; nothing to observe
+        const repo = repoWithPr();
+        const locked = path.join(makeParent(tracked), "locked");
+        fs.mkdirSync(locked, { recursive: true, mode: 0o500 });
+        const base = path.join(locked, "worktrees");
+        declareGithubKey(repo, "worktree-path", base);
+
+        const r = openCloseWorktree(defaultRunner, repo, "distill/2026-07-31-e");
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("worktree-base-uncreatable");
+        expect(r.error.message).toContain("EACCES");
+        expect(sh(repo, "git", "worktree", "list", "--porcelain")).not.toContain(base);
+    });
+});
+
 /**
  * Open a close worktree with `$HOME` pointed at `home`, so home-shorthand expansion is observable
  * without depending on the developer's real home directory.
