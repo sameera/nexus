@@ -699,6 +699,12 @@ _GITHUB_KEY_TO_NORMALIZED = {
     # issues-repo, which stays the fallback for whichever is unspecified.
     "epic-repo": "epicRepo",
     "story-repo": "storyRepo",
+    # Where the `--pr` flow creates its git worktrees (epic #178). The value is a directory, not a
+    # publishing target; it lives here because the worktree exists only for the GitHub `--pr` flow,
+    # and because membership in this block is what buys it the precedence chain and the hub layer.
+    # This resolver reports the declared value verbatim or nothing at all: the temp-derived built-in
+    # stays in the worktree library, so "today's location" has exactly one definition.
+    "worktree-path": "worktreePath",
     # Decision-record + design-gate markers (epic #139).
     "record-label": "recordLabel",
     "record-type": "recordType",

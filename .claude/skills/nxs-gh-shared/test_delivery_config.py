@@ -693,6 +693,20 @@ class ResolveCli(unittest.TestCase):
         out = self._run_cli(root, "resolve", "epic-repo")
         self.assertEqual(out.stdout.strip(), "acme/epics")
 
+    def test_resolve_worktree_path_prints_declared_value(self):
+        """Epic #178: the --pr worktree base is read through this seam, never by a second parser."""
+        root = _write_config({"settings.yml": "github:\n  worktree-path: /srv/worktrees\n"})
+        out = self._run_cli(root, "resolve", "worktree-path")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "/srv/worktrees")
+
+    def test_resolve_worktree_path_absent_prints_empty(self):
+        """Nothing declared is reported as nothing — the consumer applies its built-in default."""
+        root = Path(tempfile.mkdtemp())
+        out = self._run_cli(root, "resolve", "worktree-path")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), "")
+
 
 class SeedCli(unittest.TestCase):
     """STORY-121.06: the CLIs /nxs.setup uses to detect classification and surgically seed the
