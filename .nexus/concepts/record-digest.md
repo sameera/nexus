@@ -1,8 +1,8 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate"]
-last_updated_by: "#139"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record"]
+last_updated_by: "#170"
 status: active
 verification: verified
 ---
@@ -27,10 +27,11 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 
 ## Integration Points
 
-- [decision-record](decision-record.md) — the approved sub-issue body is the artifact the digest is taken over.
-- [committed-queue](committed-queue.md) — the entry's close record stamps the record reference and approved-body hash the drain verifies against.
+- [decision-record](decision-record.md) — the approved sub-issue body the digest is taken over.
+- [committed-queue](committed-queue.md) — an entry's close record stamps the value the drain verifies.
+- [durable-close-record](durable-close-record.md) — the close comment where the stamp survives the entry.
 - [distiller](distiller.md) — re-verifies the stamp before draining and hard-errors on a mismatch.
-- [conformance-gate](conformance-gate.md) — the receipt this digest is stamped into, detecting record staleness independent of code-conformance findings.
+- [conformance-gate](conformance-gate.md) — the receipt this digest is stamped into.
 
 ## Decision Log
 
@@ -42,3 +43,7 @@ A digest described in prose is not reproducible, and the stamping and verifying 
 
 Mechanical reciprocity fan-out: the conformance-gate page names this digest as the value its
 receipt stamps to detect record staleness.
+
+### 2026-07-31 — #170 — The stamp's durable home is the close comment
+
+Both surfaces that carried this value — the conformance receipt and the close record — became disposable for a local close, so the reference and hash are now stamped onto the epic issue's close comment as well, where they survive the entry being consumed. Nothing about the digest itself changed: the same one program computes it, over the body as fetched back, in full. What changed is that a drain recovering an entry from GitHub reads the stamp from that comment rather than a file, which is why the value has to be carried in a structured position and never truncated on any surface.

@@ -1,10 +1,10 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow"]
-last_updated_by: "manual"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record"]
+last_updated_by: "#170"
 status: active
-verification: unverified
+verification: verified
 ---
 
 # Conformance Gate
@@ -16,42 +16,43 @@ hard precondition it reads back, never a courtesy it regenerates.
 ## How It Works
 
 Analyze reports its findings inline for the human, then writes the receipt as its only
-output. Locally that is a small artifact beside the resolved epic; run against a pull
-request it is instead a published review carrying the same information as a machine-readable
-block, because the worktree that would hold a local artifact is removed before close's
-pull-request run can read it — so where the receipt lives follows from where the two stages
-execute, not from a mode-specific redesign. Close reads the receipt before mining
-anything else, classifying it by staleness — the record's approved body changed since analyze
-ran — or by blocking findings, and either state gates close behind an explicit human waiver
-rather than a silent pass. An unapproved decision record blocks analyze entirely, and a
-blocked run emits nothing at all: no receipt, no review, no comment. That single rule gives a
-missing receipt exactly one meaning downstream, in either mode: analyze never ran.
+output. Locally that is a small artifact beside the resolved epic — in the ephemeral area for
+an issue-sourced epic, in the committed entry for an old-contract one — a contractual
+placement the next two stages rely on. Against a pull request it is a published review
+carrying the same information as a machine-readable block, because the worktree that would
+hold a local artifact is gone before close's pull-request run can read it. Close reads it
+before mining anything else, classifying it by staleness — the record's approved body changed
+since analyze ran — or by blocking findings; the verdict, waiver included, is then restated on
+the durable close comment. An unapproved decision record blocks analyze entirely, and a
+blocked run emits nothing at all. That single rule gives a missing receipt exactly one meaning
+downstream: analyze never ran.
 
 ## Key Invariants
 
-1. Analyze's only write is the receipt (or, against a pull request, the equivalent published
-   review); no other report artifact exists.
+1. Analyze's only write is the receipt, or the equivalent published review; no other report
+   artifact exists.
 2. A blocked analyze run — an unapproved decision record — emits nothing: no receipt, no
    review, no comment.
-3. A missing receipt means exactly one thing to close, in either mode: analyze never ran.
-4. Close reads the receipt before mining anything else; it never regenerates or infers
-   conformance itself.
+3. A missing receipt means exactly one thing to close: analyze never ran.
+4. Close reads the receipt before mining anything else; it never infers conformance itself.
 5. A stale or blocking receipt gates close behind an explicit human waiver, never a silent
    pass.
-6. Which form the receipt takes follows from where analyze and close execute, not from a
-   mode-specific rule: a surviving local artifact, or a published review when the worktree
-   that would hold one is already gone.
+6. Which form and placement the receipt takes follows from where analyze and close execute,
+   not from a mode-specific rule: a local artifact in the ephemeral area or the committed
+   entry, or a published review when the worktree is gone. Downstream stages rely on that
+   placement.
 
 ## Integration Points
 
-- [nexus-pipeline](nexus-pipeline.md) — the stage pair, analyze and close, this gate sits
-  between.
-- [decision-record](decision-record.md) — its approval state is what makes the gate
-  meaningful; unapproved blocks analyze outright.
-- [record-digest](record-digest.md) — the hash the receipt stamps to detect record staleness,
-  independent of the code-conformance findings.
-- [pr-driven-flow](pr-driven-flow.md) — the mode where the receipt becomes a published review
-  instead of a local artifact.
+- [nexus-pipeline](nexus-pipeline.md) — the stage pair this gate sits between.
+- [decision-record](decision-record.md) — its approval state makes the gate meaningful;
+  unapproved blocks analyze.
+- [record-digest](record-digest.md) — the hash the receipt stamps to detect record staleness.
+- [pr-driven-flow](pr-driven-flow.md) — the mode where the receipt becomes a published review.
+- [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — where an issue-sourced epic's receipt
+  is written.
+- [durable-close-record](durable-close-record.md) — the close comment restating this verdict
+  durably.
 
 ## Decision Log
 
@@ -69,3 +70,7 @@ string) but not the behavioral contract a reader needs — what the receipt prov
 and reads it, what its absence means. Refuted alternative: fold this into `nexus-pipeline.md`
 — rejected, that page already sits at its word cap describing the whole pipeline shape, and
 adding the receipt's contract there would relocate the omission rather than fix it.
+
+### 2026-07-31 — #170 — Receipt placement becomes contractual, and the verdict reaches a durable surface
+
+Where a local receipt lands stopped being an accident of where the epic resolved and became a stated contract: for an issue-sourced epic it sits in the ephemeral area beside the materialized epic, for an old-contract epic in the committed entry, and the two stages that read it depend on that placement rather than re-deriving it. The same change gave the verdict a second, durable home — the close comment stamps it, waiver text included — so a reader of the closed epic can see it closed on a waiver without the receipt file, which is now disposable in both local placements. This page's claims were re-checked against the shipped code while patching it, retiring its unverified bootstrap flag.
