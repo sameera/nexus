@@ -23,6 +23,29 @@ This helper answers: is this repo allowed to run the flow (single-repo/hub yes, 
 the PR merged (required for close)? what is the trunk-permanent `range:` for the close record
 (squash-, merge-, and rebase-safe)? and where is the worktree?
 
+## Where the worktrees are created
+
+The directory the flow creates its worktrees under — the **worktree base** — is declared by the
+`worktree-path` key in the `github:` block of `.nexus/config/settings.yml`. The key names the base,
+never an individual worktree: every worktree lands in a per-checkout subdirectory of it, so two
+checkouts pointed at one base cannot collide.
+
+```yaml
+github:
+    worktree-path: /srv/nexus-worktrees
+```
+
+-   **Absolute** values are used as given. **Relative** values resolve against the **repo root** —
+    not the current working directory — so the same configuration yields the same base wherever the
+    command was invoked from. A leading `~` expands to the home directory, and one matched pair of
+    surrounding quotes is stripped.
+-   **Declare nothing and nothing changes:** the base is the system temp directory's
+    `nexus-pr-worktrees` directory, exactly as before the key existed.
+-   The base is resolved from the main checkout's settings, never from content carried by the pull
+    request — a PR head from a fork must not get to choose where a checkout is written.
+-   One resolved base serves the whole flow: `/nxs.analyze --pr`, `/nxs.close --pr`, and the
+    `/nxs.distill` continuation of close's worktree.
+
 ## Usage
 
 Preflight — read-only gate. `--mode close` exits non-zero unless the PR is merged:
