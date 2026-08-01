@@ -12,6 +12,22 @@
 - **blocked_by:** none
 - **source:** deferred from epic PR-Driven Post-Merge Flow for Analyze, Close, and Distill (#101) (2026-07-20)
 
+## hub-github-defaults-allowlist-gaps
+
+- **status:** proposed
+- **goal:** Close the four record- and design-related publishing keys that exist in the resolver's key map but are missing from the hub manifest's defaults allowlist, so a hub can declare them without failing validation.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic Configurable Worktree Location for the --pr Flow (#178) (2026-07-31)
+
+## hub-worktree-base-end-to-end-coverage
+
+- **status:** proposed
+- **goal:** Verify hub-declared `worktree-path` inheritance end to end — from a hub manifest through to the path of an opened worktree — rather than one hop short at the resolver seam plus the manifest allowlist.
+- **estimate:** S
+- **blocked_by:** none
+- **source:** deferred from epic Configurable Worktree Location for the --pr Flow (#178) (2026-07-31)
+
 ## pr-flow-live-acceptance-dry-run
 
 - **status:** promoted (#132) — re-scoped 2026-07-25
