@@ -31,6 +31,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
 from delivery_config import (  # noqa: E402
     ensure_label,
+    ensure_labels,
+    label_exists,
     lookup_issue_type_id,
     read_delivery_config,
     read_hub_defaults,
@@ -428,13 +430,16 @@ def add_issue_to_project(project_id: str, issue_id: str) -> bool:
         return False
 
 
-# The default story label. main() overwrites it with the resolved github.story-label, and sets
-# the classification mode + story issue-type id below. Module-level (mirroring the RETRIES
-# globals) so process_task_file reads them without threading extra params. Default legacy-auto
-# keeps today's behavior: every story carries the `story` label and no issue type (STORY-121.02).
-STORY_LABEL = "story"
+# The canonical classification this run applies to everything it creates. main() resolves it from
+# the caller's `--classification-label` / `--classification-type`, defaulting to the repo's story
+# label and story issue-type — so a caller that says nothing gets today's behavior unchanged.
+# Callers filing something that is NOT a story pass their own: `/nxs.epic` files backlog stubs
+# through here with the *epic* classification, because a stub is an epic born unplanned (epic #185,
+# decision-record Invariant 1). Module-level (mirroring the RETRIES globals) so process_task_file
+# reads them without threading extra params.
+CLASSIFICATION_LABEL = "story"
 CLASSIFICATION = "legacy-auto"
-STORY_TYPE_ID: str | None = None
+CLASSIFICATION_TYPE_ID: str | None = None
 
 
 def create_github_issue(title: str, labels: list[str], body_file: str, repo: str | None = None) -> str | None:
@@ -825,10 +830,11 @@ def process_task_file(
     if isinstance(labels, str):
         labels = [labels] if labels else []
 
-    # Every issue this skill creates is a story — apply the canonical label, unless the repo is
-    # in `types` mode (then the story issue-type classifies it instead; STORY-121.02).
-    if CLASSIFICATION != "types" and STORY_LABEL not in labels:
-        labels = [STORY_LABEL, *labels]
+    # Apply the caller's canonical classification label, unless the repo is in `types` mode (then
+    # the issue-type classifies it instead; STORY-121.02). The per-item `labels:` frontmatter rides
+    # alongside it — that is where a stub's unplanned-state label comes from (epic #185).
+    if CLASSIFICATION != "types" and CLASSIFICATION_LABEL not in labels:
+        labels = [CLASSIFICATION_LABEL, *labels]
 
     if not title:
         print(f"  Warning: No title in frontmatter, using filename", file=sys.stderr)
@@ -861,14 +867,14 @@ def process_task_file(
             if manifest_path:
                 save_manifest(manifest_path, manifest)
 
-        # In `types` mode, classify the story by its GitHub issue-type (STORY-121.02).
+        # In `types` mode, classify the issue by its GitHub issue-type (STORY-121.02).
         # Best-effort decoration: the issue already exists, so a failure only warns.
-        if CLASSIFICATION == "types" and STORY_TYPE_ID and issue_number:
+        if CLASSIFICATION == "types" and CLASSIFICATION_TYPE_ID and issue_number:
             type_issue_id = get_issue_id(issue_number, repo=issues_repo)
-            if type_issue_id and set_issue_type(type_issue_id, STORY_TYPE_ID, _run_plain):
+            if type_issue_id and set_issue_type(type_issue_id, CLASSIFICATION_TYPE_ID, _run_plain):
                 print(f"  Issue type set")
             else:
-                print(f"  Warning: could not set story issue type on #{issue_number}", file=sys.stderr)
+                print(f"  Warning: could not set issue type on #{issue_number}", file=sys.stderr)
 
         # Add to project unless skipped
         if not skip_project and issue_number:
@@ -1005,6 +1011,17 @@ def main():
         action="store_true",
         help="Keep the resume ledger even after a fully successful run (default: delete it)."
     )
+    parser.add_argument(
+        "--classification-label",
+        default=None,
+        help="Canonical label applied to every issue this run creates (labels / legacy-auto mode). "
+             "Defaults to the resolved github.story-label. Pass the epic label to file backlog stubs."
+    )
+    parser.add_argument(
+        "--classification-type",
+        default=None,
+        help="Canonical GitHub issue-type applied in `types` mode. Defaults to github.story-type."
+    )
 
     args = parser.parse_args()
 
@@ -1030,7 +1047,7 @@ def main():
 
     # Read config once; every resolution goes through the one shared resolver, so this script,
     # the epic script, /nxs.epic, and /nxs.close cannot disagree on any key (STORY-121.04).
-    global STORY_LABEL, CLASSIFICATION, STORY_TYPE_ID
+    global CLASSIFICATION_LABEL, CLASSIFICATION, CLASSIFICATION_TYPE_ID
     config = read_delivery_config(project_root)
     # Workspace hub defaults are the `hub` layer of the precedence chain (STORY-121.05): a member
     # inherits each key it does not declare. `merged` is repo-over-hub for the single-dict
@@ -1044,30 +1061,58 @@ def main():
     if issues_repo:
         print(f"Story repo (from config): {issues_repo}")
 
-    # Resolve the classification mode + story type/label names once (STORY-121.02). Default
-    # legacy-auto keeps today's behavior: every story carries the `story` label, no issue type.
+    # Resolve the classification mode once (STORY-121.02), then the canonical label/type this run
+    # applies. The caller's `--classification-*` wins; absent it the resolved story values are used,
+    # so today's behavior is unchanged for every existing call site (epic #185).
     CLASSIFICATION = resolve_classification(merged)
-    STORY_LABEL = resolve_story_label(merged)
-    story_type = merged.get("storyType")
+    CLASSIFICATION_LABEL = args.classification_label or resolve_story_label(merged)
+    classification_type = args.classification_type or merged.get("storyType")
 
     if not args.dry_run:
         if CLASSIFICATION == "types":
-            # Typed repo: resolve the story issue-type id once (applied per issue after creation);
+            # Typed repo: resolve the issue-type id once (applied per issue after creation);
             # no canonical label is forced, parallel to the epic path.
-            if story_type:
-                STORY_TYPE_ID = lookup_issue_type_id(story_type, _run_plain, repo=issues_repo)
-                if STORY_TYPE_ID:
-                    print(f"Classification: types — story issue-type '{story_type}'")
+            if classification_type:
+                CLASSIFICATION_TYPE_ID = lookup_issue_type_id(classification_type, _run_plain, repo=issues_repo)
+                if CLASSIFICATION_TYPE_ID:
+                    print(f"Classification: types — issue-type '{classification_type}'")
                 else:
-                    print(f"Warning: classification: types but story-type '{story_type}' not found — stories filed untyped", file=sys.stderr)
+                    print(f"Warning: classification: types but type '{classification_type}' not found — issues filed untyped", file=sys.stderr)
             else:
-                print("Warning: classification: types but no github.story-type configured — stories filed untyped", file=sys.stderr)
-        else:
-            # labels / legacy-auto: ensure the (configurable) story label exists before any
-            # `gh issue create --label <story-label>` call. Idempotent upsert.
-            if not ensure_label(STORY_LABEL, _run_plain, repo=issues_repo, color="BFD4F2",
-                                description="User story (created by nxs-gh-create-story)"):
-                print(f"Warning: could not ensure '{STORY_LABEL}' label", file=sys.stderr)
+                print("Warning: classification: types but no issue-type configured — issues filed untyped", file=sys.stderr)
+
+        # Every label that will be applied — the canonical one plus each label declared in a
+        # work-item's frontmatter — is upserted BEFORE any issue is created, so filing never fails
+        # on a label the repository has never seen (decision-record Invariant 3). A stub's
+        # unplanned-state label reaches GitHub through exactly this path.
+        wanted_labels: list[str] = []
+        if CLASSIFICATION != "types":
+            wanted_labels.append(CLASSIFICATION_LABEL)
+        for task_file in task_files:
+            fm, _ = parse_frontmatter(task_file.read_text())
+            declared = fm.get("labels", [])
+            if isinstance(declared, str):
+                declared = [declared] if declared else []
+            wanted_labels.extend(declared)
+
+        # The story label keeps the colour it has always been created with; everything else — a
+        # stub's unplanned marker included — takes ensure_label's default grey.
+        label_styles = {
+            resolve_story_label(merged): ("BFD4F2", "User story (created by nxs-gh-create-story)"),
+        }
+        missing = ensure_labels(wanted_labels, _run_plain, repo=issues_repo, styles=label_styles)
+        if missing:
+            # A label that is neither creatable nor present is a permission gap, and it is reported
+            # BEFORE any creation — half a filed batch is far worse than a run that did nothing
+            # (Invariant 19). Grant the token label scope, or create the label by hand, then re-run.
+            print(
+                "Error: cannot apply label(s) " + ", ".join(f"'{name}'" for name in missing)
+                + " — they do not exist in the target repository and could not be created "
+                  "(the token likely lacks label scope). Nothing was created; create the label(s) "
+                  "or grant the scope, then re-run.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
 
     # Resolve the Project V2 target (STORY-121.03) once for all stories. A per-story frontmatter
     # `project` still overrides this (resolve_project_id); the declared target decides the fallback:
