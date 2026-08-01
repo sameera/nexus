@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record"]
-last_updated_by: "#139"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree"]
+last_updated_by: "#178"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Publishing config resolution replaces every discovered-by-failure GitHub-publish
 
 ## How It Works
 
-These decisions used to be discovered through live calls that could fail, and the config reader existed as two drifting copies. The logic is defined exactly once; the issue-creation scripts import it, the filing and close stages invoke it, and the epic resolver reads it across a process seam. One key map is the block's single schema, after declared keys were found readable but never populated — read and populate can no longer diverge. The record marker and design-gate labels resolve through the same chain, so classification never disagrees with filing.
+These decisions used to be discovered through live calls that could fail, and the config reader existed as two drifting copies. The logic is defined exactly once; the issue-creation scripts import it, the filing and close stages invoke it, and the epic resolver reads it across a process seam. The key map is the resolver's schema; a key a hub may default needs registering in the manifest allowlist too. The record marker and design-gate labels resolve through the same chain, so classification never disagrees with filing.
 
 Every key resolves most-specific-first: invocation argument, per-item frontmatter, repo settings, workspace-wide hub defaults, then a built-in guaranteeing a value.
 
@@ -36,6 +36,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [epic-approval-gate](epic-approval-gate.md) — files epics and stories into the repositories resolved here.
 - [nexus-setup-cli](nexus-setup-cli.md) — exposes the hub defaults through a read-out seam.
 - [decision-record](decision-record.md) — its record marker and gate labels are keys this resolver alone supplies.
+- [pr-worktree](pr-worktree.md) — its base is one more declared key.
 
 ## Decision Log
 
@@ -46,3 +47,7 @@ Two forces landed together. The config reader existed as two verbatim copies, an
 ### 2026-07-26 — #139 — The record and design-gate markers resolve through the one key map
 
 The decision-record marker and the two design-gate labels joined the declared block as ordinary keys, resolved through the same precedence chain with hub fall-through — and the block's key list collapsed into the one map the hub layer and the key-resolution seam already used, after the new keys were found readable by resolvers but never populated by the reader: a declared value silently lost to a built-in. With the map as the block's single schema, adding a key in one place is all a new key needs to be honoured end to end, so that defect class cannot recur. The epic resolver also became a consumer, across a process seam, so sub-issue classification reads the same answer the filing side applied. Refuted alternative: drop the dead reads and document the markers as built-ins only — it fixes the silent ignore but leaves a declared key doing nothing.
+
+### 2026-08-01 — #178 — A hub-defaultable key needs two registrations, and the block now carries a directory
+
+Two facts landed with the worktree-base key. First, the block's scope widened: it now carries a local filesystem directory, not only publishing targets. That was chosen over a dedicated section for machine-local settings because membership here is what buys the precedence chain, the hub layer, the resolver interface, and the existing tests — all already built; a new section would have to rebuild each one for a single key. Second, this page's earlier claim that one key map is the block's single schema was too strong, and the drift it was meant to rule out is already live: the hub manifest validator carries an independent allowlist that rejects unlisted keys outright, and four record- and design-related keys sit in the resolver map but not in that allowlist, so a hub declaring any of them fails validation today. A key must therefore be registered in both surfaces or one of the two configuration paths fails silently; the new key was registered in both and pinned there by a test. Refuted alternative: fold the allowlist into the resolver map so the single-schema claim becomes true — the better end state, but it changes validation for every existing key and belongs in its own change; the four pre-existing gaps went to the backlog instead.

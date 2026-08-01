@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate"]
-last_updated_by: "#101"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree"]
+last_updated_by: "#178"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The lead can run the conformance, closure, and distillation stages against a pul
 
 ## How It Works
 
-One tested helper the stage specs call resolves a pull request's merge state and commit identifiers, and the worktree lifecycle with a merge-strategy-safe commit range. Conformance runs in a worktree at the pull-request head and publishes its verdict as a review carrying the machine-readable receipt closure reads back, falling back to a comment if the lead authored it. After the merge, closure runs in a worktree on a fresh distillation branch off the trunk, reads that verdict, commits and pushes the close artifacts, and hands off; distillation continues there and opens its pull request. The stamped range anchors on the merge commit, permanent on the trunk, and verified against the pull-request head, so it holds for any merge strategy.
+One tested helper the stage specs call resolves a pull request's merge state and commit identifiers, and a merge-strategy-safe commit range. Conformance runs in a worktree at the pull-request head and publishes its verdict as a review carrying the machine-readable receipt closure reads back, falling back to a comment if the lead authored it. After the merge, closure runs in a worktree on a fresh distillation branch off the trunk, reads that verdict, commits and pushes the close artifacts, and hands off; distillation continues there and opens its pull request. The stamped range anchors on the merge commit, permanent on the trunk, and verified against the pull-request head, so it holds for any merge strategy.
 
 ## Key Invariants
 
@@ -21,7 +21,7 @@ One tested helper the stage specs call resolves a pull request's merge state and
 2. The stamped range anchors on commits permanent on the trunk, never the pull-request branch tip; an empty, non-ancestor, or unverifiable range is refused rather than guessed.
 3. The flow is additive and mutually exclusive with the local path.
 4. A conformance verdict is trusted only from a maintainer-authored review or comment; staleness is exact full-identifier equality against the pull-request head.
-5. Closure and distillation share one worktree on the distillation branch, and it is always removed when the work is done or on error.
+5. Closure and distillation share one worktree on the distillation branch.
 
 ## Integration Points
 
@@ -30,6 +30,7 @@ One tested helper the stage specs call resolves a pull request's merge state and
 - [distillation-pr](distillation-pr.md) — the reviewed write the closure hand-off prepares and distillation opens.
 - [committed-queue](committed-queue.md) — the queue whose close record travels on the distillation branch here, there being no feature pull request after the merge.
 - [conformance-gate](conformance-gate.md) — here the gate's receipt is a published review, not a local artifact, since the worktree holding one is already gone.
+- [pr-worktree](pr-worktree.md) — the worktree these stages run in: where it lands, its isolation, reuse, and removal.
 
 ## Decision Log
 
@@ -41,3 +42,7 @@ The conformance, closure, and distillation stages gained an additive pull-reques
 
 Mechanical reciprocity fan-out: the conformance-gate page names this flow as the mode where
 its receipt takes the form of a published review instead of a local artifact.
+
+### 2026-08-01 — #178 — The worktree this flow runs in splits out to its own concept
+
+Where the flow's worktrees are created stopped being a hidden temp-derived constant and became a declared publishing key, and with it the worktree gained a resolution seam, a normalization rule, a pre-creation safety gate, and three named refusals — enough that it no longer reads as a detail of this flow. The lifecycle material moved to pr-worktree: the base and its resolution, the per-checkout isolation segment, path-based reuse, the refusal conditions, and removal from the main checkout. This page keeps what is asked about the flow itself — the stage shape, the merge-strategy-safe range, the review-carried verdict, and the member-repo refusal — so a question about where a checkout lands loads one page and a question about what range closure stamps loads the other. Refuted alternative: keep the worktree material here and split the range derivation out instead — the range is the more self-contained topic on paper, but it is also the flow's whole reason for running post-merge, so removing it would leave a page that cannot explain itself.
