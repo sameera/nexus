@@ -124,6 +124,27 @@ def resolve_story_label(config: dict[str, str]) -> str:
     return (config.get("storyLabel") or "").strip() or DEFAULT_STORY_LABEL
 
 
+# --- The unplanned state (epic #185) --------------------------------------------------
+#
+# A backlog stub is not a third kind of issue: it is an EPIC that has been identified but not yet
+# planned, filed with the repository's declared epic classification plus exactly one label denoting
+# that unplanned state (decision-record Invariants 1 and 2). One label — never a per-feature or
+# per-status family — is what makes the cross-feature backlog one query and its exclusion one
+# negated filter. Feature, estimate, candidate stories and provenance are body content.
+
+#: The label that says an epic issue has not been planned yet. Promotion removes it.
+DEFAULT_UNPLANNED_LABEL = "backlog"
+
+
+def resolve_unplanned_label(config: dict[str, str], *, hub: dict[str, str] | None = None) -> str:
+    """The label denoting an epic that has not yet been planned (a backlog stub).
+
+    Goes through ``resolve_setting`` like every other key, so an empty repo-level value falls
+    through to the hub layer instead of masking it.
+    """
+    return (resolve_setting("unplannedLabel", repo=config, hub=hub) or "").strip() or DEFAULT_UNPLANNED_LABEL
+
+
 # --- Decision-record classification (epic #139, STORY-139.01) -------------------------
 #
 # The epic's decision record lives as a sub-issue of the epic issue, so every consumer that walks
@@ -556,6 +577,62 @@ def ensure_label(
     return run(cmd).returncode == 0
 
 
+def label_exists(name: str, run, repo: str | None = None) -> bool | None:
+    """Whether `repo` already carries the named label. None when the query itself fails.
+
+    The companion to `ensure_label`: a failed upsert is ambiguous on its own — the token may lack
+    label scope, or the call may have been transient — and filing a batch on that ambiguity is what
+    strands a half-created run. Asking whether the label is *there* turns the ambiguity into a
+    decision: present means proceed, absent means report the missing label before creating anything
+    (epic #185, decision-record Invariant 19).
+    """
+    cmd = ["gh", "label", "list", "--limit", "200", "--json", "name", "--jq", ".[].name"]
+    if repo:
+        cmd.extend(["-R", repo])
+    result = run(cmd)
+    if result.returncode != 0:
+        return None
+    names = {line.strip().lower() for line in (result.stdout or "").splitlines() if line.strip()}
+    return name.strip().lower() in names
+
+
+def ensure_labels(
+    names: list[str],
+    run,
+    repo: str | None = None,
+    styles: dict[str, tuple[str, str]] | None = None,
+) -> list[str]:
+    """Upsert every label a filing run will apply. Returns those it could neither create nor find.
+
+    One `ensure_label` call per distinct label, before any issue exists (decision-record
+    Invariant 3), so filing never fails on a label the repository has never seen. A failed upsert
+    is ambiguous on its own — no label scope on the token, or a transient error — so `label_exists`
+    resolves it: a label that is already there is fine to apply, one that is not is a permission gap
+    the caller must report before creating anything (Invariant 19). A query that itself fails
+    resolves the same way, because stranding half a filed batch is the worse outcome.
+
+    `styles` maps a label to the (color, description) used when creating it; anything unlisted takes
+    `ensure_label`'s default grey — the intended stub colour.
+    """
+    styles = styles or {}
+    missing: list[str] = []
+    seen: set[str] = set()
+
+    for raw in names:
+        name = raw.strip()
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+
+        color, description = styles.get(name, ("EDEDED", ""))
+        if ensure_label(name, run, repo=repo, color=color, description=description):
+            continue
+        if label_exists(name, run, repo=repo) is not True:
+            missing.append(name)
+
+    return missing
+
+
 # --- Surgical settings.yml writer (STORY-121.06 / STORY-121.07) ----------------------
 #
 # The single, add-only merge that persists resolved publishing decisions into the repo's
@@ -710,6 +787,8 @@ _GITHUB_KEY_TO_NORMALIZED = {
     "record-type": "recordType",
     "needs-design-label": "needsDesignLabel",
     "in-progress-label": "inProgressLabel",
+    # The unplanned-state marker on a backlog stub (epic #185). One key, one label, no family.
+    "unplanned-label": "unplannedLabel",
 }
 
 
@@ -779,6 +858,8 @@ def _cli(argv):
             value = resolve_needs_design_label(config, hub=hub)
         elif args.key == "in-progress-label":
             value = resolve_in_progress_label(config, hub=hub)
+        elif args.key == "unplanned-label":
+            value = resolve_unplanned_label(config, hub=hub)
         else:
             normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
             value = resolve_setting(normalized, repo=config, hub=hub)

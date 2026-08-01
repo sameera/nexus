@@ -31,7 +31,7 @@ Empty input is an error: ask the user for a capability description (or a stub sl
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
 - **Nothing is committed at planning — GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; and at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer born here — it is born at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage reconstructs the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index and `backlog.md`.
-- **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, emits **stubs** into the feature backlog (split by functional goal); the full epic for each is deferred to a later `/nxs.epic <stub-slug>` promotion.
+- **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal — an epic identified but not yet planned, carrying the epic classification plus the unplanned label; the full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion.
 
 ## Interaction convention — actionable choice gates
 
@@ -228,34 +228,65 @@ epic.] Proposed split into right-sized goals:
 
 ## Phase 2b — Emit decomposition stubs (oversized path)
 
-Append one stub per functional goal to `<feature-path>/backlog.md` (the resolved container from Phase 1; create it if absent). The backlog is **append-only** with one consumer (the next `/nxs.epic`); `/nxs.close` also appends deferred scope here, so the entry shape is shared (slug + goal + estimate + status).
+File **one open GitHub issue per functional goal**. A stub is not a third kind of issue: it is an
+**epic that has been identified but not yet planned**, so it carries the repository's declared epic
+classification plus exactly one label denoting that unplanned state. Write **no** `backlog.md` — the
+issue is the stub.
 
-Create the file with this header on first write:
+The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing is created before it.
 
-```markdown
-# Backlog: <Feature Name>
+1. **Resolve the classification and the unplanned label** (never hard-code either):
 
-<!-- Append-only re-triage queue. Writers: /nxs.epic (decomposition stubs),
-     /nxs.close (deferred scope). One consumer: the next /nxs.epic.
-     Promote a proposed stub with `/nxs.epic <slug>`. -->
-```
+    ```bash
+    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-label
+    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-type
+    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve unplanned-label
+    ```
 
-Append one block per stub (never rewrite existing blocks):
+2. **Write one transient work-item per stub** to a session scratch folder (never committed, never
+   under `<feature-path>`), named `STORY-STUB-<NN>.md`. No `parent:` key — a stub is never a
+   sub-issue of anything:
 
-```markdown
-## <stub-slug>
+    ```markdown
+    ---
+    ref: "STUB-<NN>"                         # internal authoring key for the blocked_by graph
+    title: "<Functional goal as an epic title>"
+    blocked_by: [STUB-<NN>, ...] | none      # ordering between goals, this batch only
+    labels: [<unplanned-label>]              # the resolved unplanned label — nothing else
+    ---
 
-- **status:** proposed
-- **goal:** <one-line functional goal>
-- **estimate:** S | M
-- **blocked_by:** [<stub-slug>, …] | none
-- **source:** decomposition of "<original intent>" (<YYYY-MM-DD>)
-- **candidate stories:** <Story group title>; <Story group title>; …
-```
+    <one-line functional goal>
 
-Each stub must be ≤ M. If the decomposer returns a sub-goal still > M, note it in the stub (`estimate: M`, with a comment) — it will be re-decomposed when promoted.
+    ## Meta
 
-Then **stop**. Report the stub list and tell the user to promote one with `/nxs.epic <slug>`. Do **not** create a queue entry or a GitHub issue this run.
+    - **feature:** <feature-path>
+    - **estimate:** S | M
+    - **candidate stories:** <Story group title>; <Story group title>; …
+    - **source:** decomposition of "<original intent>" (<YYYY-MM-DD>)
+    ```
+
+    Each stub must be ≤ M. If the decomposer returns a sub-goal still > M, record `estimate: M` and
+    say so in the goal line — it is re-decomposed when promoted.
+
+3. **File the batch** through the shared filer, classified as an **epic** rather than a story:
+
+    ```bash
+    python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>" \
+        --classification-label "<epic-label>" \
+        --classification-type "<epic-type>"
+    ```
+
+    The filer upserts every label it will apply **before** creating anything, so a repository that
+    has never seen the unplanned label still files cleanly; if a label can be neither created nor
+    found it reports the gap and creates nothing (grant the token label scope, then re-run). Pass 2
+    wires the native `blocked_by` edges between the stubs. With `github.project: none` no project is
+    touched. The run is resumable and idempotent — on `⚠️ INCOMPLETE`, re-run the exact same command.
+
+    Discard the transient files only after a `✅ Complete` run.
+
+Then **stop**. Report the created issue numbers with their goals, and tell the user to promote one
+with `/nxs.epic <issue-number>`. Do **not** create a queue entry, a feature `README.md`, or a full
+epic issue this run.
 
 ## Phase 3 — Generate the epic
 
