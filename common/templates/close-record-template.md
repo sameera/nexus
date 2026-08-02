@@ -27,8 +27,8 @@ RANGE STAMPING (unconditional — every mode)
 
 FILLING RULES
     - Replace every {{PLACEHOLDER}}. Delete guidance comments before committing.
-    - Deferred scope is APPENDED to docs/features/<feature>/backlog.md (C2);
-      this record carries only a pointer to it, not the scope itself.
+    - Deferred scope is FILED as backlog stub issues after the close checkpoint
+      (C2); this record carries only their issue numbers, not the scope itself.
     - The process lesson is written as its own file under docs/delivery/lessons/
       (C3); this record does not restate it.
 -->
@@ -69,9 +69,13 @@ range:                          # exact diff range of the landed change — one 
 
 ## Deferred Scope
 
-<!-- Pointer only. The scope itself is appended to the feature backlog. -->
+<!-- Issue numbers only. The scope itself lives on the stub issues, which are
+     filed in Phase 7.4 — after the checkpoint, before this record is committed.
+     Write "none" when nothing was deferred. -->
 
-Deferred items appended to: `docs/features/{{FEATURE}}/backlog.md`
+Deferred items filed as backlog stub issues:
+
+- #{{STUB_ISSUE}} — {{DEFERRED_GOAL}}
 
 ## Process Lesson
 

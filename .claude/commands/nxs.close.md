@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), appends deferred scope to the feature backlog, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as backlog stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -86,8 +86,8 @@ now, as written.
     - `feature` — the parent feature name/slug (the queue entry's one-direction pointer, 0006 §4)
     - `feature_path` — the **actual resolved feature container** `/nxs.epic` recorded (e.g.
       `docs/features/onboarding` in single-repo, `features/onboarding` on a repo-root hub). Close
-      targets the backlog under this and derives the sibling lessons location from it — it never
-      re-resolves the docs root. Compute two names now and reuse them below:
+      records it on each deferred-scope stub and derives the sibling lessons location from it — it
+      never re-resolves the docs root. Compute two names now and reuse them below:
         - **`<feature-path>`** = the `feature_path` value. (If `feature_path` is absent — a pre-epic
           entry — fall back to `docs/features/<feature>`, today's literal.)
         - **`<docs-root>`** = `<feature-path>` with its final two segments (`features/<slug>`) removed:
@@ -177,7 +177,7 @@ single-repo and hub mode only.
       falls back to the downgraded, no-invariant pass.
 
    Then run **Phase 0's frontmatter parsing** against `${QDIR}/epic.md` (title, `link`, `feature`,
-   `feature_path`, `complexity`). `<feature-path>`, `<docs-root>`, the backlog, and the lesson all
+   `feature_path`, `complexity`). `<feature-path>`, `<docs-root>`, and the lesson all
    resolve **inside `wtPath`**. The role from step 1 **replaces the Phase 1.3 preflight** — do not run
    the close-migration preflight in `--pr` mode (single-repo/hub only; no migration ever happens here).
 
@@ -479,8 +479,10 @@ Fill the seeded template and write it into the queue entry.
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
     - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human
       supplied, naming the record issue it deviated from).
-    - **Deferred Scope** — a **pointer only** to `<feature-path>/backlog.md` (the scope itself
-      is appended in Phase 5, not restated here).
+    - **Deferred Scope** — the **issue numbers** of the deferred-scope stubs (the scope itself
+      lives on those issues, not restated here). They do not exist yet at this point: leave the
+      section marked `<pending — filed in Phase 7.4>`, or write "none" when nothing was deferred.
+      Phase 7.4 fills the numbers in **before** the record is committed anywhere.
     - **Process Lesson** — a **pointer only** to the lesson file written in Phase 6.
 
 3. Write it to **`${QDIR}/close-record.md`**, beside `epic.md`. Placement follows the entry (#172):
@@ -495,36 +497,52 @@ Fill the seeded template and write it into the queue entry.
 
    Do **not** emit a `ConceptDelta` block; the record is human prose only.
 
-# Phase 5 — Append deferred scope to the feature backlog
+# Phase 5 — Author the deferred-scope stubs (nothing is filed yet)
 
-Deferred scope goes to the feature backlog, not into the close record (C2). `backlog.md` is a
-**two-writer, append-only** surface shared with `/nxs.epic`'s decomposition stubs (0008) — use the
-**same entry shape**; never rewrite existing blocks.
+Deferred scope becomes **stub issues**, not close-record prose (C2) and no longer a `backlog.md`
+append. A stub is an epic identified but not yet planned, so it carries the repository's declared
+epic classification plus exactly one label denoting that unplanned state — the same contract
+`/nxs.epic`'s decomposition stubs use (0008).
 
-1. Target `<feature-path>/backlog.md` (the recorded feature container from Phase 0; create it with the header on first write):
+Filing an issue is **irreversible**, so this phase only *authors* the work-items; Phase 7.4 files
+them, after the checkpoint. Write **no** `backlog.md`.
 
-    ```markdown
-    # Backlog: <Feature Name>
+1. **Resolve the classification and the unplanned label** (never hard-code either):
 
-    <!-- Append-only re-triage queue. Writers: /nxs.epic (decomposition stubs),
-         /nxs.close (deferred scope). One consumer: the next /nxs.epic.
-         Promote a proposed stub with `/nxs.epic <slug>`. -->
+    ```bash
+    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-label
+    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-type
+    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve unplanned-label
     ```
 
-2. **Append** one block per deferred item (slug + one-line goal + complexity S/M + status):
+2. **Write one transient work-item per deferred item** to a session scratch folder — never under
+   `<feature-path>`, never inside `${QDIR}`, never committed — named `STORY-STUB-<NN>.md`. There is
+   no `parent:` key: a stub is never a sub-issue of anything, least of all of the epic being closed
+   (the filer refuses a parented stub outright).
 
     ```markdown
-    ## <deferred-item-slug>
+    ---
+    ref: "STUB-<NN>"                         # internal authoring key for the blocked_by graph
+    title: "<Deferred goal as an epic title>"
+    blocked_by: [STUB-<NN>, ...] | none      # ordering between deferred items, this batch only
+    labels: [<unplanned-label>]              # the resolved unplanned label — nothing else
+    ---
 
-    - **status:** proposed
-    - **goal:** <one-line functional goal>
+    <one-line functional goal>
+
+    ## Meta
+
+    - **feature:** <feature-path>
     - **estimate:** S | M
-    - **blocked_by:** [<slug>, …] | none
     - **source:** deferred from epic <epic-title> (#<epic-issue>) (<YYYY-MM-DD>)
     ```
 
-   If nothing was deferred, skip this phase and leave the close record's Deferred Scope pointer noting
-   "none".
+   The `source` line's epic mention is the **only** link back to the epic — GitHub renders it as a
+   back-reference on the epic issue without creating a sub-issue, so the all-sub-issues-closed
+   precondition (Phase 1.1) can never be deadlocked by a stub this stage itself filed.
+
+   If nothing was deferred, skip this phase and Phase 7.4, and leave the close record's Deferred
+   Scope section reading "none".
 
 # Phase 6 — Write the process lesson
 
@@ -549,8 +567,9 @@ The lesson is its own file (C3), one file per lesson; the close record only poin
 
 # Phase 7 — Checkpoint (before any GitHub write)
 
-**STOP AND WAIT.** All the above (close record, backlog append, lesson) is local and reversible; the
-GitHub comment and issue close are not. Render the summary as markdown first:
+**STOP AND WAIT.** All the above (close record, deferred-scope work-items, lesson) is local and
+reversible; the stub filing, the GitHub comment and the issue close are not. Render the summary as
+markdown first:
 
 ```
 CHECKPOINT: Epic Closure
@@ -563,7 +582,7 @@ Written:
    [issue-sourced local: items 0–1 are ephemeral hand-off content under .nexus/tmp/ —
     consumed by /nxs.distill in this sitting; the durable copy of the rationale is the
     close comment posted in step 6]
-2. Deferred scope → <feature-path>/backlog.md (<N> item(s))
+2. Deferred-scope stubs → <N> work-item(s) authored in session scratch (nothing filed yet)
 3. Process lesson → <docs-root>/delivery/lessons/<date>-<slug>.md
    (in `--pr` mode all of these are inside the worktree <wtPath>)
 
@@ -572,13 +591,15 @@ analyze: <the Phase 1.2 outcome> ·
 workspace: <the Phase 1.3 role or the Phase 0.5 role in --pr mode>.
 
 About to:
+3b. File <N> deferred-scope stub issue(s) — one open '<unplanned-label>' issue per deferred item
+    (irreversible), then fill their numbers into the close record's Deferred Scope section
 4. [member mode only] Migrate the queue entry → <hub-root>/.nexus/queue/<entry-dir-name>/
    — committed on the hub's current branch '<hub-branch>' (local git, recoverable)
 5. [member mode only] Remove the queue entry from this repo — committed on branch '<branch>'
    (local git, recoverable)
-5b. [--pr mode only] Commit the born-at-close epic.md (if born here) + close record + backlog +
-    lesson on branch 'distill/<date>-<slug>' and push it — durability; these artifacts have no
-    feature PR to ride
+5b. [--pr mode only] Commit the born-at-close epic.md (if born here) + close record + lesson on
+    branch 'distill/<date>-<slug>' and push it — durability; these artifacts have no feature PR
+    to ride
 6. Post the close comment on epic issue #<epic-issue>  (irreversible)
 7. Close epic issue #<epic-issue>  (irreversible)
 ```
@@ -590,24 +611,59 @@ never as "committed" (#172; record #176 invariant 1).
 
 Then ask via **`AskUserQuestion`** (not free text). Three options:
 
-- **close** — proceed to Phase 7.5 (member mode) / Phase 7.6 (`--pr` mode) and then Phase 8 (post
-  the comment, close the epic issue).
-- **abort** — stop; leave the epic issue open. The local artifacts stay written.
+- **close** — proceed to Phase 7.4 (file the deferred-scope stubs), then Phase 7.5 (member mode) /
+  Phase 7.6 (`--pr` mode) and then Phase 8 (post the comment, close the epic issue).
+- **abort** — stop; leave the epic issue open. The local artifacts stay written and **no stub issue
+  is created**.
 - **review** — display the generated `close-record.md`, then ask again.
 
 **Handle the selection** (treat an "Other" answer by intent):
 
-- **close** → Phase 7.5 in member mode, Phase 7.6 in `--pr` mode, otherwise Phase 8.
+- **close** → Phase 7.4, then Phase 7.5 in member mode, Phase 7.6 in `--pr` mode, otherwise Phase 8.
 - **abort** → stop with:
 
     ```
     Epic closure aborted.
 
-    The close record, backlog, and lesson are written; the GitHub issue remains open.
+    The close record and lesson are written; no stub issue was filed and the GitHub issue
+    remains open.
     Close it manually when ready:  gh issue close <epic-issue> --reason completed
     ```
 
 - **review** → print `close-record.md`, then re-ask via `AskUserQuestion`.
+
+# Phase 7.4 — File the deferred-scope stubs
+
+**Skip this phase when nothing was deferred.** Otherwise it is the **first** step after the
+checkpoint — ahead of the migration, ahead of the `--pr` commit, ahead of the close comment. That
+position is forced from both sides: creating an issue cannot be undone, so it must come after
+consent; and the close record must name the resulting issue numbers, so it must come before the
+record is committed anywhere (in `--pr` mode Phase 7.6 commits and pushes it).
+
+1. **File the batch** authored in Phase 5, classified as an **epic** rather than a story:
+
+    ```bash
+    python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>" \
+        --classification-label "<epic-label>" \
+        --classification-type "<epic-type>"
+    ```
+
+    The filer upserts every label it will apply **before** creating anything, so a repository that
+    has never seen the unplanned label still files cleanly; if a label can be neither created nor
+    found it reports the gap and creates nothing. It refuses any work-item that carries the
+    unplanned label and a `parent:` — Invariant 6 is enforced there, not merely promised here. Pass 2
+    wires the native `blocked_by` edges between the deferred items. With `github.project: none` no
+    project is touched. The run is resumable and idempotent — on `⚠️ INCOMPLETE`, re-run the exact
+    same command.
+
+    Discard the transient work-items only after a `✅ Complete` run.
+
+2. **Fill the close record's Deferred Scope section** with the created issue numbers — one line per
+   item, `#<issue> — <one-line goal>`. This is the edit that makes the record's pointer durable, and
+   it must land before Phase 7.6 commits the record.
+
+3. If filing fails outright, **stop before Phase 8**: report the failure and leave the epic issue
+   open. A close comment that promises deferred scope no issue carries is worse than a re-run.
 
 # Phase 7.5 — Migrate the entry to the hub queue (member mode only)
 
@@ -646,8 +702,8 @@ applies unchanged.
 # Phase 7.6 — Commit & push the distill branch (`--pr` mode only)
 
 **Skip this phase entirely without `--pr`** (and it never coexists with Phase 7.5 — member mode is
-rejected in Phase 0.5). On an approved **close**, the close record, backlog append, and lesson were
-written inside the worktree; they have **no feature PR to ride to main**, so commit them on the
+rejected in Phase 0.5). On an approved **close**, the close record (with Phase 7.4's stub issue
+numbers already filled in) and the lesson were written inside the worktree; they have **no feature PR to ride to main**, so commit them on the
 distill branch and push it — pushing is the durability guarantee (until then the only copy is one
 worktree on one machine).
 
@@ -658,14 +714,14 @@ closed, drainable entries (Success Metric: 100% of trunk-queue entries carry a c
 committed-entry path `epic.md` was already tracked, so `git add` simply no-ops on it.
 
 ```bash
-git -C <wtPath> add "${QDIR}/epic.md" "${QDIR}/close-record.md" <backlog.md> <lesson>  # paths inside <wtPath>
-git -C <wtPath> commit -m "close: <epic-slug> — born-at-close epic, close record, backlog, lesson"
+git -C <wtPath> add "${QDIR}/epic.md" "${QDIR}/close-record.md" <lesson>  # paths inside <wtPath>
+git -C <wtPath> commit -m "close: <epic-slug> — born-at-close epic, close record, lesson"
 git -C <wtPath> push -u origin "distill/<date>-<slug>"
 ```
 
 - The close record's `git rm` happens later, on this same branch, in `/nxs.distill` — so the record
   is add-then-deleted within the branch (durable via the epic-issue comment in Phase 8, and via the
-  concept pages + backlog + lesson the distillation-PR lands). The born `epic.md` is consumed and
+  concept pages + lesson the distillation-PR lands). The born `epic.md` is consumed and
   deleted with the whole entry when the distillation-PR merges.
 - If the push fails, continue to Phase 8 but end the run with an `ACTION REQUIRED: git -C <wtPath>
   push` — closure is not durable off this machine until the branch is pushed.
@@ -720,8 +776,9 @@ so nothing in this comment-writing step may be skipped or thinned because the fi
 `.nexus/tmp/` (#172). The comment carries the close record's **prose inline** (Key Decisions +
 Deviation Rationale, in full); it must **never** link into `.nexus/queue/` or `.nexus/tmp/`, or the
 link dangles the moment the entry is consumed. Durable pointers — the
-feature backlog and the lesson file, both under the resolved docs root — may be included as bare paths
-(or absolute GitHub URLs via `nxs-abs-doc-path`); nothing in the queue may be linked.
+deferred-scope stub issues and the lesson file (the latter under the resolved docs root) — may be
+included as issue references and bare paths (or absolute GitHub URLs via `nxs-abs-doc-path`);
+nothing in the queue may be linked.
 
 Write the comment body to a scratch file (Key Decisions + Deviation Rationale copied from
 `close-record.md`; drop the Deviation heading if there were none), then post it with `--body-file`
@@ -755,7 +812,7 @@ the durable surface must show the epic closed on a waiver -->
 - **<deviation>:** <why>          <!-- omit this whole heading if there were none -->
 
 ### Pointers (durable)
-- Deferred scope → <feature-path>/backlog.md
+- Deferred scope → #<stub-issue> — <one-line goal>   <!-- one line per stub; omit if none -->
 - Process lesson → <docs-root>/delivery/lessons/<date>-<slug>.md
 
 <!-- nexus:close-record -->
@@ -813,7 +870,7 @@ Close record:      ${QDIR}/close-record.md
                    | (old-contract: committed; distiller consumes it post-merge)
 Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
-Deferred scope:    <feature-path>/backlog.md  (<N> item(s))
+Deferred scope:    filed as <N> backlog stub issue(s): #<n>, #<n>, …
 Process lesson:    <docs-root>/delivery/lessons/<date>-<slug>.md
 Scratch mined:     ${SDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the
                    committed entry (distiller drains it with the entry post-merge)
@@ -842,7 +899,7 @@ close record's line already says the entry stays and is consumed post-merge.
 In `--pr` mode, replace the Queue-entry line with the distill-branch state and end with the
 hand-off (the artifacts live on the pushed distill branch, and distill continues in the worktree):
 
-    Distill branch:    distill/<date>-<slug>  (pushed; close record + backlog + lesson committed)
+    Distill branch:    distill/<date>-<slug>  (pushed; close record + lesson committed)
     Worktree:          <wtPath>
 
     NEXT — continue the drain from the worktree:
@@ -872,7 +929,8 @@ does not reopen the epic issue.
       close record's Key Decisions and Deviation Rationale were written against the superseded body
       and are now wrong. Re-run **Phase 2 and Phase 3** against the new record body and rewrite those
       two sections of `${QDIR}/close-record.md` before continuing. Everything else in the file —
-      `range`, backlog pointer, lesson pointer — is unaffected and is **not** regenerated.
+      `range`, deferred-scope stub numbers, lesson pointer — is unaffected and is **not**
+      regenerated.
 
 3. **Re-stamp.** Recompute the digest through the one digest program and write it into the entry's
    `close-record.md` frontmatter:
@@ -899,7 +957,8 @@ state, but a closed epic with an open issue misreports the pipeline.
   folder; never `rm -rf` a tasks folder. Decisions come from the epic + story issue comments + the
   close review (C6).
 - **Human prose only** — the close record has **no `ConceptDelta` block**; do not generate `PIR.md`.
-- **Deferred scope goes to the backlog** — the close record carries only a pointer (C2).
+- **Deferred scope becomes stub issues, filed only after the checkpoint** — the close record
+  carries only their issue numbers (C2), and nothing reaches GitHub before consent.
 - **The lesson is its own file** — the close record carries only a pointer (C3).
 - **Do not proceed past the checkpoint** without an explicit `close` selection.
 - **Precondition is a hard block** — never close the epic issue while **any** sub-issue is open,
@@ -923,7 +982,7 @@ state, but a closed epic with an open issue misreports the pipeline.
   their own.
 - **Never link an ephemeral queue file from the issue** — the close comment inlines the close-record
   prose; the distiller deletes the queue entry post-merge, and a `.nexus/tmp/` path is machine-local.
-  Link only durable targets (feature backlog, lesson file, concept pages, anchors, other issues).
+  Link only durable targets (stub issues, lesson file, concept pages, anchors, other issues).
 - **Artifact placement is contractual (#172).** Issue-sourced local close → `close-record.md` (and
   the materialized `epic.md`) live under `.nexus/tmp/epic-<n>/` as ephemeral hand-off content —
   never committed, never described as committed, no manual git step to hand off to `/nxs.distill`.
@@ -975,7 +1034,7 @@ state, but a closed epic with an open issue misreports the pipeline.
 - **`--pr` mode is post-merge, single-repo/hub, in a worktree.** Phase 0.5 gates on a merged PR and
   rejects member repos; every phase runs inside the worktree; the role and range come from the helper
   (Phase 1.3 preflight is skipped). The conformance gate reads the PR review's machine block, not the
-  file. The close record + backlog + lesson are committed on the distill branch and **pushed** (they
+  file. The close record + lesson are committed on the distill branch and **pushed** (they
   have no feature PR to ride); the close record is later `git rm`'d by `/nxs.distill` on the same
   branch, so the epic-issue comment is its durable copy. Never fall back to the local path when
   `--pr` was passed.
