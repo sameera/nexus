@@ -54,6 +54,18 @@ close's all-stories-closed gate) would act on a phantom story.
 -   **At most one.** Two record sub-issues abort with `multiple-record-subissues`; the resolver never
     silently picks one.
 
+## Unplanned epics
+
+A **backlog stub** is an epic issue that has been identified but not yet planned (epic #185) — it
+carries the repository's declared unplanned label, has no planning meta block, and has no story
+sub-issues. Resolving one would emit an epic whose story set is empty, which every downstream stage
+reads as "an epic that plans nothing" rather than "work nobody has planned".
+
+So the resolver refuses it by name: `epic-not-planned`, naming the label it found and pointing at
+`/nxs.epic <n>` to plan it. The label is read through the shared publishing resolver
+(`unplanned-label`), never hard-coded, and the check applies on every path — `--require-epic` or
+not, because every stage that reconstructs an epic can meet one.
+
 ## Withdrawn stories
 
 Re-scoping an epic leaves its cancelled stories behind as closed sub-issues — that is where the

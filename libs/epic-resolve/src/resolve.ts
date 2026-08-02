@@ -24,8 +24,10 @@
 
 import {
     classifySubIssue,
+    isUnplannedEpic,
     isWithdrawnStory,
     resolveRecordClassification,
+    resolveUnplannedLabel,
     type RecordClassification,
 } from "./classify.js";
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
@@ -86,6 +88,27 @@ export function resolveEpic(
                     message:
                         `#${epicNumber} is a story issue (sub-issue of #${parent.parent}), not an epic; ` +
                         `pass its parent epic number to --from.`,
+                },
+            };
+        }
+    }
+
+    // An unplanned epic — a backlog stub — is a real epic issue with no planning meta block and no
+    // story sub-issues yet (epic #185). Materializing one would emit an epic whose story set is
+    // empty, which every downstream stage reads as "an epic that plans nothing" rather than "work
+    // nobody has planned". Refuse it by name instead (Invariant 14).
+    if (epic.issue.labels.length > 0) {
+        const unplanned = resolveUnplannedLabel(run, targetRoot);
+        if (!unplanned.ok) return unplanned;
+        if (isUnplannedEpic(epic.issue.labels, unplanned.label)) {
+            return {
+                ok: false,
+                error: {
+                    problem: "epic-not-planned",
+                    message:
+                        `#${epicNumber} carries the '${unplanned.label}' label: it is an epic that has been ` +
+                        `identified but not yet planned, so it has no stories to resolve. ` +
+                        `Plan it first with \`/nxs.epic ${epicNumber}\`, then re-run.`,
                 },
             };
         }

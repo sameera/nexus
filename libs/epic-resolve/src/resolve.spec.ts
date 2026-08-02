@@ -460,3 +460,65 @@ describe("resolveEpic — AC4: dependency edges exact", () => {
         expect(seq).toContain("| #118 | #116 |");
     });
 });
+
+describe("resolveEpic — an unplanned epic is refused, not half-resolved (epic #185)", () => {
+    // A backlog stub IS an epic issue — it just has no planning meta block and no story sub-issues
+    // yet. Resolving one would emit an epic with an empty story set, which every downstream stage
+    // would read as "an epic whose scope is nothing" rather than "work nobody has planned".
+    // Invariant 14 makes that state say its own name.
+    const unplanned: FixtureGraph = {
+        epic: {
+            number: 300,
+            title: "Retire the sequencing table",
+            body: "- **goal:** decide the fate of the wave ordering\n",
+            labels: ["epic", "backlog"],
+        },
+        stories: [],
+    };
+
+    it("refuses with a diagnostic naming the unplanned state and emits no markdown", () => {
+        const r = resolveEpic(makeGhRunner(unplanned), "/repo", 300);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("epic-not-planned");
+        expect(r.error.message).toContain("#300");
+        expect(r.error.message).toContain("backlog");
+    });
+
+    it("names the promotion path so the lead knows what to run next", () => {
+        const r = resolveEpic(makeGhRunner(unplanned), "/repo", 300);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.message).toContain("/nxs.epic 300");
+    });
+
+    it("honours a repository's declared unplanned label rather than the built-in", () => {
+        const declared: FixtureGraph = {
+            ...unplanned,
+            epic: { ...unplanned.epic, labels: ["epic", "icebox"] },
+            unplannedLabel: "icebox",
+        };
+        const r = resolveEpic(makeGhRunner(declared), "/repo", 300);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("epic-not-planned");
+        expect(r.error.message).toContain("icebox");
+    });
+
+    it("resolves a planned epic that happens to carry no labels at all", () => {
+        const r = resolveEpic(makeGhRunner(graph()), "/repo", 115);
+        expect(r.ok).toBe(true);
+    });
+
+    it("resolves an epic once the unplanned label has been removed by promotion", () => {
+        const promoted: FixtureGraph = {
+            ...unplanned,
+            epic: { ...unplanned.epic, labels: ["epic"] },
+            stories: [{ number: 301, title: "First story", body: "**As a** lead **I want** X.", blockedBy: [] }],
+        };
+        const r = resolveEpic(makeGhRunner(promoted), "/repo", 300);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain("### Story #301: First story");
+    });
+});

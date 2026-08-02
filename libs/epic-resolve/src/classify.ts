@@ -135,6 +135,32 @@ export function resolveRecordClassification(
     };
 }
 
+/**
+ * The label this repository uses to mark an epic that has been identified but not yet planned — a
+ * backlog stub (epic #185). Resolved through the same shared publishing resolver as every other
+ * publishing key, so no call site carries a second source of the name (Invariant 18).
+ *
+ * A resolver that answers nothing predates the stub contract; that is reported rather than
+ * defaulted, exactly as the record marker is.
+ */
+export function resolveUnplannedLabel(run: Runner, targetRoot: string): Ok<{ label: string }> | Err {
+    const label = resolveKey(run, targetRoot, "unplanned-label");
+    if (!label.ok) return label;
+    if (label.value.length === 0) {
+        return unresolved(
+            "the shared publishing resolver returned no unplanned label; the vendored " +
+                `${RESOLVER_SCRIPT} predates the backlog-stub contract — redeploy the Nexus components`,
+        );
+    }
+    return { ok: true, label: label.value };
+}
+
+/** Whether an epic issue is still an unplanned stub, under the resolved unplanned label. */
+export function isUnplannedEpic(labels: string[], unplannedLabel: string): boolean {
+    const wanted: string = unplannedLabel.toLowerCase();
+    return labels.some((name) => name.toLowerCase() === wanted);
+}
+
 /** Whether one sub-issue is the epic's decision record, under the resolved classification. */
 export function classifySubIssue(classification: RecordClassification, markers: SubIssueMarkers): SubIssueKind {
     // Both comparisons fold case. GitHub label names are case-insensitively unique, and
