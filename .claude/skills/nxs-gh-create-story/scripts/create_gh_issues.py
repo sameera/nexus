@@ -585,6 +585,27 @@ def normalize_ref(ref: str) -> str:
     return ref.strip().removeprefix("STORY-").removeprefix("story-").strip().lower()
 
 
+# A dependency reference that names an issue that already exists, rather than one this batch is
+# about to create. The `#` sigil is what says "issue number" — a bare `54` is indistinguishable
+# from a batch ref, so it is deliberately not matched.
+_LITERAL_REF_RE = re.compile(r"^#(\d+)$")
+
+
+def resolve_literal_ref(dep_ref: str, repo: str | None = None) -> str | None:
+    """Resolve a `#<n>` dependency reference to the blocker's REST database id.
+
+    A batch wires its edges from refs because no issue numbers exist yet, but an edge can also
+    point *out* of the batch — at work already filed, which a migration of historical dependencies
+    can only express as a literal. Such a reference is resolved straight against the platform.
+    Returns None when the reference is not a literal or does not resolve, so the caller reports it
+    unresolved rather than dropping the ordering.
+    """
+    match = _LITERAL_REF_RE.match(dep_ref.strip())
+    if not match:
+        return None
+    return get_issue_db_id(match.group(1), repo=repo)
+
+
 # A story ref as it appears in issue *prose*, with or without the code-span backticks authors
 # tend to wrap it in. The ref body must start and end alphanumeric, so a sentence-ending period
 # ("see STORY-170.02.") stays outside the match. Only the `STORY-` prefixed form is a ref — a
@@ -1175,8 +1196,11 @@ def main():
             labels = fm.get("labels", [])
             if isinstance(labels, str):
                 labels = [labels] if labels else []
-            if CLASSIFICATION != "types" and STORY_LABEL not in labels:
-                labels = [STORY_LABEL, *labels]
+            # The canonical classification is the caller's (STORY #186), so the preview has to
+            # read the same name pass 1 applies — a dry run that renders `story` on a stub batch
+            # is not the rehearsal an irreversible bulk filing needs.
+            if CLASSIFICATION != "types" and CLASSIFICATION_LABEL not in labels:
+                labels = [CLASSIFICATION_LABEL, *labels]
             project = fm.get("project", "(auto)")
             ref = fm.get("ref", f.stem)
             blocked_by = fm.get("blocked_by", "none")
@@ -1224,12 +1248,13 @@ def main():
         number = record["number"]
         existing = get_blocked_by_db_ids(number, repo=issues_repo) if record["blocked_by"] else set()
         for dep_ref in record["blocked_by"]:
-            blocker_db_id = ref_to_db_id.get(dep_ref)
+            blocker_db_id = ref_to_db_id.get(dep_ref) or resolve_literal_ref(dep_ref, repo=issues_repo)
             if not blocker_db_id:
                 print(f"  Unresolved: blocked_by ref '{dep_ref}' for #{number} not among created issues",
                       file=sys.stderr)
                 dep_unresolved.append((number, dep_ref))
                 continue
+            ref_to_db_id.setdefault(dep_ref, blocker_db_id)
             if existing is not None and str(blocker_db_id) in existing:
                 dep_present += 1
                 continue

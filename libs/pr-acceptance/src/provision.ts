@@ -94,17 +94,8 @@ function scratchFeatureDocs(destDir: string): void {
         path.join(dir, "README.md"),
         ['---', 'feature: "Acceptance Scratch"', "---", "", "# Acceptance Scratch", "", "The one feature the harness's seeded epics belong to.", "", "## Epics", "", ""].join("\n"),
     );
-    fs.writeFileSync(
-        path.join(dir, "backlog.md"),
-        [
-            "# Backlog: Acceptance Scratch",
-            "",
-            "<!-- Append-only re-triage queue. Writers: /nxs.epic (decomposition stubs),",
-            "     /nxs.close (deferred scope). One consumer: the next /nxs.epic. -->",
-            "",
-            "",
-        ].join("\n"),
-    );
+    // No backlog file: a stub is an open issue carrying the unplanned label (epic #185), so the
+    // seeded feature folder holds its nav index and nothing else.
 }
 
 function ensureGitignores(destDir: string, entries: string[]): void {

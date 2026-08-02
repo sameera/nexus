@@ -679,6 +679,20 @@ class ResolveCli(unittest.TestCase):
         self.assertEqual(rtype.returncode, 0, rtype.stderr)
         self.assertEqual(rtype.stdout.strip(), "Decision Record")
 
+    def test_resolve_classification_label_names_fall_back_to_the_builtin(self):
+        """A stage passes these into the filer's --classification-label; an empty answer would
+        file the batch unclassified, so the CLI must resolve them exactly like the library."""
+        root = _write_config({"settings.yml": "github:\n  classification: labels\n"})
+        for key, expected in (("epic-label", DEFAULT_EPIC_LABEL), ("story-label", DEFAULT_STORY_LABEL)):
+            out = self._run_cli(root, "resolve", key)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            self.assertEqual(out.stdout.strip(), expected)
+
+    def test_resolve_epic_label_prints_the_declared_value(self):
+        root = _write_config({"settings.yml": "github:\n  epic-label: initiative\n"})
+        out = self._run_cli(root, "resolve", "epic-label")
+        self.assertEqual(out.stdout.strip(), "initiative")
+
     def test_resolve_lifecycle_label_names(self):
         """The design stage reads these names through the same resolver the filing script uses."""
         root = Path(tempfile.mkdtemp())

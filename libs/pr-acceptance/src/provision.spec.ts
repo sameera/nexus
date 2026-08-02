@@ -92,7 +92,19 @@ describe("seedTree", () => {
         });
         expect(fs.existsSync(path.join(dest, ".nexus/config/settings.yml"))).toBe(true);
         expect(fs.existsSync(path.join(dest, "docs/features/acceptance-scratch/README.md"))).toBe(true);
-        expect(fs.existsSync(path.join(dest, "docs/features/acceptance-scratch/backlog.md"))).toBe(true);
+    });
+
+    it("seeds no backlog file — a stub is an issue, so the scratch repo has no file to write one to", () => {
+        const src = sourceCheckout();
+        const dest = path.join(makeTempDir(tracked), "seed");
+        seedTree(defaultRunner, {
+            sourceRepoRoot: src.root,
+            destDir: dest,
+            toolchainCommit: src.commit,
+            nameWithOwner: "o/r",
+            today: "2026-08-01",
+        });
+        expect(fs.existsSync(path.join(dest, "docs/features/acceptance-scratch/backlog.md"))).toBe(false);
     });
 
     it("replaces the seeded config so issues target the scratch repo, never the source repo", () => {
