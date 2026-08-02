@@ -1,8 +1,8 @@
 ---
 title: "Epic Approval Gate"
-aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "stub decomposition"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record"]
-last_updated_by: "#139"
+aliases: ["approval digest gate", "epic filing gate", "decision-grade digest"]
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub"]
+last_updated_by: "#185"
 status: active
 verification: verified
 ---
@@ -13,14 +13,14 @@ The epic stage files the epic and its story issues together, gated by a single d
 
 ## How It Works
 
-The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning it commits nothing at planning — the draft stays in session scratch — files issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stubs — slug, functional goal, candidate story-group titles, complexity — rather than several fully generated epics. A stub is promoted to a full epic later, on demand.
+The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning it commits nothing at planning — the draft stays in session scratch — files issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics; the gate's consent covers that irreversible filing.
 
 ## Key Invariants
 
 1. The epic and its story issues are filed together, gated by one approval.
 2. The decision-grade digest, not the full epic document, is the read surface at the gate.
 3. Open questions block filing; they are the only pre-filing safeguard.
-4. Oversized scope becomes backlog stubs, not multiple fully generated epics.
+4. Oversized scope becomes backlog stub issues filed on the gate's consent, not fully generated epics.
 5. The epic stage takes intent directly; no separate brief is a precondition.
 6. Filing commits nothing at planning: the epic issue precedes its story children, and a re-run reuses an already-filed one.
 7. The epic and its stories resolve their target repository independently; later stages address the epic where it was filed.
@@ -32,6 +32,7 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [issue-sourced-planning](issue-sourced-planning.md) — the model this gate files into: issues, not a committed file.
 - [publishing-config-resolution](publishing-config-resolution.md) — decides the repository, classification, and project for every issue this gate files.
 - [decision-record](decision-record.md) — filing applies its needs-design label from the complexity rollup.
+- [backlog-stub](backlog-stub.md) — what oversized scope becomes, and what a promotion re-enters this gate as.
 
 ## Decision Log
 
@@ -54,3 +55,7 @@ Where an issue lands became a resolved decision rather than an implicit one, and
 ### 2026-07-26 — #139 — Filing declares the design-warrant on the epic issue
 
 Whether an epic warrants a decision record is now decided once, at filing, from the epic's own complexity rollup — medium or larger gets the needs-design label — and lives on the issue where the lead can edit it, so every downstream stage answers "should this epic have a record" from the issue graph with no remembered state, and a hand-filed epic without the label is simply an epic without a record. Small and extra-small are both exempt, since the stated threshold is medium-or-larger; an absent or unrecognized rollup errs toward needing design rather than silently skipping the gate. Refuted alternative: derive the need from the epic's embedded machine metadata — absent on hand-filed epics and not editable in the issue interface, exactly where the label form works for free.
+
+### 2026-08-02 — #185 — Oversized scope files stub issues, and a promotion re-enters by issue number
+
+The oversized path stopped writing markdown blocks into a per-feature file and now files one epic issue per functional goal, marked unplanned — so the gate's consent covers an irreversible platform write rather than a local append, and the choice text at the gate says so. Retiring the file also retires the slug those blocks were addressed by: a promotion re-enters this gate by issue number alone, and because a stub is filed as an epic it is the same kind of object this gate produces. That is what forces the operation to be stated rather than inferred — a bare number always means plan this epic and is legal only while the unplanned label is present, loading an already-planned epic is selected by its own flag, and anything else is a capability description. The gate keeps writing no feature navigation index on this path, because a stub writes nothing to the tree at all. Refuted alternative: infer the operation from whether the unplanned label is present and drop the flag entirely — one fewer input to learn, but the same command would then silently do two different things depending on a label a third party can remove, and the two operations differ in consequence.
