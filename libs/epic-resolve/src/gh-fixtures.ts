@@ -29,7 +29,7 @@ export interface FixtureStory {
 export interface FixtureGraph {
     /** "owner/repo" reported by `gh repo view`. */
     slug?: string;
-    epic: { number: number; title: string; body: string; state?: string };
+    epic: { number: number; title: string; body: string; state?: string; labels?: string[] };
     stories?: FixtureStory[];
     /** Order the sub-issues GraphQL query returns (default: the stories' declared order). */
     subIssueOrder?: number[];
@@ -47,6 +47,8 @@ export interface FixtureGraph {
     /** What it reports for `record-label` / `record-type` (defaults: the record contract's names). */
     recordLabel?: string;
     recordType?: string;
+    /** What it reports for `unplanned-label` (default: the built-in `backlog`). */
+    unplannedLabel?: string;
     /** The shared publishing resolver cannot be invoked at all. */
     failClassification?: boolean;
     /** The sub-issue issue-type GraphQL query fails (a repo without the issue-types feature). */
@@ -78,6 +80,7 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
             if (key === "classification") return ok((graph.classification ?? "labels") + "\n");
             if (key === "record-label") return ok((graph.recordLabel ?? "decision-record") + "\n");
             if (key === "record-type") return ok((graph.recordType ?? "Decision Record") + "\n");
+            if (key === "unplanned-label") return ok((graph.unplannedLabel ?? "backlog") + "\n");
             return ok("\n");
         }
 
@@ -99,7 +102,7 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
                         body: graph.epic.body,
                         state: graph.epic.state ?? "OPEN",
                         stateReason: "",
-                        labels: [],
+                        labels: (graph.epic.labels ?? []).map((name) => ({ name })),
                     }),
                 );
             }

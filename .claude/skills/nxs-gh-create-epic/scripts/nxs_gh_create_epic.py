@@ -38,6 +38,7 @@ from delivery_config import (  # noqa: E402
     resolve_needs_design_label,
     resolve_project_target,
     resolve_setting,
+    resolve_unplanned_label,
     set_issue_type,
     write_github_block,
 )
@@ -563,6 +564,62 @@ def apply_needs_design_label(
     return run(cmd).returncode == 0
 
 
+def read_issue_labels(issue_num: str, repo: str | None = None) -> list[str] | None:
+    """The labels currently on an issue, or None when the number does not resolve at all.
+
+    None and [] are deliberately different answers: an unresolvable number is a bad input, while a
+    resolvable issue carrying no labels is an already-planned epic. Both refuse a promotion, but
+    for reasons the lead needs told apart.
+    """
+    cmd = ["gh", "issue", "view", issue_num, "--json", "number,title,labels"]
+    if repo:
+        cmd.extend(["-R", repo])
+    result = run_command(cmd)
+    if result.returncode != 0:
+        return None
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+    return [entry.get("name", "") for entry in data.get("labels", [])]
+
+
+def populate_github_issue(
+    issue_num: str,
+    title: str,
+    body_file: Path,
+    unplanned_label: str,
+    add_label: str | None = None,
+    repo: str | None = None,
+) -> str:
+    """Populate an existing (unplanned) epic issue in place and return its URL.
+
+    This is promotion: the stub's own issue gains the epic body, the planning meta block and the
+    epic classification, and loses the unplanned label. Nothing is created and nothing is closed,
+    so the number the scope was deferred under is the number it ships under (Invariant 4).
+    """
+    cmd = [
+        "gh", "issue", "edit", issue_num,
+        "--title", title,
+        "--body-file", str(body_file),
+        "--remove-label", unplanned_label,
+    ]
+    if add_label:
+        cmd.extend(["--add-label", add_label])
+    if repo:
+        cmd.extend(["-R", repo])
+
+    result = run_command(cmd)
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to populate GitHub issue #{issue_num}: {result.stderr}")
+
+    url = result.stdout.strip()
+    if not url.startswith("http"):
+        slug = repo or "the repository"
+        url = f"https://github.com/{slug}/issues/{issue_num}"
+    return url
+
+
 def create_github_issue(
     title: str,
     body_file: Path,
@@ -630,6 +687,17 @@ def main() -> int:
         action="store_true",
         help="Skip adding the issue to any project"
     )
+    parser.add_argument(
+        "--promote",
+        type=str,
+        default=None,
+        metavar="ISSUE",
+        help=(
+            "Promote an unplanned epic (a backlog stub): populate THIS issue in place instead of "
+            "creating a new one, and remove the unplanned label. Legal only while the target still "
+            "carries that label."
+        ),
+    )
 
     args = parser.parse_args()
     epic_file: Path = args.epic_file
@@ -686,6 +754,26 @@ def main() -> int:
     issues_repo: str | None = resolve_epic_repo(config, hub=hub) or None
     if issues_repo:
         print(f"📦 Epic repo (from config): {issues_repo}")
+
+    # Promotion legality (epic #185, Invariants 12/13). `--promote` states the operation — "plan
+    # this epic" — and the unplanned label answers a separate question: whether the operation
+    # applies to an epic in that state. Both inputs now name the same kind of object, so the
+    # operation can never be inferred from what is referenced; it is refused here, before any
+    # write, when the target is not an unplanned epic.
+    unplanned_label = resolve_unplanned_label(config, hub=hub)
+    if args.promote:
+        current_labels = read_issue_labels(args.promote, repo=issues_repo)
+        if current_labels is None:
+            error(f"Cannot promote #{args.promote}: no such issue in the target repository.")
+            return 1
+        if unplanned_label not in current_labels:
+            error(
+                f"Cannot promote #{args.promote}: it does not carry the '{unplanned_label}' label, "
+                "so it is not an unplanned epic. Nothing was written. To load an already-planned "
+                "epic instead, use `/nxs.epic --from #" + args.promote + "`."
+            )
+            return 1
+        print(f"⬆️  Promoting unplanned epic #{args.promote} in place (no new issue is created)")
 
     # Resolve the classification mechanism and the concrete names the epic will carry
     # (STORY-121.02). The mode decides types-vs-labels; frontmatter `type` (per-item intent)
@@ -786,11 +874,21 @@ def main() -> int:
             ):
                 warn(f"Could not ensure '{create_label}' label — continuing (it may already exist)")
 
-        print("🚀 Creating GitHub issue...")
+        if args.promote:
+            # The stub's own issue becomes the epic. No second issue is created, so every
+            # reference written when the scope was deferred survives the promotion.
+            print(f"🚀 Populating GitHub issue #{args.promote}...")
+            issue_num = args.promote
+            issue_url = populate_github_issue(
+                issue_num, epic_title, temp_file, unplanned_label,
+                add_label=create_label, repo=issues_repo,
+            )
+        else:
+            print("🚀 Creating GitHub issue...")
 
-        issue_url, issue_num = create_github_issue(
-            epic_title, temp_file, fallback_label=create_label, repo=issues_repo
-        )
+            issue_url, issue_num = create_github_issue(
+                epic_title, temp_file, fallback_label=create_label, repo=issues_repo
+            )
 
         # Record the link immediately — the project/type steps below are
         # best-effort decoration and must not be able to lose the issue number.
@@ -880,7 +978,7 @@ def main() -> int:
 
         # Success output
         print()
-        success("GitHub Issue Created")
+        success("Unplanned Epic Promoted" if args.promote else "GitHub Issue Created")
         print()
         print(f"   Issue:  #{issue_num}")
         print(f"   Title:  {epic_title}")
@@ -900,6 +998,8 @@ def main() -> int:
             print("   Project: Added ✓")
         print()
         print(f'   Epic frontmatter updated with: link: "#{issue_num}"')
+        if args.promote:
+            print(f"   Identity: #{issue_num} kept — no second issue, nothing closed")
 
         return 0
 

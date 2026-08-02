@@ -14,6 +14,7 @@ export type EpicResolveProblem =
     | "malformed-json"
     | "subissue-fetch-failed"
     | "not-an-epic"
+    | "epic-not-planned"
     | "record-classification-unresolved"
     | "multiple-record-subissues"
     | "usage";

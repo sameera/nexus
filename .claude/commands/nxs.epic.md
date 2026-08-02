@@ -1,6 +1,6 @@
 ---
 name: nxs.epic
-description: Turn a natural-language capability description into a right-sized epic with user stories and acceptance criteria, then — on approval at a decision-grade digest — file the epic and one GitHub issue per story together. Takes intent directly — no feature brief required. Oversized scope decomposes to backlog stubs instead of full epics.
+description: Turn a natural-language capability description into a right-sized epic with user stories and acceptance criteria, then — on approval at a decision-grade digest — file the epic and one GitHub issue per story together. Takes intent directly — no feature brief required. Oversized scope decomposes to backlog stub issues, each promoted later by its own issue number.
 category: planning
 tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill, AskUserQuestion
 model: inherit
@@ -19,13 +19,19 @@ $ARGUMENTS
 The text after the slash command is either:
 
 - a **capability description** (natural language) — the normal case, or
-- a **stub reference** — a single kebab-case slug naming an existing backlog stub to promote, or
+- a **bare issue number** (`<n>` or `#<n>`) — **plan this epic**. Legal only while that epic still
+  carries the unplanned label, i.e. while it is a backlog stub, or
 - **`--from #<issue>`** — pull an epic that is **already filed** as GitHub issues (by Nexus or by
   hand) into a materialized `epic.md`, so downstream stages can run against an epic not planned in
   this session. This is a read-only wrapper over the resolver — it plans nothing and commits nothing
   (handled up front in Phase 0; the planning phases below do not run).
 
-Empty input is an error: ask the user for a capability description (or a stub slug) and stop.
+The flag selects the operation; it is never inferred from the shape of the argument. A bare number
+always means "plan this epic"; `--from` always means "load this already-planned epic". **Any other
+input is a capability description** — there is no slug lookup, because a stub's issue number is its
+only identifier.
+
+Empty input is an error: ask the user for a capability description (or a stub's issue number) and stop.
 
 # What this command does (read once)
 
@@ -72,8 +78,9 @@ a **pull**, not a plan. Do not draft, do not run the right-size gate, do not fil
 
 2. **On a non-zero exit** the resolver printed a diagnostic on stderr (`epic-resolve <problem>:
    <message>`). Report it verbatim and stop — in particular, `not-an-epic` (the number is a story
-   sub-issue) and `epic-not-found` (no such issue) are the two "that is not an epic" outcomes, each
-   naming why. **No `epic.md` is produced** on failure.
+   sub-issue), `epic-not-found` (no such issue), and `epic-not-planned` (the number is a backlog
+   stub, which has nothing to load — offer `/nxs.epic <n>` to plan it) each name why. **No `epic.md`
+   is produced** on failure.
 3. **On success** it printed `{ epic, targetRoot, outPath }` — a materialized `epic.md` at `outPath`
    under the gitignored `.nexus/tmp/`. Report that path and that `/nxs.decision-record <n>` / `/nxs.analyze` can
    now run against this epic. **Commit nothing** (the same no-commit contract as planning; the output
@@ -106,17 +113,30 @@ In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable
    Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending draft exists, resume it without
    asking. Otherwise continue. (There is no committed queue entry to resume — nothing is committed at
    planning; a draft abandoned mid-session is simply never filed, and needs no cleanup.)
-2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub slug. Stop.
-3. Decide **promotion** vs **intent**:
-    - A **stub reference** is a single token, no whitespace, kebab-case, that matches a `## <slug>` block with `status: proposed` in some `<docs-root>/features/*/backlog.md` (per the empty-prefix rule, `features/*/backlog.md` on a repo-root hub). Glob the backlogs and check.
-    - Exactly one match → **promotion mode**. Load the stub (functional goal, candidate story-group titles, estimate). The feature container is the backlog's parent directory. Skip the right-sizing gate (the stub was already sized ≤ M at decomposition) and use the stub's goal + candidate stories as the seed for Phase 3.
-    - No match, or input contains whitespace → **intent mode**. The text is the capability description.
+2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub's issue number. Stop.
+3. Decide **promotion** vs **intent**. The rule is purely syntactic, then checked against issue state:
+    - `$ARGUMENTS` is a **single bare integer**, optionally `#`-prefixed, and no `--from` was passed → **promotion mode**. Resolution reads issue state only and never globs the docs tree:
+
+        ```bash
+        gh issue view <n> --json number,title,body,labels,state
+        python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve unplanned-label
+        ```
+
+      The issue must exist, be **open**, and carry the resolved unplanned label. If it does not — closed, no such issue, or already planned — report **why** it is not promotable, name `--from #<n>` as the way to load an already-planned epic instead, and **file nothing**. Otherwise seed Phase 3 from the stub's body: the functional goal, the estimate, and the candidate story-group titles. Read `feature`/`feature_path` from the body's meta block. Skip the right-sizing gate — the stub was already sized ≤ M when it was decomposed. Record `PROMOTE = <n>`.
+    - **Anything else** → **intent mode**. The text is the capability description. A word that looks like a slug is intent, not a lookup key.
+
+**When a promoted stub proves oversized.** If Phase 3's rollup shows the stub cannot become a single epic, run the Phase 2 gate after all and emit fresh stub issues (Phase 2b) — then close the original **as not planned** with a comment naming its successors. Never close it as completed: nothing was delivered.
+
+```bash
+gh issue comment <n> --body "Larger than one epic on planning. Re-decomposed into #<a>, #<b>, #<c>."
+gh issue close <n> --reason "not planned"
+```
 
 ## Phase 1 — Resolve the feature container
 
 The container must exist before writing: `backlog.md` lives under it, and the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter — carried onto the epic issue's meta block at filing, so the resolver recovers it.
 
-1. **Promotion mode** → already resolved (the stub's backlog parent). Continue.
+1. **Promotion mode** → already resolved: the `feature_path` recorded in the stub issue's meta block. Create the directory if it does not exist (a stub writes nothing to the tree, so a feature whose first epic is a promotion has no container yet). Continue.
 2. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
 3. **Otherwise infer and confirm once**:
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
@@ -216,7 +236,7 @@ epic.] Proposed split into right-sized goals:
 
 | Option | Action |
 |--------|--------|
-| **stubs** | (recommended) Write these as proposed stubs to the feature backlog. Promote one later with `/nxs.epic <slug>`. |
+| **stubs** | (recommended) File these as unplanned epic issues (irreversible). Plan one later with `/nxs.epic <issue-number>`. |
 | **full**  | Generate a single full epic at the original (oversized) scope anyway, with a scope-warning banner. |
 ```
 
@@ -428,11 +448,23 @@ story becomes one GitHub issue, child of the epic issue.
 1. **Create (or reuse) the epic issue (idempotent).** If the scratch draft's frontmatter already
    carries `link` — the epic issue was filed in a prior run of this command — **reuse that number;
    do not create a second epic issue** (Success Metric / AC: a re-run reuses the recorded number).
-   Otherwise create it:
+   Otherwise:
 
     ```bash
+    # intent mode — create a new epic issue
     python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${DRAFT_DIR}/epic.md"
+
+    # promotion mode — populate the stub's OWN issue in place
+    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${DRAFT_DIR}/epic.md" \
+        --promote <PROMOTE>
     ```
+
+    **In promotion mode nothing is created and nothing is closed.** The epic body, the
+    `nexus:epic-meta` block and the epic classification land on the issue the stub was filed under,
+    and the unplanned label comes off — so the number the scope was deferred under is the number it
+    ships and closes under, and every dependency edge and body mention written back then stays
+    valid. The filer re-checks legality itself: a target that no longer carries the unplanned label
+    is refused with nothing written.
 
     The skill reads `epic` (title) and `type` from frontmatter, **embeds the raw planning
     frontmatter onto the issue as a hidden `nexus:epic-meta` block** (so the resolver can rebuild the
@@ -551,8 +583,9 @@ story becomes one GitHub issue, child of the epic issue.
     - **<Epic Title>** — [#<EPIC>](<epic-issue-url>)
     ```
 
-If this was a **promotion**, mark the source stub `status: promoted` in its `backlog.md` (a single
-status edit; do not delete the block).
+A **promotion** needs no follow-up here: the stub issue *is* the epic issue now — Phase 6 populated
+it in place and removed the unplanned label. Nothing was created and nothing was closed, so every
+reference written when the scope was deferred still points at the right issue.
 
 ## Phase 7 — Report completion
 
@@ -560,6 +593,8 @@ Report:
 
 - Feature name and folder.
 - Epic title, complexity rating, and story count (with `story_type` breakdown).
+- **In promotion mode**: that epic issue `#<n>` is the same issue the stub was filed under — no
+  second issue was created, and the unplanned label was removed.
 - **Nothing committed to `.nexus/queue/`** — the epic lives on GitHub issues; the queue entry is
   born at close. The `epic.md` draft stayed in session scratch.
 - **If the creation scripts printed "Seeded github config … — review and commit"** (STORY-121.07
