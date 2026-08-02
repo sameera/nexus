@@ -63,3 +63,9 @@
 - **Choice:** `scratchFeatureDocs` writes only the feature nav index into the provisioned throwaway repo.
 - **Why:** the harness verifies the live toolchain; seeding a retired artifact would rehearse a shape no writer produces any more.
 - **Refuted alternative:** leave the seed as inert scenery — harmless today, but the next reader takes it as evidence the file format is still live.
+
+## 2026-08-02 — The stale code anchor is left for the distiller, not hand-edited
+
+- **Choice:** repointed the last committed `backlog.md` references in `manual/assets.html`, but left `.nexus/anchors/workspace-resolution.md`'s "stub-promotion glob across backlogs" line untouched.
+- **Why:** anchors are a derived surface the distillation PR regenerates; writing the concept store on a feature branch is exactly what `/nxs.distill`'s never-on-main rule forbids.
+- **Refuted alternative:** edit the anchor here to satisfy invariant 17's "every committed reference" literally — but that hand-writes a file whose next regeneration would overwrite it anyway.
