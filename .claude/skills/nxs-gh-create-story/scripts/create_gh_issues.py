@@ -40,6 +40,7 @@ from delivery_config import (  # noqa: E402
     resolve_project_target,
     resolve_story_label,
     resolve_story_repo,
+    resolve_unplanned_label,
     set_issue_type,
     write_github_block,
 )
@@ -1067,6 +1068,32 @@ def main():
     CLASSIFICATION = resolve_classification(merged)
     CLASSIFICATION_LABEL = args.classification_label or resolve_story_label(merged)
     classification_type = args.classification_type or merged.get("storyType")
+
+    # A stub is never a sub-issue of anything (decision-record Invariant 6). `/nxs.close` hard-blocks
+    # until every sub-issue of the epic is closed, with no exemptions by kind — so a deferred-scope
+    # stub filed beneath the epic being closed would deadlock the stage that filed it, and outlive
+    # that close by design. The filer refuses the relationship here rather than trusting each writer
+    # to omit it, and refuses it before anything irreversible happens.
+    unplanned_label = resolve_unplanned_label(config, hub=hub)
+    parented_stubs: list[tuple[str, str]] = []
+    for task_file in task_files:
+        fm, _ = parse_frontmatter(task_file.read_text())
+        declared = fm.get("labels", [])
+        if isinstance(declared, str):
+            declared = [declared] if declared else []
+        parent_ref = str(fm.get("parent", "") or "").strip()
+        if parent_ref and unplanned_label in declared:
+            parented_stubs.append((task_file.name, parent_ref))
+    if parented_stubs:
+        for name, parent_ref in parented_stubs:
+            print(
+                f"Error: {name} carries the '{unplanned_label}' label and asks to be a sub-issue "
+                f"of {parent_ref}. A backlog stub is never a sub-issue — its link to the epic that "
+                f"spawned it is a body mention. Remove the `parent:` key and re-run.",
+                file=sys.stderr,
+            )
+        print("Nothing was created.", file=sys.stderr)
+        sys.exit(1)
 
     if not args.dry_run:
         if CLASSIFICATION == "types":
