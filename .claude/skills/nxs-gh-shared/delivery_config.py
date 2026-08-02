@@ -924,6 +924,16 @@ def _cli(argv):
             value = resolve_in_progress_label(config, hub=hub)
         elif args.key == "unplanned-label":
             value = resolve_unplanned_label(config, hub=hub)
+        elif args.key in ("epic-label", "story-label"):
+            # These carry a built-in the generic path does not know about, and a stage hands the
+            # answer straight to the filer's --classification-label: an empty string would file
+            # the batch unclassified. Resolve them through the library, like every other consumer.
+            merged = {**(hub or {}), **{k: v for k, v in config.items() if v not in (None, "")}}
+            value = (
+                resolve_epic_label(merged)
+                if args.key == "epic-label"
+                else resolve_story_label(merged)
+            )
         else:
             normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
             value = resolve_setting(normalized, repo=config, hub=hub)

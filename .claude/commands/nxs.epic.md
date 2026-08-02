@@ -36,7 +36,7 @@ Empty input is an error: ask the user for a capability description (or a stub's 
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **Nothing is committed at planning — GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; and at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer born here — it is born at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage reconstructs the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index and `backlog.md`.
+- **Nothing is committed at planning — GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; and at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer born here — it is born at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage reconstructs the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label (#185), so the feature tree carries no re-triage queue at all.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal — an epic identified but not yet planned, carrying the epic classification plus the unplanned label; the full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion.
 - **A stub is an epic issue, so every epic query filters it out.** The whole cross-feature backlog is one query — open issues carrying the unplanned label — and its exclusion is one negated filter. Any query here or downstream that enumerates epics for **planned** work carries that negation; ask for it (`delivery_config.py backlog-query --form exclude`) rather than writing the label by hand. This is the accepted price of a stub keeping its issue number through promotion.
 
@@ -135,15 +135,15 @@ gh issue close <n> --reason "not planned"
 
 ## Phase 1 — Resolve the feature container
 
-The container must exist before writing: `backlog.md` lives under it, and the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter — carried onto the epic issue's meta block at filing, so the resolver recovers it.
+The container must exist before writing: the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter — carried onto the epic issue's meta block at filing, so the resolver recovers it.
 
 1. **Promotion mode** → already resolved: the `feature_path` recorded in the stub issue's meta block. Create the directory if it does not exist (a stub writes nothing to the tree, so a feature whose first epic is a promotion has no container yet). Continue.
 2. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
 3. **Otherwise infer and confirm once**:
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
-    - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `backlog.md` / `README.md` from.
+    - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `README.md` from.
     - Present a single confirmation: _"I'll plan this under feature **<Name>** (`<feature-path>/`). Accept, or give a different name?"_ — one prompt, cheap. Accept the user's correction if any.
-    - Ensure the directory exists (`mkdir -p <feature-path>`) — the draft's `feature_path` and any `backlog.md` need it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
+    - Ensure the directory exists (`mkdir -p <feature-path>`) — the draft's `feature_path` needs it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
 
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 

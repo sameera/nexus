@@ -53,10 +53,10 @@ story-analyze-hub → epic-analyze-receipt → hub-close-multi-pr → multi-rang
 | Item                             | Size | blocked_by                    |
 | -------------------------------- | ---- | ----------------------------- |
 | **scratch-resolve-record-amend** | M    | issue-sourced-planning (#114) |
-| **story-analyze-hub**            | M    | issue-sourced-planning (#114) |
-| **epic-analyze-receipt**         | S    | story-analyze-hub             |
-| **hub-close-multi-pr**           | M    | epic-analyze-receipt          |
-| **multi-range-distill**          | M    | hub-close-multi-pr            |
+| **story-analyze-hub** (#211)     | M    | issue-sourced-planning (#114) |
+| **epic-analyze-receipt** (#212)  | S    | story-analyze-hub (#211)      |
+| **hub-close-multi-pr** (#213)    | M    | epic-analyze-receipt (#212)   |
+| **multi-range-distill** (#214)   | M    | hub-close-multi-pr (#213)     |
 
 The bulk of the work and, from `story-analyze-hub` on, a hard dependency chain.
 `scratch-resolve-record-amend` (#157, re-scoped 2026-07-27) is no longer part of that
@@ -70,14 +70,14 @@ only name (withdrawn stories leaving the materialization with it — both alread
 Run it first anyway — it is what makes the scratch `story-analyze-hub` reads non-empty. `story-analyze-hub` must still reconcile where its
 per-story analyze record lands — under #114 there is no planning-time entry, so the record
 either aggregates at born-at-close or rides the PR-review machine block.
-`hub-close-multi-pr` absorbs the producer side of `cross-repo-range-recording`.
+`hub-close-multi-pr` (#213) absorbs the producer side of `cross-repo-range-recording` (#209).
 
 ## Wave 4 — consolidate + retire
 
 | Item                       | Size | blocked_by                                                                          |
 | -------------------------- | ---- | ----------------------------------------------------------------------------------- |
-| **pipeline-gh-cli**        | M    | hld-subissue-record — can start once Wave 2 lands, in parallel with the Wave 3 tail |
-| **legacy-flow-retirement** | S    | hub-close-multi-pr, multi-range-distill                                             |
+| **pipeline-gh-cli** (#216) | M    | hld-subissue-record (#139) — can start once Wave 2 lands, in parallel with the Wave 3 tail |
+| **legacy-flow-retirement** (#215) | S | hub-close-multi-pr (#213), multi-range-distill (#214)                             |
 
 `pipeline-gh-cli` turns each state transition into an idempotent `nexus` verb + a
 CI-callable gate. `legacy-flow-retirement` is where "less committed files" is fully
@@ -86,7 +86,7 @@ helper, leaving the distillation-PR merge as the _only_ cleanup anywhere.
 
 ## Pulled out of the line
 
-- **member-pr-post-merge-flow** (PR-Driven backlog) — **drop.** Its premise is
+- **member-pr-post-merge-flow** (#197) — **drop.** Its premise is
   reconciling `--pr` with the member's pre-merge close-and-migrate. Issue-sourced
   planning runs analyze/close from the hub against member PRs and deletes the
   member-unsupported gate; `legacy-flow-retirement` then removes close-and-migrate

@@ -45,3 +45,21 @@
 - **Choice:** `_query_token` peels one pair of surrounding quotes off the resolved label, then re-quotes only when the label carries whitespace.
 - **Why:** the simple YAML reader keeps quotes verbatim, so `unplanned-label: "not planned"` would otherwise emit `label:""not planned""` — a filter GitHub matches nothing against.
 - **Refuted alternative:** strip quotes in `_parse_simple_yaml` — the right long-term home, but it changes what every existing key resolves to, well outside this story.
+
+## 2026-08-01 — Only `#<n>` is a literal dependency reference; a bare number stays a batch ref
+
+- **Choice:** `resolve_literal_ref` matches `^#\d+$` only, and resolves it against the platform; a bare `54` is looked up in the batch map and reported unresolved if absent.
+- **Why:** batch refs are author-chosen strings, so a bare number is indistinguishable from one — the sigil is what states the intent, and an ambiguous form would wire an edge onto whatever issue happened to have that number.
+- **Refuted alternative:** accept a bare number when it is not in the batch map — friendlier for the migration, but silently turns a typo'd ref into an edge onto an unrelated issue.
+
+## 2026-08-01 — The 24 proposed blocks migrate as authored; the frozen decision archive is not repointed
+
+- **Choice:** every `proposed` block became an issue (24, not the 22 the epic estimated — two were appended after planning); the `libs/origin/v2/.nexus/decisions/` logs still name `backlog.md` and were left alone.
+- **Why:** those numbered logs record decisions as they were made and are superseded by record #192 — rewriting them to match a later decision destroys the audit trail the project keeps them for.
+- **Refuted alternative:** sweep the archive too, satisfying the reference AC literally — but the deleted file is exactly what those decisions decided to create.
+
+## 2026-08-01 — The `--pr` acceptance harness seeds no backlog file
+
+- **Choice:** `scratchFeatureDocs` writes only the feature nav index into the provisioned throwaway repo.
+- **Why:** the harness verifies the live toolchain; seeding a retired artifact would rehearse a shape no writer produces any more.
+- **Refuted alternative:** leave the seed as inert scenery — harmless today, but the next reader takes it as evidence the file format is still live.
