@@ -408,7 +408,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
         <div class="loc">docs/</div>
         <ul>
           <li>Product context</li>
-          <li>Feature homes &amp; backlogs</li>
+          <li>Feature homes</li>
           <li>Delivery lessons</li>
           <li>Concept atlas (derived)</li>
         </ul>
@@ -465,7 +465,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
       </div>
       <div class="step" style="--nc: var(--queue)">
         <div class="rail"><div class="node"></div></div>
-        <div class="body"><h2>The epic closes with a <code>close-record.md</code></h2><p>Decisions made during implementation, plus rationale for each deviation the diff revealed. Deferred scope goes to the feature backlog; the process lesson gets its own file.</p></div>
+        <div class="body"><h2>The epic closes with a <code>close-record.md</code></h2><p>Decisions made during implementation, plus rationale for each deviation the diff revealed. Deferred scope becomes backlog stub issues; the process lesson gets its own file.</p></div>
       </div>
       <div class="step" style="--nc: var(--machine)">
         <div class="rail"><div class="node"></div></div>
@@ -522,7 +522,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
         <ul>
           <li><strong>It forces the scope decision.</strong> Approval happens at a single decision-grade digest; only then are the epic and story issues filed, together.</li>
           <li><strong>Acceptance criteria are the contract</strong> — the analyze stage later checks the build against exactly these lines.</li>
-          <li><strong>Oversized scope can&rsquo;t sneak through:</strong> it decomposes into backlog stubs instead of bloated epics.</li>
+          <li><strong>Oversized scope can&rsquo;t sneak through:</strong> it decomposes into backlog stub issues instead of bloated epics.</li>
           <li><strong>Complexity is declared</strong> (S/M/L/XL with named drivers), which tiers how much design rigor the next stage must bring.</li>
         </ul>
       </div>
@@ -603,7 +603,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
       <div>
         <h2>What it is</h2>
         <p>Human prose written at epic close: decisions made or changed <em>during</em> implementation, and — via a <strong>close-from-diff</strong> pass — rationale for each place the shipped diff deviates from the decision record. Matched work needs no entry.</p>
-        <p>It carries <strong>pointers, not payloads</strong>: deferred scope is appended to the feature backlog; the process lesson becomes its own file. The record just points at both.</p>
+        <p>It carries <strong>pointers, not payloads</strong>: deferred scope is filed as backlog stub issues after the checkpoint; the process lesson becomes its own file. The record just points at both.</p>
       </div>
       <div>
         <h2>Why it&rsquo;s useful</h2>
@@ -655,21 +655,22 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
 <section class="slide" data-s="human" data-g="human">
   <div class="slide-inner">
     <div class="eyebrow">Human surface · scope ledger</div>
-    <h1>Feature homes &amp; backlogs</h1>
-    <span class="path">docs/features/&lt;feature&gt;/README.md · backlog.md</span>
+    <h1>Feature homes &amp; the backlog</h1>
+    <span class="path">docs/features/&lt;feature&gt;/README.md · <code>is:issue is:open label:backlog</code></span>
     <div class="cols">
       <div>
         <h2>What they are</h2>
-        <p>Each feature gets a tiny <strong>README</strong> — one paragraph plus links to its epics&rsquo; GitHub issues — and an <strong>append-only backlog</strong>: a re-triage queue of stubs, each with a goal, an estimate, dependencies, provenance, and candidate stories.</p>
-        <p>Two writers feed the backlog: epic planning (when oversized scope is decomposed into stubs) and epic close (deferred scope). One consumer reads it: the next epic, which promotes a stub into a full epic.</p>
+        <p>Each feature gets a tiny <strong>README</strong> — one paragraph plus links to its epics&rsquo; GitHub issues. The feature tree holds <em>no</em> backlog file.</p>
+        <p>A <strong>backlog stub</strong> — a functional goal identified but not yet planned — is an open GitHub issue carrying the epic classification plus the single <code>backlog</code> label, with its goal, estimate, dependencies, provenance and candidate stories in the body. Two writers file stubs: epic planning (when oversized scope is decomposed) and epic close (deferred scope). One consumer reads them: <code>/nxs.epic &lt;issue-number&gt;</code>, which plans that same issue in place.</p>
       </div>
       <div>
         <h2>Why they&rsquo;re useful</h2>
         <ul>
           <li><strong>Cut scope has somewhere honest to go.</strong> &ldquo;Not now&rdquo; doesn&rsquo;t mean &ldquo;lost&rdquo; — it means a stub with provenance, waiting for re-triage.</li>
           <li><strong>Stubs are cheap by design:</strong> a goal and candidate stories, not a speculative full plan for work that may never be chosen.</li>
-          <li><strong><code>blocked_by</code> lines make sequencing visible</strong> before anyone commits to an epic.</li>
-          <li>Status is auditable: <span class="tag">proposed</span> → <span class="tag">promoted</span>, append-only, with dates.</li>
+          <li><strong>The whole backlog is one query</strong>, across every feature — and excluding it from triage costs one negated filter, <code>-label:backlog</code>.</li>
+          <li><strong>The issue number is durable.</strong> Promotion removes the label in place, so every dependency edge and mention written when the scope was deferred stays valid.</li>
+          <li>Status is issue state: open-and-labelled is unplanned; label off is planned; closed-not-planned is superseded.</li>
         </ul>
       </div>
     </div>
@@ -850,7 +851,7 @@ td code, .mono { font-family: var(--mono); font-size: 12.5px; }
           <tr><td><i class="dot q"></i><strong>Analyze receipt</strong></td><td><code>…/analyze-receipt.md</code></td><td>Prove the build matches the plan; gate the close</td><td>until drained</td></tr>
           <tr><td><i class="dot q"></i><strong>Close record</strong></td><td><code>…/close-record.md</code></td><td>Explain deviations &amp; implementation-time decisions</td><td>until drained</td></tr>
           <tr><td><i class="dot h"></i><strong>Product context</strong></td><td><code>docs/product/context.md</code></td><td>Ground every epic in shared vision, personas, principles</td><td>durable</td></tr>
-          <tr><td><i class="dot h"></i><strong>Feature backlog</strong></td><td><code>docs/features/…/backlog.md</code></td><td>Hold cut &amp; deferred scope for honest re-triage</td><td>durable, append-only</td></tr>
+          <tr><td><i class="dot h"></i><strong>Backlog stub</strong></td><td>GitHub issue · <code>label:backlog</code></td><td>Hold cut &amp; deferred scope for honest re-triage</td><td>open until planned in place</td></tr>
           <tr><td><i class="dot h"></i><strong>Delivery lesson</strong></td><td><code>docs/delivery/lessons/…</code></td><td>Keep one process learning findable</td><td>durable</td></tr>
           <tr><td><i class="dot h"></i><strong>Concept atlas</strong></td><td><code>docs/concepts.md</code></td><td>Give humans a one-page map of the store</td><td>derived, regenerated</td></tr>
           <tr><td><i class="dot m"></i><strong>Concept page</strong></td><td><code>.nexus/concepts/&lt;slug&gt;.md</code></td><td>Hold distilled behavior, invariants &amp; the append-only why</td><td>durable, PR-gated</td></tr>
