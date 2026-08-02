@@ -1,5 +1,9 @@
 # Sequencing: "Less committed files, more GitHub-issue-based"
 
+> **The inventory of backlog stubs is the issue query**, not this page:
+> [open + `backlog`](https://github.com/sameera/nexus/issues?q=is%3Aissue+is%3Aopen+label%3Abacklog).
+> What follows is wave ordering and rationale over those stubs — read the query for what exists.
+
 Backlog items from **PR-Driven Delivery** and **Multi-Repo Workspaces** that move
 Nexus from committed queue/scratch files toward GitHub issues + PRs as the state
 model. One dependency chain rooted at **issue-sourced-planning (#114)**, plus two

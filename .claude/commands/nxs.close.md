@@ -871,6 +871,7 @@ Close record:      ${QDIR}/close-record.md
 Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
 Deferred scope:    filed as <N> backlog stub issue(s): #<n>, #<n>, …
+                   whole backlog: <backlog-query>
 Process lesson:    <docs-root>/delivery/lessons/<date>-<slug>.md
 Scratch mined:     ${SDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the
                    committed entry (distiller drains it with the entry post-merge)
@@ -880,6 +881,12 @@ Deviations recorded:    <count>
 ```
 
 (On the Scratch-mined line, use "none" when no per-user dir was present.)
+
+`<backlog-query>` is the cross-feature backlog — the stubs just filed plus every stub still open
+under any other epic, in one query. Ask for it rather than writing the label out
+(`python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query`), so a repository that
+renamed the unplanned label gets its own query back. Omit both Deferred-scope lines when the epic
+deferred nothing.
 
 The **Record amendment** line takes exactly one of the three variants above, from Phase 8.1 —
 `posted` and `NOT POSTED` both carry the count Phase 3.6 marked, and `none` means the pass ran and
