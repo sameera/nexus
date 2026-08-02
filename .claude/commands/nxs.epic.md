@@ -38,6 +38,7 @@ Empty input is an error: ask the user for a capability description (or a stub's 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
 - **Nothing is committed at planning — GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; and at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer born here — it is born at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage reconstructs the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index and `backlog.md`.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal — an epic identified but not yet planned, carrying the epic classification plus the unplanned label; the full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion.
+- **A stub is an epic issue, so every epic query filters it out.** The whole cross-feature backlog is one query — open issues carrying the unplanned label — and its exclusion is one negated filter. Any query here or downstream that enumerates epics for **planned** work carries that negation; ask for it (`delivery_config.py backlog-query --form exclude`) rather than writing the label by hand. This is the accepted price of a stub keeping its issue number through promotion.
 
 ## Interaction convention — actionable choice gates
 
@@ -307,6 +308,13 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 Then **stop**. Report the created issue numbers with their goals, and tell the user to promote one
 with `/nxs.epic <issue-number>`. Do **not** create a queue entry, a feature `README.md`, or a full
 epic issue this run.
+
+Close the report with the **cross-feature backlog query** — the whole backlog, this batch included,
+in one query. Ask for it rather than spelling the label out:
+
+```bash
+python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query
+```
 
 ## Phase 3 — Generate the epic
 
@@ -582,6 +590,14 @@ story becomes one GitHub issue, child of the epic issue.
 
     - **<Epic Title>** — [#<EPIC>](<epic-issue-url>)
     ```
+
+    Give it **no backlog section**. The feature a stub belongs to lives in the stub's issue body, so
+    a per-feature backlog view would be a text search over issue bodies — brittle, and several links
+    all meaning the same thing. The backlog is linked once, from `<docs-root>/features/README.md`.
+
+7. **Add the new feature to the features index** when Phase 1 created the container. Append a row
+   to the table in `<docs-root>/features/README.md` linking `<feature-path>/README.md` and its
+   one-line capability statement. An existing feature needs nothing here.
 
 A **promotion** needs no follow-up here: the stub issue *is* the epic issue now — Phase 6 populated
 it in place and removed the unplanned label. Nothing was created and nothing was closed, so every

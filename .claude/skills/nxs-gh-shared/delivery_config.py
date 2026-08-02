@@ -145,6 +145,54 @@ def resolve_unplanned_label(config: dict[str, str], *, hub: dict[str, str] | Non
     return (resolve_setting("unplannedLabel", repo=config, hub=hub) or "").strip() or DEFAULT_UNPLANNED_LABEL
 
 
+#: The three shapes the one backlog query is asked for: a CLI listing, the issue-search fragment a
+#: link carries, and the negation an epic-enumerating query wears to exclude unplanned work.
+BACKLOG_QUERY_FORMS = ("list", "search", "exclude")
+
+
+def _query_token(label: str) -> str:
+    """Quote a label only when it would otherwise split into two filters.
+
+    A declared value arrives however it was written in the config — the simple YAML reader keeps
+    surrounding quotes verbatim — so one pair is peeled off before deciding, and a multi-word
+    label is never double-quoted into a filter GitHub cannot match.
+    """
+    for quote in ('"', "'"):
+        if len(label) >= 2 and label.startswith(quote) and label.endswith(quote):
+            label = label[1:-1]
+            break
+    return f'"{label}"' if any(ch.isspace() for ch in label) else label
+
+
+def backlog_query(
+    config: dict[str, str], *, hub: dict[str, str] | None = None, form: str = "list"
+) -> str:
+    """The cross-feature backlog as one query, in the requested form.
+
+    With one label and no per-feature family, the whole backlog across every feature is open
+    issues carrying that label — no file glob, no sequencing table. The label is resolved here so
+    a repository that renames it renames the query too, and so no call site spells it out
+    (decision-record Invariant 18).
+
+    ``list`` is the CLI listing, targeted at wherever epics are filed (a stub is an epic).
+    ``search`` is the fragment an issue-search URL carries. ``exclude`` is the single negated
+    filter that keeps unplanned work out of a triage view and out of every query enumerating
+    epics for planned work.
+    """
+    if form not in BACKLOG_QUERY_FORMS:
+        raise ValueError(f"unknown backlog-query form {form!r}; expected one of {', '.join(BACKLOG_QUERY_FORMS)}")
+
+    label = _query_token(resolve_unplanned_label(config, hub=hub))
+    if form == "exclude":
+        return f"-label:{label}"
+    if form == "search":
+        return f"is:issue is:open label:{label}"
+
+    repo = resolve_epic_repo(config, hub=hub)
+    target = f" --repo {repo}" if repo else ""
+    return f"gh issue list{target} --state open --label {label}"
+
+
 # --- Decision-record classification (epic #139, STORY-139.01) -------------------------
 #
 # The epic's decision record lives as a sub-issue of the epic issue, so every consumer that walks
@@ -819,6 +867,22 @@ def _cli(argv):
         "--root", default=".", help="Repo/worktree root to resolve config from (default: cwd)."
     )
 
+    # STORY-190: the cross-feature backlog, asked for rather than spelled out, so a stage report
+    # and a documentation link name the same query and both track a renamed label.
+    backlog_cmd = sub.add_parser(
+        "backlog-query",
+        help="Print the cross-feature backlog query (open issues carrying the unplanned label).",
+    )
+    backlog_cmd.add_argument(
+        "--form",
+        default="list",
+        choices=list(BACKLOG_QUERY_FORMS),
+        help="list: a gh listing · search: an issue-search fragment · exclude: the negated filter.",
+    )
+    backlog_cmd.add_argument(
+        "--root", default=".", help="Repo/worktree root to resolve config from (default: cwd)."
+    )
+
     # STORY-121.06: the two commands /nxs.setup uses to seed the github block at bootstrap.
     detect_cmd = sub.add_parser(
         "detect-classification",
@@ -864,6 +928,15 @@ def _cli(argv):
             normalized = _GITHUB_KEY_TO_NORMALIZED.get(args.key, args.key)
             value = resolve_setting(normalized, repo=config, hub=hub)
         print(value if value else "")
+        return 0
+
+    if args.command == "backlog-query":
+        root = _find_config_root(Path(args.root))
+        print(
+            backlog_query(
+                read_delivery_config(root), hub=read_hub_defaults(root), form=args.form
+            )
+        )
         return 0
 
     if args.command == "detect-classification":

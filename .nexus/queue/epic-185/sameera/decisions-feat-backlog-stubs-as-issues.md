@@ -27,3 +27,21 @@
 - **Choice:** a new phase between the checkpoint and the member-mode migration, rather than folding the filing into Phase 8's GitHub writes.
 - **Why:** the close record must name the filed numbers, and `--pr` mode commits the record in Phase 7.6 — before Phase 8 runs; only a pre-7.5 position satisfies both.
 - **Refuted alternative:** file in Phase 8.0 and amend the record afterwards — one fewer phase, but re-introduces amending an already-pushed artifact.
+
+## 2026-08-01 — The backlog query is a resolver subcommand with three named forms
+
+- **Choice:** `delivery_config.py backlog-query --form list|search|exclude` — the CLI listing, the issue-search fragment a link carries, and the negation an epic query wears.
+- **Why:** the query is named in two stage reports and two documents; a subcommand keeps the label resolved in one place (invariant 18) and makes "one query / one negated filter" assertable.
+- **Refuted alternative:** let each stage compose `--label $(… resolve unplanned-label)` inline — no new surface, but the negation form has no home and the three spellings drift.
+
+## 2026-08-01 — The features index is created, not the per-feature READMEs repointed
+
+- **Choice:** the backlog link lands once in a new `docs/features/README.md`; feature nav indexes gain no backlog section, and `/nxs.epic` Phase 6 gains a step that adds a new feature's row.
+- **Why:** the record's surfacing decision — with the feature held in the issue body, a per-feature view is a text search over bodies; the index is also the inventory the `nxs-pm`/`nxs-architect` agents already read.
+- **Refuted alternative:** a backlog section in each feature README linking a body-text search — preserves the per-feature navigation path, but is brittle and is ten links that all mean the same thing.
+
+## 2026-08-01 — A declared label is unquoted before the query quotes it
+
+- **Choice:** `_query_token` peels one pair of surrounding quotes off the resolved label, then re-quotes only when the label carries whitespace.
+- **Why:** the simple YAML reader keeps quotes verbatim, so `unplanned-label: "not planned"` would otherwise emit `label:""not planned""` — a filter GitHub matches nothing against.
+- **Refuted alternative:** strip quotes in `_parse_simple_yaml` — the right long-term home, but it changes what every existing key resolves to, well outside this story.
