@@ -39,6 +39,7 @@ export interface Finding {
 const BODY_WORD_CAP = 400;
 const MAX_INVARIANTS = 7;
 const REQUIRED_SECTIONS: string[] = ["How It Works", "Key Invariants", "Integration Points", "Decision Log"];
+const CAP_EXCLUDED_SECTIONS: string[] = ["Integration Points", "Decision Log"];
 const PROVENANCE_REF = /^(#\d+|[\w.-]+\/[\w.-]+#\d+|bootstrap|manual)$/;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const LOG_HEADING = /^### (\d{4}-\d{2}-\d{2}) — (\S+) — (.+)$/;
@@ -149,6 +150,35 @@ function sectionLines(bodyLines: string[], heading: string): string[] | null {
         }
     }
     return bodyLines.slice(start + 1, end);
+}
+
+/**
+ * One word-counting convention for the whole tool (epic #220, decision-record Invariant 3): words
+ * are whitespace-separated tokens, with no special-casing of link markup or punctuation. Applied
+ * identically to the body cap and to the per-bullet ceiling.
+ */
+function countWords(text: string): number {
+    return text.split(/\s+/).filter((word: string) => word !== "").length;
+}
+
+/**
+ * The region the body cap counts: the body minus the excluded sections, delimited by their headings
+ * (epic #220). Defined by **exclusion**, not by enumerating Summary / How It Works / Key Invariants,
+ * so a section a future page invents counts against the cap by default and the cap cannot be evaded
+ * by inventing a heading. On a well-formed page the two readings coincide.
+ */
+export function ownContentLines(bodyLines: string[]): string[] {
+    const kept: string[] = [];
+    let excluding = false;
+    for (const line of bodyLines) {
+        if (/^## /.test(line)) {
+            excluding = CAP_EXCLUDED_SECTIONS.includes(line.trim().slice(3).trim());
+        }
+        if (!excluding) {
+            kept.push(line);
+        }
+    }
+    return kept;
 }
 
 function decisionLogHeadings(content: string): string[] {
@@ -399,12 +429,11 @@ export function validatePage(file: string, base: string | null, repoRoot: string
         }
     }
 
-    // 400-word cap, excluding frontmatter + Decision Log.
-    const logStart: number = bodyLines.findIndex((line: string) => line.trim() === "## Decision Log");
-    const cappedText: string = bodyLines.slice(0, logStart === -1 ? undefined : logStart).join("\n");
-    const wordCount: number = cappedText.split(/\s+/).filter((word: string) => word !== "").length;
+    // 400-word cap over the page's own content, excluding frontmatter, Integration Points and the
+    // Decision Log (epic #220, 0003 §2.2).
+    const wordCount: number = countWords(ownContentLines(bodyLines).join("\n"));
     if (wordCount > BODY_WORD_CAP) {
-        findings.push({ file, message: `body: ${wordCount} words exceeds the ${BODY_WORD_CAP}-word cap — split the concept, don't grow it (0003 §2.2)` });
+        findings.push({ file, message: `body: own content is ${wordCount} words, which exceeds the ${BODY_WORD_CAP}-word cap — split the concept, don't grow it (0003 §2.2)` });
     }
 
     // ≤7 invariants, numbered.
