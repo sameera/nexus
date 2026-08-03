@@ -7,6 +7,7 @@ import {
     checkForbiddenContent,
     type Finding,
     isAnchorFile,
+    isBlocking,
     parseArgs,
     parseFrontmatter,
     registryPath,
@@ -844,6 +845,38 @@ describe("severity and exit status (#223)", () => {
         expect(result.code).toBe(1);
         expect(result.err).toContain("BLOCKING");
         expect(result.err).toMatch(/1 blocking finding\(s\)/);
+    });
+});
+
+// A drain must always be able to declare a real interaction (#224): the reciprocity fan-out writes
+// one bullet onto the neighbour, and no page in the store may reject it for cap reasons.
+describe("a reciprocal bullet is always writable (#224)", () => {
+    const NEW_EDGE = "- [new-neighbour](new-neighbour.md) — the neighbour this drain declares, named here so the interaction is an edge rather than prose.";
+
+    function withReciprocalBullet(slug: string): Finding[] {
+        const dir = makeTmpDir();
+        const source: string = fs.readFileSync(path.join(REPO_ROOT, ".nexus", "concepts", `${slug}.md`), "utf8");
+        const lines: string[] = source.split("\n");
+        const touchesLine: number = lines.findIndex((l) => l.startsWith("touches:"));
+        lines[touchesLine] = lines[touchesLine].replace(/\]\s*$/, ', "new-neighbour"]');
+        const ipStart: number = lines.findIndex((l) => l.trim() === "## Integration Points");
+        const nextSection: number = lines.findIndex((l, i) => i > ipStart && /^## /.test(l));
+        lines.splice(nextSection - 1, 0, NEW_EDGE);
+
+        const file = writeFile(dir, `${slug}.md`, lines.join("\n"));
+        const findings: Finding[] = [];
+        validatePage(file, null, dir, findings);
+        return findings;
+    }
+
+    it.each([
+        "distiller", // the store's highest-degree page
+        // The three pages the #219 drain could not link into, and recorded as prose instead.
+        "publishing-config-resolution",
+        "issue-sourced-planning",
+        "durable-close-record",
+    ])("accepts a new edge on %s with no split and no eviction", (slug) => {
+        expect(withReciprocalBullet(slug).filter(isBlocking)).toEqual([]);
     });
 });
 

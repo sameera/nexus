@@ -32,9 +32,16 @@ ramp-up. Schema and emission contract: `libs/origin/v2/.nexus/decisions/0003-con
 
 ## Validate
 
-`pnpm nexus:validate-concepts` — frontmatter completeness, 400-word body cap,
-`touches:` == Integration Points, append-only Decision Log, and the §8.3 rejections
+`pnpm nexus:validate-concepts` — frontmatter completeness, the 400-word cap on a page's **own
+content** (the body excluding Integration Points and the Decision Log — on a well-formed page,
+exactly Summary, How It Works and Key Invariants), the **40-word ceiling per Integration Points
+bullet**, `touches:` == Integration Points, append-only Decision Log, and the §8.3 rejections
 (no code, paths, or type/function names on a page).
+
+Findings print with a leading severity token and the exit status is the gate: `[BLOCKING]`
+findings fail the run, `[ADVISORY]` ones never do. The advisories flag a bullet over 25 words, a
+page over 12 bullets, and the store-level trigger at which moving interaction prose off the page
+should be revisited — signals to read, not failures to fix.
 
 `pnpm nexus:check-atlas` — atlas ↔ active pages sync.
 
