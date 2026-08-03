@@ -625,6 +625,98 @@ Why it exists.
     });
 });
 
+// ---------------------------------------------------------------------------------------------
+// Epic #220 — the cap measures a page's own content, never its neighbour list.
+// ---------------------------------------------------------------------------------------------
+
+/** A page with `ownWords` words of own content and one Integration Points bullet per entry. */
+function pageWithOwnContent(ownWords: number, bullets: string[] = ["- [beta](beta.md) — interacts with beta."]): string {
+    const slugs: string[] = bullets
+        .map((b) => b.match(/\[([a-z0-9-]+)\]/)?.[1] ?? "")
+        .filter((s) => s !== "");
+    const frontmatter: string = DEFAULT_FRONTMATTER.replace(
+        'touches: ["beta"]',
+        `touches: [${slugs.map((s) => `"${s}"`).join(", ")}]`
+    );
+    // The lead ("Alpha does the thing well.") is own content too: 5 words.
+    const filler: string = "filler ".repeat(Math.max(0, ownWords - 5 - 4 - 3)).trim();
+    const sections = `## How It Works
+
+${filler}
+
+## Key Invariants
+
+1. Alpha never breaks.
+
+## Integration Points
+
+${bullets.join("\n")}
+
+## Decision Log
+
+### 2026-07-04 — #1 — Seed
+Why it exists.
+`;
+    return page({ frontmatter, sections });
+}
+
+function capFindings(file: string): Finding[] {
+    return validate(file).filter((f) => f.message.includes("cap — split the concept"));
+}
+
+describe("the body cap counts a page's own content (#222)", () => {
+    it("flags a page whose own content exceeds the cap", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", pageWithOwnContent(450));
+        expect(capFindings(file)).toHaveLength(1);
+        expect(capFindings(file)[0].message).toContain("own content");
+    });
+
+    it("does not flag a page whose total body passes 400 words only through Integration Points", () => {
+        const dir = makeTmpDir();
+        const bullets: string[] = Array.from(
+            { length: 20 },
+            (_, i) => `- [n${i}](n${i}.md) — ${"neighbour ".repeat(12).trim()}.`
+        );
+        const content: string = pageWithOwnContent(380, bullets);
+        const bodyWords: number = content.split("\n").slice(11).join(" ").split(/\s+/).filter((w) => w !== "").length;
+        expect(bodyWords).toBeGreaterThan(400);
+
+        const file = writeFile(dir, "alpha.md", content);
+        expect(capFindings(file)).toEqual([]);
+    });
+
+    it("keeps the Decision Log excluded from the counted region exactly as before", () => {
+        const dir = makeTmpDir();
+        const log: string = "history ".repeat(500).trim();
+        const content: string = pageWithOwnContent(380).replace("Why it exists.", log);
+        const file = writeFile(dir, "alpha.md", content);
+        expect(capFindings(file)).toEqual([]);
+    });
+
+    it("counts a section a page invents, so the cap cannot be evaded by adding a heading", () => {
+        const dir = makeTmpDir();
+        const content: string = pageWithOwnContent(200).replace(
+            "## Integration Points",
+            `## Appendix\n\n${"extra ".repeat(300).trim()}\n\n## Integration Points`
+        );
+        const file = writeFile(dir, "alpha.md", content);
+        expect(capFindings(file)).toHaveLength(1);
+    });
+
+    it("reports no body-cap finding on any active page in the store, unedited", () => {
+        const conceptsDir: string = path.join(REPO_ROOT, ".nexus", "concepts");
+        const pages: string[] = fs.readdirSync(conceptsDir).filter((n) => n.endsWith(".md") && n !== "README.md");
+        expect(pages.length).toBeGreaterThan(0);
+
+        const findings: Finding[] = [];
+        for (const name of pages) {
+            validatePage(path.join(conceptsDir, name), null, REPO_ROOT, findings);
+        }
+        expect(findings.filter((f) => f.message.includes("cap — split the concept"))).toEqual([]);
+    });
+});
+
 describe("validatePage — --base append-only mode", () => {
     it("treats a base version with no Decision Log section as having zero prior entries", () => {
         const dir = makeGitRepo();
