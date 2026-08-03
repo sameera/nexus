@@ -67,16 +67,55 @@ verification mechanism exists to set it.
 | `# <Display Name>` (mirrors `title:`) + **Summary** (lead, ≤3 sentences) | **The grep hit.** The agent decides whether to load the rest of the page from the Summary *alone*. This is the single highest-leverage field for keeping volume retrievable. Lead with the most distinctive sentence; write as if returned alone. | part of body cap |
 | `## How It Works` | **Current behavior**, so PM/architect extends it instead of restating it, and designs against what the system actually does. Behavioral, domain-term prose — no file paths, no type/function names (they rot; code is the source of that truth). | ≤180 words |
 | `## Key Invariants` | **Hard constraints** the new spec/design must preserve. Consumed by the PM invariant-conflict gate and the architect's conformance pass. The highest-value field for the design consumer. | ≤7, numbered, one sentence each |
-| `## Integration Points` | **Blast radius, in prose** — one sentence per neighboring concept on the *nature* of the interaction. The readable form of `touches:`; the set must equal `touches:`. | within body cap |
+| `## Integration Points` | **Blast radius, in prose** — one sentence per neighboring concept on the *nature* of the interaction. The readable form of `touches:`; the set must equal `touches:`. | outside the body cap; **≤40 words per bullet** |
 | `## Decision Log` | **The why.** Recover the rationale behind past decisions so a new design doesn't relitigate or contradict them. This is the durable judgment that *cannot be regenerated from code* (0001 Decision 3) — the reason the concept store is git-tracked, not derived. | **uncapped, append-only** |
 
-**Body word cap: 400 words, excluding frontmatter and the Decision Log.** Rationale: the
-body is the "current truth" retrieval target and N of them get loaded per task — it must
-stay cheap to load. The Decision Log is uncapped because it is history, retrieved
-selectively *after* the page is already chosen, and never grep-matched cross-page in the
-common path. **Exceeding the cap means the concept is too broad — split it into two concept
-pages, don't grow it.** (The *when/how* of splitting is distiller work, out of scope here;
-the cap and the "split, don't grow" rule are the contract.)
+**Body word cap: 400 words, over the page's *own content* — the body excluding frontmatter,
+excluding *Integration Points*, and excluding the *Decision Log*.** On a well-formed page
+that counted region is exactly **Summary, How It Works and Key Invariants**; the exclusion
+form is normative, so any section a future page invents counts against the cap by default.
+Rationale: the body is the "current truth" retrieval target and N of them get loaded per
+task — it must stay cheap to load. The Decision Log is uncapped because it is history,
+retrieved selectively *after* the page is already chosen, and never grep-matched cross-page
+in the common path.
+
+**Amendment (2026-08-03) — the cap measures the concept, not its neighbours.** Own content
+and neighbour prose grow by different laws. A page's own content grows with the breadth of
+its concept, and splitting is the right answer there. Its *Integration Points* list grows
+with the size of the store and with the page's popularity, and splitting is the wrong answer
+— a narrow page cut in half to make room for someone else's bullet makes retrieval worse.
+The two are therefore bounded separately:
+
+- **Exceeding the 400-word cap on a page's own content means the concept is too broad —
+  split it into two concept pages, don't grow it.** (The *when/how* of splitting is
+  distiller work, out of scope here; the cap and the "split, don't grow" rule are the
+  contract.)
+- **A page whose *total* body exceeds 400 words only because of its *Integration Points*
+  requires no split and no compression.** Neighbour-list pressure is never a split trigger
+  and never an eviction trigger. A real interaction is always declarable as an edge.
+- ***Integration Points* is bounded per entry instead**: a bullet over **40 words** is a
+  hard violation of this contract, and a bullet over **25 words** is an advisory worth
+  reviewing but not a violation. A bullet spans its leading list marker through the line
+  before the next marker or the section end, so wrapping never changes its measured length.
+  40 is a tenth of the own-content budget: a neighbour costs at most a tenth of a page. When
+  an interaction genuinely will not fit in 40 words, that is a signal it is **two** distinct
+  interactions — declare two edges; never drop, demote to prose, or compress one to fit.
+- **Worst-case page size follows from those bounds and a page's degree** *d* (its number of
+  *Integration Points* bullets): **400 + 40·*d* words**. Degree is watched, not limited — a
+  page carrying more than **12** bullets is named in an advisory, which is where the formula
+  is evaluated for the stated budget: **880 words**.
+- **The per-task load budget** the cap actually protects, at the 5–7 page retrieval cap of
+  [§4](#4-the-touches-field-and-the-no-topology-line): **7 × 880 = 6,160 words** worst case.
+  The bound is deliberately loose — it assumes all seven retrieved pages sit at the degree
+  tripwire with every bullet at the ceiling — and actual per-task load is unchanged on the
+  day this lands, because no page is edited.
+- **Revisit trigger.** This relief is finite, not permanent. Moving interaction prose off the
+  page entirely (per-edge files, retiring the reciprocity fan-out) is revisited when
+  *Integration Points* prose exceeds **25% of all page body text store-wide**, or when the
+  **highest-degree page exceeds 25 bullets** — whichever fires first. Measured basis at
+  amendment time, over 47 active pages: own-content maximum 383 words and median 321 (no
+  page over 400); 198 bullets averaging 13.7 words, 95th percentile 21, maximum 35; neighbour
+  prose 16.2% of capped body text; highest degree 15.
 
 **No code blocks** beyond a single inline span, **no file paths.** Both rot against the
 source and belong in `docs/system/standards/` or source comments, not here. A page that
@@ -280,9 +319,11 @@ by construction, not by restraint:
    only on a hit. Adding pages doesn't slow the *decision* to load.
 2. **One concept per file, slug = filename.** Every page is glob-addressable; there is no
    monolith to scan and no file that all writers contend on.
-3. **400-word body cap + "split, don't grow."** Each retrieval target stays small, so
-   loading N pages stays cheap. Growth happens by *adding files*, which is grep-linear and
-   merge-conflict-free, not by fattening existing ones.
+3. **400-word cap on a page's own content + "split, don't grow."** Each retrieval target
+   stays small, so loading N pages stays cheap. Growth happens by *adding files*, which is
+   grep-linear and merge-conflict-free, not by fattening existing ones. A page's neighbour
+   list is bounded per entry instead ([§2.2](#22-body-sections)), so being well-connected
+   never costs a page its own content.
 4. **`_archive/` for deprecated concepts.** Dead concepts leave the active grep space so
    volume of history never dilutes live hits. They remain searchable when explicitly needed.
 5. **Decision Log volume is contained.** Logs grow unbounded but live *inside* an

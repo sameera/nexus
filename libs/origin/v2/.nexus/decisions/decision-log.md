@@ -8,6 +8,35 @@ themselves (0005–0007) keep their own status banners.
 
 Most recent first.
 
+## 2026-08-03 — amendment to 0003 §2.2: the body cap measures a page's own content, and the neighbour list is bounded per entry
+
+**Amends 0003 §2.2** (the 400-word body cap and the "split, don't grow" rule) and restates
+§6.3 to match. The cap counted *Integration Points* — a page's neighbour prose — alongside
+the page's own content, but the two grow by different laws: own content grows with the
+breadth of a concept, where splitting is right; the neighbour list grows with the size of the
+store and the page's popularity, where splitting is wrong. With the store at 48 pages, the
+second law dominated: 29 of 47 active pages sat within 6 words of the cap, neighbour prose
+was 16.2% of all capped body text, and the fullest pages were the best-connected ones, not
+the broadest — no page in the store exceeded 400 words on its own content (maximum 383). The
+observable consequence was that the `touches` graph had stopped growing silently: a drain
+facing the cap dropped a real edge and described the interaction in prose instead (epic
+#220's originating case), degrading blast-radius retrieval first on the hub concepts new work
+most needs to attach to.
+
+The counted region is now the body **minus** *Integration Points* and **minus** the *Decision
+Log* — on a well-formed page, exactly Summary, How It Works and Key Invariants. Exclusion
+rather than enumeration, so a section a future page invents still counts and the cap cannot be
+evaded by inventing a heading. The excised region is bounded per entry instead: a 40-word hard
+ceiling per bullet (five words above the measured maximum of 35, a tenth of the own-content
+budget), a 25-word advisory, and a non-blocking 12-bullet degree advisory — degree is watched,
+not limited, because the one genuine hub carries 15 edges and a blocking limit would have no
+legal remedy. The cap stays at **400**: this amendment changes what is counted, not how much
+is allowed, and every active page passes the new denominator unedited. §2.2 now also states
+the worst-case page size (400 + 40·*d*), the per-task budget it implies at the §4 retrieval
+cap (6,160 words), and a measurable store-level trigger — neighbour prose above 25% of body
+text, or a highest degree above 25 — at which moving interaction prose off the page is
+revisited, so this relief is recorded as finite rather than permanent.
+
 ## 2026-07-28 — amendment to 0003 §2.2: the file-path/code ban is on literal identifiers, not on describing an artifact's contract
 
 **Amends 0003 §2.2** (the "no code blocks, no file paths" rule for concept-page bodies).
