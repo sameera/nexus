@@ -1,176 +1,165 @@
 # Nexus
 
-**A System of Intentional Friction for the Age of AI Agents**
-
-[![Watch the video](https://img.youtube.com/vi/FFHqTUzRT_o/0.jpg)](https://www.youtube.com/watch?v=FFHqTUzRT_o)
-
+**A Lean, Spec-Driven Delivery Pipeline for the Age of AI Agents**
 ## Quick Reference
 
 [How this works](how-to-nexus.md)
 
-[User docs](user-docs/README.md)
+## The Archaeology Problem
 
-## The Problem We're Not Talking About
+[![Watch the video](https://img.youtube.com/vi/EkZb5mK1j7o/0.jpg)](https://www.youtube.com/watch?v=EkZb5mK1j7o)
 
-You've felt it.
+Spec-driven development was supposed to be the answer. Write the spec first, let the agents implement against it, keep the humans in the judgment seat.
 
-That moment when your AI coding agent finishes churning out 1,500 lines of perfectly formatted code in 30 seconds, and you realize you have absolutely no idea what half of it does.
+Then you look at a repo six months in.
 
-Sure, the tests pass. The linter's happy. But _you_? You're scrolling through files you didn't write, reading function names you didn't choose, trying to understand architectural decisions you didn't make. Three months from now, when this code breaks at 2 AM, you won't remember why it was written this way. **Because you never made those decisions in the first place.**
+Layers of design docs nobody re-read after the first review. Per-task plans that drifted from the code the week they were written. Prose reports summarizing other prose reports. Somewhere in that sediment is the one decision that explains why the system works the way it does — and finding it is an excavation, not a lookup.
 
-We didn't just accelerate execution. We eliminated the pause where understanding used to form.
+That's the failure mode nobody warns you about: **spec-driven development, done naively with AI agents, produces documentation archaeology.** The agents are happy to generate specs at the same rate they generate code. The artifacts pile up faster than anyone can validate them, and the human decisions that actually matter get buried under speculative paperwork.
+
+We didn't fix the judgment problem. We relocated it into a document graveyard.
 
 ## The Hidden Cost
 
-AI coding agents have collapsed the cost of generation. What used to take hours now takes seconds. What used to require careful thought now requires a prompt.
+AI agents have collapsed the cost of generation — code *and* documents. What used to take hours now takes seconds. What used to require careful thought now requires a prompt.
 
-But there's an inversion happening that nobody wants to talk about:
+But an inversion has happened:
 
 **As generation cost approaches zero, judgment becomes the dominant constraint.**
 
-We're not bottlenecked on typing anymore. We're bottlenecked on understanding, evaluating, and deciding. And every time we let an AI agent generate code without first exercising judgment, we're not saving time - we're just pushing the hard thinking to later, when it's exponentially more expensive.
+We're not bottlenecked on typing anymore. We're bottlenecked on understanding, evaluating, and deciding. And every artifact generated ahead of a validated need makes that bottleneck worse, not better:
 
-The real costs:
+- **Speculative over-generation** — sprawling designs and per-task plans produced before scope is validated. Most of it will be wrong or irrelevant by the time it's needed, but all of it demands review time now.
+- **Buried decisions** - When everything is written down, nothing is findable. The three decisions that mattered are indistinguishable from the forty that didn't.
+- **Stale-by-default records** - A committed planning document is a second copy of the truth. The code moves; the document doesn't. Six months later you can't tell which parts still hold.
+- **Judgment theater** - Review gates that rubber-stamp thirty pages nobody read are worse than no gates: they produce the feeling of rigor without the substance.
+- **Compounding correction costs** - The asymmetry is brutal: generation is cheap, comprehension is expensive, and correction is catastrophic. Decisions you never consciously made are the ones that hurt most at 2 AM.
 
-- **Skipped understanding** - The reflective pause that used to exist _before_ coding has vanished. You used to think through the problem, sketch the architecture, consider tradeoffs. Now you prompt and review. The understanding never forms.
-- **Judgment outsourcing** - AI agents don't just type for you. They decide for you. Architecture, abstractions, error handling, edge cases - these decisions still get made, just implicitly, buried in generated code you inherit but didn't reason about.
-- **Cognitive bankruptcy** - Every AI-generated line is a small tax on your mental model. Multiply that by thousands of lines, and you're bankrupt before you ship. You can't own what you don't understand.
-- **Fragmented teams** - It's not just individual confusion. AI acceleration silently fragments collective mental models. Everyone is moving fast, no one is aligned. Misalignment now scales faster than ever.
-- **False velocity** - You move fast today, then slow to a crawl tomorrow when debugging, extending, or explaining a system you never truly reasoned about. The apparent savings were an illusion.
-- **Compounding correction costs** - The asymmetry is brutal: generation is cheap, comprehension is expensive, and correction is catastrophic. You trade minutes of execution speed for hours of debugging and weeks of maintenance nightmares. The code works _now_. But the developer who maintains it six months from now (spoiler: it's you) will be reverse-engineering their own product.
-
-**This is not a problem that discipline alone will solve.** Existing development practices collapse under near-zero generation cost. You cannot self-regulate in the presence of unlimited acceleration. The incentives are too strong, the friction too low, and the consequences too delayed.
+**This is not a problem that discipline alone will solve.** You cannot self-regulate in the presence of unlimited acceleration. The system itself has to refuse to produce artifacts that don't earn their keep.
 
 ## The Nexus Thesis
 
-**Generation is cheap. Judgment is not. Code volume is no longer a meaningful signal of progress.**
+**Generation is cheap. Judgment is not. Artifact volume — code or documents — is no longer a meaningful signal of progress.**
 
-The bottleneck has shifted. What matters now is not how fast you can produce output, but how well you can exercise judgment over that output. How clearly you can think about what you're building. How explicitly you can make tradeoffs. How aligned your team is before execution resumes.
+The bottleneck has shifted. What matters now is not how much you can produce, but how well you can exercise judgment over what gets built. How clearly scope is validated before anyone commits to it. How findable the "why" is when you need it later.
 
-Great software has never been built by writing more code faster. It's built by _thinking clearly_ about what you're building and why. The specification - the clear articulation of intent, constraints, and tradeoffs - is where the hard work happens. **It's where you make the decisions that matter. It's where understanding is earned.**
+So Nexus runs on one rule:
 
-Code? Code is just one possible expression of that spec. And yes, AI agents are exceptional at translating specs into code. That's _exactly_ what they should be doing.
+**Every artifact must force a human decision, or it gets cut.**
 
-But when we let agents run wild without clear specifications, we're not saving time. We're skipping the work that actually matters.
+No speculative HLDs. No per-task plan files. No prose reports ahead of validated scope. If a document doesn't put a real choice in front of a real person, Nexus doesn't generate it.
 
 ## What Nexus Does
 
-Nexus is not a toolkit. It is an **opinionated system of constraints** designed to rebalance software development in the age of AI agents.
+Nexus is a lean, spec-driven delivery pipeline. It assists Product and Project management — turning intent into validated, decision-grade specs — and leaves implementation to engineers.
 
-It deliberately introduces friction at specific moments to force three things:
+That division of labor is deliberate:
 
-1. **Decision-making before execution** - You cannot generate code without first articulating what you're building and why. Specs are not documentation artifacts. They are decision engines that surface tradeoffs, expose disagreement, and force clarity.
+1. **Nexus plans and gates the work.** It turns a capability description into a right-sized epic, decomposes it into user stories, records the architectural "why", and checks the finished build against what was promised.
 
-2. **Shared understanding before acceleration** - AI agents amplify individual velocity while fragmenting team alignment. Nexus ensures that specs create negotiated, collective understanding _before_ anyone starts typing.
+2. **Engineers (and their agents) write the code.** Nexus stops decomposing once a story is small enough to ship and verify on its own. The user story — not the technical task — is the terminal planning unit. How a story gets implemented is the engineer's call, made with whatever tools they choose.
 
-3. **Traceable judgment** - Every piece of generated code maps back to an explicit decision in a spec. No mystery meat. No inherited assumptions. If you can't explain why something exists, it shouldn't exist.
+3. **Decisions live where the work lives.** Epics, stories, and decision records are GitHub issues — visible, linkable, and closed when done — not markdown files quietly rotting in a `docs/` folder.
 
-**Nexus is designed to slow you down on purpose.** Not everywhere. Just at the moments that matter most - before architectural decisions get buried in generated code, before teams diverge into separate realities, before you commit to a design you don't understand.
+4. **The "why" outlives the epic.** When an epic closes, a distiller drains its validated decisions into a living concept store. The durable record isn't a pile of historical documents; it's a curated map of what the system is and why. That's the answer to the archaeology problem: you read the concept page, not the dig site.
 
-## The Core Mechanics
+## The Pipeline
 
-Nexus flips the AI development workflow:
+```
+setup → epic → decision record → (implementation) → analyze → close → distill
+```
 
-**Instead of:** "AI agent, build me a user authentication system"  
-**We do:** "Here's the spec defining authentication boundaries, security model, and error contracts. Now let's collaborate on implementation - one bounded component at a time."
+1. **Setup** (`/nxs.setup`)
+    - One-time bootstrap: detect the stack, generate the system standards, interview for product context.
+    - Five questions, not fifty. Judgment applied once, up front.
 
-The system enforces:
+2. **Epic** (`/nxs.epic`)
+    - Natural-language intent in; a right-sized epic with user stories and acceptance criteria out.
+    - Approval happens at a decision-grade digest — you approve the decisions, not a wall of prose.
+    - On approval, the epic and one issue per story are filed together. Oversized scope is cut into backlog stubs instead of inflating the epic.
 
-1. **Specification-First Development**
-    - Write the spec. Make the tradeoffs explicit. Surface the disagreements. Earn the understanding.
-    - _Then_ let AI generate the implementation.
+3. **Decision record** (`/nxs.decision-record`)
+    - The focused "why": key decisions with refuted alternatives, invariants, risks. Tiered by complexity — a simple epic gets a short record.
+    - Filed as a sub-issue of the epic. Approval is closing that issue. No shadow copies.
 
-2. **Bounded Generation**
-    - No 2,000-line file dumps.
-    - AI generates code in manageable, reviewable chunks that map to spec sections.
-    - You understand each piece before moving to the next.
+4. **Implementation** - engineers build the stories. Nexus stays out of the way.
 
-3. **Human Judgment Checkpoints**
-    - Architectural decisions require human approval.
-    - AI proposes, you decide.
-    - Judgment cannot be delegated.
+5. **Analyze** (`/nxs.analyze`)
+    - The conformance gate: does the build do what the planning said?
+    - Checks the implemented code against acceptance criteria, success metrics, and the decision record's invariants — and refuses to run against an unapproved record.
 
-4. **Team Alignment Gates**
-    - Specs must be reviewed and approved before implementation begins.
-    - Buy-in is structural, not aspirational.
-    - Misalignment is caught early, not discovered in production.
+6. **Close** (`/nxs.close`)
+    - A human-prose close record: what was decided, what deviated and why, what was deferred.
+    - Deferred scope becomes backlog issues, not a forgotten section in a document. The epic issue gets a durable close comment and is closed.
 
-5. **True Ownership**
-    - You understand the system because you designed it.
-    - AI fills in implementation details at the speed of thought.
-    - But the architecture, the abstractions, the tradeoffs - those are yours.
+7. **Distill** (`/nxs.distill`)
+    - Drains closed epics into the concept store via a reviewed PR.
+    - Per-concept pages are updated with the epic's validated decisions; the temporary planning artifacts are deleted. The record that survives is the one you'll actually read.
 
 ## The Difference
 
-With traditional AI coding agents:
+Without a pipeline:
 
 ```
-You: "Build a REST API for todo items"
-Agent: *generates 2000 lines across 15 files*
-You: "...okay, I guess this works?"
+You: "Agent, write me a spec, then build it"
+Agent: *generates a 30-page HLD and 2,000 lines of code*
+You: "...approved, I guess?"
 *Six months later*
-You: *staring at code you don't recognize, trying to fix a bug at 2 AM*
+You: *grepping through stale markdown at 2 AM, trying to find why the queue is shaped like that*
 ```
 
 With Nexus:
 
 ```
-Product: *provides product spec with requirements and user stories*
-Senior Engineer: *creates high-level technical design with AI assistance - owns it personally*
-Team: *reviews HLD, questions approach, validates tradeoffs - shared understanding established*
-Engineer: *breaks down into tasks with AI - validates each low-level design before execution*
-Engineer: *implements task 1 following validated LLD, commits, opens PR*
-Team: *reviews PR with full context from HLD and LLD*
+Product: /nxs.epic — intent becomes stories small enough to ship and verify, filed as issues
+Lead: /nxs.decision-record — the "why" is three decisions with refuted alternatives, approved by the team
+Engineers: implement each story their way, with their tools
+Lead: /nxs.analyze — the build is checked against the promises made at planning
+Lead: /nxs.close — deviations recorded, deferred scope filed, epic closed with a durable trail
+/nxs.distill — the validated decisions merge into the concept store; the scaffolding is deleted
 *Six months later*
-You: *reads the HLD, remembers the tradeoffs you personally validated, fixes the bug in 10 minutes*
+You: *read one concept page, see the decision and the alternative it beat, fix the bug in 10 minutes*
 ```
 
-Same code ships. Different journey. Different outcome. **You, and the team, understands what you built.**
+Same code ships. Different journey. Different outcome. **The decisions stay findable, and the humans made them.**
 
 ## Who This Is For
 
-Nexus is for developers who:
+Nexus is for teams who:
 
-- Realize that acceleration without understanding is just accumulating debt
-- Want to move fast _without_ becoming strangers in their own codebases
-- Believe that thinking clearly is more valuable than typing quickly
-- Maintain the software they write (so, all of us)
-- Understand that the real leverage is in the architecture, not the lines of code
-- Are tired of inheriting decisions they never made
+- Realize that acceleration without judgment is just accumulating debt
+- Want spec-driven development without the documentation graveyard it usually produces
+- Believe a spec's job is to force decisions, not to exist
+- Want product intent, architectural rationale, and delivered code to stay traceably connected
+- Are tired of inheriting decisions nobody consciously made
 
-If you're happy letting AI agents run wild and dealing with the consequences later, Nexus isn't for you.
+If you're happy letting agents generate artifacts faster than anyone can judge them, Nexus isn't for you.
 
 If you believe that **judgment trumps output**, you're in the right place.
 
 ## Why Now
 
-This is not another think piece about "using AI responsibly."
-
 Something fundamental has changed. We are living through a **structural shift in software economics**:
 
-- Generation cost: near zero
+- Generation cost: near zero — for code and for documents
 - Comprehension cost: unchanged
 - Correction cost: exponentially higher
 
-Traditional development practices assumed generation was expensive. They optimized for reducing typing, reducing duplication, reducing ceremony. Those assumptions no longer hold.
+Traditional practices assumed generation was expensive, so more documentation always looked like more rigor. That assumption is dead. When an agent can produce a plausible 30-page design in a minute, documentation volume stops being evidence of thought — and starts being a place for thought to hide.
 
-AI agents can produce more code in a day than a team of developers could produce in a month. But we haven't developed the practices, tools, or constraints to exercise judgment over that output at scale.
-
-**Incremental improvements to current workflows are insufficient.** You cannot iterate your way out of a structural shift. You need new constraints, new forcing functions, new systems.
+**Incremental improvements to current workflows are insufficient.** You cannot iterate your way out of a structural shift. You need a system that is lean by construction: one that generates the few artifacts that force decisions and refuses to generate the rest.
 
 Nexus exists because this problem did not exist at this scale before AI agents, and it will not solve itself.
 
 ## Philosophy
 
-We're not anti-AI. We're anti-confusion. We're anti-debt. We're anti-acceleration-at-all-costs.
+We're not anti-AI, and we're not anti-spec. We're anti-sediment.
 
-AI agents are incredibly powerful tools. But **power without constraint is chaos**. Nexus provides the constraint - the intentional friction that forces understanding before execution, alignment before divergence, judgment before generation.
+AI agents are incredibly powerful tools. But **power without constraint is chaos** — and in spec-driven development, chaos looks like a wall of well-formatted documents nobody has judged. Nexus provides the constraint: validated scope before decomposition, an approved "why" before implementation, a conformance check before close, and a distilled concept store instead of an archive.
 
-This is not about slowing down for its own sake. It's about recognizing that unregulated acceleration is actively harmful. That speed is not universally good. That high-leverage systems require pauses for reflection, not elimination of all friction.
+This is about recognizing that the scarce resource is human judgment, and spending it only where a real decision lives. Everything else — the plans, the reports, the intermediate scaffolding — either serves a decision or gets cut.
 
-Nexus is a **counterbalancing force**. It does not help you use AI faster. It helps you use AI _sustainably_ - in a way that compounds understanding rather than debt, that amplifies judgment rather than output, that builds systems you can evolve rather than replace.
-
-Because at the end of the day, you're not paid to generate code. You're paid to build systems that work, that you understand, and that you can maintain.
+Because at the end of the day, you're not paid to generate artifacts. You're paid to build systems that work, that you understand, and whose "why" you can still find a year later.
 
 Nexus helps you do that.
 
@@ -178,7 +167,7 @@ Nexus helps you do that.
 
 Nexus is in active development. We're building this in the open because we think this problem matters, and we're not the only ones who've noticed it.
 
-**Built with the conviction that slow is smooth, and smooth is fast - but only when you understand what you're building.**
+**Built with the conviction that slow is smooth, and smooth is fast - but only when every artifact earns its place.**
 
 # Structure
 
