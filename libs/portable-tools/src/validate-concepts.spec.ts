@@ -11,6 +11,7 @@ import {
     parseFrontmatter,
     registryPath,
     runCli,
+    storeLevelFindings,
     validateAnchor,
     validatePage,
     validateRegistry,
@@ -717,6 +718,135 @@ describe("the body cap counts a page's own content (#222)", () => {
     });
 });
 
+describe("the neighbour list is bounded per entry (#223)", () => {
+    function bulletOf(slug: string, words: number): string {
+        return `- [${slug}](${slug}.md) — ${"word ".repeat(Math.max(0, words - 3)).trim()}.`;
+    }
+
+    it("flags a bullet over the 40-word ceiling and fails the run", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", pageWithOwnContent(100, [bulletOf("beta", 41)]));
+        const blocking: Finding[] = validate(file).filter((f) => f.severity !== "advisory");
+        expect(blocking.some((f) => f.message.includes("40-word ceiling"))).toBe(true);
+    });
+
+    it("accepts a bullet exactly at the ceiling — the ceiling blocks on a strict greater-than", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", pageWithOwnContent(100, [bulletOf("beta", 40)]));
+        expect(validate(file).some((f) => f.message.includes("40-word ceiling"))).toBe(false);
+    });
+
+    it("measures a bullet across its wrapped continuation lines", () => {
+        const dir = makeTmpDir();
+        const wrapped = `- [beta](beta.md) — ${"word ".repeat(20).trim()}\n  ${"word ".repeat(21).trim()}.`;
+        const file = writeFile(dir, "alpha.md", pageWithOwnContent(100, [wrapped]));
+        expect(validate(file).some((f) => f.message.includes("40-word ceiling"))).toBe(true);
+    });
+
+    it("reports a bullet over the 25-word advisory without failing the run", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", pageWithOwnContent(100, [bulletOf("beta", 30)]));
+        const findings: Finding[] = validate(file);
+        const advisory: Finding | undefined = findings.find((f) => f.message.includes("25-word advisory"));
+        expect(advisory?.severity).toBe("advisory");
+        expect(findings.filter((f) => f.severity !== "advisory")).toEqual([]);
+    });
+
+    it("names a page over 12 bullets in a high-degree advisory without failing the run", () => {
+        const dir = makeTmpDir();
+        const bullets: string[] = Array.from({ length: 13 }, (_, i) => bulletOf(`n${i}`, 8));
+        const file = writeFile(dir, "alpha.md", pageWithOwnContent(100, bullets));
+        const findings: Finding[] = validate(file);
+        const advisory: Finding | undefined = findings.find((f) => f.message.includes("high-degree"));
+        expect(advisory?.severity).toBe("advisory");
+        expect(advisory?.message).toContain("13");
+        expect(findings.filter((f) => f.severity !== "advisory")).toEqual([]);
+    });
+
+    it("leaves a page at the degree threshold unremarked", () => {
+        const dir = makeTmpDir();
+        const bullets: string[] = Array.from({ length: 12 }, (_, i) => bulletOf(`n${i}`, 8));
+        const file = writeFile(dir, "alpha.md", pageWithOwnContent(100, bullets));
+        expect(validate(file).some((f) => f.message.includes("high-degree"))).toBe(false);
+    });
+
+    it("keeps every Integration Points bullet in the store under the ceiling, and names the store's hub", () => {
+        const conceptsDir: string = path.join(REPO_ROOT, ".nexus", "concepts");
+        const pages: string[] = fs.readdirSync(conceptsDir).filter((n) => n.endsWith(".md") && n !== "README.md");
+        const findings: Finding[] = [];
+        for (const name of pages) {
+            validatePage(path.join(conceptsDir, name), null, REPO_ROOT, findings);
+        }
+        expect(findings.filter((f) => f.severity !== "advisory")).toEqual([]);
+
+        const hub: Finding | undefined = findings.find((f) => f.message.includes("high-degree"));
+        expect(hub?.file).toContain("distiller.md");
+    });
+});
+
+describe("store-level revisit trigger (#223)", () => {
+    it("reports neither trigger on the store as it stands", () => {
+        const conceptsDir: string = path.join(REPO_ROOT, ".nexus", "concepts");
+        const findings: Finding[] = storeLevelFindings(conceptsDir);
+        expect(findings).toEqual([]);
+    });
+
+    it("advises when neighbour prose passes a quarter of all body text", () => {
+        const dir = makeTmpDir();
+        const bullets: string[] = Array.from({ length: 8 }, (_, i) => `- [n${i}](n${i}.md) — ${"neighbour ".repeat(20).trim()}.`);
+        writeFile(dir, "alpha.md", pageWithOwnContent(100, bullets));
+        const findings: Finding[] = storeLevelFindings(dir);
+        expect(findings.some((f) => f.message.includes("25% revisit trigger"))).toBe(true);
+        expect(findings.every((f) => f.severity === "advisory")).toBe(true);
+    });
+
+    it("advises when the highest-degree page passes 25 bullets", () => {
+        const dir = makeTmpDir();
+        const bullets: string[] = Array.from({ length: 26 }, (_, i) => `- [n${i}](n${i}.md) — brief.`);
+        writeFile(dir, "alpha.md", pageWithOwnContent(340, bullets));
+        const findings: Finding[] = storeLevelFindings(dir);
+        const trigger: Finding | undefined = findings.find((f) => f.message.includes("25-bullet revisit trigger"));
+        expect(trigger?.severity).toBe("advisory");
+        expect(trigger?.message).toContain("alpha");
+    });
+});
+
+describe("severity and exit status (#223)", () => {
+    function runInDir(dir: string): { code: number; out: string; err: string } {
+        const out: string[] = [];
+        const err: string[] = [];
+        const log = console.log;
+        const error = console.error;
+        console.log = (m: string) => void out.push(m);
+        console.error = (m: string) => void err.push(m);
+        try {
+            const code: number = validateWithCwd(dir, () => runCli(["--concepts-dir", "concepts"]));
+            return { code, out: out.join("\n"), err: err.join("\n") };
+        } finally {
+            console.log = log;
+            console.error = error;
+        }
+    }
+
+    it("exits zero when the only findings are advisories, and marks them as such", () => {
+        const dir = makeTmpDir();
+        writeFile(dir, "concepts/alpha.md", pageWithOwnContent(100, [`- [beta](beta.md) — ${"word ".repeat(30).trim()}.`]));
+        const result = runInDir(dir);
+        expect(result.code).toBe(0);
+        expect(result.err).toContain("ADVISORY");
+        expect(result.err).not.toContain("BLOCKING");
+    });
+
+    it("exits non-zero and distinguishes the two classes when a blocking finding is present", () => {
+        const dir = makeTmpDir();
+        writeFile(dir, "concepts/alpha.md", pageWithOwnContent(100, [`- [beta](beta.md) — ${"word ".repeat(41).trim()}.`]));
+        const result = runInDir(dir);
+        expect(result.code).toBe(1);
+        expect(result.err).toContain("BLOCKING");
+        expect(result.err).toMatch(/1 blocking finding\(s\)/);
+    });
+});
+
 describe("validatePage — --base append-only mode", () => {
     it("treats a base version with no Decision Log section as having zero prior entries", () => {
         const dir = makeGitRepo();
@@ -1278,6 +1408,6 @@ describe("CLI (subprocess)", () => {
         writeFile(dir, "alpha.md", page({ h1: "# Mismatched Title" }));
         const result = runViaTsx(["--concepts-dir", dir]);
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain("finding(s) across");
+        expect(result.stderr).toContain("1 blocking finding(s) and 0 advisory(ies) across");
     });
 });

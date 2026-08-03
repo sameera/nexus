@@ -31,15 +31,32 @@ interface Frontmatter {
     bodyStart: number;
 }
 
+/**
+ * A finding's weight (epic #220). Absent means blocking: every check that predates the two-severity
+ * output stays blocking, and only a check that opts in is advisory. The process exit status is the
+ * sole gate — a run whose findings are all advisory exits zero.
+ */
+export type Severity = "advisory";
+
 export interface Finding {
     file: string;
     message: string;
+    severity?: Severity;
+}
+
+export function isBlocking(finding: Finding): boolean {
+    return finding.severity !== "advisory";
 }
 
 const BODY_WORD_CAP = 400;
 const MAX_INVARIANTS = 7;
 const REQUIRED_SECTIONS: string[] = ["How It Works", "Key Invariants", "Integration Points", "Decision Log"];
 const CAP_EXCLUDED_SECTIONS: string[] = ["Integration Points", "Decision Log"];
+const BULLET_WORD_CEILING = 40;
+const BULLET_WORD_ADVISORY = 25;
+const DEGREE_ADVISORY = 12;
+const NEIGHBOUR_SHARE_TRIGGER = 0.25;
+const DEGREE_REVISIT_TRIGGER = 25;
 const PROVENANCE_REF = /^(#\d+|[\w.-]+\/[\w.-]+#\d+|bootstrap|manual)$/;
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const LOG_HEADING = /^### (\d{4}-\d{2}-\d{2}) — (\S+) — (.+)$/;
@@ -179,6 +196,30 @@ export function ownContentLines(bodyLines: string[]): string[] {
         }
     }
     return kept;
+}
+
+/**
+ * The Integration Points bullets of a section, each spanning its leading list marker through the
+ * line before the next marker or the section end (epic #220, decision-record Invariant 4) — so line
+ * wrapping never changes a bullet's measured length. A page's degree is the number of these.
+ */
+export function integrationBullets(section: string[]): string[] {
+    const bullets: string[] = [];
+    let current: string[] | null = null;
+    for (const line of section) {
+        if (/^[-*]\s+/.test(line.trim())) {
+            if (current !== null) {
+                bullets.push(current.join("\n"));
+            }
+            current = [line];
+        } else if (current !== null) {
+            current.push(line);
+        }
+    }
+    if (current !== null) {
+        bullets.push(current.join("\n"));
+    }
+    return bullets;
 }
 
 function decisionLogHeadings(content: string): string[] {
@@ -448,6 +489,24 @@ export function validatePage(file: string, base: string | null, repoRoot: string
     // touches: == Integration Points, exactly.
     const touches: string | string[] | undefined = fm.fields.get("touches");
     const integration: string[] | null = sectionLines(bodyLines, "Integration Points");
+
+    // The neighbour list sits outside the cap, so it is bounded per entry instead (epic #220,
+    // 0003 §2.2). The ceiling blocks on a strict greater-than; both advisories never fail a run.
+    if (integration !== null) {
+        const bullets: string[] = integrationBullets(integration);
+        for (const bullet of bullets) {
+            const words: number = countWords(bullet);
+            const excerpt: string = bullet.split("\n")[0].trim().slice(0, 60);
+            if (words > BULLET_WORD_CEILING) {
+                findings.push({ file, message: `Integration Points: bullet "${excerpt}" is ${words} words, over the ${BULLET_WORD_CEILING}-word ceiling — say the interaction in fewer words, or declare two edges if it is really two interactions (0003 §2.2)` });
+            } else if (words > BULLET_WORD_ADVISORY) {
+                findings.push({ file, severity: "advisory", message: `Integration Points: bullet "${excerpt}" is ${words} words, over the ${BULLET_WORD_ADVISORY}-word advisory (ceiling ${BULLET_WORD_CEILING})` });
+            }
+        }
+        if (bullets.length > DEGREE_ADVISORY) {
+            findings.push({ file, severity: "advisory", message: `Integration Points: ${bullets.length} bullets, over the ${DEGREE_ADVISORY}-bullet high-degree advisory — a hub worth reviewing, never a reason to split or to drop an edge` });
+        }
+    }
     if (Array.isArray(touches) && integration !== null) {
         const linked: string[] = [];
         for (const line of integration) {
@@ -573,6 +632,47 @@ function collectDomainPaths(parsed: ParsedRegistry): Set<string> {
     return paths;
 }
 
+/**
+ * The store-level revisit trigger (epic #220, 0003 §2.2): the two numbers at which moving
+ * interaction prose off the page entirely is due for review. Both are advisory, and both are
+ * computed only on a full-store run — the drain's changed-file run would otherwise pay for a second
+ * full-store pass to move a number by fractions of a percent.
+ */
+export function storeLevelFindings(conceptsDir: string): Finding[] {
+    const findings: Finding[] = [];
+    let neighbourWords = 0;
+    let bodyWords = 0;
+    let maxDegree = 0;
+    let hub = "";
+
+    for (const name of fs.readdirSync(conceptsDir).filter((n: string) => n.endsWith(".md") && n !== "README.md")) {
+        const lines: string[] = fs.readFileSync(path.join(conceptsDir, name), "utf8").split("\n");
+        const fm: Frontmatter | null = parseFrontmatter(lines);
+        if (fm === null) {
+            continue;
+        }
+        const bodyLines: string[] = lines.slice(fm.bodyStart);
+        const integration: string[] = sectionLines(bodyLines, "Integration Points") ?? [];
+        const bullets: string[] = integrationBullets(integration);
+        const neighbour: number = countWords(bullets.join("\n"));
+        neighbourWords += neighbour;
+        bodyWords += countWords(ownContentLines(bodyLines).join("\n")) + neighbour;
+        if (bullets.length > maxDegree) {
+            maxDegree = bullets.length;
+            hub = path.basename(name, ".md");
+        }
+    }
+
+    const share: number = bodyWords === 0 ? 0 : neighbourWords / bodyWords;
+    if (share > NEIGHBOUR_SHARE_TRIGGER) {
+        findings.push({ file: conceptsDir, severity: "advisory", message: `store: Integration Points prose is ${(share * 100).toFixed(1)}% of all page body text, over the ${NEIGHBOUR_SHARE_TRIGGER * 100}% revisit trigger — moving interaction prose off the page is due for review (0003 §2.2)` });
+    }
+    if (maxDegree > DEGREE_REVISIT_TRIGGER) {
+        findings.push({ file: conceptsDir, severity: "advisory", message: `store: highest degree is ${maxDegree} bullets ("${hub}"), over the ${DEGREE_REVISIT_TRIGGER}-bullet revisit trigger — moving interaction prose off the page is due for review (0003 §2.2)` });
+    }
+    return findings;
+}
+
 export function runCli(argv: string[]): number {
     const options: CliOptions = parseArgs(argv);
     let repoRoot: string = process.cwd();
@@ -596,7 +696,8 @@ export function runCli(argv: string[]): number {
     }
 
     let files: string[] = options.files;
-    if (files.length === 0) {
+    const fullStoreRun: boolean = files.length === 0;
+    if (fullStoreRun) {
         if (!fs.existsSync(options.conceptsDir)) {
             // Preserve the pre-change "nothing to validate" exit only when the registry pass is clean.
             if (findings.length === 0) {
@@ -608,6 +709,7 @@ export function runCli(argv: string[]): number {
             files = fs.readdirSync(options.conceptsDir)
                 .filter((name: string) => name.endsWith(".md") && name !== "README.md")
                 .map((name: string) => path.join(options.conceptsDir, name));
+            findings.push(...storeLevelFindings(options.conceptsDir));
         }
     }
 
@@ -627,11 +729,17 @@ export function runCli(argv: string[]): number {
         }
     }
 
+    // Two severities, one gate (epic #220): every line leads with its severity token so a reader of
+    // a merged transcript can tell them apart, the summary counts the classes separately, and the
+    // exit status — not the presence of output — is what a consumer gates on.
+    const blocking: Finding[] = findings.filter(isBlocking);
+    for (const finding of findings) {
+        console.error(`${finding.file}: [${isBlocking(finding) ? "BLOCKING" : "ADVISORY"}] ${finding.message}`);
+    }
     if (findings.length > 0) {
-        for (const finding of findings) {
-            console.error(`${finding.file}: ${finding.message}`);
-        }
-        console.error(`\n${findings.length} finding(s) across ${files.length} page(s).`);
+        console.error(`\n${blocking.length} blocking finding(s) and ${findings.length - blocking.length} advisory(ies) across ${files.length} page(s).`);
+    }
+    if (blocking.length > 0) {
         return 1;
     }
     console.log(`OK: ${files.length} page(s) validated.`);
