@@ -22,8 +22,9 @@ The split is **judgment as prompt, mechanics as code** (0004 B0):
   rubrics and drafting a new subdomain/domain when none fits.
 - **Mechanics (deterministic, never improvised):** the C11 reciprocity fan-out, the R1 anchors
   refresh, the validator (`libs/portable-tools/src/validate-concepts.ts`), and — when a domain
-  registry exists (epic #94, STORY-94.02) — the drift advisory (Phase 6.3). A validation failure
-  **blocks the PR** — you fix the pages and re-validate; you never ship a failing page. The drift
+  registry exists (epic #94, STORY-94.02) — the drift advisory (Phase 6.3). A **non-zero exit**
+  from the validator **blocks the PR** — you fix the pages and re-validate; you never ship a
+  failing page. Its `[ADVISORY]` findings are not failures and never block. The drift
   advisory is the opposite: it never blocks, never edits, always exits zero — it only writes text
   into the PR body.
 
@@ -559,18 +560,30 @@ manual curation, out of this drain's scope).
     - `retire` → set `status: deprecated`, append the Decision Log entry, `git mv` the page to
       `.nexus/concepts/_archive/`. **Never `domain:`** — same create-only rule.
     - Decision Log entries are headed `### <YYYY-MM-DD> — <ref> — <short title>`.
-    - Body stays under the **400-word cap** (excluding frontmatter + Decision Log). An `update`
-      may only remove content its own delta supersedes — **never compress or drop still-true
-      content to make room under the cap**. If the patched body would exceed the cap, the concept
+    - A page's **own content** stays under the **400-word cap** — the body excluding frontmatter,
+      excluding `## Integration Points`, and excluding the Decision Log; on a well-formed page,
+      exactly the Summary, `## How It Works` and `## Key Invariants` (0003 §2.2). An `update` may
+      only remove content its own delta supersedes — **never compress or drop still-true content
+      to make room under the cap**. If the patched *own content* would exceed the cap, the concept
       is too broad: run step 4 and split it.
-4. **Splitting at the cap (0003 §2.2 — split, don't grow).** A page whose patched body would
-   exceed the cap is describing two concepts. Split it inside the same entry commit:
+    - **The neighbour list is bounded per entry, not by the cap.** Each `## Integration Points`
+      bullet stays **≤40 words** (the validator blocks above it) and reads best under 25 (it
+      advises above that). A page that passes 400 total body words because of its Integration
+      Points needs **no split and no compression** — the cap does not measure a page's
+      popularity. Never drop an edge, demote it to prose, or compress a neighbour's bullet to fit
+      anything.
+4. **Splitting at the cap (0003 §2.2 — split, don't grow).** A page whose patched **own content**
+   would exceed the cap is describing two concepts. Split it inside the same entry commit.
+   Neighbour-list pressure is **never** a trigger for this step — a page with many Integration
+   Points bullets is well-connected, not broad, and splitting it would only increase the store's
+   total edge prose:
     - **Choose the seam by retrieval, not by size.** Each half must be loadable on its own — its
       own decisive Summary, its own invariants, its own touches. If every task that loads one
       half would also load the other, the seam is wrong; find another. If no independent seam
-      exists the page is genuinely dense, and eviction becomes the last resort — allowed only
-      when the appended Decision Log entry states exactly what was dropped, and the PR body calls
-      it out for the reviewer.
+      exists the page is genuinely dense **on its own content**, and eviction becomes the last
+      resort — allowed only when the appended Decision Log entry states exactly what was dropped,
+      and the PR body calls it out for the reviewer. Own-content overflow is its only trigger: a
+      long neighbour list never justifies evicting anything.
     - **Synthesize a `create` delta for the new page**, under all Phase 3 rules — slug
       uniqueness, §8.3 boundary, domain filing (`domain`/`domain_fit` + drafts when forced; the
       Phase 6.1 gate consumes it like any other create). Seed its Decision Log with a single
@@ -599,6 +612,16 @@ Run these for each entry, in order, before its commit:
    (`### <date> — <source> — Reciprocal link from <slug>`) recording the fan-out. For
    `touches_removed`, remove symmetrically (the removal is logged the same way). Fan-out edits
    land in the **same PR**, mechanically — no judgment call.
+
+    - **The fan-out never fails and never drops an edge.** The neighbour list sits outside the
+      400-word cap (0003 §2.2), so no page in the store can be too full to accept a reciprocal
+      bullet. Never drop the edge, never demote the interaction to prose on one side, and never
+      compress the target's existing content to make room — none of those is a legal move here.
+    - **Its only bound is the 40-word ceiling on the bullet you are writing** — it binds the new
+      bullet, never the target's existing prose. If the interaction genuinely cannot be stated in
+      40 words, that is the signal the delta names **two distinct interactions**: declare two
+      edges, each with its own bullet. Splitting the interaction is the remedy; dropping it is
+      not.
 
 2. **R1 code-anchor refresh.** For **every** concept page this PR touches (including reciprocal
    fan-out targets), regenerate `.nexus/anchors/<slug>.md`. Anchors are **derived state**: the
@@ -706,15 +729,22 @@ Run these for each entry, in order, before its commit:
     node .nexus/tools/generate-atlas.mjs --check
     ```
 
-    The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap,
-    `touches:` == Integration Points, exactly one new Decision Log entry per changed page,
-    append-only log history, §8.3 rejections, and slug = filename. A path whose parent directory
+    The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
+    page's own content, the per-bullet bound on Integration Points, `touches:` == Integration
+    Points, exactly one new Decision Log entry per changed page, append-only log history, §8.3
+    rejections, and slug = filename. A path whose parent directory
     is `anchors` is checked as an anchor sidecar instead: `concept` = filename, a well-formed
     `source_sha` (single-repo scalar, or the hub per-repo `<host/owner/repo>@<sha>` list), and
     repo↔path attribution consistency. The second checks the
-    atlas is in sync with the active pages. **Any finding from either command blocks the
-    PR** — fix the pages (or regenerate the atlas) and re-run until both exit 0. Do not
-    weaken, skip, or reinterpret a finding; the validator is the contract's mechanical half.
+    atlas is in sync with the active pages.
+
+    **A non-zero exit from either command blocks the PR** — fix the pages (or regenerate the
+    atlas) and re-run until both exit 0. Do not weaken, skip, or reinterpret a blocking finding;
+    the validator is the contract's mechanical half. **Advisories are the named exception:** the
+    validator prints every finding with a leading severity token and counts the two classes
+    separately, and a run whose findings are all `[ADVISORY]` exits 0 — a long-but-legal bullet, a
+    high-degree hub, a store-level revisit trigger. Those never block and are never "fixed" to
+    silence them; carry them into the PR body for the reviewer and proceed.
 
 6. **Remove the consumed entry, then commit it together with its pages + anchors** so the deletion
    is atomic with the write on merge:
@@ -786,7 +816,7 @@ For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
    a subdomain, `<new-slug>` for a domain).
 3. Re-run the Phase 5.4 atlas regeneration and the Phase 5.5 validator over every file this step
    touched (the registry plus every re-filed page) — a new registry entry changes the rendered
-   hierarchy, so both must run again. **A finding blocks exactly like Phase 5.5** — fix and
+   hierarchy, so both must run again. **A non-zero exit blocks exactly like Phase 5.5** — fix and
    re-run until both exit 0 (decision-record Invariant 4: the validator passes on this branch
    before the PR opens).
 4. Commit **once**, covering every approved change from this step (never amend an entry's Phase 4
@@ -1021,7 +1051,8 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   never mapped to a `ConceptDelta`. The `.nexus/queue/**` diff exclusion keeps them out of the
   *what*; this keeps them out of the *why*. They are deleted with the entry when the PR merges.
 - **Reciprocity (C11), anchors (R1), and the validator are deterministic steps** — never skipped,
-  never reinterpreted. A validation failure blocks the PR.
+  never reinterpreted. A non-zero validator exit blocks the PR; a run whose findings are all
+  advisories does not.
 - **Provenance is qualified cross-repo** (`<owner>/<repo>#n`, 0003 §2.4). In hub mode every
   reference is qualified from the entry's recorded originating repo and the terse `#n` form is
   never emitted. In single-repo mode, verify the issue actually lives in the home repo before
