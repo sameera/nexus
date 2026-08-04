@@ -287,7 +287,8 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
     ```
 
     Each stub must be ≤ M. If the decomposer returns a sub-goal still > M, record `estimate: M` and
-    say so in the goal line — it is re-decomposed when promoted.
+    say so in the goal line — it is re-decomposed when promoted. Write the goal line and every Meta
+    value **unwrapped** — one line each, per "Line breaks" under the epic document structure.
 
 3. **File the batch** through the shared filer, classified as an **epic** rather than a story:
 
@@ -349,6 +350,10 @@ mkdir -p "$DRAFT_DIR"
 `slug:` frontmatter). Write the epic to `${DRAFT_DIR}/epic.md` — this is the working draft the epic
 gate (Phase 4b) and the approval digest (Phase 5) read, and the source the filing skill (Phase 6)
 files from. It is transient: it is **not** committed, and after filing it can be discarded.
+
+Write it **unwrapped** — one line per paragraph, per bullet, per table row. This draft is filed
+verbatim as the issue body, so a hard wrap here is a hard wrap the reader sees. See "Line breaks"
+under the epic document structure.
 
 **Invariant:** after this command completes, the working tree shows **zero** new files under
 `.nexus/queue/` (Success Metric 1). If you ever feel the urge to `mkdir .nexus/queue/…`, stop — that
@@ -525,6 +530,9 @@ story becomes one GitHub issue, child of the epic issue.
     …
     ```
 
+    The body is the issue body verbatim — write it **unwrapped** (one line per paragraph, per AC
+    bullet, per note), per "Line breaks" under the epic document structure.
+
     The `ref` is the stable planning-time key (the GitHub issue numbers don't exist yet, so the
     `blocked_by` graph is authored against refs). It stays internal: the issue **title is clean**,
     and the skill resolves refs → issue numbers itself. Read valid labels from
@@ -628,6 +636,18 @@ Report:
 
 ## Epic document structure
 
+### Line breaks — write every body unwrapped
+
+**One line per paragraph, per bullet, per table row.** Put a newline only where a blank line or a new
+list item is intended; never hard-wrap prose at a fixed column. A GitHub issue body reflows to the
+reader's pane, so a newline mid-sentence is a break the reader actually sees — it renders as a ragged
+column in a wide pane and throws away the width the pane offered.
+
+This governs **every** body this command writes: the epic (below), the story bodies (Phase 6 step 3)
+and the stub bodies (Phase 2b step 2). It is independent of how *this* file is wrapped — that is an
+authoring convention for a repo `.md`, not the shape of the artifact being produced. The wrapping of
+the `<…>` guidance in the templates below is likewise not a model for the prose that replaces it.
+
 ```markdown
 ---
 feature: "<Feature Name>"
@@ -659,11 +679,7 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 ## Personas
 
-<Deviations only. Personas are canonical in `<docs-root>/product/context.md` — the `<docs-root>`
-resolved in Phase 0, with the empty-prefix rule applied (so `product/context.md` on a repo-root
-hub, `docs/product/context.md` in a single-repo checkout). If this epic uses them as-is, write
-that resolved path: "Per `<docs-root>/product/context.md`." Tabulate only personas specific to
-this epic or deviations from the canonical set.>
+<Deviations only. Personas are canonical in `<docs-root>/product/context.md` — the `<docs-root>` resolved in Phase 0, with the empty-prefix rule applied (so `product/context.md` on a repo-root hub, `docs/product/context.md` in a single-repo checkout). If this epic uses them as-is, write that resolved path: "Per `<docs-root>/product/context.md`." Tabulate only personas specific to this epic or deviations from the canonical set.>
 
 ## User Stories
 
