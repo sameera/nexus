@@ -1,8 +1,8 @@
 ---
 title: "Concept Store"
 aliases: ["machine knowledge store", "concept pages", "concept page schema", "knowledge base"]
-touches: ["two-store-split", "gold-plating", "grep-native-retrieval", "append-only-decision-log", "provenance-reference", "distiller", "code-anchors", "domain-taxonomy"]
-last_updated_by: "#89"
+touches: ["two-store-split", "gold-plating", "grep-native-retrieval", "append-only-decision-log", "provenance-reference", "distiller", "code-anchors", "domain-taxonomy", "concept-page-capacity"]
+last_updated_by: "#220"
 status: active
 verification: verified
 ---
@@ -13,12 +13,12 @@ The concept store is Nexus's machine knowledge surface: one distilled concept pe
 
 ## How It Works
 
-Each page leads with a stand-alone summary, then behavior in domain terms, the constraints a new design must preserve, its neighbors, and an append-only decision history. The body is capped — an over-cap page is split, never grown — and deprecated concepts move to an archive so active search stays signal-dense. There is no retrieval index; listing and reading the pages serves every machine lookup one would. A derived human-orientation atlas, rebuilt from page frontmatter on every drain, gives the reader who cannot yet name a grep target an entry point; no tool retrieves through it. One slug maps to exactly one active page, enforced at write time, since the slug is the page's only key.
+Each page leads with a stand-alone summary, then behavior in domain terms, the constraints a new design must preserve, its neighbors, and an append-only decision history. A page's own content is capped — an over-cap page is split, never grown — while its neighbour list is bounded per entry, so being well-connected never costs a page its own words. Deprecated concepts move to an archive so active search stays signal-dense. There is no retrieval index; listing and reading the pages serves every machine lookup one would. A derived human-orientation atlas, rebuilt from page frontmatter on every drain, gives the reader who cannot yet name a grep target an entry point; no tool retrieves through it. One slug maps to exactly one active page, enforced at write time, since the slug is the page's only key.
 
 ## Key Invariants
 
 1. One concept per file; the slug is the filename and the page's only key — no separate identifier field.
-2. The body is capped; an over-cap page is split into two, never grown.
+2. ~~The body is capped; an over-cap page is split into two, never grown.~~ A page's own content is capped; overflow of that region splits the page, and neighbour-list length never does.
 3. One slug maps to exactly one active page, enforced at write time.
 4. ~~There is no generated index; listing and reading pages serves discovery.~~
 5. Deprecated concepts move to the archive so active search stays signal-dense.
@@ -35,6 +35,7 @@ Each page leads with a stand-alone summary, then behavior in domain terms, the c
 - [distiller](distiller.md) — the single producer that writes and updates pages.
 - [code-anchors](code-anchors.md) — the derived path sidecar generated alongside each page.
 - [domain-taxonomy](domain-taxonomy.md) — when a registry exists, renders the derived atlas under its curated headings instead of link-density clusters.
+- [concept-page-capacity](concept-page-capacity.md) — the cap this schema imposes, and what it counts.
 
 ## Decision Log
 
@@ -49,3 +50,7 @@ The index rejection re-tested against two real distillations: with the reviewed 
 ### 2026-07-19 — #89 — Reciprocal link from domain-taxonomy
 
 Domain taxonomy governs how this store's derived atlas groups pages, replacing the atlas's link-density clustering with curated headings whenever a registry exists.
+
+### 2026-08-04 — #220 — The cap counts a page's own content
+
+The cap's denominator was re-cut without changing the number: it now measures the page's own content and excludes the neighbour list, which is bounded per entry instead — so the schema's split-don't-grow rule applies to a concept's breadth and never to its popularity. The store had grown from fourteen pages to forty-eight while the cap stayed still, and the pages sitting on it were the best-connected ones rather than the broadest, which made dropping a real interaction the cheapest way to stay legal. The capacity rules moved onto their own page rather than growing this one, per the store's own discipline. Refuted alternative: raise the number instead of re-cutting what it measures — it buys the same headroom for one round, but it leaves popularity and breadth sharing one budget, so the same pressure returns as the store keeps growing.

@@ -1,8 +1,8 @@
 ---
 title: "Taxonomy Drift Advisory"
 aliases: ["drift advisory", "taxonomy drift", "misfile detection", "new-domain candidates"]
-touches: ["distiller", "distillation-pr", "grep-native-retrieval", "taxonomy-filing-gate", "registry-seeding"]
-last_updated_by: "#94"
+touches: ["distiller", "distillation-pr", "grep-native-retrieval", "taxonomy-filing-gate", "registry-seeding", "finding-severity"]
+last_updated_by: "#220"
 status: active
 verification: verified
 ---
@@ -32,9 +32,14 @@ Per-page signals are pure neighbor-counting over a page's own resolved links, st
 - [grep-native-retrieval](grep-native-retrieval.md) — the retrieval discipline this respects by keeping community detection offline and advisory, never retrieval state.
 - [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decisions this later audits for decay.
 - [registry-seeding](registry-seeding.md) — shares this advisory's one deterministic detection engine.
+- [finding-severity](finding-severity.md) — the separate never-blocking class inside validation, kept distinct from this report.
 
 ## Decision Log
 
 ### 2026-07-20 — #94 — Neighbor-counting for per-page signals; community detection confined to proposing domains
 
 Misfile, refinement, and staleness signals are computed by counting a page's resolved neighbors by domain — local and stable, so a single new link cannot flip a warning. Community detection, burned in three prior generations for unstable community identity, is reopened only to propose missing domains and to seed a registry, never as retrieval state and never driving a per-page flag; it uses a deterministic-by-construction agglomeration rather than a randomized library so repeat runs stay byte-identical. Refuted alternative: run community detection for the per-page misfile signal too, for one uniform mechanism — rejected on the exact failure prior generations hit, where a one-edge change flips a page's community and thus its warning, producing noise reviewers learn to ignore.
+
+### 2026-08-04 — #220 — Reciprocal link from finding-severity
+
+Mechanical reciprocity fan-out: the finding-severity page names this report as the other never-blocking channel the drain reads, and records why the new capacity advisories were kept inside validation rather than folded in here — the advisory and the blocking bound are the same measurement on the same region, and this report is gated on a registry that not every store has.
