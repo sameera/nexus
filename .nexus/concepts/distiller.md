@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record"]
-last_updated_by: "#170"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity"]
+last_updated_by: "#220"
 status: active
 verification: verified
 ---
@@ -13,14 +13,14 @@ The distiller drains queue entries into the concept store — what changed from 
 
 ## How It Works
 
-It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area alike. For each it recomputes the diff from history, resolves the why by precedence, and maps both to per-concept deltas. An entry absent from the trunk is gated on its recorded range head reaching the trunk or resolving to a merged pull request, never on a file's presence. A lost entry is rebuilt on explicit request from its close comment. It writes the store only through the merge consuming each entry.
+It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area alike. For each it recomputes the diff from history, resolves the why by precedence, and maps both to per-concept deltas. An entry absent from the trunk is gated on its recorded range head reaching the trunk or resolving to a merged pull request, never on a file's presence. A lost entry is rebuilt on explicit request from its close comment. Its reciprocity step never drops, demotes, or compresses an interaction to fit a page — an interaction too large for one bounded bullet is declared as two edges — and it splits a page only when the page's own content overflows. It writes the store only through the merge consuming each entry.
 
 ## Key Invariants
 
 1. It is the single producer of the concept store.
 2. The what is the recomputed, never-stored diff; the why is the hash-verified record issue body, else the committed decision record, else the close record; a mismatch hard-errors with no waiver.
 3. Judgment is the model's; the reciprocity, anchor, and validator steps are deterministic.
-4. A validation failure blocks the apply; a failing page is never shipped.
+4. ~~A validation failure blocks the apply; a failing page is never shipped.~~ A blocking validation result stops the apply and a failing page is never shipped; an advisory never blocks and is carried to the reviewer.
 5. It infers the concept mapping itself — the pipeline emits no structured concept list.
 6. Draining is a manually-invoked curated step, not an automated trigger; recovery from a closed epic issue is an explicit per-entry request, never a discovery scan.
 7. Input is only gated entries and the recomputed diff, never plans or ungated capture; decision-only memos drain diff-less into logs.
@@ -42,6 +42,8 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [record-digest](record-digest.md) — the verification gating that fetch.
 - [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored entries it also discovers and drains.
 - [durable-close-record](durable-close-record.md) — the close comment a lost entry is rebuilt from.
+- [concept-page-capacity](concept-page-capacity.md) — the cap it applies, and the only condition under which it splits a page.
+- [finding-severity](finding-severity.md) — the two-class validation result it gates on by exit status alone.
 
 ## Decision Log
 
@@ -104,3 +106,7 @@ With the decision record living on an approvable sub-issue, the drain's why sour
 ### 2026-07-31 — #170 — The drain reaches past the committed queue: ephemeral entries and issue recovery
 
 With a local close's artifacts now version-ignored, the drain gained three capabilities on the same model rather than a parallel one: it discovers ephemeral entries beside committed ones, it derives an ephemeral entry's consumption from the store at the trunk instead of from a deletion it cannot perform, and — on an explicit per-entry request — it rebuilds a lost entry from the epic issue's close comment, whose stamped block carries the record reference, hash, conformance verdict, and landed range. The file-presence merge proxy was replaced for any entry absent from the trunk by range-head reachability with a merged-pull-request second test, because a local close stamps its pre-merge branch tip and a squash or rebase merge means that commit never becomes a trunk ancestor — reachability alone would report every squash-merged local epic as not-merged and train the operator to waive the gate. Refuted alternative: scan closed epic issues for undistilled close comments on every run — it would make drain health genuinely complete, seeing epics closed but never drained, which nothing sees today, but it costs an unbounded issue query per drain, adds a network failure mode, and would surface every historically-closed epic on its first run.
+
+### 2026-08-04 — #220 — A drain can always declare a real interaction
+
+Every surface that once let the cap justify losing an edge was rewritten. The reciprocity step now states that it never drops, demotes to prose, or compresses an interaction, and that an interaction it cannot state within the per-entry bound is two interactions to be declared as two edges — otherwise the new bound would simply relocate the old pressure one level down. The split path and the eviction of last resort both fire on own-content overflow alone, so a long neighbour list is never a reason to cut a page up. The blocking rule changed with them: the drain used to treat any printed finding as fatal, which would have made the first advisory stop a drain with nothing to fix, so it now gates on the exit status alone. Refuted alternative: keep the printed-output rule and have the checks stay silent about anything non-fatal — it needs no change here at all, but it throws away exactly the signals a reviewer wants and leaves the drain's gate a heuristic over text.
