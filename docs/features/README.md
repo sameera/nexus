@@ -43,6 +43,7 @@ python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query --form ex
 | [Multi-Repo Workspaces](multi-repo-workspaces/README.md)                   | The pipeline across code repos plus a hub docs repo.                              |
 | [Pipeline Command Surface](pipeline-command-surface/README.md)             | The names and surfaces of the Nexus slash commands.                              |
 | [PR-Driven Delivery](pr-driven-delivery/README.md)                         | Conformance, closure, and distillation against a merged pull request.            |
+| [Pre-Epic Discovery](pre-epic-discovery/README.md)                         | Discovery of foggy initiatives into resolved decisions and backlog stubs.        |
 | [Queue Scratch Capture](queue-scratch-capture/README.md)                   | In-flight decision scratch as committed per-user subdirs in the queue entry.      |
 | [Server Platform](server-platform/README.md)                               | The server/runtime foundation the shell and terminal features sit on.             |
 | [Terminal Integration](terminal-integration/README.md)                     | A local PTY-over-WebSocket bridge and a real terminal mounted in Prime.           |

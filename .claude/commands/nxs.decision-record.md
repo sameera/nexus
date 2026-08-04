@@ -2,7 +2,7 @@
 name: nxs.decision-record
 description: Add the architectural decision record to a planned epic — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch; with `--revise` it reopens an approved record, records what it supersedes, updates it, and re-closes it. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
-tools: Read, Grep, Glob, Write, Bash, Task, AskUserQuestion
+tools: Read, Grep, Glob, Write, Bash, Task, Skill, AskUserQuestion
 model: inherit
 ---
 
@@ -62,6 +62,17 @@ a free-text prompt the user has to read and type a reply to. Render any context 
 `AskUserQuestion` with one option per choice (a short label plus a one-line description of its
 effect). This renders one selectable option per line in both the VS Code extension and the terminal.
 The user can always pick "Other" for a custom answer.
+
+## Prose convention — human-facing artifacts
+
+Before formatting the record (Phase 3), invoke the **`nxs-prose-style`** skill (Skill tool); its
+authoring rules stay in force for the rest of the run. It governs the record body — the summary,
+chosen approach, key decisions and refuted alternatives, invariants, and risks — and, in a
+revision, the Phase 4.5 supersession comment's *what changed* / *why* prose (never the embedded
+superseded body, which is quoted verbatim). Run its self-review pass on `<scratch>/record-body.md`
+before Phase 4 (or 4.5) files it. The skill governs sentence-level language only — the template's
+section rules, the C5 whitelist, the coverage requirement, and the no-frontmatter /
+no-machine-comment contract take precedence over it.
 
 Run the phases in order.
 

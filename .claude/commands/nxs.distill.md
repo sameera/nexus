@@ -2,7 +2,7 @@
 name: nxs.distill
 description: Drain the queue — committed entries and same-sitting ephemeral .nexus/tmp entries alike — into the concept store via a reviewed distillation-PR. Reads each closed queue entry (epic + close record) plus the epic's decision record — fetched from its record sub-issue and verified against the hash stamped at close — plus the recomputed merged diff, synthesizes per-concept deltas, runs the deterministic steps (touches-reciprocity fan-out, code-anchor refresh, validator), then — after a checkpoint — opens the distillation-PR. Never writes .nexus/concepts/ on main; consumed queue entries are deleted only when that PR merges.
 category: engineering
-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
+tools: Read, Grep, Glob, Write, Edit, Bash, Skill, AskUserQuestion
 model: inherit
 ---
 
@@ -41,6 +41,18 @@ free-text prompt. Render the delta digest first as ordinary markdown, then call 
 with one option per choice. The user can always pick "Other" for a custom answer. The Phase 6.1
 taxonomy gate (epic #94, STORY-94.01) follows the identical convention — one `AskUserQuestion`
 per forced-fit concept, exactly three rendered options, "Other" still available.
+
+# Prose convention — human-facing artifacts
+
+Before synthesizing the deltas (Phase 3), invoke the **`nxs-prose-style`** skill (Skill tool);
+its authoring rules stay in force for the rest of the run. It governs every human-facing prose
+surface this run writes: concept-page prose (the Summary, How It Works, invariants, the
+interaction line on each Integration Points bullet, and Decision Log entries) and the
+distillation-PR body's per-concept *What changed* / *Why* lines. Run its self-review pass on the
+changed pages before the Phase 5 validator and on the PR body before Phase 7 opens the PR. The
+skill governs sentence-level language only — the §8.3 boundary, the 400-word cap, the stored
+delta form, and every deterministic-step contract take precedence over it, and machine blocks,
+frontmatter, and quoted material are never reworded.
 
 # User Input
 
