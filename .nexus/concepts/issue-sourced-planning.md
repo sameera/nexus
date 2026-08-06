@@ -1,8 +1,8 @@
 ---
 title: "Issue-Sourced Planning"
 aliases: ["issues as source of truth", "epic resolver", "materialized epic", "resolve from issue number", "no-commit planning", "epic-meta round-trip"]
-touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity"]
-last_updated_by: "#139"
+touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub"]
+last_updated_by: "manual"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ At approval the epic stage files the epic issue and its story sub-issues as chil
 - [workspace-resolution](workspace-resolution.md) — selects the resolver's target: hub issues, else the local repo.
 - [decision-record](decision-record.md) — the record sub-issue classified record-positively and reported beside the stories.
 - [story-identity](story-identity.md) — the per-story naming and withdrawal rules this resolver renders.
+- [backlog-stub](backlog-stub.md) — the unplanned epic this resolver refuses by name, rather than emitting one whose story set is empty.
 
 ## Decision Log
 
@@ -49,3 +50,7 @@ Filing the decision record as a sub-issue of the epic made the sub-issue set het
 
 Mechanical reciprocity fan-out: the story-identity page names this resolver as what renders a
 story's issue-number identity and drops a withdrawn one from the materialized epic.
+
+### 2026-08-06 — manual — Reciprocal link from backlog-stub
+
+Mechanical reciprocity fan-out: the backlog-stub page names this resolver's refusal — an epic carrying the unplanned label is rejected by name rather than reconstructed into an epic that plans nothing. Declared by hand because both epics involved had already drained; the edge was dropped at distillation only because a reciprocal bullet did not fit under the pre-#220 body cap.
