@@ -255,3 +255,78 @@ Squash and merge-commit strategies remain unmeasured because this repo has never
 the merge button across the next three real PRs — one squash, one merge commit, one single-commit
 rebase — and re-run the table above against each. That closes the remaining coverage at the cost of
 three button clicks, with no scratch repo and no new credential scope.
+
+---
+
+## Run 2026-08-06 — read-only, single-commit rebase slot (#135)
+
+- **toolchain commit:** `d8a32481d82e561d53480b463b0f87347ba17fa8` (`libs/pr-worktree/src/range.ts`
+  unchanged since `4e73970ce075ef9c1477d2686c231058ab6e5495`, 2026-07-20; `libs/` clean at run time)
+- **scratch repo:** none — measured against `sameera/nexus` itself
+- **operator:** sameera
+- **method:** same as Run 2026-07-25 — read-only `git` and `gh` against already-merged pull
+  requests. No repository created, no branch pushed, no scope granted. Every fetched ref was
+  deleted after use.
+
+### What this run measures
+
+The **single-commit rebase** slot from #135. A PR that lands as one commit takes the unambiguous
+branch at `libs/pr-worktree/src/range.ts:84` (`parentCount >= 2 || pr.commitCount <= 1`), so the
+derived base is `mergeCommit^1` with no verification loop. The claims to check live: that base
+reproduces the PR's authoritative changed-file set, is an ancestor of the merge commit, and yields
+a non-empty three-dot diff. Two qualifying PRs existed since the last run; both were measured.
+
+### Merge-method evidence
+
+Rebase and squash are indistinguishable by topology for a one-commit PR, so the method was
+established from the merge commit itself: for both PRs the merge commit's **full message is
+byte-identical** to the PR head commit's message (a squash merge would have appended ` (#N)` to
+the title), the author is preserved, and the committer is the merger — the rebase-merge signature,
+and consistent with every other merge in this repo's history.
+
+### Verdicts
+
+| Stage | Verdict |
+|---|---|
+| range: rebase (single-commit) | **PASS** — 2/2 |
+| range: post-branch-delete head reachability (single-commit) | **PASS** — 1/1 (#191's branch is deleted) |
+| range: squash-of-N | NOT EXERCISED — still no squash merge in this repo's history (see *Follow-up*) |
+| range: merge commit | NOT EXERCISED — still none in this repo's history (see *Follow-up*) |
+
+### Observations
+
+For each PR: `authoritative` = `git diff --name-only baseRefOid...pull/<N>/head`, queue paths
+excluded; candidate = `mergeCommit^1...mergeCommit`, same exclusion — the base the unambiguous
+branch stamps.
+
+| PR | commits | branch still on remote | `pull/<N>/head` fetch | files | `merge^1` vs authoritative |
+|---|---|---|---|---|---|
+| #236 | 1 | yes | OK | 13 | **MATCH** |
+| #191 | 1 | **no** | OK | 7 | **MATCH** |
+
+In both, the stamped base `mergeCommit^1` equalled the PR's `baseRefOid` exactly, is an ancestor of
+the merge commit, and the three-dot diff is non-empty — every assertion the #135 acceptance
+criterion names:
+
+| PR | `mergeCommit` | `mergeCommit^1` | `baseRefOid` |
+|---|---|---|---|
+| #236 | `74c162838ed7271fddd9f183d5ebb116c37a5526` | `ca9e867369d97d42a5eb290214b10ad47fd91789` | `ca9e867369d97d42a5eb290214b10ad47fd91789` |
+| #191 | `3735d95a7809a206da7a54f8a7fd7a26a643bb99` | `9a00be8a6eb3ccb9a8fa8b90a3886f363099959a` | `9a00be8a6eb3ccb9a8fa8b90a3886f363099959a` |
+
+#191 also extends the post-branch-delete reachability evidence to the single-commit path: its head
+branch (`distill/2026-08-01-epic-178`) is gone from the remote and `pull/191/head` still fetched.
+
+### Divergences from the injected-runner tests
+
+None — zero divergences observed.
+
+| # | What the unit tests assume | What live GitHub did | Filed as |
+|---|---|---|---|
+| — | — | — | — |
+
+### Follow-up
+
+Squash-of-N and merge-commit remain the two open slots in #135. Every multi-commit PR merged since
+the last run (#177, #217, #234 among them) was also rebase-merged — verified by parent-of-merge
+message comparison, so none qualifies retroactively. Squash-merge the next **multi-commit** PR and
+merge-commit-merge any PR after that, then re-run the table against each.
