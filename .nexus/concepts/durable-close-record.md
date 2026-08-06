@@ -1,8 +1,8 @@
 ---
 title: "Durable Close Record"
 aliases: ["close comment", "durable close rationale", "close machine block", "closing rationale"]
-touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest"]
-last_updated_by: "#170"
+touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub"]
+last_updated_by: "manual"
 status: active
 verification: verified
 ---
@@ -32,9 +32,14 @@ The close stage always posted its rationale onto the epic issue; that side effec
 - [distiller](distiller.md) — rebuilds a lost entry's rationale, record reference, and range from this comment.
 - [conformance-gate](conformance-gate.md) — the verdict, waiver included, that the stamped block carries onto the issue.
 - [record-digest](record-digest.md) — the approved-body hash stamped in full beside the record reference.
+- [backlog-stub](backlog-stub.md) — the deferred-scope issues filed before this comment is composed, whose numbers and backlog query it then carries.
 
 ## Decision Log
 
 ### 2026-07-31 — #170 — The epic issue's close comment is the durable close record
 
 Promoting the close comment from an incidental side effect to the definition of the durable record is what lets the close-record file become disposable hand-off content: the comment already ran in every mode and already inlined the closing prose, so the unrecoverable-local-entry problem resolves without inventing a surface. A small stamped block was added beside the prose because prose cannot recover the landed range, the record hash, or the conformance verdict — facts a later drain needs and that are authoritative rather than recomputable; the same shape already appears on published conformance reviews, and stamping it here is a deliberate exception to keeping machine blocks off human surfaces, justified because the human has just approved these facts at the closure checkpoint. Refuted alternative: keep the file as the durable artifact and commit it in local mode too, mirroring the born-at-close mechanism the pull-request flow uses — it reuses a mechanism that already exists and needs no fallback path at all, but the local flow has no pull request of its own to carry that commit to the trunk, so it either forces a manual commit and push of a throwaway file, the exact friction this removes, or invents a second distillation-branch flow for the non-pull-request path.
+
+### 2026-08-06 — manual — Reciprocal link from backlog-stub
+
+Mechanical reciprocity fan-out: the backlog-stub page names the ordering this comment imposes — deferred scope is filed as stub issues after the checkpoint and before the comment is composed, because the comment carries those numbers and the backlog query that finds them. Declared by hand because both epics involved had already drained; the edge was dropped at distillation only because a reciprocal bullet did not fit under the pre-#220 body cap.

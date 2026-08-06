@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree"]
-last_updated_by: "#178"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub"]
+last_updated_by: "manual"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [nexus-setup-cli](nexus-setup-cli.md) — exposes the hub defaults through a read-out seam.
 - [decision-record](decision-record.md) — its record marker and gate labels are keys this resolver alone supplies.
 - [pr-worktree](pr-worktree.md) — its base is one more declared key.
+- [backlog-stub](backlog-stub.md) — the unplanned label and the stub's epic classification are two more keys only this resolver supplies.
 
 ## Decision Log
 
@@ -51,3 +52,7 @@ The decision-record marker and the two design-gate labels joined the declared bl
 ### 2026-08-01 — #178 — A hub-defaultable key needs two registrations, and the block now carries a directory
 
 Two facts landed with the worktree-base key. First, the block's scope widened: it now carries a local filesystem directory, not only publishing targets. That was chosen over a dedicated section for machine-local settings because membership here is what buys the precedence chain, the hub layer, the resolver interface, and the existing tests — all already built; a new section would have to rebuild each one for a single key. Second, this page's earlier claim that one key map is the block's single schema was too strong, and the drift it was meant to rule out is already live: the hub manifest validator carries an independent allowlist that rejects unlisted keys outright, and four record- and design-related keys sit in the resolver map but not in that allowlist, so a hub declaring any of them fails validation today. A key must therefore be registered in both surfaces or one of the two configuration paths fails silently; the new key was registered in both and pinned there by a test. Refuted alternative: fold the allowlist into the resolver map so the single-schema claim becomes true — the better end state, but it changes validation for every existing key and belongs in its own change; the four pre-existing gaps went to the backlog instead.
+
+### 2026-08-06 — manual — Reciprocal link from backlog-stub
+
+Mechanical reciprocity fan-out: the backlog-stub page names this resolver as the sole supplier of the unplanned label and of the epic classification the batch filing path stamps on a stub, neither of which is ever hard-coded by a writer. Declared by hand because both epics involved had already drained; the edge was dropped at distillation only because a reciprocal bullet did not fit under the pre-#220 body cap.

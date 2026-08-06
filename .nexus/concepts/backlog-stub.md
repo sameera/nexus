@@ -1,8 +1,8 @@
 ---
 title: "Backlog Stub"
 aliases: ["backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "cross-feature backlog", "deferred scope filing"]
-touches: ["epic-approval-gate"]
-last_updated_by: "#185"
+touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record"]
+last_updated_by: "manual"
 status: active
 verification: verified
 ---
@@ -28,9 +28,16 @@ Two writers create stubs: the epic stage when scope exceeds one epic, and the cl
 ## Integration Points
 
 - [epic-approval-gate](epic-approval-gate.md) — what oversized scope becomes, and what a promotion re-enters this gate as.
+- [publishing-config-resolution](publishing-config-resolution.md) — supplies the unplanned label and the classification the batch filing path stamps, as resolved keys rather than hard-coded values.
+- [issue-sourced-planning](issue-sourced-planning.md) — its resolver refuses an unplanned epic by name instead of emitting one whose story set is empty.
+- [durable-close-record](durable-close-record.md) — carries the numbers deferred scope was filed under, so the stubs are filed before that comment is composed.
 
 ## Decision Log
 
 ### 2026-08-02 — #185 — A stub is an epic born unplanned, and its number survives promotion
 
 Deferred and oversized scope stopped being markdown blocks in per-feature committed files and became epic issues marked unplanned, because a stub already is an epic — a functional goal sized at or below the epic ceiling, destined to become exactly one epic. Modelling it as its own kind would force every consumer to learn a third species and would answer the classification question twice, once per classification mode, where no suitable issue type exists and none can be minted without organisation-level administration. The identity consequence is the load-bearing one: because promotion populates the issue in place rather than creating a successor, every reference written when the scope was deferred — a dependency edge between siblings, a mention from the epic that spawned it, a line in a sequencing table — stays valid for the life of the work instead of being orphaned the moment the stub is promoted. Retiring the per-feature files collapses the backlog to one query and its exclusion to one negated filter; carrying that negation on every epic-enumerating query is the accepted price of the durable identity, named here rather than discovered later as a defect. Refuted alternative: a distinct backlog kind with its own label and its own issue type — it reads cleanly in a triage list and keeps unplanned work out of the epic query by construction, but the issue type cannot be created where the organisation has not defined one, so that mode degrades to filing stubs unmarked, and it forces a second identity at promotion, orphaning every reference to the first. Refuted alternative: create the epic fresh and close the stub as completed naming its successor — needs no change to the filing path, but it reintroduces an identity hop on every promotion and leaves a permanent trail of closed placeholders every reader and every dependency edge must indirect through.
+
+### 2026-08-06 — manual — Three interactions the cap had suppressed become declared edges
+
+When this page was distilled, three real interactions were left as prose rather than declared as edges: the resolver that supplies the unplanned label and the stub classification, the epic resolver that refuses an unplanned epic by name, and the durable close comment that names the numbers deferred scope was filed under. None of the three was a judgement about the concept. Each neighbour sat within two words of the body cap, a reciprocal bullet cost more than the headroom, and compressing still-true content on a neighbour to make room is not a legal move — so the drain dropped the edges and recorded them in prose, flagging the loss for review. Epic #220 re-cut the cap to measure a page's own content and to bound the neighbour list per entry, which removed the constraint entirely: the fan-out can no longer fail, and a real interaction is always declarable. The three edges are declared here by hand, since both epics had already drained and there was no queue entry left to carry them. Refuted alternative: leave the relationships as prose and let the next drain touching one of the four pages declare them — it keeps the store single-writer, but it makes blast-radius retrieval on this page wrong for as long as no such drain happens, which is exactly the silent degradation the flag was raised about.
