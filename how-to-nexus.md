@@ -24,14 +24,15 @@ The long-term memory is the **concept store**: one distilled page per concept, h
 ## The Pipeline in Plain English
 
 ```
-setup → epic → decision record → (implementation) → analyze → close → distill
+setup → (discover when foggy) → epic → decision-record → analyze → close → distill
 ```
 
-The planning and gating stages are run by product / the lead. Implementation in the middle belongs to engineers. Each stage is a separate conversation, and that separation is the feature: you look at fewer decisions at a time.
+The planning and gating stages are run by product / the lead. Implementation sits between the decision record and analyze and belongs to engineers. Each stage is a separate conversation, and that separation is the feature: you look at fewer decisions at a time.
 
 | Stage | Command | The human decision it forces |
 | ----- | ------- | ---------------------------- |
 | Setup | `/nxs.setup` | What is this product, and what are its standards? (once) |
+| Discover | `/nxs.discover` | What has to be decided before this can even be scoped? (only when foggy) |
 | Epic | `/nxs.epic` | Is this the right scope, cut into the right stories? |
 | Decision record | `/nxs.decision-record` | Can we live with this design? |
 | Analyze | `/nxs.analyze` | Does the build match what we promised? |
@@ -44,6 +45,25 @@ The planning and gating stages are run by product / the lead. Implementation in 
 
 One-time project bootstrap. It auto-detects the stack, generates the system docs and standards, then runs a short interview — at most five strategic questions — to build the product context. Judgment applied once, up front, so every later stage has something real to ground in.
 
+## Step 0.5: `/nxs.discover` — Only When the Initiative Is Foggy
+
+Skip this stage unless you need it. Most intent goes straight to `/nxs.epic`.
+
+You need it when the initiative is **underspecified**, which is not the same as **oversized**:
+
+- **Oversized** — big but clear. You could list the goals today; there are just too many for one epic. `/nxs.epic` handles this: it cuts the scope into backlog stubs.
+- **Underspecified** — foggy. The split itself hangs on decisions nobody has made. Slicing it into work-shaped stubs now would be a guess dressed up as a plan.
+
+Discovery is a **multi-session loop**, and its unit is the **decision ticket** — a question whose resolution is a decision, never a slice of build work. Each session claims one open ticket, resolves it through the machinery Nexus already has (research agents, a PM interview, a council on a contested trade-off), records the resolution, and stops. One decision per session, one commit per decision, so the commit history reads as the decision history.
+
+The loop ends at one destination and no other: **every functional goal is sharp enough for `/nxs.epic` to file** — a one-line goal, a small estimate, candidate story titles. A suspicion you can't yet phrase as a question waits in "Not yet specified" until some resolution makes it statable. Work ruled beyond the destination goes to "Out of scope" and never comes back.
+
+A discovery is **shared by ordinary git operations**. Push it to a fork, hand it to the domain expert who can actually answer question three, pull their resolution back. There is no review gate, no approval command, and no rule about who may start, resume, or graduate one. That matters because discovery is the stage most likely to need more than one person.
+
+**Discovery writes nothing to GitHub** — no issue, no comment, no label, at any point in its life. The issues appear when `/nxs.epic --discovery <folder>` consumes the finished discovery and files its goals through the same path every other stub goes through. A discovery whose resolutions conclude that *no build follows* ends with `/nxs.discover --close`, which writes a dated lessons note and removes the folder in one commit.
+
+*First iteration:* the store is a committed folder under `.nexus/discovery/`, holding a discovery doc and one file per decision ticket.
+
 ## Step 1: `/nxs.epic` — Stop and Define the Problem
 
 You bring natural-language intent: "We need audit logging for compliance." No feature brief required.
@@ -55,6 +75,7 @@ The output is a right-sized epic with user stories and acceptance criteria. Appr
 Two things keep the epic honest:
 
 - **Oversized scope gets cut, not carried.** Anything that doesn't belong in this epic becomes a backlog stub issue instead of inflating the scope.
+- **Underspecified scope gets referred, not sliced.** Before it sizes anything, `/nxs.epic` checks whether each functional goal can actually be stated. If they can't, it stops, recommends `/nxs.discover`, and files nothing — with an override, because that call is yours.
 - **Nothing is committed to the repo at planning.** The issues are the source of truth. Any stage that later needs the epic as a file reconstructs it deterministically from the issue number.
 
 ### The backlog is one query
