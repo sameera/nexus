@@ -1,6 +1,6 @@
 ---
 name: nxs.discover
-description: Run pre-epic discovery on a foggy initiative as a multi-session loop over a committed store. Starts a discovery by naming its destination, then writes one decision ticket per open decision. Writes nothing to GitHub — the results graduate through /nxs.epic.
+description: Run pre-epic discovery on a foggy initiative as a multi-session loop over a committed store. Starts a discovery by naming its destination and writing one decision ticket per open decision, resumes it one decision at a time, and closes it when the resolutions conclude that no build follows. Writes nothing to GitHub — a discovery that does conclude a build graduates through /nxs.epic --discovery.
 category: planning
 tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill, AskUserQuestion
 model: inherit
@@ -437,6 +437,81 @@ Report:
 
 ---
 
+# Action: close — end a discovery that concluded no build follows
+
+This is the **terminal act for one outcome only**: every decision is resolved, and the resolutions
+concluded that **no build follows**. It is the outcome `/nxs.epic` never sees, because no epic and no
+stub is ever filed, so without this action it would have no home at all — and there are no stubs on
+this path to carry the reasoning.
+
+**A discovery that concluded a build does follow is not closed here.** It graduates:
+`/nxs.epic --discovery <folder>`. Do not force a stub to make the discovery closable.
+
+## Phase C0 — Confirm the outcome (MANDATORY STOP)
+
+1. `--close <folder>` takes the discovery folder. Read `discovery.md` and every ticket file.
+2. Every ticket must have `status: resolved`. If any is open, report it **by title** and stop — an
+   unresolved question is not a no-build conclusion.
+3. Render the destination, the full resolved-decisions index, and the conclusion you have drawn from
+   the resolutions in one or two sentences: **why no build follows**. Then ask via
+   `AskUserQuestion`:
+
+    | Option | Action |
+    |--------|--------|
+    | **close** | Write the lessons note and remove the folder, in one commit. Irreversible in the tree, recoverable from the log. |
+    | **graduate** | Stop instead, and run `/nxs.epic --discovery <folder>` — a build does follow. |
+
+    **Do not remove anything without an explicit `close`.**
+
+## Phase C1 — Write the lessons note
+
+Resolve `<docs-root>` as Phase 0 does, then write **one** note:
+
+```
+<docs-root>/delivery/lessons/<YYYY-MM-DD>-<slug>.md
+```
+
+That folder already holds dated outcome notes written by a pipeline stage, so this introduces no new
+convention. The note is the **only durable carrier** of everything this discovery learned, so it
+carries all three of:
+
+```markdown
+# <Initiative> — discovery closed, no build
+
+## Destination
+
+<the destination, verbatim>
+
+## Resolved decisions
+
+<the resolved-decisions index in full — every line, copied>
+
+## Conclusion
+
+<why no build follows, in the words confirmed at the gate>
+```
+
+Copy the index **in full**. Nothing durable may link into the discovery store, because the folder
+stops existing in the next step.
+
+## Phase C2 — Mark the doc closed, remove the folder, commit
+
+In one commit: set `status: closed` in `discovery.md`'s frontmatter with the conclusion recorded
+under the destination, then remove the folder and add the note.
+
+```bash
+git rm -r .nexus/discovery/discover-<slug>-<key>
+git add <docs-root>/delivery/lessons/<YYYY-MM-DD>-<slug>.md
+git commit -m "discover: close <initiative> — no build follows"
+```
+
+Writing the note and removing the folder in the **same commit** makes the trade atomic on merge, so
+the record cannot be deleted without its replacement landing.
+
+**Never push.** Report the note's path, the conclusion, and the commit.
+
+---
+
 # Store file shapes
 
 ## The discovery doc — `discovery.md`
@@ -516,7 +591,11 @@ different files and conflict nowhere except the shared index, where both sides a
 ```
 /nxs.discover <intent text>          # start a discovery on a foggy initiative
 /nxs.discover --resume <folder>      # claim and resolve one open decision, then stop
+/nxs.discover --close <folder>       # end a discovery whose resolutions concluded no build follows
 ```
+
+A discovery whose resolutions **do** conclude a build graduates instead, through the one command
+that files issues: `/nxs.epic --discovery <folder>`.
 
 # Constraints
 
@@ -540,4 +619,7 @@ different files and conflict nowhere except the shared index, where both sides a
   staleness threshold. A takeover is recorded.
 - **An interview-typed ticket resolves only through live human exchange.** The agent never supplies
   the human's side of it.
+- **The folder is removed by exactly two acts:** closing a discovery with no build, or a human
+  removing it after graduation. No stage is taught to drain it, and `/nxs.epic` never removes it.
+- **Closing with no build writes its lessons note in the same commit that removes the folder.**
 - **Human-facing output names a ticket by its title**, never by a bare filename.
