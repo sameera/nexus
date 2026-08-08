@@ -41,6 +41,10 @@ Empty input is an error: ask the user for a capability description (or a stub's 
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
 - **Nothing is committed at planning — GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; and at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer born here — it is born at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage reconstructs the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label (#185), so the feature tree carries no re-triage queue at all.
+- **Underspecified scope is referred to discovery, not answered with stubs.** The right-size phase
+  tests sharpness before it measures size. An intent whose functional goals cannot be stated stops
+  there and recommends `/nxs.discover`, with an explicit override. Big-but-clear is a different
+  problem and keeps the decomposition path below.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal — an epic identified but not yet planned, carrying the epic classification plus the unplanned label; the full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion.
 - **A finished discovery graduates here.** `/nxs.discover` resolves decisions and writes nothing to
   GitHub; `--discovery <folder>` turns those resolved decisions into issues through the very same
@@ -197,6 +201,60 @@ The container must exist before writing: the feature nav index (written at filin
 Before generating any epic content, assess the scope yourself using the rubric below. This is a
 judgment step — read `<docs-root>/product/context.md` and `<docs-root>/system/stack.md` (the
 `<docs-root>` resolved in Phase 0) if present to calibrate against existing patterns.
+
+### Sharpness precondition — is this intent underspecified? (intent mode only)
+
+**This runs before sizing**, because sizing an intent nobody can state is a guess dressed as a
+measurement. It distinguishes two different problems that the size rubric alone cannot tell apart:
+
+- **Oversized** — big but clear. The split is knowable now. The L/XL/XXL path below handles it.
+- **Underspecified** — foggy. The split itself hangs on decisions nobody has made, so pre-slicing it
+  into work-shaped stubs is speculative over-generation.
+
+**The test is the stub shape itself.** Attempt the decomposition below and ask: can **each**
+functional goal be stated as a one-line goal, with an S or M estimate, and with candidate story
+titles? If decomposition cannot produce that shape, the intent is **underspecified**, not merely
+oversized. The test adds no new machinery, because that shape is already the output the decomposition
+step must produce.
+
+**When does this fire.** Intent mode only. In **promotion mode** and **discovery mode** the gate does
+**not** fire: a promoted stub was already discovered, and a consumed discovery is the output of the
+very thing this gate refers people to, so firing there would deadlock the work discovery itself
+produced. It lives inside this phase rather than as a phase of its own precisely so it inherits that
+skip rule instead of needing its own exemption.
+
+**If the goals are sharp** — every one of them — this precondition adds **no interaction at all**.
+Say nothing about it and continue to the sizing rubric below. A sharp, right-sized intent must see
+exactly the run it sees today.
+
+**If they are not**, stop before sizing. Render the assessment, then ask via `AskUserQuestion`:
+
+```markdown
+## ⚠️ Underspecified — the split isn't knowable yet
+
+This intent cannot be decomposed into stated goals. What is missing is not size, it is decisions:
+
+| Functional goal (attempted) | What blocks stating it |
+|---|---|
+| … | … |
+
+Nexus answers this with discovery, not with stubs. `/nxs.discover` resolves the open decisions one
+at a time and ends when every goal is sharp enough to file — then `/nxs.epic --discovery` files them.
+
+**Options** (asked via `AskUserQuestion` — see the interaction convention):
+
+| Option | Action |
+|--------|--------|
+| **discover** | (recommended) Stop here and run `/nxs.discover <intent>`. Nothing is filed. |
+| **override** | Size and plan this intent anyway, on the existing path below. |
+```
+
+- **discover** → stop. **File nothing.** Report the command to run.
+- **override** → continue to the sizing rubric below, unchanged.
+
+**Nothing is filed before the lead chooses.** The override exists because the sharpness call is a
+judgement the lead owns: a hard refusal would make a false positive unrecoverable, leaving the lead
+to reword the intent until the model relented.
 
 ### Sizing rubric
 
