@@ -182,6 +182,40 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
     This is the only deliberate way to reach "this epic legitimately has no record" — which is also
     the only state in which `/nxs.analyze` may run in its degraded no-invariant mode.
 
+## Phase 0.4 — Read the discovery gists off the epic issue
+
+An epic that came from a `/nxs.discover` discovery carries the decisions that discovery resolved, as
+comments on the epic issue written when the discovery graduated. Read them **before** analysing, so
+the record is designed on top of what was already settled instead of re-deriving it.
+
+This is the **only** change discovery makes to this command. It runs on every path (normal, import,
+and revision) and needs no flag — the epic issue either carries marked comments or it does not.
+
+1. Fetch the epic issue's comments and keep **only** the ones whose body contains the marker
+   `<!-- nexus:discovery-gists -->`:
+
+    ```bash
+    gh issue view <epic-issue> $REPO_ARG --json comments \
+        --jq '[.comments[] | select(.body | contains("<!-- nexus:discovery-gists -->")) | .body]'
+    ```
+
+    `$REPO_ARG` is the resolved issues-repo from Phase 0.2 — the epic issue may not live in the repo
+    this command runs from.
+
+2. **No marked comment** → this epic did not come from a discovery. Continue exactly as today: no
+   new prompt, no new question, and **no empty section** anywhere in the record. Skip the rest of
+   this phase.
+
+3. Otherwise keep the collected gists as **`DISCOVERY_GISTS`** for Phase 1.
+
+**Only marked comments are read.** An epic issue accumulates ordinary discussion, and feeding all of
+it to the architect degrades the input. Capturing an out-of-band decision comment in the general case
+is worth solving on its own terms and is not solved here.
+
+**This command never edits or removes those comments.** It reads them and nothing else. They are the
+copy that survived promotion rewriting the stub body, and they are the only durable carrier of the
+discovery's reasoning once the discovery folder is gone.
+
 ## Phase 0.5 — Load the design doc (import mode only)
 
 **Skip without `--from`.** With `--from <path>`, read the design doc at `<path>` (it lives outside
@@ -218,12 +252,30 @@ a *why*, any choice it made without recording the viable alternative it beat, or
 needs human ratification becomes an **Open Clarification** (the Phase 2 gate) — import never silently
 invents a rationale the doc did not contain.
 
+**Discovery gists (`DISCOVERY_GISTS` from Phase 0.4, when present):** pass them as an
+**authoritative input** alongside the epic and its stories, and tell the architect that these
+decisions are **already settled** — its job is to design on top of them, not to re-decide them.
+
+They **do not replace the analysis**. The architect still designs the epic from scratch and the
+coverage requirement below still applies to every story. This is why the gists do **not** go through
+`--from`: import mode treats its document as *the* design and derives the record from it, whereas a
+gist decides *what* to build and at what scope. A gist settles almost nothing about how the epic is
+built and carries no invariants, which is the part of a record the conformance gate later checks
+against — so routing them through import mode would skip the design work on the grounds that the
+scope work was done.
+
+A gist that **states a decision without its reasoning** becomes an **Open Clarification** for the
+human, exactly as an unexplained decision in an imported design doc does today. Never invent the
+missing *why*.
+
 ```
 Invoke: nxs-architect
 Topic: Decision record for epic "<epic title>"
 Resolved docs root: <docs-root>   # every doc path below is under this; on a repo-root hub it is `.`
 Inputs to read:
 - <IMPORT_DOC path>          # import mode ONLY (--from): the authoritative design doc — primary why source
+- DISCOVERY_GISTS            # when present (Phase 0.4): decisions the discovery already settled —
+                             #   authoritative, already decided, NOT a substitute for this analysis
 - ${QDIR}/epic.md            # the epic and ALL its user stories — authoritative scope
 - <docs-root>/product/context.md    # personas, strategy (reference, don't re-tabulate)
 - <docs-root>/system/stack.md       # technology stack
@@ -563,6 +615,11 @@ Report concisely:
   label, or a status anywhere, and never infer approval from any other signal. Nexus applies no
   permission check of its own: whoever can close the sub-issue is the approver, and the timeline
   records who and when.
+- **Discovery gists are an input, never a substitute.** The marked comments on the epic issue are
+  read as authoritative decisions the discovery already settled, and the command still runs its own
+  architectural analysis and still checks story coverage. It **never edits or removes** those
+  comments, and it reads **only** the marked ones. An epic with no marked comment behaves exactly as
+  it did before: no new prompt, no empty section.
 - **`--from` imports a design doc; it does not copy it.** The doc is the authoritative *why*
   source, but the record it produces is still abstracted domain prose (no code / file paths / type
   names) covering every story, and every decision still carries its *why* — a doc that states a
