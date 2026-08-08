@@ -66,33 +66,44 @@ That division of labor is deliberate:
 ## The Pipeline
 
 ```
-setup → epic → decision record → (implementation) → analyze → close → distill
+setup → (discover when foggy) → epic → decision-record → analyze → close → distill
 ```
+
+Implementation sits between the decision record and analyze; engineers own it.
 
 1. **Setup** (`/nxs.setup`)
     - One-time bootstrap: detect the stack, generate the system standards, interview for product context.
     - Five questions, not fifty. Judgment applied once, up front.
 
-2. **Epic** (`/nxs.epic`)
+2. **Discover** (`/nxs.discover`) — only when the initiative is foggy
+    - **Oversized is not underspecified.** Big but clear is `/nxs.epic`'s job: it decomposes the scope into backlog stubs. Foggy is different — the split itself hangs on decisions nobody has made, so slicing it into work-shaped stubs would be a guess.
+    - A **multi-session loop**. Its unit is the **decision ticket**: a question whose resolution is a decision, never a slice of build work. One decision is resolved per session.
+    - Its output is **functional goals sharp enough for `/nxs.epic` to file** — a one-line goal, a small estimate, candidate story titles. That is the whole destination; nothing else ends a discovery.
+    - A discovery can be **shared by ordinary git operations**. Push it to a fork, hand it to the domain expert who can answer a question, pull their resolution back. No review gate, no approval command, no rule about who may work it.
+    - **Discovery writes nothing to GitHub.** No issue, no comment, no label, at any point. The issues appear when `/nxs.epic` consumes the finished discovery, through the same emission path every other stub goes through.
+    - *First iteration:* the store is a committed folder under `.nexus/discovery/`, holding a discovery doc and one file per ticket.
+
+3. **Epic** (`/nxs.epic`)
     - Natural-language intent in; a right-sized epic with user stories and acceptance criteria out.
     - Approval happens at a decision-grade digest — you approve the decisions, not a wall of prose.
     - On approval, the epic and one issue per story are filed together. Oversized scope is cut into backlog stubs instead of inflating the epic.
+    - If the intent turns out to be underspecified rather than oversized, `/nxs.epic` stops and refers you to `/nxs.discover` instead of filing work-shaped stubs.
 
-3. **Decision record** (`/nxs.decision-record`)
+4. **Decision record** (`/nxs.decision-record`)
     - The focused "why": key decisions with refuted alternatives, invariants, risks. Tiered by complexity — a simple epic gets a short record.
     - Filed as a sub-issue of the epic. Approval is closing that issue. No shadow copies.
 
-4. **Implementation** - engineers build the stories. Nexus stays out of the way.
+5. **Implementation** - engineers build the stories. Nexus stays out of the way.
 
-5. **Analyze** (`/nxs.analyze`)
+6. **Analyze** (`/nxs.analyze`)
     - The conformance gate: does the build do what the planning said?
     - Checks the implemented code against acceptance criteria, success metrics, and the decision record's invariants — and refuses to run against an unapproved record.
 
-6. **Close** (`/nxs.close`)
+7. **Close** (`/nxs.close`)
     - A human-prose close record: what was decided, what deviated and why, what was deferred.
     - Deferred scope becomes backlog issues, not a forgotten section in a document. The epic issue gets a durable close comment and is closed.
 
-7. **Distill** (`/nxs.distill`)
+8. **Distill** (`/nxs.distill`)
     - Drains closed epics into the concept store via a reviewed PR.
     - Per-concept pages are updated with the epic's validated decisions; the temporary planning artifacts are deleted. The record that survives is the one you'll actually read.
 
