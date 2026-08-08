@@ -24,12 +24,16 @@ The text after the slash command is either:
 - **`--from #<issue>`** — pull an epic that is **already filed** as GitHub issues (by Nexus or by
   hand) into a materialized `epic.md`, so downstream stages can run against an epic not planned in
   this session. This is a read-only wrapper over the resolver — it plans nothing and commits nothing
-  (handled up front in Phase 0; the planning phases below do not run).
+  (handled up front in Phase 0; the planning phases below do not run), or
+- **`--discovery <folder>`** — **consume a finished discovery** produced by `/nxs.discover`. The
+  discovery doc is the intent. This is the one path by which a discovery becomes GitHub issues:
+  `/nxs.discover` writes nothing to GitHub, so graduation happens here, through the emission path
+  this command already owns.
 
 The flag selects the operation; it is never inferred from the shape of the argument. A bare number
-always means "plan this epic"; `--from` always means "load this already-planned epic". **Any other
-input is a capability description** — there is no slug lookup, because a stub's issue number is its
-only identifier.
+always means "plan this epic"; `--from` always means "load this already-planned epic";
+`--discovery` always means "consume this finished discovery". **Any other input is a capability
+description** — there is no slug lookup, because a stub's issue number is its only identifier.
 
 Empty input is an error: ask the user for a capability description (or a stub's issue number) and stop.
 
@@ -38,6 +42,10 @@ Empty input is an error: ask the user for a capability description (or a stub's 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
 - **Nothing is committed at planning — GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; and at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer born here — it is born at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage reconstructs the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label (#185), so the feature tree carries no re-triage queue at all.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal — an epic identified but not yet planned, carrying the epic classification plus the unplanned label; the full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion.
+- **A finished discovery graduates here.** `/nxs.discover` resolves decisions and writes nothing to
+  GitHub; `--discovery <folder>` turns those resolved decisions into issues through the very same
+  emission path everything else uses. That is what makes "a discovery-produced stub is accepted
+  unchanged by promotion" true by construction rather than by a third copy of the stub contract.
 - **A stub is an epic issue, so every epic query filters it out.** The whole cross-feature backlog is one query — open issues carrying the unplanned label — and its exclusion is one negated filter. Any query here or downstream that enumerates epics for **planned** work carries that negation; ask for it (`delivery_config.py backlog-query --form exclude`) rather than writing the label by hand. This is the accepted price of a stub keeping its issue number through promotion.
 
 ## Interaction convention — actionable choice gates
@@ -135,6 +143,31 @@ In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable
         ```
 
       The issue must exist, be **open**, and carry the resolved unplanned label. If it does not — closed, no such issue, or already planned — report **why** it is not promotable, name `--from #<n>` as the way to load an already-planned epic instead, and **file nothing**. Otherwise seed Phase 3 from the stub's body: the functional goal, the estimate, and the candidate story-group titles. Read `feature`/`feature_path` from the body's meta block. Skip the right-sizing gate — the stub was already sized ≤ M when it was decomposed. Record `PROMOTE = <n>`.
+
+      **Promotion is unchanged by discovery.** A stub filed from a discovery is promoted with no
+      manual edit: its body carries the decision gists in a `## Decisions this goal hangs on`
+      section, which seeds Phase 3 like the rest of the body and is then rewritten with it.
+      Promotion **neither reads nor moves** the marked gist comment — that comment is the copy that
+      survives the rewrite, and `/nxs.decision-record` is what consumes it later.
+    - `$ARGUMENTS` contains **`--discovery <folder>`** (string-matched, like `--from`) → **discovery
+      mode**. Record `DISCOVERY = <folder>` and resolve it as follows:
+
+        1. Read `<folder>/discovery.md`. If it does not exist, ERROR — that is not a discovery
+           folder. If its `status` is `closed`, ERROR: a discovery closed with no build has nothing
+           to graduate.
+        2. **Precondition — the discovery is finished.** Every `ticket-*.md` in the folder must have
+           `status: resolved`, and `## Not yet specified` must be empty. If either fails, stop and
+           report what is still open **by title**, pointing at `/nxs.discover --resume <folder>`.
+           File nothing.
+        3. The discovery doc is the **intent**: its destination and its resolved-decisions index are
+           the capability description this run sizes. Read every ticket file too — the full
+           reasoning lives there, and it is copied onto what gets filed.
+        4. Read `feature` / `feature_path` from the discovery doc's frontmatter. That is the
+           **default** feature for everything filed from this discovery, overridable per stub in
+           Phase 2b.
+        5. **Skip the sharpness precondition** of the right-size phase — discovery is the thing that
+           precondition refers people to, so firing it here would deadlock the work discovery itself
+           produced. Then run the Phase 2 right-size gate **unchanged**.
     - **Anything else** → **intent mode**. The text is the capability description. A word that looks like a slug is intent, not a lookup key.
 
 **When a promoted stub proves oversized.** If Phase 3's rollup shows the stub cannot become a single epic, run the Phase 2 gate after all and emit fresh stub issues (Phase 2b) — then close the original **as not planned** with a comment naming its successors. Never close it as completed: nothing was delivered.
@@ -149,8 +182,11 @@ gh issue close <n> --reason "not planned"
 The container must exist before writing: the feature nav index (written at filing, Phase 6) links the epic issue from it (0006 §4). The draft records the feature it belongs to in its `feature`/`feature_path` frontmatter — carried onto the epic issue's meta block at filing, so the resolver recovers it.
 
 1. **Promotion mode** → already resolved: the `feature_path` recorded in the stub issue's meta block. Create the directory if it does not exist (a stub writes nothing to the tree, so a feature whose first epic is a promotion has no container yet). Continue.
-2. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
-3. **Otherwise infer and confirm once**:
+2. **Discovery mode** → already resolved: the `feature_path` recorded in the discovery doc, confirmed
+   once when the discovery was started. Create the directory if it does not exist. A per-stub override
+   is offered in Phase 2b; nothing is re-confirmed here.
+3. **Intent already inside a feature** → if the user referenced a `<docs-root>/features/<name>/` path or has a file open under one, use that feature.
+4. **Otherwise infer and confirm once**:
     - Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent.
     - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `README.md` from.
     - Present a single confirmation: _"I'll plan this under feature **<Name>** (`<feature-path>/`). Accept, or give a different name?"_ — one prompt, cheap. Accept the user's correction if any.
@@ -295,13 +331,43 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
     - **estimate:** S | M
     - **candidate stories:** <Story group title>; <Story group title>; …
     - **source:** decomposition of "<original intent>" (<YYYY-MM-DD>)
+
+    ## Decisions this goal hangs on      <!-- discovery mode ONLY — omit this heading entirely otherwise -->
+
+    <one gist per decision — see step 2b below>
     ```
 
     Each stub must be ≤ M. If the decomposer returns a sub-goal still > M, record `estimate: M` and
     say so in the goal line — it is re-decomposed when promoted. Write the goal line and every Meta
     value **unwrapped** — one line each, per "Line breaks" under the epic document structure.
 
-3. **File the batch** through the shared filer, classified as an **epic** rather than a story:
+    In **discovery mode** the `feature` value defaults to the one recorded in the discovery doc; ask
+    for a per-stub override only where a goal plainly belongs to a different feature. The `source`
+    line reads `discovery of "<destination>" (<YYYY-MM-DD>)` instead of `decomposition of …`, and
+    it names the destination — **never a path into the discovery folder**, which is removed once the
+    discovery ends.
+
+3. **Copy the decision gists onto each stub (discovery mode only).** Each stub carries the resolved
+    decisions **that goal hangs on**, in **full gist form** — the decision **plus its reasoning**,
+    copied from the ticket files, not the one-line index entry:
+
+    ```markdown
+    ### <Ticket title>
+
+    - **Decided:** <the decision>
+    - **Why:** <the reasoning, copied from the ticket's resolution>
+    - **Refuted alternative:** <the option not taken, and why it lost — omit the line if none>
+    ```
+
+    Each gist **names its originating ticket by title only**. Nothing durable may carry a path into
+    the discovery folder, because the folder is removed once the discovery ends and the link would
+    break at exactly the moment a reader needs it. A decision that more than one goal hangs on is
+    copied onto each of them in full; a reference to another stub is not sufficient.
+
+    Hold this text as `GIST_BODY_<NN>` — step 5 writes **the same text**, unedited, a second time as
+    a comment.
+
+4. **File the batch** through the shared filer, classified as an **epic** rather than a story:
 
     ```bash
     python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>" \
@@ -317,9 +383,39 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 
     Discard the transient files only after a `✅ Complete` run.
 
+5. **Post the marked gist comment (discovery mode only).** This is the **one** addition the discovery
+   entry mode makes to the emission path above — that path files issues and writes no comments.
+   For each stub, write `GIST_BODY_<NN>` — **the same text already in the body, unedited** — to a
+   scratch file under the marker, and post it:
+
+    ```markdown
+    ## Decisions this goal hangs on
+
+    <GIST_BODY_NN — byte-identical to the copy in the stub body>
+
+    <!-- nexus:discovery-gists -->
+    ```
+
+    ```bash
+    gh issue comment <stub-issue> --body-file "<scratch>/gist-<NN>.md"
+    ```
+
+    The gist is written twice because the two copies do different jobs. The **body** copy is the one
+    promotion consumes, because promotion seeds its draft from the stub's body. The **comment** copy
+    is the one that **survives**, because promotion rewrites that body wholesale — anything left only
+    in the body is destroyed at exactly the moment the reasoning matters most. The duplication cannot
+    drift, because **neither copy is ever edited again**. The hidden marker is what turns the
+    surviving copy from an archive into an input: `/nxs.decision-record` finds it by that marker when
+    it later designs the promoted epic.
+
 Then **stop**. Report the created issue numbers with their goals, and tell the user to promote one
 with `/nxs.epic <issue-number>`. Do **not** create a queue entry, a feature `README.md`, or a full
 epic issue this run.
+
+**In discovery mode**, also report that `<DISCOVERY>` has been **consumed** and can now be removed,
+and that removing it is a plain commit the user makes — this command does not delete the folder and
+**commits nothing**, which is its contract on every path. Name the folder in the report only; never
+write it into an issue body or a comment.
 
 Close the report with the **cross-feature backlog query** — the whole backlog, this batch included,
 in one query. Ask for it rather than spelling the label out:
@@ -331,7 +427,9 @@ python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query
 ## Phase 3 — Generate the epic
 
 1. Read `<docs-root>/product/context.md` if present — personas and strategy are canonical there. **Reference** them; do not re-tabulate.
-2. Parse the capability description (or, in promotion mode, the stub's goal + candidate story titles):
+2. Parse the capability description (in promotion mode, the stub's goal + candidate story titles; in
+   discovery mode, the discovery doc's destination plus the resolved decisions in full — the epic is
+   built **on top of** those decisions, not by re-deriving them):
     - Extract actors, goals, actions, data, constraints, business value.
     - Decompose into **3–8 user stories**, each independently deliverable (INVEST).
     - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M**
@@ -614,6 +712,19 @@ story becomes one GitHub issue, child of the epic issue.
     a per-feature backlog view would be a text search over issue bodies — brittle, and several links
     all meaning the same thing. The backlog is linked once, from `<docs-root>/features/README.md`.
 
+6b. **Post the marked gist comment on the epic issue (discovery mode only).** A discovery that
+    right-sized to M or smaller is planned here as one epic and files **no stub**, so there is no
+    stub body to carry its reasoning. Write the resolved decisions onto the epic issue in the same
+    full gist form and under the same marker Phase 2b step 4 uses, so the reasoning still outlives
+    the folder and still reaches `/nxs.decision-record`:
+
+    ```bash
+    gh issue comment <EPIC> --body-file "<scratch>/gist-epic.md"
+    ```
+
+    Anything that must outlive a discovery is copied in full into a durable artifact; a reference is
+    never sufficient, because the folder is removed once the discovery ends.
+
 7. **Add the new feature to the features index** when Phase 1 created the container. Append a row
    to the table in `<docs-root>/features/README.md` linking `<feature-path>/README.md` and its
    one-line capability statement. An existing feature needs nothing here.
@@ -630,8 +741,12 @@ Report:
 - Epic title, complexity rating, and story count (with `story_type` breakdown).
 - **In promotion mode**: that epic issue `#<n>` is the same issue the stub was filed under — no
   second issue was created, and the unplanned label was removed.
+- **In discovery mode**: that the discovery folder has been **consumed** and can be removed, and
+  that removing it is a plain commit the user makes. This command does not delete it. Name it in the
+  report only — never in an issue body or comment.
 - **Nothing committed to `.nexus/queue/`** — the epic lives on GitHub issues; the queue entry is
-  born at close. The `epic.md` draft stayed in session scratch.
+  born at close. The `epic.md` draft stayed in session scratch. This holds in discovery mode too: a
+  consumed discovery folder is left exactly as it was found.
 - **If the creation scripts printed "Seeded github config … — review and commit"** (STORY-121.07
   write-back): a repo with no `github:` block had its resolved publishing decisions (classification
   mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a

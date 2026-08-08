@@ -9,3 +9,9 @@
 - **Choice:** A claim on an unresolved ticket may be taken over once it is older than 24 hours.
 - **Why:** A claim has to outlive one working session so a parallel same-machine session cannot steal an in-flight ticket, and has to expire fast enough that a claim arriving in someone else's pull does not park the ticket for a week.
 - **Refuted alternative:** No fixed threshold, deciding staleness by asking the user each time — rejected because the takeover is the one path a session must be able to take unattended.
+
+## 2026-08-08 — The direct-plan path also gets the marked gist comment
+
+- **Choice:** When a discovery right-sizes to M or smaller and is planned as one epic, `/nxs.epic` posts the same marked gist comment on the epic issue that the stub path posts on each stub.
+- **Why:** The record's invariant 5 requires anything outliving a discovery to be copied in full into a durable artifact, and on this path there is no stub body to carry it — the folder is removed and the reasoning would be lost outright.
+- **Refuted alternative:** Read the acceptance criterion literally and write gists only onto stubs — rejected because it silently drops every decision of a small discovery on the floor.
