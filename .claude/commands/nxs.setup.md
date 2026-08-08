@@ -230,8 +230,9 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
        live in the hub manifest; this per-repo seed still only fills keys absent locally.
 3. **`<docs-root>/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
 4. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
-5. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
-6. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
+5. **`.nexus/discovery/`** — the pre-epic discovery store (`/nxs.discover`), also **committed, not gitignored**. It is deliberately a sibling of the queue rather than a folder inside it: the queue holds only closed, drainable entries, and a discovery is never closed and never drained. Do not create it at setup — `/nxs.discover` creates it on first use — and do not add an ignore rule for it.
+6. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
+7. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
    committed-path ignore for `.nexus/queue/**` — the whole point is that the per-user decision
    scratch (`.nexus/queue/epic-<epic-issue-number>/<username>/`) rides ordinary commits. Keep any pre-existing
    `.nexus/plans/` line as **retired** (it covers residual local scratch during migration);

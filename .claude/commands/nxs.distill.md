@@ -366,9 +366,9 @@ argument its own quoted token — never a shell-interpolated string:
     full SHAs), resolves each named repo to its sibling member checkout through the workspace
     resolver (the hub's own entries resolve to the hub checkout), verifies both SHAs are
     reachable, and emits **one diff per repo** — each computed as `git diff <base>...<head>`
-    inside that repo's own checkout with `.nexus/queue/**` excluded, so no path is ever
-    attributed to the wrong repo. It reads only: it never clones, fetches, or mutates a member
-    checkout.
+    inside that repo's own checkout with `.nexus/queue/**` and `.nexus/discovery/**` excluded, so
+    no path is ever attributed to the wrong repo. It reads only: it never clones, fetches, or
+    mutates a member checkout.
 
     - **Exit 0:** stdout carries a `=== repo <identity> checkout <path> range <base>...<head> ===`
       header per repo followed by that repo's diff. Analyze each repo's diff against its own
@@ -410,6 +410,11 @@ a fallback for legacy entries with no usable range. For an entry the Phase 0.4 g
 
 In both modes, exclude `.nexus/queue/**` paths from the behavioral analysis — the entry's own
 artifacts are input, not the *what*.
+
+**Exclude `.nexus/discovery/**` in both modes too.** A discovery folder holds ungated, in-flight
+reasoning that no human gate has passed. It is never a queue entry and is never drained, so a
+branch that carries both discovery prose and code must not feed that prose into concept-delta
+synthesis. This exclusion is load-bearing (record #235, invariant 2), not a tidiness rule.
 
 # Phase 2 — Survey the concept store
 
