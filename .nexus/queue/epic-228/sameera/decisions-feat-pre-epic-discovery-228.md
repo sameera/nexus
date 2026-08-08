@@ -15,3 +15,9 @@
 - **Choice:** When a discovery right-sizes to M or smaller and is planned as one epic, `/nxs.epic` posts the same marked gist comment on the epic issue that the stub path posts on each stub.
 - **Why:** The record's invariant 5 requires anything outliving a discovery to be copied in full into a durable artifact, and on this path there is no stub body to carry it — the folder is removed and the reasoning would be lost outright.
 - **Refuted alternative:** Read the acceptance criterion literally and write gists only onto stubs — rejected because it silently drops every decision of a small discovery on the floor.
+
+## 2026-08-08 — The component fingerprint pin rides the last commit that touches `.claude/`
+
+- **Choice:** `libs/portable-tools/bundle-fingerprint.json` is re-pinned once, in the final story commit that changes `.claude/commands/`, rather than once per story commit.
+- **Why:** The pin is a derived hash of the whole component tree, so a per-commit re-pin would rewrite the same line five times and conflict on every replay, while buying nothing — only the branch tip is ever vendored.
+- **Refuted alternative:** Re-pin in each story commit so every commit passes the parity test on its own — rejected as churn on a single derived line that no consumer reads at an intermediate commit.
