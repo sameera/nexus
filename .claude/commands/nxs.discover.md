@@ -284,6 +284,159 @@ Report:
 
 ---
 
+# Action: resume — work one open decision
+
+A resume session claims exactly one open decision ticket, resolves it, records the resolution,
+graduates whatever fog the resolution made sharp, commits, and stops. **One decision is resolved per
+session.** That is the granularity a reader wants, because each commit is then one decision and its
+reasoning, and the commit history reads as the decision history.
+
+Run the phases in order.
+
+## Phase R0 — Resolve the discovery and the docs root
+
+1. `--resume <folder>` takes the discovery folder. If the argument is omitted and exactly one
+   discovery folder exists under `.nexus/discovery/`, use it. If several exist, render each one's
+   destination and ask which via `AskUserQuestion`. If none exists, say so and stop — there is
+   nothing to resume.
+2. Read `discovery.md`. A discovery whose `status` is `closed` cannot be resumed; report that and
+   stop.
+3. Resolve `<docs-root>` exactly as Phase 0 does, and by the same rules on failure.
+
+## Phase R1 — Select and claim one ticket (before any work begins)
+
+Read the frontmatter of every `ticket-*.md` in the folder. A ticket is **claimable** when all three
+hold:
+
+- its `status` is `open`;
+- it is **unblocked** — every ticket named in its `blocked_by` has `status: resolved`;
+- it is **unclaimed**, or its `claimed_at` is older than the staleness threshold of **24 hours**
+  while its `status` is still `open`.
+
+Select one claimable ticket — prefer the one that unblocks the most others, then the oldest. If the
+user named a ticket, use that one; **it is claimed the same way**, and a user-named ticket that is
+blocked or freshly claimed by someone else is refused with the reason, not taken anyway.
+
+Then write the claim into that ticket's frontmatter **before any work begins**:
+
+```yaml
+claimed_by: <github-login>
+claimed_at: <ISO-8601 timestamp>
+```
+
+The claim is **not a boolean** — it records who and when, because both are what the next contributor
+needs. Resolve the owner the way the in-flight decision-stub rule resolves it:
+
+```bash
+gh api user --jq .login      # fall back to a slug of `git config user.name`
+```
+
+**Taking over a stale claim** is allowed and is **recorded**, so the trail survives: overwrite
+`claimed_by` / `claimed_at` and append one line to the ticket body under a `## Claim history`
+heading — `Taken over from <previous owner> (claimed <previous timestamp>) on <date>.`
+
+**The claim's scope is one working tree.** It exists because parallel agent sessions can work one
+discovery in one tree, where git gives them no protection at all. It does not coordinate people: two
+contributors working in two clones never see each other's claims, and a **merge conflict**, not a
+claim, is what tells them they collided. Staleness matters for the same reason — a claim can arrive
+in a pull someone else made and simply sit there.
+
+If nothing is claimable, report why (all resolved, or every open ticket blocked or freshly claimed),
+name the blocking tickets **by title**, and stop.
+
+## Phase R2 — Resolve it through existing machinery
+
+Route by the ticket's `type`. Every route is machinery that already exists — this stage adds no
+agent and no skill.
+
+- **`research`** → invoke `Explore` for locating and reading, and `nxs-architect` for feasibility and
+  trade-off analysis. Give each the question verbatim and the destination as its boundary.
+- **`interview`** → invoke `nxs-pm` for the framing and the questions worth asking, then run the
+  exchange with the human using the `nxs-setup` interview pattern: at most a handful of strategic
+  questions, one at a time, through `AskUserQuestion`. **An interview ticket resolves only through
+  the live exchange. Never supply the human's side of it** — not as a guess, not as a "likely
+  answer", not as a default the human is invited to correct. If the human is not available, leave the
+  ticket claimed, say so, and stop.
+- **`council`** → run the two perspective agents **yourself**, `nxs-pm` and `nxs-architect`, and
+  synthesise their output under the council's synthesis mandate: lead with the decision, add value
+  beyond summarising, and name what each perspective gave up. Do **not** hand off to `/nxs.council` —
+  a slash command cannot invoke another slash command, and the handoff would leave the ticket claimed
+  across a session boundary with the outcome pasted back by hand.
+- **`task`** → do the unblocking legwork in this session, then state the question it made statable.
+
+**An agent's output is evidence, never a resolution.** Record it on the ticket under an
+`## Evidence` heading, attributed to the agent that produced it. Only the session marks a ticket
+resolved and writes its index gist, because a fact is not a decision and closing a ticket on evidence
+alone would record as decided something nobody decided.
+
+## Phase R3 — Record the resolution
+
+Append to the claimed ticket file:
+
+```markdown
+## Resolution
+
+- **Decided:** <the decision, stated so it can be acted on>
+- **Why:** <the reasoning — this is the part that travels onto the stubs at graduation>
+- **Refuted alternative:** <the viable option not taken, and why it lost — or "none">
+- **Resolved by:** <github-login> on <YYYY-MM-DD>
+```
+
+Set the ticket's `status: resolved` in frontmatter.
+
+Then append **exactly one** line to `discovery.md`'s `## Resolved decisions` index:
+
+```markdown
+- **<Ticket title>** — <the decision in one sentence>. Detail: `ticket-<nn>-<ticket-slug>.md`
+```
+
+The index is **append-only and order-insensitive**: append at the end, never sort it, never rewrite
+an existing line. That is what lets two clones appending different resolutions merge cleanly. It must
+stay **reconstructible from the ticket files**, so a botched merge costs a rebuild and nothing more —
+which is exactly why the line is a gist and the ticket file remains the only store of the detail
+until graduation copies it onto the stubs.
+
+## Phase R4 — Graduate the fog the resolution sharpened
+
+Re-read `## Not yet specified` against the resolution just recorded.
+
+1. **Fog the resolution made precisely statable** graduates: write a new typed ticket file for it,
+   then — in a second pass, once every new file exists — wire its `blocked_by`, and **remove the
+   entry from "Not yet specified"**. The test is unchanged: can the question be stated precisely
+   now, not can it be answered now.
+2. **Work the resolution ruled beyond the destination** moves to `## Out of scope`. Entries there
+   **never graduate**.
+3. Everything else stays where it is.
+
+If the resolution sharpened nothing, this phase writes nothing. That is a normal outcome.
+
+## Phase R5 — Commit one decision, report, and stop
+
+Commit the claim, the resolution, the index line, and any graduated tickets as **one commit**:
+
+```bash
+git add .nexus/discovery/discover-<slug>-<key>
+git commit -m "discover: resolve <ticket title>"
+```
+
+**Never push, open a pull request, or merge.**
+
+Then **stop**. One decision is resolved per session. Research-typed tickets fired earlier may still
+be running in parallel — that is fine, they resolve nothing.
+
+Report:
+
+- The ticket resolved, **by title**, and the decision in one sentence.
+- Any takeover that was recorded.
+- What graduated out of "Not yet specified" and what moved to "Out of scope", each **by title**.
+- What remains open, **by title**, and what is still blocked and by which ticket.
+- The commit, and that nothing was pushed.
+- Next step: `/nxs.discover --resume <folder>` again while open tickets remain. When none remain and
+  "Not yet specified" is empty, the discovery is done — graduate it with `/nxs.epic`, or end it with
+  `/nxs.discover --close <folder>` if the resolutions concluded that no build follows.
+
+---
+
 # Store file shapes
 
 ## The discovery doc — `discovery.md`
@@ -339,6 +492,12 @@ claimed_at:            # ISO-8601, set with claimed_by
 ## Why it blocks
 
 <what cannot be stated as a backlog stub until this is decided>
+
+## Evidence            <!-- appended by a resume session; agent output, attributed. Never a resolution. -->
+
+## Claim history       <!-- appended only when a stale claim was taken over -->
+
+## Resolution          <!-- appended once, by the session that resolves the ticket -->
 ```
 
 The frontmatter is the **entire control surface**: the type, the blocking edges, the claim, and the
@@ -356,6 +515,7 @@ different files and conflict nowhere except the shared index, where both sides a
 
 ```
 /nxs.discover <intent text>          # start a discovery on a foggy initiative
+/nxs.discover --resume <folder>      # claim and resolve one open decision, then stop
 ```
 
 # Constraints
@@ -373,4 +533,11 @@ different files and conflict nowhere except the shared index, where both sides a
   boundary and never re-validated. Close the discovery and start another instead.
 - **The command commits and never pushes.** Sharing is the user's `git push`.
 - **No new agents or skills.** Every ticket type routes to machinery that already exists.
+- **One decision per session, one commit.** Research agents may run in parallel to it, and they
+  resolve nothing.
+- **A ticket is claimed before any work begins**, and the claim's owner is a GitHub login. The only
+  takeable ticket is one that is unresolved, unblocked, and either unclaimed or claimed past the
+  staleness threshold. A takeover is recorded.
+- **An interview-typed ticket resolves only through live human exchange.** The agent never supplies
+  the human's side of it.
 - **Human-facing output names a ticket by its title**, never by a bare filename.
