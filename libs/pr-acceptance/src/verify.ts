@@ -21,9 +21,9 @@ import { type Runner, git } from "./run.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 
-/** The exact three-dot diff the distiller recomputes later, queue excluded. */
+/** The exact three-dot diff the distiller recomputes later, queue and discovery excluded. */
 export function changedFileSet(run: Runner, cwd: string, base: string, head: string): string[] | null {
-    const out = git(run, cwd, "diff", "--name-only", `${base}...${head}`, "--", ".", ":(exclude).nexus/queue");
+    const out = git(run, cwd, "diff", "--name-only", `${base}...${head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery");
     if (out === null) return null;
     return [...new Set(out.split("\n").map((l) => l.trim()).filter((l) => l.length > 0))].sort();
 }

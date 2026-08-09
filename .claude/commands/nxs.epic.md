@@ -227,7 +227,8 @@ skip rule instead of needing its own exemption.
 Say nothing about it and continue to the sizing rubric below. A sharp, right-sized intent must see
 exactly the run it sees today.
 
-**If they are not**, stop before sizing. Render the assessment, then ask via `AskUserQuestion`:
+**Sharpness gate (MANDATORY STOP).** If they are not, stop before sizing. Render the assessment, then
+ask via `AskUserQuestion`:
 
 ```markdown
 ## ⚠️ Underspecified — the split isn't knowable yet

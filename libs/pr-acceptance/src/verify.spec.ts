@@ -58,6 +58,17 @@ describe("changedFileSet", () => {
         const s = squashed();
         expect(changedFileSet(defaultRunner, s.repo, "0".repeat(40), s.mergeCommit)).toBeNull();
     });
+
+    it("excludes the discovery path, which the distiller's own diff also excludes (record #235, invariant 2)", () => {
+        const s = squashed();
+        sh(s.repo, "git", "checkout", "-q", "-b", "tmp2");
+        fs.mkdirSync(path.join(s.repo, ".nexus/discovery/foggy-thing-ab12cd34"), { recursive: true });
+        fs.writeFileSync(path.join(s.repo, ".nexus/discovery/foggy-thing-ab12cd34/ticket-01-x.md"), "x\n");
+        fs.writeFileSync(path.join(s.repo, "docs/f3.md"), "f3\n");
+        const tip = writeCommit(s.repo, "docs/f4.md", "f4\n", "more");
+        const set = changedFileSet(defaultRunner, s.repo, s.mergeCommit, tip);
+        expect(set).toEqual(["docs/f3.md", "docs/f4.md"]);
+    });
 });
 
 describe("verifyRange", () => {
