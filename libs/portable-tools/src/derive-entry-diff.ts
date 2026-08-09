@@ -6,7 +6,9 @@
  * recorded SHAs resolve only inside the named member's sibling checkout. This tool resolves each
  * range item to its checkout via the workspace resolver (never re-deriving workspace shape),
  * verifies both recorded SHAs are reachable, and emits one diff per repo with `.nexus/queue/**`
- * excluded. All items must resolve before any diff is emitted — a missing checkout, an
+ * and `.nexus/discovery/**` excluded — the queue entry's own artifacts are input rather than the
+ * *what*, and a discovery folder holds ungated in-flight reasoning no human gate has passed
+ * (record #235, invariant 2). All items must resolve before any diff is emitted — a missing checkout, an
  * unreachable SHA, or a missing/malformed stamp is a hard per-entry error. It never falls back
  * to the hub, never fabricates an empty or partial diff, and never clones, fetches, or
  * writes — it reads only.
@@ -155,10 +157,10 @@ export function deriveEntryDiff(entryDir: string, hubDir: string, run: Runner = 
     }
     if (errors.length > 0) return { ok: false, errors };
 
-    // Pass 2 — emit one diff per repo, queue folder excluded, read-only.
+    // Pass 2 — emit one diff per repo, queue + discovery folders excluded, read-only.
     const diffs: RepoDiff[] = [];
     for (const item of plan) {
-        const r = run("git", ["diff", `${item.base}...${item.head}`, "--", ".", ":(exclude).nexus/queue"], { cwd: item.checkout });
+        const r = run("git", ["diff", `${item.base}...${item.head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery"], { cwd: item.checkout });
         if (r.status !== 0) {
             errors.push({ entry, problem: "git-diff-failed",
                 message: `git diff ${item.base}...${item.head} failed in ${item.checkout}: ${r.stderr.trim()}` });

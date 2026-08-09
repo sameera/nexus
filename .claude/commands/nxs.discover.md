@@ -484,15 +484,26 @@ carries all three of:
 
 ## Resolved decisions
 
-<the resolved-decisions index in full — every line, copied>
+### <Ticket title>
+
+- **Decided:** <the index line's decision sentence, copied>
+- **Why:** <the reasoning, copied from the ticket's resolution>
+- **Refuted alternative:** <the option not taken, and why it lost — omit the line if none>
+
+<one such entry per line of the resolved-decisions index, in index order>
 
 ## Conclusion
 
 <why no build follows, in the words confirmed at the gate>
 ```
 
-Copy the index **in full**. Nothing durable may link into the discovery store, because the folder
-stops existing in the next step.
+Carry the index **in full** — one entry per index line, none dropped, none merged — and **drop the
+`Detail:` clause**: the ticket file it names stops existing in the next step, so copying it would
+leave the only durable artifact pointing at nothing. This is why each entry carries the ticket's
+**Why** and **refuted alternative** as well: the index line alone is a gist that leans on a ticket
+file to hold the reasoning, and there is no ticket file after this commit. It is the same full gist
+form `/nxs.epic` copies onto a stub at graduation, for the same reason — anything that must outlive
+the discovery is copied in full into a durable artifact, and a reference is never sufficient.
 
 ## Phase C2 — Mark the doc closed, remove the folder, commit
 

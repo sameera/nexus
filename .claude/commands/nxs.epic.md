@@ -392,7 +392,7 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 
     ## Decisions this goal hangs on      <!-- discovery mode ONLY — omit this heading entirely otherwise -->
 
-    <one gist per decision — see step 2b below>
+    <one gist per decision — see step 3 below>
     ```
 
     Each stub must be ≤ M. If the decomposer returns a sub-goal still > M, record `estimate: M` and
@@ -773,7 +773,7 @@ story becomes one GitHub issue, child of the epic issue.
 6b. **Post the marked gist comment on the epic issue (discovery mode only).** A discovery that
     right-sized to M or smaller is planned here as one epic and files **no stub**, so there is no
     stub body to carry its reasoning. Write the resolved decisions onto the epic issue in the same
-    full gist form and under the same marker Phase 2b step 4 uses, so the reasoning still outlives
+    full gist form and under the same marker Phase 2b step 5 uses, so the reasoning still outlives
     the folder and still reaches `/nxs.decision-record`:
 
     ```bash
