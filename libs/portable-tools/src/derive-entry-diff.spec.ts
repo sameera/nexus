@@ -63,6 +63,8 @@ function buildHubFixture(parent: string): HubFixture {
     const webBase = commitAll(webRoot, "base");
     write(webRoot, "src/app.ts", "export const v = 2;\n");
     write(webRoot, ".nexus/queue/some-entry/epic.md", "# queued epic\n"); // must be excluded
+    // Ungated discovery reasoning riding the same branch as the code — must be excluded too.
+    write(webRoot, ".nexus/discovery/foggy-thing-ab12cd34/ticket-01-pick-a-store.md", "# undecided reasoning\n");
     const webHead = commitAll(webRoot, "head");
 
     const apiRoot = path.join(parent, "api");
@@ -86,6 +88,19 @@ function writeEntry(hubRoot: string, items: Array<{ repo: string; base: string; 
 }
 
 describe("deriveEntryDiff — happy paths", () => {
+    it("excludes .nexus/discovery from the emitted diff (record #235, invariant 2)", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs[0].diff).toContain("src/app.ts");
+        expect(result.diffs[0].diff).not.toContain(".nexus/discovery");
+        expect(result.diffs[0].diff).not.toContain("undecided reasoning");
+    });
+
     it("AC1: single-repo range, identical diff, queue excluded", () => {
         const parent = makeParent();
         const { hubRoot, web } = buildHubFixture(parent);
@@ -98,7 +113,7 @@ describe("deriveEntryDiff — happy paths", () => {
         expect(result.diffs[0].repo).toBe("github.com/acme/web-app");
         expect(result.diffs[0].checkout).toBe(web.root);
 
-        const expectedDiff = execFileSync("git", ["diff", `${web.base}...${web.head}`, "--", ".", ":(exclude).nexus/queue"], { cwd: web.root, encoding: "utf8" });
+        const expectedDiff = execFileSync("git", ["diff", `${web.base}...${web.head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery"], { cwd: web.root, encoding: "utf8" });
         expect(result.diffs[0].diff).toBe(expectedDiff);
         expect(result.diffs[0].diff).toContain("src/app.ts");
         expect(result.diffs[0].diff).not.toContain(".nexus/queue");

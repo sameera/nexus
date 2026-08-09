@@ -16,6 +16,12 @@
 - **Why:** The record's invariant 5 requires anything outliving a discovery to be copied in full into a durable artifact, and on this path there is no stub body to carry it — the folder is removed and the reasoning would be lost outright.
 - **Refuted alternative:** Read the acceptance criterion literally and write gists only onto stubs — rejected because it silently drops every decision of a small discovery on the floor.
 
+## 2026-08-09 — The no-build lessons note carries full gists, not the index verbatim
+
+- **Choice:** Phase C1 writes one full gist per index line — Decided, Why, refuted alternative — and drops the index line's `Detail:` clause, instead of copying the resolved-decisions index verbatim.
+- **Why:** The index line is a gist that leans on a ticket file to hold the reasoning, and the same commit removes every ticket file, so a verbatim copy would ship the only durable artifact on the no-build path with pointers that are dead on arrival (record invariants 4 and 24).
+- **Refuted alternative:** Copy the index verbatim and merely strip the `Detail:` clause — rejected because it satisfies the invariant while still losing the reasoning outright; the graduation path copies full gists onto stubs for this same reason, and the no-build path has less carrying it, not more.
+
 ## 2026-08-08 — The component fingerprint pin rides the last commit that touches `.claude/`
 
 - **Choice:** `libs/portable-tools/bundle-fingerprint.json` is re-pinned once, in the final story commit that changes `.claude/commands/`, rather than once per story commit.
