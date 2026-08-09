@@ -27,3 +27,30 @@
 - **Choice:** `libs/portable-tools/bundle-fingerprint.json` is re-pinned once, in the final story commit that changes `.claude/commands/`, rather than once per story commit.
 - **Why:** The pin is a derived hash of the whole component tree, so a per-commit re-pin would rewrite the same line five times and conflict on every replay, while buying nothing — only the branch tip is ever vendored.
 - **Refuted alternative:** Re-pin in each story commit so every commit passes the parity test on its own — rejected as churn on a single derived line that no consumer reads at an intermediate commit.
+
+## 2026-08-09 — `verify.ts`'s GitHub-file-list cross-check keeps excluding only the queue
+
+- **Choice:** `changedFileSet` (the git-diff-based helper) now excludes `.nexus/discovery` alongside
+  `.nexus/queue`, matching the distiller's own exclusion (record #235 invariant 2). `prChangedFiles`
+  and `verifyRange`'s `ghFileSetsEqual` cross-check — which filter GitHub's own `--json files` list by
+  string prefix, not git pathspec — still filter only `.nexus/queue`.
+- **Why:** The analyze-pass finding named only the git-diff exclusion list (`range.ts`, `verify.ts`'s
+  `changedFileSet`, `range.spec.ts`) as load-bearing; the GitHub-file-list filters are a separate
+  mechanism serving a cross-check, not the distiller-facing gate itself, and extending them was outside
+  the finding's stated scope.
+- **Refuted alternative:** Extend the same `.nexus/discovery` filter to `prChangedFiles` and
+  `ghFileSetsEqual` for consistency — a real PR touching `.nexus/discovery` would otherwise fail the
+  optional GitHub cross-check even though the range itself is now correctly derived. Left as a follow-up
+  rather than folded into this fix, since it widens the diff beyond the named finding.
+
+## 2026-08-09 — Sharpness sub-gate restates MANDATORY-STOP as an inline sub-gate label, not a heading suffix
+
+- **Choice:** Added `**Sharpness gate (MANDATORY STOP).**` as the lead-in to the stop sentence inside
+  `### Sharpness precondition`, mirroring Phase 5's `**Open questions gate (MANDATORY STOP).**`
+  sub-gate label, rather than appending `(MANDATORY STOP)` to the `###` heading itself.
+- **Why:** The heading covers both the sharp-goals (no-stop) and underspecified (stop) branches; only
+  the second is a mandatory stop, so marking the heading would misstate the sharp-goals branch. The
+  inline sub-gate label is the file's existing convention for a conditional stop nested inside an
+  already-marked phase (Phase 5 heading + Open-questions sub-gate label).
+- **Refuted alternative:** Append `(MANDATORY STOP)` to the `### Sharpness precondition` heading —
+  rejected because it would fire on every intent-mode run, not only the underspecified branch.

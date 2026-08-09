@@ -49,10 +49,11 @@ before resolving the entry path from the rest of `$ARGUMENTS`.
 **which filing path Phase 4 takes — it does not select where the run starts.** Run Phase 0.2's
 **resolution** steps 1–2 as usual (they establish `$REPO_ARG` and the label names every later `gh`
 call needs) but skip its step-3 **gate** — that gate answers "does this epic warrant a record", and a
-revision already presupposes the answer. Then run **Phases 1–3** to produce the new body, and file it
-through **Phase 4.5**, which reopens the record, records what is being superseded, updates the body,
-and re-closes it. Strip the token before resolving the entry path. Without an existing closed record
-there is nothing to revise — say so and run the normal path instead.
+revision already presupposes the answer. Then run **Phase 0.4** (it runs on every path, revision
+included) and **Phases 1–3** to produce the new body, and file it through **Phase 4.5**, which reopens
+the record, records what is being superseded, updates the body, and re-closes it. Strip the token
+before resolving the entry path. Without an existing closed record there is nothing to revise — say so
+and run the normal path instead.
 
 ## Interaction convention — actionable choice gates
 

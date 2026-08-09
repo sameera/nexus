@@ -1,9 +1,10 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { deriveRange } from "./range.js";
 import { type PrInfo } from "./pr.js";
 import { defaultRunner, git } from "./run.js";
-import { buildMergeCommit, buildRebase, buildSquash, makeParent, type Topology } from "./git-fixtures.js";
+import { buildMergeCommit, buildRebase, buildSquash, initRepo, makeParent, sh, writeCommit, type Topology } from "./git-fixtures.js";
 
 const tracked: string[] = [];
 afterAll(() => {
@@ -27,7 +28,7 @@ function prFor(t: Topology): PrInfo {
 }
 
 function changedFiles(repo: string, base: string, head: string): string[] {
-    const out = git(defaultRunner, repo, "diff", "--name-only", `${base}...${head}`, "--", ".", ":(exclude).nexus/queue") ?? "";
+    const out = git(defaultRunner, repo, "diff", "--name-only", `${base}...${head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery") ?? "";
     return out.split("\n").filter(Boolean).sort();
 }
 
@@ -77,5 +78,28 @@ describe("deriveRange", () => {
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("pr-no-merge-commit");
+    });
+
+    it("treats a range whose only non-queue content is under .nexus/discovery as an empty diff (record #235, invariant 2)", () => {
+        const parent = makeParent(tracked);
+        const repo = path.join(parent, "discovery-only-repo");
+        initRepo(repo);
+        const c0 = writeCommit(repo, "base.txt", "base\n", "C0");
+        sh(repo, "git", "checkout", "-q", "-b", "feature", c0);
+        const prHead = writeCommit(
+            repo,
+            ".nexus/discovery/foggy-thing-ab12cd34/ticket-01-pick-a-store.md",
+            "# undecided reasoning\n",
+            "F1",
+        );
+        sh(repo, "git", "checkout", "-q", "main");
+        sh(repo, "git", "merge", "--no-ff", "-q", "-m", "Merge feature", "feature");
+        const mergeCommit = sh(repo, "git", "rev-parse", "HEAD");
+        const t: Topology = { repo, mergeCommit, prHead, baseRefOid: c0, prCommitCount: 1, expectedFiles: [] };
+
+        const r = deriveRange(defaultRunner, t.repo, prFor(t));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("range-empty-diff");
     });
 });
