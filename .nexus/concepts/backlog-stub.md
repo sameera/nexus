@@ -1,8 +1,8 @@
 ---
 title: "Backlog Stub"
 aliases: ["backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "cross-feature backlog", "deferred scope filing"]
-touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record"]
-last_updated_by: "manual"
+touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate"]
+last_updated_by: "#228"
 status: active
 verification: verified
 ---
@@ -31,6 +31,8 @@ Two writers create stubs: the epic stage when scope exceeds one epic, and the cl
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the unplanned label and the classification the batch filing path stamps, as resolved keys rather than hard-coded values.
 - [issue-sourced-planning](issue-sourced-planning.md) — its resolver refuses an unplanned epic by name instead of emitting one whose story set is empty.
 - [durable-close-record](durable-close-record.md) — carries the numbers deferred scope was filed under, so the stubs are filed before that comment is composed.
+- [discovery-graduation](discovery-graduation.md) — files stubs from a finished discovery through this same contract, adding the decisions each goal hangs on.
+- [fog-referral-gate](fog-referral-gate.md) — separates fog from oversized scope, so only scope that is big but clear reaches this decomposition path.
 
 ## Decision Log
 
@@ -41,3 +43,7 @@ Deferred and oversized scope stopped being markdown blocks in per-feature commit
 ### 2026-08-06 — manual — Three interactions the cap had suppressed become declared edges
 
 When this page was distilled, three real interactions were left as prose rather than declared as edges: the resolver that supplies the unplanned label and the stub classification, the epic resolver that refuses an unplanned epic by name, and the durable close comment that names the numbers deferred scope was filed under. None of the three was a judgement about the concept. Each neighbour sat within two words of the body cap, a reciprocal bullet cost more than the headroom, and compressing still-true content on a neighbour to make room is not a legal move — so the drain dropped the edges and recorded them in prose, flagging the loss for review. Epic #220 re-cut the cap to measure a page's own content and to bound the neighbour list per entry, which removed the constraint entirely: the fan-out can no longer fail, and a real interaction is always declarable. The three edges are declared here by hand, since both epics had already drained and there was no queue entry left to carry them. Refuted alternative: leave the relationships as prose and let the next drain touching one of the four pages declare them — it keeps the store single-writer, but it makes blast-radius retrieval on this page wrong for as long as no such drain happens, which is exactly the silent degradation the flag was raised about.
+
+### 2026-08-11 — #228 — A discovery-filed stub is an ordinary stub carrying its decisions
+
+Graduating a discovery files one stub per functional goal through the same batch path, with the same classification, the same unplanned label, and the same body meta every decomposition stub carries, so nothing here learns a second stub shape. What a discovery adds is content rather than contract: each stub body gains the resolved decisions its goal hangs on, in full, and the same text is posted once more as a marked comment. Promotion stays exactly as it was, rewriting the body on the issue the stub was filed under, and it neither reads nor moves that comment. The referral gate is what keeps this path honest, because only scope that is big but clear now decomposes here, while scope nobody can yet state goes to discovery first. Refuted alternative: give a discovery-produced stub its own shape or its own marker so it is recognisable in the backlog — rejected because a second shape would be a third copy of the stub contract, which is exactly what routing graduation through the existing path removes.

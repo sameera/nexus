@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate"]
-last_updated_by: "#157"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation"]
+last_updated_by: "#228"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [distiller](distiller.md) — the drain sources an entry's why from the body, hash-verified.
 - [record-digest](record-digest.md) — the canonical digest of the approved body.
 - [conformance-gate](conformance-gate.md) — blocked entirely, emitting nothing, while this record is unapproved.
+- [discovery-graduation](discovery-graduation.md) — writes the marked comment this stage reads as an authoritative input before it analyses.
 
 ## Decision Log
 
@@ -50,3 +51,7 @@ as what makes the gate meaningful — unapproved blocks analyze outright.
 ### 2026-07-28 — #157 — Close may amend a superseded record with one advisory comment
 
 An approved record left standing after implementation refuted one of its decisions was wrong in a way nothing else corrected — the close record states the deviation but is deleted by the drain, and the epic-issue close comment is filed under the epic, not the design. Close's existing close-from-diff pass now marks the subset of deviations that supersede an approved decision and posts exactly one comment on the record sub-issue naming what the record decided, what shipped, and why; nothing marked means no comment, and silence means conformance. The comment is advisory — it gates nothing — and never edits the body, title, labels, or state, so the digest every stage stamps stays valid. Refuted alternative: reopen and revise the record from close — right for a design that changes before implementation, wrong here, since it re-litigates an approved gate after the code has shipped and invalidates the stamped digest. Refuted alternative: one comment per superseding decision — makes the comment count a function of how eventful the implementation was.
+
+### 2026-08-11 — #228 — The design stage reads the discovery gists off the epic issue
+
+An epic promoted from a discovery-filed stub carries the decisions that discovery resolved, in a comment that survived the stub body being rewritten. The design stage now fetches the epic issue's comments before it analyses and keeps only the ones carrying the discovery marker, so the record is designed on top of what was already settled instead of re-deriving it. The gists are an input and never a substitute: the stage still designs the epic itself, and it still checks that every story is covered. A gist that states a decision without its reasoning becomes an open clarification for the human, exactly as an unexplained decision in an imported design document does. An epic with no marked comment behaves as it did before, with no new prompt and no empty section, and the stage never edits or removes the comments it reads. Refuted alternative: route the gists through the existing design-document import, which already extracts decisions, refuted alternatives, and invariants — rejected because import treats its document as the design and replaces the architectural analysis, whereas a gist settles what to build and at what scope, and carries none of the invariants the conformance gate later checks against. Refuted alternative: read every comment on the epic issue and let the architect judge which ones carry decisions — it would also capture decisions recorded outside any command, which is a real gap, but an epic issue accumulates ordinary discussion and feeding all of it degrades the input.

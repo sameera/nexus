@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree"]
-last_updated_by: "#178"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery"]
+last_updated_by: "#228"
 status: active
 verification: verified
 ---
@@ -31,6 +31,7 @@ One tested helper the stage specs call resolves a pull request's merge state and
 - [committed-queue](committed-queue.md) — the queue whose close record travels on the distillation branch here, there being no feature pull request after the merge.
 - [conformance-gate](conformance-gate.md) — here the gate's receipt is a published review, not a local artifact, since the worktree holding one is already gone.
 - [pr-worktree](pr-worktree.md) — the worktree these stages run in: where it lands, its isolation, reuse, and removal.
+- [pre-epic-discovery](pre-epic-discovery.md) — excluded from the stamped range too, so that range matches the diff the drain later recomputes.
 
 ## Decision Log
 
@@ -46,3 +47,7 @@ its receipt takes the form of a published review instead of a local artifact.
 ### 2026-08-01 — #178 — The worktree this flow runs in splits out to its own concept
 
 Where the flow's worktrees are created stopped being a hidden temp-derived constant and became a declared publishing key, and with it the worktree gained a resolution seam, a normalization rule, a pre-creation safety gate, and three named refusals — enough that it no longer reads as a detail of this flow. The lifecycle material moved to pr-worktree: the base and its resolution, the per-checkout isolation segment, path-based reuse, the refusal conditions, and removal from the main checkout. This page keeps what is asked about the flow itself — the stage shape, the merge-strategy-safe range, the review-carried verdict, and the member-repo refusal — so a question about where a checkout lands loads one page and a question about what range closure stamps loads the other. Refuted alternative: keep the worktree material here and split the range derivation out instead — the range is the more self-contained topic on paper, but it is also the flow's whole reason for running post-merge, so removing it would leave a page that cannot explain itself.
+
+### 2026-08-11 — #228 — The stamped range carries the drain's discovery exclusion
+
+The range this flow stamps must equal the diff the drain later recomputes from it, so widening the drain's exclusion without widening this one would let the two disagree. The range derivation now excludes the committed discovery store alongside the queue. A merged pull request whose only remaining content is discovery prose is therefore refused as an empty range rather than stamped, which is the existing refusal applied to a wider exclusion. The live-acceptance harness's cross-check against the platform's own list of changed files still excludes the queue only, because it filters names by prefix instead of sharing the exclusion the other two use; that gap is filed as deferred scope. Refuted alternative: widen the cross-check in the same change — rejected because the conformance finding this answered named only the diff exclusion as load-bearing, and the consequence of leaving the cross-check is bounded to it reporting a mismatch that is not real.

@@ -1,8 +1,8 @@
 ---
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
-touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry"]
-last_updated_by: "#170"
+touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry", "pre-epic-discovery"]
+last_updated_by: "#228"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ The folder is the directory scratch capture already created during implementatio
 - [record-digest](record-digest.md) — the approved-body hash the close record stamps for the drain.
 - [durable-close-record](durable-close-record.md) — the close comment carrying this entry's rationale durably.
 - [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored counterpart a local close uses.
+- [pre-epic-discovery](pre-epic-discovery.md) — the discovery store, a deliberate sibling of this queue rather than an entry inside it.
 
 ## Decision Log
 
@@ -79,3 +80,7 @@ The born-at-close entry now takes the epic's issue number as its whole name, so 
 ### 2026-07-31 — #170 — The durable hand-off surface, no longer the only one
 
 A local close no longer writes here at all: its epic, receipt, and close record became version-ignored hand-off content, leaving this queue to serve the pull-request flow, old-contract epics, and migrated member closes — plus the per-user scratch every implementation still commits, which is what a drain's committed removal is now re-aimed at. The presence-equals-unconsumed rule survives intact for this surface and is generalized rather than replaced for the ephemeral one, which derives the same fact from the trunk store. Refuted alternative: commit the local close's artifacts here too, mirroring the born-at-close mechanism the pull-request flow uses — one shape instead of two, but the local flow has no pull request of its own to carry that commit to the trunk, so it forces a manual commit and push of files nothing durable depends on.
+
+### 2026-08-11 — #228 — Reciprocal link from pre-epic-discovery
+
+Mechanical reciprocity fan-out: the pre-epic-discovery page names this queue as the surface its store deliberately sits outside, because the queue holds only closed, drainable entries and a discovery is never closed and never drained.

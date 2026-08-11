@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 50 active concepts. Each links to its full page
+Orientation map of the concept store — 53 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -12,28 +12,31 @@ Orientation map of the concept store — 50 active concepts. Each links to its f
 
 - [Distiller](../.nexus/concepts/distiller.md) — The distiller drains queue entries into the concept store — what changed from the merged diff, why from the closed records — inferring the mapping and applying it through a reviewed pull request.
 - [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
-- [Concept Store](../.nexus/concepts/concept-store.md) — The concept store is Nexus's machine knowledge surface: one distilled concept per file, keyed by a readable slug, holding current behavior, hard invariants, blast radius, and the durable why.
 - [Nexus Pipeline](../.nexus/concepts/nexus-pipeline.md) — Nexus is a lean, spec-driven delivery pipeline assisting product and project management — turning intent into validated, decision-grade specs.
+- [Concept Store](../.nexus/concepts/concept-store.md) — The concept store is Nexus's machine knowledge surface: one distilled concept per file, keyed by a readable slug, holding current behavior, hard invariants, blast radius, and the durable why.
 - [Approvable Decision Record](../.nexus/concepts/decision-record.md) — An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form.
+- [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
 - [Issue-Sourced Planning](../.nexus/concepts/issue-sourced-planning.md) — Issue-Sourced Planning makes GitHub issues the single source of truth for epic and story planning: nothing is committed at planning, and one deterministic resolver reconstructs the epic from its issue number.
+- [PR-Driven Post-Merge Flow](../.nexus/concepts/pr-driven-flow.md) — The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch.
 - [Publishing Config Resolution](../.nexus/concepts/publishing-config-resolution.md) — Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, resolved by a single shared resolver every publishing consumer goes through.
 - [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub.
+- [Backlog Stub](../.nexus/concepts/backlog-stub.md) — A backlog stub is an epic identified but not yet planned — an epic issue carrying the repository's declared epic classification plus exactly one label denoting that unplanned state.
 - [Close-Entry Migration](../.nexus/concepts/close-entry-migration.md) — Close-entry migration is the cross-repo tail of the close stage: it puts a closed epic where its concepts are distilled.
 - [Conformance Gate](../.nexus/concepts/conformance-gate.md) — Analyze checks the implemented code against the epic's acceptance criteria and the decision record's invariants, then proves it ran by leaving a receipt.
 - [Taxonomy Drift Advisory](../.nexus/concepts/drift-advisory.md) — The drift advisory is a deterministic, non-blocking step of the drain that reads the concept link graph and each page's filing and reports taxonomy decay as text in the distillation-PR body.
 - [Durable Close Record](../.nexus/concepts/durable-close-record.md) — The durable copy of a close's rationale is the comment the close stage posts on the epic issue, in every mode; the close-record file is a hand-off copy carrying no durability obligation.
 - [Ephemeral Hand-Off Entry](../.nexus/concepts/ephemeral-handoff-entry.md) — An ephemeral hand-off entry is the version-ignored directory a local close leaves for the very next drain: the materialized epic, the conformance receipt, and the close record, none of them committed.
-- [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
-- [PR-Driven Post-Merge Flow](../.nexus/concepts/pr-driven-flow.md) — The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch.
+- [Pre-Epic Discovery](../.nexus/concepts/pre-epic-discovery.md) — Pre-epic discovery is the stage that runs before an epic is planned, and only when the initiative is underspecified, meaning the split itself hangs on decisions nobody has made.
 - [Canonical Record Digest](../.nexus/concepts/record-digest.md) — One digest implementation computes the canonical hash of a decision-record body, and every stage that stamps or verifies the value invokes it.
 - [Scratch Capture](../.nexus/concepts/scratch-capture.md) — Scratch capture is the committed per-user surface inside an epic's queue entry where an engineer's agent records decision stubs and working notes at the moment of choosing.
 - [Taxonomy Filing Gate](../.nexus/concepts/taxonomy-filing-gate.md) — When the drain creates a concept and a domain registry exists, it files the concept under a best-fit domain by matching it against the registry's rubrics.
-- [Backlog Stub](../.nexus/concepts/backlog-stub.md) — A backlog stub is an epic identified but not yet planned — an epic issue carrying the repository's declared epic classification plus exactly one label denoting that unplanned state.
 - [Concept Page Capacity](../.nexus/concepts/concept-page-capacity.md) — The 400-word cap on a concept page measures the page's own content — its summary, its behavior section and its invariants — and never its neighbour list.
+- [Discovery Graduation](../.nexus/concepts/discovery-graduation.md) — A finished discovery becomes issues only through the epic stage, which reads the discovery document as its intent and files through the emission path it already owns.
 - [Distillation PR](../.nexus/concepts/distillation-pr.md) — The distiller does not write the concept store directly; it opens a reviewed pull request against the store.
 - [Grep-Native Retrieval](../.nexus/concepts/grep-native-retrieval.md) — The knowledge store is retrieved by plain text search over readable files — search, list, and read — with no graph engine, embeddings, or community detection.
 - [Code Anchors](../.nexus/concepts/code-anchors.md) — Code anchors are derived sidecar files that map a concept to the source that implements it.
 - [Finding Severity](../.nexus/concepts/finding-severity.md) — Concept validation reports two classes of finding: blocking ones that fail the run, and advisories that never do.
+- [Fog Referral Gate](../.nexus/concepts/fog-referral-gate.md) — The epic stage tests whether an intent's functional goals can be stated at all, before it measures how big they are.
 - [Forcing-Function Razor](../.nexus/concepts/forcing-function-razor.md) — Every artifact must exist to force a decision a human must make, or it is cut scaffolding.
 - [Gold-plating](../.nexus/concepts/gold-plating.md) — Gold-plating is the production of heavy, elaborate artifacts ahead of validated need — volume manufactured on speculation about what might matter rather than distilled from what has been decided.
 - [Nexus Setup CLI](../.nexus/concepts/nexus-setup-cli.md) — The Nexus Setup CLI is the portable `nexus` command that owns the *structural* half of getting Nexus into a repo or a whole multi-repo workspace — installing components and declaring or growing a workspace.

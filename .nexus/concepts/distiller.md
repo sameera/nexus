@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity"]
-last_updated_by: "#220"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery"]
+last_updated_by: "#228"
 status: active
 verification: verified
 ---
@@ -44,6 +44,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [durable-close-record](durable-close-record.md) — the close comment a lost entry is rebuilt from.
 - [concept-page-capacity](concept-page-capacity.md) — the cap it applies, and the only condition under which it splits a page.
 - [finding-severity](finding-severity.md) — the two-class validation result it gates on by exit status alone.
+- [pre-epic-discovery](pre-epic-discovery.md) — the ungated store its behavioral diff excludes, alongside the queue.
 
 ## Decision Log
 
@@ -110,3 +111,7 @@ With a local close's artifacts now version-ignored, the drain gained three capab
 ### 2026-08-04 — #220 — A drain can always declare a real interaction
 
 Every surface that once let the cap justify losing an edge was rewritten. The reciprocity step now states that it never drops, demotes to prose, or compresses an interaction, and that an interaction it cannot state within the per-entry bound is two interactions to be declared as two edges — otherwise the new bound would simply relocate the old pressure one level down. The split path and the eviction of last resort both fire on own-content overflow alone, so a long neighbour list is never a reason to cut a page up. The blocking rule changed with them: the drain used to treat any printed finding as fatal, which would have made the first advisory stop a drain with nothing to fix, so it now gates on the exit status alone. Refuted alternative: keep the printed-output rule and have the checks stay silent about anything non-fatal — it needs no change here at all, but it throws away exactly the signals a reviewer wants and leaves the drain's gate a heuristic over text.
+
+### 2026-08-11 — #228 — The behavioral diff excludes the discovery store
+
+A discovery folder is committed, and it holds in-flight reasoning that no human gate has passed. One branch can carry that reasoning alongside the code it was reasoning about, so the drain's diff now excludes the discovery store in both single-repo and hub derivation, exactly as it already excludes the queue. Without the exclusion, ungated prose would reach concept-delta synthesis. The exclusion is load-bearing rather than tidiness: it is one of the two properties that make a committed discovery store acceptable, the other being that the store sits outside the queue where no scan can reach it. Refuted alternative: place the discovery store inside the queue, which would inherit this exclusion with no change at all — rejected because it contradicts the queue's contract that it holds only closed, drainable entries, and because the drain's scan already walks the whole queue tree.

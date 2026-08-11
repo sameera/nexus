@@ -1,25 +1,25 @@
 ---
 title: "Nexus Pipeline"
 aliases: ["delivery pipeline", "pipeline stages", "System A", "spec-driven pipeline"]
-touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture", "pr-driven-flow", "issue-sourced-planning", "decision-record", "conformance-gate"]
-last_updated_by: "#151"
+touches: ["forcing-function-razor", "committed-queue", "story-as-unit", "epic-approval-gate", "scratch-capture", "pr-driven-flow", "issue-sourced-planning", "decision-record", "conformance-gate", "pre-epic-discovery"]
+last_updated_by: "#228"
 status: active
 verification: verified
 ---
 
 # Nexus Pipeline
 
-Nexus is a lean, spec-driven delivery pipeline assisting product and project management — turning intent into validated, decision-grade specs. Its stages are setup, epic, decision record, analyze, and close; it plans and gates the work but leaves implementation to engineers.
+Nexus is a lean, spec-driven delivery pipeline assisting product and project management — turning intent into validated, decision-grade specs. Its stages are setup, discovery when the initiative is foggy, epic, decision record, analyze, and close; it plans and gates the work but leaves implementation to engineers.
 
 ## How It Works
 
-Setup bootstraps the project's ground truth and product context. The epic stage turns a capability description into a right-sized epic, filing its stories at one approval gate. The decision-record stage files a record as an approvable sub-issue of the epic issue. Analyze checks the code against the acceptance criteria and the record's invariants, refusing to run while the record is unapproved. Close blocks on any open sub-issue, then emits a close record into the queue and closes the epic. Each stage keeps only what forces a human decision; code generation stays outside it. Under issue-sourced planning the epic resolves from its issues; the queue entry is born at close and feeds the store after merge. Analyze and close can run against a pull request, and design can import an out-of-band doc, so external work still distills.
+Setup bootstraps the project's ground truth and product context. Discovery runs before the epic stage, and only when the initiative is underspecified: it resolves the decisions the split hangs on and produces functional goals the epic stage files. The epic stage turns a capability description into a right-sized epic, filing its stories at one approval gate. The decision-record stage files a record as an approvable sub-issue of the epic issue. Analyze checks the code against the acceptance criteria and the record's invariants, refusing to run while the record is unapproved. Close blocks on any open sub-issue, then emits a close record into the queue and closes the epic. Each stage keeps only what forces a human decision; code generation stays outside it. Under issue-sourced planning the epic resolves from its issues; the queue entry is born at close and feeds the store after merge. Analyze and close can run against a pull request, and design can import an out-of-band doc, so external work still distills.
 
 ## Key Invariants
 
 1. The pipeline assists product and project management; it does not own or gate implementation.
 2. ~~The stages are setup, epic, high-level design, analyze, and close.~~
-3. The stages are setup, epic, decision record, analyze, and close.
+3. ~~The stages are setup, epic, decision record, analyze, and close.~~ The stages are setup, epic, decision record, analyze, and close, with discovery an optional stage before the epic, run only when the initiative is underspecified.
 4. Each stage keeps only outputs that force a human decision.
 5. The user story is the terminal planning unit; the pipeline does not decompose below it.
 6. Under issue-sourced planning the epic lives on its issues; the queue entry is born at close.
@@ -36,6 +36,7 @@ Setup bootstraps the project's ground truth and product context. The epic stage 
 - [issue-sourced-planning](issue-sourced-planning.md) — the storage model: issues, not a committed file.
 - [decision-record](decision-record.md) — the design stage's artifact; analyze and close block while it is unapproved.
 - [conformance-gate](conformance-gate.md) — the receipt analyze leaves and close reads as a hard precondition.
+- [pre-epic-discovery](pre-epic-discovery.md) — the optional stage before the epic, run only when the initiative is foggy.
 
 ## Decision Log
 
@@ -75,3 +76,7 @@ Since the record became an approvable sub-issue, the design stage no longer prod
 
 Mechanical reciprocity fan-out: the conformance-gate page names this pipeline as the stage
 pair — analyze and close — its receipt sits between.
+
+### 2026-08-11 — #228 — The pipeline gains an optional discovery stage before the epic
+
+The pipeline had one answer for scope that was too large and no answer for scope nobody could yet state, so an underspecified initiative was decomposed into work-shaped stubs as though the split were knowable. Discovery was added ahead of the epic stage to resolve the decisions the split hangs on, and it runs only when the initiative is foggy: scope that is big but clear keeps the existing decomposition path. Discovery writes no issue, comment, or label of its own, so the pipeline gains no second issue-creating surface, and the issues appear only when the epic stage consumes the finished discovery. Refuted alternative: keep answering both problems with the sizing gate, which needs no new stage at all — rejected because it produces a plan whose slices were guessed, which is the speculative over-generation this pipeline exists to prevent.
