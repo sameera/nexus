@@ -4,3 +4,4 @@ cross-ref:
 github:
   classification: labels
   project: none
+  worktree-path: ~/projects/worktrees/nexus
