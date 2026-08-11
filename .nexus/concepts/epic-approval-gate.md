@@ -1,8 +1,8 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub"]
-last_updated_by: "#185"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation"]
+last_updated_by: "#228"
 status: active
 verification: verified
 ---
@@ -33,6 +33,8 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [publishing-config-resolution](publishing-config-resolution.md) — decides the repository, classification, and project for every issue this gate files.
 - [decision-record](decision-record.md) — filing applies its needs-design label from the complexity rollup.
 - [backlog-stub](backlog-stub.md) — what oversized scope becomes, and what a promotion re-enters this gate as.
+- [fog-referral-gate](fog-referral-gate.md) — the sharpness test inside this stage's right-size phase, which stops an underspecified intent before sizing.
+- [discovery-graduation](discovery-graduation.md) — the entry mode consuming a finished discovery, which files through this stage's existing paths.
 
 ## Decision Log
 
@@ -59,3 +61,7 @@ Whether an epic warrants a decision record is now decided once, at filing, from 
 ### 2026-08-02 — #185 — Oversized scope files stub issues, and a promotion re-enters by issue number
 
 The oversized path stopped writing markdown blocks into a per-feature file and now files one epic issue per functional goal, marked unplanned — so the gate's consent covers an irreversible platform write rather than a local append, and the choice text at the gate says so. Retiring the file also retires the slug those blocks were addressed by: a promotion re-enters this gate by issue number alone, and because a stub is filed as an epic it is the same kind of object this gate produces. That is what forces the operation to be stated rather than inferred — a bare number always means plan this epic and is legal only while the unplanned label is present, loading an already-planned epic is selected by its own flag, and anything else is a capability description. The gate keeps writing no feature navigation index on this path, because a stub writes nothing to the tree at all. Refuted alternative: infer the operation from whether the unplanned label is present and drop the flag entirely — one fewer input to learn, but the same command would then silently do two different things depending on a label a third party can remove, and the two operations differ in consequence.
+
+### 2026-08-11 — #228 — A sharpness test and a discovery entry mode, both inside existing phases
+
+The epic stage changed in two ways, and neither adds a phase. Its right-size phase now tests whether an intent's functional goals can be stated before it measures their size, and stops an underspecified intent with a referral to discovery rather than filing work-shaped stubs. A third entry mode consumes a finished discovery: it treats the discovery document as the intent, skips the sharpness test, and runs the right-size gate unchanged. Both behaviours are described on their own pages rather than here, because this page is already near its capacity and the store splits a concept that no longer fits rather than growing it. Filing itself is untouched. The stubs a discovery produces go through the same batch path under the same contract, and a sharp, right-sized intent sees exactly the run it saw before. Refuted alternative: describe the sharpness test and the discovery entry mode inline on this page — rejected on the same grounds the taxonomy behaviours were split out, and because each of the two is asked about on its own.
