@@ -32,12 +32,13 @@ produce.
 
 <!-- Append-only. One line per resolved ticket, order-insensitive. -->
 
+- **Which Nexus component behaviours genuinely require running inside the target repo, and which
+  only appear to?** — The boundary has three sets, not two, drawn by asking what each path
+  identifies: project state, the toolkit, or the toolkit's source checkout. Detail:
+  `ticket-01-repo-bound-boundary.md`
+
 ## Not yet specified
 
-- Whether a hub and its member repos in a multi-repo workspace need a different arrangement from a
-  single repo once components are installed outside the repo. The hub already vendors the portable
-  tooling under `.nexus/tools/`, so a shared install may make that placement redundant or may
-  conflict with it. The question cannot be stated precisely until the repo-bound boundary is known.
 - Whether the permission allowlist and any other Claude Code settings that Nexus depends on must
   move or be generated alongside a shared install. Today `.claude/settings.local.json` is
   user-owned and Nexus never writes it.
