@@ -36,14 +36,14 @@ produce.
   only appear to?** — The boundary has three sets, not two, drawn by asking what each path
   identifies: project state, the toolkit, or the toolkit's source checkout. Detail:
   `ticket-01-repo-bound-boundary.md`
+- **When a Nexus component is installed outside the target repo, how does it address its own
+  scripts and files?** — It does not address them by path at all. A component names the toolkit,
+  the toolkit locates its own files at run time, and Nexus depends on no harness self-location
+  variable. Detail: `ticket-02-component-self-location.md`
 
 ## Not yet specified
 
-- Whether the permission allowlist and any other Claude Code settings that Nexus depends on must
-  move or be generated alongside a shared install. Today `.claude/settings.local.json` is
-  user-owned and Nexus never writes it.
-- Whether Nexus Prime, which drives Claude Code inside a browser terminal, needs its own way to
-  locate the installed components. This depends on the addressing answer.
+<!-- Empty. Both entries graduated into tickets when the self-location decision was resolved. -->
 
 ## Out of scope
 
