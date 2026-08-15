@@ -48,6 +48,11 @@ produce.
   bundle?** — Every capability a component body invokes becomes a verb on one named executable,
   every capability only the build invokes stays a TypeScript file that never ships, and the Python
   capabilities remain a separate second toolkit. Detail: `ticket-03-script-runtime-shape.md`
+- **Does a repo keep the ability to pin the Nexus component version it runs?** — No repo declares a
+  Nexus version; one release identity covers both toolkits and the component payload, the toolkit
+  stamps its version onto the artifacts it writes, the verb surface is guarded by a build-time gate
+  rather than a version number, and the repo-bound data formats become the versioned contract.
+  Detail: `ticket-05-version-pinning.md`
 
 ## Not yet specified
 
@@ -71,3 +76,17 @@ produce.
   current invocation strings are already broken: `nxs-gh-create-epic/SKILL.md:21` and its siblings
   write `python ./scripts/<name>.py`, which resolves only when the working directory is the skill
   directory, and which names `python` rather than `python3`.
+
+- Per-repository version pinning, in every form. A repository declares no Nexus version, and no
+  repository causes a particular toolkit version to be present on the machine. Staging a toolkit
+  upgrade for one repository while another stays behind is out of scope with it, because both
+  repositories share one install.
+
+  **This entry does not close per-machine version selection.** Installing and holding an explicit
+  older version on a machine is in scope and is required, because it is the only regression recourse
+  the version-pinning decision leaves. Ticket 10 decides the channel that must support it.
+
+- Reproducing a past pipeline run at the toolkit version that produced its artifacts. A checkout of
+  an old commit no longer reproduces the pipeline behaviour of that date. Nexus stages produce
+  decision-grade prose behind approval gates rather than deterministic build output, so there is no
+  byte-for-byte result to reproduce.

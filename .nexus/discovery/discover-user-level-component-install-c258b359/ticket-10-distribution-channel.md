@@ -24,6 +24,27 @@ re-runs a per-repository command. Third, whether removal can put the machine bac
 which matters because the audience decision accepted an install step as a prerequisite and therefore
 owes the adopter a way out.
 
+### Added by the version-pinning resolution, 2026-08-15
+
+Three requirements and one question were handed to this ticket by the resolution of "Does a repo keep
+the ability to pin the Nexus component version it runs?".
+
+1. The channel carries **one** semantic version naming the whole release: the TypeScript executable,
+   the Python toolkit, and the component payload together. It never publishes the two toolkits under
+   two version identities.
+2. The channel must support installing and **holding an explicit older version** on a machine. Per
+   repository version staging is out of scope, so per-machine version selection is the only
+   regression recourse that remains, and a channel that only ever installs the newest release does
+   not provide it.
+3. The channel must support a **complete removal**, which is already stated above, and the guard that
+   reports two copies of one component on a machine depends on removal actually removing.
+
+The question this ticket must also answer: **does the channel install per machine or per user?** The
+answer changes what the duplicate-copy guard compares across, because a shared continuous-integration
+image or a multi-tenant machine turns "detect two copies" into "detect two copies across users". It
+also changes the precedence rule the coexistence ticket decides. The channel determines the answer,
+which is why it is asked here rather than in a ticket of its own.
+
 ## Why it blocks
 
 The channel decides a whole goal's worth of stories, and the stories differ by option. A registry
