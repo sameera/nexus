@@ -40,6 +40,10 @@ produce.
   scripts and files?** — It does not address them by path at all. A component names the toolkit,
   the toolkit locates its own files at run time, and Nexus depends on no harness self-location
   variable. Detail: `ticket-02-component-self-location.md`
+- **Which pain must this refactor remove, and who installs Nexus into a repo?** — Nexus is built for
+  external adopters, it must remove staleness, commit churn, and onboarding cost together, an
+  install step is an acceptable prerequisite everywhere, and Nexus acquires a semantic released
+  version identity. Detail: `ticket-04-who-installs-nexus.md`
 
 ## Not yet specified
 
