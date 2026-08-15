@@ -44,6 +44,10 @@ produce.
   external adopters, it must remove staleness, commit churn, and onboarding cost together, an
   install step is an acceptable prerequisite everywhere, and Nexus acquires a semantic released
   version identity. Detail: `ticket-04-who-installs-nexus.md`
+- **Do the skill scripts stay as separate TypeScript files, or collapse into the one portable
+  bundle?** — Every capability a component body invokes becomes a verb on one named executable,
+  every capability only the build invokes stays a TypeScript file that never ships, and the Python
+  capabilities remain a separate second toolkit. Detail: `ticket-03-script-runtime-shape.md`
 
 ## Not yet specified
 
@@ -56,3 +60,8 @@ produce.
   what a stage does.
 - The stale component archive at `libs/origin/v1/.claude`. Issue #60 already rules it out of the
   managed set.
+- Porting the Python capabilities to verbs on the TypeScript executable. The script runtime decision
+  keeps them as a second named toolkit. They are standard-library only and need no package install,
+  so they already install outside the target repo, which is what the destination asks for. Porting
+  them would be an improvement to toolkit count rather than a requirement of installing outside the
+  repo.
