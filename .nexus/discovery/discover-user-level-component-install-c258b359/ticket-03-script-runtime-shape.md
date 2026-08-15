@@ -214,3 +214,52 @@ candidate answer, and ticket 05 decides it.
 This resolution does not decide where copies of the executable live. One bundle for the whole
 TypeScript toolkit is compatible with a per-machine install, with a hub-vendored copy, and with both.
 Ticket 07 decides that, and ticket 10 decides the channel the executable arrives through.
+
+### Amendment, 2026-08-15 — the Python carve-out, narrowed and argued
+
+The decision above is unchanged. The Python capabilities remain a second named toolkit for this
+refactor. What follows corrects how that carve-out was justified and what it was allowed to close,
+after the product owner challenged it.
+
+**The carve-out is an exception to the rule, not an application of it.** The rule says a capability
+that any component body invokes becomes a verb. Command bodies do invoke the Python capabilities, at
+`.claude/commands/nxs.analyze.md:103`, `.claude/commands/nxs.close.md:201`,
+`.claude/commands/nxs.close.md:646`, and `.claude/commands/nxs.setup.md:206`. So the rule, applied
+plainly, would make them verbs. They are held out on runtime grounds instead. The original wording
+did not say this, and a reader could have taken the carve-out for a consequence of the rule rather
+than a deliberate exception to it.
+
+**What justifies the exception.** One asymmetry does the work. The TypeScript scripts cannot ship as
+files because they import `@nexus/*`, which resolves only through pnpm symlinks into `libs/`. The
+Python scripts have no equivalent problem. Every import across `delivery_config.py`,
+`create_gh_issues.py`, and `nxs_gh_create_epic.py` is standard library: `argparse`, `glob`, `json`,
+`os`, `pathlib`, `random`, `re`, `shutil`, `subprocess`, `sys`, `tempfile`, and `time`. There is no
+package install to fail and no resolver to supply. The force that compelled the TypeScript collapse
+is absent here, so the same conclusion does not follow automatically.
+
+**Three costs the original justification understated, all real.** First, `python3` is a prerequisite
+Nexus does not control, and Windows is where that bites, because the interpreter may be absent, may
+be a store stub, or may be named `python` and be Python 2. The shipped skill bodies name bare
+`python`, which is the fragile form. Second, two toolkits risk two version identities. Decision 04
+requires a semantic version an adopter can pin, and a second artifact carrying its own identity
+re-creates staleness in a second place, which is the failure decision 04 exists to remove. One
+installer shipping both toolkits under one version identity would answer this, and no ticket has
+decided that yet. Third, and strongest: if the Python capabilities are ever rewritten, their
+invocation sites get rewritten twice. There are 12 Python invocation sites and 6 skill-relative ones.
+Each rewrite is another opportunity for the partial migration that the ordering gate in this
+resolution exists to prevent.
+
+**What the out-of-scope entry may and may not close.** The entry closes the rewrite of the Python
+capabilities into TypeScript. It does not close the Python toolkit itself. Making the Python
+capabilities reachable by name is in scope and required, because ticket 02's addressing rule covers
+every component invocation and does not exempt a runtime. The current Python invocation strings are
+already broken independently of this refactor: `.claude/skills/nxs-gh-create-epic/SKILL.md:21` and
+eight sibling lines write `python ./scripts/<name>.py`, which resolves only when the working
+directory happens to be the skill directory. The original entry was worded broadly enough to be read
+as closing that work too. Because an out-of-scope entry never graduates, a too-broad entry is a
+one-way door, so it has been narrowed in `discovery.md`.
+
+**What this hands forward.** Ticket 05 should weigh whether one version identity covers both
+toolkits or whether each carries its own, because that is where the second staleness surface either
+appears or is closed. Ticket 10 should weigh the double-rewrite cost when it chooses a channel,
+since a channel that makes a later Python rewrite cheap changes how much the deferral costs.

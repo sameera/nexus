@@ -60,8 +60,14 @@ produce.
   what a stage does.
 - The stale component archive at `libs/origin/v1/.claude`. Issue #60 already rules it out of the
   managed set.
-- Porting the Python capabilities to verbs on the TypeScript executable. The script runtime decision
-  keeps them as a second named toolkit. They are standard-library only and need no package install,
-  so they already install outside the target repo, which is what the destination asks for. Porting
-  them would be an improvement to toolkit count rather than a requirement of installing outside the
-  repo.
+- Rewriting the Python capabilities in TypeScript so that they become verbs on the TypeScript
+  executable. This entry covers the rewrite and nothing else. Every Python import is standard
+  library, so the Python capabilities need no package install and already install outside the target
+  repo, which is what the destination asks for. Rewriting them would reduce the number of toolkits
+  rather than enable the installation.
+
+  **This entry does not put the Python toolkit itself out of scope.** Making the Python capabilities
+  reachable by name is in scope and is required. Ticket 02's addressing rule covers them, and their
+  current invocation strings are already broken: `nxs-gh-create-epic/SKILL.md:21` and its siblings
+  write `python ./scripts/<name>.py`, which resolves only when the working directory is the skill
+  directory, and which names `python` rather than `python3`.
