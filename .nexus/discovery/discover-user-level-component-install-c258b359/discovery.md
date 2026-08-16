@@ -76,6 +76,13 @@ produce.
   the ticket's concern is inverted, since Prime's working directory is the home directory and it is
   the current repository-relative arrangement that cannot resolve there. Detail:
   `ticket-09-prime-toolkit-resolution.md`
+- **Through which channel does an external adopter install, update, and remove the Nexus toolkit?** —
+  A package on the public npm registry carrying the executable, the Python toolkit and the component
+  payload under one semantic version, with the changelog on the releases page; an explicit install
+  verb rather than a lifecycle script copies the payload into the Claude configuration directory and
+  prints the allowlist entries, removal is a verb run before the package is removed, and both the
+  older-version recourse and the `PATH` placement come free from the registry and the Node install
+  rather than being built. Detail: `ticket-10-distribution-channel.md`
 
 ## Not yet specified
 
@@ -121,6 +128,15 @@ produce.
 - A migrator that discovers every repository on a machine and migrates them together. The population
   is six repositories belonging to one person, so the migration verb takes one repository and is run
   once per repository.
+
+- Publishing the Python toolkit through a Python package registry, and any second published artifact
+  for any part of the release. A second registry entry would give the release two version identities,
+  which decision 05 forbids. The Python files ship inside the one package and are run by `python3`.
+
+- A package-manager lifecycle script as the mechanism that places the component payload. Such scripts
+  are blocked by default in pnpm and are commonly disabled in continuous integration, so a share of
+  installs would finish with no component set and no error. The placement is an explicit verb
+  instead.
 
 - A hosted or remote Nexus Prime, and everything that follows from separating the user's machine from
   Prime's machine. No remote-hosting model exists anywhere in the tree. A hosted Prime would change
