@@ -64,6 +64,12 @@ produce.
   hub-versus-member distinction stops mattering for tooling and for tooling only; the two
   alternatives are foreclosed by decisions 02 and 05 rather than outscored, and the migration
   population is zero. Detail: `ticket-07-hub-vendored-tools.md`
+- **Does Nexus own the permission allowlist entry that lets its toolkit run, and if so which stage
+  writes it?** — Nexus does not own it and no stage writes it; Nexus states the durable boundary that
+  it writes the components it owns and never the files governing what those components may run, and it
+  documents an account-scoped prefix entry per named toolkit, which is the only grant matching the
+  once-per-account install because an interactive approval always lands in the repository's local
+  settings file. Detail: `ticket-08-permission-allowlist-ownership.md`
 
 ## Not yet specified
 
@@ -109,6 +115,17 @@ produce.
 - A migrator that discovers every repository on a machine and migrates them together. The population
   is six repositories belonging to one person, so the migration verb takes one repository and is run
   once per repository.
+
+- Nexus writing a user-owned settings file, in every form and at every stage. This covers the
+  permission allowlist, and it covers hooks, environment variables, model settings, and any other
+  key in a settings file at any scope. Nexus writes the components it owns and never the files that
+  govern what those components are permitted to run. `nexus deploy` already prints this guarantee, so
+  the boundary is published rather than internal.
+
+  **This entry does not close documenting or printing the entry.** Publishing the exact allowlist
+  text in the install documentation and the upgrade notes is in scope and is required, and the
+  install step printing that same text is the implementation of the decision rather than an exception
+  to it.
 
 - A vendoring escape hatch that writes a copy of the toolkit into a repository, in every form. This
   covers an opt-in verb for an air-gapped or network-restricted machine, and it covers any
