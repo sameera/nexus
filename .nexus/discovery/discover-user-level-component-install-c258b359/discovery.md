@@ -53,6 +53,12 @@ produce.
   stamps its version onto the artifacts it writes, the verb surface is guarded by a build-time gate
   rather than a version number, and the repo-bound data formats become the versioned contract.
   Detail: `ticket-05-version-pinning.md`
+- **Must both installation modes coexist, and what happens to repos that already carry a committed
+  .claude directory?** — They do not coexist and no precedence rule is written, because Nexus owns no
+  site that can enforce one; exactly one component set exists per user account, the Nexus repository
+  moves its authored tree out of `.claude/` so that no repository is exempt, and every other
+  repository carrying committed components runs a gated migration verb that ships in the same release
+  as the shared install. Detail: `ticket-06-coexistence-and-migration.md`
 
 ## Not yet specified
 
@@ -85,6 +91,19 @@ produce.
   **This entry does not close per-machine version selection.** Installing and holding an explicit
   older version on a machine is in scope and is required, because it is the only regression recourse
   the version-pinning decision leaves. Ticket 10 decides the channel that must support it.
+
+- Coexistence of the two installation modes, in every form, and any precedence rule between a
+  repository-local component set and the shared install. Nexus owns no site at which a precedence
+  rule could be enforced, so writing one would be a promise with no enforcement point.
+
+  **This entry does not close the maintainer's source-link install content.** That content is one
+  install location pointing at a checkout rather than a second component set, and it is in scope and
+  required. The entry also does not close ticket 09's question about how a Nexus Prime session
+  reaches the toolkit.
+
+- A migrator that discovers every repository on a machine and migrates them together. The population
+  is six repositories belonging to one person, so the migration verb takes one repository and is run
+  once per repository.
 
 - Reproducing a past pipeline run at the toolkit version that produced its artifacts. A checkout of
   an old commit no longer reproduces the pipeline behaviour of that date. Nexus stages produce
