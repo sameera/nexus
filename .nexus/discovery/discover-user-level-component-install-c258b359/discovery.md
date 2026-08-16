@@ -70,6 +70,12 @@ produce.
   documents an account-scoped prefix entry per named toolkit, which is the only grant matching the
   once-per-account install because an interactive approval always lands in the repository's local
   settings file. Detail: `ticket-08-permission-allowlist-ownership.md`
+- **Does a Nexus Prime session resolve the toolkit by the same rule as a local shell, or must Prime
+  supply it?** — By the same rule, and Prime supplies nothing and implies zero goals, because Prime
+  spawns an interactive login shell on the same machine with the server's full environment inherited;
+  the ticket's concern is inverted, since Prime's working directory is the home directory and it is
+  the current repository-relative arrangement that cannot resolve there. Detail:
+  `ticket-09-prime-toolkit-resolution.md`
 
 ## Not yet specified
 
@@ -115,6 +121,16 @@ produce.
 - A migrator that discovers every repository on a machine and migrates them together. The population
   is six repositories belonging to one person, so the migration verb takes one repository and is run
   once per repository.
+
+- A hosted or remote Nexus Prime, and everything that follows from separating the user's machine from
+  Prime's machine. No remote-hosting model exists anywhere in the tree. A hosted Prime would change
+  the install-location invariant of decision 06 rather than merely consume it, so it is a new
+  question rather than a variation of one this discovery settles.
+
+  **This entry does not close where a Prime session gets its working directory.** A Prime session
+  starts in the home directory rather than in a repository, so a user must change directory before a
+  repository-bound stage works. That is a Prime experience question, it is not caused by this
+  refactor, and it belongs to Prime's own backlog rather than here.
 
 - Nexus writing a user-owned settings file, in every form and at every stage. This covers the
   permission allowlist, and it covers hooks, environment variables, model settings, and any other

@@ -45,6 +45,35 @@ image or a multi-tenant machine turns "detect two copies" into "detect two copie
 also changes the precedence rule the coexistence ticket decides. The channel determines the answer,
 which is why it is asked here rather than in a ticket of its own.
 
+### Added by the allowlist-ownership resolution, 2026-08-16
+
+The install step prints the permission allowlist entries a user should add, one per named toolkit,
+in the broad prefix form, and it writes no settings file. Nexus writes the components it owns and
+never the files that govern what those components may run. Whatever channel is chosen must have a
+place to print that text at install time.
+
+### Added by the Prime toolkit-resolution resolution, 2026-08-16
+
+The install location must be one that a shell startup file puts on `PATH`, or the install step must
+put it there itself. It is not enough for the location to be on `PATH` in the installing user's
+current terminal.
+
+The evidence is on the development machine itself. `$HOME/.local/bin` is first on `PATH` and is a
+conventional per-user install location for a command-line tool, but the user's shell is zsh and no
+zsh startup file adds it. `~/.profile` adds it and zsh never reads `~/.profile`, so the entry is
+present only by inheritance from the process that started the shell. Any process that starts without
+that inheritance — a Nexus Prime server launched as a service, a container, a graphical launcher —
+gets a shell in which the toolkit is unreachable by name even though it works in the user's own
+terminal.
+
+Choosing an install location therefore has to state which startup file establishes it, and the
+removal operation has to undo that too.
+
+Note also that the question this ticket carries about installing per machine or per user is
+partly settled: decision 06 fixed exactly one component set per user account at the Claude
+configuration directory. What remains open here is where the toolkit executable itself lands and
+whether the channel can serve a per-user install without administrator rights.
+
 ## Why it blocks
 
 The channel decides a whole goal's worth of stories, and the stories differ by option. A registry
