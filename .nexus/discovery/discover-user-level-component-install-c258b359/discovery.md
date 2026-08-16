@@ -59,6 +59,11 @@ produce.
   moves its authored tree out of `.claude/` so that no repository is exempt, and every other
   repository carrying committed components runs a gated migration verb that ships in the same release
   as the shared install. Detail: `ticket-06-coexistence-and-migration.md`
+- **Does a shared per-machine install replace the hub's vendored .nexus/tools/ bundle, or sit beside
+  it?** — The shared install replaces it, `.nexus/tools/` stops being written, and the
+  hub-versus-member distinction stops mattering for tooling and for tooling only; the two
+  alternatives are foreclosed by decisions 02 and 05 rather than outscored, and the migration
+  population is zero. Detail: `ticket-07-hub-vendored-tools.md`
 
 ## Not yet specified
 
@@ -104,6 +109,17 @@ produce.
 - A migrator that discovers every repository on a machine and migrates them together. The population
   is six repositories belonging to one person, so the migration verb takes one repository and is run
   once per repository.
+
+- A vendoring escape hatch that writes a copy of the toolkit into a repository, in every form. This
+  covers an opt-in verb for an air-gapped or network-restricted machine, and it covers any
+  arrangement in which a repository holds a second copy of the toolkit. A user who cannot write to
+  the Claude configuration directory cannot run Claude Code components at all, so Nexus is not the
+  binding constraint on such a machine. A resolution path that no component consults is also not an
+  installation mode.
+
+  **This entry does not close the question of which channel installs and updates the toolkit.** That
+  is ticket 10, and a channel that supports installing an explicit older version on a machine is
+  still in scope and still required.
 
 - Reproducing a past pipeline run at the toolkit version that produced its artifacts. A checkout of
   an old commit no longer reproduces the pipeline behaviour of that date. Nexus stages produce
