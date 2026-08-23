@@ -1,8 +1,8 @@
 ---
 title: "Nexus Setup CLI"
 aliases: ["nexus cli", "nexus deploy", "component-deploy primitive", "workspace init", "workspace add-repo", "workspace writer"]
-touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution"]
-last_updated_by: "#121"
+touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability"]
+last_updated_by: "#247"
 status: active
 verification: verified
 ---
@@ -32,6 +32,7 @@ Deploy is an overwrite-to-match mirror over an explicit managed set: it refreshe
 - [workspace-resolution](workspace-resolution.md) — writes the manifest and pointer artifacts this resolver reads, re-resolving its output for parity and delegating every collision to it.
 - [portable-tooling](portable-tooling.md) — ships as a vendored entrypoint on this distributable, its component payload pinned by the same fingerprint gate.
 - [publishing-config-resolution](publishing-config-resolution.md) — a read-out here is the seam that resolver reads its hub-defaults layer across.
+- [verb-reachability](verb-reachability.md) — the shared registry this CLI's deploy and workspace verbs are dispatched from, now also hosting the newly reachable capabilities.
 
 ## Decision Log
 
@@ -42,3 +43,7 @@ Getting Nexus into a repo or workspace is deterministic structural work, distinc
 ### 2026-07-24 — #121 — A read-out verb carries hub publishing defaults across the language boundary
 
 The workspace manifest is owned by the resolver this CLI is thin over, so the publishing resolver — written in a different language — must not parse that manifest itself; doing so would create the second shape authority the single-authority invariant forbids, and a second parser to drift. A dedicated read-out emitting machine-readable output is the seam instead, resolving from any checkout so a member reaches its hub's defaults exactly as the hub does. It degrades rather than crashes: a checkout with no workspace prints an empty result, and a resolution failure prints the empty result on the success channel and the diagnostic separately, so a caller reading only the former treats an unresolved workspace as "no defaults" instead of failing the issue it was filing. Refuted alternative: extend the existing status read-out to also carry the defaults as a parseable field — one fewer verb, but it turns a human-facing render into a machine contract another language couples to, the same objection that gave the docs root its own single-purpose read-out.
+
+### 2026-08-23 — #247 — Dispatch unifies onto the shared verb registry; the workspace status diagnostic stream is fixed
+
+This CLI's own verbs — deploy, and every workspace verb — now dispatch from the same declarative verb registry that also hosts the newly reachable capabilities, rather than a dispatcher of their own: the usage text for every verb, this CLI's included, is composed from one shared object. Auditing the two capabilities the epic assumed needed no work surfaced a real divergence: the workspace status read-out sent its failure diagnostic to standard output in script form and to standard error in its already-shipped verb form, while a component body already named both forms as interchangeable alternatives. Standard error is correct for a failure diagnostic, so the script form was aligned to the verb form rather than the reverse. Refuted alternative: leave the two forms as believed-equivalent and take the epic's claim they need no work at face value — rejected because the parity gate that exists to catch exactly this class of defect found it live in a component body naming both forms as interchangeable today.
