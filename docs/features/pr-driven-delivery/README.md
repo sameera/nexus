@@ -23,5 +23,6 @@ that logic is checked against real GitHub, and what the check found:
   derivation read-only against this repo's own merged PRs; it needs no scratch repo and no extra
   credential scope.
 - [Live-acceptance runbook](live-acceptance-runbook.md) — the scratch-repo dry-run, start to finish.
-  Its executable half is the `nxs-pr-acceptance` skill. **No longer the required path** — retained
-  as the controlled reproduction if something misbehaves on a real PR.
+  Its executable half is `libs/pr-acceptance/src/cli.ts`, a maintainer-typed command outside the
+  vendored component tree (decision record #277 — the harness gains no `nexus` verb). **No longer
+  the required path** — retained as the controlled reproduction if something misbehaves on a real PR.

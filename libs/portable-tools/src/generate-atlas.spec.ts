@@ -367,7 +367,7 @@ describe("renderAtlas / generateAtlas determinism", () => {
 describe("CLI", () => {
     function runCli(args: string[]): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync("npx", ["tsx", "libs/portable-tools/src/generate-atlas.ts", ...args], {
+            const stdout: string = execFileSync("npx", ["tsx", "libs/portable-tools/src/generate-atlas-launcher.ts", ...args], {
                 cwd: REPO_ROOT,
                 encoding: "utf8",
             });

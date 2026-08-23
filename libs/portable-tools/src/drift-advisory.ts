@@ -11,7 +11,6 @@
  * graph helpers and adds its own thin driver. This file ships NO seed behavior.
  */
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { buildAdjacency, loadConceptPages, registryPath, type ConceptPage } from "./generate-atlas.js";
 import { parseDomainRegistry, type ParsedRegistry } from "./domain-registry.js";
 
@@ -357,14 +356,6 @@ export function runCli(argv: string[]): number {
     return 0;
 }
 
-function main(): void {
-    process.exit(runCli(process.argv.slice(2)));
-}
-
-// See the matching comment in generate-atlas.ts: the filename check disambiguates this guard from
-// another entry point's bundle that imports from this module (Story 3's planned seed driver
-// imports detectCommunities and the shared graph helpers from here) after esbuild inlines this
-// file's source into that entry's bundle.
-if (import.meta.url === `file://${process.argv[1]}` && path.basename(process.argv[1]).startsWith("drift-advisory")) {
-    main();
-}
+// No self-exec guard here (decision record #277): the process boundary lives once, in the
+// dispatcher (`nexus-cli.ts`) or in this capability's own standalone launcher
+// (`drift-advisory-launcher.ts`) — never in the capability itself, which must be import-safe.

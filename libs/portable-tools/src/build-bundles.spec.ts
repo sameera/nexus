@@ -36,7 +36,11 @@ describe("buildAllBundles", () => {
             expect(fs.existsSync(file)).toBe(true);
             const content: string = fs.readFileSync(file, "utf8");
             expect(content.length).toBeGreaterThan(0);
-            expect(content).toContain("export {");
+            // A standalone launcher's bundle (story #274) exports nothing — its only top-level
+            // code is the `runCli` invocation — so "looks like ESM" is asserted via the shared
+            // createRequire shim every bundle carries, not an export clause every bundle no
+            // longer has.
+            expect(content).toContain("createRequire");
         }
     });
 

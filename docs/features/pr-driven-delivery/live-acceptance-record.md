@@ -44,7 +44,7 @@ fork-originated heads out of scope.
 
 ## Runs
 
-> Append each run below, newest last. Paste the `pr_acceptance.ts evidence` output as the run's
+> Append each run below, newest last. Paste the harness's `evidence` output (`libs/pr-acceptance/src/cli.ts evidence`) as the run's
 > mechanical half, then fill in the prose sections by hand.
 
 ### Run template
@@ -75,7 +75,7 @@ fork-originated heads out of scope.
 
 ### Observations
 
-<the `pr_acceptance.ts evidence` output, verbatim>
+<the harness's `evidence` output, verbatim>
 
 ### Divergences from the injected-runner tests
 

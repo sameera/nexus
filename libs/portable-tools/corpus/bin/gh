@@ -1,0 +1,87 @@
+#!/usr/bin/env node
+/**
+ * Hermetic `gh` stand-in for the migration-axis parity corpus (decision record #277, "Effect
+ * parity is asserted hermetically"). Placed earlier on PATH than the real `gh` when the parity
+ * spec spawns both the legacy script (tsx) and the verb (built bundle), so `epic-resolve` and
+ * `record-digest` — both of which shell out to `gh` via defaultRunner's plain spawnSync — answer
+ * from a committed fixture instead of the network. Both sides of a comparison run under the same
+ * stand-in, so a divergence can only come from the capability itself, never from live GitHub state.
+ *
+ * Reads the fixture named by NEXUS_PARITY_GH_FIXTURE (an absolute path to a JSON file) and answers
+ * the exact call shapes the epic-resolve, record-digest, and pr-worktree libraries make (story
+ * #273 added `pr view`). Deliberately narrow: it only understands the shapes those libraries
+ * currently emit, not the full `gh` surface.
+ */
+// Repo root's package.json declares "type": "module", so Node loads this extensionless script as
+// ESM when it walks up from here looking for the nearest package.json — use import, not require.
+import * as fs from "node:fs";
+
+function reply(status, stdout, stderr) {
+    if (stdout) process.stdout.write(stdout);
+    if (stderr) process.stderr.write(stderr);
+    process.exit(status);
+}
+
+function loadFixture() {
+    const fixturePath = process.env.NEXUS_PARITY_GH_FIXTURE;
+    if (!fixturePath) {
+        reply(1, "", "stand-in gh: NEXUS_PARITY_GH_FIXTURE is not set\n");
+    }
+    return JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+}
+
+const args = process.argv.slice(2);
+const fixture = loadFixture();
+
+if (args[0] === "repo" && args[1] === "view") {
+    const entry = fixture.repoView;
+    if (!entry) reply(1, "", "stand-in gh: fixture has no repoView entry\n");
+    reply(entry.status, entry.stdout || "", entry.stderr || "");
+}
+
+if (args[0] === "pr" && args[1] === "view") {
+    const number = args[2];
+    const entry = fixture.prView && fixture.prView[number];
+    if (!entry) reply(1, "", `gh: no pull requests found for #${number}\n`);
+    reply(entry.status, entry.stdout || "", entry.stderr || "");
+}
+
+if (args[0] === "issue" && args[1] === "view") {
+    const number = args[2];
+    const entry = fixture.issueView && fixture.issueView[number];
+    if (!entry) reply(1, "", `gh: issue #${number} not found\n`);
+    reply(entry.status, entry.stdout || "", entry.stderr || "");
+}
+
+if (args[0] === "api" && args[1] === "graphql") {
+    const joined = args.join(" ");
+    let entry;
+    if (joined.includes("parent{number}")) {
+        entry = fixture.parent;
+    } else if (joined.includes("issueType")) {
+        entry = fixture.subIssueTypes;
+    } else {
+        entry = fixture.subIssueNumbers;
+    }
+    if (!entry) reply(1, "", "stand-in gh: fixture has no matching graphql entry\n");
+    reply(entry.status, entry.stdout || "", entry.stderr || "");
+}
+
+if (args[0] === "api") {
+    const apiPath = args[1] || "";
+    const issueMatch = apiPath.match(/\/issues\/(\d+)$/);
+    if (issueMatch) {
+        const entry = fixture.apiIssue && fixture.apiIssue[issueMatch[1]];
+        if (!entry) reply(1, "", `gh: record issue #${issueMatch[1]} not found\n`);
+        reply(entry.status, entry.stdout || "", entry.stderr || "");
+    }
+    const blockedByMatch = apiPath.match(/\/issues\/(\d+)\/dependencies\/blocked_by$/);
+    if (blockedByMatch) {
+        const entry = fixture.blockedBy && fixture.blockedBy[blockedByMatch[1]];
+        if (!entry) reply(1, "", `stand-in gh: fixture has no blockedBy entry for #${blockedByMatch[1]}\n`);
+        reply(entry.status, entry.stdout || "", entry.stderr || "");
+    }
+    reply(1, "", `stand-in gh: unhandled api path: ${apiPath}\n`);
+}
+
+reply(1, "", `stand-in gh: unhandled invocation: ${JSON.stringify(args)}\n`);

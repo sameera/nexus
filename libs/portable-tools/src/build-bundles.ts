@@ -7,12 +7,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { buildBundle } from "./bundle.js";
 
+// The five standalone artifacts point at their launcher file, not the capability file directly
+// (decision record #277): the capability files carry no process boundary of their own (so
+// `nexus-cli.ts` can import them without triggering a self-run), and each launcher is the one
+// place that still unconditionally invokes `runCli` for that standalone artifact's build.
 export const ENTRY_POINTS: Record<string, string> = {
-    "generate-atlas": "generate-atlas.ts",
-    "validate-concepts": "validate-concepts.ts",
-    "derive-entry-diff": "derive-entry-diff.ts",
-    "drift-advisory": "drift-advisory.ts",
-    "seed-registry": "seed-registry.ts",
+    "generate-atlas": "generate-atlas-launcher.ts",
+    "validate-concepts": "validate-concepts-launcher.ts",
+    "derive-entry-diff": "derive-entry-diff-launcher.ts",
+    "drift-advisory": "drift-advisory-launcher.ts",
+    "seed-registry": "seed-registry-launcher.ts",
     "nexus": "nexus-cli.ts",
 };
 

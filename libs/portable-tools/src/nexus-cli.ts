@@ -20,9 +20,32 @@
 
 import * as path from "node:path";
 import * as readline from "node:readline";
+import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
+import { migrateEntry } from "@nexus/close-migration/migrate";
+import { closePreflight } from "@nexus/close-migration/preflight";
+import {
+    renderMigrateOutcome,
+    renderMigrationFailure,
+    renderPreflight,
+} from "@nexus/close-migration/render";
+import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migration/run";
+import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
+import { resolveEpic } from "@nexus/epic-resolve/resolve";
+import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { resolveRole } from "@nexus/pr-worktree/identity";
+import { resolvePr } from "@nexus/pr-worktree/pr";
+import { deriveRange } from "@nexus/pr-worktree/range";
+import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
+import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
+import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
+import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
+import { runCli as runDriftAdvisory } from "./drift-advisory.js";
+import { runCli as runGenerateAtlas } from "./generate-atlas.js";
+import { runCli as runSeedRegistry } from "./seed-registry.js";
+import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
@@ -34,21 +57,133 @@ export interface CliIo {
     stderr: (line: string) => void;
 }
 
-const USAGE: string = [
-    "usage: nexus <verb>",
-    "",
-    "  nexus deploy [--payload <dir>] [--target <dir>]",
-    "      Install the Nexus Claude components (.claude/ commands, agents, skills) into the",
-    "      target repo (default: the current directory), mirroring the vendored payload",
-    "      (default: the claude-components directory beside this artifact). Idempotent;",
-    "      user-owned files such as .claude/settings.local.json are never touched.",
-    "",
-    "  nexus workspace init            Declare a multi-repo workspace (hub + members).",
-    "  nexus workspace status          Read-only workspace status from any checkout.",
-    "  nexus workspace docs-root       Print the resolved repo-relative docs root.",
-    "  nexus workspace add-repo        Add the invoking checkout to an existing workspace.",
-    "  nexus workspace github-defaults Print the hub's github-publishing defaults as JSON.",
-].join("\n");
+/**
+ * One entry in the verb registry (decision record #277): a verb cannot exist without appearing in
+ * the composed usage text, because the usage text is rendered from this same object. Every
+ * capability is imported statically and dispatched eagerly — there is no lazy/deferred variant.
+ */
+interface VerbEntry {
+    /** One-line summary, shown beside the verb name in the top-level usage listing. */
+    summary: string;
+    /** The full usage block for this verb (may span multiple lines). */
+    usage: string;
+    run: (argv: string[], io: CliIo) => Promise<number>;
+}
+
+const REGISTRY: Record<string, VerbEntry> = {
+    deploy: {
+        summary: "Install the Nexus Claude components into the target repo.",
+        usage: [
+            "  nexus deploy [--payload <dir>] [--target <dir>]",
+            "      Install the Nexus Claude components (.claude/ commands, agents, skills) into the",
+            "      target repo (default: the current directory), mirroring the vendored payload",
+            "      (default: the claude-components directory beside this artifact). Idempotent;",
+            "      user-owned files such as .claude/settings.local.json are never touched.",
+        ].join("\n"),
+        run: runDeploy,
+    },
+    workspace: {
+        summary: "Declare, inspect, or extend a multi-repo workspace.",
+        usage: [
+            "  nexus workspace init            Declare a multi-repo workspace (hub + members).",
+            "  nexus workspace status          Read-only workspace status from any checkout.",
+            "  nexus workspace docs-root       Print the resolved repo-relative docs root.",
+            "  nexus workspace add-repo        Add the invoking checkout to an existing workspace.",
+            "  nexus workspace github-defaults Print the hub's github-publishing defaults as JSON.",
+        ].join("\n"),
+        run: runWorkspaceVerb,
+    },
+    "abs-doc-path": {
+        summary: "Convert a repository-relative path to an absolute GitHub URL.",
+        usage: [
+            "  nexus abs-doc-path <relative-path> [<relative-path> ...]",
+            "      Print the absolute GitHub URL for one or more repo-relative paths, one per line.",
+        ].join("\n"),
+        run: runAbsDocPath,
+    },
+    "epic-resolve": {
+        summary: "Materialize an epic issue's stories and blocked_by graph as epic.md.",
+        usage: [
+            "  nexus epic-resolve --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]",
+            "      Resolve epic issue #N and write the materialized epic.md.",
+        ].join("\n"),
+        run: runEpicResolve,
+    },
+    "record-digest": {
+        summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
+        usage: [
+            "  nexus record-digest --issue <N> [--repo <owner/repo>] [--dir <startDir>]",
+            "      Print { issue, repo, state, stateReason, approved, digest }.",
+        ].join("\n"),
+        run: runRecordDigest,
+    },
+    "pr-worktree": {
+        summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
+        usage: [
+            "  nexus pr-worktree preflight --pr <N> --mode analyze|close",
+            "  nexus pr-worktree open --pr <N> --mode analyze|close [--branch <distill/...>]",
+            "  nexus pr-worktree remove <wtPath>",
+        ].join("\n"),
+        run: runPrWorktree,
+    },
+    "close-migration": {
+        summary: "Migrate a closed queue entry from a member repo into the workspace hub.",
+        usage: [
+            "  nexus close-migration preflight [dir]",
+            "  nexus close-migration migrate <entry-dir>",
+        ].join("\n"),
+        run: runCloseMigration,
+    },
+    "generate-atlas": {
+        summary: "Regenerate the concept atlas from the concept store.",
+        usage: [
+            "  nexus generate-atlas [--concepts-dir <dir>] [--out <path>] [--check]",
+            "      Write the concept atlas (or, with --check, verify it is up to date).",
+        ].join("\n"),
+        run: (argv) => Promise.resolve(runGenerateAtlas(argv)),
+    },
+    "validate-concepts": {
+        summary: "Validate concept pages against the store's structural rules.",
+        usage: [
+            "  nexus validate-concepts [--concepts-dir <dir>] [--base <sha>] [<page> ...]",
+            "      Validate concept pages, exiting non-zero on any blocking finding.",
+        ].join("\n"),
+        run: (argv) => Promise.resolve(runValidateConcepts(argv)),
+    },
+    "derive-entry-diff": {
+        summary: "Derive the merged diff a closed queue entry's decision record covers.",
+        usage: [
+            "  nexus derive-entry-diff --entry <queue-entry-dir> [--hub <hub-root>]",
+            "      Print the per-repo diff the queue entry's recorded range covers.",
+        ].join("\n"),
+        run: (argv) => Promise.resolve(runDeriveEntryDiff(argv)),
+    },
+    "drift-advisory": {
+        summary: "Report concept pages whose domain filing looks stale.",
+        usage: [
+            "  nexus drift-advisory [--concepts-dir <dir>] [--registry <path>]",
+            "      Print a drift-advisory report against the domain registry.",
+        ].join("\n"),
+        run: (argv) => Promise.resolve(runDriftAdvisory(argv)),
+    },
+    "seed-registry": {
+        summary: "Draft a starter domain registry from the concept store.",
+        usage: [
+            "  nexus seed-registry [--concepts-dir <dir>] [--out-dir <dir>]",
+            "      Write draft domain-registry files for a maintainer to review.",
+        ].join("\n"),
+        run: (argv) => Promise.resolve(runSeedRegistry(argv)),
+    },
+};
+
+/** The registered verb names, derived from the registry — never a hand-maintained duplicate. */
+export const VERB_NAMES: readonly string[] = Object.keys(REGISTRY);
+
+function composeUsage(): string {
+    return ["usage: nexus <verb>", "", ...Object.values(REGISTRY).map((entry) => entry.usage + "\n")].join("\n").trimEnd();
+}
+
+const USAGE: string = composeUsage();
 
 /** Where the vendored payload lives when running as a distributed artifact. */
 export function defaultPayloadDir(): string {
@@ -245,6 +380,298 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
     return 2;
 }
 
+/**
+ * `nexus abs-doc-path` — the in-repo vehicle is `get_abs_doc_path.ts`, kept byte-identical
+ * (same messages, same exit codes 0/1/3) so the migration-axis parity gate reports no divergence.
+ */
+async function runAbsDocPath(argv: string[], io: CliIo): Promise<number> {
+    if (argv.length < 1) {
+        io.stderr("Usage: tsx get_abs_doc_path.ts <relative-path>");
+        io.stderr("       tsx get_abs_doc_path.ts <path1> <path2> ...");
+        return 3;
+    }
+
+    const result = resolveAbsDocPath(io.cwd, argv);
+    if (!result.ok) {
+        io.stderr(result.message);
+        return 1;
+    }
+
+    for (const url of result.urls) {
+        io.stdout(url);
+    }
+    return 0;
+}
+
+interface EpicResolveFlags {
+    epic?: number;
+    out?: string;
+    dir?: string;
+    requireEpic: boolean;
+}
+
+function parseEpicResolveFlags(argv: string[]): EpicResolveFlags {
+    const flags: EpicResolveFlags = { requireEpic: false };
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--epic") flags.epic = Number(argv[++i]);
+        else if (a === "--out") flags.out = argv[++i];
+        else if (a === "--dir") flags.dir = argv[++i];
+        else if (a === "--require-epic") flags.requireEpic = true;
+    }
+    return flags;
+}
+
+/** The repo whose issues to query: the workspace hub, or the single-repo checkout. */
+function epicResolveTargetRoot(startDir: string, io: CliIo): string | null {
+    const resolved = resolveWorkspace(startDir);
+    if (!resolved.ok) {
+        io.stderr(renderWorkspaceStatus(resolved));
+        return null;
+    }
+    return resolved.workspace.mode === "workspace" ? resolved.workspace.hubRoot : resolved.workspace.root;
+}
+
+/**
+ * `nexus epic-resolve` — the in-repo vehicle is `epic_resolve.ts`, kept byte-identical (including
+ * its usage/diagnostic text) so the migration-axis parity gate reports no divergence.
+ */
+async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
+    const flags: EpicResolveFlags = parseEpicResolveFlags(argv);
+    if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
+        io.stderr("usage: epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]");
+        return 2;
+    }
+
+    const root: string | null = epicResolveTargetRoot(flags.dir ?? io.cwd, io);
+    if (root === null) {
+        return 1;
+    }
+
+    const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: flags.requireEpic });
+    if (!resolved.ok) {
+        io.stderr(renderEpicResolveDiagnostic(resolved.error));
+        return 1;
+    }
+
+    const outPath: string = writeMaterializedEpic(root, flags.epic, resolved.markdown, flags.out);
+    io.stdout(JSON.stringify({ epic: flags.epic, targetRoot: root, outPath, record: resolved.record }));
+    return 0;
+}
+
+interface RecordDigestFlags {
+    issue?: number;
+    repo?: string;
+    dir?: string;
+}
+
+function parseRecordDigestFlags(argv: string[]): RecordDigestFlags {
+    const flags: RecordDigestFlags = {};
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--issue") flags.issue = Number(argv[++i]);
+        else if (a === "--repo") flags.repo = argv[++i];
+        else if (a === "--dir") flags.dir = argv[++i];
+    }
+    return flags;
+}
+
+/**
+ * `nexus record-digest` — the in-repo vehicle is `record_digest.ts`, kept byte-identical so the
+ * migration-axis parity gate reports no divergence.
+ */
+async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
+    const flags: RecordDigestFlags = parseRecordDigestFlags(argv);
+    if (flags.issue === undefined || Number.isNaN(flags.issue) || flags.issue <= 0) {
+        io.stderr("usage: record_digest.ts --issue <N> [--repo <owner/repo>] [--dir <startDir>]");
+        return 2;
+    }
+
+    const result = fetchRecord(closeMigrationRunner, flags.dir ?? io.cwd, flags.issue, flags.repo ?? null);
+    if (!result.ok) {
+        io.stderr(`record-digest ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+
+    const { issue, repo, state, stateReason, approved, digest } = result.record;
+    io.stdout(JSON.stringify({ issue, repo, state, stateReason, approved, digest }));
+    return 0;
+}
+
+interface PrWorktreeFlags {
+    pr?: number;
+    mode?: string;
+    branch?: string;
+    positional: string[];
+}
+
+function parsePrWorktreeFlags(argv: string[]): PrWorktreeFlags {
+    const flags: PrWorktreeFlags = { positional: [] };
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--pr") flags.pr = Number(argv[++i]);
+        else if (a === "--mode") flags.mode = argv[++i];
+        else if (a === "--branch") flags.branch = argv[++i];
+        else flags.positional.push(a);
+    }
+    return flags;
+}
+
+/**
+ * `nexus pr-worktree` — the in-repo vehicle is `pr_worktree.ts`, kept byte-identical (same
+ * subcommands, same JSON shapes, same exit codes) so the migration-axis parity gate reports no
+ * divergence.
+ */
+async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
+    const [subcommand, ...rest] = argv;
+    const flags: PrWorktreeFlags = parsePrWorktreeFlags(rest);
+
+    if (subcommand === "preflight" || subcommand === "open") {
+        if (flags.pr === undefined || Number.isNaN(flags.pr)) {
+            io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
+            return 2;
+        }
+        if (flags.mode !== "analyze" && flags.mode !== "close") {
+            io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
+            return 2;
+        }
+
+        const role = resolveRole(io.cwd);
+        if (!role.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(role.error));
+            return 1;
+        }
+        const { repoRoot, repoIdentity, role: roleName } = role.resolved;
+        const requireMerged: boolean = flags.mode === "close";
+        const pr = resolvePr(closeMigrationRunner, repoRoot, flags.pr, { requireMerged });
+        if (!pr.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(pr.error));
+            return 1;
+        }
+
+        if (subcommand === "preflight") {
+            io.stdout(
+                JSON.stringify({
+                    command: "preflight",
+                    role: roleName,
+                    repoRoot,
+                    repoIdentity,
+                    pr: {
+                        number: pr.pr.number,
+                        state: pr.pr.state,
+                        merged: pr.pr.merged,
+                        base: pr.pr.base,
+                        head: pr.pr.head,
+                        mergeCommitOid: pr.pr.mergeCommitOid,
+                        commitCount: pr.pr.commitCount,
+                        url: pr.pr.url,
+                        crossRepo: pr.pr.crossRepo,
+                        authorLogin: pr.pr.authorLogin,
+                    },
+                }),
+            );
+            return 0;
+        }
+
+        // subcommand === "open"
+        if (flags.mode === "analyze") {
+            const wt = openAnalyzeWorktree(closeMigrationRunner, repoRoot, flags.pr);
+            if (!wt.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(wt.error));
+                return 1;
+            }
+            io.stdout(
+                JSON.stringify({ command: "open", mode: "analyze", wtPath: wt.wtPath, analyzedHead: wt.head, base: pr.pr.base, repoIdentity }),
+            );
+            return 0;
+        }
+
+        // open close
+        if (!flags.branch) {
+            io.stderr("usage: pr_worktree.ts open --pr <N> --mode close --branch <distill/...>");
+            return 2;
+        }
+        const wt = openCloseWorktree(closeMigrationRunner, repoRoot, flags.branch);
+        if (!wt.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(wt.error));
+            return 1;
+        }
+        // Fetch the PR head into the shared object store so the range can be verified
+        // (disambiguates squash vs rebase). Best-effort — a deleted branch leaves it undefined.
+        const fetched = closeMigrationRunner("git", ["fetch", "origin", `pull/${flags.pr}/head`], { cwd: repoRoot });
+        const prHead: string | undefined =
+            fetched.status === 0 ? (git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "FETCH_HEAD") ?? undefined) : undefined;
+        const range = deriveRange(closeMigrationRunner, wt.wtPath, pr.pr, { verifyAgainstPrHead: prHead });
+        if (!range.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(range.error));
+            return 1;
+        }
+        io.stdout(
+            JSON.stringify({
+                command: "open",
+                mode: "close",
+                wtPath: wt.wtPath,
+                range: { repo: repoIdentity, base: range.range.base, head: range.range.head },
+            }),
+        );
+        return 0;
+    }
+
+    if (subcommand === "remove") {
+        const wtPath: string | undefined = flags.positional[0];
+        if (!wtPath) {
+            io.stderr("usage: pr_worktree.ts remove <wtPath>");
+            return 2;
+        }
+        const r = removeWorktree(closeMigrationRunner, io.cwd, wtPath);
+        if (!r.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(r.error));
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "remove", wtPath, removed: true }));
+        return 0;
+    }
+
+    io.stderr("usage: pr_worktree.ts <preflight|open --pr <N> --mode analyze|close [--branch <b>] | remove <wtPath>>");
+    return 2;
+}
+
+/**
+ * `nexus close-migration` — the in-repo vehicle is `close_migration.ts`, kept byte-identical
+ * (including the preflight-failure message going to stdout, matching the script's own choice) so
+ * the migration-axis parity gate reports no divergence.
+ */
+async function runCloseMigration(argv: string[], io: CliIo): Promise<number> {
+    const [subcommand, arg] = argv;
+
+    if (subcommand === "preflight") {
+        const result = closePreflight(arg ?? io.cwd);
+        if (!result.ok) {
+            io.stdout(renderMigrationFailure(result.error));
+            return 1;
+        }
+        io.stdout(renderPreflight(result.preflight));
+        return 0;
+    }
+
+    if (subcommand === "migrate") {
+        if (!arg) {
+            io.stderr("usage: close_migration.ts migrate <entry-dir>");
+            return 2;
+        }
+        const result = migrateEntry(arg);
+        if (!result.ok) {
+            io.stdout(renderMigrationFailure(result.error));
+            return 1;
+        }
+        io.stdout(renderMigrateOutcome(result.outcome));
+        return 0;
+    }
+
+    io.stderr("usage: close_migration.ts <preflight [dir] | migrate <entry-dir>>");
+    return 2;
+}
+
 /** Run the CLI against explicit argv (no leading node/script segments) and IO. */
 export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
     const [verb, ...rest] = argv;
@@ -257,14 +684,12 @@ export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
         io.stderr(USAGE);
         return 2;
     }
-    if (verb === "deploy") {
-        return runDeploy(rest, io);
+    const entry: VerbEntry | undefined = REGISTRY[verb];
+    if (entry === undefined) {
+        io.stderr(`unknown verb '${verb}'\n${USAGE}`);
+        return 2;
     }
-    if (verb === "workspace") {
-        return runWorkspaceVerb(rest, io);
-    }
-    io.stderr(`unknown verb '${verb}'\n${USAGE}`);
-    return 2;
+    return entry.run(rest, io);
 }
 
 async function main(): Promise<void> {

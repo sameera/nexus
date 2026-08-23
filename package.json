@@ -17,15 +17,16 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "nexus:validate-concepts": "tsx libs/portable-tools/src/validate-concepts.ts",
-    "nexus:generate-atlas": "tsx libs/portable-tools/src/generate-atlas.ts",
-    "nexus:check-atlas": "tsx libs/portable-tools/src/generate-atlas.ts --check",
-    "nexus:drift-advisory": "tsx libs/portable-tools/src/drift-advisory.ts",
-    "nexus:seed-registry": "tsx libs/portable-tools/src/seed-registry.ts",
+    "nexus:validate-concepts": "tsx libs/portable-tools/src/nexus-cli.ts validate-concepts",
+    "nexus:generate-atlas": "tsx libs/portable-tools/src/nexus-cli.ts generate-atlas",
+    "nexus:check-atlas": "tsx libs/portable-tools/src/nexus-cli.ts generate-atlas --check",
+    "nexus:drift-advisory": "tsx libs/portable-tools/src/nexus-cli.ts drift-advisory",
+    "nexus:seed-registry": "tsx libs/portable-tools/src/nexus-cli.ts seed-registry",
     "nexus:vendor-tools": "tsx libs/portable-tools/src/vendor-bundle.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
+    "@nexus/abs-doc-path": "workspace:*",
     "@nexus/close-migration": "workspace:*",
     "@nexus/epic-resolve": "workspace:*",
     "@nexus/pr-acceptance": "workspace:*",

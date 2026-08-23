@@ -402,17 +402,6 @@ export function runCli(argv: string[]): number {
     return 0;
 }
 
-function main(): void {
-    process.exit(runCli(process.argv.slice(2)));
-}
-
-// The `import.meta.url` check alone is not enough once another entry point imports this module
-// (epic #94, STORY-94.02: drift-advisory.ts imports buildAdjacency/loadConceptPages/registryPath
-// for Invariant 9's literal graph-construction agreement) — esbuild inlines this whole file into
-// that entry's bundle, and after bundling both files' guards share one `import.meta.url`, so this
-// guard would otherwise also fire (and process.exit) inside a run of the OTHER entry point. The
-// filename check disambiguates: it stays true only when this file is the one actually invoked, in
-// both `tsx` (source, "generate-atlas.ts") and vendored-bundle ("generate-atlas.mjs") form.
-if (import.meta.url === `file://${process.argv[1]}` && path.basename(process.argv[1]).startsWith("generate-atlas")) {
-    main();
-}
+// No self-exec guard here (decision record #277): the process boundary lives once, in the
+// dispatcher (`nexus-cli.ts`) or in this capability's own standalone launcher
+// (`generate-atlas-launcher.ts`) — never in the capability itself, which must be import-safe.

@@ -52,12 +52,50 @@ deleted at step 9. Nothing is committed, pushed, branched, or filed against the 
 Throughout, `HARNESS` means:
 
 ```bash
-HARNESS="tsx $(git rev-parse --show-toplevel)/.claude/skills/nxs-pr-acceptance/scripts/pr_acceptance.ts"
+HARNESS="tsx $(git rev-parse --show-toplevel)/libs/pr-acceptance/src/cli.ts"
 ```
 
 Every command prints one JSON object on success, or `pr-acceptance <problem>: <message>` and a
 non-zero exit on failure. **Stop at the first non-zero exit** and record what it said — that is the
 finding.
+
+**Safety.** This harness can delete a GitHub repository. Three things bound that:
+
+-   **One deterministic name.** `<your-login>/nexus-pr-acceptance-scratch`, always. Isolation
+    between runs comes from fresh scenarios inside it, never from fresh repositories — so a failed
+    teardown cannot leave an unbounded set of near-identical repos behind.
+-   **A triple guard on delete.** The name, the owner, and a provisioning marker the harness itself
+    wrote (naming exactly that `owner/name` back) must all agree. Any mismatch refuses without
+    deleting. There is no override flag.
+-   **Nothing touches the Nexus repo.** No commit, branch, worktree registration, push, issue, PR,
+    or config write-back lands here — every live mutation goes to the scratch repo or its
+    disposable clone, and each created URL is checked back against the scratch identity.
+
+`provision` refuses up front unless the credential reports `delete_repo`: teardown must be able to
+remove what provision is about to create.
+
+**Subcommand reference** (success prints one JSON object on stdout; a failure prints a named
+diagnostic on stderr; exit codes: `0` success · `1` a named diagnostic · `2` usage):
+
+| Subcommand | What it does |
+|---|---|
+| `preflight` | Read-only: identity, token scopes, whether the credential can delete. |
+| `provision` | Create-or-reuse the scratch repo (toolchain tree at the current commit) and the disposable clone. |
+| `status` | Resolved names and paths, whether the repo and clone exist. Needs no provision state. |
+| `seed --kind <k>` | Seed a fresh scenario. `k` = `chain`, `multi-commit`, `single-commit`, `unmerged`. Re-runnable. |
+| `merge --pr <N> --strategy squash\|merge\|rebase --branch <b>` | Merge by one strategy, delete the branch, prune it locally. |
+| `range --pr <N> [--branch <distill/…>]` | Derive the range through `pr_worktree.ts open --mode close` and verify it. Records evidence. |
+| `receipt --pr <N>` | Read the analyze receipt back the way `/nxs.close --pr` does; check exact currency. Records evidence. |
+| `residue` | Enumerate worktrees and branches left in the Nexus checkout. Records evidence. |
+| `note --stage <s> --verdict pass\|fail\|not-exercised [--detail k=v] [--diagnostic <t>]` | Record an operator-judged outcome. |
+| `evidence` | Render everything recorded as markdown, for pasting into the acceptance record. |
+| `teardown [--keep-alive]` | Always removes local residue. Deletes the repo unless `--keep-alive`, which prints the surviving URL instead. |
+
+**Run every stage command with the working directory inside the disposable clone** (`$CLONE`
+below) — issue and PR targeting resolves from the current checkout's remote, and the toolchain
+persists resolved defaults back into config on first use. The harness commands themselves resolve
+the Nexus checkout from their own script path, so they work from either directory; `/nxs.*`
+commands do not.
 
 ---
 
