@@ -64,17 +64,6 @@ a free-text prompt the user has to read and type a reply to. Render any context 
 effect). This renders one selectable option per line in both the VS Code extension and the terminal.
 The user can always pick "Other" for a custom answer.
 
-## Prose convention — human-facing artifacts
-
-Before formatting the record (Phase 3), invoke the **`nxs-prose-style`** skill (Skill tool); its
-authoring rules stay in force for the rest of the run. It governs the record body — the summary,
-chosen approach, key decisions and refuted alternatives, invariants, and risks — and, in a
-revision, the Phase 4.5 supersession comment's *what changed* / *why* prose (never the embedded
-superseded body, which is quoted verbatim). Run its self-review pass on `<scratch>/record-body.md`
-before Phase 4 (or 4.5) files it. The skill governs sentence-level language only — the template's
-section rules, the C5 whitelist, the coverage requirement, and the no-frontmatter /
-no-machine-comment contract take precedence over it.
-
 Run the phases in order.
 
 ## Phase 0 — Resolve the epic (dual-read: committed entry, else resolve from the issue)

@@ -60,13 +60,6 @@ to. Render any context first as ordinary markdown, then call `AskUserQuestion` w
 choice**, using the canonical verb named at that gate as the option label and putting the action's
 effect in the option description. The user can always pick "Other" to give a custom answer.
 
-## Prose convention — human-facing artifacts
-
-Before drafting the first human-facing artifact of the run, invoke the **`nxs-prose-style`** skill
-(Skill tool) once; its authoring rules stay in force for the rest of the run. It governs the
-discovery doc, every ticket file, and the session report. The structural rules in this command
-(the file shapes, the frontmatter keys, the index line format) take precedence over it.
-
 ## Vocabulary
 
 Every artifact this command writes — discovery docs, ticket files, prompts, reports — uses Nexus

@@ -75,17 +75,6 @@ The option tables shown at the gates below describe each choice's impact — tha
 is the context you render in step 1; the `AskUserQuestion` call in step 2 is what the
 user actually clicks.
 
-## Prose convention — human-facing artifacts
-
-Before drafting the first human-facing artifact of the run, invoke the **`nxs-prose-style`**
-skill (Skill tool) once; its authoring rules stay in force for the rest of the run. It governs
-the epic document body (Phase 3), stub issue bodies (Phase 2b), the approval digest (Phase 5),
-story issue bodies and the feature README (Phase 6), and the completion report (Phase 7). Run
-its self-review pass on the epic draft before the Phase 4b gate and on the story bodies before
-Phase 6 files them. The skill governs sentence-level language only — every structural rule in
-this command (templates, machine blocks, load-bearing labels, Given/When/Then keywords) takes
-precedence over it.
-
 Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
