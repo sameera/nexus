@@ -1,8 +1,8 @@
 ---
 title: "PR Flow Worktree"
 aliases: ["worktree base", "worktree location", "pr worktree", "worktree isolation", "configurable worktree path"]
-touches: ["pr-driven-flow", "publishing-config-resolution"]
-last_updated_by: "#178"
+touches: ["pr-driven-flow", "publishing-config-resolution", "verb-reachability"]
+last_updated_by: "#247"
 status: active
 verification: verified
 ---
@@ -33,9 +33,14 @@ A per-checkout segment is then appended underneath. Reuse is path-based; removal
 
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose stages run in these worktrees; it owns the stage shape and the stamped range, this page where the worktree lives.
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the base as one more declared key.
+- [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, held to byte-identical output and matching spawned-process arguments against its script form.
 
 ## Decision Log
 
 ### 2026-08-01 — #178 — Split from pr-driven-flow; the worktree base becomes declared configuration
 
 The worktree location split out of the flow page because it is loadable on its own: where a heavyweight, commit-bearing checkout lands is an operator's question, answerable without the stage shape or the range rules the flow page keeps. It split now because the location stopped being a hidden temp-derived constant and became a declared key of the existing publishing block — which is what buys it the precedence chain, the hub layer, the resolver seam already built and tested, rather than a second configuration surface. Membership in that block also fixes the shape of the value: the key names a base, and the per-checkout segment is appended unconditionally underneath it, which is what makes the undeclared path byte-identical to the former constant and makes per-repo isolation unconditional instead of a rule the operator must know. The safety gate sits in the library ahead of any creation because closure commits from inside its worktree, so a non-ignored in-repo base would sweep a full second checkout into the repo's own index — and git will happily create such a worktree, so there is no later failure to interpret. Refuted alternative: a dedicated non-publishing section for local filesystem concerns, which reads better on the label and would age better if more machine-local settings arrive — it loses because it would need its own precedence chain and its own hub layer to satisfy the workspace case, the bulk of the cost, bought for naming aesthetics on a single key.
+
+### 2026-08-23 — #247 — Reciprocal link from verb-reachability
+
+Mechanical reciprocity fan-out: the verb-reachability page names this worktree-management capability as one of the ten now reachable as a verb on the shared executable, held to byte-identical output and matching spawned-process arguments against its script form.

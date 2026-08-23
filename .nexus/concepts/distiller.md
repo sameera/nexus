@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery"]
-last_updated_by: "#228"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability"]
+last_updated_by: "#247"
 status: active
 verification: verified
 ---
@@ -45,6 +45,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [concept-page-capacity](concept-page-capacity.md) — the cap it applies, and the only condition under which it splits a page.
 - [finding-severity](finding-severity.md) — the two-class validation result it gates on by exit status alone.
 - [pre-epic-discovery](pre-epic-discovery.md) — the ungated store its behavioral diff excludes, alongside the queue.
+- [verb-reachability](verb-reachability.md) — its atlas, validator, entry-diff, drift-advisory and registry-seeding steps are now also reachable as verbs on the shared executable, alongside their standalone forms through the duplication window.
 
 ## Decision Log
 
@@ -115,3 +116,7 @@ Every surface that once let the cap justify losing an edge was rewritten. The re
 ### 2026-08-11 — #228 — The behavioral diff excludes the discovery store
 
 A discovery folder is committed, and it holds in-flight reasoning that no human gate has passed. One branch can carry that reasoning alongside the code it was reasoning about, so the drain's diff now excludes the discovery store in both single-repo and hub derivation, exactly as it already excludes the queue. Without the exclusion, ungated prose would reach concept-delta synthesis. The exclusion is load-bearing rather than tidiness: it is one of the two properties that make a committed discovery store acceptable, the other being that the store sits outside the queue where no scan can reach it. Refuted alternative: place the discovery store inside the queue, which would inherit this exclusion with no change at all — rejected because it contradicts the queue's contract that it holds only closed, drainable entries, and because the drain's scan already walks the whole queue tree.
+
+### 2026-08-23 — #247 — Reciprocal link from verb-reachability
+
+Mechanical reciprocity fan-out: the verb-reachability page names this drain's atlas, validator, entry-diff, drift-advisory and registry-seeding steps as now also reachable as verbs on the shared executable, alongside their standalone forms through the duplication window.

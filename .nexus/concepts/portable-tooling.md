@@ -1,8 +1,8 @@
 ---
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
-touches: ["distiller", "workspace-resolution", "nexus-setup-cli"]
-last_updated_by: "#94"
+touches: ["distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability"]
+last_updated_by: "#247"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Portable tooling is the offline form of distillation's deterministic steps — t
 
 ## How It Works
 
-Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only hub lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable now also carries the `nexus` setup CLI and a vendored component tree, under the one fingerprint gate. Committed into the hub, it gives every checkout identical, offline, reproducible tooling.
+Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only hub lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable now also carries the `nexus` setup CLI and a vendored component tree, under the one fingerprint gate. Ten more component-invoked capabilities now dispatch as verbs from that same executable's shared registry, alongside the five distiller tools' own standalone builds for as long as their legacy forms still exist. Committed into the hub, it gives every checkout identical, offline, reproducible tooling.
 
 ## Key Invariants
 
@@ -30,6 +30,7 @@ Distillation's validator and atlas steps were written to run through a code repo
 - [distiller](distiller.md) — runs this tooling as its validator and atlas steps when draining from a hub.
 - [workspace-resolution](workspace-resolution.md) — the resolved role decides whether the distiller runs this tooling or the in-repo tooling; this tooling's committed hub location is part of the workspace context the resolver produces.
 - [nexus-setup-cli](nexus-setup-cli.md) — ships as a vendored entrypoint on this distributable, its component payload pinned by the same fingerprint gate.
+- [verb-reachability](verb-reachability.md) — the shared declarative registry ten more component-invoked capabilities now dispatch from as verbs on this distributable's executable.
 
 ## Decision Log
 
@@ -60,3 +61,7 @@ The new domain-registry parser is standalone — no imports — so it inlines in
 ### 2026-07-20 — #94 — Two new bundled tools; a self-invoke guard hardened against cross-tool bundling
 
 The bundle grew two entry points — the drift advisory and the registry seeder — joining the validator, the atlas generator, and the hub diff-derivation tool under the one fingerprint gate. Both new tools reuse the atlas generator's link-graph construction, so they import it; because the packaging inlines every imported module into each tool's self-contained artifact, the atlas generator's own run-only-when-invoked-directly guard was inlined too, and after inlining every module in an artifact shares one sense of which file was invoked — so running one tool could silently trigger and exit through another tool's guard. Refuted alternative: leave each guard keyed only on that shared signal — rejected because it was already misfiring across the bundled tools; keying each guard additionally on the name of the tool actually invoked is the minimal fix that stays correct in both source and vendored-bundle form.
+
+### 2026-08-23 — #247 — Ten more capabilities join the distributable as verbs; the payload boundary becomes a structural composition check
+
+The distributable's `nexus` executable gained ten more verbs — three read-only resolvers, two that drive git worktrees, and the five distiller tools already vendored here — dispatched from one shared declarative registry (see [verb-reachability](verb-reachability.md)); the five distiller tools keep building as their own standalone artifacts too, through a duplication window bounded by a separate invocation-rewrite epic. Parity gained a temporary migration axis alongside the durable source-vs-build one, and, for capabilities driving external programs, the comparison broadened from console output alone to also cover the exact spawned arguments and the resulting file tree, asserted hermetically against committed stand-ins so the required gate needs no network access or credentials. Separately, the vendored payload's boundary — which components ship and which stay checkout-bound — moved from an implicit "these three subtrees, whole" understanding to a structural composition check: no vendored component file may import a workspace package, enforced against a shrinking, explicitly enumerated waiver register that names the legacy scripts still awaiting the invocation rewrite. The pull-request acceptance harness was relocated to sit beside its own library, outside every vendored subtree, and lost its component manifest — it gains no verb and is no longer agent-invocable, because it walks up to and archives the Nexus checkout it runs from, which no installed toolkit has. Refuted alternative: keep excluding the harness from vendoring by name — smaller change, but it leaves the payload boundary a curated list that the next checkout-bound file added to the component tree would have to be remembered against, rather than caught structurally.

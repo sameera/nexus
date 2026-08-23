@@ -1,8 +1,8 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record"]
-last_updated_by: "#170"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability"]
+last_updated_by: "#247"
 status: active
 verification: verified
 ---
@@ -32,6 +32,7 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 - [durable-close-record](durable-close-record.md) — the close comment where the stamp survives the entry.
 - [distiller](distiller.md) — re-verifies the stamp before draining and hard-errors on a mismatch.
 - [conformance-gate](conformance-gate.md) — the receipt this digest is stamped into.
+- [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, matched byte-for-byte against its script form.
 
 ## Decision Log
 
@@ -47,3 +48,7 @@ receipt stamps to detect record staleness.
 ### 2026-07-31 — #170 — The stamp's durable home is the close comment
 
 Both surfaces that carried this value — the conformance receipt and the close record — became disposable for a local close, so the reference and hash are now stamped onto the epic issue's close comment as well, where they survive the entry being consumed. Nothing about the digest itself changed: the same one program computes it, over the body as fetched back, in full. What changed is that a drain recovering an entry from GitHub reads the stamp from that comment rather than a file, which is why the value has to be carried in a structured position and never truncated on any surface.
+
+### 2026-08-23 — #247 — Reciprocal link from verb-reachability
+
+Mechanical reciprocity fan-out: the verb-reachability page names this digest capability as one of the ten now reachable as a verb on the shared executable, matched byte-for-byte against its script form by the migration-axis parity check.

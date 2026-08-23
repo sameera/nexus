@@ -1,8 +1,8 @@
 ---
 title: "Close-Entry Migration"
 aliases: ["queue-entry migration", "cross-repo close tail", "close range stamping", "hub queue migration", "migrate-verify-remove"]
-touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture"]
-last_updated_by: "#170"
+touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability"]
+last_updated_by: "#247"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ At the closure checkpoint, in member mode, the move runs in a fixed order — mi
 - [remote-identity-normalization](remote-identity-normalization.md) — canonicalizes the range's repo identity for a hub-side match.
 - [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — one of the two sources the union is drawn from.
 - [scratch-capture](scratch-capture.md) — the committed half of that union, not stranded.
+- [verb-reachability](verb-reachability.md) — this migration capability is now also reachable as a verb on the shared executable, under the same byte-identical parity guarantee as its script form.
 
 ## Decision Log
 
@@ -45,3 +46,7 @@ There is no cross-repo transaction, so the hub commit and the local removal cann
 ### 2026-07-31 — #170 — The migration's unit is the epic, not the directory it was handed
 
 Once a member close began writing its artifacts to the ephemeral area, migrating only what sat in that directory stranded the epic's committed scratch in the member repo where nothing would ever delete it, and dropped it from the hub entry a drain would have cleaned up — so the unit became the epic, and the hub entry is the union of both sources. The same change separated two path derivations that had been one: reusing the destination-relative path for the code repo's tracked-file check read a same-named committed scratch directory as tracked, then tried to commit the removal of a path that was never deleted, failing after the irreversible hub commit had already landed. Copy order is fixed scratch-first so the entry's own artifacts win any collision and the byte-for-byte verify stays deterministic. Refuted alternative: hard-error on any colliding relative path — safer-looking, but scratch lives under per-user subdirectories so a collision is practically impossible, and the error would turn a cosmetic overlap into a blocked close.
+
+### 2026-08-23 — #247 — Reciprocal link from verb-reachability
+
+Mechanical reciprocity fan-out: the verb-reachability page names this migration capability as one of the ten now reachable as a verb on the shared executable, under the same byte-identical parity guarantee as its script form.
