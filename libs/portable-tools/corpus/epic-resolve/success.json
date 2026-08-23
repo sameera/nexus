@@ -1,0 +1,10 @@
+{
+    "repoView": { "status": 0, "stdout": "acme/app\n" },
+    "issueView": {
+        "900": {
+            "status": 0,
+            "stdout": "{\"number\":900,\"title\":\"Sample epic\",\"body\":\"# Epic: Sample epic\\n\\nA body with no meta block.\\n\",\"state\":\"OPEN\",\"stateReason\":\"\",\"labels\":[]}\n"
+        }
+    },
+    "subIssueNumbers": { "status": 0, "stdout": "" }
+}

@@ -13,13 +13,22 @@ const SRC_DIR: string = __dirname;
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const GENERATE_ATLAS_SRC: string = path.join(SRC_DIR, "generate-atlas.ts");
 const VALIDATE_CONCEPTS_SRC: string = path.join(SRC_DIR, "validate-concepts.ts");
+// The standalone-artifact launchers (story #274, decision record #277): the capability files
+// above carry no process boundary of their own (so `nexus-cli.ts` can import them without a
+// self-run), so only the launcher's bundle still executes `runCli` when run via plain `node`.
+const GENERATE_ATLAS_LAUNCHER_SRC: string = path.join(SRC_DIR, "generate-atlas-launcher.ts");
+const VALIDATE_CONCEPTS_LAUNCHER_SRC: string = path.join(SRC_DIR, "validate-concepts-launcher.ts");
 
 let atlasBundle: BuiltBundle;
 let validatorBundle: BuiltBundle;
+let atlasLauncherBundle: BuiltBundle;
+let validatorLauncherBundle: BuiltBundle;
 
 beforeAll(async () => {
     atlasBundle = await buildBundle(GENERATE_ATLAS_SRC);
     validatorBundle = await buildBundle(VALIDATE_CONCEPTS_SRC);
+    atlasLauncherBundle = await buildBundle(GENERATE_ATLAS_LAUNCHER_SRC);
+    validatorLauncherBundle = await buildBundle(VALIDATE_CONCEPTS_LAUNCHER_SRC);
 });
 
 let tmpDirs: string[] = [];
@@ -159,10 +168,10 @@ describe("bundle entry guard (Invariant 6)", () => {
         expect(fs.existsSync(path.join(dir, "docs"))).toBe(false);
     });
 
-    it("executes main() when the atlas bundle is launched via plain node", () => {
+    it("executes runCli when the atlas launcher bundle is launched via plain node", () => {
         const dir = makeTmpDir("portable-tools-run-");
         const bundlePath = path.join(dir, "generate-atlas.mjs");
-        fs.writeFileSync(bundlePath, atlasBundle.code);
+        fs.writeFileSync(bundlePath, atlasLauncherBundle.code);
         const conceptsDir = makeTmpDir("portable-tools-fixture-");
         writeConcept(conceptsDir, "alpha", { title: "Alpha" });
         const outPath = path.join(dir, "out", "concepts.md");
@@ -183,7 +192,7 @@ describe("AC1 — atlas bundle parity", () => {
 
         const outsideDir = makeTmpDir("portable-tools-outside-");
         const bundlePath = path.join(outsideDir, "generate-atlas.mjs");
-        fs.writeFileSync(bundlePath, atlasBundle.code);
+        fs.writeFileSync(bundlePath, atlasLauncherBundle.code);
         const outPath = path.join(outsideDir, "out", "concepts.md");
 
         // The bundle computes its link prefix from where it actually writes (epic #74); the
@@ -199,7 +208,7 @@ describe("AC1 — atlas bundle parity", () => {
 describe("AC2 — validator bundle parity", () => {
     function runSource(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync(TSX_BIN, [VALIDATE_CONCEPTS_SRC, ...args], { cwd, encoding: "utf8" });
+            const stdout: string = execFileSync(TSX_BIN, [VALIDATE_CONCEPTS_LAUNCHER_SRC, ...args], { cwd, encoding: "utf8" });
             return { status: 0, stdout, stderr: "" };
         } catch (error) {
             const err = error as { status: number; stdout: string; stderr: string };
@@ -220,7 +229,7 @@ describe("AC2 — validator bundle parity", () => {
     function writeBundle(): string {
         const dir = makeTmpDir("portable-tools-validator-bundle-");
         const bundlePath = path.join(dir, "validate-concepts.mjs");
-        fs.writeFileSync(bundlePath, validatorBundle.code);
+        fs.writeFileSync(bundlePath, validatorLauncherBundle.code);
         return bundlePath;
     }
 

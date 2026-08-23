@@ -1,8 +1,9 @@
 #!/usr/bin/env tsx
 /**
  * Live-acceptance harness for the `--pr` post-merge flow — the executable half of
- * `docs/features/pr-driven-delivery/live-acceptance-runbook.md`, over the tested
- * library (@nexus/pr-acceptance).
+ * `docs/features/pr-driven-delivery/live-acceptance-runbook.md`, beside the library it drives
+ * (decision record #277: the harness sits with its own library, outside the vendored component
+ * tree entirely — it gains no `nexus` verb, and stops being invocable by an agent).
  *
  * It provisions ONE deterministically named throwaway repository under the
  * maintainer's own GitHub owner, seeds independent PR scenarios into it, drives
@@ -38,27 +39,20 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { preflightCapabilities, resolveAuth } from "@nexus/pr-acceptance/capability";
-import { type PrAcceptanceDiagnostic } from "@nexus/pr-acceptance/diagnostic";
-import { type EvidenceRecord, type Verdict, readEvidence, renderEvidence, writeEvidence } from "@nexus/pr-acceptance/evidence";
-import { MARKER_PATH, cloneDir, evidenceDir, parseMarker, scratchIdentity } from "@nexus/pr-acceptance/names";
-import { MERGE_STRATEGIES, type MergeStrategy, mergeScenario } from "@nexus/pr-acceptance/merge";
-import { provision, remoteState } from "@nexus/pr-acceptance/provision";
-import { renderDiagnostic } from "@nexus/pr-acceptance/render";
-import { defaultRunner, git } from "@nexus/pr-acceptance/run";
-import { type ScenarioKind, seedScenario } from "@nexus/pr-acceptance/scenario";
-import { teardown } from "@nexus/pr-acceptance/teardown";
-import {
-    deriveRangeViaHelper,
-    prChangedFiles,
-    prEndpoints,
-    verifyRange,
-    verifyReceipt,
-    verifyResidue,
-} from "@nexus/pr-acceptance/verify";
+import { preflightCapabilities, resolveAuth } from "./capability.js";
+import { type PrAcceptanceDiagnostic } from "./diagnostic.js";
+import { type EvidenceRecord, type Verdict, readEvidence, renderEvidence, writeEvidence } from "./evidence.js";
+import { MARKER_PATH, cloneDir, evidenceDir, parseMarker, scratchIdentity } from "./names.js";
+import { MERGE_STRATEGIES, type MergeStrategy, mergeScenario } from "./merge.js";
+import { provision, remoteState } from "./provision.js";
+import { renderDiagnostic } from "./render.js";
+import { defaultRunner, git } from "./run.js";
+import { type ScenarioKind, seedScenario } from "./scenario.js";
+import { teardown } from "./teardown.js";
+import { deriveRangeViaHelper, prChangedFiles, prEndpoints, verifyRange, verifyReceipt, verifyResidue } from "./verify.js";
 
 /** The Nexus checkout this script ships in — resolved from the script path, not the cwd. */
-const TOOL_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+const TOOL_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
 interface Flags {
     pr?: number;
@@ -102,7 +96,7 @@ function die(d: PrAcceptanceDiagnostic): never {
 }
 
 function usage(msg: string): never {
-    process.stderr.write(`usage: pr_acceptance.ts ${msg}\n`);
+    process.stderr.write(`usage: cli.ts ${msg}\n`);
     process.exit(2);
 }
 
@@ -138,7 +132,7 @@ function requireClone(ctx: Context): void {
     if (!fs.existsSync(path.join(ctx.clonePath, ".git"))) {
         die({
             problem: "scratch-repo-missing",
-            message: `no disposable clone at ${ctx.clonePath}; run \`pr_acceptance.ts provision\` first.`,
+            message: `no disposable clone at ${ctx.clonePath}; run \`cli.ts provision\` first.`,
         });
     }
 }

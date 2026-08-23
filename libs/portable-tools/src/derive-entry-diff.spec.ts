@@ -8,7 +8,7 @@ import { deriveEntryDiff, parseRange, renderDeriveFailure, renderRepoDiffs, runC
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
-const TOOL_SRC: string = path.join(__dirname, "derive-entry-diff.ts");
+const TOOL_SRC: string = path.join(__dirname, "derive-entry-diff-launcher.ts");
 
 let tmpDirs: string[] = [];
 function makeParent(): string {

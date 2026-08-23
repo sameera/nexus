@@ -204,10 +204,6 @@ export function runCli(argv: string[]): number {
     return 0;
 }
 
-function main(): void {
-    process.exit(runCli(process.argv.slice(2)));
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main();
-}
+// No self-exec guard here (decision record #277): the process boundary lives once, in the
+// dispatcher (`nexus-cli.ts`) or in this capability's own standalone launcher
+// (`derive-entry-diff-launcher.ts`) — never in the capability itself, which must be import-safe.

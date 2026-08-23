@@ -1,0 +1,32 @@
+{
+  "name": "@nexus/abs-doc-path",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./settings": {
+      "types": "./src/settings.ts",
+      "import": "./src/settings.ts",
+      "default": "./src/settings.ts"
+    },
+    "./repo-root": {
+      "types": "./src/repo-root.ts",
+      "import": "./src/repo-root.ts",
+      "default": "./src/repo-root.ts"
+    },
+    "./normalize": {
+      "types": "./src/normalize.ts",
+      "import": "./src/normalize.ts",
+      "default": "./src/normalize.ts"
+    },
+    "./resolve": {
+      "types": "./src/resolve.ts",
+      "import": "./src/resolve.ts",
+      "default": "./src/resolve.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@nexus/workspace": "workspace:*"
+  }
+}

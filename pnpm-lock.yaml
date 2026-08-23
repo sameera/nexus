@@ -43,6 +43,9 @@ importers:
       '@eslint/js':
         specifier: ^9.8.0
         version: 9.39.4
+      '@nexus/abs-doc-path':
+        specifier: workspace:*
+        version: link:libs/abs-doc-path
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:libs/close-migration
@@ -203,6 +206,12 @@ importers:
         specifier: ^5.1.44
         version: 5.1.44
 
+  libs/abs-doc-path:
+    dependencies:
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
+
   libs/close-migration:
     dependencies:
       '@nexus/workspace':
@@ -258,9 +267,18 @@ importers:
 
   libs/portable-tools:
     dependencies:
+      '@nexus/abs-doc-path':
+        specifier: workspace:*
+        version: link:../abs-doc-path
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:../close-migration
+      '@nexus/epic-resolve':
+        specifier: workspace:*
+        version: link:../epic-resolve
+      '@nexus/record-digest':
+        specifier: workspace:*
+        version: link:../record-digest
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace

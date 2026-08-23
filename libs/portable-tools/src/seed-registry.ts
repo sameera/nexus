@@ -321,14 +321,6 @@ export function runCli(argv: string[]): number {
     return 0;
 }
 
-function main(): void {
-    process.exit(runCli(process.argv.slice(2)));
-}
-
-// See the matching comment in generate-atlas.ts / drift-advisory.ts: this file imports the shared
-// engine from drift-advisory.ts (and, transitively, generate-atlas.ts), so esbuild inlines both of
-// their source into this entry's bundle. The basename check keeps this guard from firing inside a run
-// of either of those entry points after bundling collapses every `import.meta.url` to one value.
-if (import.meta.url === `file://${process.argv[1]}` && path.basename(process.argv[1]).startsWith("seed-registry")) {
-    main();
-}
+// No self-exec guard here (decision record #277): the process boundary lives once, in the
+// dispatcher (`nexus-cli.ts`) or in this capability's own standalone launcher
+// (`seed-registry-launcher.ts`) — never in the capability itself, which must be import-safe.

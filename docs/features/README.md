@@ -39,6 +39,7 @@ python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query --form ex
 | [Command Input](command-input/README.md)                                   | An editable, multi-line command prompt in the terminal region.                    |
 | [Concept Domain Taxonomy](concept-domains/README.md)                       | A curated domain taxonomy for the concept atlas, replacing derived headings.      |
 | [Concept Store Capacity](concept-store-capacity/README.md)                 | Keeping concept pages cheap to load and their touches graph growable.             |
+| [Component Distribution](component-distribution/README.md)                 | Packaging, installing, and addressing Nexus components outside the target repo.   |
 | [Issue-Sourced Planning](issue-sourced-planning/README.md)                 | Planning surfaces on GitHub issues rather than committed files.                   |
 | [Multi-Repo Workspaces](multi-repo-workspaces/README.md)                   | The pipeline across code repos plus a hub docs repo.                              |
 | [Pipeline Command Surface](pipeline-command-surface/README.md)             | The names and surfaces of the Nexus slash commands.                              |

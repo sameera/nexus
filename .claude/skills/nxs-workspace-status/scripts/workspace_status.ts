@@ -18,7 +18,7 @@
  *
  * Exit codes:
  *     0 - resolved (a workspace, possibly with missing member checkouts, or single-repo mode)
- *     1 - resolution failed (a named diagnostic was printed)
+ *     1 - resolution failed (a named diagnostic was printed on stderr)
  */
 
 import { resolveWorkspace } from "@nexus/workspace/resolve";
@@ -27,7 +27,10 @@ import { renderWorkspaceStatus } from "@nexus/workspace/status";
 function main(): void {
     const startDir = process.argv[2] ?? process.cwd();
     const result = resolveWorkspace(startDir);
-    process.stdout.write(renderWorkspaceStatus(result) + "\n");
+    // Aligned to the `nexus workspace status` verb (decision record #277): a failed resolution is
+    // a diagnostic, not a status report, so it belongs on stderr like every other failure here.
+    const write = result.ok ? process.stdout : process.stderr;
+    write.write(renderWorkspaceStatus(result) + "\n");
     process.exit(result.ok ? 0 : 1);
 }
 

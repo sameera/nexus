@@ -13,6 +13,9 @@
       "path": "./libs/workspace"
     },
     {
+      "path": "./libs/abs-doc-path"
+    },
+    {
       "path": "./libs/close-migration"
     },
     {

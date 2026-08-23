@@ -1,0 +1,9 @@
+{
+  "name": "@nexus/abs-doc-path",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/abs-doc-path/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/abs-doc-path --web",
+  "targets": {}
+}

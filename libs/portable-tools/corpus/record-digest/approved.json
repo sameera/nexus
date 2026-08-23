@@ -1,0 +1,8 @@
+{
+    "apiIssue": {
+        "905": {
+            "status": 0,
+            "stdout": "{\"number\":905,\"state\":\"closed\",\"state_reason\":\"completed\",\"body\":\"# Decision Record\\n\\nApproved body.\\n\"}\n"
+        }
+    }
+}

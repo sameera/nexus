@@ -1,0 +1,8 @@
+{
+    "apiIssue": {
+        "906": {
+            "status": 0,
+            "stdout": "{\"number\":906,\"state\":\"closed\",\"state_reason\":\"not_planned\",\"body\":\"# Decision Record\\n\\nWithdrawn body.\\n\"}\n"
+        }
+    }
+}
