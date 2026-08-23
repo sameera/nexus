@@ -40,6 +40,7 @@ python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query --form ex
 | [Concept Domain Taxonomy](concept-domains/README.md)                       | A curated domain taxonomy for the concept atlas, replacing derived headings.      |
 | [Concept Store Capacity](concept-store-capacity/README.md)                 | Keeping concept pages cheap to load and their touches graph growable.             |
 | [Issue-Sourced Planning](issue-sourced-planning/README.md)                 | Planning surfaces on GitHub issues rather than committed files.                   |
+| [Lightweight Fix Lane](lightweight-fix-lane/README.md)                     | A non-epic entry point for small fixes to reach the concept store.               |
 | [Multi-Repo Workspaces](multi-repo-workspaces/README.md)                   | The pipeline across code repos plus a hub docs repo.                              |
 | [Pipeline Command Surface](pipeline-command-surface/README.md)             | The names and surfaces of the Nexus slash commands.                              |
 | [PR-Driven Delivery](pr-driven-delivery/README.md)                         | Conformance, closure, and distillation against a merged pull request.            |
