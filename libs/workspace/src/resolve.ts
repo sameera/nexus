@@ -93,6 +93,55 @@ function isDirectory(p: string): boolean {
     }
 }
 
+/**
+ * The nearest ancestor of `startDir` (inclusive) that carries a `.git` entry — a file for a
+ * linked worktree, a directory for a primary checkout — or `null` when none exists anywhere
+ * above `startDir`. This is the marker walk's upper bound when it exists: an unbounded climb
+ * would eventually reach the filesystem root, so a checkout sitting anywhere beneath an
+ * unrelated instance of the toolkit's own project (a PR worktree under a shared worktrees
+ * directory, a fixture under a developer's home directory) could silently adopt that unrelated
+ * project's workspace configuration. When no `.git` exists at all, there is no known repository
+ * boundary to bound the walk against.
+ */
+function findGitTop(startDir: string): string | null {
+    let current: string = path.resolve(startDir);
+    while (true) {
+        if (fs.existsSync(path.join(current, ".git"))) {
+            return current;
+        }
+        const parent: string = path.dirname(current);
+        if (parent === current) {
+            return null;
+        }
+        current = parent;
+    }
+}
+
+/**
+ * The nearest ancestor of `startDir` (inclusive) carrying a workspace/hub marker. Bounded at
+ * `gitTop` (inclusive) when a repository boundary is known, so the walk can never cross into an
+ * unrelated ancestor project (decision record #283, Invariant 3); otherwise it walks to the
+ * filesystem root, mirroring the Python-side config resolver's own marker walk.
+ */
+function findMarkerRoot(startDir: string, gitTop: string | null): string | null {
+    let current: string = path.resolve(startDir);
+    while (true) {
+        const hasManifest: boolean = fs.existsSync(path.join(current, ...MANIFEST_RELATIVE_PATH));
+        const hasPointer: boolean = fs.existsSync(path.join(current, ...POINTER_RELATIVE_PATH));
+        if (hasManifest || hasPointer) {
+            return current;
+        }
+        if (gitTop !== null && current === gitTop) {
+            return null;
+        }
+        const parent: string = path.dirname(current);
+        if (parent === current) {
+            return null;
+        }
+        current = parent;
+    }
+}
+
 /** Layer each member's read-only checkout state onto a hub-side workspace description. */
 function annotate(ws: WorkspaceDescription): ResolvedWorkspace {
     return {
@@ -115,24 +164,35 @@ function annotate(ws: WorkspaceDescription): ResolvedWorkspace {
  * The single producer of workspace context. Read-only and deterministic: same filesystem →
  * same result, regardless of whether resolution started from the hub or from a member.
  *
+ * Walks upward from `startDir` to find a workspace/hub marker, bounded to the repository's own
+ * top-level (`findGitTop`) so the walk can never cross into an unrelated ancestor project
+ * (decision record #283, Invariant 3). The directory the walk lands on — a marker's directory, or
+ * the enclosing repository's top level when no marker is found — is what every downstream
+ * hub/member/single-repo comparison keys on, never `startDir` verbatim (Invariant 4).
+ *
  * @param startDir the checkout to resolve from (a command passes its working directory)
  */
 export function resolveWorkspace(startDir: string): ResolveResult {
-    const hasManifest = fs.existsSync(path.join(startDir, ...MANIFEST_RELATIVE_PATH));
-    const hasPointer = fs.existsSync(path.join(startDir, ...POINTER_RELATIVE_PATH));
+    const gitTop: string | null = findGitTop(startDir);
+    const markerRoot: string | null = findMarkerRoot(startDir, gitTop);
 
-    // Single-repo fallback keyed on the absence of BOTH artifacts: existing projects untouched.
-    if (!hasManifest && !hasPointer) {
+    // Single-repo fallback keyed on the absence of a marker anywhere in the walk: existing
+    // projects untouched, and the reported root is the enclosing repo's top level (or startDir
+    // itself when no repository boundary is known either) — never a verbatim echo of a nested
+    // starting directory (decision record #283).
+    if (markerRoot === null) {
+        const root: string = gitTop ?? path.resolve(startDir);
         return {
             ok: true,
-            workspace: { mode: "single-repo", root: startDir, docsRoot: SINGLE_REPO_DOCS_ROOT },
+            workspace: { mode: "single-repo", root, docsRoot: SINGLE_REPO_DOCS_ROOT },
         };
     }
 
+    const hasManifest = fs.existsSync(path.join(markerRoot, ...MANIFEST_RELATIVE_PATH));
     // The manifest is the single source of truth; if a checkout carries one, it is the hub.
     const loaded = hasManifest
-        ? loadWorkspaceFromHub(startDir)
-        : loadWorkspaceFromMember(startDir);
+        ? loadWorkspaceFromHub(markerRoot)
+        : loadWorkspaceFromMember(markerRoot);
     if (!loaded.ok) {
         return loaded;
     }

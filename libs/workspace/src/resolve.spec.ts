@@ -114,6 +114,54 @@ describe("resolveWorkspace", () => {
         expect(asSingleRepo(resolveWorkspace(bare)).root).toBe(bare);
     });
 
+    // --- upward walk (STORY-281): the resolver, not each caller, finds the boundary ---
+
+    it("walks upward from a marker-less nested directory to an ancestor's hub manifest", () => {
+        const parent = makeParent();
+        const hub = writeCheckout(parent, "docs-hub", { name: "workspace.yml", contents: MANIFEST });
+        const nested = path.join(hub, "some", "nested", "dir");
+        fs.mkdirSync(nested, { recursive: true });
+
+        const ws = asWorkspace(resolveWorkspace(nested));
+        expect(ws.hubRoot).toBe(hub);
+    });
+
+    it("walks upward from a marker-less nested directory to an ancestor's member pointer", () => {
+        const parent = makeParent();
+        writeCheckout(parent, "docs-hub", { name: "workspace.yml", contents: MANIFEST });
+        const web = writeCheckout(parent, "web-app", { name: "hub.yml", contents: POINTER });
+        const nested = path.join(web, "src", "deep");
+        fs.mkdirSync(nested, { recursive: true });
+
+        const ws = asWorkspace(resolveWorkspace(nested));
+        expect(ws.hubRoot).toBe(path.join(parent, "docs-hub"));
+    });
+
+    it("reports the enclosing repo's top-level directory, not the nested starting directory, when no marker exists", () => {
+        const parent = makeParent();
+        const repo = path.join(parent, "repo");
+        fs.mkdirSync(path.join(repo, ".git"), { recursive: true });
+        const nested = path.join(repo, "some", "nested", "dir");
+        fs.mkdirSync(nested, { recursive: true });
+
+        const single = asSingleRepo(resolveWorkspace(nested));
+        expect(single.root).toBe(repo);
+        expect(single.root).not.toBe(nested);
+    });
+
+    it("never crosses the repository's own top-level boundary to reach a marker further up", () => {
+        const parent = makeParent();
+        // An unrelated marker sitting ABOVE this repo's own .git boundary must never be picked up.
+        writeCheckout(parent, "", { name: "workspace.yml", contents: MANIFEST });
+        const repo = path.join(parent, "repo");
+        fs.mkdirSync(path.join(repo, ".git"), { recursive: true });
+        const nested = path.join(repo, "nested");
+        fs.mkdirSync(nested, { recursive: true });
+
+        const single = asSingleRepo(resolveWorkspace(nested));
+        expect(single.root).toBe(repo);
+    });
+
     // --- hub-entry resolution + member checkout state ------------------------
 
     it("resolves from the hub and marks each member's checkout state", () => {
