@@ -64,9 +64,12 @@ def warn(msg: str) -> None:
     print(f"{Colors.YELLOW}⚠️  {msg}{Colors.NC}")
 
 
+TARGET_CWD: str | None = None  # resolved target root (Invariant 5); subprocess cwd for every gh/git call
+
+
 def run_command(cmd: list[str], capture_output: bool = True) -> subprocess.CompletedProcess:
     """Run a command and return the result."""
-    return subprocess.run(cmd, capture_output=capture_output, text=True)
+    return subprocess.run(cmd, cwd=TARGET_CWD, capture_output=capture_output, text=True)
 
 
 def check_prerequisites() -> bool:
@@ -703,6 +706,22 @@ def main() -> int:
         error(f"Epic file not found: {epic_file}")
         return 1
 
+    # The target root is operator-supplied (default: cwd), never derived from the epic file's own
+    # location (decision record #283) — an artifact resolving outside the root is rejected rather
+    # than silently re-rooting the run around it, since this root selects the publishing
+    # configuration that decides which upstream repository receives the issue. Resolved before
+    # check_prerequisites() so the gh-auth/git-repo checks run against the target root too
+    # (Invariant 5: every remote-issuing subprocess runs with cwd = the resolved target root).
+    root_arg = args.root.resolve() if args.root else Path.cwd()
+    project_root = _find_config_root(root_arg)
+    resolved_epic_file = epic_file.resolve()
+    if project_root != resolved_epic_file and project_root not in resolved_epic_file.parents:
+        error(f"Epic file {resolved_epic_file} resolves outside the target root {project_root}; pass --root to point at the correct repo.")
+        return 1
+
+    global TARGET_CWD
+    TARGET_CWD = str(project_root)
+
     # Check prerequisites
     if not check_prerequisites():
         return 1
@@ -730,17 +749,6 @@ def main() -> int:
         error("No 'epic' field found in frontmatter")
         print("Expected format in frontmatter:")
         print('  epic: "Your Epic Title"')
-        return 1
-
-    # The target root is operator-supplied (default: cwd), never derived from the epic file's own
-    # location (decision record #283) — an artifact resolving outside the root is rejected rather
-    # than silently re-rooting the run around it, since this root selects the publishing
-    # configuration that decides which upstream repository receives the issue.
-    root_arg = args.root.resolve() if args.root else Path.cwd()
-    project_root = _find_config_root(root_arg)
-    resolved_epic_file = epic_file.resolve()
-    if project_root != resolved_epic_file and project_root not in resolved_epic_file.parents:
-        error(f"Epic file {resolved_epic_file} resolves outside the target root {project_root}; pass --root to point at the correct repo.")
         return 1
 
     # Resolve project root once and read config once — every resolution below goes through the

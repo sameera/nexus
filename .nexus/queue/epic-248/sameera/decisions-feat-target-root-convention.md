@@ -31,3 +31,25 @@
   not pursued here to keep this story's diff reviewable and within its own AC44 list.
 - **Refuted alternative:** A full repo-wide sweep in this one story. Rejected as disproportionate
   scope creep for a single story in a 3-story epic; deferred rather than silently dropped.
+
+## 2026-08-25 — Fixed Invariant 5 gap: gh subprocess cwd in the two Python scripts
+
+- **Choice:** Both `create_gh_issues.py` and `nxs_gh_create_epic.py` gained a module-level
+  `TARGET_CWD: str | None` global, set once in `main()` right after `project_root` is resolved,
+  and every `subprocess.run` that shells out to `gh` (or, in the epic script, `git`) now passes
+  `cwd=TARGET_CWD`. In `nxs_gh_create_epic.py`, the `--root`/`project_root` resolution block was
+  also moved to run before `check_prerequisites()` (previously after), so the `gh auth status`/
+  `git rev-parse --is-inside-work-tree` checks run against the resolved target root too.
+- **Why:** The analyze receipt (epic #248, `.nexus/tmp/epic-248/analyze-receipt.md`) found
+  Invariant 5 ("every remote-issuing subprocess runs with cwd = resolved target root")
+  CONTRADICTED — `-R <repo>` is only added `if repo:`, so the common no-`issues-repo`-configured
+  case silently fell back to `gh` inferring the repo from the ambient process cwd instead of
+  `--root`. A module-level global (not a `cwd` parameter threaded through every call site) mirrors
+  this file's own existing convention for other resolve-once values (`RETRIES`,
+  `CLASSIFICATION_LABEL`) and avoids changing the shared `run(cmd) -> CompletedProcess` callback
+  contract that `nxs-gh-shared/delivery_config.py`'s `ensure_label`/`lookup_issue_type_id`/
+  `set_issue_type` already rely on — `delivery_config.py:read_hub_defaults` establishes the same
+  "closure captures cwd, callback signature stays `(cmd)`" pattern.
+- **Refuted alternative:** Threading an explicit `cwd` parameter through every helper function and
+  the shared `delivery_config.py` callback signatures. Rejected as a much larger diff across a
+  file this story isn't otherwise touching, for no behavioral difference.

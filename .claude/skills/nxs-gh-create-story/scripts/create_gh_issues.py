@@ -50,12 +50,13 @@ from delivery_config import (  # noqa: E402
 def _run_plain(cmd: list[str]) -> subprocess.CompletedProcess:
     """A non-retrying runner for the shared gh helpers, which expect a call that returns a
     CompletedProcess rather than raising (unlike run_gh). Type/label decoration is best-effort."""
-    return subprocess.run(cmd, capture_output=True, text=True)
+    return subprocess.run(cmd, cwd=TARGET_CWD, capture_output=True, text=True)
 
 # --- Retry / robustness controls -------------------------------------------------
 # Tuned from CLI args in main(); module-level so the low-level gh wrappers can read them.
 RETRIES: int = 3              # extra attempts after the first try, for transient failures
 RETRY_BASE_DELAY: float = 1.0  # seconds; exponential backoff base (delay = base * 2**attempt + jitter)
+TARGET_CWD: str | None = None  # resolved target root (Invariant 5); subprocess cwd for every gh call
 
 # Substrings that mark a *transient* gh/GitHub failure worth retrying. Deterministic
 # failures (validation 4xx, auth, not-found) are NOT retried — retrying can't fix them.
@@ -92,7 +93,7 @@ def run_gh(cmd: list[str]) -> subprocess.CompletedProcess:
     """
     attempt = 0
     while True:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, cwd=TARGET_CWD, capture_output=True, text=True)
         if result.returncode == 0:
             return result
         stderr = result.stderr or ""
@@ -168,7 +169,7 @@ def get_project_id_by_name(project_name: str) -> str | None:
         try:
             result = subprocess.run(
                 ["gh", "repo", "view", "--json", "owner", "--jq", ".owner.login"],
-                capture_output=True, text=True, check=True
+                cwd=TARGET_CWD, capture_output=True, text=True, check=True
             )
             owner = result.stdout.strip()
             project_ref = project_name
@@ -215,7 +216,7 @@ def get_project_id_by_number(owner: str, project_number: int) -> str | None:
     ]
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, cwd=TARGET_CWD, capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
         project = data.get("data", {}).get("organization", {}).get("projectV2")
         if project:
@@ -244,7 +245,7 @@ def get_project_id_by_number(owner: str, project_number: int) -> str | None:
     ]
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, cwd=TARGET_CWD, capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
         project = data.get("data", {}).get("user", {}).get("projectV2")
         if project:
@@ -289,7 +290,7 @@ def get_project_id_by_title(owner: str, title: str) -> str | None:
     
     nodes = []
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, cwd=TARGET_CWD, capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
         nodes = data.get("data", {}).get("organization", {}).get("projectsV2", {}).get("nodes", [])
     except (subprocess.CalledProcessError, json.JSONDecodeError):
@@ -318,7 +319,7 @@ def get_project_id_by_title(owner: str, title: str) -> str | None:
         ]
         
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = subprocess.run(cmd, cwd=TARGET_CWD, capture_output=True, text=True, check=True)
             data = json.loads(result.stdout)
             nodes = data.get("data", {}).get("user", {}).get("projectsV2", {}).get("nodes", [])
         except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
@@ -365,7 +366,7 @@ def get_repo_project_id() -> tuple[str | None, str | None]:
     try:
         name_result = subprocess.run(
             ["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"],
-            capture_output=True, text=True, check=True,
+            cwd=TARGET_CWD, capture_output=True, text=True, check=True,
         )
         name_with_owner = name_result.stdout.strip()
         if "/" not in name_with_owner:
@@ -380,7 +381,7 @@ def get_repo_project_id() -> tuple[str | None, str | None]:
             "-f", f"repo={repo}",
         ]
 
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, cwd=TARGET_CWD, capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
         repository = (data.get("data") or {}).get("repository") or {}
         nodes = (repository.get("projectsV2") or {}).get("nodes") or []
@@ -1070,6 +1071,9 @@ def main():
     if project_root != resolved_target_folder and project_root not in resolved_target_folder.parents:
         print(f"Error: {resolved_target_folder} resolves outside the target root {project_root}; pass --root to point at the correct repo.", file=sys.stderr)
         sys.exit(1)
+
+    global TARGET_CWD
+    TARGET_CWD = str(project_root)
 
     # Read config once; every resolution goes through the one shared resolver, so this script,
     # the epic script, /nxs.epic, and /nxs.close cannot disagree on any key (STORY-121.04).
