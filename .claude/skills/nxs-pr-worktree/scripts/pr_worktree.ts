@@ -5,24 +5,26 @@
  * (@nexus/pr-worktree). Single-repo and hub only; a member repo is rejected.
  *
  * Subcommands (success prints one JSON object on stdout; a failure prints a named
- * diagnostic on stderr):
+ * diagnostic on stderr). Every subcommand accepts `--root <dir>` (default: the working
+ * directory) — the checkout to operate against, normalized through git's own top-level answer
+ * before anything is selected (decision record #283, Invariant 7):
  *
- *   preflight --pr <N> --mode analyze|close
+ *   preflight --pr <N> --mode analyze|close [--root <dir>]
  *       Read-only. Resolve the role (rejecting member), the normalized repo
  *       identity, and the PR's state/SHAs. For --mode close this exits 1 unless
  *       the PR is merged — the gate before anything irreversible.
  *
- *   open --pr <N> --mode analyze
+ *   open --pr <N> --mode analyze [--root <dir>]
  *       Create a detached worktree at the PR head (fetched via pull/<N>/head, so
  *       forks work). Prints { wtPath, analyzedHead, base } — analyzedHead is the
  *       commit actually checked out (record it as the receipt head).
  *
- *   open --pr <N> --mode close --branch <distill/...>
+ *   open --pr <N> --mode close --branch <distill/...> [--root <dir>]
  *       Create a worktree on a fresh distill branch cut from the trunk, then derive
  *       the merge-strategy-safe range (verified against the PR head). Prints
  *       { wtPath, range: { repo, base, head } } — full SHAs for the close record.
  *
- *   remove <wtPath>
+ *   remove <wtPath> [--root <dir>]
  *       Force-remove a worktree and prune (safe from inside the target).
  *
  * Exit codes: 0 success · 1 a named diagnostic was printed · 2 usage error.
@@ -35,21 +37,24 @@ import { renderDiagnostic } from "@nexus/pr-worktree/render";
 import { defaultRunner, git } from "@nexus/pr-worktree/run";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { type PrWorktreeDiagnostic } from "@nexus/pr-worktree/diagnostic";
+import { takeTargetRoot } from "@nexus/workspace/target-root";
 
 interface Flags {
     pr?: number;
     mode?: string;
     branch?: string;
+    root: string;
     positional: string[];
 }
 
-function parseFlags(argv: string[]): Flags {
-    const flags: Flags = { positional: [] };
-    for (let i = 0; i < argv.length; i++) {
-        const a = argv[i];
-        if (a === "--pr") flags.pr = Number(argv[++i]);
-        else if (a === "--mode") flags.mode = argv[++i];
-        else if (a === "--branch") flags.branch = argv[++i];
+function parseFlags(argv: string[], cwd: string): Flags {
+    const { root, rest } = takeTargetRoot(argv, cwd);
+    const flags: Flags = { root, positional: [] };
+    for (let i = 0; i < rest.length; i++) {
+        const a = rest[i];
+        if (a === "--pr") flags.pr = Number(rest[++i]);
+        else if (a === "--mode") flags.mode = rest[++i];
+        else if (a === "--branch") flags.branch = rest[++i];
         else flags.positional.push(a);
     }
     return flags;
@@ -72,13 +77,13 @@ function usage(msg: string): never {
 
 function main(): void {
     const [subcommand, ...rest] = process.argv.slice(2);
-    const flags = parseFlags(rest);
+    const flags = parseFlags(rest, process.cwd());
 
     if (subcommand === "preflight" || subcommand === "open") {
         if (flags.pr === undefined || Number.isNaN(flags.pr)) usage(`${subcommand} --pr <N> --mode analyze|close`);
         if (flags.mode !== "analyze" && flags.mode !== "close") usage(`${subcommand} --pr <N> --mode analyze|close`);
 
-        const role = resolveRole(process.cwd());
+        const role = resolveRole(flags.root);
         if (!role.ok) die(role.error);
         const { repoRoot, repoIdentity, role: roleName } = role.resolved;
         const requireMerged = flags.mode === "close";
@@ -137,7 +142,7 @@ function main(): void {
     if (subcommand === "remove") {
         const wtPath = flags.positional[0];
         if (!wtPath) usage("remove <wtPath>");
-        const r = removeWorktree(defaultRunner, process.cwd(), wtPath);
+        const r = removeWorktree(defaultRunner, flags.root, wtPath);
         if (!r.ok) die(r.error);
         emit({ command: "remove", wtPath, removed: true });
     }

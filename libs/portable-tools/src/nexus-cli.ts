@@ -121,9 +121,9 @@ const REGISTRY: Record<string, VerbEntry> = {
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
         usage: [
-            "  nexus pr-worktree preflight --pr <N> --mode analyze|close",
-            "  nexus pr-worktree open --pr <N> --mode analyze|close [--branch <distill/...>]",
-            "  nexus pr-worktree remove <wtPath>",
+            "  nexus pr-worktree preflight --pr <N> --mode analyze|close [--root <dir>]",
+            "  nexus pr-worktree open --pr <N> --mode analyze|close [--branch <distill/...>] [--root <dir>]",
+            "  nexus pr-worktree remove <wtPath> [--root <dir>]",
         ].join("\n"),
         run: runPrWorktree,
     },
@@ -505,16 +505,18 @@ interface PrWorktreeFlags {
     pr?: number;
     mode?: string;
     branch?: string;
+    root: string;
     positional: string[];
 }
 
-function parsePrWorktreeFlags(argv: string[]): PrWorktreeFlags {
-    const flags: PrWorktreeFlags = { positional: [] };
-    for (let i = 0; i < argv.length; i++) {
-        const a = argv[i];
-        if (a === "--pr") flags.pr = Number(argv[++i]);
-        else if (a === "--mode") flags.mode = argv[++i];
-        else if (a === "--branch") flags.branch = argv[++i];
+function parsePrWorktreeFlags(argv: string[], cwd: string): PrWorktreeFlags {
+    const { root, rest } = takeTargetRoot(argv, cwd);
+    const flags: PrWorktreeFlags = { root, positional: [] };
+    for (let i = 0; i < rest.length; i++) {
+        const a = rest[i];
+        if (a === "--pr") flags.pr = Number(rest[++i]);
+        else if (a === "--mode") flags.mode = rest[++i];
+        else if (a === "--branch") flags.branch = rest[++i];
         else flags.positional.push(a);
     }
     return flags;
@@ -527,7 +529,7 @@ function parsePrWorktreeFlags(argv: string[]): PrWorktreeFlags {
  */
 async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
     const [subcommand, ...rest] = argv;
-    const flags: PrWorktreeFlags = parsePrWorktreeFlags(rest);
+    const flags: PrWorktreeFlags = parsePrWorktreeFlags(rest, io.cwd);
 
     if (subcommand === "preflight" || subcommand === "open") {
         if (flags.pr === undefined || Number.isNaN(flags.pr)) {
@@ -539,7 +541,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             return 2;
         }
 
-        const role = resolveRole(io.cwd);
+        const role = resolveRole(flags.root);
         if (!role.ok) {
             io.stderr(renderPrWorktreeDiagnostic(role.error));
             return 1;
@@ -626,7 +628,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             io.stderr("usage: pr_worktree.ts remove <wtPath>");
             return 2;
         }
-        const r = removeWorktree(closeMigrationRunner, io.cwd, wtPath);
+        const r = removeWorktree(closeMigrationRunner, flags.root, wtPath);
         if (!r.ok) {
             io.stderr(renderPrWorktreeDiagnostic(r.error));
             return 1;

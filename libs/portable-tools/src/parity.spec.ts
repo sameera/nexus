@@ -834,6 +834,40 @@ describe("migration axis — pr-worktree (story #273)", () => {
         expect(divergences, formatDivergences(divergences)).toEqual([]);
     });
 
+    it("script and verb agree on preflight via --root, invoked from elsewhere (story #282)", () => {
+        const repo: string = makeTmpDir("parity-pr-worktree-root-");
+        shIgnore(repo, "git", "init", "-q", "-b", "main");
+        const elsewhere: string = makeTmpDir("parity-pr-worktree-root-elsewhere-");
+        const fixturePath: string = writePrViewFixture(1, {
+            state: "OPEN",
+            merged: false,
+            base: "a".repeat(40),
+            head: "b".repeat(40),
+            mergeCommitOid: null,
+            commitCount: 2,
+        });
+        const env: NodeJS.ProcessEnv = ghStandInEnv(fixturePath);
+        const bundlePath: string = writeBundle("nexus");
+
+        const source: RunResult = runSource(
+            PR_WORKTREE_SRC,
+            ["preflight", "--pr", "1", "--mode", "analyze", "--root", repo],
+            elsewhere,
+            env,
+        );
+        const bundle: RunResult = runBundle(
+            bundlePath,
+            ["pr-worktree", "preflight", "--pr", "1", "--mode", "analyze", "--root", repo],
+            elsewhere,
+            env,
+        );
+
+        expect(source.status).toBe(0);
+        expect(JSON.parse(source.stdout).repoRoot).toBe(fs.realpathSync(repo));
+        const divergences = diffRunResults("pr-worktree", "preflight-root-override", source, bundle);
+        expect(divergences, formatDivergences(divergences)).toEqual([]);
+    });
+
     it("script and verb agree on the usage diagnostic when --mode is missing", () => {
         const repo: string = makeTmpDir("parity-pr-worktree-usage-");
         shIgnore(repo, "git", "init", "-q", "-b", "main");
