@@ -113,7 +113,7 @@ class LiteralDependencyRefs(unittest.TestCase):
         (self.items / "STORY-STUB-1.md").write_text(_IN_BATCH.format(deps=deps), encoding="utf-8")
 
     def _file(self, gh):
-        argv = ["create_gh_issues.py", str(self.items), "--classification-label", "epic"]
+        argv = ["create_gh_issues.py", str(self.items), "--root", str(self.tmp), "--classification-label", "epic"]
         with mock.patch.object(create_gh_issues.subprocess, "run", gh), \
              mock.patch.object(sys, "argv", argv):
             try:

@@ -27,6 +27,7 @@ from pathlib import Path
 # is relative to this file so it resolves both in-repo and inside the vendored `.claude/` tree.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
 from delivery_config import (  # noqa: E402
+    _find_config_root,
     ensure_label,
     epic_needs_design,
     lookup_issue_type_id,
@@ -237,18 +238,6 @@ def update_frontmatter_with_link(content: str, issue_num: str) -> str:
         lines.insert(frontmatter_end_idx, link_value)
 
     return "\n".join(lines)
-
-
-def find_project_root(start_path: Path) -> Path:
-    """Find the project root by looking for CLAUDE.md or .git."""
-    current = start_path.resolve()
-
-    while current != current.parent:
-        if (current / "CLAUDE.md").exists() or (current / ".git").exists():
-            return current
-        current = current.parent
-
-    return Path.cwd()
 
 
 def get_project_id_by_name(project_name: str) -> str | None:
@@ -672,6 +661,13 @@ def main() -> int:
         help="Path to the epic.md file"
     )
     parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help="Target repo root to file the epic into (default: the current working directory). "
+             "Outranks the epic file's own location — the file must resolve inside this root."
+    )
+    parser.add_argument(
         "-y", "--yes",
         action="store_true",
         help="Skip confirmation if link already exists"
@@ -736,10 +732,20 @@ def main() -> int:
         print('  epic: "Your Epic Title"')
         return 1
 
+    # The target root is operator-supplied (default: cwd), never derived from the epic file's own
+    # location (decision record #283) — an artifact resolving outside the root is rejected rather
+    # than silently re-rooting the run around it, since this root selects the publishing
+    # configuration that decides which upstream repository receives the issue.
+    root_arg = args.root.resolve() if args.root else Path.cwd()
+    project_root = _find_config_root(root_arg)
+    resolved_epic_file = epic_file.resolve()
+    if project_root != resolved_epic_file and project_root not in resolved_epic_file.parents:
+        error(f"Epic file {resolved_epic_file} resolves outside the target root {project_root}; pass --root to point at the correct repo.")
+        return 1
+
     # Resolve project root once and read config once — every resolution below goes through the
     # one shared resolver, so this script, the story script, /nxs.epic, and /nxs.close cannot
     # disagree on any key (STORY-121.04, decision-record Invariant 3).
-    project_root = find_project_root(epic_file)
     config = read_delivery_config(project_root)
     # Workspace hub defaults are the `hub` layer of the precedence chain (STORY-121.05): a member
     # inherits each key it does not itself declare. `merged` is repo-over-hub, for the single-dict

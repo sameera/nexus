@@ -3,7 +3,7 @@
  * `<docs-root>/concepts.md`, contract item 2, amended by epic #74).
  *
  * Usage:
- *   npx tsx libs/portable-tools/src/generate-atlas.ts [--concepts-dir <dir>] [--out <path>] [--check]
+ *   npx tsx libs/portable-tools/src/generate-atlas.ts [--root <dir>] [--concepts-dir <dir>] [--out <path>] [--check]
  *
  * Reads every active concept page's frontmatter and clusters them mechanically from the
  * `touches:` graph. No LLM judgment: pure parsing + graph mechanics. `--check` regenerates
@@ -14,15 +14,20 @@
  * (`@nexus/workspace/resolve`, epic #74) joined with `concepts.md` — `docs/concepts.md` for a
  * single-repo checkout or a workspace member, `concepts.md` at the repo root for a hub with no
  * override. An explicit `--out` always wins over the resolved default, and `--check` resolves
- * the identical location write mode does, so the two can never diverge.
+ * the identical location write mode does, so the two can never diverge. The docs root itself
+ * resolves from `--root` (default: the working directory) rather than `process.cwd()` directly
+ * (decision record #283), so the generator can be pointed at a target repo other than the one it
+ * runs from.
  */
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { localDocsRoot } from "@nexus/workspace/resolve";
+import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { parseDomainRegistry, type ParsedRegistry } from "./domain-registry.js";
 
 interface CliOptions {
+    root: string;
     conceptsDir: string;
     out?: string;
     check: boolean;
@@ -35,20 +40,20 @@ const FALLBACK_DOCS_ROOT = "docs";
 const REGISTRY_FILENAME = "domains.md";
 
 /** The resolved-docs-root default output path, used whenever no explicit `--out` is given. */
-function defaultOutPath(): string {
-    const resolved = localDocsRoot(process.cwd());
+function defaultOutPath(root: string): string {
+    const resolved = localDocsRoot(root);
     const docsRoot = resolved.ok ? resolved.docsRoot : FALLBACK_DOCS_ROOT;
-    return path.join(docsRoot, "concepts.md");
+    return path.join(root, docsRoot, "concepts.md");
 }
 
 /**
  * The domain registry lives beside the atlas in the resolved docs root (epic #89, STORY-89.03).
  * Resolve it the same way `defaultOutPath` resolves the atlas and the validator resolves the
- * registry (`localDocsRoot(process.cwd())`), so all three agree on the file's location. Registry
- * presence is the sole switch into curated rendering — there is no config flag.
+ * registry, so all three agree on the file's location. Registry presence is the sole switch into
+ * curated rendering — there is no config flag.
  */
-export function registryPath(): string {
-    const resolved = localDocsRoot(process.cwd());
+export function registryPath(root: string = process.cwd()): string {
+    const resolved = localDocsRoot(root);
     const docsRoot = resolved.ok ? resolved.docsRoot : FALLBACK_DOCS_ROOT;
     return path.join(docsRoot, REGISTRY_FILENAME);
 }
@@ -82,14 +87,15 @@ export interface Cluster {
     pages: ConceptPage[];
 }
 
-export function parseArgs(argv: string[]): CliOptions {
-    const options: CliOptions = { conceptsDir: ".nexus/concepts", out: undefined, check: false };
-    for (let i = 0; i < argv.length; i++) {
-        const arg: string = argv[i];
+export function parseArgs(argv: string[], cwd: string = process.cwd()): CliOptions {
+    const { root, rest } = takeTargetRoot(argv, cwd);
+    const options: CliOptions = { root, conceptsDir: path.join(root, ".nexus", "concepts"), out: undefined, check: false };
+    for (let i = 0; i < rest.length; i++) {
+        const arg: string = rest[i];
         if (arg === "--concepts-dir") {
-            options.conceptsDir = argv[++i] ?? options.conceptsDir;
+            options.conceptsDir = rest[++i] ?? options.conceptsDir;
         } else if (arg === "--out") {
-            options.out = argv[++i] ?? options.out;
+            options.out = rest[++i] ?? options.out;
         } else if (arg === "--check") {
             options.check = true;
         }
@@ -368,7 +374,7 @@ export function generateAtlas(conceptsDir: string, linkPrefix = "../.nexus/conce
 
 export function runCli(argv: string[]): number {
     const options: CliOptions = parseArgs(argv);
-    const out: string = options.out ?? defaultOutPath();
+    const out: string = options.out ?? defaultOutPath(options.root);
     const pages: ConceptPage[] = loadConceptPages(options.conceptsDir);
     const linkPrefix: string = computeLinkPrefix(out, options.conceptsDir);
 
@@ -377,7 +383,7 @@ export function runCli(argv: string[]): number {
     // without one, fall through to the untouched connected-components clustering, byte-identical to
     // the pre-change generator. `atlas` is computed once here, before the check/write split, so
     // `--check` resolves the identical location and registry as write mode.
-    const regPath: string = registryPath();
+    const regPath: string = registryPath(options.root);
     const atlas: string = fs.existsSync(regPath)
         ? renderRegistryAtlas(parseDomainRegistry(fs.readFileSync(regPath, "utf8")), pages, linkPrefix)
         : renderAtlas(buildClusters(pages), linkPrefix);

@@ -12,9 +12,9 @@
  * It never clones, fetches, or writes; it reports missing state, it does not repair it.
  *
  * Usage:
- *     tsx workspace_status.ts [dir]
+ *     tsx workspace_status.ts [--root <dir>]
  *
- *     dir  the checkout to resolve from (default: the current working directory)
+ *     --root  the checkout to resolve from (default: the current working directory)
  *
  * Exit codes:
  *     0 - resolved (a workspace, possibly with missing member checkouts, or single-repo mode)
@@ -23,9 +23,10 @@
 
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
+import { takeTargetRoot } from "@nexus/workspace/target-root";
 
 function main(): void {
-    const startDir = process.argv[2] ?? process.cwd();
+    const { root: startDir } = takeTargetRoot(process.argv.slice(2), process.cwd());
     const result = resolveWorkspace(startDir);
     // Aligned to the `nexus workspace status` verb (decision record #277): a failed resolution is
     // a diagnostic, not a status report, so it belongs on stderr like every other failure here.

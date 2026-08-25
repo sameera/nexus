@@ -67,7 +67,7 @@ class StubIsNeverASubIssueTests(unittest.TestCase):
 
     def _file(self, gh, extra_args=()):
         """Run the filer against the work-item folder; return (exit code, stderr)."""
-        argv = ["create_gh_issues.py", str(self.items), *extra_args]
+        argv = ["create_gh_issues.py", str(self.items), "--root", str(self.tmp), *extra_args]
         err = io.StringIO()
         code = 0
         with mock.patch.object(create_gh_issues.subprocess, "run", gh), \

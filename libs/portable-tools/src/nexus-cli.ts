@@ -40,6 +40,7 @@ import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/p
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
+import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
@@ -86,8 +87,8 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Declare, inspect, or extend a multi-repo workspace.",
         usage: [
             "  nexus workspace init            Declare a multi-repo workspace (hub + members).",
-            "  nexus workspace status          Read-only workspace status from any checkout.",
-            "  nexus workspace docs-root       Print the resolved repo-relative docs root.",
+            "  nexus workspace status [--root <dir>]      Read-only workspace status from any checkout.",
+            "  nexus workspace docs-root [--root <dir>]   Print the resolved repo-relative docs root.",
             "  nexus workspace add-repo        Add the invoking checkout to an existing workspace.",
             "  nexus workspace github-defaults Print the hub's github-publishing defaults as JSON.",
         ].join("\n"),
@@ -104,7 +105,7 @@ const REGISTRY: Record<string, VerbEntry> = {
     "epic-resolve": {
         summary: "Materialize an epic issue's stories and blocked_by graph as epic.md.",
         usage: [
-            "  nexus epic-resolve --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]",
+            "  nexus epic-resolve --epic <N> [--out <path>] [--root <startDir>] [--require-epic]",
             "      Resolve epic issue #N and write the materialized epic.md.",
         ].join("\n"),
         run: runEpicResolve,
@@ -329,13 +330,14 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         return runWorkspaceAddRepo(io);
     }
     if (sub === "status") {
-        if (rest.length > 0) {
-            io.stderr(`unknown argument for workspace status: ${rest[0]}\n${USAGE}`);
+        const { root, rest: extra } = takeTargetRoot(rest, io.cwd);
+        if (extra.length > 0) {
+            io.stderr(`unknown argument for workspace status: ${extra[0]}\n${USAGE}`);
             return 2;
         }
         // The identical code path the in-repo status skill runs: resolve, render, exit by
         // result. Read-only by construction — the resolver never clones, fetches, or writes.
-        const result: ResolveResult = resolveWorkspace(io.cwd);
+        const result: ResolveResult = resolveWorkspace(root);
         (result.ok ? io.stdout : io.stderr)(renderWorkspaceStatus(result));
         return result.ok ? 0 : 1;
     }
@@ -361,14 +363,15 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         return 0;
     }
     if (sub === "docs-root") {
-        if (rest.length > 0) {
-            io.stderr(`unknown argument for workspace docs-root: ${rest[0]}\n${USAGE}`);
+        const { root, rest: extra } = takeTargetRoot(rest, io.cwd);
+        if (extra.length > 0) {
+            io.stderr(`unknown argument for workspace docs-root: ${extra[0]}\n${USAGE}`);
             return 2;
         }
         // The single-value view over the resolver: print only the resolved repo-relative docs
         // root, or the resolver's named diagnostic on failure (never a silent "docs"). The
         // in-repo docs_root.ts script runs this identical selector. Read-only by construction.
-        const result = localDocsRoot(io.cwd);
+        const result = localDocsRoot(root);
         if (!result.ok) {
             io.stderr(renderWorkspaceStatus(result));
             return 1;
@@ -406,17 +409,17 @@ async function runAbsDocPath(argv: string[], io: CliIo): Promise<number> {
 interface EpicResolveFlags {
     epic?: number;
     out?: string;
-    dir?: string;
+    root: string;
     requireEpic: boolean;
 }
 
-function parseEpicResolveFlags(argv: string[]): EpicResolveFlags {
-    const flags: EpicResolveFlags = { requireEpic: false };
-    for (let i = 0; i < argv.length; i++) {
-        const a = argv[i];
-        if (a === "--epic") flags.epic = Number(argv[++i]);
-        else if (a === "--out") flags.out = argv[++i];
-        else if (a === "--dir") flags.dir = argv[++i];
+function parseEpicResolveFlags(argv: string[], cwd: string): EpicResolveFlags {
+    const { root, rest } = takeTargetRoot(argv, cwd);
+    const flags: EpicResolveFlags = { requireEpic: false, root };
+    for (let i = 0; i < rest.length; i++) {
+        const a = rest[i];
+        if (a === "--epic") flags.epic = Number(rest[++i]);
+        else if (a === "--out") flags.out = rest[++i];
         else if (a === "--require-epic") flags.requireEpic = true;
     }
     return flags;
@@ -437,13 +440,13 @@ function epicResolveTargetRoot(startDir: string, io: CliIo): string | null {
  * its usage/diagnostic text) so the migration-axis parity gate reports no divergence.
  */
 async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
-    const flags: EpicResolveFlags = parseEpicResolveFlags(argv);
+    const flags: EpicResolveFlags = parseEpicResolveFlags(argv, io.cwd);
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]");
+        io.stderr("usage: epic_resolve.ts --epic <N> [--out <path>] [--root <startDir>] [--require-epic]");
         return 2;
     }
 
-    const root: string | null = epicResolveTargetRoot(flags.dir ?? io.cwd, io);
+    const root: string | null = epicResolveTargetRoot(flags.root, io);
     if (root === null) {
         return 1;
     }

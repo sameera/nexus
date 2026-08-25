@@ -700,8 +700,8 @@ describe("migration axis — epic-resolve (story #272)", () => {
         const bundlePath: string = writeBundle("nexus");
         const env: NodeJS.ProcessEnv = ghStandInEnv(path.join(CORPUS, "epic-resolve", "success.json"));
 
-        const source: RunResult = runSource(EPIC_RESOLVE_SRC, ["--epic", "900", "--dir", repo], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["epic-resolve", "--epic", "900", "--dir", repo], repo, env);
+        const source: RunResult = runSource(EPIC_RESOLVE_SRC, ["--epic", "900", "--root", repo], repo, env);
+        const bundle: RunResult = runBundle(bundlePath, ["epic-resolve", "--epic", "900", "--root", repo], repo, env);
 
         expect(source.status).toBe(0);
         const divergences = diffRunResults("epic-resolve", "success", source, bundle);
@@ -714,8 +714,8 @@ describe("migration axis — epic-resolve (story #272)", () => {
         const bundlePath: string = writeBundle("nexus");
         const env: NodeJS.ProcessEnv = ghStandInEnv(path.join(CORPUS, "epic-resolve", "not-found.json"));
 
-        const source: RunResult = runSource(EPIC_RESOLVE_SRC, ["--epic", "901", "--dir", repo], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["epic-resolve", "--epic", "901", "--dir", repo], repo, env);
+        const source: RunResult = runSource(EPIC_RESOLVE_SRC, ["--epic", "901", "--root", repo], repo, env);
+        const bundle: RunResult = runBundle(bundlePath, ["epic-resolve", "--epic", "901", "--root", repo], repo, env);
 
         expect(source.status).toBe(1);
         expect(source.stderr).toContain("epic-not-found");
@@ -767,12 +767,13 @@ describe("migration axis — record-digest (story #272)", () => {
 });
 
 describe("migration axis — workspace status & docs-root (story #272, already-migrated pair)", () => {
-    it("workspace_status.ts and the verb agree on a resolved single-repo checkout", () => {
+    it("workspace_status.ts and the verb agree on a resolved single-repo checkout via --root, invoked from elsewhere", () => {
         const repo: string = makeTmpDir("parity-workspace-status-");
+        const elsewhere: string = makeTmpDir("parity-workspace-status-elsewhere-");
         const bundlePath: string = writeBundle("nexus");
 
-        const source: RunResult = runSource(WORKSPACE_STATUS_SRC, [repo], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["workspace", "status"], repo);
+        const source: RunResult = runSource(WORKSPACE_STATUS_SRC, ["--root", repo], elsewhere);
+        const bundle: RunResult = runBundle(bundlePath, ["workspace", "status", "--root", repo], elsewhere);
 
         expect(source.status).toBe(0);
         const divergences = diffRunResults("workspace-status", "single-repo", source, bundle);
@@ -786,8 +787,8 @@ describe("migration axis — workspace status & docs-root (story #272, already-m
         fs.writeFileSync(path.join(repo, ".nexus", "config", "workspace.yml"), "not: [valid, workspace, manifest");
         const bundlePath: string = writeBundle("nexus");
 
-        const source: RunResult = runSource(WORKSPACE_STATUS_SRC, [repo], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["workspace", "status"], repo);
+        const source: RunResult = runSource(WORKSPACE_STATUS_SRC, ["--root", repo], repo);
+        const bundle: RunResult = runBundle(bundlePath, ["workspace", "status", "--root", repo], repo);
 
         expect(source.status).toBe(1);
         expect(source.stdout).toBe("");
@@ -796,12 +797,13 @@ describe("migration axis — workspace status & docs-root (story #272, already-m
         expect(divergences, formatDivergences(divergences)).toEqual([]);
     });
 
-    it("docs_root.ts and the verb already agree on a resolved docs root", () => {
+    it("docs_root.ts and the verb agree on a resolved docs root via --root, invoked from elsewhere", () => {
         const repo: string = makeTmpDir("parity-docs-root-");
+        const elsewhere: string = makeTmpDir("parity-docs-root-elsewhere-");
         const bundlePath: string = writeBundle("nexus");
 
-        const source: RunResult = runSource(DOCS_ROOT_SRC, [repo], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["workspace", "docs-root"], repo);
+        const source: RunResult = runSource(DOCS_ROOT_SRC, ["--root", repo], elsewhere);
+        const bundle: RunResult = runBundle(bundlePath, ["workspace", "docs-root", "--root", repo], elsewhere);
 
         expect(source.status).toBe(0);
         const divergences = diffRunResults("docs-root", "single-repo", source, bundle);

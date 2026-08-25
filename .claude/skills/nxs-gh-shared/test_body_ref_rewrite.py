@@ -163,6 +163,7 @@ class BodyRefRewriteEndToEnd(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
         (root / "CLAUDE.md").write_text("# fake project root\n")
+        self.root = root
         self.folder = root / "stories"
         self.folder.mkdir()
 
@@ -198,7 +199,7 @@ class BodyRefRewriteEndToEnd(unittest.TestCase):
 
     def run_script(self, *extra: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [sys.executable, str(_STORY_SCRIPT), str(self.folder), "--no-project", *extra],
+            [sys.executable, str(_STORY_SCRIPT), str(self.folder), "--root", str(self.root), "--no-project", *extra],
             capture_output=True, text=True, env=self.env,
         )
 

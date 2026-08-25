@@ -9,6 +9,7 @@ How Nexus components and their tooling are packaged, installed, and addressed ou
 ## Epics
 
 - **Collapse the component-invoked TypeScript capabilities into verbs on one named executable** — [#247](https://github.com/sameera/nexus/issues/247)
+- **Reach project state through an explicitly passed target root** — [#248](https://github.com/sameera/nexus/issues/248)
 
 ## Running a verb from source
 

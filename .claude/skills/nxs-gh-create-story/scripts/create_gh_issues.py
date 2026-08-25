@@ -30,6 +30,7 @@ from pathlib import Path
 # is relative to this file so it resolves both in-repo and inside the vendored `.claude/` tree.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
 from delivery_config import (  # noqa: E402
+    _find_config_root,
     ensure_label,
     ensure_labels,
     label_exists,
@@ -717,18 +718,6 @@ def add_blocked_by(dependent_number: str, blocker_db_id: str, repo: str | None =
         return False
 
 
-def find_project_root(start_path: Path) -> Path:
-    """Find the project root by looking for CLAUDE.md or .git."""
-    current = start_path.resolve()
-
-    while current != current.parent:
-        if (current / "CLAUDE.md").exists() or (current / ".git").exists():
-            return current
-        current = current.parent
-
-    return Path.cwd()
-
-
 def resolve_project_id(project_attr: str | None, config_project_id: str | None, repo_project_id: str | None) -> str | None:
     """Resolve the project ID to use for an issue.
 
@@ -1007,6 +996,12 @@ def main():
         help="Folder containing STORY-*.md files"
     )
     parser.add_argument(
+        "--root",
+        default=None,
+        help="Target repo root to file the stories into (default: the current working directory). "
+             "Outranks the target folder's own location — the folder must resolve inside this root."
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be done without creating issues"
@@ -1065,7 +1060,16 @@ def main():
 
     print(f"Found {len(task_files)} story file(s)")
 
-    project_root = find_project_root(Path(target_folder))
+    # The target root is operator-supplied (default: cwd), never derived from the target folder's
+    # own location (decision record #283) — an artifact resolving outside the root is rejected
+    # rather than silently re-rooting the run around it, since this root selects the publishing
+    # configuration that decides which upstream repository receives the issues.
+    root_arg = Path(args.root).resolve() if args.root else Path.cwd()
+    project_root = _find_config_root(root_arg)
+    resolved_target_folder = Path(target_folder).resolve()
+    if project_root != resolved_target_folder and project_root not in resolved_target_folder.parents:
+        print(f"Error: {resolved_target_folder} resolves outside the target root {project_root}; pass --root to point at the correct repo.", file=sys.stderr)
+        sys.exit(1)
 
     # Read config once; every resolution goes through the one shared resolver, so this script,
     # the epic script, /nxs.epic, and /nxs.close cannot disagree on any key (STORY-121.04).

@@ -135,7 +135,7 @@ class StubFilingTests(unittest.TestCase):
         return d
 
     def _file(self, gh, extra_args=()):
-        argv = ["create_gh_issues.py", str(self.items), *extra_args]
+        argv = ["create_gh_issues.py", str(self.items), "--root", str(self.tmp), *extra_args]
         with mock.patch.object(create_gh_issues.subprocess, "run", gh), \
              mock.patch.object(sys, "argv", argv):
             try:

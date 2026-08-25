@@ -13,11 +13,11 @@
  *
  * Usage (success prints one JSON object on stdout; a failure prints a diagnostic on stderr):
  *
- *   epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]
+ *   epic_resolve.ts --epic <N> [--out <path>] [--root <startDir>] [--require-epic]
  *       Resolve epic issue #N and write the materialized epic.md. Prints
  *       { epic, targetRoot, outPath, record } — `record` is { number, state } when the epic has a
  *       decision-record sub-issue and `null` when it has none. --out overrides the default gitignored path
- *       (<targetRoot>/.nexus/tmp/epic-<N>/epic.md); --dir sets the checkout to resolve from
+ *       (<targetRoot>/.nexus/tmp/epic-<N>/epic.md); --root sets the checkout to resolve from
  *       (default: the current working directory); --require-epic validates the target is an epic
  *       (rejecting a story sub-issue or a non-existent number) before materializing — the `--from`
  *       security boundary.
@@ -32,21 +32,22 @@ import { defaultRunner } from "@nexus/epic-resolve/run";
 import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
+import { takeTargetRoot } from "@nexus/workspace/target-root";
 
 interface Flags {
     epic?: number;
     out?: string;
-    dir?: string;
+    root: string;
     requireEpic: boolean;
 }
 
-function parseFlags(argv: string[]): Flags {
-    const flags: Flags = { requireEpic: false };
-    for (let i = 0; i < argv.length; i++) {
-        const a = argv[i];
-        if (a === "--epic") flags.epic = Number(argv[++i]);
-        else if (a === "--out") flags.out = argv[++i];
-        else if (a === "--dir") flags.dir = argv[++i];
+function parseFlags(argv: string[], cwd: string): Flags {
+    const { root, rest } = takeTargetRoot(argv, cwd);
+    const flags: Flags = { requireEpic: false, root };
+    for (let i = 0; i < rest.length; i++) {
+        const a = rest[i];
+        if (a === "--epic") flags.epic = Number(rest[++i]);
+        else if (a === "--out") flags.out = rest[++i];
         else if (a === "--require-epic") flags.requireEpic = true;
     }
     return flags;
@@ -78,12 +79,12 @@ function targetRoot(startDir: string): string {
 }
 
 function main(): void {
-    const flags = parseFlags(process.argv.slice(2));
+    const flags = parseFlags(process.argv.slice(2), process.cwd());
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        usage("--epic <N> [--out <path>] [--dir <startDir>] [--require-epic]");
+        usage("--epic <N> [--out <path>] [--root <startDir>] [--require-epic]");
     }
 
-    const root = targetRoot(flags.dir ?? process.cwd());
+    const root = targetRoot(flags.root);
     const resolved = resolveEpic(defaultRunner, root, flags.epic, { requireEpic: flags.requireEpic });
     if (!resolved.ok) die(resolved.error);
 

@@ -9,9 +9,9 @@
  * writes.
  *
  * Usage:
- *     tsx docs_root.ts [dir]
+ *     tsx docs_root.ts [--root <dir>]
  *
- *     dir  the checkout to resolve from (default: the current working directory)
+ *     --root  the checkout to resolve from (default: the current working directory)
  *
  * Output:
  *     stdout — the repo-relative docs root on one line: "docs" for a single-repo checkout or a
@@ -26,9 +26,10 @@
 
 import { localDocsRoot } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
+import { takeTargetRoot } from "@nexus/workspace/target-root";
 
 function main(): void {
-    const startDir = process.argv[2] ?? process.cwd();
+    const { root: startDir } = takeTargetRoot(process.argv.slice(2), process.cwd());
     const result = localDocsRoot(startDir);
     if (!result.ok) {
         process.stderr.write(renderWorkspaceStatus(result) + "\n");

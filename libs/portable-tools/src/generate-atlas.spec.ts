@@ -230,13 +230,23 @@ describe("parseFrontmatter", () => {
 });
 
 describe("parseArgs", () => {
-    it("defaults to .nexus/concepts, no --out (resolver-derived), and check: false", () => {
-        expect(parseArgs([])).toEqual({ conceptsDir: ".nexus/concepts", out: undefined, check: false });
+    it("defaults to <root>/.nexus/concepts, no --out (resolver-derived), and check: false", () => {
+        expect(parseArgs([], "/cwd")).toEqual({
+            root: "/cwd",
+            conceptsDir: path.join("/cwd", ".nexus", "concepts"),
+            out: undefined,
+            check: false,
+        });
     });
 
-    it("parses --concepts-dir, --out, and --check", () => {
-        const options = parseArgs(["--concepts-dir", "a", "--out", "b", "--check"]);
-        expect(options).toEqual({ conceptsDir: "a", out: "b", check: true });
+    it("parses --root, --concepts-dir, --out, and --check", () => {
+        const options = parseArgs(["--root", "/elsewhere", "--concepts-dir", "a", "--out", "b", "--check"], "/cwd");
+        expect(options).toEqual({ root: "/elsewhere", conceptsDir: "a", out: "b", check: true });
+    });
+
+    it("defaults --root to the given cwd when absent", () => {
+        const options = parseArgs(["--concepts-dir", "a", "--out", "b", "--check"], "/cwd");
+        expect(options.root).toBe("/cwd");
     });
 });
 
