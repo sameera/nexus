@@ -2,7 +2,7 @@
 title: "PR Flow Worktree"
 aliases: ["worktree base", "worktree location", "pr worktree", "worktree isolation", "configurable worktree path"]
 touches: ["pr-driven-flow", "publishing-config-resolution", "verb-reachability"]
-last_updated_by: "#247"
+last_updated_by: "#248"
 status: active
 verification: verified
 ---
@@ -15,15 +15,15 @@ The pull-request post-merge flow runs its stages in an isolated worktree, not th
 
 Conformance opens a detached worktree at the pull-request head; closure opens one on a fresh distillation branch cut from the trunk, and distillation continues in it. Every opening path funnels through one private step that resolves the base, runs the gate, and creates the directory — so both stages resolve identically within a run and the gate cannot be bypassed.
 
-The base comes from the shared publishing resolver, asked for that one key and anchored on the main checkout's root. An empty answer means undeclared and takes the built-in temp-derived base; a resolver failure stops the run rather than silently writing a commit-bearing checkout into the directory the operator configured away from. A declared value is trimmed, unquoted, home-expanded, and made absolute against the repo root.
+The base comes from the shared publishing resolver, asked for that one key and anchored on the checkout's root — an operator-supplied directory, defaulting to the invoking one, normalized through the version-control system's own top-level answer before anything is selected. An empty answer means undeclared and takes the built-in temp-derived base; a resolver failure stops the run rather than silently writing a commit-bearing checkout into the directory the operator configured away from. A declared value is trimmed, unquoted, home-expanded, and made absolute against the repo root.
 
-A per-checkout segment is then appended underneath. Reuse is path-based; removal is force-and-prune, always run from the main checkout.
+A per-checkout segment is then appended underneath. Reuse is path-based; removal is force-and-prune, run from the checkout the operator pointed this capability at.
 
 ## Key Invariants
 
 1. A checkout declaring nothing resolves the same base as before the key existed, character for character.
 2. The base is obtained only through the resolver seam; this code never parses settings or the manifest itself.
-3. The base is resolved from the main checkout's root, never from pull-request content — a fork head must not choose where a checkout is written.
+3. The base is resolved from the operator-pointed checkout's root, never from pull-request content — a fork head must not choose where a checkout is written; that root is itself normalized through git's own top-level answer before it is trusted.
 4. Every stage of one run resolves the same base, so one declaration serves conformance, closure, and distillation.
 5. A per-checkout segment sits under every base, so two checkouts sharing one cannot collide.
 6. Nothing is created until the base passes the gate; a refused base leaves the checkout as it was found.
@@ -44,3 +44,7 @@ The worktree location split out of the flow page because it is loadable on its o
 ### 2026-08-23 — #247 — Reciprocal link from verb-reachability
 
 Mechanical reciprocity fan-out: the verb-reachability page names this worktree-management capability as one of the ten now reachable as a verb on the shared executable, held to byte-identical output and matching spawned-process arguments against its script form.
+
+### 2026-08-25 — #248 — Every subcommand takes the checkout root as an explicit argument, normalized through git before use
+
+This capability now accepts its checkout root the same way every other repository-bound capability does — an explicit argument defaulting to the invoking directory — rather than reading the process's own working directory directly. Because this is the one capability that also chooses where a heavyweight, commit-bearing worktree gets created, the passed value is normalized through git's own top-level answer for that directory before it selects a role resolver or a base directory, so an operator-supplied path one level too deep, or a symlink, cannot become a new way to point the flow at an arbitrary directory. Existing invocations that pass nothing are unaffected: the default remains the invoking checkout.

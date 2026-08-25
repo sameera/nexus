@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning"]
-last_updated_by: "#247"
+touches: ["portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention"]
+last_updated_by: "#248"
 status: active
 verification: verified
 ---
@@ -32,9 +32,14 @@ Every reachable capability is declared once in a single registry mapping a verb 
 - [record-digest](record-digest.md) — now reachable as a verb, matched byte-for-byte against its script form by the migration-axis parity check.
 - [distiller](distiller.md) — its atlas, validator, entry-diff, drift-advisory and registry-seeding steps are now reachable as verbs, alongside their standalone forms through the duplication window.
 - [issue-sourced-planning](issue-sourced-planning.md) — its epic resolver is now reachable as a verb, matched byte-for-byte against its script form.
+- [target-root-convention](target-root-convention.md) — every reachable verb touching project state now parses this same argument before its own dispatch.
 
 ## Decision Log
 
 ### 2026-08-23 — #247 — Ten more component-invoked capabilities become verbs on one shared, eagerly-dispatched registry
 
 Ten capabilities a Nexus component body invokes — three read-only resolvers, two that drive git worktrees, and five the distiller invokes — became verbs on the executable two of them (deploy, workspace) already lived on, dispatched from a single declarative registry rather than a hand-maintained if/else, so a verb cannot exist without appearing in the composed usage text a later build-time gate reads. A measured build eagerly importing every capability came to 410 KB and started in the same order of magnitude as the executable already did, so lazy dispatch was refused: a self-contained artifact inlines a deferred import into the same bytes anyway, and only a static registry can be scanned at build time for the declared verb set the later gate needs. Hoisting the process boundary out of every capability into that one dispatcher was forced by a measured hazard, not a hypothetical one — a probe build that statically imported every capability found two capabilities executing their own main routine on import and exiting before the dispatcher ever saw its arguments, because inlining collapses every module's private sense of which file was invoked down to one shared value; the prior mitigation, a guard keyed on the artifact's filename, expires silently the moment the artifact is renamed, which is exactly what the next stage of this work does. Parity gained a second, temporary axis — comparing each legacy script or bundle against its verb — extended to capabilities already believed migrated, which is how a real divergence surfaced: one capability sent its failure diagnostic to standard output in script form and standard error in verb form, and a component body already named both forms as interchangeable. For a capability driving an external program, both sides of a comparison run against the same hermetic, committed stand-in, and the comparison was meant to cover five facets rather than three — adding the exact spawned arguments and the resulting file tree — though the two worktree-driving capabilities shipped with four of the five in practice: the argument-log facet was judged redundant given that both capabilities' verb and script forms call the identical shared library functions through the identical runner, so no second code path could construct a diverging argument list. Refuted alternative: discover verbs by module-naming convention instead of a declared registry — it cannot be scanned into a self-contained artifact and it makes the declared verb set non-static, exactly what the later invocation gate needs to read.
+
+### 2026-08-25 — #248 — Reciprocal link from target-root-convention
+
+Mechanical reciprocity fan-out: the target-root-convention page names every reachable verb touching project state as now parsing that same explicit-root argument before its own dispatch.
