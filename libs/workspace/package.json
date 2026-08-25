@@ -34,6 +34,11 @@
       "import": "./src/write.ts",
       "default": "./src/write.ts"
     },
+    "./target-root": {
+      "types": "./src/target-root.ts",
+      "import": "./src/target-root.ts",
+      "default": "./src/target-root.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

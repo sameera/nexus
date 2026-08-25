@@ -59,7 +59,7 @@ class MigrationDryRun(unittest.TestCase):
         (self.items / "STORY-STUB-1.md").write_text(_STUB, encoding="utf-8")
 
     def _dry_run(self, gh, extra_args=()):
-        argv = ["create_gh_issues.py", str(self.items), "--dry-run", *extra_args]
+        argv = ["create_gh_issues.py", str(self.items), "--root", str(self.tmp), "--dry-run", *extra_args]
         out = []
         with mock.patch.object(create_gh_issues.subprocess, "run", gh), \
              mock.patch.object(sys, "argv", argv), \
