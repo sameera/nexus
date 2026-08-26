@@ -32,12 +32,13 @@ describe("resolveRecordClassification — the one shared publishing resolver, ac
             recordLabel: "decision-record",
             recordType: "Decision Record",
         });
-        // Every call is the shared resolver, invoked against the target repo root.
+        // Every call names the Python toolkit's resolver capability and targets the repo root —
+        // and no call names a path inside that repo (story #300).
         expect(calls.length).toBe(3);
         for (const call of calls) {
-            expect(call[0]).toBe("python3");
-            expect(call.join(" ")).toContain("nxs-gh-shared/delivery_config.py");
+            expect(call.join(" ")).toContain("config resolve");
             expect(call.join(" ")).toContain("--root /repo");
+            expect(call.join(" ")).not.toContain("/repo/.claude");
         }
     });
 

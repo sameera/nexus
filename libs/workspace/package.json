@@ -39,6 +39,11 @@
       "import": "./src/target-root.ts",
       "default": "./src/target-root.ts"
     },
+    "./gh-toolkit": {
+      "types": "./src/gh-toolkit.ts",
+      "import": "./src/gh-toolkit.ts",
+      "default": "./src/gh-toolkit.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

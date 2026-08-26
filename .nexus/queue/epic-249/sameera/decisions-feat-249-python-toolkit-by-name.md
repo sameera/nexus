@@ -27,3 +27,25 @@
 - **Why:** #300 is the story that replaces those three lookups and is sequenced last (blocked_by
   #297, #298). Repairing them earlier would do #300's work out of order.
 - **Refuted alternative:** none — the ordering is the epic's.
+
+## 2026-08-26 — Where the by-name locator lives, and its from-source fallback
+
+- **Choice:** `libs/workspace/src/gh-toolkit.ts`, exported as `@nexus/workspace/gh-toolkit`.
+  Resolution order is PATH first, then the entry point beside these libraries driven on `python3`.
+- **Why:** `@nexus/workspace` is the one package both `@nexus/epic-resolve` and `@nexus/pr-worktree`
+  already depend on, so a new package would have bought nothing but nx/pnpm wiring. The from-source
+  fallback is the same maintainer affordance #247 gave the TypeScript half, and it is resolved from
+  the *library's* own location — never from the repository being acted on, which is what #300 AC2
+  forbids.
+- **Refuted alternative:** a new `@nexus/gh-toolkit-locate` package.
+
+## 2026-08-26 — Fixture repos stop carrying a seeded resolver
+
+- **Choice:** `seedResolver` is deleted from `libs/pr-worktree/src/git-fixtures.ts` and from
+  `parity.spec.ts`; the parity harness instead puts `libs/gh-toolkit/bin` on PATH beside the `gh`
+  stand-in.
+- **Why:** the resolver is no longer read from the repo under test, so seeding one made fixtures
+  unlike every real repo after the components stop being committed. A bundle built into a scratch
+  directory has no checkout to fall back into, so source and bundle only agree if the toolkit is
+  reachable by name for both — which is also how #297 says these ACs are demonstrated before #252.
+- **Refuted alternative:** teaching the locator to find a bundle-relative install layout.

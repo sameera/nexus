@@ -16,7 +16,7 @@
  * record into the story set, which is the exact corruption this story exists to prevent.
  */
 
-import * as path from "node:path";
+import { GH_TOOLKIT_NAME, ghToolkitCommand } from "@nexus/workspace/gh-toolkit";
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -77,8 +77,6 @@ export function isWithdrawnStory(labels: string[], state: string, stateReason: s
 type Ok<T> = { ok: true } & T;
 type Err = { ok: false; error: EpicResolveDiagnostic };
 
-/** Where the shared publishing resolver lives inside a checkout's vendored component tree. */
-const RESOLVER_SCRIPT: string = path.join(".claude", "skills", "nxs-gh-shared", "delivery_config.py");
 
 const MODES: ReadonlySet<string> = new Set<string>(["types", "labels", "legacy-auto"]);
 
@@ -86,14 +84,20 @@ function unresolved(message: string): Err {
     return { ok: false, error: { problem: "record-classification-unresolved", message } };
 }
 
-/** Read one publishing key through the shared resolver CLI (the process seam, Invariant 4). */
+/**
+ * Read one publishing key through the shared resolver CLI (the process seam, Invariant 4).
+ *
+ * The toolkit is addressed by name (story #300). A target repo carrying no committed components is
+ * the ordinary case, so an absent resolver is reported as an absent *toolkit* with the remedy —
+ * never as a missing file inside the user's repository.
+ */
 function resolveKey(run: Runner, targetRoot: string, key: string): Ok<{ value: string }> | Err {
-    const script: string = path.join(targetRoot, RESOLVER_SCRIPT);
-    const r = run("python3", [script, "resolve", key, "--root", targetRoot], { cwd: targetRoot });
+    const invocation = ghToolkitCommand(["config", "resolve", key, "--root", targetRoot]);
+    if (!invocation.ok) return unresolved(invocation.message);
+    const r = run(invocation.command, invocation.args, { cwd: targetRoot });
     if (r.status !== 0) {
         return unresolved(
-            `the shared publishing resolver could not resolve '${key}': ${r.stderr.trim() || "unknown error"} ` +
-                `(expected ${RESOLVER_SCRIPT} in the target repo)`,
+            `the shared publishing resolver could not resolve '${key}': ${r.stderr.trim() || "unknown error"}`,
         );
     }
     return { ok: true, value: r.stdout.trim() };
@@ -120,8 +124,8 @@ export function resolveRecordClassification(
 
     if (label.value.length === 0 || type.value.length === 0) {
         return unresolved(
-            "the shared publishing resolver returned no record label/type; the vendored " +
-                `${RESOLVER_SCRIPT} predates the decision-record sub-issue contract — redeploy the Nexus components`,
+            "the shared publishing resolver returned no record label/type; the installed " +
+                `${GH_TOOLKIT_NAME} predates the decision-record sub-issue contract — update Nexus`,
         );
     }
     const normalized: string = mode.value.toLowerCase();
@@ -148,8 +152,8 @@ export function resolveUnplannedLabel(run: Runner, targetRoot: string): Ok<{ lab
     if (!label.ok) return label;
     if (label.value.length === 0) {
         return unresolved(
-            "the shared publishing resolver returned no unplanned label; the vendored " +
-                `${RESOLVER_SCRIPT} predates the backlog-stub contract — redeploy the Nexus components`,
+            "the shared publishing resolver returned no unplanned label; the installed " +
+                `${GH_TOOLKIT_NAME} predates the backlog-stub contract — update Nexus`,
         );
     }
     return { ok: true, label: label.value };

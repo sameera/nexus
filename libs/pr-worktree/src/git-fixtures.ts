@@ -32,25 +32,12 @@ export function initRepo(dir: string, origin?: string): void {
     sh(dir, "git", "config", "user.email", "spec@example.com");
     sh(dir, "git", "config", "user.name", "spec");
     if (origin) sh(dir, "git", "remote", "add", "origin", origin);
-    seedResolver(dir);
 }
 
-/** Where a checkout carries the vendored shared publishing resolver. */
-const RESOLVER_RELATIVE: string = path.join(".claude", "skills", "nxs-gh-shared", "delivery_config.py");
-
-/**
- * Copy this checkout's real shared publishing resolver into a fixture repo.
- *
- * The worktree base is read across the resolver process seam, so a fixture repo that carried no
- * resolver would exercise the "resolver missing" failure instead of the behaviour under test. The
- * real script is used rather than a stub so the seam is tested against the resolver that ships.
- */
-export function seedResolver(repo: string): void {
-    const source = path.resolve(import.meta.dirname, "..", "..", "..", RESOLVER_RELATIVE);
-    const target = path.join(repo, RESOLVER_RELATIVE);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.copyFileSync(source, target);
-}
+// A fixture repo used to be seeded with a copy of the shared publishing resolver, because the
+// worktree base was read from a file inside the repo under test. It is read from the toolkit by
+// name now (story #300), so a fixture repo carries no component tree — which is also the shape
+// every repo has once the components stop being committed.
 
 /** Declare a `github:` key in a fixture repo's `.nexus/config/settings.yml`. */
 export function declareGithubKey(repo: string, key: string, value: string): void {
