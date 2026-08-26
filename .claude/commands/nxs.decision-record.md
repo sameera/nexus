@@ -125,11 +125,11 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
    command runs in, exactly as `/nxs.close` Phase 1.0 resolves it:
 
     ```bash
-    ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root "<root>")"
+    ISSUES_REPO="$(nexus-gh config resolve epic-repo --root "<root>")"
     REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
-    NEEDS_DESIGN="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve needs-design-label --root "<root>")"
-    IN_PROGRESS="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve in-progress-label --root "<root>")"
-    RECORD_LABEL="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve record-label --root "<root>")"
+    NEEDS_DESIGN="$(nexus-gh config resolve needs-design-label --root "<root>")"
+    IN_PROGRESS="$(nexus-gh config resolve in-progress-label --root "<root>")"
+    RECORD_LABEL="$(nexus-gh config resolve record-label --root "<root>")"
     ```
 
     `<root>` is the repo root. An empty `ISSUES_REPO` means the epic lives in the current repo and
@@ -381,8 +381,8 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
    come from the same resolver (Phase 0.2 already read `$RECORD_LABEL`):
 
     ```bash
-    CLASSIFICATION="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve classification --root "<root>")"
-    RECORD_TYPE="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve record-type --root "<root>")"
+    CLASSIFICATION="$(nexus-gh config resolve classification --root "<root>")"
+    RECORD_TYPE="$(nexus-gh config resolve record-type --root "<root>")"
     ```
 
     **`labels` and `legacy-auto` modes** — create the label before applying it, so a repository that

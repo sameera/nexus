@@ -198,7 +198,7 @@ close omitted this and always hit the current repo; resolving it here is the con
 fixes, extended to per-epic/story repo targeting by STORY-121.05.
 
 ```bash
-ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root "<root>")"
+ISSUES_REPO="$(nexus-gh config resolve epic-repo --root "<root>")"
 REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
 ```
 
@@ -510,9 +510,9 @@ them, after the checkpoint. Write **no** `backlog.md`.
 1. **Resolve the classification and the unplanned label** (never hard-code either):
 
     ```bash
-    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-label
-    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-type
-    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve unplanned-label
+    nexus-gh config resolve epic-label
+    nexus-gh config resolve epic-type
+    nexus-gh config resolve unplanned-label
     ```
 
 2. **Write one transient work-item per deferred item** to a session scratch folder — never under
@@ -643,7 +643,7 @@ record is committed anywhere (in `--pr` mode Phase 7.6 commits and pushes it).
 1. **File the batch** authored in Phase 5, classified as an **epic** rather than a story:
 
     ```bash
-    python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>" \
+    nexus-gh create-story "<scratch-folder>" \
         --classification-label "<epic-label>" \
         --classification-type "<epic-type>"
     ```
@@ -884,7 +884,7 @@ Deviations recorded:    <count>
 
 `<backlog-query>` is the cross-feature backlog — the stubs just filed plus every stub still open
 under any other epic, in one query. Ask for it rather than writing the label out
-(`python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query`), so a repository that
+(`nexus-gh config backlog-query`), so a repository that
 renamed the unplanned label gets its own query back. Omit both Deferred-scope lines when the epic
 deferred nothing.
 

@@ -24,7 +24,6 @@ import {
 } from "./parity";
 import { checkComponentComposition } from "./component-composition";
 import { COMPONENT_COMPOSITION_WAIVERS } from "./component-composition-waivers";
-import { COMPONENT_INVOCATION_REGISTER } from "./component-invocation-register";
 import {
     checkComponentInvocations,
     formatInvocationProblems,
@@ -308,10 +307,10 @@ describe("component invocations name a declared toolkit verb (story #301)", () =
         expect(undeclared.map((site) => `${site.relPath}:${site.line} ${site.name}`)).toEqual([]);
     });
 
-    it("every legacy invocation sits in a body the pending register still lists", () => {
-        // The register only shrinks: a legacy form outside it fails, and an entry with nothing
-        // left to migrate fails too, so a spent entry is deleted rather than kept.
-        const problems: InvocationProblem[] = checkComponentInvocations(inventory, COMPONENT_INVOCATION_REGISTER);
+    it("no shipped body addresses a toolkit by a repository-bound form", () => {
+        // Unconditional since story #303 emptied and removed the pending register: a reintroduced
+        // script path, bundle path, workspace alias or bare `python` fails the build immediately.
+        const problems: InvocationProblem[] = checkComponentInvocations(inventory);
         expect(problems.length, problems.length > 0 ? formatInvocationProblems(problems) : undefined).toBe(0);
     });
 
@@ -329,7 +328,7 @@ describe("component invocations name a declared toolkit verb (story #301)", () =
             nexus: [],
             nexusGh: [],
         }).filter((site) => site.classification === "undeclared");
-        const problems: InvocationProblem[] = checkComponentInvocations(doctored, []);
+        const problems: InvocationProblem[] = checkComponentInvocations(doctored);
         expect(problems.length).toBeGreaterThan(0);
         const text: string = formatInvocationProblems(problems);
         expect(text).toContain(doctored[0].relPath);

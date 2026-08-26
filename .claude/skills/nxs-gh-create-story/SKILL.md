@@ -13,7 +13,7 @@ skill at its approval gate.
 ## Usage
 
 ```bash
-python ./scripts/create_gh_issues.py <target_folder> [--dry-run] [--no-project] \
+nexus-gh create-story <target_folder> [--dry-run] [--no-project] \
     [--retries N] [--retry-base-delay S] [--keep-manifest]
 ```
 
@@ -143,7 +143,7 @@ This is resolved independently of the epic's target, so epics and stories can la
 ## Examples
 
 ```bash
-python ./scripts/create_gh_issues.py <scratch>/stories --dry-run
-python ./scripts/create_gh_issues.py <scratch>/stories
-python ./scripts/create_gh_issues.py <scratch>/stories --no-project
+nexus-gh create-story <scratch>/stories --dry-run
+nexus-gh create-story <scratch>/stories
+nexus-gh create-story <scratch>/stories --no-project
 ```

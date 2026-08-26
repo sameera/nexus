@@ -15,10 +15,10 @@ Create a GitHub issue from an Epic document's content and link it back to the ep
 ## Workflow
 
 1. **Locate the Epic document** from user reference, open file, or argument
-2. **Run the script** to create the issue and update frontmatter:
+2. **Run the capability** to create the issue and update frontmatter:
 
 ```bash
-python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+nexus-gh create-epic "<path-to-epic.md>"
 ```
 
 ### Optional Flags
@@ -33,21 +33,21 @@ python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
 
 ```bash
 # Basic usage (auto-discovers project from repo)
-python ./scripts/nxs_gh_create_epic.py "<path-to-epic.md>"
+nexus-gh create-epic "<path-to-epic.md>"
 
 # Specify target project explicitly
-python ./scripts/nxs_gh_create_epic.py --project "acme-corp/backend-roadmap" "<path-to-epic.md>"
+nexus-gh create-epic --project "acme-corp/backend-roadmap" "<path-to-epic.md>"
 
 # Skip confirmation for existing links
-python ./scripts/nxs_gh_create_epic.py -y "<path-to-epic.md>"
+nexus-gh create-epic -y "<path-to-epic.md>"
 
 # Create issue without adding to any project
-python ./scripts/nxs_gh_create_epic.py --no-project "<path-to-epic.md>"
+nexus-gh create-epic --no-project "<path-to-epic.md>"
 ```
 
-## Script Behavior
+## Capability Behavior
 
-The script (`./scripts/nxs_gh_create_epic.py`):
+`nexus-gh create-epic`:
 
 1. Parses YAML frontmatter for `epic` (title) and `type` (issue type name)
 2. Resolves the classification mode from `github.classification` in `.nexus/config/settings.yml`

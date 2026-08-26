@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
     checkComponentInvocations,
     findInvocations,
+    formatInvocationProblems,
     scanComponentInvocations,
     type Invocation,
     type InvocationProblem,
@@ -155,57 +156,45 @@ describe("scanComponentInvocations — classification against the declared surfa
 });
 
 describe("checkComponentInvocations — the verdict", () => {
-    it("passes a fully migrated tree with an empty register", () => {
+    it("passes a tree whose every invocation names a declared toolkit verb", () => {
         const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus deploy") });
-        expect(checkComponentInvocations(scanComponentInvocations(dir, SURFACES), [])).toEqual([]);
+        expect(checkComponentInvocations(scanComponentInvocations(dir, SURFACES))).toEqual([]);
     });
 
     it("fails an undeclared name, naming the body and the name", () => {
         const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus workspace statuss") });
-        const problems: InvocationProblem[] = checkComponentInvocations(scanComponentInvocations(dir, SURFACES), []);
+        const problems: InvocationProblem[] = checkComponentInvocations(scanComponentInvocations(dir, SURFACES));
         expect(problems).toHaveLength(1);
         expect(problems[0].message).toContain("commands/a.md");
         expect(problems[0].message).toContain("workspace statuss");
-    });
-
-    it("fails an undeclared name even inside a body the register still lists", () => {
-        const dir: string = makeClaudeDir({
-            "commands/a.md": fence("nexus workspace statuss", "tsx ./.claude/skills/x/scripts/y.ts"),
-        });
-        const problems: InvocationProblem[] = checkComponentInvocations(scanComponentInvocations(dir, SURFACES), [
-            "commands/a.md",
-        ]);
-        expect(problems).toHaveLength(1);
-        expect(problems[0].message).toContain("workspace statuss");
-    });
-
-    it("tolerates a legacy form only in a body the register lists", () => {
-        const dir: string = makeClaudeDir({ "commands/a.md": fence("tsx ./.claude/skills/x/scripts/y.ts") });
-        const sites: Invocation[] = scanComponentInvocations(dir, SURFACES);
-        expect(checkComponentInvocations(sites, ["commands/a.md"])).toEqual([]);
-        expect(checkComponentInvocations(sites, [])).toHaveLength(1);
     });
 
     it("fails a migrated body that reintroduces a repository-relative path", () => {
         const dir: string = makeClaudeDir({
             "commands/a.md": fence("nexus deploy", "tsx ./.claude/skills/x/scripts/y.ts"),
         });
-        const problems: InvocationProblem[] = checkComponentInvocations(scanComponentInvocations(dir, SURFACES), []);
+        const problems: InvocationProblem[] = checkComponentInvocations(scanComponentInvocations(dir, SURFACES));
         expect(problems[0].message).toContain("commands/a.md");
         expect(problems[0].message).toContain("y.ts");
     });
 
     it("fails a migrated body that reintroduces a bare python", () => {
         const dir: string = makeClaudeDir({ "commands/a.md": fence("python ./scripts/x.py") });
-        expect(checkComponentInvocations(scanComponentInvocations(dir, SURFACES), [])).toHaveLength(1);
+        expect(checkComponentInvocations(scanComponentInvocations(dir, SURFACES))).toHaveLength(1);
     });
 
-    it("fails a register entry for a body that has nothing left to migrate — the register only shrinks", () => {
-        const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus deploy") });
-        const problems: InvocationProblem[] = checkComponentInvocations(scanComponentInvocations(dir, SURFACES), [
-            "commands/a.md",
-        ]);
-        expect(problems).toHaveLength(1);
-        expect(problems[0].message).toContain("commands/a.md");
+    it("fails a reintroduced bundle path and a reintroduced workspace script alias", () => {
+        const dir: string = makeClaudeDir({
+            "commands/a.md": fence("node .nexus/tools/generate-atlas.mjs"),
+            "commands/b.md": fence("pnpm nexus:generate-atlas"),
+        });
+        expect(checkComponentInvocations(scanComponentInvocations(dir, SURFACES))).toHaveLength(2);
+    });
+
+    it("names the offending body and name in the formatted failure", () => {
+        const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus-gh create-storey <folder>") });
+        const text: string = formatInvocationProblems(checkComponentInvocations(scanComponentInvocations(dir, SURFACES)));
+        expect(text).toContain("commands/a.md");
+        expect(text).toContain("create-storey");
     });
 });

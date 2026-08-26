@@ -11,9 +11,10 @@
  * workspace script alias). Being unrecognised is itself reportable.
  *
  * A named form is resolved against the toolkit's own declared surface, which the caller obtains
- * from that surface and never from a copy. A legacy form is tolerated only in a body the pending
- * register still lists; anywhere else it fails the gate by name. The register only shrinks, and
- * reaching empty is this epic's completion condition.
+ * from that surface and never from a copy. A legacy form fails the gate by name, wherever it sits.
+ * The pending register that carried the migration is gone: it reached empty when story #303
+ * rewrote the last body, which was epic #250's completion condition for it, so enforcement is
+ * unconditional and a reintroduced path or bare `python` fails the build immediately.
  *
  * Node builtins only; this file is not a bundle entry point, so it is never itself vendored.
  */
@@ -246,11 +247,11 @@ export function scanComponentInvocations(claudeDir: string, surfaces: ToolkitSur
 }
 
 /**
- * The verdict over an inventory. An undeclared name always fails, wherever it sits. A legacy form
- * fails unless its body is still on `pending`. A `pending` entry for a body with no legacy form
- * left also fails: the register only shrinks, so a spent entry must be deleted rather than kept.
+ * The verdict over an inventory: an undeclared name fails, and so does any legacy repository-bound
+ * form. Both name the body and the offending name, so the failure is actionable without re-running
+ * a search.
  */
-export function checkComponentInvocations(inventory: readonly Invocation[], pending: readonly string[]): InvocationProblem[] {
+export function checkComponentInvocations(inventory: readonly Invocation[]): InvocationProblem[] {
     const problems: InvocationProblem[] = [];
     for (const site of inventory) {
         if (site.classification === "undeclared") {
@@ -260,21 +261,12 @@ export function checkComponentInvocations(inventory: readonly Invocation[], pend
                     `${site.relPath}:${site.line} names '${site.name}', which the toolkit does not declare ` +
                     `— in: ${site.text}`,
             });
-        } else if (site.classification === "unmigrated" && !pending.includes(site.relPath)) {
+        } else if (site.classification === "unmigrated") {
             problems.push({
                 relPath: site.relPath,
                 message:
                     `${site.relPath}:${site.line} addresses a toolkit by ${site.form} rather than by name ` +
                     `— in: ${site.text}`,
-            });
-        }
-    }
-    for (const relPath of pending) {
-        const stillLegacy: boolean = inventory.some((site) => site.relPath === relPath && site.classification === "unmigrated");
-        if (!stillLegacy) {
-            problems.push({
-                relPath,
-                message: `${relPath} is on the pending register but has nothing left to migrate — delete the entry`,
             });
         }
     }

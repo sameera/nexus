@@ -39,3 +39,15 @@
 - **Choice:** Where a body offered a single-repo and a hub invocation of one capability, #302 rewrites both sides to the same named form and leaves the branch standing.
 - **Why:** #304 owns the collapse and must preserve the mode-conditional instructions the hub side carries; doing both at once risks dropping those silently.
 - **Refuted alternative:** Collapse while rewriting — fewer passes over the same lines, but it fuses an addressing change with a de-duplication that needs its own reading.
+
+## 2026-08-26 — The pending register is removed in this story, not the last one
+
+- **Choice:** #303 empties the register, deletes the file, and drops the `pending` parameter from `checkComponentInvocations`, so enforcement is unconditional from here on.
+- **Why:** #303 rewrites the last legacy site, which is the completion condition the register recorded; leaving it until #304 would keep a live exemption channel open across a story that edits shipped bodies.
+- **Refuted alternative:** Keep the parameter defaulting to empty — it reads as an exemption mechanism that no caller uses, which is the tautology the register was designed to avoid.
+
+## 2026-08-26 — The acceptance harness reaches the Python toolkit by its entry-point file
+
+- **Choice:** `libs/pr-acceptance` invokes `python3 <toolRoot>/libs/gh-toolkit/bin/nexus-gh <capability>` rather than the name on the path.
+- **Why:** The harness already resolves everything from an explicit `toolRoot` so it can drive a checkout that is not the one it runs in; requiring the name on PATH would make it depend on an install step the harness does not perform.
+- **Refuted alternative:** Invoke the bare name — correct for a shipped body, wrong for a harness whose whole job is to exercise a specific checkout.

@@ -43,7 +43,7 @@ of the story set — otherwise every stage that iterates stories (design coverag
 close's all-stories-closed gate) would act on a phantom story.
 
 -   **Classification** comes only from the shared publishing resolver
-    (`.claude/skills/nxs-gh-shared/delivery_config.py resolve …`): the declared `classification` mode
+    (`nexus-gh config resolve …`): the declared `classification` mode
     selects the record **label** or the record **issue type**. Nothing here parses `settings.yml`,
     and there is no fallback guess — an unresolvable classification is the named diagnostic
     `record-classification-unresolved`.
