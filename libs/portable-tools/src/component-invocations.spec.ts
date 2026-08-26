@@ -117,6 +117,65 @@ describe("findInvocations — what counts as an invocation", () => {
     });
 });
 
+describe("findInvocations — fence nesting", () => {
+    it("reads an invocation out of a fence nested inside a longer outer fence", () => {
+        const body: string = ["````markdown", "```bash", "nexus workspace status", "```", "````", ""].join("\n");
+        expect(findInvocations(body)).toEqual([
+            expect.objectContaining({ form: "named-executable", name: "workspace status" }),
+        ]);
+    });
+
+    it("keeps gating a later fence when an inner fence marker is left unbalanced", () => {
+        const body: string = [
+            "````markdown",
+            "```bash",
+            "an unclosed inner fence",
+            "````",
+            "",
+            "Prose between the blocks.",
+            "",
+            "```bash",
+            "nexus workspace status",
+            "```",
+            "",
+        ].join("\n");
+        expect(findInvocations(body)).toEqual([
+            expect.objectContaining({ form: "named-executable", name: "workspace status" }),
+        ]);
+    });
+
+    it("does not close an outer fence on a shorter inner marker", () => {
+        const body: string = [
+            "````markdown",
+            "```",
+            "````",
+            "",
+            "The `nexus` executable is prose here, not an invocation.",
+            "",
+        ].join("\n");
+        expect(findInvocations(body)).toEqual([]);
+    });
+
+    it("closes a fence on a marker longer than the one that opened it", () => {
+        const body: string = ["```bash", "nexus deploy", "`````", "", "Prose after.", ""].join("\n");
+        expect(findInvocations(body)).toEqual([
+            expect.objectContaining({ form: "named-executable", name: "deploy" }),
+        ]);
+    });
+
+    it("treats a closing marker with trailing text as fence content, not a close", () => {
+        const body: string = [
+            "```bash",
+            "nexus deploy",
+            "``` still inside",
+            "nexus workspace status",
+            "```",
+            "",
+        ].join("\n");
+        expect(findInvocations(body).map((f) => f.name)).toEqual(["deploy", "workspace status"]);
+    });
+});
+
 describe("scanComponentInvocations — classification against the declared surfaces", () => {
     it("classifies a declared dispatch name as resolving", () => {
         const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus workspace status") });

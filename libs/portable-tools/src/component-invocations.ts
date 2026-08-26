@@ -120,17 +120,40 @@ const LEADERS: readonly Leader[] = [
     { token: "pnpm", form: "workspace-alias", nameTokens: 0 },
 ];
 
+/** A line that is nothing but a run of three or more backticks, and whatever follows the run. */
+const FENCE_RE = /^(`{3,})(.*)$/;
+
+/**
+ * The backtick run a fence line carries, or undefined when the line opens and closes nothing.
+ * A body's own fences nest — a longer marker wraps blocks written with shorter ones — so the run
+ * length, not the mere presence of a marker, decides what a line does.
+ */
+function fenceMarker(raw: string): { length: number; rest: string } | undefined {
+    const match: RegExpMatchArray | null = raw.trim().match(FENCE_RE);
+    return match === null ? undefined : { length: match[1].length, rest: match[2] };
+}
+
 /** The code spans of one body: every line inside a fence, plus every inline backtick span. */
 function codeSpans(content: string): { line: number; text: string }[] {
     const spans: { line: number; text: string }[] = [];
-    let fenced = false;
+    // The run length of the open fence, or 0 outside every fence.
+    let openLength = 0;
     content.split("\n").forEach((raw, index) => {
         const line: number = index + 1;
-        if (raw.trim().startsWith("```")) {
-            fenced = !fenced;
-            return;
-        }
-        if (fenced) {
+        const marker: { length: number; rest: string } | undefined = fenceMarker(raw);
+        if (openLength === 0) {
+            // An info string may not itself contain a backtick, so such a line opens nothing.
+            if (marker !== undefined && !marker.rest.includes("`")) {
+                openLength = marker.length;
+                return;
+            }
+        } else {
+            // Only a marker at least as long as the opener closes it, and only when nothing
+            // follows it. Anything shorter — or trailed by text — is literal fence content.
+            if (marker !== undefined && marker.length >= openLength && marker.rest.trim() === "") {
+                openLength = 0;
+                return;
+            }
             spans.push({ line, text: raw });
             return;
         }

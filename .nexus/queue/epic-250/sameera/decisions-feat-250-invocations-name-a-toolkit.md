@@ -63,3 +63,9 @@
 - **Choice:** The de-duplication ships with no gate of its own.
 - **Why:** What made the duplication possible was two addressing forms, and the #301 gate now rejects the legacy one unconditionally, so the branch cannot be reconstructed. The residue — one capability described once — is a prose property no honest mechanical rule captures.
 - **Refuted alternative:** A heuristic "no two invocations of one capability near each other" check — it would fire on the legitimate repeats (three distinct `record-digest` acts in one stage) and be silenced with exclusions.
+
+## 2026-08-26 — The gate's fence reader tracks marker length, not marker presence
+
+- **Choice:** `codeSpans` records the run length of the open fence and closes only on a marker at least that long with nothing trailing it; a shorter or trailed marker is fence content.
+- **Why:** The toggle-on-any-``` reader inverted its own state on an unbalanced inner fence and silently un-gated every invocation after it — three component bodies already nest 4- and 5-backtick fences, so the correct-by-accident balance was the only thing holding the gate up.
+- **Refuted alternative:** Ignore any fence marker longer than three backticks — cheaper, but it makes the outer block's contents scannable and would gate the illustrative invocations inside a `markdown` example as if they were real ones.
