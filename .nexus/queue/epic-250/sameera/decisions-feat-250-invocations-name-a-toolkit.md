@@ -51,3 +51,15 @@
 - **Choice:** `libs/pr-acceptance` invokes `python3 <toolRoot>/libs/gh-toolkit/bin/nexus-gh <capability>` rather than the name on the path.
 - **Why:** The harness already resolves everything from an explicit `toolRoot` so it can drive a checkout that is not the one it runs in; requiring the name on PATH would make it depend on an install step the harness does not perform.
 - **Refuted alternative:** Invoke the bare name — correct for a shipped body, wrong for a harness whose whole job is to exercise a specific checkout.
+
+## 2026-08-26 — Phase 5.3 is repurposed, not renumbered away
+
+- **Choice:** The distill step that selected an invocation becomes the step that states the mode-conditional argument rules, keeping its number.
+- **Why:** Eight passages elsewhere in the body cite "Phase 5.3–5.5" by number; deleting the item would renumber every later step and silently invalidate those references.
+- **Refuted alternative:** Delete the step and renumber — tidier list, but it rewrites cross-references that have nothing to do with this change.
+
+## 2026-08-26 — #304 adds no new automated check
+
+- **Choice:** The de-duplication ships with no gate of its own.
+- **Why:** What made the duplication possible was two addressing forms, and the #301 gate now rejects the legacy one unconditionally, so the branch cannot be reconstructed. The residue — one capability described once — is a prose property no honest mechanical rule captures.
+- **Refuted alternative:** A heuristic "no two invocations of one capability near each other" check — it would fire on the legitimate repeats (three distinct `record-digest` acts in one stage) and be silenced with exclusions.

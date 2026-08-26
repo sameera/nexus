@@ -343,7 +343,7 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     gh pr comment <N> --body-file "<scratch>/analyze-review.md"
     ```
 
-3. Remove the worktree: `nexus pr-worktree remove <wtPath>`.
+3. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
 
 `head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so `/nxs.close` can
 compare it for exact equality against the PR head. Re-running analyze publishes a fresh review;

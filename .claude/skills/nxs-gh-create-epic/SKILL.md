@@ -31,10 +31,9 @@ nexus-gh create-epic "<path-to-epic.md>"
 
 ### Examples
 
-```bash
-# Basic usage (auto-discovers project from repo)
-nexus-gh create-epic "<path-to-epic.md>"
+The plain form above auto-discovers the project from the repository. The flags vary it:
 
+```bash
 # Specify target project explicitly
 nexus-gh create-epic --project "acme-corp/backend-roadmap" "<path-to-epic.md>"
 

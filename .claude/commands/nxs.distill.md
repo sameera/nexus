@@ -214,7 +214,7 @@ artifacts (a close just prepared it — the close record, backlog append, and le
    (In continuation mode the tree is clean because the close committed its artifacts, and you are
    already on the `distill/*` branch — expected, not a block.)
 3. **Resolve the run mode once** — the same committed artifacts and presence check the
-   deterministic steps use to select their runner (Phase 5.3); never a new heuristic
+   deterministic steps read for their mode-conditional rules (Phase 5.3); never a new heuristic
    (e.g. never "no `package.json`"):
 
     ```bash
@@ -224,7 +224,8 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 
     - **hub** (`.nexus/config/workspace.yml` present): every mode-gated behavior below takes
       its hub branch — diff derivation (Phase 1), anchor source SHAs (Phase 5.2), provenance
-      form (Phase 0.6, Phase 3), tool invocation (Phase 5.3–5.5), and drain-SLO reporting
+      form (Phase 0.6, Phase 3), the argument discipline on the deterministic steps (Phase 5.3),
+      and drain-SLO reporting
       (Input Resolution 3, Phases 6/8).
     - **single-repo** (neither file present): every path below is exactly today's behavior,
       unchanged.
@@ -681,27 +682,23 @@ Run these for each entry, in order, before its commit:
     - `<host/owner/repo>:<path>` — <one-line role in the concept>
     ```
 
-3. **Read the run mode.** Steps 4 and 5 both branch on the run mode **already resolved once
-   in Phase 0.3** — that check reads workspace resolution's own committed artifacts, never a new
-   heuristic (e.g. never "no `package.json`"):
+3. **Mode-conditional rules for the deterministic steps.** Steps 4 and 5 run the same commands
+   whatever the mode — the toolkit is addressed by name, so there is nothing to choose. What the
+   run mode **already resolved once in Phase 0.3** still governs is what those commands are told
+   (that check reads workspace resolution's own committed artifacts, never a new heuristic — e.g.
+   never "no `package.json`"):
 
     - **hub**: pass every page path and git ref as its own separate, quoted argument — never
-      build the command by interpolating a shell string.
+      build the command by interpolating a shell string. The regenerated anchor sidecars are
+      validated alongside the pages (Step 5), because the per-repo `source_sha` mapping shape is
+      part of the contract.
     - **single-repo**: no extra argument discipline applies.
     - **member**: a member repo does not drain — Phase 0.3 already stopped the run before this
       point.
 
 4. **Atlas regeneration.** Rebuild the human orientation page from the store's current
-   state, under the run mode Step 3 read — with no explicit output path, so the generator
-   resolves its own location from the resolved docs root (epic #74; never a hardcoded path):
-
-   - Single-repo:
-
-    ```bash
-    nexus generate-atlas
-    ```
-
-   - Hub:
+   state — with no explicit output path, so the generator resolves its own location from the
+   resolved docs root (epic #74; never a hardcoded path):
 
     ```bash
     nexus generate-atlas
@@ -715,23 +712,14 @@ Run these for each entry, in order, before its commit:
    whole, never hand-edited or prose-tweaked in the PR.
 
 5. **Validator.** Run it over every page the entry changed (staged working-tree state vs the
-   last commit), under the run mode Step 3 read:
-
-   - Single-repo:
+   last commit), naming each path as its own argument:
 
     ```bash
-    nexus validate-concepts --base HEAD <changed-page-paths>
+    nexus validate-concepts --base HEAD "<changed-page-path>" ...
     nexus generate-atlas --check
     ```
 
-   - Hub — each changed page **and anchor** path its own quoted argument, never
-     shell-interpolated (in hub mode the regenerated anchor sidecars are validated too — the
-     per-repo `source_sha` mapping shape is part of the contract):
-
-    ```bash
-    nexus validate-concepts --base HEAD "<changed-page-path>" "<changed-anchor-path>"
-    nexus generate-atlas --check
-    ```
+    On a hub the regenerated anchor sidecar paths are named alongside the pages, per Step 3.
 
     The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
     page's own content, the per-bullet bound on Integration Points, `touches:` == Integration
@@ -834,10 +822,11 @@ For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
 **Drift advisory (epic #94, STORY-94.02) — deterministic, non-blocking, store-level; gated on
 registry presence.** When Phase 2 found a registry, now that every entry is applied and any Phase
 6.2 taxonomy change has landed (so the branch holds the final store state the atlas was regenerated
-from), run the advisory **once** over the whole store, under the run mode Phase 5.3 read:
+from), run the advisory **once** over the whole store:
 
-- Single-repo: `nexus drift-advisory`
-- Hub: `nexus drift-advisory`
+```bash
+nexus drift-advisory
+```
 
 Capture its stdout — advisory markdown, possibly empty. It **never edits a page or the registry and
 always exits zero**; a non-zero exit or any file write is a bug, never a drain block, and nothing it
