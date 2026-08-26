@@ -18,6 +18,8 @@
  *   nexus workspace github-defaults    print the hub's github-publishing defaults as JSON (STORY-121.05)
  */
 
+import { execFileSync } from "node:child_process";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
@@ -47,7 +49,8 @@ import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
-import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components.js";
+import { releaseVersion } from "./release.js";
+import { COMPONENT_PAYLOAD_DIRNAME, hashComponentTree, liveClaudeDir } from "./vendor-components.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -82,6 +85,15 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      user-owned files such as .claude/settings.local.json are never touched.",
         ].join("\n"),
         run: runDeploy,
+    },
+    version: {
+        summary: "Report the installed release, its component payload and the resolved interpreter.",
+        usage: [
+            "  nexus version",
+            "      Print { version, componentPayload, python } — the release's one semantic version,",
+            "      the component payload's fingerprint, and the resolved python3 and its version.",
+        ].join("\n"),
+        run: runVersion,
     },
     workspace: {
         summary: "Declare, inspect, or extend a multi-repo workspace.",
@@ -234,6 +246,71 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
     io.stdout(
         `deployed ${result.written.length} component file(s) into ${path.join(targetRepoRoot, ".claude")}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
+    );
+    return 0;
+}
+
+/**
+ * The component payload this artifact would deploy. A distributable carries it vendored beside
+ * the bundle; a source checkout has no vendored copy, and there the live root `.claude/` tree is
+ * the payload — it is the same tree the vendor step hashes into the fingerprint pin, so both
+ * postures report the fingerprint of the components that would actually be installed.
+ */
+function resolvedPayloadDir(): string | null {
+    const vendored: string = defaultPayloadDir();
+    if (fs.existsSync(vendored)) {
+        return vendored;
+    }
+    const live: string = liveClaudeDir(import.meta.dirname);
+    return fs.existsSync(live) ? live : null;
+}
+
+interface InterpreterReport {
+    path: string | null;
+    version: string | null;
+}
+
+/**
+ * The `python3` the other half of the release runs on. An interpreter that cannot be resolved is
+ * reported as unresolved rather than raised: `nexus version` is what a user runs when something
+ * is already wrong, and a report that fails because the environment is broken cannot do the job
+ * it exists for (AC3).
+ */
+function resolveInterpreter(): InterpreterReport {
+    const unresolved: InterpreterReport = { path: null, version: null };
+    let resolvedPath: string;
+    try {
+        resolvedPath = execFileSync("command", ["-v", "python3"], { encoding: "utf8", shell: true, stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch {
+        return unresolved;
+    }
+    if (resolvedPath === "") {
+        return unresolved;
+    }
+    try {
+        const reported: string = execFileSync(resolvedPath, ["--version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+        return { path: resolvedPath, version: reported.replace(/^Python\s+/, "") };
+    } catch {
+        return unresolved;
+    }
+}
+
+/**
+ * `nexus version` — the release identity as one JSON object on standard output, the existing
+ * verb contract. Never non-zero for an environment defect (AC3); only a usage error.
+ */
+async function runVersion(argv: string[], io: CliIo): Promise<number> {
+    if (argv.length > 0) {
+        io.stderr(`unknown argument for version: ${argv[0]}\n${USAGE}`);
+        return 2;
+    }
+    const payloadDir: string | null = resolvedPayloadDir();
+    io.stdout(
+        JSON.stringify({
+            version: releaseVersion(),
+            componentPayload: payloadDir === null ? null : hashComponentTree(payloadDir),
+            python: resolveInterpreter(),
+        }),
     );
     return 0;
 }
