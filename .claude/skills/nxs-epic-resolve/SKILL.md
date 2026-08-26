@@ -84,7 +84,7 @@ never ship. The surviving stories keep their own names, because those names are 
 ## Usage
 
 ```bash
-tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]
+nexus epic-resolve --epic <N> [--out <path>] [--root <startDir>] [--require-epic]
 ```
 
 -   `--epic <N>` — the epic issue number (required).

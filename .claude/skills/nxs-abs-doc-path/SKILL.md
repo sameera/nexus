@@ -34,11 +34,11 @@ operator error instead of producing a dead link.
 
 ```bash
 # Convert a single path
-tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "docs/features/tagging/README.md"
+nexus abs-doc-path "docs/features/tagging/README.md"
 # Output: https://github.com/sameera/nexus/blob/main/docs/features/tagging/README.md
 
 # Convert multiple paths at once
-tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "docs/features/tagging/README.md" "docs/system/delivery/task-labels.md"
+nexus abs-doc-path "docs/features/tagging/README.md" "docs/system/delivery/task-labels.md"
 # Output (one per line):
 # https://github.com/sameera/nexus/blob/main/docs/features/tagging/README.md
 # https://github.com/sameera/nexus/blob/main/docs/system/delivery/task-labels.md

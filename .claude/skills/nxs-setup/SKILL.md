@@ -29,10 +29,9 @@ You write to **`<context-path>`**, the product context under the resolved docs r
 - **Standalone** — resolve the docs root yourself, then set `<context-path>` = `<docs-root>/product/context.md`:
 
   ```bash
-  tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+  nexus workspace docs-root
   ```
 
-  In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
   Capture the printed line as `<docs-root>` (`docs` for single-repo/member, `.` for a repo-root hub,
   or the override). When `<docs-root>` is `.`, the path is `product/context.md` (no `./` prefix). On a
   non-zero exit, stop and report the diagnostic — do not fall back to a literal `docs/`.

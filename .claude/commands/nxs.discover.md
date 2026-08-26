@@ -119,11 +119,10 @@ any gate leaves no trace.
    resolver:
 
     ```bash
-    tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+    nexus workspace docs-root
     ```
 
-    In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace
-    docs-root`. Capture the printed line as **`<docs-root>`**. **On a non-zero exit, stop and report
+    Capture the printed line as **`<docs-root>`**. **On a non-zero exit, stop and report
     the diagnostic** — never fall back to a literal `docs/`. Apply the empty-prefix rule when
     building a path under it: on a hub whose docs root is `.`, the taxonomy hangs off the repo root
     (`features/<slug>/…`), and no path ever carries a `./` prefix or a segment named `.`.

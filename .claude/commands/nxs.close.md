@@ -50,7 +50,7 @@ $ARGUMENTS
    the gitignored `.nexus/tmp/` (the issue-sourced local norm, #114 / #172):
 
     ```bash
-    tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>
+    nexus epic-resolve --epic <n>
     ```
 
    Use the printed `outPath`'s directory (`.nexus/tmp/epic-<n>/`) as the entry. A same-sitting
@@ -119,7 +119,7 @@ single-repo and hub mode only.
 1. **Gate on a merged PR** (also preflights the role and rejects member repos):
 
     ```bash
-    tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts preflight --pr <N> --mode close
+    nexus pr-worktree preflight --pr <N> --mode close
     ```
 
     Exit 1 blocks the close — the printed diagnostic names why. **A member repo is a hard block:**
@@ -135,7 +135,7 @@ single-repo and hub mode only.
 3. **Open the worktree on the distill branch** and derive the range:
 
     ```bash
-    tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts open --pr <N> --mode close \
+    nexus pr-worktree open --pr <N> --mode close \
       --branch "distill/$(date +%Y-%m-%d)-<epic-slug-or-epic-issue>"
     ```
 
@@ -159,7 +159,7 @@ single-repo and hub mode only.
       branch that captured stubs already created it and its stubs are in the entry with nothing moved:
 
         ```bash
-        tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts \
+        nexus epic-resolve \
           --epic <epic-issue> --dir "$wtPath" --out "$wtPath/.nexus/tmp/born-<epic-issue>/epic.md"
         QDIR="$wtPath/.nexus/queue/epic-<epic-issue>"
         mkdir -p "$QDIR" && mv "$wtPath/.nexus/tmp/born-<epic-issue>/epic.md" "$QDIR/epic.md"
@@ -284,7 +284,7 @@ if the user opts to analyze first, nothing later in this command should have run
     **current** body through the one digest program and compare:
 
     ```bash
-    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
     A different digest means the record was revised after the analysis. (A receipt with no record
@@ -336,7 +336,7 @@ Close behaves differently in a multi-repo workspace. Resolve the role once, thro
 resolver's helper — never a heuristic of your own:
 
 ```bash
-tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts preflight
+nexus close-migration preflight
 ```
 
 - **single-repo** or **hub** → note the mode and continue. Every migration step below (the
@@ -677,7 +677,7 @@ here and commit the deletion on the current branch. **Never reproduce these step
 git** — the ordering is the no-data-loss invariant, and it lives in the helper.
 
 ```bash
-tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts migrate "${QDIR}"
+nexus close-migration migrate "${QDIR}"
 ```
 
 **A member close is always non-`--pr`, and its end state stays durable** (#175): "ephemeral"
@@ -943,7 +943,7 @@ does not reopen the epic issue.
    `close-record.md` frontmatter:
 
     ```bash
-    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
     Set `record_hash` to the **full** printed digest; `record` is unchanged (a revision reuses the

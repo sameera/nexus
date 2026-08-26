@@ -21,21 +21,15 @@ Detect this repo's workspace role **through the resolver** — never by asking t
 1. Run the workspace status read-out (the sole observable surface over the workspace resolver):
 
     ```bash
-    tsx ./.claude/skills/nxs-workspace-status/scripts/workspace_status.ts
+    nexus workspace status
     ```
-
-    In a checkout with no in-repo Node toolchain, use the portable CLI instead —
-    `node <tools-dir>/nexus.mjs workspace status` (in a workspace hub, `<tools-dir>` is
-    `.nexus/tools`). Both run the identical resolver.
 
     Then obtain the **resolved docs root** — the value every scaffold path below prefixes — from the
-    single-value read-out (the same two vehicles):
+    single-value read-out:
 
     ```bash
-    tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+    nexus workspace docs-root
     ```
-
-    In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
 
     - Capture the one printed line as **`<docs-root>`**: `docs` for a single-repo project or a member,
       `.` for a hub whose docs root is the repo root, or the hub's configured override.

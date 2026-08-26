@@ -25,14 +25,11 @@ downstream stage depends on it.
 
 A companion single-value read-out prints just the resolved repo-relative **docs root** — the value
 every planning command prefixes onto the taxonomy (`features/`, `product/`, `system/`, `delivery/`).
-It wraps the same resolver's `localDocsRoot` selector and is reached through the same two vehicles:
+It wraps the same resolver's `localDocsRoot` selector:
 
 ```bash
-tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+nexus workspace docs-root
 ```
-
-In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable CLI instead —
-`node <tools-dir>/nexus.mjs workspace docs-root` (in a workspace hub, `<tools-dir>` is `.nexus/tools`).
 
 It prints one line: `docs` for a single-repo checkout or a workspace member, `.` for a hub whose docs
 root is the repo root, or the hub's configured override. On a resolution failure it prints the named
@@ -43,13 +40,13 @@ diagnostic to stderr and exits 1 — a caller must stop, never fall back to a li
 Run from anywhere inside a checkout (the hub or any member repo):
 
 ```bash
-tsx ./.claude/skills/nxs-workspace-status/scripts/workspace_status.ts
+nexus workspace status
 ```
 
 Optionally pass a directory to resolve from instead of the current working directory:
 
 ```bash
-tsx ./.claude/skills/nxs-workspace-status/scripts/workspace_status.ts /path/to/a/checkout
+nexus workspace status --root /path/to/a/checkout
 ```
 
 ## What it reports

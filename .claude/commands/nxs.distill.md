@@ -107,7 +107,7 @@ $ARGUMENTS
    they are recovering, so an explicit invocation is sufficient and bounded.
 
     1. **Re-derive the epic through the resolver** —
-       `tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>` → the
+       `nexus epic-resolve --epic <n>` → the
        materialized `epic.md` under `.nexus/tmp/epic-<n>/`. A resolver failure is that diagnostic,
        reported verbatim; stop.
     2. **Take the *why* and the *what*-facts from the epic issue's close comment** — the durable
@@ -175,7 +175,7 @@ artifacts (a close just prepared it — the close record, backlog append, and le
         ```bash
         ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root .)"
         gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body   # the why
-        tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+        nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
         ```
 
         - **Hashes equal** → this is provably the rationale that was approved and analysed. Use the
@@ -342,11 +342,11 @@ introducing-commit path in hub mode. Per entry, run the vendored derivation tool
 argument its own quoted token — never a shell-interpolated string:
 
     ```bash
-    node .nexus/tools/derive-entry-diff.mjs --entry "<entry-dir>"
+    nexus derive-entry-diff --entry "<entry-dir>"
     ```
 
-    If `.nexus/tools/derive-entry-diff.mjs` does not exist, the hub's vendored tooling predates
-    this capability — stop and tell the operator to re-vendor per
+    If the toolkit reports no such verb, the installed toolkit predates this capability — stop and
+    tell the operator to upgrade it per
     `docs/features/multi-repo-workspaces/hub-tooling-install.md`; do not derive the diff another
     way.
 
@@ -681,31 +681,30 @@ Run these for each entry, in order, before its commit:
     - `<host/owner/repo>:<path>` — <one-line role in the concept>
     ```
 
-3. **Select the invocation.** Steps 4 and 5 both branch on the run mode **already resolved once
+3. **Read the run mode.** Steps 4 and 5 both branch on the run mode **already resolved once
    in Phase 0.3** — that check reads workspace resolution's own committed artifacts, never a new
    heuristic (e.g. never "no `package.json`"):
 
-    - **hub**: run the bundle vendored at
-      `.nexus/tools/` via plain `node`. Pass every page path and git ref as its own separate,
-      quoted argument — never build the command by interpolating a shell string.
-    - **single-repo**: keep today's `pnpm nexus:*` invocation, unchanged.
+    - **hub**: pass every page path and git ref as its own separate, quoted argument — never
+      build the command by interpolating a shell string.
+    - **single-repo**: no extra argument discipline applies.
     - **member**: a member repo does not drain — Phase 0.3 already stopped the run before this
       point.
 
 4. **Atlas regeneration.** Rebuild the human orientation page from the store's current
-   state, using the invocation Step 3 selected — with no explicit output path, so the generator
+   state, under the run mode Step 3 read — with no explicit output path, so the generator
    resolves its own location from the resolved docs root (epic #74; never a hardcoded path):
 
    - Single-repo:
 
     ```bash
-    pnpm nexus:generate-atlas
+    nexus generate-atlas
     ```
 
    - Hub:
 
     ```bash
-    node .nexus/tools/generate-atlas.mjs
+    nexus generate-atlas
     ```
 
    The command's own output names where it wrote: `Atlas written: <path> (<N> concepts)`.
@@ -716,13 +715,13 @@ Run these for each entry, in order, before its commit:
    whole, never hand-edited or prose-tweaked in the PR.
 
 5. **Validator.** Run it over every page the entry changed (staged working-tree state vs the
-   last commit), using the invocation Step 3 selected:
+   last commit), under the run mode Step 3 read:
 
    - Single-repo:
 
     ```bash
-    pnpm nexus:validate-concepts -- --base HEAD <changed-page-paths>
-    pnpm nexus:check-atlas
+    nexus validate-concepts --base HEAD <changed-page-paths>
+    nexus generate-atlas --check
     ```
 
    - Hub — each changed page **and anchor** path its own quoted argument, never
@@ -730,8 +729,8 @@ Run these for each entry, in order, before its commit:
      per-repo `source_sha` mapping shape is part of the contract):
 
     ```bash
-    node .nexus/tools/validate-concepts.mjs --base HEAD "<changed-page-path>" "<changed-anchor-path>"
-    node .nexus/tools/generate-atlas.mjs --check
+    nexus validate-concepts --base HEAD "<changed-page-path>" "<changed-anchor-path>"
+    nexus generate-atlas --check
     ```
 
     The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
@@ -835,10 +834,10 @@ For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
 **Drift advisory (epic #94, STORY-94.02) — deterministic, non-blocking, store-level; gated on
 registry presence.** When Phase 2 found a registry, now that every entry is applied and any Phase
 6.2 taxonomy change has landed (so the branch holds the final store state the atlas was regenerated
-from), run the advisory **once** over the whole store, using the Phase 5.3-selected invocation:
+from), run the advisory **once** over the whole store, under the run mode Phase 5.3 read:
 
-- Single-repo: `pnpm nexus:drift-advisory`
-- Hub: `node .nexus/tools/drift-advisory.mjs`
+- Single-repo: `nexus drift-advisory`
+- Hub: `nexus drift-advisory`
 
 Capture its stdout — advisory markdown, possibly empty. It **never edits a page or the registry and
 always exits zero**; a non-zero exit or any file write is a bug, never a drain block, and nothing it

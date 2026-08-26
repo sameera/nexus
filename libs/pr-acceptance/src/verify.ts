@@ -51,15 +51,17 @@ export interface HelperRange {
 }
 
 /**
- * Drive `pr_worktree.ts open --mode close` — the unit whose output is stamped
+ * Drive `pr-worktree open --mode close` — the unit whose output is stamped
  * into the close record, and the one that can be re-run per merge strategy in
- * seconds without re-running a whole close.
+ * seconds without re-running a whole close. Reached through the maintainer's from-source command
+ * shape, `tsx nexus-cli.ts <verb>`, since story #302 deleted the standalone skill script.
  */
 export function deriveRangeViaHelper(ctx: HelperContext, prNumber: number, branch: string): Result<HelperRange> {
     const r = ctx.run(
         "tsx",
         [
-            path.join(ctx.toolRoot, ".claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts"),
+            path.join(ctx.toolRoot, "libs/portable-tools/src/nexus-cli.ts"),
+            "pr-worktree",
             "open",
             "--pr",
             String(prNumber),

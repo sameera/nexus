@@ -61,10 +61,9 @@ For trivial clarifications, answer directly without invoking subagents.
 themselves). Run the docs-root read-out:
 
 ```bash
-tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+nexus workspace docs-root
 ```
 
-In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
 Capture the printed line as **`<docs-root>`** (`docs` for single-repo/member, `.` for a repo-root hub,
 or the override). **On a non-zero exit, stop and report the diagnostic** — never pass a fake `docs`
 value nor treat failure as "context absent".

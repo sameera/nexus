@@ -86,7 +86,7 @@ a **pull**, not a plan. Do not draft, do not run the right-size gate, do not fil
 1. Run the resolver with the epic-vs-story guard on:
 
     ```bash
-    tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n> --require-epic
+    nexus epic-resolve --epic <n> --require-epic
     ```
 
 2. **On a non-zero exit** the resolver printed a diagnostic on stderr (`epic-resolve <problem>:
@@ -105,11 +105,8 @@ Otherwise (no `--from`), continue with normal planning.
 docs-root read-out, the single-value view over the workspace resolver:
 
 ```bash
-tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+nexus workspace docs-root
 ```
-
-In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable CLI instead —
-`node <tools-dir>/nexus.mjs workspace docs-root` (in a workspace hub, `<tools-dir>` is `.nexus/tools`).
 
 - It prints one line — capture it as **`<docs-root>`**: `docs` for a single-repo checkout or a
   member, `.` for a hub whose docs root is the repo root, or the hub's configured override.
@@ -952,5 +949,5 @@ Any durable `.md` link placed in an issue body should be an absolute GitHub URL 
 the issue. Convert repo-relative paths with the `nxs-abs-doc-path` skill:
 
 ```bash
-tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "<feature-path>/README.md"
+nexus abs-doc-path "<feature-path>/README.md"
 ```
