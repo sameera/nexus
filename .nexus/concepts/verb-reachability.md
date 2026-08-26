@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention"]
-last_updated_by: "#248"
+touches: ["portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location"]
+last_updated_by: "#249"
 status: active
 verification: verified
 ---
@@ -13,13 +13,13 @@ A capability becomes reachable by name, a verb on one named executable, exactly 
 
 ## How It Works
 
-Every reachable capability is declared once in a single registry mapping a verb name to its summary, usage text, and a runnable. The registry is imported eagerly, so the same object composes the usage text and supplies the verb set a later build-time gate checks invocation strings against. No capability keeps import-time behavior of its own; the one place a process reads its arguments and exits is the dispatcher built from the registry, once per runnable artifact, because a module inlined beside others loses any private sense of which file was invoked. Two parity axes keep a verb honest while its legacy form still exists: a durable axis compares un-built source against a fresh build, and a temporary migration axis compares the legacy form against the verb, extended even to capabilities already believed migrated, which is how a real behavioral divergence surfaced. A capability driving an external program is compared through a hermetic, committed stand-in on both sides, covering the arguments the program received and the file tree left behind, not console output alone.
+Every reachable capability is declared once in its toolkit's single registry, mapping a name to its summary, usage text, and a runnable; the rule is per toolkit, not per language, so a second toolkit answers to one name the same way. The registry is imported eagerly, so the same object composes the usage text and supplies the verb set a later build-time gate checks invocation strings against. No capability keeps import-time behavior of its own; the one place a process reads its arguments and exits is the dispatcher built from the registry, once per runnable artifact, because a module inlined beside others loses any private sense of which file was invoked. Two parity axes keep a verb honest while its legacy form still exists: a durable axis compares un-built source against a fresh build, and a temporary migration axis compares the legacy form against the verb, extended even to capabilities already believed migrated, which is how a real behavioral divergence surfaced. A capability driving an external program is compared through a hermetic, committed stand-in on both sides, covering the arguments the program received and the file tree left behind, not console output alone.
 
 ## Key Invariants
 
 1. A capability's reachability is decided by who invokes it: a component body earns a verb; a build- or release-only invoker keeps the capability source-only.
 2. Every reachable capability is declared in exactly one registry; the dispatcher composes its own usage text from that registry, so an undocumented verb cannot exist.
-3. No capability may execute anything at import time; the process boundary (argument parsing, exit) exists exactly once, in the dispatcher, per runnable artifact.
+3. No capability may execute anything at import time; the process boundary exists exactly once per runnable artifact, in the dispatcher — which hands each capability its arguments directly, never through a process-global.
 4. Parity runs two axes while a legacy form exists: source-vs-build (durable) and legacy-vs-verb (temporary, retired once the legacy form is deleted); the migration axis covers every reachable capability, not only the ones moving in a given change.
 5. A capability that drives an external program is compared through a hermetic, committed stand-in on both sides, covering the exact arguments it received and any file tree it left, not console output alone.
 
@@ -33,6 +33,7 @@ Every reachable capability is declared once in a single registry mapping a verb 
 - [distiller](distiller.md) — its atlas, validator, entry-diff, drift-advisory and registry-seeding steps are now reachable as verbs, alongside their standalone forms through the duplication window.
 - [issue-sourced-planning](issue-sourced-planning.md) — its epic resolver is now reachable as a verb, matched byte-for-byte against its script form.
 - [target-root-convention](target-root-convention.md) — every reachable verb touching project state now parses this same argument before its own dispatch.
+- [toolkit-location](toolkit-location.md) — how a named toolkit is found once a capability has earned a name, and the second toolkit that rule now spans.
 
 ## Decision Log
 
@@ -43,3 +44,7 @@ Ten capabilities a Nexus component body invokes — three read-only resolvers, t
 ### 2026-08-25 — #248 — Reciprocal link from target-root-convention
 
 Mechanical reciprocity fan-out: the target-root-convention page names every reachable verb touching project state as now parsing that same explicit-root argument before its own dispatch.
+
+### 2026-08-26 — #249 — Reachability by name spans a second toolkit, and a declared argument channel must be the real one
+
+The addressing rule was found to be a property of every toolkit rather than of the one executable: capabilities held out of the collapse because they need no install are still invoked by naming a toolkit and a capability, so the second toolkit was given a dispatcher built from the same kind of declared table, its usage text composed from that table and its unknown-name error rendered from it too. Building it exposed that the first dispatcher's declared per-capability argument signature was not the channel two of its capabilities actually read: the arguments really travelled through a process-global the dispatcher mutated, which any in-process caller, test, or nested invocation would have been handed wrongly and silently. The declared channel is now the real one, and the process-global is kept set only for the name it lends a capability's own usage text. Separately, the parity harness stopped seeding fixture repositories with a copy of the second toolkit and put its entry point on the path beside the platform stand-in instead — a seeded copy made every fixture unlike a real repository once the components stop being committed, and a build compared from a scratch directory has no checkout to fall back into, so source and build agree only when the toolkit is reachable by name for both. Refuted alternative: correct only the comment beside the process-global and keep it as the channel — cheaper, but it leaves a dispatcher whose declared signature cannot be trusted.
