@@ -6,7 +6,7 @@ shape or a wrong classification is twenty-four corrections after the fact, not a
 decision record's mitigation is to render the whole batch first and compare it against a stub
 already filed — so the dry run has to survive the classification becoming a caller argument.
 
-Run from anywhere with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import subprocess
@@ -16,10 +16,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nxs-gh-create-story" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import create_gh_issues  # noqa: E402
+from nexus_gh import create_story as create_gh_issues  # noqa: E402
 
 _STUB = """---
 ref: "STUB-1"

@@ -7,7 +7,7 @@ forms of that query — the CLI listing, the issue-search fragment a link carrie
 negation every epic-enumerating query wears — and that all three read the label through the
 shared resolver rather than spelling it out (Invariant 18).
 
-Run from anywhere with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import subprocess
@@ -16,16 +16,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from delivery_config import (  # noqa: E402
+from nexus_gh.delivery_config import (  # noqa: E402
     BACKLOG_QUERY_FORMS,
     backlog_query,
     read_delivery_config,
     read_hub_defaults,
 )
 
-_MODULE = Path(__file__).resolve().parent / "delivery_config.py"
+#: The resolver is driven the way a caller reaches it — by name, through the entry point.
+_NEXUS_GH = Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"
 
 
 def _write_config(settings: str | None = None) -> Path:
@@ -127,7 +128,7 @@ class BacklogQueryCli(unittest.TestCase):
 
     def _run_cli(self, root, *cli_args):
         return subprocess.run(
-            [sys.executable, str(_MODULE), *cli_args, "--root", str(root)],
+            [sys.executable, str(_NEXUS_GH), "config", *cli_args, "--root", str(root)],
             capture_output=True,
             text=True,
         )

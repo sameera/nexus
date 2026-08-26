@@ -18,6 +18,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { ghToolkitCommand } from "@nexus/workspace/gh-toolkit";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { type Runner, git } from "./run.js";
 
@@ -29,8 +30,6 @@ function fail(problem: PrWorktreeDiagnostic["problem"], message: string): Worktr
     return { ok: false, error: { problem, message } };
 }
 
-/** Where a checkout carries the vendored shared publishing resolver. */
-const RESOLVER_SCRIPT: string = path.join(".claude", "skills", "nxs-gh-shared", "delivery_config.py");
 /** The publishing-block key naming the directory worktrees are created under. */
 const WORKTREE_PATH_KEY = "worktree-path";
 
@@ -92,8 +91,13 @@ export function resolveWorktreeBase(
     run: Runner,
     repoRoot: string,
 ): { ok: true; base: string } | { ok: false; error: PrWorktreeDiagnostic } {
-    const script: string = path.join(repoRoot, RESOLVER_SCRIPT);
-    const r = run("python3", [script, "resolve", WORKTREE_PATH_KEY, "--root", repoRoot], { cwd: repoRoot });
+    // Addressed by name (story #300): the resolver is the toolkit's own file, so it is looked
+    // for where the toolkit is installed and never inside the repository being acted on.
+    const invocation = ghToolkitCommand(["config", "resolve", WORKTREE_PATH_KEY, "--root", repoRoot]);
+    if (!invocation.ok) {
+        return { ok: false, error: { problem: "worktree-base-unresolved", message: invocation.message } };
+    }
+    const r = run(invocation.command, invocation.args, { cwd: repoRoot });
     if (r.status !== 0) {
         return {
             ok: false,
@@ -101,7 +105,7 @@ export function resolveWorktreeBase(
                 problem: "worktree-base-unresolved",
                 message:
                     `the shared publishing resolver could not resolve '${WORKTREE_PATH_KEY}': ` +
-                    `${r.stderr.trim() || "unknown error"} (expected ${RESOLVER_SCRIPT} in ${repoRoot})`,
+                    `${r.stderr.trim() || "unknown error"}`,
             },
         };
     }

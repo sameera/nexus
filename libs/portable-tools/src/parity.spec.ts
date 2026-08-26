@@ -54,6 +54,9 @@ const DOCS_ROOT_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-workspace-status
 const PR_WORKTREE_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-pr-worktree", "scripts", "pr_worktree.ts");
 const CLOSE_MIGRATION_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-close-migration", "scripts", "close_migration.ts");
 const GH_STANDIN_DIR: string = path.join(CORPUS, "bin");
+// The Python toolkit's entry point, placed on PATH under its own name — the install shape
+// story #297 names, and what makes `nexus-gh` reachable identically from source and bundle.
+const GH_TOOLKIT_BIN: string = path.join(REPO_ROOT, "libs", "gh-toolkit", "bin");
 
 // Story #276: the dispatcher's own source form — `tsx nexus-cli.ts <verb>` — is "the one command
 // shape" a maintainer runs any verb through with no build step. Distinct from every SRC constant
@@ -122,7 +125,10 @@ function runBundle(bundlePath: string, args: string[], cwd: string, env?: NodeJS
 function ghStandInEnv(fixtureAbsPath: string): NodeJS.ProcessEnv {
     return {
         ...process.env,
-        PATH: `${GH_STANDIN_DIR}${path.delimiter}${process.env.PATH}`,
+        // `nexus-gh` joins `gh` on the path: since story #300 the Python toolkit is an external
+        // program addressed by name, so source and bundle must reach the same one — a bundle
+        // written to a scratch directory has no checkout to fall back into.
+        PATH: [GH_STANDIN_DIR, GH_TOOLKIT_BIN, process.env.PATH].join(path.delimiter),
         NEXUS_PARITY_GH_FIXTURE: fixtureAbsPath,
     };
 }
@@ -143,17 +149,6 @@ function writeCommit(dir: string, file: string, content: string, msg: string): s
     return sh(dir, "git", "rev-parse", "HEAD");
 }
 
-/** Where a checkout carries the vendored shared publishing resolver `resolveWorktreeBase` reads. */
-const RESOLVER_RELATIVE: string = path.join(".claude", "skills", "nxs-gh-shared", "delivery_config.py");
-
-/** Copy this checkout's real shared publishing resolver into a fixture repo (worktree.ts reads it). */
-function seedResolver(repo: string): void {
-    const source: string = path.join(REPO_ROOT, RESOLVER_RELATIVE);
-    const target: string = path.join(repo, RESOLVER_RELATIVE);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.copyFileSync(source, target);
-}
-
 /**
  * A real repo + bare origin with a true merge-commit PR topology (2 parents — unambiguous range
  * base, no verifyAgainstPrHead disambiguation needed), and the PR branch pushed to the
@@ -170,7 +165,6 @@ function buildPrWorktreeFixture(prNumber: number): { repo: string; mergeCommit: 
     shIgnore(repo, "git", "config", "user.email", "spec@example.com");
     shIgnore(repo, "git", "config", "user.name", "spec");
     shIgnore(repo, "git", "remote", "add", "origin", origin);
-    seedResolver(repo);
     writeCommit(repo, "base.txt", "base\n", "C0");
     const baseRefOid: string = writeCommit(repo, "m1.txt", "m1\n", "M1");
     shIgnore(repo, "git", "push", "-q", "-u", "origin", "main");

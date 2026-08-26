@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
-"""
-Create GitHub issues from STORY-*.md work-item files in a target folder.
+"""The story filer — the `create-story` capability of the `nexus-gh` toolkit.
+
+Creates GitHub issues from STORY-*.md work-item files in a target folder.
 
 Three passes: pass 1 creates one issue per story (frontmatter: ref, title, blocked_by,
 labels, parent, project), links it as a sub-issue of the parent epic, and adds it to a
@@ -25,11 +25,11 @@ import tempfile
 import time
 from pathlib import Path
 
-# The config resolver and shared gh helpers are defined once, in the shared module beside these
-# skills, and imported here — never re-copied (epic #121, decision-record Invariant 2). The path
-# is relative to this file so it resolves both in-repo and inside the vendored `.claude/` tree.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
-from delivery_config import (  # noqa: E402
+# The config resolver and shared gh helpers are defined once, in the shared module beside this
+# one, and imported here — never re-copied (epic #121, decision-record Invariant 2). The
+# import is package-relative, so it resolves from the two files' own relationship to each
+# other and holds wherever the toolkit is installed.
+from .delivery_config import (
     _find_config_root,
     ensure_label,
     ensure_labels,
@@ -988,7 +988,7 @@ def print_final_report(
     return False
 
 
-def main():
+def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         description="Create GitHub issues from STORY-*.md work-item files"
     )
@@ -1041,7 +1041,7 @@ def main():
         help="Canonical GitHub issue-type applied in `types` mode. Defaults to github.story-type."
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     global RETRIES, RETRY_BASE_DELAY
     RETRIES = max(0, args.retries)
@@ -1362,6 +1362,3 @@ def main():
     else:
         sys.exit(1)
 
-
-if __name__ == "__main__":
-    main()

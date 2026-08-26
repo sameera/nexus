@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for the shared delivery-config resolver (epic #121).
 
-Run from anywhere with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 These tests exercise the resolver directly — independent of either creation script — so the
 single source of truth has coverage the scripts cannot claim by proxy (STORY-121.01 AC3).
 """
@@ -12,11 +12,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import delivery_config  # noqa: E402
-from delivery_config import (  # noqa: E402
+from nexus_gh import delivery_config  # noqa: E402
+from nexus_gh.delivery_config import (  # noqa: E402
     DEFAULT_EPIC_LABEL,
     DEFAULT_IN_PROGRESS_LABEL,
     DEFAULT_NEEDS_DESIGN_LABEL,
@@ -51,7 +52,8 @@ from delivery_config import (  # noqa: E402
     write_github_block,
 )
 
-_MODULE = Path(__file__).resolve().parent / "delivery_config.py"
+#: The resolver is driven the way a caller reaches it — by name, through the entry point.
+_NEXUS_GH = Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"
 
 
 class _Result:
@@ -75,9 +77,9 @@ class FakeRun:
         return self._results.pop(0) if self._results else _Result()
 
 # The two creation scripts that must import the resolver rather than redefine it.
-_SKILLS = Path(__file__).resolve().parent.parent
-_EPIC_SCRIPT = _SKILLS / "nxs-gh-create-epic" / "scripts" / "nxs_gh_create_epic.py"
-_STORY_SCRIPT = _SKILLS / "nxs-gh-create-story" / "scripts" / "create_gh_issues.py"
+_PACKAGE = Path(__file__).resolve().parent.parent / "nexus_gh"
+_EPIC_SCRIPT = _PACKAGE / "create_epic.py"
+_STORY_SCRIPT = _PACKAGE / "create_story.py"
 
 
 def _write_config(files: dict[str, str]) -> Path:
@@ -477,42 +479,71 @@ class EpicStoryRepoResolution(unittest.TestCase):
 
 
 class HubDefaults(unittest.TestCase):
-    """STORY-121.05: the Python resolver reads workspace-wide github defaults (the `hub` layer)
-    by shelling out to the `workspace github-defaults` CLI verb — guarded so a single-repo
-    checkout (no workspace artifact) never spawns node."""
+    """STORY-121.05 / story #299: the Python resolver reads workspace-wide github defaults (the
+    `hub` layer) by shelling out to the `workspace github-defaults` verb on the executable it
+    finds *by name* on the path. Two contracts are load-bearing and each is pinned below: a
+    single-repo checkout spawns nothing at all, and every failure mode degrades to `{}` rather
+    than raising into issue creation."""
+
+    def _member(self):
+        """A member checkout: it declares a workspace artifact, so the guard does not short-circuit."""
+        root = Path(tempfile.mkdtemp())
+        (root / ".nexus" / "config").mkdir(parents=True)
+        (root / ".nexus" / "config" / "hub.yml").write_text(
+            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n", encoding="utf-8"
+        )
+        return root
 
     def test_no_workspace_artifact_returns_empty_without_running(self):
         root = Path(tempfile.mkdtemp())
         (root / ".nexus" / "config").mkdir(parents=True)
         run = FakeRun([])
-        self.assertEqual(read_hub_defaults(root, run=run), {})
-        self.assertEqual(run.calls, [])  # guard short-circuits: no node spawn in single-repo
+        with mock.patch.object(delivery_config.shutil, "which", return_value="/usr/bin/nexus"):
+            self.assertEqual(read_hub_defaults(root, run=run), {})
+        self.assertEqual(run.calls, [])  # guard short-circuits: nothing spawned in single-repo
 
-    def test_artifact_present_but_no_cli_returns_empty(self):
-        # A member checkout (hub.yml present) but no vendored nexus.mjs anywhere → best-effort {}.
-        root = Path(tempfile.mkdtemp())
-        (root / ".nexus" / "config").mkdir(parents=True)
-        (root / ".nexus" / "config" / "hub.yml").write_text(
-            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n", encoding="utf-8"
-        )
-        run = FakeRun([])
-        self.assertEqual(read_hub_defaults(root, run=run), {})
-        self.assertEqual(run.calls, [])  # no CLI found → nothing run
-
-    def test_reads_defaults_via_injected_cli(self):
-        # hub.yml present AND a (dummy) vendored nexus.mjs exists → the verb is invoked and its
-        # JSON is normalized into the hub layer.
-        root = Path(tempfile.mkdtemp())
-        (root / ".nexus" / "config").mkdir(parents=True)
-        (root / ".nexus" / "config" / "hub.yml").write_text(
-            "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n", encoding="utf-8"
-        )
+    def test_the_executable_is_found_by_name_and_no_repository_path_is_consulted(self):
+        root = self._member()
+        # A vendored copy inside the checkout, and a sibling hub carrying one too: neither may be
+        # what the lookup reaches for now that the executable is addressed by name.
         (root / ".nexus" / "tools").mkdir(parents=True)
         (root / ".nexus" / "tools" / "nexus.mjs").write_text("// bundle\n", encoding="utf-8")
+        sibling = root.parent / "docs-hub" / ".nexus" / "tools"
+        sibling.mkdir(parents=True, exist_ok=True)
+        (sibling / "nexus.mjs").write_text("// bundle\n", encoding="utf-8")
+
         run = FakeRun([_Result(0, stdout='{"project": "acme/1", "epic-repo": "acme/docs-hub"}')])
-        result = read_hub_defaults(root, run=run)
+        with mock.patch.object(delivery_config.shutil, "which", return_value="/opt/bin/nexus") as which:
+            result = read_hub_defaults(root, run=run)
+
         self.assertEqual(result, {"project": "acme/1", "epicRepo": "acme/docs-hub"})
-        self.assertIn("github-defaults", run.calls[0])
+        which.assert_called_once_with("nexus")
+        self.assertEqual(run.calls[0], ["/opt/bin/nexus", "workspace", "github-defaults"])
+        self.assertNotIn("nexus.mjs", " ".join(run.calls[0]))
+
+    def test_the_executable_absent_from_the_path_yields_empty_without_running(self):
+        run = FakeRun([])
+        with mock.patch.object(delivery_config.shutil, "which", return_value=None):
+            self.assertEqual(read_hub_defaults(self._member(), run=run), {})
+        self.assertEqual(run.calls, [])
+
+    def test_a_non_zero_exit_yields_empty_even_when_the_output_would_parse(self):
+        # The exit code is what disqualifies the answer — not the shape of what was printed.
+        run = FakeRun([_Result(1, stdout='{"project": "acme/1"}', stderr="boom")])
+        with mock.patch.object(delivery_config.shutil, "which", return_value="/opt/bin/nexus"):
+            self.assertEqual(read_hub_defaults(self._member(), run=run), {})
+
+    def test_unparseable_output_yields_empty(self):
+        run = FakeRun([_Result(0, stdout="not json at all")])
+        with mock.patch.object(delivery_config.shutil, "which", return_value="/opt/bin/nexus"):
+            self.assertEqual(read_hub_defaults(self._member(), run=run), {})
+
+    def test_a_runner_that_raises_yields_empty(self):
+        def run(cmd):
+            raise OSError("no such file")
+
+        with mock.patch.object(delivery_config.shutil, "which", return_value="/opt/bin/nexus"):
+            self.assertEqual(read_hub_defaults(self._member(), run=run), {})
 
     def test_normalize_maps_github_keys_and_drops_unknown(self):
         raw = '{"project": "acme/1", "classification": "labels", "story-repo": "acme/w", "banana": "x"}'
@@ -652,7 +683,7 @@ class ResolveCli(unittest.TestCase):
 
     def _run_cli(self, root, *cli_args):
         return subprocess.run(
-            [sys.executable, str(_MODULE), *cli_args, "--root", str(root)],
+            [sys.executable, str(_NEXUS_GH), "config", *cli_args, "--root", str(root)],
             capture_output=True,
             text=True,
         )
@@ -744,7 +775,7 @@ class SeedCli(unittest.TestCase):
 
     def _run_cli(self, root, *cli_args):
         return subprocess.run(
-            [sys.executable, str(_MODULE), *cli_args, "--root", str(root)],
+            [sys.executable, str(_NEXUS_GH), "config", *cli_args, "--root", str(root)],
             capture_output=True,
             text=True,
         )

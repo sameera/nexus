@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
-"""
-nxs_gh_create_epic.py
+"""The epic filer — the `create-epic` capability of the `nexus-gh` toolkit.
 
 Creates a GitHub issue from an Epic document, adds it to a GitHub project,
 and updates its frontmatter with the issue link.
 
-Usage: python nxs_gh_create_epic.py [--project "<project-name>"] <path-to-epic.md>
+Usage: nexus-gh create-epic [--project "<project-name>"] <path-to-epic.md>
 
 Prerequisites:
     - GitHub CLI (gh) must be installed and authenticated
@@ -22,11 +20,11 @@ import sys
 import tempfile
 from pathlib import Path
 
-# The config resolver and shared gh helpers are defined once, in the shared module beside these
-# skills, and imported here — never re-copied (epic #121, decision-record Invariant 2). The path
-# is relative to this file so it resolves both in-repo and inside the vendored `.claude/` tree.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
-from delivery_config import (  # noqa: E402
+# The config resolver and shared gh helpers are defined once, in the shared module beside this
+# one, and imported here — never re-copied (epic #121, decision-record Invariant 2). The
+# import is package-relative, so it resolves from the two files' own relationship to each
+# other and holds wherever the toolkit is installed.
+from .delivery_config import (
     _find_config_root,
     ensure_label,
     epic_needs_design,
@@ -654,7 +652,7 @@ def create_github_issue(
     return issue_url, match.group(1)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Create a GitHub issue from an Epic document"
     )
@@ -698,7 +696,7 @@ def main() -> int:
         ),
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     epic_file: Path = args.epic_file
 
     # Validate epic file exists
@@ -1025,6 +1023,3 @@ def main() -> int:
         # Cleanup temp file
         temp_file.unlink(missing_ok=True)
 
-
-if __name__ == "__main__":
-    sys.exit(main())

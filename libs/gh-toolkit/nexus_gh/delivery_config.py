@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
 """Shared delivery-config resolver for the GitHub-publishing skills (epic #121).
 
-Single source of truth (decision-record Invariant 2): both `nxs_gh_create_epic.py` and
-`create_gh_issues.py` import `read_delivery_config` from here instead of each carrying a
+Single source of truth (decision-record Invariant 2): both `create_epic.py` and
+`create_story.py` import `read_delivery_config` from here instead of each carrying a
 verbatim copy — the copy-paste drift this epic exists to kill. Kept dependency-free (stdlib
-only) so it travels with the vendored `.claude/` component tree and runs on any checkout.
+only) so it travels as plain files inside the toolkit and runs on any checkout.
 
 STORY-121.01 is a pure, behavior-preserving extraction: the two functions below are the
 former per-script copies, moved unchanged. Later stories layer classification, project-target,
@@ -401,40 +400,27 @@ def resolve_story_repo(config, *, frontmatter=None, invocation=None, hub=None):
 # workspace resolver — the single source of workspace truth — so Python never parses it directly:
 # it shells out to the `workspace github-defaults` CLI verb, which resolves the workspace from any
 # checkout (a member finds its hub) and prints the hub's github block as JSON. The call is guarded
-# so a single-repo checkout (no workspace artifact) never spawns node — today's common case pays
-# nothing.
+# so a single-repo checkout (no workspace artifact) never spawns anything — today's common case
+# pays nothing.
 
 
-def _read_pointer_hub_name(hub_yml: Path) -> str | None:
-    """Read the hub's bare sibling-directory name from a member's `hub.yml` pointer."""
-    try:
-        parsed = _parse_simple_yaml(hub_yml.read_text(encoding="utf-8"))
-    except OSError:
-        return None
-    return (parsed.get("hub", {}) or {}).get("name") or None
+#: The name the TypeScript half of the toolkit answers to. A hub and a member reach the same
+#: install by the same name, which is why no sibling-directory hop is needed to find it.
+EXECUTABLE_NAME = "nexus"
 
 
-def _workspace_cli_command(project_root: Path) -> list[str] | None:
-    """Build the argv that emits `workspace github-defaults`, or None when no CLI is available.
+def _workspace_cli_command() -> list[str] | None:
+    """Build the argv that emits `workspace github-defaults`, or None when the executable is absent.
 
-    Uses the portable vendored `nexus.mjs` on a bare `node` — either this checkout's own
-    (`.nexus/tools/nexus.mjs`, a hub) or the hub's, located as the sibling named by a member's
-    `hub.yml`. Returns None when node or a bundle cannot be found, so the caller degrades to "no
-    hub defaults" rather than failing.
+    The executable is found by name on the caller's path — no candidate file location inside any
+    repository is consulted, so the lookup works wherever the toolkit is installed and never
+    depends on a copy living in a checkout. `None` means "not installed", and the caller degrades
+    to "no hub defaults" rather than failing.
     """
-    node = shutil.which("node")
-    if not node:
+    executable = shutil.which(EXECUTABLE_NAME)
+    if not executable:
         return None
-    candidates = [project_root / ".nexus" / "tools" / "nexus.mjs"]
-    hub_yml = project_root / ".nexus" / "config" / "hub.yml"
-    if hub_yml.exists():
-        hub_name = _read_pointer_hub_name(hub_yml)
-        if hub_name:
-            candidates.append(project_root.parent / hub_name / ".nexus" / "tools" / "nexus.mjs")
-    for mjs in candidates:
-        if mjs.exists():
-            return [node, str(mjs), "workspace", "github-defaults"]
-    return None
+    return [executable, "workspace", "github-defaults"]
 
 
 def _normalize_hub_defaults(raw: str) -> dict[str, str]:
@@ -463,13 +449,14 @@ def read_hub_defaults(project_root: Path, run=None) -> dict[str, str]:
     Guarded and best-effort: returns ``{}`` (spawning nothing) when the checkout declares no
     workspace artifact — the single-repo common case. Otherwise it invokes the `workspace
     github-defaults` CLI verb (cwd = ``project_root``) and normalizes its JSON. Any failure —
-    no CLI, a non-zero exit, unparseable output — yields ``{}``, so the hub layer can never break
-    publishing. ``run`` is an injectable ``(cmd) -> CompletedProcess`` for tests.
+    the executable absent from the path, a non-zero exit, unparseable output — yields ``{}``, so
+    the hub layer can never break publishing. ``run`` is an injectable ``(cmd) -> CompletedProcess``
+    for tests.
     """
     config_dir = project_root / ".nexus" / "config"
     if not (config_dir / "hub.yml").exists() and not (config_dir / "workspace.yml").exists():
         return {}
-    cmd = _workspace_cli_command(project_root)
+    cmd = _workspace_cli_command()
     if cmd is None:
         return {}
     if run is None:
@@ -478,6 +465,11 @@ def read_hub_defaults(project_root: Path, run=None) -> dict[str, str]:
     try:
         result = run(cmd)
     except OSError:
+        return {}
+    # A failed run is discarded on its exit code, deliberately rather than by relying on its
+    # output happening to be unparseable: a verb that fails after printing a partial object
+    # would otherwise contribute half a hub layer.
+    if getattr(result, "returncode", 0) != 0:
         return {}
     return _normalize_hub_defaults(getattr(result, "stdout", "") or "")
 
@@ -857,7 +849,10 @@ def _find_config_root(start: Path) -> Path:
 def _cli(argv):
     import argparse
 
-    parser = argparse.ArgumentParser(prog="delivery_config", description=__doc__)
+    # No explicit `prog`: argparse takes it from `sys.argv[0]`, which the dispatcher sets to
+    # the name the caller used. Pinning it here leaked the pre-move filename into the usage
+    # text of the capability whose whole point (story #297) is that it answers to one name.
+    parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     resolve_cmd = sub.add_parser(
         "resolve", help="Resolve one github-block key through the shared precedence chain."

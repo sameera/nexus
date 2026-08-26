@@ -10,7 +10,7 @@ the work (decision-record Invariants 4 and 11).
 Legality is a separate question from the operation: `--promote` means "plan this epic", and it is
 legal only while the target still carries the unplanned label (Invariants 12 and 13).
 
-Run with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import os
@@ -21,8 +21,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_SHARED = Path(__file__).resolve().parent
-_EPIC_SCRIPT = _SHARED.parent / "nxs-gh-create-epic" / "scripts" / "nxs_gh_create_epic.py"
+#: The toolkit is driven the way a caller reaches it — by name, through its entry point.
+_NEXUS_GH = Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"
 
 #: A `gh` that reports whatever labels FAKE_GH_LABELS names on the target issue, and records every
 #: call. `FAKE_GH_MISSING` makes `issue view` fail, standing in for a number that does not resolve.
@@ -97,7 +97,7 @@ class StubPromotionTests(unittest.TestCase):
         if missing:
             env["FAKE_GH_MISSING"] = "1"
         out = subprocess.run(
-            [sys.executable, str(_EPIC_SCRIPT), str(self.epic), "--promote", issue],
+            [sys.executable, str(_NEXUS_GH), "create-epic", str(self.epic), "--promote", issue],
             cwd=self.repo, capture_output=True, text=True, env=env,
         )
         calls = self.log.read_text(encoding="utf-8").splitlines() if self.log.exists() else []
