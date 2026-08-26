@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub"]
-last_updated_by: "manual"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention"]
+last_updated_by: "#248"
 status: active
 verification: verified
 ---
@@ -38,6 +38,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [decision-record](decision-record.md) — its record marker and gate labels are keys this resolver alone supplies.
 - [pr-worktree](pr-worktree.md) — its base is one more declared key.
 - [backlog-stub](backlog-stub.md) — the unplanned label and the stub's epic classification are two more keys only this resolver supplies.
+- [target-root-convention](target-root-convention.md) — the two issue-creation scripts that call this resolver now take their target repo through that convention and reject an out-of-root input artifact.
 
 ## Decision Log
 
@@ -56,3 +57,7 @@ Two facts landed with the worktree-base key. First, the block's scope widened: i
 ### 2026-08-06 — manual — Reciprocal link from backlog-stub
 
 Mechanical reciprocity fan-out: the backlog-stub page names this resolver as the sole supplier of the unplanned label and of the epic classification the batch filing path stamps on a stub, neither of which is ever hard-coded by a writer. Declared by hand because both epics involved had already drained; the edge was dropped at distillation only because a reciprocal bullet did not fit under the pre-#220 body cap.
+
+### 2026-08-25 — #248 — Reciprocal link from target-root-convention
+
+Mechanical reciprocity fan-out: the target-root-convention page names this resolver's two issue-creation consumers as scripts that now take their target repo through that same convention and reject an input artifact resolving outside it.

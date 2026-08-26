@@ -2,7 +2,7 @@
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
 touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution"]
-last_updated_by: "#121"
+last_updated_by: "#248"
 status: active
 verification: verified
 ---
@@ -19,13 +19,15 @@ A checkout's role follows its artifact: a manifest makes it the hub, a pointer a
 
 Three read-outs surface it: full status, resolved docs root, and the manifest's optional workspace-wide publishing defaults.
 
+Resolution now walks upward from wherever it's given, bounded to the checkout's own top-level directory so an unrelated ancestor project's marker is never crossed into. When no marker exists in that walk, the reported root is the enclosing repository's top level, not the directory resolution started from — a caller nested several levels deep gets the real project boundary back, and every downstream role comparison keys on that reported root.
+
 ## Key Invariants
 
 1. The hub manifest is the sole authority for membership; a pointer locates the hub but never redeclares members; disagreement is reported, never inferred.
 2. Resolution from the hub and from any member yields an identical workspace description.
 3. One deterministic resolver is the only producer of workspace context; no command re-derives it. Declared publishing defaults are carried verbatim, never resolved here.
 4. Resolution is strictly read-only: it reports missing checkouts and never clones, fetches, or mutates.
-5. With neither artifact present, single-repo behavior is unchanged.
+5. With no marker found anywhere in the upward walk — bounded to the repository's own top-level boundary, which it never crosses — single-repo behavior is unchanged, except the reported root is that enclosing boundary, never a verbatim echo of the caller's starting directory.
 6. Every failure names the artifact, the entry, and expected-versus-actual state.
 7. A missing member checkout is reported state; only a missing hub, undeclared member, or malformed manifest is a hard failure.
 
@@ -76,3 +78,7 @@ Mechanical reciprocity fan-out: the issue-sourced-planning page names this resol
 ### 2026-07-24 — #121 — The manifest carries publishing defaults it never resolves
 
 Workspace-wide publishing defaults belong in the manifest because they are a shared workspace fact — a member must see them from the hub, which per-checkout local settings could never provide without breaking the parity guarantee. The manifest carries them verbatim and validates them as strictly as it validates the hub and members, but deliberately stops there: applying the precedence chain over them stays with the publishing resolver, so shape authority and resolution authority do not blur. Inheritance is per key rather than block-replacement, so a member overriding one default still inherits the rest. Refuted alternative: resolve the merged result here and hand consumers a finished value — fewer moving parts for the caller, but it would put a second copy of the precedence chain inside the shape authority, exactly the duplication the publishing epic exists to remove, and it would force this resolver to know about per-item frontmatter it has no business reading.
+
+### 2026-08-25 — #248 — The upward walk is bounded to the repository boundary and reports where it landed
+
+Resolution now walks upward from whatever directory it's given rather than requiring the caller to already stand at a marker, bounded to the repository's own top-level so it can never cross into an unrelated ancestor project's configuration — a checkout beneath a shared worktrees directory or a developer's home directory no longer risks silently adopting a stranger's workspace. The single-repo fallback correspondingly reports the enclosing repository's top-level directory rather than echoing the caller's starting directory verbatim, since every planning capability that resolves without a marker uses that value as where its own state lives; echoing a nested directory back would let a caller one level too deep create a second, stale store beside the real one. Refuted alternative: leave the walk unbounded, matching the simplest existing marker search already in the codebase — it needs no boundary decision, but the same cross-project hazard this project's own configuration resolver already guards against on its other side would remain open on this one.
