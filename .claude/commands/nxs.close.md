@@ -818,6 +818,7 @@ the durable surface must show the epic closed on a waiver -->
 <!-- nexus:close-record -->
 ```yaml
 epic: "#<epic-issue>"
+nexus_version: <VERSION>         # the toolkit that wrote this block (`nexus version`); omit if unresolved
 date: <YYYY-MM-DD>
 record: "#<record>"              # omit when the epic has no record
 record_hash: <RECORD_HASH>       # full digest, never truncated; omit with `record`
@@ -835,6 +836,14 @@ conformance verdict, and the **full-SHA landed range**, exactly the range Phase 
 recomputed later. It makes the epic issue a complete substitute for the close-record file, which is
 what `/nxs.distill`'s GitHub recovery reads (#174). The shape mirrors the `nexus:analyze-receipt`
 block `/nxs.analyze --pr` already publishes; the prose sections above it stay unchanged and in full.
+
+`nexus_version` is the **writer stamp** (story #306) — the release that wrote this block, from
+`nexus version`. It records which toolkit produced the data, so a later change to how any of it is
+canonicalised is detectable instead of silently invalidating work in flight. It is never a gate: a
+missing stamp reads as an unknown writer and a differing one changes nothing about how this block
+is read. It sits beside `record_hash`, never inside the record bytes that digest covers, so
+stamping the block leaves the hash a later stage verifies exactly as it was. Omit the key when the
+release is unresolved rather than writing a version that is not true.
 
 **Error handling:**
 

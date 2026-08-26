@@ -15,3 +15,15 @@
 - **Choice:** `resolveReleaseVersion` / `resolve_release_version` return null/None when no declaration is above the reader.
 - **Why:** A fabricated version in a writer stamp is worse than an absent one — story #306 AC2 already makes a reader treat an absent stamp as "written by an unknown toolkit".
 - **Refuted alternative:** Falling back to `0.0.0`, which a reader cannot distinguish from a real release.
+
+## 2026-08-26 — Where the writer-stamp contract lives, given prose writers
+
+- **Choice:** Declare the field name and the reader's "unknown writer" rule once in `libs/portable-tools/src/writer-stamp.ts`, and pin every writing/reading surface against it with a test that names those surfaces.
+- **Why:** Three of the four stamped artifacts are written by prose commands that cannot import a constant, so a shared TypeScript constant alone would not prevent drift — a test that enumerates the surfaces does.
+- **Refuted alternative:** A new `libs/writer-stamp` package depended on by both portable-tools and pr-acceptance — a whole nx library to deduplicate one string literal that the prose writers still could not import.
+
+## 2026-08-26 — How the stamp stays outside every verified hash (AC3)
+
+- **Choice:** Place the stamp as a sibling key beside the digests in frontmatter/machine blocks, never inside the bytes a digest covers, and pin it with a test asserting a stamped receipt parses to the same values as an unstamped one.
+- **Why:** The record digest is taken over the decision-record issue body, which this epic does not stamp, so no canonicalisation rule has to change — the invariant holds by placement rather than by a new exclusion rule that would itself have to be carried forever.
+- **Refuted alternative:** Teaching `canonicalizeRecordBody` to strip stamp lines — a permanent change to a canonicalisation rule stated as "nothing else", made for a stamp that is never written into that body.

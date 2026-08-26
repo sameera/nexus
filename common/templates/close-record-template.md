@@ -37,6 +37,9 @@ title: "Close Record: {{EPIC_TITLE}}"
 epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, e.g. #42
 feature: "{{FEATURE_NAME}}"     # one-direction pointer: entry → parent feature
 date: {{YYYY-MM-DD}}
+nexus_version: {{NEXUS_VERSION}} # WRITER STAMP — the toolkit release that wrote this record, from
+                                # `nexus version`. Omit the key when the release is unresolved; an
+                                # absent stamp reads as an unknown writer, which is never an error.
 analyze: {{ANALYZE_STATUS}}     # conformance gate: "ran <date> @ <sha>" or the recorded waiver
 record: {{RECORD_ISSUE_REF}}    # the decision record this epic was built against, e.g. #141 — an
                                 # ISSUE REFERENCE, never a queue path (the drain deletes queue paths).
