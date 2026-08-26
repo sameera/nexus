@@ -18,7 +18,6 @@
  *   nexus workspace github-defaults    print the hub's github-publishing defaults as JSON (STORY-121.05)
  */
 
-import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
@@ -44,6 +43,7 @@ import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/work
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
+import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
@@ -66,7 +66,7 @@ export interface CliIo {
  * the composed usage text, because the usage text is rendered from this same object. Every
  * capability is imported statically and dispatched eagerly — there is no lazy/deferred variant.
  */
-interface VerbEntry {
+export interface VerbEntry {
     /** One-line summary, shown beside the verb name in the top-level usage listing. */
     summary: string;
     /** The full usage block for this verb (may span multiple lines). */
@@ -263,36 +263,6 @@ function resolvedPayloadDir(): string | null {
     }
     const live: string = liveClaudeDir(import.meta.dirname);
     return fs.existsSync(live) ? live : null;
-}
-
-interface InterpreterReport {
-    path: string | null;
-    version: string | null;
-}
-
-/**
- * The `python3` the other half of the release runs on. An interpreter that cannot be resolved is
- * reported as unresolved rather than raised: `nexus version` is what a user runs when something
- * is already wrong, and a report that fails because the environment is broken cannot do the job
- * it exists for (AC3).
- */
-function resolveInterpreter(): InterpreterReport {
-    const unresolved: InterpreterReport = { path: null, version: null };
-    let resolvedPath: string;
-    try {
-        resolvedPath = execFileSync("command", ["-v", "python3"], { encoding: "utf8", shell: true, stdio: ["ignore", "pipe", "ignore"] }).trim();
-    } catch {
-        return unresolved;
-    }
-    if (resolvedPath === "") {
-        return unresolved;
-    }
-    try {
-        const reported: string = execFileSync(resolvedPath, ["--version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-        return { path: resolvedPath, version: reported.replace(/^Python\s+/, "") };
-    } catch {
-        return unresolved;
-    }
 }
 
 /**
@@ -754,8 +724,21 @@ async function runCloseMigration(argv: string[], io: CliIo): Promise<number> {
     return 2;
 }
 
+/**
+ * What a run may vary. The registry is a parameter because the environment guard's coverage is a
+ * property of *this* function rather than of any verb — a verb the guard has never heard of is
+ * covered by being dispatched here, and that is only demonstrable if a verb can be dispatched that
+ * the registry above does not contain.
+ */
+export interface CliOverrides {
+    registry?: Record<string, VerbEntry>;
+    /** The account home the environment guard resolves component sets against. */
+    home?: string;
+}
+
 /** Run the CLI against explicit argv (no leading node/script segments) and IO. */
-export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
+export async function runNexusCli(argv: string[], io: CliIo, overrides: CliOverrides = {}): Promise<number> {
+    const registry: Record<string, VerbEntry> = overrides.registry ?? REGISTRY;
     const [verb, ...rest] = argv;
 
     if (verb === "--help" || verb === "help") {
@@ -766,11 +749,15 @@ export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
         io.stderr(USAGE);
         return 2;
     }
-    const entry: VerbEntry | undefined = REGISTRY[verb];
+    const entry: VerbEntry | undefined = registry[verb];
     if (entry === undefined) {
         io.stderr(`unknown verb '${verb}'\n${USAGE}`);
         return 2;
     }
+
+    // The guard reports before the verb runs, on standard error only, and its findings never reach
+    // the return value: the code below is the verb's own, whatever the environment looks like.
+    makeEnvironmentGuard(io, detectEnvironmentDefects({ cwd: io.cwd, home: overrides.home })).report();
     return entry.run(rest, io);
 }
 

@@ -4,6 +4,6 @@
   "derive-entry-diff.mjs": "1071ecb062fde9dc314fb9488219d750cf2a06bc4140c5c390ae038ec401e3df",
   "drift-advisory.mjs": "ae15778c86125fa6b43f6ee9aebdffd7d4976fa9111726f386bd4875ffa09d46",
   "seed-registry.mjs": "1b1b9b7b6a7b57b6c8558affc2da034109842d23f0d9602df5e9cc9814ff7544",
-  "nexus.mjs": "f992abcfea0d6b4052030be4099e4b5f6a0876dd95272771ff98418590d296f9",
+  "nexus.mjs": "2cb8e583962da76dc49c90e346568f4d7e5ae44848902f047de2b4781ae93937",
   "claude-components": "012e9f70f80555b8aba67e9f8efb41103afe0ed819ec55f1c930561d0c449638"
 }

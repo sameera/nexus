@@ -27,3 +27,15 @@
 - **Choice:** Place the stamp as a sibling key beside the digests in frontmatter/machine blocks, never inside the bytes a digest covers, and pin it with a test asserting a stamped receipt parses to the same values as an unstamped one.
 - **Why:** The record digest is taken over the decision-record issue body, which this epic does not stamp, so no canonicalisation rule has to change — the invariant holds by placement rather than by a new exclusion rule that would itself have to be carried forever.
 - **Refuted alternative:** Teaching `canonicalizeRecordBody` to strip stamp lines — a permanent change to a canonicalisation rule stated as "nothing else", made for a stamp that is never written into that body.
+
+## 2026-08-26 — The guard runs in the dispatcher, and the registry became a parameter
+
+- **Choice:** `runNexusCli` runs the guard before dispatching, and takes an optional registry/home override.
+- **Why:** AC5 — a verb added later with no guard code of its own must still be covered — is a property of where dispatch happens, and it is only demonstrable if a verb the real registry does not contain can be dispatched.
+- **Refuted alternative:** Wrapping each verb's `run` at registration — every future verb would then have to remember the wrapper, which is the coverage gap AC5 names.
+
+## 2026-08-26 — What counts as "two component sets on one account"
+
+- **Choice:** The account home and the invoking repo are the two roots checked; a root counts when its `.claude/` holds a Nexus-namespaced component file.
+- **Why:** Those are the two places a component set can resolve from today — the account-level install #253 introduces and the repo-committed set it replaces — and the namespace prefix is the same predicate `deploy` already owns files by.
+- **Refuted alternative:** Scanning every ancestor directory for `.claude/` trees, which would report a defect for any checkout nested under another.
