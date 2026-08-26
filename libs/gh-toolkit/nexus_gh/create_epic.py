@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
-"""
-nxs_gh_create_epic.py
+"""The epic filer — the `create-epic` capability of the `nexus-gh` toolkit.
 
 Creates a GitHub issue from an Epic document, adds it to a GitHub project,
 and updates its frontmatter with the issue link.
 
-Usage: python nxs_gh_create_epic.py [--project "<project-name>"] <path-to-epic.md>
+Usage: nexus-gh create-epic [--project "<project-name>"] <path-to-epic.md>
 
 Prerequisites:
     - GitHub CLI (gh) must be installed and authenticated
@@ -23,9 +21,10 @@ import tempfile
 from pathlib import Path
 
 # The config resolver and shared gh helpers are defined once, in the shared module beside this
-# one, and imported here — never re-copied (epic #121, decision-record Invariant 2).
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from delivery_config import (  # noqa: E402
+# one, and imported here — never re-copied (epic #121, decision-record Invariant 2). The
+# import is package-relative, so it resolves from the two files' own relationship to each
+# other and holds wherever the toolkit is installed.
+from .delivery_config import (
     _find_config_root,
     ensure_label,
     epic_needs_design,
@@ -1024,6 +1023,3 @@ def main() -> int:
         # Cleanup temp file
         temp_file.unlink(missing_ok=True)
 
-
-if __name__ == "__main__":
-    sys.exit(main())

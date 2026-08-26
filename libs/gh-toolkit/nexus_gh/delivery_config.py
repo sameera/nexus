@@ -1,10 +1,9 @@
-#!/usr/bin/env python3
 """Shared delivery-config resolver for the GitHub-publishing skills (epic #121).
 
-Single source of truth (decision-record Invariant 2): both `nxs_gh_create_epic.py` and
-`create_gh_issues.py` import `read_delivery_config` from here instead of each carrying a
+Single source of truth (decision-record Invariant 2): both `create_epic.py` and
+`create_story.py` import `read_delivery_config` from here instead of each carrying a
 verbatim copy — the copy-paste drift this epic exists to kill. Kept dependency-free (stdlib
-only) so it travels with the vendored `.claude/` component tree and runs on any checkout.
+only) so it travels as plain files inside the toolkit and runs on any checkout.
 
 STORY-121.01 is a pure, behavior-preserving extraction: the two functions below are the
 former per-script copies, moved unchanged. Later stories layer classification, project-target,
