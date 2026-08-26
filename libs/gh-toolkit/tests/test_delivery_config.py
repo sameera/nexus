@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for the shared delivery-config resolver (epic #121).
 
-Run from anywhere with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 These tests exercise the resolver directly — independent of either creation script — so the
 single source of truth has coverage the scripts cannot claim by proxy (STORY-121.01 AC3).
 """
@@ -13,10 +13,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import delivery_config  # noqa: E402
-from delivery_config import (  # noqa: E402
+from nexus_gh import delivery_config  # noqa: E402
+from nexus_gh.delivery_config import (  # noqa: E402
     DEFAULT_EPIC_LABEL,
     DEFAULT_IN_PROGRESS_LABEL,
     DEFAULT_NEEDS_DESIGN_LABEL,
@@ -51,7 +51,8 @@ from delivery_config import (  # noqa: E402
     write_github_block,
 )
 
-_MODULE = Path(__file__).resolve().parent / "delivery_config.py"
+#: The resolver is driven the way a caller reaches it — by name, through the entry point.
+_NEXUS_GH = Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"
 
 
 class _Result:
@@ -75,9 +76,9 @@ class FakeRun:
         return self._results.pop(0) if self._results else _Result()
 
 # The two creation scripts that must import the resolver rather than redefine it.
-_SKILLS = Path(__file__).resolve().parent.parent
-_EPIC_SCRIPT = _SKILLS / "nxs-gh-create-epic" / "scripts" / "nxs_gh_create_epic.py"
-_STORY_SCRIPT = _SKILLS / "nxs-gh-create-story" / "scripts" / "create_gh_issues.py"
+_PACKAGE = Path(__file__).resolve().parent.parent / "nexus_gh"
+_EPIC_SCRIPT = _PACKAGE / "create_epic.py"
+_STORY_SCRIPT = _PACKAGE / "create_story.py"
 
 
 def _write_config(files: dict[str, str]) -> Path:
@@ -652,7 +653,7 @@ class ResolveCli(unittest.TestCase):
 
     def _run_cli(self, root, *cli_args):
         return subprocess.run(
-            [sys.executable, str(_MODULE), *cli_args, "--root", str(root)],
+            [sys.executable, str(_NEXUS_GH), "config", *cli_args, "--root", str(root)],
             capture_output=True,
             text=True,
         )
@@ -744,7 +745,7 @@ class SeedCli(unittest.TestCase):
 
     def _run_cli(self, root, *cli_args):
         return subprocess.run(
-            [sys.executable, str(_MODULE), *cli_args, "--root", str(root)],
+            [sys.executable, str(_NEXUS_GH), "config", *cli_args, "--root", str(root)],
             capture_output=True,
             text=True,
         )

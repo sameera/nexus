@@ -7,7 +7,7 @@ user-visible outcome the unit tests cannot reach on their own: a first fallback 
 decided classification/project into settings.yml (leaving the filed issue untouched), and a second
 run reads that block and performs no issue-type probe and no project auto-discovery (AC1/AC2).
 
-Run with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import os
@@ -17,8 +17,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_SHARED = Path(__file__).resolve().parent
-_EPIC_SCRIPT = _SHARED.parent / "nxs-gh-create-epic" / "scripts" / "nxs_gh_create_epic.py"
+#: The toolkit is driven the way a caller reaches it — by name, through its entry point.
+_NEXUS_GH = Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"
 
 # A fake `gh` that dispatches on argv, returns canned success, and appends every invocation's argv
 # to $FAKE_GH_LOG so a test can assert which subcommands ran (e.g. that no probe re-ran).
@@ -88,7 +88,7 @@ class WriteBackEndToEnd(unittest.TestCase):
 
     def _run_epic(self, *extra):
         return subprocess.run(
-            [sys.executable, str(_EPIC_SCRIPT), str(self.repo / "epic.md"), *extra],
+            [sys.executable, str(_NEXUS_GH), "create-epic", str(self.repo / "epic.md"), *extra],
             cwd=self.repo,
             capture_output=True,
             text=True,

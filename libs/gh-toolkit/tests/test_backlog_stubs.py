@@ -6,7 +6,7 @@ classification plus one label denoting the unplanned state (decision-record Inva
 These tests drive the batch filer end to end against a fake `gh`, asserting what the lead
 observes — which issues exist, what they carry, what was wired, and what was never called.
 
-Run from anywhere with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import subprocess
@@ -15,11 +15,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nxs-gh-create-story" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import create_gh_issues  # noqa: E402
-from delivery_config import (  # noqa: E402
+from nexus_gh import create_story as create_gh_issues  # noqa: E402
+from nexus_gh.delivery_config import (  # noqa: E402
     DEFAULT_UNPLANNED_LABEL,
     label_exists,
     resolve_unplanned_label,
@@ -233,8 +232,8 @@ class UnplannedLabelResolutionTests(unittest.TestCase):
             "github:\n  unplanned-label: icebox\n", encoding="utf-8"
         )
         result = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve().parent / "delivery_config.py"),
-             "resolve", "unplanned-label", "--root", str(root)],
+            [sys.executable, str(Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"),
+             "config", "resolve", "unplanned-label", "--root", str(root)],
             capture_output=True, text=True,
         )
         self.assertEqual(result.stdout.strip(), "icebox")

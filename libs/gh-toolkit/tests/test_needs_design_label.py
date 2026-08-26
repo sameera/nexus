@@ -6,7 +6,7 @@ pin the user-visible outcome: an epic whose complexity rollup is M or larger lea
 carrying the `needs-design` label, an S epic does not, and the label is always created before it is
 applied (a repo that has never seen the label must not fail the run half-way).
 
-Run with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import os
@@ -16,8 +16,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_SHARED = Path(__file__).resolve().parent
-_EPIC_SCRIPT = _SHARED.parent / "nxs-gh-create-epic" / "scripts" / "nxs_gh_create_epic.py"
+#: The toolkit is driven the way a caller reaches it — by name, through its entry point.
+_NEXUS_GH = Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"
 
 _FAKE_GH = """#!/usr/bin/env python3
 import os, sys
@@ -78,7 +78,7 @@ class NeedsDesignLabelAtFiling(unittest.TestCase):
         env["PATH"] = f"{self.bin}{os.pathsep}{env['PATH']}"
         env["FAKE_GH_LOG"] = str(self.log)
         out = subprocess.run(
-            [sys.executable, str(_EPIC_SCRIPT), str(self.repo / "epic.md")],
+            [sys.executable, str(_NEXUS_GH), "create-epic", str(self.repo / "epic.md")],
             cwd=self.repo,
             capture_output=True,
             text=True,

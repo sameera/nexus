@@ -9,7 +9,7 @@ it is the epic the deferred work will eventually be planned as (decision-record 
 So the filer refuses the relationship rather than trusting each writer to omit it, and refuses it
 in the preflight, before anything irreversible happens.
 
-Run from anywhere with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import io
@@ -21,10 +21,9 @@ from contextlib import redirect_stderr
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nxs-gh-create-story" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import create_gh_issues  # noqa: E402
+from nexus_gh import create_story as create_gh_issues  # noqa: E402
 from test_backlog_stubs import FakeGh  # noqa: E402
 
 DEFERRED_STUB = """---

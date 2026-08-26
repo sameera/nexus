@@ -7,7 +7,7 @@ expressed as literals, so the filer resolves a `#<n>` reference straight against
 instead of looking it up in the batch map — and fails the reference closed when the issue does
 not resolve, rather than dropping an ordering the migration must preserve.
 
-Run from anywhere with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import subprocess
@@ -17,10 +17,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nxs-gh-create-story" / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import create_gh_issues  # noqa: E402
+from nexus_gh import create_story as create_gh_issues  # noqa: E402
 
 
 class FakeGh:

@@ -10,7 +10,7 @@ closes the gap: once every issue number is known, each body's refs are rewritten
 The unit tests pin the substitution itself; the end-to-end test drives the real script as a
 subprocess against a fake `gh` on PATH, so it pins what a user actually sees on the issues.
 
-Run with:  python3 -m unittest discover -s .claude/skills/nxs-gh-shared
+Run with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
 import json
@@ -21,11 +21,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_SHARED = Path(__file__).resolve().parent
-_STORY_SCRIPT = _SHARED.parent / "nxs-gh-create-story" / "scripts" / "create_gh_issues.py"
+#: The toolkit is driven the way a caller reaches it — by name, through its entry point.
+_NEXUS_GH = Path(__file__).resolve().parent.parent / "bin" / "nexus-gh"
 
-sys.path.insert(0, str(_STORY_SCRIPT.parent))
-from create_gh_issues import rewrite_story_refs  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from nexus_gh.create_story import rewrite_story_refs  # noqa: E402
 
 
 # A fake `gh` that keeps an issue store on disk, so a body written by `issue create` can be
@@ -199,7 +199,7 @@ class BodyRefRewriteEndToEnd(unittest.TestCase):
 
     def run_script(self, *extra: str) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [sys.executable, str(_STORY_SCRIPT), str(self.folder), "--root", str(self.root), "--no-project", *extra],
+            [sys.executable, str(_NEXUS_GH), "create-story", str(self.folder), "--root", str(self.root), "--no-project", *extra],
             capture_output=True, text=True, env=self.env,
         )
 

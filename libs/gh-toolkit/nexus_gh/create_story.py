@@ -25,10 +25,9 @@ import tempfile
 import time
 from pathlib import Path
 
-# The config resolver and shared gh helpers are defined once, in the shared module beside these
-# skills, and imported here — never re-copied (epic #121, decision-record Invariant 2). The path
-# is relative to this file so it resolves both in-repo and inside the vendored `.claude/` tree.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nxs-gh-shared"))
+# The config resolver and shared gh helpers are defined once, in the shared module beside this
+# one, and imported here — never re-copied (epic #121, decision-record Invariant 2).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from delivery_config import (  # noqa: E402
     _find_config_root,
     ensure_label,
