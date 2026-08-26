@@ -49,3 +49,26 @@
   directory has no checkout to fall back into, so source and bundle only agree if the toolkit is
   reachable by name for both — which is also how #297 says these ACs are demonstrated before #252.
 - **Refuted alternative:** teaching the locator to find a bundle-relative install layout.
+
+## 2026-08-26 — A capability's arguments travel as a parameter, not through `sys.argv`
+
+- **Choice:** `create_epic.main` and `create_story.main` take `argv` and pass it to
+  `parse_args`; the dispatcher hands each capability its `rest` list. The `sys.argv[0]` write
+  stays, but only so argparse derives `prog` from the name the caller used.
+- **Why:** the `CAPABILITIES` table declares every row as `fn(argv) -> int`, and for two of three
+  rows that was a lie — the real channel was the dispatcher's process-global mutation, which the
+  comment beside it explicitly denied. Any in-process caller, test, or nesting would have been
+  handed the wrong arguments silently.
+- **Refuted alternative:** keep the global as the channel and correct only the comment — cheaper,
+  but it leaves a dispatcher whose declared signature cannot be trusted.
+
+## 2026-08-26 — The resolver's usage text is not pinned to its pre-move filename
+
+- **Choice:** drop `prog="delivery_config"` from the resolver's `ArgumentParser` so it inherits
+  `sys.argv[0]`, which the dispatcher sets to `nexus-gh config`.
+- **Why:** `nexus-gh config --help` printed `usage: delivery_config …` — the pre-move filename
+  leaking into the user-facing text of the capability whose whole story is that it answers to one
+  name. Affects `--help` and parser error text only; `resolve` and `backlog-query` stdout are
+  byte-identical.
+- **Refuted alternative:** pin `prog` to the literal `"nexus-gh config"` — correct output, but it
+  re-hard-codes a name the dispatcher already knows and would drift if the toolkit were renamed.

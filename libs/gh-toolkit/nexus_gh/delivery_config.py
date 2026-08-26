@@ -849,7 +849,10 @@ def _find_config_root(start: Path) -> Path:
 def _cli(argv):
     import argparse
 
-    parser = argparse.ArgumentParser(prog="delivery_config", description=__doc__)
+    # No explicit `prog`: argparse takes it from `sys.argv[0]`, which the dispatcher sets to
+    # the name the caller used. Pinning it here leaked the pre-move filename into the usage
+    # text of the capability whose whole point (story #297) is that it answers to one name.
+    parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     resolve_cmd = sub.add_parser(
         "resolve", help="Resolve one github-block key through the shared precedence chain."

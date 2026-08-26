@@ -652,7 +652,7 @@ def create_github_issue(
     return issue_url, match.group(1)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Create a GitHub issue from an Epic document"
     )
@@ -696,7 +696,7 @@ def main() -> int:
         ),
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     epic_file: Path = args.epic_file
 
     # Validate epic file exists

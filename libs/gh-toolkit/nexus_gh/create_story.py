@@ -988,7 +988,7 @@ def print_final_report(
     return False
 
 
-def main():
+def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(
         description="Create GitHub issues from STORY-*.md work-item files"
     )
@@ -1041,7 +1041,7 @@ def main():
         help="Canonical GitHub issue-type applied in `types` mode. Defaults to github.story-type."
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     global RETRIES, RETRY_BASE_DELAY
     RETRIES = max(0, args.retries)

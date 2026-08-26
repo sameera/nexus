@@ -77,7 +77,6 @@ export function isWithdrawnStory(labels: string[], state: string, stateReason: s
 type Ok<T> = { ok: true } & T;
 type Err = { ok: false; error: EpicResolveDiagnostic };
 
-
 const MODES: ReadonlySet<string> = new Set<string>(["types", "labels", "legacy-auto"]);
 
 function unresolved(message: string): Err {

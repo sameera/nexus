@@ -17,6 +17,7 @@ component bodies and #252 declares in the package manifest.
 """
 
 import sys
+from collections.abc import Callable
 
 TOOLKIT_NAME = "nexus-gh"
 
@@ -24,24 +25,24 @@ TOOLKIT_NAME = "nexus-gh"
 def _config(argv: list[str]) -> int:
     from .delivery_config import _cli
 
-    return _cli(argv)
+    return _as_exit_code(lambda: _cli(argv))
 
 
 def _create_epic(argv: list[str]) -> int:
     from . import create_epic
 
-    return _as_exit_code(create_epic.main)
+    return _as_exit_code(lambda: create_epic.main(argv))
 
 
 def _create_story(argv: list[str]) -> int:
     from . import create_story
 
-    return _as_exit_code(create_story.main)
+    return _as_exit_code(lambda: create_story.main(argv))
 
 
 # Capability name → the function that runs it. A capability cannot exist without a row here,
 # because the usage text listing the available names is rendered from this same mapping.
-CAPABILITIES: dict[str, tuple[str, object]] = {
+CAPABILITIES: dict[str, tuple[str, Callable[[list[str]], int]]] = {
     "config": ("Resolve delivery configuration (the shared publishing resolver).", _config),
     "create-epic": ("File a GitHub issue from an epic document.", _create_epic),
     "create-story": ("File one GitHub issue per STORY-*.md work item.", _create_story),
@@ -92,8 +93,10 @@ def main(argv: list[str]) -> int:
         print(usage(), file=sys.stderr)
         return 2
     rest = argv[1:]
-    # The capability owns its own argument parsing, so it sees a process-shaped argv whose
-    # program name is how the caller actually reached it.
+    # The capability's arguments travel as `rest`, handed to its own parser — the one channel.
+    # `sys.argv[0]` is still set because argparse derives its `prog` from it: it is what makes a
+    # capability's usage and error text read `nexus-gh create-epic`, the name the caller used.
+    # It carries the program name only, never the arguments.
     saved = sys.argv
     sys.argv = [f"{TOOLKIT_NAME} {name}", *rest]
     try:

@@ -8,6 +8,8 @@ is the whole of what the story adds.
 Run from anywhere with:  python3 -m unittest discover -s libs/gh-toolkit/tests
 """
 
+import contextlib
+import io
 import os
 import shutil
 import subprocess
@@ -117,6 +119,82 @@ class TheNameIsOneLiteral(unittest.TestCase):
         text = usage()
         for capability in CAPABILITIES:
             self.assertIn(capability, text)
+
+
+class TheCapabilityIsToldItsArguments(unittest.TestCase):
+    """AC1/AC4 — a capability parses what the dispatcher hands it, not the process's own argv.
+
+    The arguments reach a capability as an ordinary parameter, so the toolkit answers the same way
+    however it was entered. Driving `main` in-process with a deliberately wrong `sys.argv` is what
+    tells the two apart: reading the global would resolve the wrong key, or fail outright.
+    """
+
+    def test_arguments_come_from_the_dispatcher_not_the_process(self):
+        from nexus_gh import cli
+
+        root = _repo_with_declared_label("icebox")
+        self.addCleanup(lambda: shutil.rmtree(root, ignore_errors=True))
+        saved = sys.argv
+        sys.argv = ["some-other-program", "resolve", "record-label"]
+        try:
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                code = cli.main(["config", "resolve", "unplanned-label", "--root", str(root)])
+        finally:
+            sys.argv = saved
+        self.assertEqual(code, 0)
+        self.assertEqual(buffer.getvalue().strip(), "icebox")
+
+    def test_every_capability_reads_the_arguments_it_is_handed(self):
+        # `--help` asks a capability to print and stop. A capability reading the process global
+        # instead would see the plausible-looking work below and try to do it.
+        for capability, (_, entry) in CAPABILITIES.items():
+            with self.subTest(capability=capability):
+                saved = sys.argv
+                sys.argv = [f"{TOOLKIT_NAME} {capability}", "work-it-was-never-asked-to-do"]
+                try:
+                    buffer = io.StringIO()
+                    with contextlib.redirect_stdout(buffer):
+                        code = entry(["--help"])
+                finally:
+                    sys.argv = saved
+                self.assertEqual(code, 0)
+                self.assertIn("usage:", buffer.getvalue())
+
+    def test_the_process_argv_is_left_as_it_was_found(self):
+        from nexus_gh import cli
+
+        saved = sys.argv
+        sys.argv = ["some-other-program"]
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                cli.main(["config", "--help"])
+        except SystemExit:
+            pass
+        finally:
+            observed = sys.argv
+            sys.argv = saved
+        self.assertEqual(observed, ["some-other-program"])
+
+
+class TheUsageTextNamesTheToolkit(unittest.TestCase):
+    """AC1 — the one name reaches the user-facing text, not the filename the capability moved from."""
+
+    def setUp(self):
+        self.bindir = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: shutil.rmtree(self.bindir, ignore_errors=True))
+        (self.bindir / TOOLKIT_NAME).symlink_to(_ENTRY_POINT)
+        self.env = {**os.environ, "PATH": f"{self.bindir}{os.pathsep}{os.environ['PATH']}"}
+
+    def test_each_capability_reports_itself_under_the_toolkit_name(self):
+        for capability in CAPABILITIES:
+            with self.subTest(capability=capability):
+                out = subprocess.run(
+                    [TOOLKIT_NAME, capability, "--help"],
+                    capture_output=True, text=True, env=self.env, cwd=str(Path(tempfile.gettempdir())),
+                )
+                self.assertEqual(out.returncode, 0, out.stderr)
+                self.assertIn(f"usage: {TOOLKIT_NAME} {capability}", out.stdout)
 
 
 if __name__ == "__main__":
