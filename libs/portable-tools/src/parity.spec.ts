@@ -24,6 +24,16 @@ import {
 } from "./parity";
 import { checkComponentComposition } from "./component-composition";
 import { COMPONENT_COMPOSITION_WAIVERS } from "./component-composition-waivers";
+import { COMPONENT_INVOCATION_REGISTER } from "./component-invocation-register";
+import {
+    checkComponentInvocations,
+    formatInvocationProblems,
+    type Invocation,
+    type InvocationProblem,
+    readToolkitSurfaces,
+    scanComponentInvocations,
+    type ToolkitSurfaces,
+} from "./component-invocations";
 import { COMPONENT_PAYLOAD_KEY, hashComponentTree, listComponentFiles, liveClaudeDir } from "./vendor-components";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
@@ -283,6 +293,58 @@ describe("component payload boundary (story #275)", () => {
         const files = listComponentFiles(liveClaudeDir(SRC_DIR));
         const harnessFiles = files.filter((f) => f.includes("pr-acceptance"));
         expect(harnessFiles, harnessFiles.join(", ")).toEqual([]);
+    });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Component invocations (story #301, decision record #325): every toolkit invocation in a shipped
+// body names a toolkit and a dispatch name that toolkit declares. This rides the same gate as
+// parity, the fingerprint pin, and the payload-composition boundary — the one thing that already
+// reads the shipped payload and already fails the source-repo test run.
+// ---------------------------------------------------------------------------------------------
+describe("component invocations name a declared toolkit verb (story #301)", () => {
+    const surfaces: ToolkitSurfaces = readToolkitSurfaces(REPO_ROOT);
+    const inventory: Invocation[] = scanComponentInvocations(liveClaudeDir(SRC_DIR), surfaces);
+
+    it("reads each toolkit's declared surface from that surface, not from a duplicate", () => {
+        // The executable's names come from the registry that composes its own usage text; the
+        // Python toolkit's come from executing its entry point. Neither list is written down here.
+        expect(surfaces.nexus).toContain("workspace docs-root");
+        expect(surfaces.nexusGh.length).toBeGreaterThan(0);
+        expect(surfaces.nexusGh).toEqual([...surfaces.nexusGh].sort());
+    });
+
+    it("no shipped body names a verb or capability the toolkit does not declare", () => {
+        const undeclared: Invocation[] = inventory.filter((site) => site.classification === "undeclared");
+        expect(undeclared.map((site) => `${site.relPath}:${site.line} ${site.name}`)).toEqual([]);
+    });
+
+    it("every legacy invocation sits in a body the pending register still lists", () => {
+        // The register only shrinks: a legacy form outside it fails, and an entry with nothing
+        // left to migrate fails too, so a spent entry is deleted rather than kept.
+        const problems: InvocationProblem[] = checkComponentInvocations(inventory, COMPONENT_INVOCATION_REGISTER);
+        expect(problems.length, problems.length > 0 ? formatInvocationProblems(problems) : undefined).toBe(0);
+    });
+
+    it("the inventory classifies every code-span invocation in every shipped body", () => {
+        expect(inventory.length).toBeGreaterThan(0);
+        for (const site of inventory) {
+            expect(["resolving", "undeclared", "unmigrated"]).toContain(site.classification);
+            expect(listComponentFiles(liveClaudeDir(SRC_DIR))).toContain(site.relPath);
+        }
+    });
+
+    it("the gate fails, naming the body and the name, when a body names an undeclared verb", () => {
+        // The self-test the gate needs: a doctored body must be reported, or the axis proves nothing.
+        const doctored: Invocation[] = scanComponentInvocations(liveClaudeDir(SRC_DIR), {
+            nexus: [],
+            nexusGh: [],
+        }).filter((site) => site.classification === "undeclared");
+        const problems: InvocationProblem[] = checkComponentInvocations(doctored, []);
+        expect(problems.length).toBeGreaterThan(0);
+        const text: string = formatInvocationProblems(problems);
+        expect(text).toContain(doctored[0].relPath);
+        expect(text).toContain(doctored[0].name);
     });
 });
 
