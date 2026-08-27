@@ -10,7 +10,8 @@
  * The rules are about what an entry *says*, not how it is formatted: every item names a pipeline
  * stage or an adopter-visible behaviour, never a commit subject, a file path or a library
  * version; a release that touched a component body names the stage a lead will experience
- * differently; and a release that changed no stage behaviour says so rather than going absent.
+ * differently; a release that changed no stage behaviour says so rather than going absent; and
+ * below 1.0, where the version number cannot signal it, a breaking change is said in words.
  */
 
 /** The pipeline stages an adopter runs. An item that names one is speaking adopter language. */
@@ -72,6 +73,16 @@ export interface EntryContext {
     touchedComponentBody: boolean;
     /** Whether the release changed how any pipeline stage behaves. */
     changedStageBehaviour: boolean;
+    /** Whether the release breaks stage behaviour an adopter's pipeline relies on. */
+    breakingChange: boolean;
+}
+
+/** A word that tells a pre-1.0 reader the release will break their pipeline. */
+const BREAKING_WORD = /\bbreaking\b/i;
+
+/** True while the version number itself carries no breaking-change signal (invariant 16). */
+function belowOne(version: string): boolean {
+    return /^0\./.test(version);
 }
 
 /**
@@ -109,6 +120,16 @@ export function checkReleaseEntry(entry: ReleaseEntry, context: EntryContext): s
     }
 
     const behaviourItems: string[] = entry.items.filter((item) => item !== NO_BEHAVIOUR_CHANGE);
+
+    // Below 1.0 a minor bump may carry breaking change, so the number cannot signal it and the
+    // words have to. Above 1.0 the major bump is the signal and the wording is left to the author.
+    if (context.breakingChange && belowOne(entry.version) && !behaviourItems.some((item) => BREAKING_WORD.test(item))) {
+        findings.push(
+            `${entry.version}: the release breaks stage behaviour and the version is below 1.0, so an ` +
+                `item must say "breaking" in words — the version number does not carry that signal`,
+        );
+    }
+
     if (context.touchedComponentBody && !behaviourItems.some(namesAStage)) {
         findings.push(
             `${entry.version}: the release touched a component body, so an item must name the stage ` +

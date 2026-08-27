@@ -15,6 +15,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { buildAllBundles } from "./build-bundles.js";
+import { isDirectRun } from "./entry-point.js";
 import { listPayloadFiles } from "./release-payload.js";
 
 /** The staged directory, relative to the package root. Named in the manifest's `files`. */
@@ -55,6 +56,6 @@ async function main(): Promise<void> {
     console.log(`Release tree: ${written.length} files under ${path.join(repoRoot, RELEASE_TREE_DIRNAME)}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url, process.argv[1])) {
     main();
 }

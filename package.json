@@ -40,6 +40,7 @@
     "nexus:drift-advisory": "tsx libs/portable-tools/src/nexus-cli.ts drift-advisory",
     "nexus:seed-registry": "tsx libs/portable-tools/src/nexus-cli.ts seed-registry",
     "nexus:pin-bundles": "tsx libs/portable-tools/src/vendor-bundle.ts",
+    "nexus:release-gate": "tsx libs/portable-tools/src/release-gate.ts",
     "nexus:build-release": "tsx libs/portable-tools/src/pack-release.ts",
     "prepack": "pnpm nexus:build-release"
   },

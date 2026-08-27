@@ -11,6 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { buildBundle } from "./bundle.js";
+import { isDirectRun } from "./entry-point.js";
 
 export const ENTRY_POINTS: Record<string, string> = {
     nexus: "nexus-cli.ts",
@@ -36,6 +37,6 @@ async function main(): Promise<void> {
     }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url, process.argv[1])) {
     main();
 }

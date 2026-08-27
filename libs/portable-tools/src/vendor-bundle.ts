@@ -21,6 +21,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { buildBundle } from "./bundle.js";
 import { ENTRY_POINTS } from "./build-bundles.js";
+import { isDirectRun } from "./entry-point.js";
 import { hashBundleCode, type Fingerprint } from "./parity.js";
 import { hashPayload, payloadManifest, PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE } from "./release-payload.js";
 
@@ -86,6 +87,6 @@ async function main(): Promise<void> {
     process.exit(await runCli(process.argv.slice(2)));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url, process.argv[1])) {
     main();
 }

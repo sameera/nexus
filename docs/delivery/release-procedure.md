@@ -25,6 +25,24 @@ If the release changed no stage behaviour, the entry still exists and says exact
 
     No change to how any pipeline stage behaves.
 
+While the version is below 1.0 the number carries no compatibility signal: a minor bump may
+break a pipeline that worked before. An item describing a breaking change to stage behaviour
+therefore says **breaking** in words, and says what a lead has to do differently. The release
+check enforces that wording once the release's context says it broke something — set
+`breakingChange` on the context the changelog spec passes; deciding that it did is yours.
+
+**What the suite checks, and what it does not.** The suite checks the *language* of the entry —
+no commit subjects, no file paths, no library versions, a named stage, the explicit no-change
+statement, the breaking wording. It does **not** check *coverage*: nothing derives from the diff
+which component bodies this release actually moved, so an entry that names some stage passes even
+when it omits the change this release made. That is accepted, deliberately, as the author's
+judgement rather than a gate. Read the release's own component diff before you write the entry:
+
+    git diff --name-only <previous tag>..HEAD -- .claude
+
+Every path that list names is a body a lead runs; an item accounts for each behaviour change
+among them, or you decide in the open that it changes nothing a lead experiences.
+
 ## 3. Re-pin and verify
 
     pnpm nexus:pin-bundles
@@ -39,7 +57,27 @@ suite.
 Commit the result — `VERSION`, `CHANGELOG.md`, `libs/portable-tools/bundle-fingerprint.json` and
 `libs/portable-tools/payload-manifest.json` — and merge it to `main`.
 
-## 4. Tag
+## 4. Check the invocation gate
+
+    pnpm nexus:release-gate
+
+The tag and the public publish must not run while a shipped component body reaches a toolkit
+capability by an in-repository script path instead of by a declared toolkit name. Those paths
+exist in no installed package, so a body that names one cannot work outside a source checkout —
+and the changelog's claim that a stage runs without a checkout would be false on the first
+release.
+
+The gate prints every offending body, the line, and the path it names; it exits non-zero while
+any remain. **A non-zero exit stops the release here.** The fix is never to add the path back to
+the payload — it is to rewrite the body to invoke the capability by its declared toolkit name
+(`nexus-gh <verb>`, `nexus <verb>`), which is the epic that follows this one.
+
+Packing and installing locally is unaffected by this gate, and is the intended way to consume the
+package definition before it goes green:
+
+    npm pack
+
+## 5. Tag
 
 From the merged commit on `main`:
 
@@ -49,7 +87,7 @@ From the merged commit on `main`:
 The tag names the same version as `VERSION`, the manifest and the changelog entry. Nothing else
 is tagged.
 
-## 5. Publish
+## 6. Publish
 
     pnpm nexus:build-release
     npm publish
@@ -66,8 +104,16 @@ Verify the published release the way an adopter meets it, from a directory that 
 
 Both print the version you tagged.
 
-## 6. Publish the releases-page entry
+## 7. Publish the releases-page entry
 
 Create the GitHub release for the tag and paste the changelog section as its body. That page is
 the changelog's home; the registry listing is not, and the two are not exclusive — Nexus lives in
 a git repository whichever channel installs it.
+
+## What a release does not check for the adopter
+
+The manifest and the readme declare the supported platforms and the Python interpreter floor. That
+declaration is the whole of the answer for this release: nothing checks the interpreter at install
+time or on first run, so an adopter who installs without it meets an interpreter-not-found error
+that never mentions Nexus. This is accepted rather than overlooked — a first-run prerequisite check
+on the second toolkit is a later release's work.

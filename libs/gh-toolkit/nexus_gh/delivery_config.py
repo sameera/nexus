@@ -976,8 +976,3 @@ def _cli(argv):
 
     return 1
 
-
-if __name__ == "__main__":
-    import sys as _sys
-
-    raise SystemExit(_cli(_sys.argv[1:]))

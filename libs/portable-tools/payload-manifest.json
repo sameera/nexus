@@ -31,6 +31,6 @@
   "gh-toolkit/nexus_gh/cli.py": "0182c9c42ccb64ae2f20e5023d24fd32c782285c16f631892ad0d64061503ae6",
   "gh-toolkit/nexus_gh/create_epic.py": "867eba486ed25b237af662605b460609ca216859d66510490965ce8a39802c0c",
   "gh-toolkit/nexus_gh/create_story.py": "3bc2f9626d999b155e9a14b9bbaa7c1600e0158874eba358e25f642b87715deb",
-  "gh-toolkit/nexus_gh/delivery_config.py": "7b2458dab2310c596602978ec62a7deb8e216553deca528c9e2600ea53a292bd",
+  "gh-toolkit/nexus_gh/delivery_config.py": "4f2c565feff51d03f9f7f5110926426a2abfb5d411aaff989067f431d4d7b317",
   "gh-toolkit/nexus_gh/release.py": "c82e51e15226eb1ec1bf91a59b3642cc27325d281c68a8b3d0976b38376d0128"
 }
