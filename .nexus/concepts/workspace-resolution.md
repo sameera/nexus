@@ -2,7 +2,7 @@
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
 touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution"]
-last_updated_by: "#248"
+last_updated_by: "#257"
 status: active
 verification: verified
 ---
@@ -15,7 +15,7 @@ Workspace resolution makes a multi-repo product declared and discoverable: one m
 
 The hub manifest is the single source of truth for the hub, its members, and each member's remote and checkout name. A member's pointer only locates the hub; on disagreement the manifest wins.
 
-A checkout's role follows its artifact: a manifest makes it the hub, a pointer a member that finds the hub as a named sibling and reads that manifest. Both converge on a deep-equal description — the parity guarantee — which also fixes the hub's portable-tooling location and each repo's docs root. Neither artifact means single-repo mode, unchanged.
+A checkout's role follows its artifact: a manifest makes it the hub, a pointer a member that finds the hub as a named sibling and reads that manifest. Both converge on a deep-equal description — the parity guarantee — which also fixes each repo's docs root. Neither artifact means single-repo mode, unchanged.
 
 Three read-outs surface it: full status, resolved docs root, and the manifest's optional workspace-wide publishing defaults.
 
@@ -35,7 +35,7 @@ Resolution now walks upward from wherever it's given, bounded to the checkout's 
 
 - [remote-identity-normalization](remote-identity-normalization.md) — resolution compares git remotes through this rule to verify a pointer names its hub and to reject a member sharing another's remote.
 - [bare-name-guard](bare-name-guard.md) — every manifest and pointer name is validated as a bare segment first.
-- [portable-tooling](portable-tooling.md) — the resolved context reports where a hub's vendored copy lives.
+- [portable-tooling](portable-tooling.md) — that tooling consults this resolver at run time; the resolved context reports no location for it.
 - [close-entry-migration](close-entry-migration.md) — a member close reads its role and hub here before relocating an entry.
 - [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer this resolver reads, re-resolving for parity.
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
@@ -82,3 +82,7 @@ Workspace-wide publishing defaults belong in the manifest because they are a sha
 ### 2026-08-25 — #248 — The upward walk is bounded to the repository boundary and reports where it landed
 
 Resolution now walks upward from whatever directory it's given rather than requiring the caller to already stand at a marker, bounded to the repository's own top-level so it can never cross into an unrelated ancestor project's configuration — a checkout beneath a shared worktrees directory or a developer's home directory no longer risks silently adopting a stranger's workspace. The single-repo fallback correspondingly reports the enclosing repository's top-level directory rather than echoing the caller's starting directory verbatim, since every planning capability that resolves without a marker uses that value as where its own state lives; echoing a nested directory back would let a caller one level too deep create a second, stale store beside the real one. Refuted alternative: leave the walk unbounded, matching the simplest existing marker search already in the codebase — it needs no boundary decision, but the same cross-project hazard this project's own configuration resolver already guards against on its other side would remain open on this one.
+
+### 2026-08-27 — #257 — The resolved context stops reporting a tooling location
+
+The resolved workspace description no longer carries where a hub's toolkit lives, and the constant naming that in-repo directory went with it. The field existed to give one authoritative producer for a path that a rename would otherwise have to be hunted for across consumers; with no copy placed inside any repository there is no such path left to produce, so the field's whole reason went with the arrangement rather than the field being repointed at an install location. Resolution's remaining outputs are unchanged, and the tooling still consults this resolver in the other direction — to find member checkouts and the docs root — so the relationship survives with only its direction reversed. Refuted alternative: keep the field and point it at wherever the toolkit is installed, which reads as continuity but makes the resolver an authority on machine-level layout it has no artifact to read.

@@ -2,18 +2,18 @@
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
 touches: ["distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity"]
-last_updated_by: "#251"
+last_updated_by: "#257"
 status: active
 verification: verified
 ---
 
 # Portable Tooling
 
-Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime. Committed into a docs-only hub, it lets a non-code hub validate its concept store and regenerate its atlas as a code repo does. The in-repo tooling stays authoritative; the portable form is a derived build.
+Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime. It lets a checkout with no development toolchain validate its concept store and regenerate its atlas as a code repo does, reaching it as an installed toolkit, not a committed copy. The in-repo tooling stays authoritative; the portable form is a derived build.
 
 ## How It Works
 
-Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only hub lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable now also carries the `nexus` setup CLI and a vendored component tree, under the one fingerprint gate. Ten more component-invoked capabilities now dispatch as verbs from that same executable's shared registry, alongside the five distiller tools' own standalone builds for as long as their legacy forms still exist. The artifact and the payload it carries share one version identity, which it can report alongside the payload it would actually install. Committed into the hub, it gives every checkout identical, offline, reproducible tooling.
+Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only checkout lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable now also carries the `nexus` setup CLI and a vendored component tree, under the one fingerprint gate. Ten more component-invoked capabilities now dispatch as verbs from that same executable's shared registry, alongside the five distiller tools' own standalone builds for as long as their legacy forms still exist. The artifact and the payload it carries share one version identity, which it can report alongside the payload it would actually install. The build copies nothing into any repository.
 
 ## Key Invariants
 
@@ -21,14 +21,14 @@ Distillation's validator and atlas steps were written to run through a code repo
 2. The artifact runs on a bare Node.js runtime alone (plus git for the validator's append-only mode), needing no workspace install, transpiler, or package manager.
 3. For identical input the artifact's atlas output is byte-identical, and its validator findings and exit codes match the in-repo tooling exactly.
 4. The build folds every outside dependency in; nothing is resolved from an installed package tree at run time.
-5. The committed artifact runs offline with no install step, executing only trusted, review-gated code.
+5. ~~The committed artifact runs offline with no install step, executing only trusted, review-gated code.~~ It is never written into the repository it acts on.
 6. A parity check is a required gate in the source repo: it diffs source against a fresh build over a representative corpus and fails, naming any mismatch in findings, exit codes, or atlas bytes.
 7. A committed fingerprint catches a build left stale against its source, which an executed diff cannot, since both its sides are always current.
 
 ## Integration Points
 
-- [distiller](distiller.md) — runs this tooling as its validator and atlas steps when draining from a hub.
-- [workspace-resolution](workspace-resolution.md) — the resolved role decides whether the distiller runs this tooling or the in-repo tooling; this tooling's committed hub location is part of the workspace context the resolver produces.
+- [distiller](distiller.md) — a hub drain derives its cross-repo diff through this tooling; its validator and atlas steps run one in-repo invocation in every mode.
+- [workspace-resolution](workspace-resolution.md) — the resolver these bundled tools consult at run time; it no longer reports any location for this tooling.
 - [nexus-setup-cli](nexus-setup-cli.md) — ships as a vendored entrypoint on this distributable, its component payload pinned by the same fingerprint gate.
 - [verb-reachability](verb-reachability.md) — the shared declarative registry ten more component-invoked capabilities now dispatch from as verbs on this distributable's executable.
 - [release-identity](release-identity.md) — the one version identifying this distributable and its payload together, declared at the release root the artifact's own walk-up finds.
@@ -70,3 +70,7 @@ The distributable's `nexus` executable gained ten more verbs — three read-only
 ### 2026-08-26 — #251 — The distributable reports the payload it would actually install
 
 The artifact gained one version identity covering its executable, the second toolkit and the component payload together, and a verb that reports it. What that verb fingerprints is the payload that would actually be installed — the vendored copy beside the artifact when it exists, the live component tree otherwise — so a source checkout and a distributable each report the components they would really deploy. Refuted: reporting the committed fingerprint pin the parity gate already maintains, which is the obvious source but does not travel with the distributable, so the verb would report nothing in the posture that matters most.
+
+### 2026-08-27 — #257 — The distributable stops being copied into the repository it acts on
+
+The per-repository copy was retired outright: no build step writes the artifacts or the component payload into a target checkout, the exported location is gone, the operator instruction to commit them is gone, and the component bodies lost the second invocation branch that named the copied files. The insight the copy carried is kept — a dependency-free bundle, a self-contained entry point, bare-runtime execution — and only the placement changed, from once per repository to once per machine, because the copy's cost was commit churn in its heaviest form plus a second artifact ageing independently of the installed one, against a migration population of zero. The build-and-hash half survives under its own name so the fingerprint gate stays reachable, and it now rejects every argument rather than ignoring the retired one, since an invocation that exits zero while writing nothing reads as a successful copy. The shared copy helper and the vintage identifiers keep their names: they outlive this arrangement and have a caller waiting, so renaming them is churn that would be wrong again shortly. Refuted alternatives: deleting the build-and-hash entry point alongside the copy half, which leaves the surviving half reachable only by file path; accepting-and-ignoring the retired option for compatibility, the standard courtesy and exactly wrong when the caller population is zero and the option's whole meaning was the removed behaviour; and renaming the surviving helpers now for one clean vocabulary.
