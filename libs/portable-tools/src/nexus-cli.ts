@@ -12,6 +12,7 @@
  * Verbs:
  *   nexus install                      install the Nexus components at the configuration directory
  *   nexus uninstall                    remove the installed components from that directory
+ *   nexus migrate-components           remove a repository's committed component set
  *   nexus deploy                       install the Nexus components into the invoking repo
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
@@ -47,7 +48,15 @@ import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { isDirectRun } from "./entry-point.js";
 import { allowlistNoticeLines } from "./allowlist.js";
 import { deployComponents, EMPTY_PAYLOAD, payloadDirectory, type DeployResult } from "./deploy-components.js";
-import { describeInstallLocation, ensureInstallLocation, resolveInstallLocation, type InstallLocationResult } from "./install-location.js";
+import {
+    describeInstallLocation,
+    ensureInstallLocation,
+    inspectInstallLocation,
+    resolveInstallLocation,
+    type InstallLocationResult,
+    type InstallLocationState,
+} from "./install-location.js";
+import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from "./migrate-components.js";
 import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
@@ -125,6 +134,17 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      of a component set copied into the configuration directory.",
         ].join("\n"),
         run: runUninstall,
+    },
+    "migrate-components": {
+        summary: "Remove a repository's committed Nexus components, once they are installed per account.",
+        usage: [
+            "  nexus migrate-components [--target <dir>]",
+            "      Remove the Nexus-namespaced files a repository still carries under .claude/ —",
+            "      including at its root — and add namespaced ignore entries so they do not come",
+            "      back. Requires an installed account-level component set; removes only files git",
+            "      tracks; stages nothing and commits nothing, so the removals are yours to review.",
+        ].join("\n"),
+        run: runMigrateComponents,
     },
     version: {
         summary: "Report the installed release, its component payload and the resolved interpreter.",
@@ -397,6 +417,75 @@ async function runUninstall(argv: string[], io: CliIo): Promise<number> {
             "package manager has no record of a component set copied into the configuration directory, " +
             "so removing the package first leaves the components behind with nothing left to clear them.",
     );
+    return 0;
+}
+
+/**
+ * `nexus migrate-components` — the gated repository migration (story #315).
+ *
+ * The gate is the point: an owner whose repository loses forty tracked files must have somewhere
+ * for the components to come from, so nothing is removed until an install location resolves and is
+ * populated, and the verb says what that location holds before it touches anything.
+ */
+async function runMigrateComponents(argv: string[], io: CliIo): Promise<number> {
+    const rest: string[] = [...argv];
+    const targetOpt = takeOption(rest, "--target", io);
+    if (targetOpt === null) {
+        return 2;
+    }
+    if (rest.length > 0) {
+        io.stderr(`unknown argument for migrate-components: ${rest[0]}\n${USAGE}`);
+        return 2;
+    }
+    const repoRoot: string = path.resolve(io.cwd, targetOpt.value ?? ".");
+
+    const location: InstallLocationResult = resolveInstallLocation();
+    if (!location.ok) {
+        io.stderr(`${location.message} Nothing was removed; install the components first with \`nexus install\`.`);
+        return 1;
+    }
+    // Invariant 7 and 9: the location and its content are reported before anything changes.
+    io.stdout(describeInstallLocation(location));
+
+    const state: InstallLocationState = inspectInstallLocation(location.path);
+    if (!state.populated) {
+        io.stderr(
+            `the install location holds no Nexus component set, so nothing was removed. ` +
+                `Install the components first with \`nexus install\`.`,
+        );
+        return 1;
+    }
+    io.stdout(
+        state.content === "checkout-pointer"
+            ? `install location holds: pointers at the checkout ${state.checkout}`
+            : `install location holds: a copied release (${state.files.length} component file(s))`,
+    );
+
+    const result: MigrationResult = migrateComponents({ repoRoot });
+    if (!result.ok) {
+        io.stderr(result.message);
+        return 1;
+    }
+
+    io.stdout(`removed ${result.removed.length} tracked component file(s) from ${path.join(repoRoot, REPO_COMPONENT_DIRNAME)}`);
+    if (result.untracked.length > 0) {
+        io.stdout(
+            `left in place ${result.untracked.length} Nexus-namespaced file(s) git does not track — ` +
+                `git cannot undo their removal, so remove them yourself if you want them gone:`,
+        );
+        for (const rel of result.untracked) {
+            io.stdout(`    rm ${path.join(REPO_COMPONENT_DIRNAME, rel)}`);
+        }
+    }
+    io.stdout(
+        result.ignoreAdded.length > 0
+            ? `added ${result.ignoreAdded.length} namespaced ignore entr(ies) to .gitignore`
+            : "the namespaced ignore entries were already present in .gitignore",
+    );
+    io.stdout("Nothing was staged and no commit was made. To accept these changes:");
+    for (const command of result.gitCommands) {
+        io.stdout(`    ${command}`);
+    }
     return 0;
 }
 

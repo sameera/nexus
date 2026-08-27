@@ -21,3 +21,15 @@
 - **Choice:** `nexus uninstall`, a leaf verb with no flags.
 - **Why:** It pairs with `install` at the same scope (the account's one component set) and reads correctly in the ordering notice it has to print — "run uninstall before removing the package".
 - **Refuted alternative:** `nexus install --remove`, keeping one verb for one location; refuted because the ordering notice and the "must run before the package goes" warning belong to a verb a user reaches for deliberately, not to a flag.
+
+## 2026-08-27 — The tracked-file gate is a `removable` predicate on the mirror
+
+- **Choice:** Migration passes `removable: (rel) => tracked.has(".claude/" + rel)` into the mirror; vetoed paths come back as `retained`.
+- **Why:** Keeps one mirror implementation and one namespace predicate — the gate is a caller's policy, not a second removal path.
+- **Refuted alternative:** Have migration list and delete files itself, bypassing the mirror; refuted because it would give the epic a second definition of what Nexus owns.
+
+## 2026-08-27 — The printed git commands name explicit paths, not `-A`
+
+- **Choice:** `git add -- .claude .gitignore`, then a plain `git commit -m`.
+- **Why:** Invariant 11 — the verb runs against a branch the owner was already working on, so a printed command that swept the working tree would offer them a commit of the rest of their diff.
+- **Refuted alternative:** `git add -A` for brevity; refuted on exactly that.
