@@ -17,9 +17,10 @@
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { listComponentFiles } from "./vendor-components.js";
+import { resolveInstallLocation, type InstallLocationResult } from "./install-location.js";
+import { isNexusNamespaced } from "./nexus-namespace.js";
+import { COMPONENT_SUBTREES } from "./vendor-components.js";
 
 export interface EnvironmentDefect {
     /** What is wrong, in the words a user would search for. */
@@ -59,19 +60,54 @@ export function resolveInterpreter(): InterpreterReport {
     }
 }
 
-/** True when `root` holds an installed Nexus component set (a `.claude/` tree Nexus owns files in). */
-function holdsComponentSet(root: string): boolean {
-    const claudeDir: string = path.join(root, ".claude");
-    if (!fs.existsSync(claudeDir)) {
-        return false;
+/**
+ * The fully resolved real paths of the component files Nexus owns under `componentRoot`.
+ *
+ * Real paths, not the paths as written, are what make the maintainer's pointing install a
+ * non-duplicate: each pointer resolves to the very file the checkout holds, so the two locations
+ * describe one set of files rather than two. Ownership is the shared namespace predicate — the
+ * first segment beneath a managed subtree — so the guard cannot disagree with the installer about
+ * which files Nexus owns.
+ */
+function componentRealPaths(componentRoot: string): Set<string> {
+    const resolved = new Set<string>();
+    for (const subtree of COMPONENT_SUBTREES) {
+        const subtreeRoot: string = path.join(componentRoot, subtree);
+        if (!fs.existsSync(subtreeRoot)) {
+            continue;
+        }
+        const walk = (dir: string): void => {
+            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const abs: string = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                    walk(abs);
+                    continue;
+                }
+                const rel: string = path.relative(componentRoot, abs).split(path.sep).join("/");
+                if (!isNexusNamespaced(rel.split("/")[1])) {
+                    continue;
+                }
+                try {
+                    resolved.add(fs.realpathSync(abs));
+                } catch {
+                    resolved.add(path.resolve(abs));
+                }
+            }
+        };
+        walk(subtreeRoot);
     }
-    return listComponentFiles(claudeDir).some((rel) => path.basename(rel).startsWith("nxs."));
+    return resolved;
 }
 
 export interface EnvironmentScope {
     /** The repo the verb was invoked from. */
     cwd: string;
-    /** The account's home directory — where an account-level component set is installed. */
+    /**
+     * The account's home directory, when the caller wants the install location resolved against
+     * something other than the operating system's answer. The configuration-directory variable
+     * still wins over it — the account-side location the guard looks at is the location a verb
+     * would install to, never a hard-coded home-directory default.
+     */
     home?: string;
 }
 
@@ -90,15 +126,25 @@ export function detectEnvironmentDefects(scope: EnvironmentScope): EnvironmentDe
         });
     }
 
-    const home: string = scope.home ?? os.homedir();
-    const roots: string[] = [...new Set([path.resolve(home), path.resolve(scope.cwd)])];
-    const installed: string[] = roots.filter(holdsComponentSet).map((root) => path.join(root, ".claude"));
-    if (installed.length > 1) {
-        defects.push({
-            defect: `${installed.length} component sets resolve on one account`,
-            detail: installed.join(", "),
-            remedy: "keep one component set; remove the others so a component body cannot resolve to two different versions",
-        });
+    // The scope is the user account, never the machine: exactly two places are examined — the
+    // location a verb would install to, and the repository the verb was invoked from.
+    const location: InstallLocationResult = resolveInstallLocation(
+        scope.home === undefined ? {} : { homedir: (): string => scope.home as string },
+    );
+    if (location.ok) {
+        const repoComponentRoot: string = path.join(path.resolve(scope.cwd), ".claude");
+        const installed: Set<string> = componentRealPaths(location.path);
+        const local: Set<string> = componentRealPaths(repoComponentRoot);
+        const distinct: boolean = [...installed].some((real) => !local.has(real));
+        if (installed.size > 0 && local.size > 0 && distinct) {
+            defects.push({
+                defect: "2 component sets resolve on one account",
+                detail: [location.path, repoComponentRoot].join(", "),
+                remedy:
+                    "keep one component set; the account-level one is the supported arrangement, so run " +
+                    "`nexus migrate-components` in the repository to remove its committed copy",
+            });
+        }
     }
 
     return defects;

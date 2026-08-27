@@ -39,3 +39,15 @@
 - **Choice:** The flag is removed from the verb, not left accepted-and-ignored.
 - **Why:** Its only referent was the payload the fan-out deployed; accepting it after the fan-out is gone would document a deploy that no longer happens.
 - **Refuted alternative:** Keep accepting it for compatibility — refuted because the caller population is one, the same argument the record makes about the seam itself.
+
+## 2026-08-27 — The duplicate comparison is over the two file SETS, not the two roots
+
+- **Choice:** The guard resolves each owned file's real path at both locations and reports a duplicate only when the install location holds a real file the repository does not.
+- **Why:** In the pointing mode the two component ROOTS are genuinely different real directories, so a root-level real-path comparison would report a false duplicate on every maintainer run — the property AC2 needs lives at the file level.
+- **Refuted alternative:** Compare `realpathSync` of the two component roots; simpler, and wrong in exactly the mode the maintainer lives in.
+
+## 2026-08-27 — `EnvironmentScope.home` is kept as a home-directory override, not replaced by a location override
+
+- **Choice:** The guard still accepts `home`, and feeds it to `resolveInstallLocation` as the home-directory answer; the configuration-directory variable still wins over it.
+- **Why:** The account-side location becomes the location a verb would actually install to, which is what the story asks for, while the existing dispatcher-coverage tests keep expressing "this account's home" without knowing about install-location resolution.
+- **Refuted alternative:** Replace it with an `installLocation` override — more direct, but it lets a test bypass the resolution the guard is now supposed to share with the verbs.
