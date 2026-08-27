@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * Standalone-artifact entry point for `validate-concepts` (decision record #277). The only file
  * whose top-level code unconditionally invokes `runCli` — `validate-concepts.ts` itself carries

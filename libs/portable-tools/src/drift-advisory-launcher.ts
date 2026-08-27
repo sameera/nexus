@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * Standalone-artifact entry point for `drift-advisory` (decision record #277). The only file
  * whose top-level code unconditionally invokes `runCli` — `drift-advisory.ts` itself carries no

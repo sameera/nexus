@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * Standalone-artifact entry point for `derive-entry-diff` (decision record #277). The only file
  * whose top-level code unconditionally invokes `runCli` — `derive-entry-diff.ts` itself carries

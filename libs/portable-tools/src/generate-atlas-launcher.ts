@@ -1,4 +1,3 @@
-#!/usr/bin/env tsx
 /**
  * Standalone-artifact entry point for `generate-atlas` (decision record #277). The only file
  * whose top-level code unconditionally invokes `runCli` — `generate-atlas.ts` itself carries no

@@ -31,12 +31,18 @@ export async function buildBundle(entryAbsPath: string): Promise<BuiltBundle> {
         target: "node22",
         write: false,
         metafile: true,
+        // The shebang makes the bundle directly executable, which is what a package manager
+        // relies on when it links the declared binary onto the caller's path (story #308):
+        // the link points at this file and the kernel reads the first line to choose the
+        // interpreter. It lives in the banner rather than being prepended when the release
+        // tree is staged, so the bytes the fingerprint pin records are the bytes that ship.
+        //
         // Inlined CJS dependencies (e.g. the `yaml` package) require() Node builtins at module
         // scope; esbuild's ESM output has no `require`, so its shim throws "Dynamic require of
         // 'process' is not supported" on a plain-node run. Provide a real require via
         // createRequire — constant bytes, so the fingerprint pin stays deterministic.
         banner: {
-            js: 'import { createRequire as __nexusCreateRequire } from "node:module"; const require = __nexusCreateRequire(import.meta.url);',
+            js: '#!/usr/bin/env node\nimport { createRequire as __nexusCreateRequire } from "node:module"; const require = __nexusCreateRequire(import.meta.url);',
         },
     });
     return { code: result.outputFiles[0].text, metafile: result.metafile };
