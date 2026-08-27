@@ -1,40 +1,39 @@
 /**
  * Parity primitives (STORY-44.03). The in-repo TypeScript scripts are the single authoritative
- * source; the vendored `.mjs` is a derived build that can silently lag. This module supplies the
+ * source; the built `.mjs` is a derived build that can silently lag. This module supplies the
  * load-bearing check that makes that drift impossible to ship:
  *
  *   - `hashBundleCode` / `checkFingerprint` — the fingerprint pin. A source edit that isn't
- *     rebuilt-and-re-vendored changes the fresh build's hash, so it no longer equals the
+ *     rebuilt-and-re-pinned changes the fresh build's hash, so it no longer equals the
  *     committed pin (decision-record Invariant 12). Both sides of a live source-vs-bundle diff
- *     are always current, so only the pin can catch vendored staleness.
+ *     are always current, so only the pin can catch that staleness.
  *   - `diffRunResults` / `diffAtlasBytes` / `formatDivergences` — the executed diff. Runs the
  *     source and a fresh bundle over the committed corpus and reports any mismatch in validator
  *     findings, exit codes, or atlas bytes, NAMING the divergence — entry point, corpus case,
  *     and a diff excerpt (Invariant 10).
  *
- * Node builtins only; this file is not a bundle entry point, so it is never itself vendored.
+ * Node builtins only; this file is not a bundle entry point.
  */
 
 import { createHash } from "node:crypto";
 
-/** Maps each vendored bundle filename (`<entry>.mjs`) to the sha256 hex of its bytes. */
+/** Maps each built bundle filename (`<entry>.mjs`) to the sha256 hex of its bytes. */
 export type Fingerprint = Record<string, string>;
 
 export function hashBundleCode(code: string): string {
     return createHash("sha256").update(code, "utf8").digest("hex");
 }
 
-const REVENDOR_HINT: string =
-    "Rebuild and re-vendor: `pnpm nexus:vendor-tools --tools-dir <hub>/.nexus/tools` " +
-    "(docs/features/multi-repo-workspaces/hub-tooling-install.md) rebuilds the bundle, updates " +
-    "libs/portable-tools/bundle-fingerprint.json, and copies the matching artifact into the hub. " +
-    "An esbuild version bump also changes the bundle bytes and must be followed by a re-vendor.";
+const REPIN_HINT: string =
+    "Rebuild and re-pin: `pnpm nexus:pin-bundles` rebuilds every bundle and updates " +
+    "libs/portable-tools/bundle-fingerprint.json. An esbuild version bump also changes the bundle " +
+    "bytes and must be followed by a re-pin.";
 
 /**
  * Compares a freshly built fingerprint against the committed pin. Returns null when every entry
  * matches; otherwise a message naming each stale / unpinned / orphaned bundle and pointing at the
- * rebuild + re-vendor procedure. The word "stale" appears whenever a pinned hash no longer matches
- * a fresh build — the "edited source but did not re-vendor" case.
+ * rebuild + re-pin procedure. The word "stale" appears whenever a pinned hash no longer matches
+ * a fresh build — the "edited source but did not re-pin" case.
  */
 export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint): string | null {
     const problems: string[] = [];
@@ -44,7 +43,7 @@ export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint): strin
         } else if (pinned[name] !== fresh[name]) {
             problems.push(
                 `${name}: STALE — the pin records ${pinned[name].slice(0, 12)}… but a fresh build ` +
-                    `hashes ${fresh[name].slice(0, 12)}… (the vendored bundle no longer matches its source)`,
+                    `hashes ${fresh[name].slice(0, 12)}… (the built bundle no longer matches its source)`,
             );
         }
     }
@@ -57,9 +56,9 @@ export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint): strin
         return null;
     }
     return [
-        "Bundle fingerprint mismatch — the vendored bundle is stale relative to the in-repo source:",
+        "Bundle fingerprint mismatch — the built bundle is stale relative to the in-repo source:",
         ...problems.map((p) => `  - ${p}`),
-        REVENDOR_HINT,
+        REPIN_HINT,
     ].join("\n");
 }
 
@@ -142,7 +141,7 @@ export function formatDivergences(divergences: Divergence[]): string {
         return "";
     }
     return [
-        `Parity divergence — the vendored bundle diverged from the in-repo source (${divergences.length}):`,
+        `Parity divergence — the built bundle diverged from the in-repo source (${divergences.length}):`,
         ...divergences.map(
             (d) => `  - [${d.entryPoint}] corpus case "${d.corpusCase}" (${d.kind}):\n    ${d.diffExcerpt.replace(/\n/g, "\n    ")}`,
         ),

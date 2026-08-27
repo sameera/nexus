@@ -22,7 +22,7 @@
     "nexus:check-atlas": "tsx libs/portable-tools/src/nexus-cli.ts generate-atlas --check",
     "nexus:drift-advisory": "tsx libs/portable-tools/src/nexus-cli.ts drift-advisory",
     "nexus:seed-registry": "tsx libs/portable-tools/src/nexus-cli.ts seed-registry",
-    "nexus:vendor-tools": "tsx libs/portable-tools/src/vendor-bundle.ts"
+    "nexus:pin-bundles": "tsx libs/portable-tools/src/vendor-bundle.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",

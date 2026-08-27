@@ -34,9 +34,6 @@ import { loadWorkspaceFromMember } from "./pointer.js";
 const MANIFEST_RELATIVE_PATH = [".nexus", "config", "workspace.yml"];
 const POINTER_RELATIVE_PATH = [".nexus", "config", "hub.yml"];
 
-/** Where the hub's vendored portable-tools bundle lives, relative to the hub root. */
-export const PORTABLE_TOOLS_RELATIVE_PATH = [".nexus", "tools"];
-
 /** Whether a declared member is checked out at its expected sibling location. */
 export type CheckoutState = "present" | "missing";
 
@@ -54,8 +51,6 @@ export interface ResolvedWorkspace {
     parentDir: string;
     hub: WorkspaceDescription["hub"];
     members: ResolvedMember[];
-    /** Absolute path to the hub's vendored portable-tools directory (epic #44, Story 2). */
-    portableToolsDir: string;
     /**
      * Workspace-wide GitHub-publishing defaults (epic #121, STORY-121.05), carried through from the
      * manifest's optional top-level `github:` block. Absent when the manifest declares none. The
@@ -153,7 +148,6 @@ function annotate(ws: WorkspaceDescription): ResolvedWorkspace {
             ...m,
             checkout: isDirectory(m.expectedPath) ? "present" : "missing",
         })),
-        portableToolsDir: path.join(ws.hubRoot, ...PORTABLE_TOOLS_RELATIVE_PATH),
         ...(ws.github ? { github: ws.github } : {}),
     };
 }

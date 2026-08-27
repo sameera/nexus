@@ -338,17 +338,16 @@ recomputed branches on the Phase 0.3 mode.
 **Hub mode.** The recorded range is the only diff source — after migration the entry no longer
 shares history with the code, and the entry's introducing commit here is the *migration* commit
 (its diff would be the migration's file moves: confidently wrong). Never use the
-introducing-commit path in hub mode. Per entry, run the vendored derivation tool with each
+introducing-commit path in hub mode. Per entry, run the derivation tool with each
 argument its own quoted token — never a shell-interpolated string:
 
     ```bash
-    node .nexus/tools/derive-entry-diff.mjs --entry "<entry-dir>"
+    node <tools-dir>/nexus.mjs derive-entry-diff --entry "<entry-dir>"
     ```
 
-    If `.nexus/tools/derive-entry-diff.mjs` does not exist, the hub's vendored tooling predates
-    this capability — stop and tell the operator to re-vendor per
-    `docs/features/multi-repo-workspaces/hub-tooling-install.md`; do not derive the diff another
-    way.
+    If the installed toolkit has no `derive-entry-diff` verb, the install predates this
+    capability — stop and tell the operator to update their Nexus install; do not derive the diff
+    another way.
 
     The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
     full SHAs), resolves each named repo to its sibling member checkout through the workspace
@@ -681,31 +680,17 @@ Run these for each entry, in order, before its commit:
     - `<host/owner/repo>:<path>` — <one-line role in the concept>
     ```
 
-3. **Select the invocation.** Steps 4 and 5 both branch on the run mode **already resolved once
-   in Phase 0.3** — that check reads workspace resolution's own committed artifacts, never a new
-   heuristic (e.g. never "no `package.json`"):
-
-    - **hub**: run the bundle vendored at
-      `.nexus/tools/` via plain `node`. Pass every page path and git ref as its own separate,
-      quoted argument — never build the command by interpolating a shell string.
-    - **single-repo**: keep today's `pnpm nexus:*` invocation, unchanged.
-    - **member**: a member repo does not drain — Phase 0.3 already stopped the run before this
-      point.
+3. **The invocation.** Steps 4 and 5 both run the store tooling through the one `pnpm nexus:*`
+   invocation. Pass every page path and git ref as its own separate, quoted argument — never
+   build the command by interpolating a shell string. A member repo does not drain — Phase 0.3
+   already stopped the run before this point.
 
 4. **Atlas regeneration.** Rebuild the human orientation page from the store's current
-   state, using the invocation Step 3 selected — with no explicit output path, so the generator
-   resolves its own location from the resolved docs root (epic #74; never a hardcoded path):
-
-   - Single-repo:
+   state — with no explicit output path, so the generator resolves its own location from the
+   resolved docs root (epic #74; never a hardcoded path):
 
     ```bash
     pnpm nexus:generate-atlas
-    ```
-
-   - Hub:
-
-    ```bash
-    node .nexus/tools/generate-atlas.mjs
     ```
 
    The command's own output names where it wrote: `Atlas written: <path> (<N> concepts)`.
@@ -716,22 +701,13 @@ Run these for each entry, in order, before its commit:
    whole, never hand-edited or prose-tweaked in the PR.
 
 5. **Validator.** Run it over every page the entry changed (staged working-tree state vs the
-   last commit), using the invocation Step 3 selected:
-
-   - Single-repo:
+   last commit) — each changed page **and anchor** path its own quoted argument, never
+   shell-interpolated (in hub mode the regenerated anchor sidecars are validated too, and the
+   per-repo `source_sha` mapping shape is part of the contract):
 
     ```bash
-    pnpm nexus:validate-concepts -- --base HEAD <changed-page-paths>
+    pnpm nexus:validate-concepts -- --base HEAD "<changed-page-path>" "<changed-anchor-path>"
     pnpm nexus:check-atlas
-    ```
-
-   - Hub — each changed page **and anchor** path its own quoted argument, never
-     shell-interpolated (in hub mode the regenerated anchor sidecars are validated too — the
-     per-repo `source_sha` mapping shape is part of the contract):
-
-    ```bash
-    node .nexus/tools/validate-concepts.mjs --base HEAD "<changed-page-path>" "<changed-anchor-path>"
-    node .nexus/tools/generate-atlas.mjs --check
     ```
 
     The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
@@ -835,10 +811,11 @@ For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
 **Drift advisory (epic #94, STORY-94.02) — deterministic, non-blocking, store-level; gated on
 registry presence.** When Phase 2 found a registry, now that every entry is applied and any Phase
 6.2 taxonomy change has landed (so the branch holds the final store state the atlas was regenerated
-from), run the advisory **once** over the whole store, using the Phase 5.3-selected invocation:
+from), run the advisory **once** over the whole store, through the Phase 5.3 invocation:
 
-- Single-repo: `pnpm nexus:drift-advisory`
-- Hub: `node .nexus/tools/drift-advisory.mjs`
+```bash
+pnpm nexus:drift-advisory
+```
 
 Capture its stdout — advisory markdown, possibly empty. It **never edits a page or the registry and
 always exits zero**; a non-zero exit or any file write is a bug, never a drain block, and nothing it
