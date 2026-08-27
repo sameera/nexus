@@ -1,8 +1,8 @@
 ---
 title: "Toolkit Location"
 aliases: ["by-name toolkit addressing", "second toolkit", "python toolkit", "self-locating entry point", "no repository-relative toolkit path", "toolkit found on the path"]
-touches: ["verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity"]
-last_updated_by: "#257"
+touches: ["verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity", "release-gate"]
+last_updated_by: "#252"
 status: active
 verification: verified
 ---
@@ -32,6 +32,7 @@ Locating a toolkit takes the same two steps in both directions. The installed na
 - [publishing-config-resolution](publishing-config-resolution.md) — its hub-defaults layer locates the executable by name here, keeping its degrade-to-empty and never-spawn guards intact.
 - [target-root-convention](target-root-convention.md) — the complement: that convention says where a capability's project lives, this one says where its toolkit lives.
 - [release-identity](release-identity.md) — applies this same self-locating rule to the release's version declaration, walking up from the reader's own position rather than assuming a layout.
+- [release-gate](release-gate.md) — enforces this rule at release time: no tag or publish while a shipped body still names a path.
 
 ## Decision Log
 
@@ -46,3 +47,7 @@ The release's one version declaration is reached the same way a named toolkit is
 ### 2026-08-27 — #257 — The last in-repository toolkit copy is deleted, closing the rule's exception
 
 The addressing rule was stated before the thing it forbids had been removed: a repository could still hold its own copy of the toolkit, and component bodies still carried a second invocation naming that copy beside the one that actually runs. Both are now gone — no build step writes a toolkit into a target checkout, nothing exports such a location, and the parenthetical telling a reader where the in-repository copy sits was struck from every component body that carried it. The rule therefore stops being aspirational: a location inside the repository being acted on is not merely disfavoured, it no longer exists to fall back to. The placeholder standing for a toolkit's location was deliberately left undefined rather than given a value, because defining it means naming the install this work does not build, and a definition invented here would be wrong the moment the real one lands. Refuted alternative: define the placeholder now against the expected install path, which reads as finishing the job but writes down a layout nothing yet produces.
+
+### 2026-08-27 — #252 — By-name addressing becomes a release precondition
+
+Addressing a capability by name was a convention every new body had to follow and nothing checked, which was tolerable while every body ran from a checkout. Publishing removes that tolerance: a path reference that resolves in a source tree resolves nowhere in an installed package, so the convention became the one thing standing between a release and bodies that cannot run for the adopter who installed them. Holding the tag and the publish until every shipped body addresses its capability by the toolkit's declared name is what converts the convention into a guarantee at exactly the moment it starts to matter. Refuted: leaving it a convention and catching violations in review, which costs nothing to set up but puts the whole weight of an adopter-visible failure on a reviewer noticing one line.

@@ -1,8 +1,8 @@
 ---
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
-touches: ["distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity"]
-last_updated_by: "#257"
+touches: ["distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity", "published-package", "shipped-payload"]
+last_updated_by: "#252"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Portable tooling is the offline form of distillation's deterministic steps — t
 
 ## How It Works
 
-Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only checkout lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable now also carries the `nexus` setup CLI and a vendored component tree, under the one fingerprint gate. Ten more component-invoked capabilities now dispatch as verbs from that same executable's shared registry, alongside the five distiller tools' own standalone builds for as long as their legacy forms still exist. The artifact and the payload it carries share one version identity, which it can report alongside the payload it would actually install. The build copies nothing into any repository.
+Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only checkout lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable carries the `nexus` setup CLI and the component payload under one fingerprint gate, and now reaches a machine inside the published package. The build produces exactly one executable: the five standalone launchers are deleted, their capabilities reachable as verbs. The artifact and the payload it carries share one version identity, which it can report alongside the payload it would actually install. The build copies nothing into any repository.
 
 ## Key Invariants
 
@@ -22,8 +22,8 @@ Distillation's validator and atlas steps were written to run through a code repo
 3. For identical input the artifact's atlas output is byte-identical, and its validator findings and exit codes match the in-repo tooling exactly.
 4. The build folds every outside dependency in; nothing is resolved from an installed package tree at run time.
 5. ~~The committed artifact runs offline with no install step, executing only trusted, review-gated code.~~ It is never written into the repository it acts on.
-6. A parity check is a required gate in the source repo: it diffs source against a fresh build over a representative corpus and fails, naming any mismatch in findings, exit codes, or atlas bytes.
-7. A committed fingerprint catches a build left stale against its source, which an executed diff cannot, since both its sides are always current.
+6. A parity check is a required gate in the source repo: it rebuilds from source over a representative corpus and fails, naming any mismatch in findings, exit codes, or atlas bytes, and reads no copy of the artifact inside any repository.
+7. A committed two-entry pin — the executable and the payload — catches an artifact left stale against its source, and the bytes it records are the bytes that ship.
 
 ## Integration Points
 
@@ -32,6 +32,8 @@ Distillation's validator and atlas steps were written to run through a code repo
 - [nexus-setup-cli](nexus-setup-cli.md) — ships as a vendored entrypoint on this distributable, its component payload pinned by the same fingerprint gate.
 - [verb-reachability](verb-reachability.md) — the shared declarative registry ten more component-invoked capabilities now dispatch from as verbs on this distributable's executable.
 - [release-identity](release-identity.md) — the one version identifying this distributable and its payload together, declared at the release root the artifact's own walk-up finds.
+- [published-package](published-package.md) — the package this artifact ships inside as a declared binary, staged into its release tree rather than committed anywhere.
+- [shipped-payload](shipped-payload.md) — the other half of the two-entry fingerprint pin this artifact's parity gate compares against a fresh build.
 
 ## Decision Log
 
@@ -74,3 +76,7 @@ The artifact gained one version identity covering its executable, the second too
 ### 2026-08-27 — #257 — The distributable stops being copied into the repository it acts on
 
 The per-repository copy was retired outright: no build step writes the artifacts or the component payload into a target checkout, the exported location is gone, the operator instruction to commit them is gone, and the component bodies lost the second invocation branch that named the copied files. The insight the copy carried is kept — a dependency-free bundle, a self-contained entry point, bare-runtime execution — and only the placement changed, from once per repository to once per machine, because the copy's cost was commit churn in its heaviest form plus a second artifact ageing independently of the installed one, against a migration population of zero. The build-and-hash half survives under its own name so the fingerprint gate stays reachable, and it now rejects every argument rather than ignoring the retired one, since an invocation that exits zero while writing nothing reads as a successful copy. The shared copy helper and the vintage identifiers keep their names: they outlive this arrangement and have a caller waiting, so renaming them is churn that would be wrong again shortly. Refuted alternatives: deleting the build-and-hash entry point alongside the copy half, which leaves the surviving half reachable only by file path; accepting-and-ignoring the retired option for compatibility, the standard courtesy and exactly wrong when the caller population is zero and the option's whole meaning was the removed behaviour; and renaming the surviving helpers now for one clean vocabulary.
+
+### 2026-08-27 — #252 — One executable, a two-entry pin, and a gate pointed at the release
+
+The build collapses to a single entry point and the five standalone launchers are deleted rather than left unbuilt: every one of their capabilities has been reachable as a verb since the verb collapse, the only consumer that ever needed them as separate files is gone, and one entry point is what makes a two-entry pin possible at all. The pin becomes the executable plus the payload and stays the sole pass or fail authority, with the gate rebuilding and re-walking from source rather than reading any copy inside a repository — which is what "the gate checks what was released" means once nothing is vendored. The interpreter line is emitted by the build rather than prepended while staging, so the pinned bytes are the shipped bytes. Refuted: hashing the packed archive instead, the most literal reading of checking the release, but it forces a pack step into every gated run and makes the gate depend on packer behaviour and archive metadata rather than on content.
