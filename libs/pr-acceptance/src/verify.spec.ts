@@ -474,3 +474,35 @@ describe("verifyResidue", () => {
         expect(r.value.clean).toBe(false);
     });
 });
+
+describe("the analyze receipt's writer stamp (story #306)", () => {
+    const block = (lines: string[]): string =>
+        ["Conformance summary…", "", RECEIPT_MARKER, "```yaml", ...lines, "```"].join("\n");
+
+    const head: string = "d".repeat(40);
+    const stamped: string[] = ['epic: "#10"', "nexus_version: 0.1.0", "pr: 13", `head: ${head}`, "mode: full", "record_hash: " + "f".repeat(64)];
+    const unstamped: string[] = ['epic: "#10"', "pr: 13", `head: ${head}`, "mode: full", "record_hash: " + "f".repeat(64)];
+
+    it("reports which toolkit wrote the receipt", () => {
+        expect(parseReceiptBlock(block(stamped))?.nexusVersion).toBe("0.1.0");
+    });
+
+    it("reads a receipt written before the stamp existed, treating the writer as unknown (AC2)", () => {
+        const r = parseReceiptBlock(block(unstamped));
+        expect(r).not.toBeNull();
+        expect(r?.nexusVersion).toBeNull();
+        expect(r?.head).toBe(head);
+    });
+
+    it("leaves every value a later stage verifies unchanged when the receipt is stamped (AC3)", () => {
+        const withStamp = parseReceiptBlock(block(stamped));
+        const withoutStamp = parseReceiptBlock(block(unstamped));
+        expect({ ...withStamp, nexusVersion: null }).toEqual(withoutStamp);
+    });
+
+    it("reads a receipt stamped by a different release exactly as it reads its own (AC4)", () => {
+        const other = parseReceiptBlock(block(['epic: "#10"', "nexus_version: 99.0.0", "pr: 13", `head: ${head}`, "mode: full", "record_hash: " + "f".repeat(64)]));
+        expect(other?.head).toBe(head);
+        expect(other?.nexusVersion).toBe("99.0.0");
+    });
+});

@@ -284,6 +284,7 @@ Write it to **`analyze-receipt.md`** beside the resolved `epic.md`, overwriting 
 ```markdown
 ---
 epic: "<link>"                        # e.g. "#11"
+nexus_version: <VERSION>              # the toolkit that wrote this receipt (`nexus version`); omit if unresolved
 date: <YYYY-MM-DD>
 head: <git rev-parse --short HEAD>    # the commit the analysis read
 mode: full | downgraded
@@ -294,6 +295,13 @@ findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
 
 <the summary block above, verbatim>
 ```
+
+`nexus_version` is the **writer stamp** (story #306): the release that wrote this receipt, taken
+from `nexus version`. It is a fact about the writer, never a gate — a reader that finds no stamp
+treats the writer as unknown and proceeds, and a reader whose own version differs from the stamp
+proceeds too. It sits beside the digests, never inside the bytes any of them cover, so stamping a
+receipt cannot change a value a later stage compares. Omit the key when the release is unresolved;
+an absent stamp already means "unknown writer", and a fabricated version would not.
 
 `record` / `record_hash` are the second staleness axis: `/nxs.close` re-hashes the record issue and
 compares, so a design revised after this analysis is detectable and is named separately from a
@@ -317,6 +325,7 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     <!-- nexus:analyze-receipt -->
     ```yaml
     epic: "<link>"
+    nexus_version: <VERSION>             # the toolkit that wrote this block; omit if unresolved
     pr: <N>
     date: <YYYY-MM-DD>
     head: <full 40-hex analyzedHead>     # the commit actually analyzed

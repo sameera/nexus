@@ -262,6 +262,13 @@ export const RECEIPT_MARKER = "<!-- nexus:analyze-receipt -->";
 
 export interface AnalyzeReceipt {
     epic: string;
+    /**
+     * The writer stamp (story #306): the toolkit release that wrote the receipt, or null for a
+     * receipt written before the stamp existed. Null is an unknown writer, never a failure, and a
+     * stamp differing from the reader's own release changes nothing about how the receipt is read
+     * — this is a fact recorded for later, not a gate.
+     */
+    nexusVersion: string | null;
     pr: number | null;
     date: string;
     /** The commit actually analyzed — compared for exact equality against the PR head. */
@@ -288,6 +295,7 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
     }
     return {
         epic: fields.get("epic") ?? "",
+        nexusVersion: fields.get("nexus_version")?.trim() || null,
         pr: fields.has("pr") ? Number(fields.get("pr")) : null,
         date: fields.get("date") ?? "",
         head,

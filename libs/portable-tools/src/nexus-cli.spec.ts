@@ -105,6 +105,7 @@ describe("verb dispatch", () => {
                 "record-digest",
                 "pr-worktree",
                 "close-migration",
+                "version",
             ]),
         );
         expect(new Set(VERB_NAMES).size).toBe(VERB_NAMES.length);

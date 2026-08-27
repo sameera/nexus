@@ -18,6 +18,7 @@
  *   nexus workspace github-defaults    print the hub's github-publishing defaults as JSON (STORY-121.05)
  */
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
@@ -42,12 +43,14 @@ import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/work
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
+import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
-import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components.js";
+import { releaseVersion } from "./release.js";
+import { COMPONENT_PAYLOAD_DIRNAME, hashComponentTree, liveClaudeDir } from "./vendor-components.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -63,7 +66,7 @@ export interface CliIo {
  * the composed usage text, because the usage text is rendered from this same object. Every
  * capability is imported statically and dispatched eagerly — there is no lazy/deferred variant.
  */
-interface VerbEntry {
+export interface VerbEntry {
     /** One-line summary, shown beside the verb name in the top-level usage listing. */
     summary: string;
     /** The full usage block for this verb (may span multiple lines). */
@@ -82,6 +85,15 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      user-owned files such as .claude/settings.local.json are never touched.",
         ].join("\n"),
         run: runDeploy,
+    },
+    version: {
+        summary: "Report the installed release, its component payload and the resolved interpreter.",
+        usage: [
+            "  nexus version",
+            "      Print { version, componentPayload, python } — the release's one semantic version,",
+            "      the component payload's fingerprint, and the resolved python3 and its version.",
+        ].join("\n"),
+        run: runVersion,
     },
     workspace: {
         summary: "Declare, inspect, or extend a multi-repo workspace.",
@@ -234,6 +246,41 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
     io.stdout(
         `deployed ${result.written.length} component file(s) into ${path.join(targetRepoRoot, ".claude")}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
+    );
+    return 0;
+}
+
+/**
+ * The component payload this artifact would deploy. A distributable carries it vendored beside
+ * the bundle; a source checkout has no vendored copy, and there the live root `.claude/` tree is
+ * the payload — it is the same tree the vendor step hashes into the fingerprint pin, so both
+ * postures report the fingerprint of the components that would actually be installed.
+ */
+function resolvedPayloadDir(): string | null {
+    const vendored: string = defaultPayloadDir();
+    if (fs.existsSync(vendored)) {
+        return vendored;
+    }
+    const live: string = liveClaudeDir(import.meta.dirname);
+    return fs.existsSync(live) ? live : null;
+}
+
+/**
+ * `nexus version` — the release identity as one JSON object on standard output, the existing
+ * verb contract. Never non-zero for an environment defect (AC3); only a usage error.
+ */
+async function runVersion(argv: string[], io: CliIo): Promise<number> {
+    if (argv.length > 0) {
+        io.stderr(`unknown argument for version: ${argv[0]}\n${USAGE}`);
+        return 2;
+    }
+    const payloadDir: string | null = resolvedPayloadDir();
+    io.stdout(
+        JSON.stringify({
+            version: releaseVersion(),
+            componentPayload: payloadDir === null ? null : hashComponentTree(payloadDir),
+            python: resolveInterpreter(),
+        }),
     );
     return 0;
 }
@@ -677,8 +724,21 @@ async function runCloseMigration(argv: string[], io: CliIo): Promise<number> {
     return 2;
 }
 
+/**
+ * What a run may vary. The registry is a parameter because the environment guard's coverage is a
+ * property of *this* function rather than of any verb — a verb the guard has never heard of is
+ * covered by being dispatched here, and that is only demonstrable if a verb can be dispatched that
+ * the registry above does not contain.
+ */
+export interface CliOverrides {
+    registry?: Record<string, VerbEntry>;
+    /** The account home the environment guard resolves component sets against. */
+    home?: string;
+}
+
 /** Run the CLI against explicit argv (no leading node/script segments) and IO. */
-export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
+export async function runNexusCli(argv: string[], io: CliIo, overrides: CliOverrides = {}): Promise<number> {
+    const registry: Record<string, VerbEntry> = overrides.registry ?? REGISTRY;
     const [verb, ...rest] = argv;
 
     if (verb === "--help" || verb === "help") {
@@ -689,11 +749,15 @@ export async function runNexusCli(argv: string[], io: CliIo): Promise<number> {
         io.stderr(USAGE);
         return 2;
     }
-    const entry: VerbEntry | undefined = REGISTRY[verb];
+    const entry: VerbEntry | undefined = registry[verb];
     if (entry === undefined) {
         io.stderr(`unknown verb '${verb}'\n${USAGE}`);
         return 2;
     }
+
+    // The guard reports before the verb runs, on standard error only, and its findings never reach
+    // the return value: the code below is the verb's own, whatever the environment looks like.
+    makeEnvironmentGuard(io, detectEnvironmentDefects({ cwd: io.cwd, home: overrides.home })).report();
     return entry.run(rest, io);
 }
 
