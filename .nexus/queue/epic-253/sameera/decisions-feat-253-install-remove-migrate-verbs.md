@@ -51,3 +51,9 @@
 - **Choice:** The guard still accepts `home`, and feeds it to `resolveInstallLocation` as the home-directory answer; the configuration-directory variable still wins over it.
 - **Why:** The account-side location becomes the location a verb would actually install to, which is what the story asks for, while the existing dispatcher-coverage tests keep expressing "this account's home" without knowing about install-location resolution.
 - **Refuted alternative:** Replace it with an `installLocation` override — more direct, but it lets a test bypass the resolution the guard is now supposed to share with the verbs.
+
+## 2026-08-27 — The install section is retitled and rewritten, not amended
+
+- **Choice:** README's "Installing & Updating" becomes "Installing" plus a separate "# Upgrading" section; the old repo-targeted `nexus deploy` walkthrough is replaced by `nexus install`.
+- **Why:** The record requires the section be rewritten — the allowlist entries cannot be added to a document that teaches the arrangement this epic exists to remove — and the upgrade notes need a heading of their own to be findable and testable as a distinct surface.
+- **Refuted alternative:** Keep one combined section and append an upgrade subsection; refuted because the two allowlist copies would then be indistinguishable to a test asserting each surface carries one.
