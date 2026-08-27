@@ -1,6 +1,6 @@
 ---
 concept: verb-reachability
-source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
+source_sha: 8ee682107a3097934430d04aa723a71cfbeeac59
 generated: 2026-08-27
 ---
 
@@ -9,14 +9,14 @@ generated: 2026-08-27
 
 # Code Anchors: Verb Reachability
 
-- `libs/portable-tools/src/nexus-cli.ts` — the declarative `VerbEntry` registry (summary, usage, runnable) every reachable capability is registered in; eager static imports of all ten newly reachable capabilities; the composed usage text and the dispatcher lookup both read from the same registry object; the workspace status, docs-root, epic-resolve, and pr-worktree verbs now all parse the shared target-root helper before their own argument handling.
+- `libs/portable-tools/src/nexus-cli.ts` — the declarative `VerbEntry` registry (summary, usage, runnable) every reachable capability is registered in, now carrying each dispatching verb's `subverbs` array, the derived `DISPATCH_NAMES` surface, and the one membership guard at the top of each subverb dispatcher that reads that same array; eager static imports of all ten newly reachable capabilities; the composed usage text and the dispatcher lookup both read from the same registry object; the workspace status, docs-root, epic-resolve, and pr-worktree verbs now all parse the shared target-root helper before their own argument handling.
 - `libs/portable-tools/src/nexus-cli.spec.ts` — verb dispatch coverage for every newly reachable capability.
-- `libs/portable-tools/src/parity.spec.ts` — the migration axis, now retired for the five distiller capabilities: every case that ran a standalone launcher runs the dispatcher with the matching verb instead.
+- `libs/portable-tools/src/parity.spec.ts` — the migration axis, now fully retired: the script-vs-verb and verb-vs-standalone axes went with the files they compared, leaving the durable source-vs-bundle axis and the real-workspace entry-diff case.
 - `libs/portable-tools/src/build-bundles.ts` — the entry-point map is now a single entry: the launcher registrations went with the launchers, leaving one runnable artifact per toolkit.
 - `libs/portable-tools/src/build-bundles.spec.ts` — pins the launcher-fronted `ENTRY_POINTS` mapping.
 
 - `libs/portable-tools/src/component-composition.ts` — the structural payload-boundary check: no vendored component file may import a workspace package, unless waived.
-- `libs/portable-tools/src/component-composition-waivers.ts` — the shrink-only waiver register naming the legacy component scripts still awaiting the invocation rewrite.
+- `libs/portable-tools/src/component-composition-waivers.ts` — the shrink-only waiver register, now empty: the legacy component scripts it named were deleted once no body named them.
 - `libs/portable-tools/src/component-composition.spec.ts` — composition-check coverage.
 - `libs/portable-tools/corpus/bin/gh` — the hermetic, PATH-shimmed `gh` stand-in the migration axis matches by argv shape, answering from committed fixtures.
 - `libs/portable-tools/corpus/epic-resolve/success.json`, `libs/portable-tools/corpus/epic-resolve/not-found.json` — fixtures the `gh` stand-in answers from for the epic-resolve migration-axis cases.
@@ -30,3 +30,6 @@ generated: 2026-08-27
 - `libs/portable-tools/src/build-bundles.spec.ts` — pins the collapsed single-entry map after the launcher deletions.
 - `libs/gh-toolkit/nexus_gh/delivery_config.py` — the second toolkit's last module-level self-run guard, deleted, leaving its dispatcher the only process boundary.
 - `libs/gh-toolkit/bin/nexus-gh` — that one process boundary, and where the toolkit's byte-code suppression is set once for every capability.
+- `libs/gh-toolkit/nexus_gh/cli.py` — `capability_listing` and the `--capabilities` branch: the second toolkit's declared names answered as sorted machine-readable output, beside the human `usage()` prose.
+- `libs/gh-toolkit/tests/test_capability_listing.py` — pins that listing's shape and sortedness, and its independence from the human usage text.
+- `libs/portable-tools/src/nexus-cli.spec.ts` — subverb-guard coverage: an undeclared subverb is rejected from the declared array with the existing message and exit code.

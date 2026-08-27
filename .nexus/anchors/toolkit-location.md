@@ -1,6 +1,6 @@
 ---
 concept: toolkit-location
-source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
+source_sha: 8ee682107a3097934430d04aa723a71cfbeeac59
 generated: 2026-08-27
 ---
 
@@ -33,3 +33,8 @@ generated: 2026-08-27
 - `libs/portable-tools/src/release-gate.ts` — the release-time enforcement of this addressing rule: a shipped body may name a path only when the payload carries it.
 - `libs/portable-tools/src/release-gate.spec.ts` — gate coverage, including the component-internal script that passes and the moved capability that fails.
 - `docs/delivery/release-procedure.md` — step 4, where the gate stands ahead of the tag and the publish.
+- `.claude/commands/`, `.claude/skills/` — the shipped component bodies themselves, rewritten so every invocation names a toolkit and a dispatch name; the seven legacy skill scripts they used to name are deleted.
+- `libs/portable-tools/src/component-invocations.ts` — the build-time enforcement of this rule over those bodies, and the guard that stops a migrated body regressing to a path or an inherited interpreter.
+- `libs/pr-acceptance/src/scenario.ts`, `libs/pr-acceptance/src/verify.ts` — the harness exception: it reaches the second toolkit through an explicitly handed checkout root, because its purpose is to drive a repository other than the one it runs in.
+- `libs/portable-tools/src/cross-ref-docs-root.spec.ts`, `libs/portable-tools/src/docs-root-readout.spec.ts` — specs repointed onto the maintainer's one from-source shape when the scripts they drove were deleted, keeping the capability coverage.
+- `docs/features/component-distribution/README.md` — where the maintainer's from-source route lives now that it is out of every shipped body.

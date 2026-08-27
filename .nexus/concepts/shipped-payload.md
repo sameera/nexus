@@ -1,8 +1,8 @@
 ---
 title: "Shipped Payload"
 aliases: ["defined payload", "payload filter", "payload fingerprint", "stated set", "byte-code suppression", "payload manifest", "what ships"]
-touches: ["published-package", "portable-tooling", "release-gate", "verb-reachability"]
-last_updated_by: "#252"
+touches: ["component-invocation-gate", "published-package", "portable-tooling", "release-gate", "verb-reachability"]
+last_updated_by: "#250"
 status: active
 verification: verified
 ---
@@ -33,6 +33,7 @@ The pin carries one entry for the executable and one for the payload, and stays 
 
 ## Integration Points
 
+- [component-invocation-gate](component-invocation-gate.md) — the same stated set decides which component bodies that gate reads, so no shipped body escapes it.
 - [published-package](published-package.md) — the allowlist that admits this set, and the release tree it is staged into at a fixed depth beneath the version declaration.
 - [portable-tooling](portable-tooling.md) — shares the two-entry fingerprint pin: one entry for the built executable, one for this payload.
 - [release-gate](release-gate.md) — reads what this payload carries to decide whether a shipped body's path reference still resolves after an install.
@@ -43,3 +44,7 @@ The pin carries one entry for the executable and one for the payload, and stays 
 ### 2026-08-27 — #252 — The payload becomes a stated set, hashed in code-unit order
 
 The walk applied no filter, so gitignored byte-code and the toolkit's own tests rode along: the fingerprint was a property of the machine that produced it, and adopters received tests they will never run. The filter is a denylist of incidental categories rather than an allowlist of files, because a new capability module must ship the moment it is written and a new test file must never ship — naming categories gives both properties without an edit per file, while the existing structural check keeps answering the different question of what is checkout-bound. Byte-code is suppressed at the entry point rather than merely filtered, because filtering fixes the fingerprint but leaves a stage dropping cache directories into the repository it ran against. Refuted: an explicit manifest of shipped files, the most auditable definition, but it silently omits any module someone forgot to add — a failure that surfaces as a broken adopter install rather than as a red gate.
+
+### 2026-08-27 — #250 — Reciprocal link from component-invocation-gate
+
+Mechanical reciprocity fan-out: the component-invocation-gate page names this stated set as the definition of which bodies it reads, so a body cannot ship ungated.
