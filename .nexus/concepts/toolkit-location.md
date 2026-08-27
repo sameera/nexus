@@ -1,7 +1,7 @@
 ---
 title: "Toolkit Location"
 aliases: ["by-name toolkit addressing", "second toolkit", "python toolkit", "self-locating entry point", "no repository-relative toolkit path", "toolkit found on the path"]
-touches: ["verb-reachability", "publishing-config-resolution", "target-root-convention"]
+touches: ["verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity"]
 last_updated_by: "#249"
 status: active
 verification: verified
@@ -31,9 +31,14 @@ Locating a toolkit takes the same two steps in both directions. The installed na
 - [verb-reachability](verb-reachability.md) — that rule decides which capabilities become reachable names; this one decides how a named toolkit is then found at invocation time.
 - [publishing-config-resolution](publishing-config-resolution.md) — its hub-defaults layer locates the executable by name here, keeping its degrade-to-empty and never-spawn guards intact.
 - [target-root-convention](target-root-convention.md) — the complement: that convention says where a capability's project lives, this one says where its toolkit lives.
+- [release-identity](release-identity.md) — applies this same self-locating rule to the release's version declaration, walking up from the reader's own position rather than assuming a layout.
 
 ## Decision Log
 
 ### 2026-08-26 — #249 — Two toolkits, each named, neither reaching into a repository for the other
 
 The second toolkit was given one name and a dispatcher of its own rather than being rewritten into the first: every one of its imports is standard library, so a rewrite would have reduced the toolkit count without enabling anything the installation needed. Its home moved out of the deployed component tree, because that tree is where components are installed, not where toolkit code lives, and the payload ships the two halves separately. No compatibility shim was left behind at the old locations: a shim could only have reached the moved capabilities through a repository-relative hop, which is precisely the addressing this work exists to delete — so the invocation strings inside Nexus's own component bodies were knowingly left naming deleted files, an interval that closes when the name reaches an installed path. In the other direction the candidate-file search — this repository's copy, then a hop into a sibling directory — was replaced by resolution by name, since a hub and a member now reach the same install the same way. Refuted alternatives: keeping shims until the invocation rewrite lands; and a dedicated locator package, which would have bought nothing but build wiring over an export on the package both callers already depend on.
+
+### 2026-08-26 — #251 — Reciprocal link from release-identity
+
+The release's one version declaration is reached the same way a named toolkit is: by walking up from the reader's own file position, so no layout is written down. Recorded here as the reciprocal edge.

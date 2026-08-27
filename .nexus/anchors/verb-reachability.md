@@ -1,6 +1,6 @@
 ---
 concept: verb-reachability
-source_sha: 7b17dd760610bf045621a8a9b196859edd06aac1
+source_sha: bc452aa34f9fac29a4af6e74e5fe97b044d08974
 generated: 2026-08-26
 ---
 
@@ -28,3 +28,6 @@ generated: 2026-08-26
 - `libs/abs-doc-path/src/resolve.ts`, `libs/abs-doc-path/src/settings.ts`, `libs/abs-doc-path/src/repo-root.ts`, `libs/abs-doc-path/src/normalize.ts` — the documentation-path capability's own logic, lifted from its script into a library ahead of becoming a verb, keeping its hand-rolled manifest parser unchanged for parity.
 - `libs/pr-acceptance/src/cli.ts` — the acceptance harness's entry point, relocated beside its own library, outside every vendored component subtree; gains no verb.
 - `.claude/skills/nxs-pr-acceptance/SKILL.md` — deleted; the harness stops being agent-invocable.
+- `libs/portable-tools/src/environment-guard.ts` — the cross-cutting guard the dispatcher runs before dispatch, so a verb added later inherits it with no code of its own.
+- `libs/portable-tools/src/environment-guard.spec.ts` — the standard-error-only, unchanged-exit-code and report-once properties the placement guarantees.
+- `libs/portable-tools/src/release.ts` — the release the `version` verb reports, declared in both toolkits' registries under the shared one-object verb contract.
