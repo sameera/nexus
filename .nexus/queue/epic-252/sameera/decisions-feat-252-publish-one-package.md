@@ -63,3 +63,15 @@
 - **Choice:** `payload-manifest.json` records a per-file content hash; the pin keeps its two entries and remains the sole pass/fail authority.
 - **Why:** A single payload digest can only report that something moved. Naming *what* differs needs per-file evidence, and writing it in the same step as the pin means the two can never describe different runs.
 - **Refuted alternative:** Expanding the pin into a per-file structure, which would break the stated "one bundle entry plus the payload entry" shape.
+
+## 2026-08-26 — The changelog's rules are executable, not editorial
+
+- **Choice:** `checkReleaseEntry` enforces the entry's content — no commit subjects, file paths or library versions; a stage named when a component body changed; an explicit statement when nothing changed — and the suite runs it against the live entry.
+- **Why:** The story exists because a release-day habit is exactly what fails silently. A rule the test suite enforces is one a release cannot be cut past.
+- **Refuted alternative:** Documenting the rules in the release procedure only, which is what "a release-day habit" means.
+
+## 2026-08-26 — The changelog lives on the releases page
+
+- **Choice:** `CHANGELOG.md` in the repository is the source, and step 6 of the procedure pastes the section into the GitHub release for the tag.
+- **Why:** The registry listing is a weaker changelog surface, and the two are not exclusive — Nexus lives in a git repository whichever channel installs it.
+- **Refuted alternative:** Relying on the registry listing alone.

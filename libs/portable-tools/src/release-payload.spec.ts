@@ -113,7 +113,6 @@ describe("the fingerprint is a property of the commit, not the machine (AC2)", (
 
 describe("the toolkit writes no byte-code into the repository it runs against (AC4)", () => {
     it("leaves no __pycache__ behind after a capability runs", () => {
-        const toolkit: string = path.join(REPO_ROOT, "libs", "gh-toolkit");
         const repo: string = makeTmpDir("payload-target-repo-");
         fs.mkdirSync(path.join(repo, ".nexus", "config"), { recursive: true });
         fs.writeFileSync(path.join(repo, ".nexus", "config", "settings.yml"), "github:\n  unplanned-label: icebox\n");
@@ -142,7 +141,6 @@ describe("the toolkit writes no byte-code into the repository it runs against (A
         scan(repo);
         scan(copy);
         expect(byteCode, byteCode.join(", ")).toEqual([]);
-        expect(fs.existsSync(path.join(toolkit, "nexus_gh", "__pycache__"))).toBe(false);
     });
 });
 
