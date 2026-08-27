@@ -25,6 +25,8 @@ interface Manifest {
     files?: string[];
     dependencies?: Record<string, string>;
     publishConfig?: { access?: string };
+    os?: string[];
+    engines?: Record<string, string>;
 }
 
 const manifest: Manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
@@ -52,6 +54,39 @@ describe("the manifest declares a publishable package (AC2, AC3)", () => {
 
     it("fetches nothing at install time beyond the package itself", () => {
         expect(manifest.dependencies ?? {}).toEqual({});
+    });
+});
+
+describe("the manifest and the readme declare the environment a release supports (invariant 17)", () => {
+    const readme: string = fs.readFileSync(path.join(REPO_ROOT, "README.md"), "utf8");
+
+    /** The body of a top-level readme section, by heading text. */
+    function section(heading: string): string {
+        const start: number = readme.indexOf(`# ${heading}`);
+        expect(start, `readme has no "${heading}" section`).toBeGreaterThan(-1);
+        const rest: string = readme.slice(start);
+        const next: number = rest.slice(1).search(/\n#{1,2} /);
+        return next === -1 ? rest : rest.slice(0, next + 1);
+    }
+
+    it("targets POSIX-like platforms only", () => {
+        expect(manifest.os ?? []).toEqual(expect.arrayContaining(["darwin", "linux"]));
+        expect(manifest.os ?? []).not.toContain("win32");
+    });
+
+    it("declares the Python interpreter floor beside the Node one", () => {
+        expect(manifest.engines?.node ?? "").toMatch(/^>=\d+\.\d+/);
+        expect(manifest.engines?.python ?? "").toMatch(/^>=\d+\.\d+/);
+    });
+
+    it("names the same platforms and floors where an adopter reads them before installing", () => {
+        const requirements: string = section("Requirements");
+        const nodeFloor: string = (manifest.engines?.node ?? "").replace(/^>=/, "");
+        const pythonFloor: string = (manifest.engines?.python ?? "").replace(/^>=/, "");
+        expect(requirements).toMatch(/macOS/i);
+        expect(requirements).toMatch(/Linux/i);
+        expect(requirements).toContain(nodeFloor);
+        expect(requirements).toContain(pythonFloor);
     });
 });
 

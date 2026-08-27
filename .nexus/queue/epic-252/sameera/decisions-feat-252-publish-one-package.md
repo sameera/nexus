@@ -28,6 +28,12 @@
 - **Why:** A package manager links a declared binary onto the caller's path as a symlink, so an installed run names the link while the module knows its resolved location. The old string comparison made the installed executable exit 0 having done nothing.
 - **Refuted alternative:** none.
 
+## 2026-08-26 — The Python floor is 3.10, declared in `engines`
+
+- **Choice:** `engines.python: ">=3.10"` beside the Node floor, plus `os: ["darwin", "linux"]`, and a readme Requirements section naming both.
+- **Why:** 3.10 is the lowest interpreter the toolkit actually runs on — `create_epic.py` annotates a module-level assignment `str | None`, which 3.9 evaluates at import and rejects. Declaring a higher floor would exclude adopters for no reason. `engines` is where a reader looks for an interpreter floor even though the registry only enforces the Node key.
+- **Refuted alternative:** Declaring 3.12 (the development machine's version), which states a support boundary no code requires.
+
 ## 2026-08-26 — The payload filter is a denylist of categories
 
 - **Choice:** `PAYLOAD_IGNORE` names the incidental categories (`__pycache__`, `*.pyc`, `tests`, `test_*.py`) rather than allowlisting the files that ship.
