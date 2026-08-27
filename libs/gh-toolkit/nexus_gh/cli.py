@@ -8,6 +8,7 @@ capability name onto the module that already implements it and hands the remaini
 arguments through untouched, so every capability's flags, output and exit code are the ones
 it had when it was invoked as a file.
 
+    nexus-gh version                           the release this toolkit is part of
     nexus-gh config <delivery_config args>     the shared delivery-configuration resolver
     nexus-gh create-epic <epic args>           the epic filer
     nexus-gh create-story <story args>         the story filer
@@ -21,6 +22,24 @@ import sys
 from collections.abc import Callable
 
 TOOLKIT_NAME = "nexus-gh"
+
+
+def _version(argv: list[str]) -> int:
+    """Report the release, as one JSON object on standard output — the verb contract both
+    toolkits keep. The version is the release's single declaration, never a literal here."""
+    from .release import release_version
+
+    if argv and argv[0] in ("-h", "--help"):
+        print(f"usage: {TOOLKIT_NAME} version")
+        print()
+        print("Print the release this toolkit is part of, as one JSON object.")
+        return 0
+    if argv:
+        print(f"usage: {TOOLKIT_NAME} version", file=sys.stderr)
+        print(f"{TOOLKIT_NAME} version: unexpected argument '{argv[0]}'", file=sys.stderr)
+        return 2
+    print(json.dumps({"version": release_version()}))
+    return 0
 
 
 def _config(argv: list[str]) -> int:
@@ -44,6 +63,7 @@ def _create_story(argv: list[str]) -> int:
 # Capability name → the function that runs it. A capability cannot exist without a row here,
 # because the usage text listing the available names is rendered from this same mapping.
 CAPABILITIES: dict[str, tuple[str, Callable[[list[str]], int]]] = {
+    "version": ("Report the release this toolkit is part of.", _version),
     "config": ("Resolve delivery configuration (the shared publishing resolver).", _config),
     "create-epic": ("File a GitHub issue from an epic document.", _create_epic),
     "create-story": ("File one GitHub issue per STORY-*.md work item.", _create_story),

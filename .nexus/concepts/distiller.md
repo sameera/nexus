@@ -2,7 +2,7 @@
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
 touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability"]
-last_updated_by: "#247"
+last_updated_by: "#257"
 status: active
 verification: verified
 ---
@@ -32,7 +32,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [distillation-pr](distillation-pr.md) — the reviewed write it applies through.
 - [code-anchors](code-anchors.md) — derived sidecars regenerated per touched concept.
 - [scratch-capture](scratch-capture.md) — an input boundary, never read.
-- [portable-tooling](portable-tooling.md) — the offline tooling a hub drain runs.
+- [portable-tooling](portable-tooling.md) — the installed toolkit a hub drain derives its cross-repo diff through.
 - [close-entry-migration](close-entry-migration.md) — the migrated entry a relocated epic drains from.
 - [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decision and gate.
 - [drift-advisory](drift-advisory.md) — the non-blocking decay report.
@@ -120,3 +120,7 @@ A discovery folder is committed, and it holds in-flight reasoning that no human 
 ### 2026-08-23 — #247 — Reciprocal link from verb-reachability
 
 Mechanical reciprocity fan-out: the verb-reachability page names this drain's atlas, validator, entry-diff, drift-advisory and registry-seeding steps as now also reachable as verbs on the shared executable, alongside their standalone forms through the duplication window.
+
+### 2026-08-27 — #257 — One invocation for the deterministic steps, in every mode
+
+The deterministic steps stopped choosing their runner from the checkout's role: the validator, the atlas regeneration and the drift advisory now run through the single in-repo invocation whatever the mode, and the hub branch that named a copy inside the repository is gone. That branch only ever existed because a hub carried its own copy of the toolkit; once the copy was retired the branch named nothing, so removing it was the honest reading rather than repointing it. What survives as a mode-gated call is the cross-repo diff derivation, which is genuinely a hub-only capability and is now asked for as a named capability on the installed toolkit rather than as a file inside the hub — a toolkit too old to offer it reports an install to update, not a missing file. The surviving single-mode validator instruction also absorbed the stricter argument list the deleted hub branch carried, because anchors are regenerated in every mode and the weaker form would have silently dropped their validation. Refuted alternative: keep the role branch and point its hub arm at the installed toolkit, preserving the shape — but it keeps a distinction alive for tooling that no longer has anything to distinguish.

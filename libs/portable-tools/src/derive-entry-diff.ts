@@ -14,7 +14,7 @@
  * writes — it reads only.
  *
  * Usage:
- *   node .nexus/tools/derive-entry-diff.mjs --entry <queue-entry-dir> [--hub <hub-root>]
+ *   node <tools-dir>/nexus.mjs derive-entry-diff --entry <queue-entry-dir> [--hub <hub-root>]
  */
 
 import * as fs from "node:fs";
@@ -205,5 +205,4 @@ export function runCli(argv: string[]): number {
 }
 
 // No self-exec guard here (decision record #277): the process boundary lives once, in the
-// dispatcher (`nexus-cli.ts`) or in this capability's own standalone launcher
-// (`derive-entry-diff-launcher.ts`) — never in the capability itself, which must be import-safe.
+// dispatcher (`nexus-cli.ts`) — never in the capability itself, which must be import-safe.

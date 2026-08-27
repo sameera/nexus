@@ -1,0 +1,3 @@
+# The published set is the manifest's `files` allowlist. This file exists only to stop npm
+# falling back to .gitignore, which excludes the staged release tree (`dist/`) that IS the
+# package payload.

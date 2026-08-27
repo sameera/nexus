@@ -1,23 +1,20 @@
 /**
- * CLI entry for the nx "bundle" target: builds every entry point into a self-contained ESM
- * bundle under dist/bundle/. Never hand-invoked as part of distillation — only used to produce
- * the artifact that a later story vendors into a hub.
+ * CLI entry for the nx "bundle" target: builds the release's JavaScript executable into a
+ * self-contained ESM bundle.
+ *
+ * There is one entry point (story #309). The build used to produce six — `nexus` plus five
+ * standalone launchers — but every one of those five capabilities has been reachable as a verb
+ * on `nexus` since story #247, and the only consumer that ever needed them as separate files was
+ * the vendored bundle. One entry point is also what lets the fingerprint pin be two entries: the
+ * bundle and the payload.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { buildBundle } from "./bundle.js";
+import { isDirectRun } from "./entry-point.js";
 
-// The five standalone artifacts point at their launcher file, not the capability file directly
-// (decision record #277): the capability files carry no process boundary of their own (so
-// `nexus-cli.ts` can import them without triggering a self-run), and each launcher is the one
-// place that still unconditionally invokes `runCli` for that standalone artifact's build.
 export const ENTRY_POINTS: Record<string, string> = {
-    "generate-atlas": "generate-atlas-launcher.ts",
-    "validate-concepts": "validate-concepts-launcher.ts",
-    "derive-entry-diff": "derive-entry-diff-launcher.ts",
-    "drift-advisory": "drift-advisory-launcher.ts",
-    "seed-registry": "seed-registry-launcher.ts",
-    "nexus": "nexus-cli.ts",
+    nexus: "nexus-cli.ts",
 };
 
 export async function buildAllBundles(srcDir: string, outDir: string): Promise<string[]> {
@@ -40,6 +37,6 @@ async function main(): Promise<void> {
     }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url, process.argv[1])) {
     main();
 }

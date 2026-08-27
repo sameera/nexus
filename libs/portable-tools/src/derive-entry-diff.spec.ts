@@ -8,7 +8,9 @@ import { deriveEntryDiff, parseRange, renderDeriveFailure, renderRepoDiffs, runC
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
-const TOOL_SRC: string = path.join(__dirname, "derive-entry-diff-launcher.ts");
+const TOOL_SRC: string = path.join(__dirname, "nexus-cli.ts");
+// One executable since story #309: the capability is reached as a verb on the dispatcher.
+const TOOL_VERB = "derive-entry-diff";
 
 let tmpDirs: string[] = [];
 function makeParent(): string {
@@ -413,7 +415,7 @@ describe("CLI (subprocess)", () => {
         const { hubRoot, web } = buildHubFixture(parent);
         const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head }]);
 
-        const stdout = execFileSync(TSX_BIN, [TOOL_SRC, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
+        const stdout = execFileSync(TSX_BIN, [TOOL_SRC, TOOL_VERB, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
         expect(stdout).toContain("=== repo github.com/acme/web-app");
         expect(stdout).toContain(web.base);
         expect(stdout).toContain(web.head);
@@ -426,7 +428,7 @@ describe("CLI (subprocess)", () => {
         const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/api", base: api.base, head: api.head }]);
 
         try {
-            execFileSync(TSX_BIN, [TOOL_SRC, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
+            execFileSync(TSX_BIN, [TOOL_SRC, TOOL_VERB, "--entry", entryDir, "--hub", hubRoot], { encoding: "utf8" });
             expect.unreachable("expected non-zero exit");
         } catch (error) {
             const err = error as { status: number; stderr: string };

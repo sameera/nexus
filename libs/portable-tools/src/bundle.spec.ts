@@ -13,22 +13,19 @@ const SRC_DIR: string = __dirname;
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 const GENERATE_ATLAS_SRC: string = path.join(SRC_DIR, "generate-atlas.ts");
 const VALIDATE_CONCEPTS_SRC: string = path.join(SRC_DIR, "validate-concepts.ts");
-// The standalone-artifact launchers (story #274, decision record #277): the capability files
-// above carry no process boundary of their own (so `nexus-cli.ts` can import them without a
-// self-run), so only the launcher's bundle still executes `runCli` when run via plain `node`.
-const GENERATE_ATLAS_LAUNCHER_SRC: string = path.join(SRC_DIR, "generate-atlas-launcher.ts");
-const VALIDATE_CONCEPTS_LAUNCHER_SRC: string = path.join(SRC_DIR, "validate-concepts-launcher.ts");
+// The capability files above carry no process boundary of their own, so `nexus-cli.ts` can
+// import them without a self-run. Since story #309 the dispatcher is the only bundle entry
+// point, so it is also the only bundle that executes anything when run via plain `node`.
+const NEXUS_CLI_SRC: string = path.join(SRC_DIR, "nexus-cli.ts");
 
 let atlasBundle: BuiltBundle;
 let validatorBundle: BuiltBundle;
-let atlasLauncherBundle: BuiltBundle;
-let validatorLauncherBundle: BuiltBundle;
+let nexusBundle: BuiltBundle;
 
 beforeAll(async () => {
     atlasBundle = await buildBundle(GENERATE_ATLAS_SRC);
     validatorBundle = await buildBundle(VALIDATE_CONCEPTS_SRC);
-    atlasLauncherBundle = await buildBundle(GENERATE_ATLAS_LAUNCHER_SRC);
-    validatorLauncherBundle = await buildBundle(VALIDATE_CONCEPTS_LAUNCHER_SRC);
+    nexusBundle = await buildBundle(NEXUS_CLI_SRC);
 });
 
 let tmpDirs: string[] = [];
@@ -168,14 +165,14 @@ describe("bundle entry guard (Invariant 6)", () => {
         expect(fs.existsSync(path.join(dir, "docs"))).toBe(false);
     });
 
-    it("executes runCli when the atlas launcher bundle is launched via plain node", () => {
+    it("executes the atlas verb when the executable is launched via plain node", () => {
         const dir = makeTmpDir("portable-tools-run-");
-        const bundlePath = path.join(dir, "generate-atlas.mjs");
-        fs.writeFileSync(bundlePath, atlasLauncherBundle.code);
+        const bundlePath = path.join(dir, "nexus.mjs");
+        fs.writeFileSync(bundlePath, nexusBundle.code);
         const conceptsDir = makeTmpDir("portable-tools-fixture-");
         writeConcept(conceptsDir, "alpha", { title: "Alpha" });
         const outPath = path.join(dir, "out", "concepts.md");
-        execFileSync("node", [bundlePath, "--concepts-dir", conceptsDir, "--out", outPath], { cwd: dir });
+        execFileSync("node", [bundlePath, "generate-atlas", "--concepts-dir", conceptsDir, "--out", outPath], { cwd: dir });
         expect(fs.existsSync(outPath)).toBe(true);
     });
 });
@@ -191,15 +188,15 @@ describe("AC1 — atlas bundle parity", () => {
         writeConcept(conceptsDir, "solo", { title: "Solo" });
 
         const outsideDir = makeTmpDir("portable-tools-outside-");
-        const bundlePath = path.join(outsideDir, "generate-atlas.mjs");
-        fs.writeFileSync(bundlePath, atlasLauncherBundle.code);
+        const bundlePath = path.join(outsideDir, "nexus.mjs");
+        fs.writeFileSync(bundlePath, nexusBundle.code);
         const outPath = path.join(outsideDir, "out", "concepts.md");
 
         // The bundle computes its link prefix from where it actually writes (epic #74); the
         // in-repo comparison must use the identical output location to be a fair comparison.
         const fromSource: string = generateAtlas(conceptsDir, computeLinkPrefix(outPath, conceptsDir));
 
-        execFileSync("node", [bundlePath, "--concepts-dir", conceptsDir, "--out", outPath], { cwd: outsideDir });
+        execFileSync("node", [bundlePath, "generate-atlas", "--concepts-dir", conceptsDir, "--out", outPath], { cwd: outsideDir });
 
         expect(fs.readFileSync(outPath, "utf8")).toBe(fromSource);
     });
@@ -208,7 +205,7 @@ describe("AC1 — atlas bundle parity", () => {
 describe("AC2 — validator bundle parity", () => {
     function runSource(args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync(TSX_BIN, [VALIDATE_CONCEPTS_LAUNCHER_SRC, ...args], { cwd, encoding: "utf8" });
+            const stdout: string = execFileSync(TSX_BIN, [NEXUS_CLI_SRC, "validate-concepts", ...args], { cwd, encoding: "utf8" });
             return { status: 0, stdout, stderr: "" };
         } catch (error) {
             const err = error as { status: number; stdout: string; stderr: string };
@@ -218,7 +215,7 @@ describe("AC2 — validator bundle parity", () => {
 
     function runBundle(bundlePath: string, args: string[], cwd: string): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync("node", [bundlePath, ...args], { cwd, encoding: "utf8" });
+            const stdout: string = execFileSync("node", [bundlePath, "validate-concepts", ...args], { cwd, encoding: "utf8" });
             return { status: 0, stdout, stderr: "" };
         } catch (error) {
             const err = error as { status: number; stdout: string; stderr: string };
@@ -228,8 +225,8 @@ describe("AC2 — validator bundle parity", () => {
 
     function writeBundle(): string {
         const dir = makeTmpDir("portable-tools-validator-bundle-");
-        const bundlePath = path.join(dir, "validate-concepts.mjs");
-        fs.writeFileSync(bundlePath, validatorLauncherBundle.code);
+        const bundlePath = path.join(dir, "nexus.mjs");
+        fs.writeFileSync(bundlePath, nexusBundle.code);
         return bundlePath;
     }
 

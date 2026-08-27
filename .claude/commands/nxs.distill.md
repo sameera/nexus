@@ -339,7 +339,7 @@ recomputed branches on the Phase 0.3 mode.
 **Hub mode.** The recorded range is the only diff source — after migration the entry no longer
 shares history with the code, and the entry's introducing commit here is the *migration* commit
 (its diff would be the migration's file moves: confidently wrong). Never use the
-introducing-commit path in hub mode. Per entry, run the vendored derivation tool with each
+introducing-commit path in hub mode. Per entry, run the derivation tool with each
 argument its own quoted token — never a shell-interpolated string:
 
     ```bash
@@ -347,9 +347,7 @@ argument its own quoted token — never a shell-interpolated string:
     ```
 
     If the toolkit reports no such verb, the installed toolkit predates this capability — stop and
-    tell the operator to upgrade it per
-    `docs/features/multi-repo-workspaces/hub-tooling-install.md`; do not derive the diff another
-    way.
+    tell the operator to update their Nexus install; do not derive the diff another way.
 
     The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
     full SHAs), resolves each named repo to its sibling member checkout through the workspace
@@ -683,16 +681,15 @@ Run these for each entry, in order, before its commit:
     ```
 
 3. **Mode-conditional rules for the deterministic steps.** Steps 4 and 5 run the same commands
-   whatever the mode — the toolkit is addressed by name, so there is nothing to choose. What the
-   run mode **already resolved once in Phase 0.3** still governs is what those commands are told
-   (that check reads workspace resolution's own committed artifacts, never a new heuristic — e.g.
-   never "no `package.json`"):
+   whatever the mode — the toolkit is addressed by name, so there is nothing to choose. Pass every
+   page path and git ref as its own separate, quoted argument — never build the command by
+   interpolating a shell string. What the run mode **already resolved once in Phase 0.3** still
+   governs is what those commands are told (that check reads workspace resolution's own committed
+   artifacts, never a new heuristic — e.g. never "no `package.json`"):
 
-    - **hub**: pass every page path and git ref as its own separate, quoted argument — never
-      build the command by interpolating a shell string. The regenerated anchor sidecars are
-      validated alongside the pages (Step 5), because the per-repo `source_sha` mapping shape is
-      part of the contract.
-    - **single-repo**: no extra argument discipline applies.
+    - **hub**: the regenerated anchor sidecars are validated alongside the pages (Step 5), because
+      the per-repo `source_sha` mapping shape is part of the contract.
+    - **single-repo**: the changed pages alone are named — there are no anchor sidecars.
     - **member**: a member repo does not drain — Phase 0.3 already stopped the run before this
       point.
 

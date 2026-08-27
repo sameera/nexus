@@ -209,6 +209,15 @@ This repository root contains:
 When any command or agent references paths under `system/`, `docs/`, or `scripts/`, treat them as relative to this repository root, not as absolute filesystem paths.
 ```
 
+# Requirements
+
+Nexus ships as one package carrying both toolkits, so an adopter supplies only the two interpreters they run on:
+
+- **Node.js 22.22.0 or newer** — runs the `nexus` executable.
+- **Python 3.10 or newer** — runs the `nexus-gh` toolkit.
+
+Supported platforms are **macOS and Linux**. A release targets POSIX-like environments only; on Windows, run Nexus inside WSL.
+
 # Installing & Updating
 
 Installing Nexus into a repo — and refreshing it later — is one command, the portable `nexus` CLI (the legacy `nxs.update.claude.sh` script is retired):
@@ -217,7 +226,7 @@ Installing Nexus into a repo — and refreshing it later — is one command, the
 node <tools-dir>/nexus.mjs deploy
 ```
 
-`<tools-dir>` is wherever the portable distributable lives (in a workspace hub: `.nexus/tools/`). The CLI ships as a self-contained bundle with the Nexus `.claude/` components vendored beside it, so it runs on a bare `node` binary — no install or build step, no in-repo toolchain.
+`<tools-dir>` is wherever the portable distributable lives. The CLI ships as a self-contained bundle with the Nexus `.claude/` components vendored beside it, so it runs on a bare `node` binary — no install or build step, no in-repo toolchain.
 
 `nexus deploy` does the following:
 

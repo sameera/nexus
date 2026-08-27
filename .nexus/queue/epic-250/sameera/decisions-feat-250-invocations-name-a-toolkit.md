@@ -69,3 +69,22 @@
 - **Choice:** `codeSpans` records the run length of the open fence and closes only on a marker at least that long with nothing trailing it; a shorter or trailed marker is fence content.
 - **Why:** The toggle-on-any-``` reader inverted its own state on an unbalanced inner fence and silently un-gated every invocation after it — three component bodies already nest 4- and 5-backtick fences, so the correct-by-accident balance was the only thing holding the gate up.
 - **Refuted alternative:** Ignore any fence marker longer than three backticks — cheaper, but it makes the outer block's contents scannable and would gate the illustrative invocations inside a `markdown` example as if they were real ones.
+
+## 2026-08-27 — The three migration axes retire together at the merge with #257
+
+- **Choice:** Merging `main` (which landed #257 and #252) drops the `#274` verb-vs-standalone axis along with the `#272`/`#273` script-vs-verb axes this branch had already deleted, so `parity.spec.ts` keeps only the durable source-vs-bundle axis plus the real-workspace `derive-entry-diff` case.
+- **Why:** #252 built one executable and deleted every standalone launcher, so the `#274` axis has no second artifact to compare against — the same reason this branch's script deletions emptied `#272`/`#273`.
+- **Refuted alternative:** Keep `#274` by comparing the executable against itself — a tautology the decision record already rejected for the other axes.
+
+## 2026-08-27 — The distill stage keeps the mode-conditional step, with the quoting rule lifted out of it
+
+- **Choice:** Phase 5.3 keeps this branch's mode-conditional heading and its hub/single-repo/member bullets, but the "each argument its own quoted token" rule moves above them, unconditional, as #257 made it on `main`.
+- **Choice detail:** the single-repo bullet now states what it lacks (no anchor sidecars) instead of "no extra argument discipline applies".
+- **Why:** Both sides collapsed the same duplication for different reasons; taking this branch's structure and `main`'s unconditional quoting keeps the eight "Phase 5.3–5.5" cross-references valid without narrowing the quoting rule back to hub mode.
+- **Refuted alternative:** Take `main`'s single collapsed paragraph — it loses the hub-only anchor-sidecar contract this branch's bullets carry.
+
+## 2026-08-27 — The stale-toolkit remediation names an action, not the retired install document
+
+- **Choice:** The distill stage's `derive-entry-diff` fallback tells the operator to update their Nexus install; the pointer to `docs/features/multi-repo-workspaces/hub-tooling-install.md` goes with the document #257 retired.
+- **Why:** A remediation that cites a deleted path is worse than one that cites none.
+- **Refuted alternative:** Repoint it at `docs/delivery/release-procedure.md` — that is the maintainer's release runbook, not an operator's install instruction.

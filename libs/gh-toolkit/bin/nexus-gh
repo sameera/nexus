@@ -12,6 +12,12 @@ never a bare `python`.
 import sys
 from pathlib import Path
 
+# A pipeline stage must leave no trace in the repository it ran against (story #309). The
+# interpreter would otherwise drop a `__pycache__` beside every module it imports — inside a
+# source checkout that is the repository itself, and inside an installed package it is a
+# directory the registry's own file manifest does not know how to remove.
+sys.dont_write_bytecode = True
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from nexus_gh.cli import main  # noqa: E402

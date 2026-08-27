@@ -1,8 +1,8 @@
 ---
 title: "Durable Close Record"
 aliases: ["close comment", "durable close rationale", "close machine block", "closing rationale"]
-touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub"]
-last_updated_by: "manual"
+touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp"]
+last_updated_by: "#251"
 status: active
 verification: verified
 ---
@@ -19,7 +19,7 @@ The close stage always posted its rationale onto the epic issue; that side effec
 
 1. The single durable copy of a close's rationale is the comment on the epic issue, in every mode.
 2. The comment inlines the key decisions and deviation rationale in full; nothing is thinned because the mirrored file is disposable.
-3. It stamps the record reference and hash, the conformance verdict, and the landed range in a marker-anchored block.
+3. It stamps the record reference and hash, the conformance verdict, the landed range, and which release wrote it, in a marker-anchored block — the writer beside the hash, never inside the bytes it covers.
 4. The stamped range is the exact range the close diffed, never recomputed afterwards.
 5. A failed post preserves the body, leaves the epic issue open, ends with a retry instruction, and never reports success.
 6. The comment links only durable targets, never a queue or ephemeral location.
@@ -33,6 +33,7 @@ The close stage always posted its rationale onto the epic issue; that side effec
 - [conformance-gate](conformance-gate.md) — the verdict, waiver included, that the stamped block carries onto the issue.
 - [record-digest](record-digest.md) — the approved-body hash stamped in full beside the record reference.
 - [backlog-stub](backlog-stub.md) — the deferred-scope issues filed before this comment is composed, whose numbers and backlog query it then carries.
+- [writer-stamp](writer-stamp.md) — the record of which release wrote this comment's block and the mirrored file, placed beside the record hash rather than inside it.
 
 ## Decision Log
 
@@ -43,3 +44,7 @@ Promoting the close comment from an incidental side effect to the definition of 
 ### 2026-08-06 — manual — Reciprocal link from backlog-stub
 
 Mechanical reciprocity fan-out: the backlog-stub page names the ordering this comment imposes — deferred scope is filed as stub issues after the checkpoint and before the comment is composed, because the comment carries those numbers and the backlog query that finds them. Declared by hand because both epics involved had already drained; the edge was dropped at distillation only because a reciprocal bullet did not fit under the pre-#220 body cap.
+
+### 2026-08-26 — #251 — The stamped block records its own writer
+
+The close comment's machine block and the mirrored close-record file now record which release wrote them, so a later change to how these facts are written is detectable instead of silently invalidating closes already in flight. The record sits beside the record hash, never inside the bytes that hash covers, so stamping leaves every value a later stage verifies exactly as it was. It is written even when the project's own record template — a tuned file that seeding never overwrites — predates the field and carries no placeholder for it: the command's field list is authoritative, not the template's. Where the release cannot be resolved the field is omitted rather than defaulted, because an absent record already reads as an unknown writer. Refuted: writing the field only when the template offers a placeholder, which would leave every project that tuned its template silently unstamped.
