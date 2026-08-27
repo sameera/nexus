@@ -26,7 +26,7 @@ const declaredVersion: string = fs.readFileSync(path.join(REPO_ROOT, "VERSION"),
 const manifestVersion: string = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")).version;
 const entries: ReleaseEntry[] = parseChangelog(fs.readFileSync(CHANGELOG_PATH, "utf8"));
 
-const changed = { touchedComponentBody: true, changedStageBehaviour: true };
+const changed = { touchedComponentBody: true, changedStageBehaviour: true, breakingChange: false };
 
 describe("one tag, one registry version, one releases-page entry (AC1)", () => {
     it("the manifest, the changelog and a tag all name what VERSION declares", () => {
@@ -119,7 +119,7 @@ describe("a release that changed no stage behaviour says so (AC5)", () => {
     it("requires the explicit statement rather than an absent entry", () => {
         const findings: string[] = checkReleaseEntry(
             { version: "1.0.1", items: ["Nothing much."] },
-            { touchedComponentBody: false, changedStageBehaviour: false },
+            { touchedComponentBody: false, changedStageBehaviour: false, breakingChange: false },
         );
         expect(findings.join("\n")).toContain("must say so explicitly");
     });
@@ -128,13 +128,79 @@ describe("a release that changed no stage behaviour says so (AC5)", () => {
         expect(
             checkReleaseEntry(
                 { version: "1.0.1", items: [NO_BEHAVIOUR_CHANGE] },
-                { touchedComponentBody: false, changedStageBehaviour: false },
+                { touchedComponentBody: false, changedStageBehaviour: false, breakingChange: false },
             ),
         ).toEqual([]);
     });
 
     it("an entry with no items is a finding, never silence", () => {
         expect(checkReleaseEntry({ version: "1.0.1", items: [] }, changed).join("\n")).toContain("has no items");
+    });
+});
+
+describe("below 1.0 a breaking change is said in words (invariant 16)", () => {
+    const broke = { touchedComponentBody: true, changedStageBehaviour: true, breakingChange: true };
+
+    it("requires the word, because the version number does not carry the signal", () => {
+        const findings: string[] = checkReleaseEntry(
+            { version: "0.2.0", items: ["The close stage now refuses an epic whose record is unapproved."] },
+            broke,
+        );
+        expect(findings.join("\n")).toContain("breaking");
+    });
+
+    it("accepts an entry that says so", () => {
+        expect(
+            checkReleaseEntry(
+                {
+                    version: "0.2.0",
+                    items: [
+                        "Breaking: the close stage now refuses an epic whose record is unapproved, so a " +
+                            "pipeline that closed one before must approve the record first.",
+                    ],
+                },
+                broke,
+            ),
+        ).toEqual([]);
+    });
+
+    it("says nothing about a release that broke nothing", () => {
+        expect(
+            checkReleaseEntry(
+                { version: "0.2.0", items: ["The close stage now names the record it checked against."] },
+                changed,
+            ),
+        ).toEqual([]);
+    });
+
+    it("leaves the wording to the version number once 1.0 is out, where the number carries it", () => {
+        expect(
+            checkReleaseEntry(
+                { version: "2.0.0", items: ["The close stage now refuses an epic whose record is unapproved."] },
+                broke,
+            ),
+        ).toEqual([]);
+    });
+});
+
+describe("the procedure records what the suite does not check (record #334, ADDRESS risks)", () => {
+    const procedure: string = fs.readFileSync(PROCEDURE_PATH, "utf8");
+
+    it("states that the entry's coverage is the author's judgement, not the suite's", () => {
+        expect(procedure).toContain("coverage");
+        expect(procedure).toMatch(/the suite checks[^.]*language/i);
+    });
+
+    it("hands the author the diff that shows which component bodies this release moved", () => {
+        expect(procedure).toContain("git diff --name-only");
+    });
+
+    it("states the breaking-change rule a pre-1.0 entry has to follow", () => {
+        expect(procedure.toLowerCase()).toContain("breaking");
+    });
+
+    it("records that the declared interpreter floor is the whole of the prerequisite answer", () => {
+        expect(procedure).toMatch(/interpreter floor|python.{0,20}floor/i);
     });
 });
 

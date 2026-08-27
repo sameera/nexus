@@ -82,6 +82,14 @@ class NoLayoutIsEncodedInTheSources(unittest.TestCase):
             with self.subTest(source=source.name):
                 self.assertNotIn("sys.path", source.read_text(encoding="utf-8"))
 
+    def test_no_toolkit_module_offers_a_second_entry_point(self):
+        # Byte-code suppression lives in the single declared entry point (record #334, invariant
+        # 8). A module with its own `__main__` guard is a second door past it, and the first
+        # sibling import through that door writes byte-code into whatever repository ran it.
+        for source in sorted(_PACKAGE.glob("*.py")):
+            with self.subTest(source=source.name):
+                self.assertNotIn('__name__ == "__main__"', source.read_text(encoding="utf-8"))
+
     def test_the_filers_reach_the_resolver_by_package_relative_import(self):
         for name in ("create_epic.py", "create_story.py"):
             with self.subTest(source=name):
