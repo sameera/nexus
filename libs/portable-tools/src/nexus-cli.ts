@@ -10,6 +10,7 @@
  * completion on a bare `node` binary with no install step.
  *
  * Verbs:
+ *   nexus install                      install the Nexus components at the configuration directory
  *   nexus deploy                       install the Nexus components into the invoking repo
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
@@ -43,7 +44,9 @@ import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/work
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { isDirectRun } from "./entry-point.js";
-import { deployComponents, type DeployResult } from "./deploy-components.js";
+import { allowlistNoticeLines } from "./allowlist.js";
+import { deployComponents, payloadDirectory, type DeployResult } from "./deploy-components.js";
+import { describeInstallLocation, ensureInstallLocation, resolveInstallLocation, type InstallLocationResult } from "./install-location.js";
 import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
@@ -97,6 +100,19 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      user-owned files such as .claude/settings.local.json are never touched.",
         ].join("\n"),
         run: runDeploy,
+    },
+    install: {
+        summary: "Install the Nexus Claude components at the account's configuration directory.",
+        usage: [
+            "  nexus install [--payload <dir>] [--from-checkout <dir>]",
+            "      Install the Nexus Claude components (commands, agents, skills) at the Claude",
+            "      configuration directory — $CLAUDE_CONFIG_DIR, or .claude in your home directory.",
+            "      Exactly one component set exists per account, so this replaces per-repository",
+            "      deployment. With --from-checkout the location is pointed at that checkout's",
+            "      authored tree instead of holding a copy (the maintainer's edit-and-rerun mode).",
+            "      Idempotent. Writes no settings file; it prints the permission entries to add.",
+        ].join("\n"),
+        run: runInstall,
     },
     version: {
         summary: "Report the installed release, its component payload and the resolved interpreter.",
@@ -263,7 +279,7 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
 
     let result: DeployResult;
     try {
-        result = deployComponents(payloadDir, targetRepoRoot);
+        result = deployComponents(payloadDirectory(payloadDir), path.join(targetRepoRoot, ".claude"));
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
@@ -272,6 +288,65 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
         `deployed ${result.written.length} component file(s) into ${path.join(targetRepoRoot, ".claude")}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
     );
+    return 0;
+}
+
+/**
+ * `nexus install` — the second, explicit step of getting Nexus onto an account (story #313).
+ *
+ * A package-manager lifecycle script was refuted: such scripts are blocked by default in this
+ * project's package manager and commonly disabled in continuous integration, so a share of installs
+ * would end silently with no component set and no error — and this step has to print text the user
+ * must act on regardless.
+ */
+async function runInstall(argv: string[], io: CliIo): Promise<number> {
+    const rest: string[] = [...argv];
+    const payloadOpt = takeOption(rest, "--payload", io);
+    if (payloadOpt === null) {
+        return 2;
+    }
+    const checkoutOpt = takeOption(rest, "--from-checkout", io);
+    if (checkoutOpt === null) {
+        return 2;
+    }
+    if (rest.length > 0) {
+        io.stderr(`unknown argument for install: ${rest[0]}\n${USAGE}`);
+        return 2;
+    }
+
+    const location: InstallLocationResult = resolveInstallLocation();
+    if (!location.ok) {
+        io.stderr(location.message);
+        return 1;
+    }
+    // Invariant 7: the location is named before anything changes.
+    io.stdout(describeInstallLocation(location));
+
+    const pointing: boolean = checkoutOpt.present;
+    let payloadDir: string;
+    if (pointing) {
+        const checkout: string = path.resolve(io.cwd, checkoutOpt.value as string);
+        payloadDir = path.join(checkout, ".claude");
+        io.stdout(`pointing at checkout: ${checkout}`);
+    } else {
+        payloadDir = payloadOpt.value ?? defaultPayloadDir();
+    }
+
+    let result: DeployResult;
+    try {
+        ensureInstallLocation(location.path);
+        result = deployComponents(payloadDirectory(payloadDir), location.path, { mode: pointing ? "pointer" : "copy" });
+    } catch (error) {
+        io.stderr(error instanceof Error ? error.message : String(error));
+        return 1;
+    }
+    io.stdout(
+        `installed ${result.written.length} component ${pointing ? "pointer(s)" : "file(s)"} at ${location.path}` +
+            (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
+    );
+    for (const line of allowlistNoticeLines()) {
+        io.stdout(line);
+    }
     return 0;
 }
 
@@ -393,7 +468,7 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
                 },
                 {
                     deploy: (repoRoot: string): void => {
-                        deployComponents(payloadDir, repoRoot);
+                        deployComponents(payloadDirectory(payloadDir), path.join(repoRoot, ".claude"));
                     },
                 },
             );

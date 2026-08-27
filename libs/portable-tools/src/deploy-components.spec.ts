@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { deployComponents } from "./deploy-components";
+import { deployComponents, payloadDirectory } from "./deploy-components";
 
 let tmpDirs: string[] = [];
 
@@ -65,7 +65,7 @@ describe("deployComponents", () => {
         const payload: string = makePayload();
         const repo: string = makeTmpDir("deploy-target-");
 
-        const result = deployComponents(payload, repo);
+        const result = deployComponents(payloadDirectory(payload), path.join(repo, ".claude"));
 
         expect(fs.readFileSync(path.join(repo, ".claude", "commands", "nxs.epic.md"), "utf8")).toBe("epic v2\n");
         expect(fs.readFileSync(path.join(repo, ".claude", "agents", "nxs-pm.md"), "utf8")).toBe("pm v2\n");
@@ -84,9 +84,9 @@ describe("deployComponents", () => {
         const payload: string = makePayload();
         const repo: string = makeTmpDir("deploy-target-");
 
-        deployComponents(payload, repo);
+        deployComponents(payloadDirectory(payload), path.join(repo, ".claude"));
         const first: Record<string, string> = snapshot(path.join(repo, ".claude"));
-        deployComponents(payload, repo);
+        deployComponents(payloadDirectory(payload), path.join(repo, ".claude"));
         const second: Record<string, string> = snapshot(path.join(repo, ".claude"));
 
         expect(second).toEqual(first);
@@ -95,10 +95,10 @@ describe("deployComponents", () => {
     it("overwrites a hand-edited managed file back to the payload content", () => {
         const payload: string = makePayload();
         const repo: string = makeTmpDir("deploy-target-");
-        deployComponents(payload, repo);
+        deployComponents(payloadDirectory(payload), path.join(repo, ".claude"));
         fs.writeFileSync(path.join(repo, ".claude", "commands", "nxs.epic.md"), "local edit\n");
 
-        deployComponents(payload, repo);
+        deployComponents(payloadDirectory(payload), path.join(repo, ".claude"));
 
         expect(fs.readFileSync(path.join(repo, ".claude", "commands", "nxs.epic.md"), "utf8")).toBe("epic v2\n");
     });
@@ -111,7 +111,7 @@ describe("deployComponents", () => {
         fs.writeFileSync(path.join(claude, "settings.local.json"), '{"mine":true}\n');
         fs.writeFileSync(path.join(claude, "commands", "my-command.md"), "user command\n");
 
-        deployComponents(payload, repo);
+        deployComponents(payloadDirectory(payload), path.join(repo, ".claude"));
 
         expect(fs.readFileSync(path.join(claude, "settings.local.json"), "utf8")).toBe('{"mine":true}\n');
         expect(fs.readFileSync(path.join(claude, "commands", "my-command.md"), "utf8")).toBe("user command\n");
@@ -127,7 +127,7 @@ describe("deployComponents", () => {
         fs.writeFileSync(path.join(claude, "skills", "nxs-oldskill", "SKILL.md"), "gone upstream\n");
         fs.writeFileSync(path.join(claude, "commands", "my-command.md"), "user command\n");
 
-        const result = deployComponents(payload, repo);
+        const result = deployComponents(payloadDirectory(payload), path.join(repo, ".claude"));
 
         expect(fs.existsSync(path.join(claude, "commands", "nxs.obsolete.md"))).toBe(false);
         expect(fs.existsSync(path.join(claude, "skills", "nxs-oldskill"))).toBe(false);
@@ -137,6 +137,6 @@ describe("deployComponents", () => {
 
     it("fails with a named error when the payload directory is missing", () => {
         const repo: string = makeTmpDir("deploy-target-");
-        expect(() => deployComponents(path.join(repo, "no-such-payload"), repo)).toThrowError(/payload/i);
+        expect(() => deployComponents(payloadDirectory(path.join(repo, "no-such-payload")), path.join(repo, ".claude"))).toThrowError(/payload/i);
     });
 });
