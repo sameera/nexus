@@ -15,3 +15,9 @@
 - **Choice:** `allowlist.ts` exports `ALLOWLIST_BLOCK`; the verb prints its lines and the story-#318 test asserts the README carries the same string.
 - **Why:** Invariant 17 wants drift across the three surfaces to be a failing build, and a shared constant makes the comparison a single equality rather than a fuzzy match.
 - **Refuted alternative:** Generate the README region from the constant — refuted in the record itself (a generated region inside hand-written prose).
+
+## 2026-08-27 — The removal verb is named `uninstall`
+
+- **Choice:** `nexus uninstall`, a leaf verb with no flags.
+- **Why:** It pairs with `install` at the same scope (the account's one component set) and reads correctly in the ordering notice it has to print — "run uninstall before removing the package".
+- **Refuted alternative:** `nexus install --remove`, keeping one verb for one location; refuted because the ordering notice and the "must run before the package goes" warning belong to a verb a user reaches for deliberately, not to a flag.

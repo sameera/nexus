@@ -11,6 +11,7 @@
  *
  * Verbs:
  *   nexus install                      install the Nexus components at the configuration directory
+ *   nexus uninstall                    remove the installed components from that directory
  *   nexus deploy                       install the Nexus components into the invoking repo
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
@@ -45,7 +46,7 @@ import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { isDirectRun } from "./entry-point.js";
 import { allowlistNoticeLines } from "./allowlist.js";
-import { deployComponents, payloadDirectory, type DeployResult } from "./deploy-components.js";
+import { deployComponents, EMPTY_PAYLOAD, payloadDirectory, type DeployResult } from "./deploy-components.js";
 import { describeInstallLocation, ensureInstallLocation, resolveInstallLocation, type InstallLocationResult } from "./install-location.js";
 import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
@@ -113,6 +114,17 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Idempotent. Writes no settings file; it prints the permission entries to add.",
         ].join("\n"),
         run: runInstall,
+    },
+    uninstall: {
+        summary: "Remove the installed Nexus Claude components from the configuration directory.",
+        usage: [
+            "  nexus uninstall",
+            "      Remove every Nexus-namespaced component file from the Claude configuration",
+            "      directory, leaving your own files there untouched. Run it BEFORE removing the",
+            "      package: the verb ships inside the package, and the package manager has no record",
+            "      of a component set copied into the configuration directory.",
+        ].join("\n"),
+        run: runUninstall,
     },
     version: {
         summary: "Report the installed release, its component payload and the resolved interpreter.",
@@ -347,6 +359,44 @@ async function runInstall(argv: string[], io: CliIo): Promise<number> {
     for (const line of allowlistNoticeLines()) {
         io.stdout(line);
     }
+    return 0;
+}
+
+/**
+ * `nexus uninstall` — the removal half of the account's one component set (story #314).
+ *
+ * Removal is the same mirror as install, with emptiness DECLARED rather than expressed as a
+ * directory that happens to be empty. That distinction is the safety hinge of the epic: the mirror
+ * throws when a payload directory cannot be found, and that throw is the only thing separating "the
+ * install could not find what it ships" from "delete every component this account has". The
+ * primitive's throw-on-missing-directory behaviour is therefore satisfied here, not changed.
+ */
+async function runUninstall(argv: string[], io: CliIo): Promise<number> {
+    if (argv.length > 0) {
+        io.stderr(`unknown argument for uninstall: ${argv[0]}\n${USAGE}`);
+        return 2;
+    }
+
+    const location: InstallLocationResult = resolveInstallLocation();
+    if (!location.ok) {
+        io.stderr(location.message);
+        return 1;
+    }
+    io.stdout(describeInstallLocation(location));
+
+    let result: DeployResult;
+    try {
+        result = deployComponents(EMPTY_PAYLOAD, location.path);
+    } catch (error) {
+        io.stderr(error instanceof Error ? error.message : String(error));
+        return 1;
+    }
+    io.stdout(`removed ${result.removed.length} component file(s) from ${location.path}`);
+    io.stdout(
+        "Run this before removing the package itself: this verb ships inside the package, and the " +
+            "package manager has no record of a component set copied into the configuration directory, " +
+            "so removing the package first leaves the components behind with nothing left to clear them.",
+    );
     return 0;
 }
 
