@@ -1,6 +1,6 @@
 ---
 concept: toolkit-location
-source_sha: 697e6042fd11dda4dcddc5d81b0398d422e79ac3
+source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
 generated: 2026-08-27
 ---
 
@@ -13,7 +13,7 @@ generated: 2026-08-27
 - `libs/gh-toolkit/nexus_gh/cli.py` — the capability dispatcher: the `CAPABILITIES` table, the usage text composed from it, the unknown/absent-capability exit, and the per-capability `argv` hand-off.
 - `libs/gh-toolkit/nexus_gh/__init__.py` — the package marker that makes the three capabilities importable siblings rather than three unrelated skill scripts.
 - `libs/gh-toolkit/nexus_gh/create_epic.py`, `libs/gh-toolkit/nexus_gh/create_story.py` — the two filers, moved into the package; each takes `argv` as a parameter and imports the shared resolver package-relatively.
-- `libs/gh-toolkit/nexus_gh/delivery_config.py` — the shared resolver, moved into the package; `_workspace_cli_command` now resolves `EXECUTABLE_NAME` on PATH with no candidate-file list, and `read_hub_defaults` discards a non-zero exit deliberately.
+- `libs/gh-toolkit/nexus_gh/delivery_config.py` — the shared resolver; its module-level self-run guard is deleted, so the capability is entered only through the toolkit's one declared entry point.
 - `libs/gh-toolkit/tests/test_toolkit_name.py` — the by-name invocation suite: each capability reached through the entry point, an unrelated working directory, the no-capability and unknown-capability exits.
 - `libs/gh-toolkit/tests/test_packaging.py` — pins that no sibling-hop path insertion remains and that the package imports from an arbitrary install location.
 - `libs/gh-toolkit/tests/test_delivery_config.py` — the guard coverage: no spawn without a workspace artifact, and empty results for absent executable, non-zero exit, and unparseable output.
@@ -30,3 +30,6 @@ generated: 2026-08-27
 - `libs/portable-tools/src/vendor-bundle.ts` — the retired copy half; no build step now writes a toolkit into a target checkout.
 - `.claude/commands/nxs.epic.md`, `.claude/commands/nxs.setup.md`, `.claude/skills/nxs-workspace-status/SKILL.md` — component bodies whose hub-conditional gloss naming the in-repository copy was struck, leaving the toolkit placeholder deliberately undefined.
 - `README.md`, `docs/features/multi-repo-workspaces/README.md` — the operator-facing prose that stopped pointing at an in-repository toolkit location.
+- `libs/portable-tools/src/release-gate.ts` — the release-time enforcement of this addressing rule: a shipped body may name a path only when the payload carries it.
+- `libs/portable-tools/src/release-gate.spec.ts` — gate coverage, including the component-internal script that passes and the moved capability that fails.
+- `docs/delivery/release-procedure.md` — step 4, where the gate stands ahead of the tag and the publish.

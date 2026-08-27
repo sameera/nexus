@@ -1,6 +1,6 @@
 ---
 concept: portable-tooling
-source_sha: 697e6042fd11dda4dcddc5d81b0398d422e79ac3
+source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
 generated: 2026-08-27
 ---
 
@@ -9,8 +9,8 @@ generated: 2026-08-27
 
 # Code Anchors: Portable Tooling
 
-- `libs/portable-tools/src/bundle.ts` — the shared bundling primitive: compiles one entry point into a self-contained Node-targeted bundle, inlining every non-builtin import; emits a constant `createRequire` banner so an inlined CJS dependency runs on a bare node, and pins the working dir so the bytes (and their hash) are cwd-independent.
-- `libs/portable-tools/src/build-bundles.ts` — builds every entry point into self-contained bundles: the validator, atlas generator, hub diff-derivation tool, drift advisory, and registry seeder each through their own guard-free launcher, plus the one `nexus` executable carrying all ten newly reachable verbs.
+- `libs/portable-tools/src/bundle.ts` — the shared bundling primitive: compiles one entry point into a self-contained Node-targeted bundle, inlining every non-builtin import; its constant banner now also carries the interpreter line, so the pinned bytes are the bytes a linked binary executes.
+- `libs/portable-tools/src/build-bundles.ts` — now builds a single entry point: the one `nexus` executable. The five standalone launchers and their entry-point registrations are deleted, which is what makes the two-entry pin possible.
 - `libs/portable-tools/src/nexus-cli.ts` — the `nexus` CLI; the docs-root read-out verb, and — since #247 — the shared declarative verb registry ten more component-invoked capabilities dispatch from (see the verb-reachability anchors for the registry's own detail).
 - `libs/portable-tools/src/domain-registry.ts` — the shared domain-registry grammar and parser; standalone (no imports), inlined into the consuming bundles.
 - `libs/portable-tools/src/domain-registry.spec.ts` — parser coverage, bundled and parity-checked alongside the consuming tools.
@@ -24,13 +24,14 @@ generated: 2026-08-27
 - `libs/portable-tools/src/docs-root-readout.spec.ts` — subprocess coverage of the portable docs-root read-out verb across layouts.
 - `libs/portable-tools/src/derive-entry-diff.ts` — the hub diff-derivation tool: resolves an entry's recorded range to per-repo diffs inside the member checkouts at run time.
 - `libs/portable-tools/src/vendor-components.ts` — the payload half of the fingerprint gate: hashes the managed component set so a stale payload fails the source-repo gate; its copy helper survives the retirement for the install path that consumes it next.
-- `libs/portable-tools/src/vendor-bundle.ts` — the pin step, narrowed to build + hash: writes the fingerprint pin (bundles plus the component payload's hash) and copies nothing into any repository; its CLI now takes no arguments and exits non-zero naming any it is given.
+- `libs/portable-tools/src/vendor-bundle.ts` — the pin step, narrowed to build + hash: writes the two-entry fingerprint pin and its per-file payload manifest and copies nothing into any repository; its CLI takes no arguments and exits non-zero naming any it is given.
 - `libs/portable-tools/src/vendor-bundle.spec.ts` — pins the narrowed step: the pin is still written, nothing is copied, and the retired option is rejected rather than ignored.
 - `package.json` — the `nexus:pin-bundles` script, the pin step's one named entry point after the copy half was retired.
-- `libs/portable-tools/src/parity.ts` — parity primitives: the fingerprint check and the executed source-vs-bundle diff over the corpus (findings, exit codes, atlas bytes), naming any divergence; its remediation hint now names the in-repo pin step rather than a re-vendor into a hub.
+- `libs/portable-tools/src/parity.ts` — parity primitives: the fingerprint check, now pointed at the released artifact and folding the per-file payload differences into its failure message, plus the executed source-vs-bundle diff over the corpus; its remediation names the in-repo pin step, which writes into no repository.
 - `libs/portable-tools/src/parity.spec.ts` — the required parity gate, wired into the packaging project's test target; now spans the drift and seed bundles too.
 - `libs/portable-tools/src/bundle.spec.ts` — atlas-bundle parity: source vs a fresh build over the corpus, comparing bytes at the identical output location.
-- `libs/portable-tools/bundle-fingerprint.json` — the committed pin the pin step writes and the parity spec asserts against a fresh build; pins every bundle plus the `claude-components` payload.
+- `libs/portable-tools/bundle-fingerprint.json` — the committed pin the pin step writes and the parity spec asserts against a fresh build; now exactly two entries, the one executable and the payload.
+- `libs/portable-tools/payload-manifest.json` — the per-file payload manifest written beside the pin by the same step, read only to name which file moved.
 - `libs/portable-tools/corpus/` — the representative corpus exercising every validator finding category, atlas clustering, and the drift and seed modes.
 - `libs/portable-tools/project.json` — the buildable-lib targets (bundle, pin, test).
 - `libs/workspace/src/resolve.ts` — the resolver the diff-derivation tool and atlas generator consult; it no longer reports any location for this tooling.
@@ -42,3 +43,5 @@ generated: 2026-08-27
 - `VERSION` — the one declaration identifying this distributable, its second toolkit and its component payload together.
 - `libs/portable-tools/src/release.ts` — resolves that declaration by walking up from the artifact's own position, so the source checkout and the distributable both find it with no build step.
 - `libs/portable-tools/src/version-verb.spec.ts` — covers the reporting verb, including the payload selection that prefers the vendored copy over the live component tree.
+- `libs/portable-tools/src/pack-release.ts` — the staging step that carries this artifact into the published package's release tree, alongside the payload.
+- `libs/portable-tools/src/entry-point.ts` — the shared realpath direct-run test the artifact's entry points now use, so an installed run behaves as a checkout run does.
