@@ -18,7 +18,7 @@ import * as path from "node:path";
 import { buildBundle } from "./bundle.js";
 import { ENTRY_POINTS } from "./build-bundles.js";
 import { hashBundleCode, type Fingerprint } from "./parity.js";
-import { hashPayload, listPayloadFiles, PAYLOAD_KEY } from "./release-payload.js";
+import { hashPayload, listPayloadFiles, payloadManifest, PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE } from "./release-payload.js";
 
 export interface VendorOptions {
     /** Directory holding the entry-point sources. Defaults to this file's directory. */
@@ -75,6 +75,12 @@ export async function vendorBundles(options: VendorOptions): Promise<VendorResul
 
     fs.mkdirSync(path.dirname(options.pinPath), { recursive: true });
     fs.writeFileSync(options.pinPath, JSON.stringify(fingerprint, null, 2) + "\n");
+    // The pin decides pass/fail; this manifest is what lets a failure name the file that moved
+    // (story #310). It is written by the same step, so the two can never describe different runs.
+    fs.writeFileSync(
+        path.join(path.dirname(options.pinPath), PAYLOAD_MANIFEST_FILE),
+        JSON.stringify(payloadManifest(repoRoot), null, 2) + "\n",
+    );
 
     return { fingerprint, copiedTo, payloadCopiedTo };
 }

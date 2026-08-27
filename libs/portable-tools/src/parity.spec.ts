@@ -25,13 +25,14 @@ import {
 import { checkComponentComposition } from "./component-composition";
 import { COMPONENT_COMPOSITION_WAIVERS } from "./component-composition-waivers";
 import { listComponentFiles, liveClaudeDir } from "./vendor-components";
-import { hashPayload, PAYLOAD_KEY } from "./release-payload";
+import { diffPayloadManifest, hashPayload, payloadManifest, PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE, type PayloadManifest } from "./release-payload";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const SRC_DIR: string = __dirname;
 const LIB_ROOT: string = path.resolve(__dirname, "..");
 const CORPUS: string = path.join(LIB_ROOT, "corpus");
 const PIN_PATH: string = path.join(LIB_ROOT, "bundle-fingerprint.json");
+const MANIFEST_PATH: string = path.join(LIB_ROOT, PAYLOAD_MANIFEST_FILE);
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 // Migration axis (story #272): the component-invoked scripts under .claude/skills/ vs. the
@@ -238,11 +239,42 @@ function scratchBaseRepo(): { repo: string; conceptsDir: string; sha: string } {
 // Fingerprint pin (Invariant 12) — catches "edited source but did not rebuild-and-re-vendor".
 // ---------------------------------------------------------------------------------------------
 describe("fingerprint pin", () => {
-    it("the freshly built bundle hash equals the committed pin", () => {
+    it("the freshly built executable and recomputed payload equal the committed pin", () => {
         const pinned: Fingerprint = JSON.parse(fs.readFileSync(PIN_PATH, "utf8"));
-        const mismatch: string | null = checkFingerprint(freshFingerprint, pinned);
-        // On failure the message names each stale bundle and points at the re-vendor procedure.
+        const recorded: PayloadManifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
+        const differences: string[] = diffPayloadManifest(recorded, payloadManifest(REPO_ROOT));
+        const mismatch: string | null = checkFingerprint(freshFingerprint, pinned, differences);
+        // On failure the message names what differs and points at the re-pin procedure.
         expect(mismatch, mismatch ?? undefined).toBeNull();
+    });
+
+    it("compares against the pin alone — no copy of the artifact inside any repository", () => {
+        // Both sides of the comparison are produced here: a fresh in-process build and a fresh
+        // walk of the payload sources. Nothing reads a vendored or deployed copy (story #310).
+        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", PAYLOAD_KEY].sort());
+        expect(freshFingerprint[PAYLOAD_KEY]).toBe(hashPayload(REPO_ROOT));
+    });
+
+    it("names the payload file that differs, not only that the digests differ", () => {
+        const recorded: PayloadManifest = { "gh-toolkit/nexus_gh/cli.py": "aaaa", "claude-components/commands/nxs.epic.md": "bbbb" };
+        const current: PayloadManifest = { "gh-toolkit/nexus_gh/cli.py": "cccc", "gh-toolkit/nexus_gh/new.py": "dddd" };
+        const differences: string[] = diffPayloadManifest(recorded, current);
+        const message: string | null = checkFingerprint({ [PAYLOAD_KEY]: "x" }, { [PAYLOAD_KEY]: "y" }, differences);
+        expect(message).toContain("changed: gh-toolkit/nexus_gh/cli.py");
+        expect(message).toContain("added: gh-toolkit/nexus_gh/new.py");
+        expect(message).toContain("removed: claude-components/commands/nxs.epic.md");
+    });
+
+    it("the remediation names an action that writes into no repository", () => {
+        const message: string | null = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" });
+        expect(message).toContain("nexus:vendor-tools");
+        expect(message).toContain("copies nothing into any repository");
+        expect(message).not.toContain("--tools-dir");
+    });
+
+    it("the committed payload manifest describes the payload the pin covers", () => {
+        const recorded: PayloadManifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
+        expect(diffPayloadManifest(recorded, payloadManifest(REPO_ROOT))).toEqual([]);
     });
 
     it("hashBundleCode is deterministic across repeated in-process builds", async () => {
@@ -255,7 +287,7 @@ describe("fingerprint pin", () => {
         expect(checkFingerprint({ "a.mjs": "abc" }, { "a.mjs": "abc" })).toBeNull();
     });
 
-    it("checkFingerprint names a stale bundle and the re-vendor procedure", () => {
+    it("checkFingerprint names a stale artifact and the re-pin procedure", () => {
         const message: string | null = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" });
         expect(message).toContain("STALE");
         expect(message).toContain("stale");

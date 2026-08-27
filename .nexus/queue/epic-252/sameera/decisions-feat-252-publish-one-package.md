@@ -57,3 +57,9 @@
 - **Choice:** Removing the five entry points from `ENTRY_POINTS` also deletes the launcher sources, and every spec that ran one now runs the dispatcher with the matching verb.
 - **Why:** Nothing referenced them except as bundle entry points. Left in place they would be unreachable files that still look like entry points.
 - **Refuted alternative:** Keeping them as unbuilt sources, which leaves dead code claiming a process boundary that no longer exists.
+
+## 2026-08-26 — A diagnostic payload manifest sits beside the pin
+
+- **Choice:** `payload-manifest.json` records a per-file content hash; the pin keeps its two entries and remains the sole pass/fail authority.
+- **Why:** A single payload digest can only report that something moved. Naming *what* differs needs per-file evidence, and writing it in the same step as the pin means the two can never describe different runs.
+- **Refuted alternative:** Expanding the pin into a per-file structure, which would break the stated "one bundle entry plus the payload entry" shape.

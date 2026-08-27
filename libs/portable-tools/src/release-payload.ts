@@ -116,3 +116,39 @@ export function hashPayload(repoRoot: string): string {
     }
     return manifest.digest("hex");
 }
+
+/** Per-file content hashes of the payload, keyed by staged path. Diagnostic, not the pin. */
+export type PayloadManifest = Record<string, string>;
+
+/** Name of the committed manifest that sits beside the pin. */
+export const PAYLOAD_MANIFEST_FILE = "payload-manifest.json";
+
+export function payloadManifest(repoRoot: string): PayloadManifest {
+    const manifest: PayloadManifest = {};
+    for (const file of listPayloadFiles(repoRoot)) {
+        manifest[file.staged] = createHash("sha256").update(fs.readFileSync(file.source)).digest("hex");
+    }
+    return manifest;
+}
+
+/**
+ * What changed between the payload the manifest recorded and the payload on disk now, as one
+ * line per difference. Empty when the two agree — this is how the gate names what differs
+ * rather than only reporting that two digests are unequal.
+ */
+export function diffPayloadManifest(recorded: PayloadManifest, current: PayloadManifest): string[] {
+    const differences: string[] = [];
+    for (const staged of Object.keys(current).sort()) {
+        if (!(staged in recorded)) {
+            differences.push(`added: ${staged}`);
+        } else if (recorded[staged] !== current[staged]) {
+            differences.push(`changed: ${staged}`);
+        }
+    }
+    for (const staged of Object.keys(recorded).sort()) {
+        if (!(staged in current)) {
+            differences.push(`removed: ${staged}`);
+        }
+    }
+    return differences;
+}
