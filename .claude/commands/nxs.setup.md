@@ -25,8 +25,7 @@ Detect this repo's workspace role **through the resolver** — never by asking t
     ```
 
     In a checkout with no in-repo Node toolchain, use the portable CLI instead —
-    `node <tools-dir>/nexus.mjs workspace status` (in a workspace hub, `<tools-dir>` is
-    `.nexus/tools`). Both run the identical resolver.
+    `node <tools-dir>/nexus.mjs workspace status`. Both run the identical resolver.
 
     Then obtain the **resolved docs root** — the value every scaffold path below prefixes — from the
     single-value read-out (the same two vehicles):
