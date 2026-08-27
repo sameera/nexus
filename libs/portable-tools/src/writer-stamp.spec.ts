@@ -12,13 +12,31 @@ import { readWriterStamp, UNKNOWN_WRITER, WRITER_STAMP_FIELD, writerStampLine } 
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** Every surface that writes or reads the stamp, named so a new one cannot be added silently. */
-const STAMPED_SURFACES: Record<string, string> = {
-    "the analyze receipt and its PR-review machine block": ".claude/commands/nxs.analyze.md",
-    "the close record and the close comment's machine block": ".claude/commands/nxs.close.md",
-    "the seeded close-record template": "common/templates/close-record-template.md",
-    "the close-side reader of the analyze receipt": "libs/pr-acceptance/src/verify.ts",
-};
+/**
+ * Every surface that writes or reads the stamp, named so a new one cannot be added silently.
+ *
+ * A prose command writes more than one stamped artifact, so a whole-file match is not enough: one
+ * stamped block in a command file would vouch for every other artifact the same file writes. Each
+ * surface therefore names the section that must carry the field — the text of the `#` heading the
+ * artifact is written under, matched from that heading to the next one — and a file-wide surface
+ * names no section.
+ */
+const STAMPED_SURFACES: readonly { readonly surface: string; readonly path: string; readonly section?: string }[] = [
+    { surface: "the analyze receipt", path: ".claude/commands/nxs.analyze.md", section: "# Phase 3 — Report (inline) and write the receipt" },
+    { surface: "the close record", path: ".claude/commands/nxs.close.md", section: "# Phase 4 — Write the close record" },
+    { surface: "the close comment's machine block", path: ".claude/commands/nxs.close.md", section: "# Phase 8 — Post the comments and close the epic issue" },
+    { surface: "the seeded close-record template", path: "common/templates/close-record-template.md" },
+    { surface: "the close-side reader of the analyze receipt", path: "libs/pr-acceptance/src/verify.ts" },
+];
+
+/** The named section of a markdown file: its `#` heading through to the next one. */
+function section(text: string, heading: string): string {
+    const start: number = text.indexOf(`\n${heading}`);
+    expect(start, `section '${heading}' is missing`).toBeGreaterThanOrEqual(0);
+    const rest: string = text.slice(start + 1 + heading.length);
+    const end: number = rest.search(/\n# /);
+    return end < 0 ? rest : rest.slice(0, end);
+}
 
 describe("the stamp a writer emits", () => {
     it("names the release that wrote the artifact", () => {
@@ -49,9 +67,10 @@ describe("reading the stamp back (AC2 — an unstamped artifact is an unknown wr
 });
 
 describe("every stamped surface uses the declared field name (AC1)", () => {
-    for (const [surface, relPath] of Object.entries(STAMPED_SURFACES)) {
-        it(`${surface} writes or reads '${WRITER_STAMP_FIELD}'`, () => {
-            expect(fs.readFileSync(path.join(REPO_ROOT, relPath), "utf8")).toContain(WRITER_STAMP_FIELD);
+    for (const stamped of STAMPED_SURFACES) {
+        it(`${stamped.surface} writes or reads '${WRITER_STAMP_FIELD}'`, () => {
+            const text: string = fs.readFileSync(path.join(REPO_ROOT, stamped.path), "utf8");
+            expect(stamped.section === undefined ? text : section(text, stamped.section)).toContain(WRITER_STAMP_FIELD);
         });
     }
 });

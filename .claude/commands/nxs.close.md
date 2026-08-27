@@ -462,8 +462,21 @@ Fill the seeded template and write it into the queue entry.
 1. Read the seeded project template: **`.nexus/config/templates/close-record-template.md`**. (If the
    seeded copy is absent, fall back to the toolkit master `common/templates/close-record-template.md`.)
 
+   The seeded copy is a tuned project file — seeding never clobbers it — so it may predate any field
+   this command names and carry no placeholder for it. **The field list in step 2 is authoritative,
+   not the template's placeholder set**: write every field named below, whether or not the template
+   you read has a `{{PLACEHOLDER}}` for it. Placeholders present but not named below are the
+   project's own; fill them as the template's guidance says.
+
 2. Fill every `{{PLACEHOLDER}}` and **delete the guidance comments**:
     - `title` / `epic` (the `link` ref) / `feature` / `date` (today).
+    - `nexus_version` — the **writer stamp** (story #306): the release that wrote this record, from
+      `nexus version`. Written into the frontmatter **whether or not the template carries the
+      placeholder** — a seeded copy predating the stamp has none, and the record is stamped anyway.
+      Omit the key when the release is unresolved rather than writing a version that is not true; an
+      absent stamp reads as an unknown writer, which is never an error. It sits beside `record_hash`,
+      never inside the record bytes that digest covers, so stamping leaves every hash a later stage
+      verifies exactly as it was.
     - `analyze` — the conformance-gate outcome from Phase 1.2 (`ran … @ …`, or the waiver text,
       one clause per waived axis).
     - `record` / `record_hash` — the decision record this epic was built against, as an **issue
