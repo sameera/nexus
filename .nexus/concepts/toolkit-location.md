@@ -2,7 +2,7 @@
 title: "Toolkit Location"
 aliases: ["by-name toolkit addressing", "second toolkit", "python toolkit", "self-locating entry point", "no repository-relative toolkit path", "toolkit found on the path"]
 touches: ["verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity"]
-last_updated_by: "#249"
+last_updated_by: "#257"
 status: active
 verification: verified
 ---
@@ -42,3 +42,7 @@ The second toolkit was given one name and a dispatcher of its own rather than be
 ### 2026-08-26 — #251 — Reciprocal link from release-identity
 
 The release's one version declaration is reached the same way a named toolkit is: by walking up from the reader's own file position, so no layout is written down. Recorded here as the reciprocal edge.
+
+### 2026-08-27 — #257 — The last in-repository toolkit copy is deleted, closing the rule's exception
+
+The addressing rule was stated before the thing it forbids had been removed: a repository could still hold its own copy of the toolkit, and component bodies still carried a second invocation naming that copy beside the one that actually runs. Both are now gone — no build step writes a toolkit into a target checkout, nothing exports such a location, and the parenthetical telling a reader where the in-repository copy sits was struck from every component body that carried it. The rule therefore stops being aspirational: a location inside the repository being acted on is not merely disfavoured, it no longer exists to fall back to. The placeholder standing for a toolkit's location was deliberately left undefined rather than given a value, because defining it means naming the install this work does not build, and a definition invented here would be wrong the moment the real one lands. Refuted alternative: define the placeholder now against the expected install path, which reads as finishing the job but writes down a layout nothing yet produces.
