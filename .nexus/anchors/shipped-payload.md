@@ -1,6 +1,6 @@
 ---
 concept: shipped-payload
-source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
+source_sha: 8ee682107a3097934430d04aa723a71cfbeeac59
 generated: 2026-08-27
 ---
 
@@ -19,3 +19,5 @@ generated: 2026-08-27
 - `libs/gh-toolkit/bin/nexus-gh` — where byte-code writing is disabled, before any module is imported, so no capability can forget it.
 - `libs/gh-toolkit/tests/test_packaging.py` — pins the suppression at the entry point.
 - `libs/portable-tools/src/pack-release.ts` — copies exactly this set into the release tree, so what is hashed and what ships are the same enumeration.
+- `libs/portable-tools/src/component-composition-waivers.ts` — the composition boundary's waiver register, now empty: the seven legacy component scripts left the payload with the invocation rewrite.
+- `libs/portable-tools/payload-manifest.json` — records those seven removals, the diagnostic half of the pin the parity gate reads.

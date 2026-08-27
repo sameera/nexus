@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "shipped-payload"]
-last_updated_by: "#252"
+touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "shipped-payload"]
+last_updated_by: "#250"
 status: active
 verification: verified
 ---
@@ -13,18 +13,20 @@ A capability becomes reachable by name, a verb on one named executable, exactly 
 
 ## How It Works
 
-Every reachable capability is declared once in its toolkit's single registry, mapping a name to its summary, usage text, and a runnable; the rule is per toolkit, not per language, so a second toolkit answers to one name the same way. The registry is imported eagerly, so the same object composes the usage text and supplies the verb set a later build-time gate checks invocation strings against. No capability keeps import-time behavior of its own; the one place a process reads its arguments and exits is the dispatcher built from the registry, once per runnable artifact, because a module inlined beside others loses any private sense of which file was invoked. Two parity axes keep a verb honest while its legacy form still exists: a durable axis compares un-built source against a fresh build, and a temporary migration axis compares the legacy form against the verb, extended even to capabilities already believed migrated, which is how a real behavioral divergence surfaced. A capability driving an external program is compared through a hermetic, committed stand-in on both sides, covering the arguments the program received and the file tree left behind, not console output alone.
+Every reachable capability is declared once in its toolkit's single registry, mapping a name to its summary, usage text, and a runnable; the rule is per toolkit, not per language, so a second toolkit answers to one name the same way. The registry is imported eagerly, so one object composes the usage text and supplies the declared surface a build-time gate checks invocations against: the complete dispatch name, further names included, answered also as a machine listing beside the human diagnostic. No capability keeps import-time behavior of its own; the one place a process reads its arguments and exits is the dispatcher built from the registry, once per runnable artifact, because a module inlined beside others loses any private sense of which file was invoked. Parity compares un-built source against a fresh build; the temporary axis against a legacy form retired with the last of them. A capability driving an external program is compared through a hermetic, committed stand-in on both sides, covering the arguments the program received and the file tree left behind, not console output alone.
 
 ## Key Invariants
 
 1. A capability's reachability is decided by who invokes it: a component body earns a verb; a build- or release-only invoker keeps the capability source-only.
 2. Every reachable capability is declared in exactly one registry; the dispatcher composes its own usage text from that registry, so an undocumented verb cannot exist.
 3. No capability may execute anything at import time; the process boundary exists exactly once per runnable artifact, in the dispatcher — which hands each capability its arguments directly, never through a process-global.
-4. Parity runs two axes while a legacy form exists: source-vs-build (durable) and legacy-vs-verb (temporary, retired once the legacy form is deleted); the migration axis covers every reachable capability, not only the ones moving in a given change.
+4. Parity compares un-built source against a fresh build; a surviving legacy form adds a temporary axis against it, covering every reachable capability.
 5. A capability that drives an external program is compared through a hermetic, committed stand-in on both sides, covering the exact arguments it received and any file tree it left, not console output alone.
+6. The declared surface is the complete dispatch name; further names are declared beside the verb they own, and the dispatcher and the gate read that one declaration.
 
 ## Integration Points
 
+- [component-invocation-gate](component-invocation-gate.md) — reads this registry's declared dispatch names to decide whether a name written in a shipped body resolves.
 - [portable-tooling](portable-tooling.md) — hosts this registry's built executable, under its parity and fingerprint discipline, alongside the five distiller capabilities' own standalone builds.
 - [nexus-setup-cli](nexus-setup-cli.md) — the deploy and workspace verbs already reachable on this same executable, now dispatched from the shared registry alongside the newly reachable capabilities.
 - [pr-worktree](pr-worktree.md) — the worktree-management capability now reachable as a verb, held to byte-identical output and matching spawned-process arguments against its script form.
@@ -59,3 +61,7 @@ Behavior every verb must have is placed in the dispatcher, before dispatch, rath
 ### 2026-08-27 — #252 — The duplication window closes and the dispatcher becomes the only entry
 
 The five distiller capabilities' standalone forms are deleted rather than left unbuilt, which retires their temporary migration axis exactly as the rule intended: parity now runs the dispatcher with the matching verb, and a dead file that still looks like a process boundary no longer sits in the tree for the next entry point to be copied from. The second toolkit's last module-level self-run guard went with them, so each toolkit has exactly one process boundary — which is what lets cross-cutting setup, byte-code suppression included, be placed once rather than remembered per capability. Refuted: keeping the launcher sources as unbuilt files, which carries zero deletion risk but leaves the dispatcher's one-boundary claim untrue on the page and in the tree.
+
+### 2026-08-27 — #250 — A further dispatch name is part of the declared surface, and a machine listing is a flag rather than a name
+
+The names a component body may write are the complete dispatch names, so a verb that dispatches further names declares them beside itself and the gate composes the two-token names from that same array: checking only the leading name would have left the commonest realistic typo ungated, since most high-traffic invocations in the bodies are two-token. Each dispatcher was given one membership guard reading that array, which makes "the dispatcher and the gate read one list" literally true and leaves no unreachable unknown-name tail, without touching any existing message or exit code. The second toolkit's machine surface became a flag emitting sorted structured output rather than a declared capability of its own: a flag cannot collide with a capability name, whereas a declared capability would appear in its own listing and in the human usage as though it were a delivery capability. Structured output also means rewording the human diagnostic can never break the gate. Refuted: restructuring each dispatcher into a name-to-handler table mirroring the registry — cleaner symmetry, but it rewrites five working bodies for a story about the gate; and checking leading names only, the literal reading of the epic, which leaves the busiest sites unchecked.

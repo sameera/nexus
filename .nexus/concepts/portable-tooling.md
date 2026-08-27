@@ -1,8 +1,8 @@
 ---
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
-touches: ["distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity", "published-package", "shipped-payload"]
-last_updated_by: "#252"
+touches: ["component-invocation-gate", "distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity", "published-package", "shipped-payload"]
+last_updated_by: "#250"
 status: active
 verification: verified
 ---
@@ -27,6 +27,7 @@ Distillation's validator and atlas steps were written to run through a code repo
 
 ## Integration Points
 
+- [component-invocation-gate](component-invocation-gate.md) — added to this tooling's source-repo gate, beside the parity and fingerprint checks that already run there.
 - [distiller](distiller.md) — a hub drain derives its cross-repo diff through this tooling; its validator and atlas steps run one in-repo invocation in every mode.
 - [workspace-resolution](workspace-resolution.md) — the resolver these bundled tools consult at run time; it no longer reports any location for this tooling.
 - [nexus-setup-cli](nexus-setup-cli.md) — ships as a vendored entrypoint on this distributable, its component payload pinned by the same fingerprint gate.
@@ -80,3 +81,7 @@ The per-repository copy was retired outright: no build step writes the artifacts
 ### 2026-08-27 — #252 — One executable, a two-entry pin, and a gate pointed at the release
 
 The build collapses to a single entry point and the five standalone launchers are deleted rather than left unbuilt: every one of their capabilities has been reachable as a verb since the verb collapse, the only consumer that ever needed them as separate files is gone, and one entry point is what makes a two-entry pin possible at all. The pin becomes the executable plus the payload and stays the sole pass or fail authority, with the gate rebuilding and re-walking from source rather than reading any copy inside a repository — which is what "the gate checks what was released" means once nothing is vendored. The interpreter line is emitted by the build rather than prepended while staging, so the pinned bytes are the shipped bytes. Refuted: hashing the packed archive instead, the most literal reading of checking the release, but it forces a pack step into every gated run and makes the gate depend on packer behaviour and archive metadata rather than on content.
+
+### 2026-08-27 — #250 — Reciprocal link from component-invocation-gate
+
+Mechanical reciprocity fan-out: the component-invocation-gate page names this tooling's required source-repo gate as the step its check was added to.

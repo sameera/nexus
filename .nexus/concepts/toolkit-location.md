@@ -1,8 +1,8 @@
 ---
 title: "Toolkit Location"
 aliases: ["by-name toolkit addressing", "second toolkit", "python toolkit", "self-locating entry point", "no repository-relative toolkit path", "toolkit found on the path"]
-touches: ["verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity", "release-gate"]
-last_updated_by: "#252"
+touches: ["component-invocation-gate", "verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity", "release-gate"]
+last_updated_by: "#250"
 status: active
 verification: verified
 ---
@@ -15,12 +15,12 @@ Nexus ships two toolkits, and every invocation names the one it wants rather tha
 
 One toolkit is the named executable; the other is a small set of capabilities deliberately held out of that collapse, because each depends only on its runtime's standard library — nothing to install, no resolver to supply — so they ship as plain files and stay a second toolkit. Being held out is not an exemption from the addressing rule: the second toolkit was given one name and a capability dispatcher of its own, so a caller names a toolkit and a capability and nothing else.
 
-Locating a toolkit takes the same two steps in both directions. The installed name on the caller's path is consulted first, the ordinary case. Failing that, a caller may fall back to the entry point shipped beside its own source — which says where the toolkit is, never where the work is. A location derived from the repository being acted on is not a candidate at all. When neither resolves, the caller reports an absent toolkit and names the remedy, rather than a missing file inside the user's repository.
+Locating a toolkit takes the same two steps in both directions. The installed name on the caller's path is consulted first, the ordinary case. Failing that, a caller may fall back to the entry point shipped beside its own source — which says where the toolkit is, never where the work is. A location inside the repository being acted on is not a candidate, save for a harness driving one named checkout. When neither resolves, the caller reports an absent toolkit and names the remedy, rather than a missing file inside the user's repository.
 
 ## Key Invariants
 
-1. Every invocation names a toolkit and a capability; no caller encodes a path to a toolkit file, whatever the runtime.
-2. A toolkit is found by its installed name first; the only fallback is the entry point beside the caller's own source, never a location inside the repository being acted on.
+1. Every invocation names a toolkit and a capability, never a path to a toolkit file and never an inherited interpreter, whatever the runtime.
+2. A toolkit is found by its installed name first; the only fallback is the entry point beside the caller's own source, never a location inside the repository being acted on — save a harness, which is no shipped body, driving one named checkout.
 3. A toolkit that cannot be found is reported as an absent toolkit with the remedy named, never as a missing file in the user's repository.
 4. A best-effort lookup over a located toolkit yields an empty answer on every failure mode, and a non-zero exit is inspected deliberately rather than left to unparseable output.
 5. A checkout declaring nothing for such a lookup to read spawns no subprocess at all.
@@ -28,6 +28,7 @@ Locating a toolkit takes the same two steps in both directions. The installed na
 
 ## Integration Points
 
+- [component-invocation-gate](component-invocation-gate.md) — enforces this rule in every shipped body at build time, so a migrated body cannot regress to a path.
 - [verb-reachability](verb-reachability.md) — that rule decides which capabilities become reachable names; this one decides how a named toolkit is then found at invocation time.
 - [publishing-config-resolution](publishing-config-resolution.md) — its hub-defaults layer locates the executable by name here, keeping its degrade-to-empty and never-spawn guards intact.
 - [target-root-convention](target-root-convention.md) — the complement: that convention says where a capability's project lives, this one says where its toolkit lives.
@@ -51,3 +52,7 @@ The addressing rule was stated before the thing it forbids had been removed: a r
 ### 2026-08-27 — #252 — By-name addressing becomes a release precondition
 
 Addressing a capability by name was a convention every new body had to follow and nothing checked, which was tolerable while every body ran from a checkout. Publishing removes that tolerance: a path reference that resolves in a source tree resolves nowhere in an installed package, so the convention became the one thing standing between a release and bodies that cannot run for the adopter who installed them. Holding the tag and the publish until every shipped body addresses its capability by the toolkit's declared name is what converts the convention into a guarantee at exactly the moment it starts to matter. Refuted: leaving it a convention and catching violations in review, which costs nothing to set up but puts the whole weight of an adopter-visible failure on a reviewer noticing one line.
+
+### 2026-08-27 — #250 — The rule reaches every shipped body, and one addressing form leaves one instruction
+
+Seventy-nine invocations across twenty-three bodies were rewritten to name a toolkit, which is what turns this page's first invariant from a rule the code obeys into a rule the bodies obey; the interpreter is now named rather than inherited, because a body naming an inherited interpreter resolved to whatever the operator's machine meant by it, and a third of the sites also wrote a path that only resolved from inside one directory. The maintainer's from-source route was kept but pushed out of the shipped bodies into the repository's own documentation, so a body carries one form and a reader has no variant to choose between. The acceptance harness is the deliberate exception: it resolves everything from a checkout it is handed so it can drive a repository other than the one it runs in, and requiring the installed name would make it depend on an install step it does not perform — an exception that holds because the rule governs shipped bodies and installed callers, and a harness is neither. With one addressing form left, the two-branch prose that told a reader to pick an invocation by the shape of their repository collapsed to one instruction, its mode-conditional content restated as conditions on arguments rather than on the toolkit's name. Refuted: collapsing that prose in the same pass as the rewrite — fewer passes over the same lines, but it fuses an addressing change with a de-duplication that needs its own reading, and the mode-conditional instructions were the thing most likely to be dropped silently.

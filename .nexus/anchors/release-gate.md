@@ -1,6 +1,6 @@
 ---
 concept: release-gate
-source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
+source_sha: 8ee682107a3097934430d04aa723a71cfbeeac59
 generated: 2026-08-27
 ---
 
@@ -14,3 +14,4 @@ generated: 2026-08-27
 - `libs/portable-tools/src/vendor-components.ts` — supplies the shipped-file listing the gate measures every reference against.
 - `package.json` — the `nexus:release-gate` script, the gate's one named entry point in the release procedure.
 - `docs/delivery/release-procedure.md` — step 4, placing the gate ahead of the tag and the publish and stating that a non-zero exit stops the release there.
+- `libs/portable-tools/src/component-invocations.ts` — the build-time check that keeps this release precondition green, catching a repository-bound form long before the release tail runs.

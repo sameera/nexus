@@ -1,6 +1,6 @@
 ---
 concept: portable-tooling
-source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
+source_sha: 8ee682107a3097934430d04aa723a71cfbeeac59
 generated: 2026-08-27
 ---
 
@@ -38,10 +38,11 @@ generated: 2026-08-27
 - `.claude/commands/nxs.distill.md` — the drain step, which now runs one in-repo invocation in every mode and asks the installed toolkit for the hub-only diff derivation by verb.
 - `docs/features/multi-repo-workspaces/README.md` — states that a hub carries no toolkit copy and that the hub-versus-member distinction stops governing tooling.
 - `libs/portable-tools/src/component-composition.ts` — the structural payload-boundary check: no vendored component file may import a workspace package, unless waived.
-- `libs/portable-tools/src/component-composition-waivers.ts` — the shrink-only waiver register for legacy component scripts still awaiting the invocation rewrite.
+- `libs/portable-tools/src/component-composition-waivers.ts` — the shrink-only waiver register, reaching its recorded empty state once the invocation rewrite deleted the legacy component scripts it named.
 - `libs/pr-acceptance/src/cli.ts` — the acceptance harness, relocated beside its own library, outside every vendored component subtree; excluded from the payload by the composition check, not by name.
 - `VERSION` — the one declaration identifying this distributable, its second toolkit and its component payload together.
 - `libs/portable-tools/src/release.ts` — resolves that declaration by walking up from the artifact's own position, so the source checkout and the distributable both find it with no build step.
 - `libs/portable-tools/src/version-verb.spec.ts` — covers the reporting verb, including the payload selection that prefers the vendored copy over the live component tree.
 - `libs/portable-tools/src/pack-release.ts` — the staging step that carries this artifact into the published package's release tree, alongside the payload.
 - `libs/portable-tools/src/entry-point.ts` — the shared realpath direct-run test the artifact's entry points now use, so an installed run behaves as a checkout run does.
+- `libs/portable-tools/src/parity.spec.ts` — also the host of the component-invocation gate, which runs beside the parity and fingerprint checks on this same required source-repo gate.
