@@ -108,6 +108,9 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      target repo (default: the current directory), mirroring the vendored payload",
             "      (default: the claude-components directory beside this artifact). Idempotent;",
             "      user-owned files such as .claude/settings.local.json are never touched.",
+            "      Per-repository deployment is no longer the supported arrangement: components are",
+            "      installed once for your account with `nexus install`. This verb is kept for the",
+            "      cases that still need a repository-local copy.",
         ].join("\n"),
         run: runDeploy,
     },
@@ -158,7 +161,7 @@ const REGISTRY: Record<string, VerbEntry> = {
     workspace: {
         summary: "Declare, inspect, or extend a multi-repo workspace.",
         usage: [
-            "  nexus workspace init            Declare a multi-repo workspace (hub + members).",
+            "  nexus workspace init            Declare a multi-repo workspace (hub + members; deploys nothing).",
             "  nexus workspace status [--root <dir>]      Read-only workspace status from any checkout.",
             "  nexus workspace docs-root [--root <dir>]   Print the resolved repo-relative docs root.",
             "  nexus workspace add-repo        Add the invoking checkout to an existing workspace.",
@@ -586,31 +589,18 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (sub === "init") {
-        const args: string[] = [...rest];
-        const payloadOpt = takeOption(args, "--payload", io);
-        if (payloadOpt === null) {
+        if (rest.length > 0) {
+            io.stderr(`unknown argument for workspace init: ${rest[0]}\n${USAGE}`);
             return 2;
         }
-        if (args.length > 0) {
-            io.stderr(`unknown argument for workspace init: ${args[0]}\n${USAGE}`);
-            return 2;
-        }
-        const payloadDir: string = payloadOpt.value ?? defaultPayloadDir();
         const prompter: Prompter = makeStdinPrompter();
         try {
-            return await runWorkspaceInit(
-                {
-                    cwd: io.cwd,
-                    stdout: io.stdout,
-                    stderr: io.stderr,
-                    ask: prompter.ask,
-                },
-                {
-                    deploy: (repoRoot: string): void => {
-                        deployComponents(payloadDirectory(payloadDir), path.join(repoRoot, ".claude"));
-                    },
-                },
-            );
+            return await runWorkspaceInit({
+                cwd: io.cwd,
+                stdout: io.stdout,
+                stderr: io.stderr,
+                ask: prompter.ask,
+            });
         } finally {
             prompter.close();
         }

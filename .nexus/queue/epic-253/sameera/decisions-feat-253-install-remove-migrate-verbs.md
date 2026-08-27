@@ -33,3 +33,9 @@
 - **Choice:** `git add -- .claude .gitignore`, then a plain `git commit -m`.
 - **Why:** Invariant 11 — the verb runs against a branch the owner was already working on, so a printed command that swept the working tree would offer them a commit of the rest of their diff.
 - **Refuted alternative:** `git add -A` for brevity; refuted on exactly that.
+
+## 2026-08-27 — `workspace init` loses its `--payload` flag with the fan-out
+
+- **Choice:** The flag is removed from the verb, not left accepted-and-ignored.
+- **Why:** Its only referent was the payload the fan-out deployed; accepting it after the fan-out is gone would document a deploy that no longer happens.
+- **Refuted alternative:** Keep accepting it for compatibility — refuted because the caller population is one, the same argument the record makes about the seam itself.
