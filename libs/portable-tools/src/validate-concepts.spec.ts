@@ -1417,7 +1417,7 @@ describe("domain registry (epic #89, STORY-89.01)", () => {
 describe("CLI (subprocess)", () => {
     function runViaTsx(args: string[]): { status: number; stdout: string; stderr: string } {
         try {
-            const stdout: string = execFileSync("npx", ["tsx", "libs/portable-tools/src/validate-concepts-launcher.ts", ...args], {
+            const stdout: string = execFileSync("npx", ["tsx", "libs/portable-tools/src/nexus-cli.ts", "validate-concepts", ...args], {
                 cwd: REPO_ROOT,
                 encoding: "utf8",
             });

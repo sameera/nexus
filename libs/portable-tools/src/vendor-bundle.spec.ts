@@ -5,11 +5,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ENTRY_POINTS } from "./build-bundles";
 import { hashBundleCode } from "./parity";
 import { parseArgs, vendorBundles } from "./vendor-bundle";
-import { COMPONENT_PAYLOAD_DIRNAME, COMPONENT_PAYLOAD_KEY, hashComponentTree } from "./vendor-components";
+import { listPayloadFiles, PAYLOAD_KEY } from "./release-payload";
 
 const SRC_DIR: string = __dirname;
 const ARTIFACTS: string[] = Object.keys(ENTRY_POINTS).map((name) => `${name}.mjs`);
-const PIN_KEYS: string[] = [...ARTIFACTS, COMPONENT_PAYLOAD_KEY];
+const PIN_KEYS: string[] = [...ARTIFACTS, PAYLOAD_KEY];
 
 let tmpDirs: string[] = [];
 
@@ -37,7 +37,7 @@ describe("parseArgs", () => {
 });
 
 describe("vendorBundles", () => {
-    it("writes a pin covering every entry point and the component payload, with sha256 hashes", async () => {
+    it("writes a pin covering the executable and the payload, with sha256 hashes", async () => {
         const pinPath: string = path.join(makeTmpDir("vendor-pin-"), "bundle-fingerprint.json");
 
         const { fingerprint, copiedTo } = await vendorBundles({ srcDir: SRC_DIR, pinPath });
@@ -51,7 +51,7 @@ describe("vendorBundles", () => {
         expect(JSON.parse(fs.readFileSync(pinPath, "utf8"))).toEqual(fingerprint);
     });
 
-    it("copies each artifact and the component payload into the tools directory, byte-matching the pin", async () => {
+    it("copies the artifact and the whole payload into the tools directory, byte-matching the source", async () => {
         const pinPath: string = path.join(makeTmpDir("vendor-pin-"), "bundle-fingerprint.json");
         const toolsDir: string = path.join(makeTmpDir("vendor-hub-"), ".nexus", "tools");
 
@@ -63,11 +63,13 @@ describe("vendorBundles", () => {
             // The copied artifact hashes to exactly what the pin recorded — build/pin/copy lockstep.
             expect(hashBundleCode(vendored)).toBe(fingerprint[artifact]);
         }
-        // The vendored payload hashes to exactly the pinned payload fingerprint.
-        expect(payloadCopiedTo.length).toBeGreaterThan(0);
-        expect(hashComponentTree(path.join(toolsDir, COMPONENT_PAYLOAD_DIRNAME))).toBe(
-            fingerprint[COMPONENT_PAYLOAD_KEY],
-        );
+        // The vendored payload is the stated set, byte-for-byte — build/pin/copy lockstep.
+        const payload = listPayloadFiles(path.resolve(SRC_DIR, "..", "..", ".."));
+        expect(payloadCopiedTo.sort()).toEqual(payload.map((f) => f.staged).sort());
+        for (const file of payload) {
+            const vendored: Buffer = fs.readFileSync(path.join(toolsDir, ...file.staged.split("/")));
+            expect(vendored.equals(fs.readFileSync(file.source)), file.staged).toBe(true);
+        }
     });
 
     it("produces a stable pin across repeated runs (cwd-independent build)", async () => {

@@ -24,7 +24,8 @@ import {
 } from "./parity";
 import { checkComponentComposition } from "./component-composition";
 import { COMPONENT_COMPOSITION_WAIVERS } from "./component-composition-waivers";
-import { COMPONENT_PAYLOAD_KEY, hashComponentTree, listComponentFiles, liveClaudeDir } from "./vendor-components";
+import { listComponentFiles, liveClaudeDir } from "./vendor-components";
+import { hashPayload, PAYLOAD_KEY } from "./release-payload";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const SRC_DIR: string = __dirname;
@@ -32,15 +33,6 @@ const LIB_ROOT: string = path.resolve(__dirname, "..");
 const CORPUS: string = path.join(LIB_ROOT, "corpus");
 const PIN_PATH: string = path.join(LIB_ROOT, "bundle-fingerprint.json");
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
-// These point at each capability's standalone launcher (story #274, decision record #277), not
-// the bare capability file: the capability files carry no process boundary of their own (so
-// `nexus-cli.ts` can import them without a self-run), so `tsx <capability>.ts` alone now does
-// nothing — the launcher is the file that still unconditionally invokes `runCli`.
-const ATLAS_SRC: string = path.join(SRC_DIR, "generate-atlas-launcher.ts");
-const VALIDATOR_SRC: string = path.join(SRC_DIR, "validate-concepts-launcher.ts");
-const DRIFT_SRC: string = path.join(SRC_DIR, "drift-advisory-launcher.ts");
-const SEED_SRC: string = path.join(SRC_DIR, "seed-registry-launcher.ts");
-const DERIVE_ENTRY_DIFF_SRC: string = path.join(SRC_DIR, "derive-entry-diff-launcher.ts");
 
 // Migration axis (story #272): the component-invoked scripts under .claude/skills/ vs. the
 // verbs on the freshly built `nexus` executable — distinct from the durable source-vs-bundle
@@ -74,9 +66,9 @@ beforeAll(async () => {
         freshBundles[name] = built;
         freshFingerprint[`${name}.mjs`] = hashBundleCode(built.code);
     }
-    // The vendored component payload rides the same pin (STORY-60.01): a live `.claude/` edit
-    // that skips the re-vendor step fails the fingerprint test exactly like a stale bundle.
-    freshFingerprint[COMPONENT_PAYLOAD_KEY] = hashComponentTree(liveClaudeDir(SRC_DIR));
+    // The payload rides the same pin (STORY-60.01): a live component or toolkit edit that skips
+    // the re-pin step fails the fingerprint test exactly like a stale bundle.
+    freshFingerprint[PAYLOAD_KEY] = hashPayload(REPO_ROOT);
 });
 
 let tmpDirs: string[] = [];
@@ -119,6 +111,19 @@ function runSource(srcAbs: string, args: string[], cwd: string, env?: NodeJS.Pro
 /** Runs a built bundle via plain node — the artifact a hub actually runs. */
 function runBundle(bundlePath: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv): RunResult {
     return capture(() => execFileSync("node", [bundlePath, ...args], { cwd, encoding: "utf8", ...(env ? { env } : {}) }));
+}
+
+/**
+ * A capability's parity axis, since story #309 built one executable instead of six. The bundle
+ * side is that executable addressed by verb; the source side is the same dispatcher run through
+ * tsx with the same verb. There is no standalone artifact left for either side to be.
+ */
+function runCapability(bundlePath: string, verb: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv): RunResult {
+    return runBundle(bundlePath, [verb, ...args], cwd, env);
+}
+
+function runCapabilitySource(verb: string, args: string[], cwd: string, env?: NodeJS.ProcessEnv): RunResult {
+    return runSource(NEXUS_CLI_SRC, [verb, ...args], cwd, env);
 }
 
 /** Env that puts the hermetic `gh` stand-in ahead of the real one on PATH, pointed at one fixture. */
@@ -397,9 +402,9 @@ describe("source run vs built executable (story #276)", () => {
 describe("validator parity over the corpus", () => {
     it("clean pages: both exit 0 with identical output", () => {
         const conceptsDir: string = path.join(CORPUS, "clean");
-        const bundlePath: string = writeBundle("validate-concepts");
-        const source: RunResult = runSource(VALIDATOR_SRC, ["--concepts-dir", conceptsDir], CORPUS);
-        const bundle: RunResult = runBundle(bundlePath, ["--concepts-dir", conceptsDir], CORPUS);
+        const bundlePath: string = writeBundle("nexus");
+        const source: RunResult = runCapabilitySource("validate-concepts", ["--concepts-dir", conceptsDir], CORPUS);
+        const bundle: RunResult = runCapability(bundlePath, "validate-concepts", ["--concepts-dir", conceptsDir], CORPUS);
 
         expect(source.status).toBe(0);
         const divergences = diffRunResults("validate-concepts", "clean", source, bundle);
@@ -408,9 +413,9 @@ describe("validator parity over the corpus", () => {
 
     it("finding pages: both exit non-zero with identical findings, covering every category", () => {
         const conceptsDir: string = path.join(CORPUS, "findings");
-        const bundlePath: string = writeBundle("validate-concepts");
-        const source: RunResult = runSource(VALIDATOR_SRC, ["--concepts-dir", conceptsDir], CORPUS);
-        const bundle: RunResult = runBundle(bundlePath, ["--concepts-dir", conceptsDir], CORPUS);
+        const bundlePath: string = writeBundle("nexus");
+        const source: RunResult = runCapabilitySource("validate-concepts", ["--concepts-dir", conceptsDir], CORPUS);
+        const bundle: RunResult = runCapability(bundlePath, "validate-concepts", ["--concepts-dir", conceptsDir], CORPUS);
 
         expect(source.status).not.toBe(0);
         const divergences = diffRunResults("validate-concepts", "findings", source, bundle);
@@ -435,10 +440,10 @@ describe("validator parity over the corpus", () => {
     it("--base append-only mode: both exit non-zero with identical findings", () => {
         const { conceptsDir, sha } = scratchBaseRepo();
         const cwd: string = path.dirname(conceptsDir);
-        const bundlePath: string = writeBundle("validate-concepts");
+        const bundlePath: string = writeBundle("nexus");
         const args: string[] = ["--concepts-dir", "concepts", "--base", sha];
-        const source: RunResult = runSource(VALIDATOR_SRC, args, cwd);
-        const bundle: RunResult = runBundle(bundlePath, args, cwd);
+        const source: RunResult = runCapabilitySource("validate-concepts", args, cwd);
+        const bundle: RunResult = runCapability(bundlePath, "validate-concepts", args, cwd);
 
         expect(source.status).not.toBe(0);
         const divergences = diffRunResults("validate-concepts", "base", source, bundle);
@@ -456,10 +461,10 @@ describe("atlas parity over the corpus (Invariant 3 — byte-identical)", () => 
         const conceptsDir: string = path.join(CORPUS, "atlas");
         const sourceOut: string = path.join(makeTmpDir("parity-atlas-src-"), "concepts.md");
         const bundleOut: string = path.join(makeTmpDir("parity-atlas-bun-"), "concepts.md");
-        const bundlePath: string = writeBundle("generate-atlas");
+        const bundlePath: string = writeBundle("nexus");
 
-        runSource(ATLAS_SRC, ["--concepts-dir", conceptsDir, "--out", sourceOut], CORPUS);
-        runBundle(bundlePath, ["--concepts-dir", conceptsDir, "--out", bundleOut], CORPUS);
+        runCapabilitySource("generate-atlas", ["--concepts-dir", conceptsDir, "--out", sourceOut], CORPUS);
+        runCapability(bundlePath, "generate-atlas", ["--concepts-dir", conceptsDir, "--out", bundleOut], CORPUS);
 
         const sourceAtlas: string = fs.readFileSync(sourceOut, "utf8");
         const bundleAtlas: string = fs.readFileSync(bundleOut, "utf8");
@@ -479,10 +484,10 @@ describe("atlas parity — registry mode (epic #89, Invariant 12)", () => {
         const conceptsDir: string = path.join(registryRoot, "concepts");
         const sourceOut: string = path.join(makeTmpDir("parity-reg-src-"), "concepts.md");
         const bundleOut: string = path.join(makeTmpDir("parity-reg-bun-"), "concepts.md");
-        const bundlePath: string = writeBundle("generate-atlas");
+        const bundlePath: string = writeBundle("nexus");
 
-        runSource(ATLAS_SRC, ["--concepts-dir", conceptsDir, "--out", sourceOut], registryRoot);
-        runBundle(bundlePath, ["--concepts-dir", conceptsDir, "--out", bundleOut], registryRoot);
+        runCapabilitySource("generate-atlas", ["--concepts-dir", conceptsDir, "--out", sourceOut], registryRoot);
+        runCapability(bundlePath, "generate-atlas", ["--concepts-dir", conceptsDir, "--out", bundleOut], registryRoot);
 
         const sourceAtlas: string = fs.readFileSync(sourceOut, "utf8");
         const bundleAtlas: string = fs.readFileSync(bundleOut, "utf8");
@@ -499,11 +504,11 @@ describe("atlas parity — registry mode (epic #89, Invariant 12)", () => {
 describe("drift-advisory parity over the corpus (epic #94, STORY-94.02 — byte-identical)", () => {
     it("source and bundle produce byte-identical stdout over the corpus", () => {
         const driftRoot: string = path.join(CORPUS, "drift");
-        const bundlePath: string = writeBundle("drift-advisory");
+        const bundlePath: string = writeBundle("nexus");
         const args: string[] = ["--concepts-dir", "concepts", "--registry", "docs/domains.md"];
 
-        const source: RunResult = runSource(DRIFT_SRC, args, driftRoot);
-        const bundle: RunResult = runBundle(bundlePath, args, driftRoot);
+        const source: RunResult = runCapabilitySource("drift-advisory", args, driftRoot);
+        const bundle: RunResult = runCapability(bundlePath, "drift-advisory", args, driftRoot);
 
         expect(source.status).toBe(0);
         expect(bundle.status).toBe(0);
@@ -520,11 +525,11 @@ describe("seed-registry parity over the corpus (epic #94, STORY-94.03 — byte-i
         const seedRoot: string = path.join(CORPUS, "seed");
         const sourceOut: string = makeTmpDir("parity-seed-src-");
         const bundleOut: string = makeTmpDir("parity-seed-bun-");
-        const bundlePath: string = writeBundle("seed-registry");
+        const bundlePath: string = writeBundle("nexus");
         const args = (out: string): string[] => ["--concepts-dir", "concepts", "--out-dir", out];
 
-        const source: RunResult = runSource(SEED_SRC, args(sourceOut), seedRoot);
-        const bundle: RunResult = runBundle(bundlePath, args(bundleOut), seedRoot);
+        const source: RunResult = runCapabilitySource("seed-registry", args(sourceOut), seedRoot);
+        const bundle: RunResult = runCapability(bundlePath, "seed-registry", args(bundleOut), seedRoot);
 
         expect(source.status).toBe(0);
         expect(bundle.status).toBe(0);
@@ -549,15 +554,15 @@ describe("seed-registry parity over the corpus (epic #94, STORY-94.03 — byte-i
 describe("the gate detects and names a synthetic divergence", () => {
     it("a doctored validator bundle diverges from the source, naming entry point / case / excerpt", () => {
         const conceptsDir: string = path.join(CORPUS, "findings");
-        const doctored: string = freshBundles["validate-concepts"].code.replace(
+        const doctored: string = freshBundles["nexus"].code.replace(
             "is not kebab-case",
             "is NOT-KEBAB-CASE",
         );
-        expect(doctored).not.toBe(freshBundles["validate-concepts"].code);
-        const bundlePath: string = writeBundle("validate-concepts", doctored);
+        expect(doctored).not.toBe(freshBundles["nexus"].code);
+        const bundlePath: string = writeBundle("nexus", doctored);
 
-        const source: RunResult = runSource(VALIDATOR_SRC, ["--concepts-dir", conceptsDir], CORPUS);
-        const bundle: RunResult = runBundle(bundlePath, ["--concepts-dir", conceptsDir], CORPUS);
+        const source: RunResult = runCapabilitySource("validate-concepts", ["--concepts-dir", conceptsDir], CORPUS);
+        const bundle: RunResult = runCapability(bundlePath, "validate-concepts", ["--concepts-dir", conceptsDir], CORPUS);
 
         const divergences = diffRunResults("validate-concepts", "findings", source, bundle);
         expect(divergences.length).toBeGreaterThan(0);
@@ -571,15 +576,15 @@ describe("the gate detects and names a synthetic divergence", () => {
         const conceptsDir: string = path.join(CORPUS, "atlas");
         const sourceOut: string = path.join(makeTmpDir("parity-atlas-src-"), "concepts.md");
         const bundleOut: string = path.join(makeTmpDir("parity-atlas-bun-"), "concepts.md");
-        const doctored: string = freshBundles["generate-atlas"].code.replace(
+        const doctored: string = freshBundles["nexus"].code.replace(
             "# Concept Atlas",
             "# Concept Atlas (MUTATED)",
         );
-        expect(doctored).not.toBe(freshBundles["generate-atlas"].code);
-        const bundlePath: string = writeBundle("generate-atlas", doctored);
+        expect(doctored).not.toBe(freshBundles["nexus"].code);
+        const bundlePath: string = writeBundle("nexus", doctored);
 
-        runSource(ATLAS_SRC, ["--concepts-dir", conceptsDir, "--out", sourceOut], CORPUS);
-        runBundle(bundlePath, ["--concepts-dir", conceptsDir, "--out", bundleOut], CORPUS);
+        runCapabilitySource("generate-atlas", ["--concepts-dir", conceptsDir, "--out", sourceOut], CORPUS);
+        runCapability(bundlePath, "generate-atlas", ["--concepts-dir", conceptsDir, "--out", bundleOut], CORPUS);
 
         const divergence = diffAtlasBytes(
             "generate-atlas",
@@ -1004,110 +1009,6 @@ describe("migration axis — close-migration (story #273)", () => {
     });
 });
 
-// ---------------------------------------------------------------------------------------------
-// Migration axis (story #274, decision record #277): `nexus <verb>` on the freshly built
-// executable vs. the standalone `<name>.mjs` artifact it replaces — both already-bundled forms,
-// since these five capabilities have no .claude/skills script predecessor (unlike #272/#273).
-// ---------------------------------------------------------------------------------------------
-describe("migration axis — generate-atlas (story #274)", () => {
-    it("verb and standalone bundle write byte-identical atlas output", () => {
-        const conceptsDir: string = path.join(CORPUS, "atlas");
-        const verbOut: string = path.join(makeTmpDir("parity-atlas-verb-"), "concepts.md");
-        const standaloneOut: string = path.join(makeTmpDir("parity-atlas-standalone-"), "concepts.md");
-        const nexusBundlePath: string = writeBundle("nexus");
-        const standaloneBundlePath: string = writeBundle("generate-atlas");
-
-        const verb: RunResult = runBundle(nexusBundlePath, ["generate-atlas", "--concepts-dir", conceptsDir, "--out", verbOut], CORPUS);
-        const standalone: RunResult = runBundle(standaloneBundlePath, ["--concepts-dir", conceptsDir, "--out", standaloneOut], CORPUS);
-
-        // stdout itself echoes the (necessarily distinct) absolute --out path for each side, so
-        // — matching the existing durable-axis atlas test's pattern above — only the written
-        // bytes are compared, not the console message.
-        expect(verb.status).toBe(0);
-        expect(standalone.status).toBe(0);
-
-        const verbAtlas: string = fs.readFileSync(verbOut, "utf8");
-        const standaloneAtlas: string = fs.readFileSync(standaloneOut, "utf8");
-        const divergence = diffAtlasBytes("generate-atlas", "verb-vs-standalone", verbAtlas, standaloneAtlas);
-        expect(divergence, divergence ? formatDivergences([divergence]) : undefined).toBeNull();
-    });
-});
-
-describe("migration axis — validate-concepts (story #274)", () => {
-    it("verb and standalone bundle agree on clean pages", () => {
-        const conceptsDir: string = path.join(CORPUS, "clean");
-        const nexusBundlePath: string = writeBundle("nexus");
-        const standaloneBundlePath: string = writeBundle("validate-concepts");
-
-        const verb: RunResult = runBundle(nexusBundlePath, ["validate-concepts", "--concepts-dir", conceptsDir], CORPUS);
-        const standalone: RunResult = runBundle(standaloneBundlePath, ["--concepts-dir", conceptsDir], CORPUS);
-
-        expect(verb.status).toBe(0);
-        const divergences = diffRunResults("validate-concepts", "clean", verb, standalone);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("verb and standalone bundle agree on finding pages", () => {
-        const conceptsDir: string = path.join(CORPUS, "findings");
-        const nexusBundlePath: string = writeBundle("nexus");
-        const standaloneBundlePath: string = writeBundle("validate-concepts");
-
-        const verb: RunResult = runBundle(nexusBundlePath, ["validate-concepts", "--concepts-dir", conceptsDir], CORPUS);
-        const standalone: RunResult = runBundle(standaloneBundlePath, ["--concepts-dir", conceptsDir], CORPUS);
-
-        expect(verb.status).not.toBe(0);
-        const divergences = diffRunResults("validate-concepts", "findings", verb, standalone);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-});
-
-describe("migration axis — drift-advisory (story #274)", () => {
-    it("verb and standalone bundle produce byte-identical stdout", () => {
-        const driftRoot: string = path.join(CORPUS, "drift");
-        const nexusBundlePath: string = writeBundle("nexus");
-        const standaloneBundlePath: string = writeBundle("drift-advisory");
-        const args: string[] = ["--concepts-dir", "concepts", "--registry", "docs/domains.md"];
-
-        const verb: RunResult = runBundle(nexusBundlePath, ["drift-advisory", ...args], driftRoot);
-        const standalone: RunResult = runBundle(standaloneBundlePath, args, driftRoot);
-
-        expect(verb.status).toBe(0);
-        const divergences = diffRunResults("drift-advisory", "drift", verb, standalone);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-});
-
-describe("migration axis — seed-registry (story #274)", () => {
-    it("verb and standalone bundle write byte-identical draft files", () => {
-        const seedRoot: string = path.join(CORPUS, "seed");
-        const verbOut: string = makeTmpDir("parity-seed-verb-");
-        const standaloneOut: string = makeTmpDir("parity-seed-standalone-");
-        const nexusBundlePath: string = writeBundle("nexus");
-        const standaloneBundlePath: string = writeBundle("seed-registry");
-
-        const verb: RunResult = runBundle(
-            nexusBundlePath,
-            ["seed-registry", "--concepts-dir", "concepts", "--out-dir", verbOut],
-            seedRoot,
-        );
-        const standalone: RunResult = runBundle(
-            standaloneBundlePath,
-            ["--concepts-dir", "concepts", "--out-dir", standaloneOut],
-            seedRoot,
-        );
-
-        expect(verb.status).toBe(0);
-        expect(standalone.status).toBe(0);
-
-        for (const name of ["domains.draft.md", "domain-filing-suggestions.draft.md"]) {
-            const verbDraft: string = fs.readFileSync(path.join(verbOut, name), "utf8");
-            const standaloneDraft: string = fs.readFileSync(path.join(standaloneOut, name), "utf8");
-            const divergence = diffAtlasBytes("seed-registry", name, verbDraft, standaloneDraft);
-            expect(divergence, divergence ? formatDivergences([divergence]) : undefined).toBeNull();
-        }
-    });
-});
-
 // derive-entry-diff has no executed-diff coverage prior to this story (decision record #277: "A
 // usage-error case satisfies the requirement literally while proving nothing"), so this corpus
 // case materialises a real scratch multi-repo workspace (a hub + one member) with a real
@@ -1151,7 +1052,7 @@ describe("migration axis — derive-entry-diff (story #274, real workspace corpu
         const nexusBundlePath: string = writeBundle("nexus");
         const args: string[] = ["--entry", entryDir, "--hub", hubRoot];
 
-        const source: RunResult = runSource(DERIVE_ENTRY_DIFF_SRC, args, hubRoot);
+        const source: RunResult = runCapabilitySource("derive-entry-diff", args, hubRoot);
         const verb: RunResult = runBundle(nexusBundlePath, ["derive-entry-diff", ...args], hubRoot);
 
         expect(source.status).toBe(0);

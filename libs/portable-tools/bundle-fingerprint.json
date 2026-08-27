@@ -1,9 +1,4 @@
 {
-  "generate-atlas.mjs": "6112c19069cc88220ea2efd362393d026aec0545afb8171c23af4fa172bb6f73",
-  "validate-concepts.mjs": "bb5c240b0d578fdd4468565274ae73df9cbd31876fbf933d59b4a56920fb8cd2",
-  "derive-entry-diff.mjs": "5c520763c7bf40bd78be656332d38257493b1be5d020540385e4d7409515e5c8",
-  "drift-advisory.mjs": "96cd6db0aa1d1bfdfd25ea04896d2f5fcf5df0fcd5af0afe37eff88db9756efc",
-  "seed-registry.mjs": "d5121f104766d66b8192db02b1570c7a55a1f66cc852460a45859a981b5c86f3",
   "nexus.mjs": "54bc0d56499d70ca531aa3edd083bd9c73651370fec9e03aa1ae7d55377336f1",
-  "claude-components": "1d99e445d427430c9ca6e02636be81c6d6c84f933e5962fa2d5638c721e6b59c"
+  "payload": "f429f36121a2a0dbe3f3613f05af2480af834a6ae5af1b82f9a3246fb49c76ae"
 }

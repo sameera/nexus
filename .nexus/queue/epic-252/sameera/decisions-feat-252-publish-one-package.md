@@ -27,3 +27,33 @@
 - **Choice:** `isDirectRun()` resolves both `import.meta.url` and `process.argv[1]` through `realpath` before comparing.
 - **Why:** A package manager links a declared binary onto the caller's path as a symlink, so an installed run names the link while the module knows its resolved location. The old string comparison made the installed executable exit 0 having done nothing.
 - **Refuted alternative:** none.
+
+## 2026-08-26 — The payload filter is a denylist of categories
+
+- **Choice:** `PAYLOAD_IGNORE` names the incidental categories (`__pycache__`, `*.pyc`, `tests`, `test_*.py`) rather than allowlisting the files that ship.
+- **Why:** A new capability module must ship the moment it is written and a new test file must never ship. Naming the categories gives both; an allowlist gives neither without an edit each time.
+- **Refuted alternative:** An explicit manifest of shipped files, which would silently omit any module someone forgot to add.
+
+## 2026-08-26 — The payload is one pin entry covering both parts
+
+- **Choice:** One `payload` key over the Python toolkit *and* the component tree, replacing the `claude-components` key.
+- **Why:** The story requires the pin to be one bundle entry plus the payload entry, and the Python toolkit is now part of what ships — a pin that covered only the components would leave half the payload unguarded.
+- **Refuted alternative:** A third key for the toolkit, which contradicts the stated pin shape.
+
+## 2026-08-26 — Ordering is by code unit, not locale
+
+- **Choice:** The canonical manifest sorts staged paths with a code-unit comparison instead of `localeCompare`.
+- **Why:** A locale-sensitive comparison makes the manifest order — and so the fingerprint — a property of the machine, which is exactly what the story removes.
+- **Refuted alternative:** none.
+
+## 2026-08-26 — Byte-code is suppressed at the entry point
+
+- **Choice:** `bin/nexus-gh` sets `sys.dont_write_bytecode = True` before importing anything.
+- **Why:** It is the one place every capability passes through, so no capability can forget it. Excluding byte-code from the payload alone would still leave `__pycache__` in the repository a stage ran against.
+- **Refuted alternative:** Exporting `PYTHONDONTWRITEBYTECODE` from the callers, which every new caller would have to remember.
+
+## 2026-08-26 — The five launchers are deleted, not just unbuilt
+
+- **Choice:** Removing the five entry points from `ENTRY_POINTS` also deletes the launcher sources, and every spec that ran one now runs the dispatcher with the matching verb.
+- **Why:** Nothing referenced them except as bundle entry points. Left in place they would be unreachable files that still look like entry points.
+- **Refuted alternative:** Keeping them as unbuilt sources, which leaves dead code claiming a process boundary that no longer exists.

@@ -15,38 +15,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { buildAllBundles } from "./build-bundles.js";
-import { copyComponentTree, COMPONENT_PAYLOAD_DIRNAME, liveClaudeDir } from "./vendor-components.js";
+import { listPayloadFiles } from "./release-payload.js";
 
 /** The staged directory, relative to the package root. Named in the manifest's `files`. */
 export const RELEASE_TREE_DIRNAME = "dist";
 
-/** Directory the Python toolkit travels under, beside the bundled executable. */
-export const GH_TOOLKIT_DIRNAME = "gh-toolkit";
-
 /** The two toolkit names the manifest declares as binaries. */
 export const BIN_NAMES: readonly string[] = ["nexus", "nexus-gh"];
-
-/** The Python toolkit's source root in the checkout. */
-export function ghToolkitSource(repoRoot: string): string {
-    return path.join(repoRoot, "libs", "gh-toolkit");
-}
-
-function copyTree(srcDir: string, destDir: string): string[] {
-    const copied: string[] = [];
-    for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-        const src: string = path.join(srcDir, entry.name);
-        const dest: string = path.join(destDir, entry.name);
-        if (entry.isDirectory()) {
-            copied.push(...copyTree(src, dest));
-        } else {
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.copyFileSync(src, dest);
-            fs.chmodSync(dest, fs.statSync(src).mode & 0o777);
-            copied.push(dest);
-        }
-    }
-    return copied;
-}
 
 /**
  * Stages every published part under `<repoRoot>/dist`, replacing whatever was there. Returns the
@@ -63,10 +38,13 @@ export async function buildReleaseTree(repoRoot: string, outDir?: string): Promi
         fs.chmodSync(bundle, 0o755);
     }
 
-    written.push(...copyTree(ghToolkitSource(repoRoot), path.join(releaseDir, GH_TOOLKIT_DIRNAME)));
-    const payloadDir: string = path.join(releaseDir, COMPONENT_PAYLOAD_DIRNAME);
-    for (const rel of copyComponentTree(liveClaudeDir(srcDir), payloadDir)) {
-        written.push(path.join(payloadDir, ...rel.split("/")));
+    // The payload is the stated set, not the directories it happens to live in (story #309).
+    for (const file of listPayloadFiles(repoRoot)) {
+        const dest: string = path.join(releaseDir, ...file.staged.split("/"));
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(file.source, dest);
+        fs.chmodSync(dest, fs.statSync(file.source).mode & 0o777);
+        written.push(dest);
     }
     return written;
 }

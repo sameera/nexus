@@ -36,10 +36,9 @@ describe("buildAllBundles", () => {
             expect(fs.existsSync(file)).toBe(true);
             const content: string = fs.readFileSync(file, "utf8");
             expect(content.length).toBeGreaterThan(0);
-            // A standalone launcher's bundle (story #274) exports nothing — its only top-level
-            // code is the `runCli` invocation — so "looks like ESM" is asserted via the shared
-            // createRequire shim every bundle carries, not an export clause every bundle no
-            // longer has.
+            // The executable's bundle exports nothing — its only top-level code is the
+            // dispatch — so "looks like ESM" is asserted via the shared createRequire shim it
+            // carries, not an export clause it does not have.
             expect(content).toContain("createRequire");
         }
     });
@@ -53,7 +52,7 @@ describe("buildAllBundles", () => {
 });
 
 describe("CLI entry (matches the nx \"bundle\" target's invocation)", () => {
-    it("builds both bundles into dist/bundle when launched via tsx", () => {
+    it("builds the executable into dist/bundle when launched via tsx", () => {
         const stdout: string = execFileSync(TSX_BIN, ["src/build-bundles.ts"], {
             cwd: LIB_ROOT,
             encoding: "utf8",
