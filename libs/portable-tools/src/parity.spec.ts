@@ -74,8 +74,8 @@ beforeAll(async () => {
         freshBundles[name] = built;
         freshFingerprint[`${name}.mjs`] = hashBundleCode(built.code);
     }
-    // The vendored component payload rides the same pin (STORY-60.01): a live `.claude/` edit
-    // that skips the re-vendor step fails the fingerprint test exactly like a stale bundle.
+    // The component payload rides the same pin (STORY-60.01): a live `.claude/` edit
+    // that skips the re-pin step fails the fingerprint test exactly like a stale bundle.
     freshFingerprint[COMPONENT_PAYLOAD_KEY] = hashComponentTree(liveClaudeDir(SRC_DIR));
 });
 
@@ -230,13 +230,13 @@ function scratchBaseRepo(): { repo: string; conceptsDir: string; sha: string } {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Fingerprint pin (Invariant 12) — catches "edited source but did not rebuild-and-re-vendor".
+// Fingerprint pin (Invariant 12) — catches "edited source but did not rebuild-and-re-pin".
 // ---------------------------------------------------------------------------------------------
 describe("fingerprint pin", () => {
     it("the freshly built bundle hash equals the committed pin", () => {
         const pinned: Fingerprint = JSON.parse(fs.readFileSync(PIN_PATH, "utf8"));
         const mismatch: string | null = checkFingerprint(freshFingerprint, pinned);
-        // On failure the message names each stale bundle and points at the re-vendor procedure.
+        // On failure the message names each stale bundle and points at the re-pin procedure.
         expect(mismatch, mismatch ?? undefined).toBeNull();
     });
 
@@ -250,11 +250,17 @@ describe("fingerprint pin", () => {
         expect(checkFingerprint({ "a.mjs": "abc" }, { "a.mjs": "abc" })).toBeNull();
     });
 
-    it("checkFingerprint names a stale bundle and the re-vendor procedure", () => {
+    it("checkFingerprint names a stale bundle and the re-pin procedure", () => {
         const message: string | null = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" });
         expect(message).toContain("STALE");
         expect(message).toContain("stale");
-        expect(message).toContain("nexus:vendor-tools");
+        expect(message).toContain("nexus:pin-bundles");
+    });
+
+    it("remediates without naming a vendoring operation or a repository-internal destination", () => {
+        const message: string = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" }) ?? "";
+        expect(message.toLowerCase()).not.toContain("vendor");
+        expect(message).not.toContain(".nexus/tools");
     });
 
     it("checkFingerprint flags an unpinned bundle and an orphaned pin entry", () => {

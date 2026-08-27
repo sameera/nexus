@@ -68,7 +68,7 @@ describe("runCli", () => {
         });
         vi.spyOn(console, "log").mockImplementation(() => undefined);
 
-        const code: number = await runCli(["--tools-dir", "/some/hub/.nexus/tools"]);
+        const code: number = await runCli(["--tools-dir", "/some/hub/tools"]);
 
         expect(code).not.toBe(0);
         expect(errors.join("\n")).toContain("--tools-dir");

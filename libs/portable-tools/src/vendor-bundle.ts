@@ -6,8 +6,8 @@
  * source fails the fingerprint gate (decision record, epic #60 ADDRESS risk).
  *
  * It writes exactly one file — that pin — and copies nothing into any repository. The copy half
- * that once vendored the artifacts into a hub's `.nexus/tools/` directory was retired with the
- * vendored bundle itself; the toolkit reaches a machine through the shared install instead.
+ * that once placed the artifacts inside a hub checkout was retired with the vendored bundle
+ * itself; the toolkit reaches a machine through the shared install instead.
  *
  * Because `buildBundle` is cwd-independent, the pin this writes matches the fresh build the parity
  * spec computes under the nx `test` target regardless of where it runs.
