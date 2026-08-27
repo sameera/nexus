@@ -14,7 +14,7 @@
  * writes — it reads only.
  *
  * Usage:
- *   node .nexus/tools/derive-entry-diff.mjs --entry <queue-entry-dir> [--hub <hub-root>]
+ *   node <tools-dir>/nexus.mjs derive-entry-diff --entry <queue-entry-dir> [--hub <hub-root>]
  */
 
 import * as fs from "node:fs";

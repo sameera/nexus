@@ -81,3 +81,15 @@
 - **Choice:** `CHANGELOG.md` in the repository is the source, and step 6 of the procedure pastes the section into the GitHub release for the tag.
 - **Why:** The registry listing is a weaker changelog surface, and the two are not exclusive — Nexus lives in a git repository whichever channel installs it.
 - **Refuted alternative:** Relying on the registry listing alone.
+
+## 2026-08-27 — Reconciling with #257: the pin step keeps no copy half
+
+- **Choice:** When merging `main` (which retired the pin step's `--tools-dir` copy half with the vendored tools directory, #257), the branch's payload abstraction survives and the copy half does not: `vendorBundles` builds, hashes the stated payload, writes the pin and its manifest, and `runCli` rejects every argument by name. Staging the payload into a release tree stays with `pack-release.ts`.
+- **Why:** The two epics decided the same question from opposite ends — #257 removed *where* the artifacts were copied, #252 redefined *what* ships. Only the destination conflicted, and the release tree is now the one destination, so the pin step has no copy to make.
+- **Refuted alternative:** Keeping `--tools-dir` on the pin step for a non-hub destination, which would restore a second staging path alongside `pack-release.ts` and reopen the "two artifacts ageing independently" cost #257 paid to remove.
+
+## 2026-08-27 — The pin script keeps main's name, and the release procedure follows it
+
+- **Choice:** Adopt `nexus:pin-bundles` (main's rename of `nexus:vendor-tools`) and repoint the branch's remediation hint, release procedure and its AC2 test at it.
+- **Why:** The step no longer vendors anything, so the merged name is the accurate one; a release procedure naming a script that does not exist fails on release day.
+- **Refuted alternative:** Restoring `nexus:vendor-tools`, which re-adds an alias whose verb the code has stopped doing.

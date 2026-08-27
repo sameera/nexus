@@ -1,6 +1,6 @@
 /**
  * Parity primitives (STORY-44.03). The in-repo TypeScript scripts are the single authoritative
- * source; the vendored `.mjs` is a derived build that can silently lag. This module supplies the
+ * source; the built `.mjs` is a derived build that can silently lag. This module supplies the
  * load-bearing check that makes that drift impossible to ship:
  *
  *   - `hashBundleCode` / `checkFingerprint` — the fingerprint pin. The gate rebuilds the released
@@ -14,12 +14,12 @@
  *     findings, exit codes, or atlas bytes, NAMING the divergence — entry point, corpus case,
  *     and a diff excerpt (Invariant 10).
  *
- * Node builtins only; this file is not a bundle entry point, so it is never itself vendored.
+ * Node builtins only; this file is not a bundle entry point.
  */
 
 import { createHash } from "node:crypto";
 
-/** Maps each vendored bundle filename (`<entry>.mjs`) to the sha256 hex of its bytes. */
+/** Maps each built bundle filename (`<entry>.mjs`) to the sha256 hex of its bytes. */
 export type Fingerprint = Record<string, string>;
 
 export function hashBundleCode(code: string): string {
@@ -27,7 +27,7 @@ export function hashBundleCode(code: string): string {
 }
 
 const REPIN_HINT: string =
-    "Re-pin: `pnpm nexus:vendor-tools` rebuilds the executable, recomputes the payload hash and " +
+    "Re-pin: `pnpm nexus:pin-bundles` rebuilds the executable, recomputes the payload hash and " +
     "rewrites libs/portable-tools/bundle-fingerprint.json together with its payload manifest. It " +
     "copies nothing into any repository. An esbuild version bump also changes the bundle bytes " +
     "and must be followed by a re-pin.";
@@ -35,8 +35,8 @@ const REPIN_HINT: string =
 /**
  * Compares a freshly built fingerprint against the committed pin. Returns null when every entry
  * matches; otherwise a message naming each stale / unpinned / orphaned bundle and pointing at the
- * rebuild + re-vendor procedure. The word "stale" appears whenever a pinned hash no longer matches
- * a fresh build — the "edited source but did not re-vendor" case.
+ * rebuild + re-pin procedure. The word "stale" appears whenever a pinned hash no longer matches
+ * a fresh build — the "edited source but did not re-pin" case.
  */
 export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint, payloadDifferences: string[] = []): string | null {
     const problems: string[] = [];
@@ -149,7 +149,7 @@ export function formatDivergences(divergences: Divergence[]): string {
         return "";
     }
     return [
-        `Parity divergence — the vendored bundle diverged from the in-repo source (${divergences.length}):`,
+        `Parity divergence — the built bundle diverged from the in-repo source (${divergences.length}):`,
         ...divergences.map(
             (d) => `  - [${d.entryPoint}] corpus case "${d.corpusCase}" (${d.kind}):\n    ${d.diffExcerpt.replace(/\n/g, "\n    ")}`,
         ),

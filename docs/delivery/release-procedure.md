@@ -27,7 +27,7 @@ If the release changed no stage behaviour, the entry still exists and says exact
 
 ## 3. Re-pin and verify
 
-    pnpm nexus:vendor-tools
+    pnpm nexus:pin-bundles
     npx nx run-many -t test --all
     python3 -m unittest discover -s libs/gh-toolkit/tests
 

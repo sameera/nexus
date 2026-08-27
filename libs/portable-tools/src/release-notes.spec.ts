@@ -55,7 +55,7 @@ describe("one tag, one registry version, one releases-page entry (AC1)", () => {
 describe("the written procedure is followable end to end (AC2)", () => {
     it("covers every step from choosing the version to publishing the releases-page entry", () => {
         const procedure: string = fs.readFileSync(PROCEDURE_PATH, "utf8");
-        for (const step of ["VERSION", "CHANGELOG.md", "nexus:vendor-tools", "git tag", "npm publish", "npm install -g"]) {
+        for (const step of ["VERSION", "CHANGELOG.md", "nexus:pin-bundles", "git tag", "npm publish", "npm install -g"]) {
             expect(procedure, step).toContain(step);
         }
         // A reader who has to guess the stage vocabulary has to ask a question.

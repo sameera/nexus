@@ -1,11 +1,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ENTRY_POINTS } from "./build-bundles";
-import { hashBundleCode } from "./parity";
-import { parseArgs, vendorBundles } from "./vendor-bundle";
-import { listPayloadFiles, PAYLOAD_KEY } from "./release-payload";
+import { runCli, vendorBundles } from "./vendor-bundle";
+import { PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE } from "./release-payload";
 
 const SRC_DIR: string = __dirname;
 const ARTIFACTS: string[] = Object.keys(ENTRY_POINTS).map((name) => `${name}.mjs`);
@@ -24,51 +23,44 @@ afterEach(() => {
         fs.rmSync(dir, { recursive: true, force: true });
     }
     tmpDirs = [];
-});
-
-describe("parseArgs", () => {
-    it("defaults to no tools directory", () => {
-        expect(parseArgs([])).toEqual({});
-    });
-
-    it("parses --tools-dir", () => {
-        expect(parseArgs(["--tools-dir", "/some/hub/.nexus/tools"])).toEqual({ toolsDir: "/some/hub/.nexus/tools" });
-    });
+    vi.restoreAllMocks();
 });
 
 describe("vendorBundles", () => {
     it("writes a pin covering the executable and the payload, with sha256 hashes", async () => {
         const pinPath: string = path.join(makeTmpDir("vendor-pin-"), "bundle-fingerprint.json");
 
-        const { fingerprint, copiedTo } = await vendorBundles({ srcDir: SRC_DIR, pinPath });
+        const { fingerprint } = await vendorBundles({ srcDir: SRC_DIR, pinPath });
 
         expect(Object.keys(fingerprint).sort()).toEqual([...PIN_KEYS].sort());
         for (const key of PIN_KEYS) {
             expect(fingerprint[key]).toMatch(/^[0-9a-f]{64}$/);
         }
-        expect(copiedTo).toEqual([]);
         // The pin file is written and parses back to the same fingerprint.
         expect(JSON.parse(fs.readFileSync(pinPath, "utf8"))).toEqual(fingerprint);
     });
 
-    it("copies the artifact and the whole payload into the tools directory, byte-matching the source", async () => {
-        const pinPath: string = path.join(makeTmpDir("vendor-pin-"), "bundle-fingerprint.json");
-        const toolsDir: string = path.join(makeTmpDir("vendor-hub-"), ".nexus", "tools");
+    it("writes the pin and its payload manifest and nothing else — no artifact lands beside them", async () => {
+        const runDir: string = makeTmpDir("pin-only-");
+        const pinPath: string = path.join(runDir, "bundle-fingerprint.json");
 
-        const { fingerprint, copiedTo, payloadCopiedTo } = await vendorBundles({ srcDir: SRC_DIR, pinPath, toolsDir });
+        await vendorBundles({ srcDir: SRC_DIR, pinPath });
 
-        expect(copiedTo.map((p) => path.basename(p)).sort()).toEqual([...ARTIFACTS].sort());
-        for (const artifact of ARTIFACTS) {
-            const vendored: string = fs.readFileSync(path.join(toolsDir, artifact), "utf8");
-            // The copied artifact hashes to exactly what the pin recorded — build/pin/copy lockstep.
-            expect(hashBundleCode(vendored)).toBe(fingerprint[artifact]);
-        }
-        // The vendored payload is the stated set, byte-for-byte — build/pin/copy lockstep.
-        const payload = listPayloadFiles(path.resolve(SRC_DIR, "..", "..", ".."));
-        expect(payloadCopiedTo.sort()).toEqual(payload.map((f) => f.staged).sort());
-        for (const file of payload) {
-            const vendored: Buffer = fs.readFileSync(path.join(toolsDir, ...file.staged.split("/")));
-            expect(vendored.equals(fs.readFileSync(file.source)), file.staged).toBe(true);
+        expect(fs.readdirSync(runDir).sort()).toEqual(["bundle-fingerprint.json", PAYLOAD_MANIFEST_FILE].sort());
+    });
+
+    it("names every payload file in the manifest it writes beside the pin", async () => {
+        const runDir: string = makeTmpDir("pin-manifest-");
+        const pinPath: string = path.join(runDir, "bundle-fingerprint.json");
+
+        await vendorBundles({ srcDir: SRC_DIR, pinPath });
+
+        const manifest: Record<string, string> = JSON.parse(
+            fs.readFileSync(path.join(runDir, PAYLOAD_MANIFEST_FILE), "utf8"),
+        );
+        expect(Object.keys(manifest).length).toBeGreaterThan(0);
+        for (const hash of Object.values(manifest)) {
+            expect(hash).toMatch(/^[0-9a-f]{64}$/);
         }
     });
 
@@ -80,5 +72,33 @@ describe("vendorBundles", () => {
         const b = await vendorBundles({ srcDir: SRC_DIR, pinPath: second });
 
         expect(a.fingerprint).toEqual(b.fingerprint);
+    });
+});
+
+describe("runCli", () => {
+    it("rejects a destination-directory option by name, without writing a pin", async () => {
+        const errors: string[] = [];
+        vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+            errors.push(args.join(" "));
+        });
+        vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+        const code: number = await runCli(["--tools-dir", "/some/hub/tools"]);
+
+        expect(code).not.toBe(0);
+        expect(errors.join("\n")).toContain("--tools-dir");
+    });
+
+    it("rejects any unrecognised argument by name", async () => {
+        const errors: string[] = [];
+        vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+            errors.push(args.join(" "));
+        });
+        vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+        const code: number = await runCli(["--wat"]);
+
+        expect(code).not.toBe(0);
+        expect(errors.join("\n")).toContain("--wat");
     });
 });

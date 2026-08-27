@@ -236,7 +236,7 @@ function scratchBaseRepo(): { repo: string; conceptsDir: string; sha: string } {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Fingerprint pin (Invariant 12) — catches "edited source but did not rebuild-and-re-vendor".
+// Fingerprint pin (Invariant 12) — catches "edited source but did not rebuild-and-re-pin".
 // ---------------------------------------------------------------------------------------------
 describe("fingerprint pin", () => {
     it("the freshly built executable and recomputed payload equal the committed pin", () => {
@@ -267,7 +267,7 @@ describe("fingerprint pin", () => {
 
     it("the remediation names an action that writes into no repository", () => {
         const message: string | null = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" });
-        expect(message).toContain("nexus:vendor-tools");
+        expect(message).toContain("nexus:pin-bundles");
         expect(message).toContain("copies nothing into any repository");
         expect(message).not.toContain("--tools-dir");
     });
@@ -291,7 +291,13 @@ describe("fingerprint pin", () => {
         const message: string | null = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" });
         expect(message).toContain("STALE");
         expect(message).toContain("stale");
-        expect(message).toContain("nexus:vendor-tools");
+        expect(message).toContain("nexus:pin-bundles");
+    });
+
+    it("remediates without naming a vendoring operation or a repository-internal destination", () => {
+        const message: string = checkFingerprint({ "a.mjs": "aaaa" }, { "a.mjs": "bbbb" }) ?? "";
+        expect(message.toLowerCase()).not.toContain("vendor");
+        expect(message).not.toContain(".nexus/tools");
     });
 
     it("checkFingerprint flags an unpinned bundle and an orphaned pin entry", () => {

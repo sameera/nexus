@@ -109,7 +109,7 @@ tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
 ```
 
 In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable CLI instead —
-`node <tools-dir>/nexus.mjs workspace docs-root` (in a workspace hub, `<tools-dir>` is `.nexus/tools`).
+`node <tools-dir>/nexus.mjs workspace docs-root`.
 
 - It prints one line — capture it as **`<docs-root>`**: `docs` for a single-repo checkout or a
   member, `.` for a hub whose docs root is the repo root, or the hub's configured override.

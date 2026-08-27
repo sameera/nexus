@@ -226,7 +226,7 @@ Installing Nexus into a repo — and refreshing it later — is one command, the
 node <tools-dir>/nexus.mjs deploy
 ```
 
-`<tools-dir>` is wherever the portable distributable lives (in a workspace hub: `.nexus/tools/`). The CLI ships as a self-contained bundle with the Nexus `.claude/` components vendored beside it, so it runs on a bare `node` binary — no install or build step, no in-repo toolchain.
+`<tools-dir>` is wherever the portable distributable lives. The CLI ships as a self-contained bundle with the Nexus `.claude/` components vendored beside it, so it runs on a bare `node` binary — no install or build step, no in-repo toolchain.
 
 `nexus deploy` does the following:
 
