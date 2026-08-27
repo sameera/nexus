@@ -17,28 +17,6 @@ patchedDependencies:
 importers:
 
   .:
-    dependencies:
-      express:
-        specifier: ^5.2.1
-        version: 5.2.1
-      isbot:
-        specifier: ^5.1.44
-        version: 5.1.44
-      node-pty:
-        specifier: ^1.1.0
-        version: 1.1.0
-      react:
-        specifier: ^19.0.0
-        version: 19.2.7
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.7(react@19.2.7)
-      react-router:
-        specifier: ^8.3.0
-        version: 8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      ws:
-        specifier: ^8.21.0
-        version: 8.21.0
     devDependencies:
       '@eslint/js':
         specifier: ^9.8.0
@@ -202,9 +180,27 @@ importers:
       '@react-router/node':
         specifier: ^8.1.0
         version: 8.1.0(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
       isbot:
         specifier: ^5.1.44
         version: 5.1.44
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+      react-router:
+        specifier: ^8.3.0
+        version: 8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.0
 
   libs/abs-doc-path:
     dependencies:

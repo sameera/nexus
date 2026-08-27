@@ -3,10 +3,12 @@
  * source; the built `.mjs` is a derived build that can silently lag. This module supplies the
  * load-bearing check that makes that drift impossible to ship:
  *
- *   - `hashBundleCode` / `checkFingerprint` — the fingerprint pin. A source edit that isn't
- *     rebuilt-and-re-pinned changes the fresh build's hash, so it no longer equals the
- *     committed pin (decision-record Invariant 12). Both sides of a live source-vs-bundle diff
- *     are always current, so only the pin can catch that staleness.
+ *   - `hashBundleCode` / `checkFingerprint` — the fingerprint pin. The gate rebuilds the released
+ *     executable and recomputes the released payload's hash and compares both against the
+ *     committed pin (decision-record Invariant 12); it consults no copy of either inside any
+ *     repository, because the check that protects the release is pointed at the release
+ *     (story #310). Both sides of a live source-vs-bundle diff are always current, so only the
+ *     pin can catch a released artifact that lags its source.
  *   - `diffRunResults` / `diffAtlasBytes` / `formatDivergences` — the executed diff. Runs the
  *     source and a fresh bundle over the committed corpus and reports any mismatch in validator
  *     findings, exit codes, or atlas bytes, NAMING the divergence — entry point, corpus case,
@@ -25,9 +27,10 @@ export function hashBundleCode(code: string): string {
 }
 
 const REPIN_HINT: string =
-    "Rebuild and re-pin: `pnpm nexus:pin-bundles` rebuilds every bundle and updates " +
-    "libs/portable-tools/bundle-fingerprint.json. An esbuild version bump also changes the bundle " +
-    "bytes and must be followed by a re-pin.";
+    "Re-pin: `pnpm nexus:pin-bundles` rebuilds the executable, recomputes the payload hash and " +
+    "rewrites libs/portable-tools/bundle-fingerprint.json together with its payload manifest. It " +
+    "copies nothing into any repository. An esbuild version bump also changes the bundle bytes " +
+    "and must be followed by a re-pin.";
 
 /**
  * Compares a freshly built fingerprint against the committed pin. Returns null when every entry
@@ -35,7 +38,7 @@ const REPIN_HINT: string =
  * rebuild + re-pin procedure. The word "stale" appears whenever a pinned hash no longer matches
  * a fresh build — the "edited source but did not re-pin" case.
  */
-export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint): string | null {
+export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint, payloadDifferences: string[] = []): string | null {
     const problems: string[] = [];
     for (const name of Object.keys(fresh)) {
         if (!(name in pinned)) {
@@ -43,8 +46,13 @@ export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint): strin
         } else if (pinned[name] !== fresh[name]) {
             problems.push(
                 `${name}: STALE — the pin records ${pinned[name].slice(0, 12)}… but a fresh build ` +
-                    `hashes ${fresh[name].slice(0, 12)}… (the built bundle no longer matches its source)`,
+                    `hashes ${fresh[name].slice(0, 12)}… (the released artifact no longer matches its source)`,
             );
+            // A digest inequality says only that something moved. The payload manifest is what
+            // lets the gate say which file (story #310).
+            for (const difference of payloadDifferences) {
+                problems.push(`  ${difference}`);
+            }
         }
     }
     for (const name of Object.keys(pinned)) {
@@ -56,7 +64,7 @@ export function checkFingerprint(fresh: Fingerprint, pinned: Fingerprint): strin
         return null;
     }
     return [
-        "Bundle fingerprint mismatch — the built bundle is stale relative to the in-repo source:",
+        "Release fingerprint mismatch — the released artifact is stale relative to the in-repo source:",
         ...problems.map((p) => `  - ${p}`),
         REPIN_HINT,
     ].join("\n");

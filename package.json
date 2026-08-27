@@ -1,7 +1,6 @@
 {
-  "name": "nexus",
-  "version": "1.0.0",
-  "private": true,
+  "name": "@sameera/nexus",
+  "version": "0.1.0",
   "description": "A System of Intentional Friction for the Age of AI Agents",
   "license": "ISC",
   "repository": {
@@ -12,9 +11,27 @@
     "url": "https://github.com/sameera/nexus/issues"
   },
   "homepage": "https://github.com/sameera/nexus#readme",
+  "bin": {
+    "nexus": "dist/nexus.mjs",
+    "nexus-gh": "dist/gh-toolkit/bin/nexus-gh"
+  },
+  "files": [
+    "dist",
+    "VERSION",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "packageManager": "pnpm@10.13.1",
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "engines": {
-    "node": ">=22.22.0"
+    "node": ">=22.22.0",
+    "python": ">=3.10"
   },
   "scripts": {
     "nexus:validate-concepts": "tsx libs/portable-tools/src/nexus-cli.ts validate-concepts",
@@ -22,7 +39,9 @@
     "nexus:check-atlas": "tsx libs/portable-tools/src/nexus-cli.ts generate-atlas --check",
     "nexus:drift-advisory": "tsx libs/portable-tools/src/nexus-cli.ts drift-advisory",
     "nexus:seed-registry": "tsx libs/portable-tools/src/nexus-cli.ts seed-registry",
-    "nexus:pin-bundles": "tsx libs/portable-tools/src/vendor-bundle.ts"
+    "nexus:pin-bundles": "tsx libs/portable-tools/src/vendor-bundle.ts",
+    "nexus:build-release": "tsx libs/portable-tools/src/pack-release.ts",
+    "prepack": "pnpm nexus:build-release"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -76,14 +95,5 @@
     "typescript-eslint": "^8.40.0",
     "vite": "^8.0.0",
     "vitest": "~4.1.0"
-  },
-  "dependencies": {
-    "express": "^5.2.1",
-    "isbot": "^5.1.44",
-    "node-pty": "^1.1.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router": "^8.3.0",
-    "ws": "^8.21.0"
   }
 }

@@ -4,11 +4,11 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ENTRY_POINTS } from "./build-bundles";
 import { runCli, vendorBundles } from "./vendor-bundle";
-import { COMPONENT_PAYLOAD_KEY } from "./vendor-components";
+import { PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE } from "./release-payload";
 
 const SRC_DIR: string = __dirname;
 const ARTIFACTS: string[] = Object.keys(ENTRY_POINTS).map((name) => `${name}.mjs`);
-const PIN_KEYS: string[] = [...ARTIFACTS, COMPONENT_PAYLOAD_KEY];
+const PIN_KEYS: string[] = [...ARTIFACTS, PAYLOAD_KEY];
 
 let tmpDirs: string[] = [];
 
@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("vendorBundles", () => {
-    it("writes a pin covering every entry point and the component payload, with sha256 hashes", async () => {
+    it("writes a pin covering the executable and the payload, with sha256 hashes", async () => {
         const pinPath: string = path.join(makeTmpDir("vendor-pin-"), "bundle-fingerprint.json");
 
         const { fingerprint } = await vendorBundles({ srcDir: SRC_DIR, pinPath });
@@ -40,13 +40,28 @@ describe("vendorBundles", () => {
         expect(JSON.parse(fs.readFileSync(pinPath, "utf8"))).toEqual(fingerprint);
     });
 
-    it("writes the pin and nothing else — no directory and no artifact lands beside it", async () => {
+    it("writes the pin and its payload manifest and nothing else — no artifact lands beside them", async () => {
         const runDir: string = makeTmpDir("pin-only-");
         const pinPath: string = path.join(runDir, "bundle-fingerprint.json");
 
         await vendorBundles({ srcDir: SRC_DIR, pinPath });
 
-        expect(fs.readdirSync(runDir)).toEqual(["bundle-fingerprint.json"]);
+        expect(fs.readdirSync(runDir).sort()).toEqual(["bundle-fingerprint.json", PAYLOAD_MANIFEST_FILE].sort());
+    });
+
+    it("names every payload file in the manifest it writes beside the pin", async () => {
+        const runDir: string = makeTmpDir("pin-manifest-");
+        const pinPath: string = path.join(runDir, "bundle-fingerprint.json");
+
+        await vendorBundles({ srcDir: SRC_DIR, pinPath });
+
+        const manifest: Record<string, string> = JSON.parse(
+            fs.readFileSync(path.join(runDir, PAYLOAD_MANIFEST_FILE), "utf8"),
+        );
+        expect(Object.keys(manifest).length).toBeGreaterThan(0);
+        for (const hash of Object.values(manifest)) {
+            expect(hash).toMatch(/^[0-9a-f]{64}$/);
+        }
     });
 
     it("produces a stable pin across repeated runs (cwd-independent build)", async () => {

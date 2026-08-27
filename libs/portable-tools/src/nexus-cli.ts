@@ -42,6 +42,7 @@ import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
+import { isDirectRun } from "./entry-point.js";
 import { deployComponents, type DeployResult } from "./deploy-components.js";
 import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
@@ -774,6 +775,6 @@ async function main(): Promise<void> {
     process.exit(await runNexusCli(process.argv.slice(2), io));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectRun(import.meta.url, process.argv[1])) {
     main();
 }

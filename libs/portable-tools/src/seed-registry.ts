@@ -322,5 +322,4 @@ export function runCli(argv: string[]): number {
 }
 
 // No self-exec guard here (decision record #277): the process boundary lives once, in the
-// dispatcher (`nexus-cli.ts`) or in this capability's own standalone launcher
-// (`seed-registry-launcher.ts`) — never in the capability itself, which must be import-safe.
+// dispatcher (`nexus-cli.ts`) — never in the capability itself, which must be import-safe.
