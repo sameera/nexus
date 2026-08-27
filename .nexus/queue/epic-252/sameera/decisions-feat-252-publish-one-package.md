@@ -108,3 +108,13 @@
 - **Choice:** Record in the release procedure that the suite checks the entry's *language*, not its *coverage*, and hand the author `git diff --name-only <previous tag>..HEAD -- .claude`; do not derive `touchedComponentBody` / `changedStageBehaviour` from the release diff.
 - **Why:** Record #334 offers both exits. There is no previous tag to diff against for the first release, and wiring the unit suite to git tag history makes it fail on a shallow or tagless checkout for a fact a human still has to judge.
 - **Refuted alternative:** Derive the two context facts from the release diff and fail when the entry does not account for them. Stronger, but it needs a tag history the project does not have yet.
+
+## 2026-08-27 — Story #312's AC1 is rescoped to the identity check; cutting the release is re-filed
+- **Choice:** Amend #312 so AC1 asserts `checkReleaseIdentity` reports divergence between VERSION, the manifest, the changelog entry and the tag, and file the tag/publish/releases-page tail as backlog stub #336, blocked_by #250.
+- **Why:** Record #334 invariant 15 forbids the tail while a shipped body reaches a capability by an in-repository path, and `nexus:release-gate` is red on twelve such references; the epic cannot both close honestly and keep an AC that needs the forbidden action.
+- **Refuted alternative:** Hold #252 open until #250 lands and cut the release under it. Keeps AC1 verbatim, but blocks a finished epic on an unstarted one and leaves four closed stories parked behind it.
+
+## 2026-08-27 — The repository-only build scripts adopt isDirectRun
+- **Choice:** Replace the `import.meta.url === \`file://${process.argv[1]}\`` guard in build-bundles.ts, pack-release.ts and vendor-bundle.ts with `isDirectRun()`.
+- **Why:** Record #334 says the guard on every entry point compares fully resolved real paths; three scripts still compared strings, so the codebase carried two answers to the same question.
+- **Refuted alternative:** Leave them, since none ships in the payload and no adopter can reach them. Correct today, but it is the pattern the next entry point gets copied from.
