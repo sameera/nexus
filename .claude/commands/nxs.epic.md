@@ -50,7 +50,7 @@ Empty input is an error: ask the user for a capability description (or a stub's 
   GitHub; `--discovery <folder>` turns those resolved decisions into issues through the very same
   emission path everything else uses. That is what makes "a discovery-produced stub is accepted
   unchanged by promotion" true by construction rather than by a third copy of the stub contract.
-- **A stub is an epic issue, so every epic query filters it out.** The whole cross-feature backlog is one query — open issues carrying the unplanned label — and its exclusion is one negated filter. Any query here or downstream that enumerates epics for **planned** work carries that negation; ask for it (`delivery_config.py backlog-query --form exclude`) rather than writing the label by hand. This is the accepted price of a stub keeping its issue number through promotion.
+- **A stub is an epic issue, so every epic query filters it out.** The whole cross-feature backlog is one query — open issues carrying the unplanned label — and its exclusion is one negated filter. Any query here or downstream that enumerates epics for **planned** work carries that negation; ask for it (`nexus-gh config backlog-query --form exclude`) rather than writing the label by hand. This is the accepted price of a stub keeping its issue number through promotion.
 
 ## Interaction convention — actionable choice gates
 
@@ -86,7 +86,7 @@ a **pull**, not a plan. Do not draft, do not run the right-size gate, do not fil
 1. Run the resolver with the epic-vs-story guard on:
 
     ```bash
-    tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n> --require-epic
+    nexus epic-resolve --epic <n> --require-epic
     ```
 
 2. **On a non-zero exit** the resolver printed a diagnostic on stderr (`epic-resolve <problem>:
@@ -105,11 +105,8 @@ Otherwise (no `--from`), continue with normal planning.
 docs-root read-out, the single-value view over the workspace resolver:
 
 ```bash
-tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+nexus workspace docs-root
 ```
-
-In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable CLI instead —
-`node <tools-dir>/nexus.mjs workspace docs-root`.
 
 - It prints one line — capture it as **`<docs-root>`**: `docs` for a single-repo checkout or a
   member, `.` for a hub whose docs root is the repo root, or the hub's configured override.
@@ -132,7 +129,7 @@ In a checkout with no in-repo Node toolchain (a docs-only hub), use the portable
 
         ```bash
         gh issue view <n> --json number,title,body,labels,state
-        python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve unplanned-label
+        nexus-gh config resolve unplanned-label
         ```
 
       The issue must exist, be **open**, and carry the resolved unplanned label. If it does not — closed, no such issue, or already planned — report **why** it is not promotable, name `--from #<n>` as the way to load an already-planned epic instead, and **file nothing**. Otherwise seed Phase 3 from the stub's body: the functional goal, the estimate, and the candidate story-group titles. Read `feature`/`feature_path` from the body's meta block. Skip the right-sizing gate — the stub was already sized ≤ M when it was decomposed. Record `PROMOTE = <n>`.
@@ -354,9 +351,9 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 1. **Resolve the classification and the unplanned label** (never hard-code either):
 
     ```bash
-    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-label
-    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-type
-    python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve unplanned-label
+    nexus-gh config resolve epic-label
+    nexus-gh config resolve epic-type
+    nexus-gh config resolve unplanned-label
     ```
 
 2. **Write one transient work-item per stub** to a session scratch folder (never committed, never
@@ -418,7 +415,7 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 4. **File the batch** through the shared filer, classified as an **epic** rather than a story:
 
     ```bash
-    python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>" \
+    nexus-gh create-story "<scratch-folder>" \
         --classification-label "<epic-label>" \
         --classification-type "<epic-type>"
     ```
@@ -469,7 +466,7 @@ Close the report with the **cross-feature backlog query** — the whole backlog,
 in one query. Ask for it rather than spelling the label out:
 
 ```bash
-python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query
+nexus-gh config backlog-query
 ```
 
 ## Phase 3 — Generate the epic
@@ -622,10 +619,10 @@ story becomes one GitHub issue, child of the epic issue.
 
     ```bash
     # intent mode — create a new epic issue
-    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${DRAFT_DIR}/epic.md"
+    nexus-gh create-epic "${DRAFT_DIR}/epic.md"
 
     # promotion mode — populate the stub's OWN issue in place
-    python ./.claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py "${DRAFT_DIR}/epic.md" \
+    nexus-gh create-epic "${DRAFT_DIR}/epic.md" \
         --promote <PROMOTE>
     ```
 
@@ -698,7 +695,7 @@ story becomes one GitHub issue, child of the epic issue.
 4. **Create the story issues:**
 
     ```bash
-    python ./.claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py "<scratch-folder>"
+    nexus-gh create-story "<scratch-folder>"
     ```
 
     The skill runs three passes: pass 1 creates each issue (clean title), links it as a sub-issue of
@@ -952,5 +949,5 @@ Any durable `.md` link placed in an issue body should be an absolute GitHub URL 
 the issue. Convert repo-relative paths with the `nxs-abs-doc-path` skill:
 
 ```bash
-tsx ./.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts "<feature-path>/README.md"
+nexus abs-doc-path "<feature-path>/README.md"
 ```

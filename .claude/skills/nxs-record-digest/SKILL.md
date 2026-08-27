@@ -19,7 +19,7 @@ change as changed, and blocking a close for no reason.
 ## Usage
 
 ```bash
-tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <N> [--repo <owner/repo>] [--dir <startDir>]
+nexus record-digest --issue <N> [--repo <owner/repo>] [--dir <startDir>]
 ```
 
 -   `--issue <N>` — the decision-record sub-issue number (required).

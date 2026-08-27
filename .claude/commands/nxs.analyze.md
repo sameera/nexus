@@ -41,7 +41,7 @@ Supported in single-repo and hub mode only; a member repo is rejected by the hel
 1. **Open the worktree** (also preflights the role and PR):
 
     ```bash
-    tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts open --pr <N> --mode analyze
+    nexus pr-worktree open --pr <N> --mode analyze
     ```
 
     It prints `{ wtPath, analyzedHead, base }`: `wtPath` is a detached worktree checked out at the
@@ -54,7 +54,7 @@ Supported in single-repo and hub mode only; a member repo is rejected by the hel
     issue it closes → its parent epic; invariant 12), then materialize it:
 
     ```bash
-    tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n> --dir <wtPath>
+    nexus epic-resolve --epic <n> --root <wtPath>
     ```
 
     Use the directory of the printed `outPath` (under `wtPath/.nexus/tmp/`) as the entry. Under #114
@@ -63,7 +63,7 @@ Supported in single-repo and hub mode only; a member repo is rejected by the hel
 2. **Always remove the worktree** at the end of the run and on any error:
 
     ```bash
-    tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts remove <wtPath>
+    nexus pr-worktree remove <wtPath>
     ```
 
 Without `--pr`, resolve the epic context from the current checkout as usual.
@@ -81,7 +81,7 @@ issue number (invariant 14):
    epic instead of failing with "queue entry not found":
     - Epic issue number (invariant 12): the explicit `#<n>` / `<n>` in `$ARGUMENTS`, else derived from
       the current branch's linked issue — its parent epic. If undeterminable, ask and stop.
-    - `tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>` → a materialized
+    - `nexus epic-resolve --epic <n>` → a materialized
       `epic.md` under the gitignored `.nexus/tmp/`; use its directory as the entry. On a non-zero
       exit, report the diagnostic and stop. The story set, acceptance criteria, and success metrics
       come from the **live GitHub issue state at resolve time** — no stale committed copy is consulted.
@@ -100,9 +100,9 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
    resolver**, never by parsing `settings.yml` (see `/nxs.close` Phase 1.0):
 
     ```bash
-    ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root "<root>")"
+    ISSUES_REPO="$(nexus-gh config resolve epic-repo --root "<root>")"
     REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
-    NEEDS_DESIGN="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve needs-design-label --root "<root>")"
+    NEEDS_DESIGN="$(nexus-gh config resolve needs-design-label --root "<root>")"
     ```
 
     `<root>` is the repo root, or `$wtPath` in `--pr` mode (the config lives inside the worktree).
@@ -150,7 +150,7 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
    shell hash, and never a hash of locally cached text:
 
     ```bash
-    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
     Keep `digest` as `RECORD_HASH` and `#<record>` as the record reference; both are stamped into
@@ -352,7 +352,7 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     gh pr comment <N> --body-file "<scratch>/analyze-review.md"
     ```
 
-3. Remove the worktree: `tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts remove <wtPath>`.
+3. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
 
 `head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so `/nxs.close` can
 compare it for exact equality against the PR head. Re-running analyze publishes a fresh review;

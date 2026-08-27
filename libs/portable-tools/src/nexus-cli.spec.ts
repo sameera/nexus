@@ -11,7 +11,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildBundle } from "./bundle";
-import { runNexusCli, VERB_NAMES, type CliIo } from "./nexus-cli";
+import { DISPATCH_NAMES, runNexusCli, VERB_NAMES, type CliIo } from "./nexus-cli";
 import { copyComponentTree, COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components";
 
 let tmpDirs: string[] = [];
@@ -109,6 +109,39 @@ describe("verb dispatch", () => {
             ]),
         );
         expect(new Set(VERB_NAMES).size).toBe(VERB_NAMES.length);
+    });
+
+    // Story #301: the names a component body may write. A verb that dispatches subverbs
+    // contributes its two-token names, not its bare verb — `nexus workspace` alone is not
+    // something a body invokes, and the commonest realistic typo lives in the second token
+    // (decision record #325, "The gate checks the full dispatch name, including subverbs").
+    it("DISPATCH_NAMES carries the two-token name of every subverb, and no bare dispatching verb", () => {
+        expect(DISPATCH_NAMES).toEqual(
+            expect.arrayContaining([
+                "deploy",
+                "abs-doc-path",
+                "workspace status",
+                "workspace docs-root",
+                "workspace init",
+                "workspace add-repo",
+                "workspace github-defaults",
+                "pr-worktree preflight",
+                "pr-worktree open",
+                "pr-worktree remove",
+                "close-migration preflight",
+                "close-migration migrate",
+            ]),
+        );
+        expect(DISPATCH_NAMES).not.toContain("workspace");
+        expect(DISPATCH_NAMES).not.toContain("pr-worktree");
+        expect(DISPATCH_NAMES).not.toContain("close-migration");
+        expect(new Set(DISPATCH_NAMES).size).toBe(DISPATCH_NAMES.length);
+    });
+
+    it("a subverb the registry does not declare is rejected, naming the offending token", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-cwd-"));
+        expect(await runNexusCli(["workspace", "statuss"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("statuss");
     });
 });
 

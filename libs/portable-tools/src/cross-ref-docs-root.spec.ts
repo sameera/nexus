@@ -1,9 +1,8 @@
 /**
- * The cross-ref skill (`.claude/skills/nxs-abs-doc-path/scripts/get_abs_doc_path.ts`) is a
- * standalone tsx script outside any nx project — like every skill script, it has no colocated
- * test target. This spec drives it as a subprocess (the same execFileSync + tsx pattern this
- * project already uses for other CLI entry points), so its docs-root strip and URL-agreement
- * behavior (epic #74, STORY-74.03) gets real automated coverage under `nx test`.
+ * The cross-ref capability's docs-root strip and URL-agreement behavior (epic #74, STORY-74.03),
+ * driven as a subprocess through the maintainer's from-source command shape — `tsx nexus-cli.ts
+ * abs-doc-path` — which is the one command shape that runs a verb with no build step. It replaced
+ * the standalone skill script story #302 deleted.
  */
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -13,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
-const SCRIPT: string = path.join(REPO_ROOT, ".claude", "skills", "nxs-abs-doc-path", "scripts", "get_abs_doc_path.ts");
+const NEXUS_CLI_SRC: string = path.join(REPO_ROOT, "libs", "portable-tools", "src", "nexus-cli.ts");
 
 let tmpDirs: string[] = [];
 
@@ -54,7 +53,7 @@ interface CliResult {
 
 function run(cwd: string, args: string[]): CliResult {
     try {
-        const stdout = execFileSync(TSX_BIN, [SCRIPT, ...args], { cwd, encoding: "utf8" });
+        const stdout = execFileSync(TSX_BIN, [NEXUS_CLI_SRC, "abs-doc-path", ...args], { cwd, encoding: "utf8" });
         return { status: 0, stdout, stderr: "" };
     } catch (error) {
         const err = error as { status: number; stdout: string; stderr: string };

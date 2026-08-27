@@ -24,6 +24,15 @@ import {
 } from "./parity";
 import { checkComponentComposition } from "./component-composition";
 import { COMPONENT_COMPOSITION_WAIVERS } from "./component-composition-waivers";
+import {
+    checkComponentInvocations,
+    formatInvocationProblems,
+    type Invocation,
+    type InvocationProblem,
+    readToolkitSurfaces,
+    scanComponentInvocations,
+    type ToolkitSurfaces,
+} from "./component-invocations";
 import { listComponentFiles, liveClaudeDir } from "./vendor-components";
 import { diffPayloadManifest, hashPayload, payloadManifest, PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE, type PayloadManifest } from "./release-payload";
 
@@ -35,25 +44,14 @@ const PIN_PATH: string = path.join(LIB_ROOT, "bundle-fingerprint.json");
 const MANIFEST_PATH: string = path.join(LIB_ROOT, PAYLOAD_MANIFEST_FILE);
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
-// Migration axis (story #272): the component-invoked scripts under .claude/skills/ vs. the
-// verbs on the freshly built `nexus` executable — distinct from the durable source-vs-bundle
-// axis above, which compares one entry point against itself.
-const CLAUDE_SKILLS_DIR: string = path.join(REPO_ROOT, ".claude", "skills");
-const ABS_DOC_PATH_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-abs-doc-path", "scripts", "get_abs_doc_path.ts");
-const EPIC_RESOLVE_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-epic-resolve", "scripts", "epic_resolve.ts");
-const RECORD_DIGEST_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-record-digest", "scripts", "record_digest.ts");
-const WORKSPACE_STATUS_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-workspace-status", "scripts", "workspace_status.ts");
-const DOCS_ROOT_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-workspace-status", "scripts", "docs_root.ts");
-const PR_WORKTREE_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-pr-worktree", "scripts", "pr_worktree.ts");
-const CLOSE_MIGRATION_SRC: string = path.join(CLAUDE_SKILLS_DIR, "nxs-close-migration", "scripts", "close_migration.ts");
 const GH_STANDIN_DIR: string = path.join(CORPUS, "bin");
 // The Python toolkit's entry point, placed on PATH under its own name — the install shape
 // story #297 names, and what makes `nexus-gh` reachable identically from source and bundle.
 const GH_TOOLKIT_BIN: string = path.join(REPO_ROOT, "libs", "gh-toolkit", "bin");
 
 // Story #276: the dispatcher's own source form — `tsx nexus-cli.ts <verb>` — is "the one command
-// shape" a maintainer runs any verb through with no build step. Distinct from every SRC constant
-// above (each a capability being migrated INTO the dispatcher); this one IS the dispatcher.
+// shape" a maintainer runs any verb through with no build step. It is the only source-side entry
+// point left: every capability now dispatches through it.
 const NEXUS_CLI_SRC: string = path.join(SRC_DIR, "nexus-cli.ts");
 
 let freshBundles: Record<string, BuiltBundle>;
@@ -326,6 +324,58 @@ describe("component payload boundary (story #275)", () => {
         const files = listComponentFiles(liveClaudeDir(SRC_DIR));
         const harnessFiles = files.filter((f) => f.includes("pr-acceptance"));
         expect(harnessFiles, harnessFiles.join(", ")).toEqual([]);
+    });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Component invocations (story #301, decision record #325): every toolkit invocation in a shipped
+// body names a toolkit and a dispatch name that toolkit declares. This rides the same gate as
+// parity, the fingerprint pin, and the payload-composition boundary — the one thing that already
+// reads the shipped payload and already fails the source-repo test run.
+// ---------------------------------------------------------------------------------------------
+describe("component invocations name a declared toolkit verb (story #301)", () => {
+    const surfaces: ToolkitSurfaces = readToolkitSurfaces(REPO_ROOT);
+    const inventory: Invocation[] = scanComponentInvocations(liveClaudeDir(SRC_DIR), surfaces);
+
+    it("reads each toolkit's declared surface from that surface, not from a duplicate", () => {
+        // The executable's names come from the registry that composes its own usage text; the
+        // Python toolkit's come from executing its entry point. Neither list is written down here.
+        expect(surfaces.nexus).toContain("workspace docs-root");
+        expect(surfaces.nexusGh.length).toBeGreaterThan(0);
+        expect(surfaces.nexusGh).toEqual([...surfaces.nexusGh].sort());
+    });
+
+    it("no shipped body names a verb or capability the toolkit does not declare", () => {
+        const undeclared: Invocation[] = inventory.filter((site) => site.classification === "undeclared");
+        expect(undeclared.map((site) => `${site.relPath}:${site.line} ${site.name}`)).toEqual([]);
+    });
+
+    it("no shipped body addresses a toolkit by a repository-bound form", () => {
+        // Unconditional since story #303 emptied and removed the pending register: a reintroduced
+        // script path, bundle path, workspace alias or bare `python` fails the build immediately.
+        const problems: InvocationProblem[] = checkComponentInvocations(inventory);
+        expect(problems.length, problems.length > 0 ? formatInvocationProblems(problems) : undefined).toBe(0);
+    });
+
+    it("the inventory classifies every code-span invocation in every shipped body", () => {
+        expect(inventory.length).toBeGreaterThan(0);
+        for (const site of inventory) {
+            expect(["resolving", "undeclared", "unmigrated"]).toContain(site.classification);
+            expect(listComponentFiles(liveClaudeDir(SRC_DIR))).toContain(site.relPath);
+        }
+    });
+
+    it("the gate fails, naming the body and the name, when a body names an undeclared verb", () => {
+        // The self-test the gate needs: a doctored body must be reported, or the axis proves nothing.
+        const doctored: Invocation[] = scanComponentInvocations(liveClaudeDir(SRC_DIR), {
+            nexus: [],
+            nexusGh: [],
+        }).filter((site) => site.classification === "undeclared");
+        const problems: InvocationProblem[] = checkComponentInvocations(doctored);
+        expect(problems.length).toBeGreaterThan(0);
+        const text: string = formatInvocationProblems(problems);
+        expect(text).toContain(doctored[0].relPath);
+        expect(text).toContain(doctored[0].name);
     });
 });
 
@@ -678,375 +728,6 @@ describe("comparator unit behavior", () => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// Migration axis (story #272, decision record #277): the legacy component-invoked script vs. the
-// verb on a freshly built `nexus` executable — a temporary axis retired once the legacy scripts
-// are deleted (#250). Distinct from the durable source-vs-bundle axis above.
-// ---------------------------------------------------------------------------------------------
-describe("migration axis — abs-doc-path (story #272)", () => {
-    function makeRepo(settingsYaml?: string): string {
-        const repo: string = makeTmpDir("parity-abs-doc-path-");
-        fs.mkdirSync(path.join(repo, ".git"));
-        if (settingsYaml !== undefined) {
-            fs.mkdirSync(path.join(repo, ".nexus", "config"), { recursive: true });
-            fs.writeFileSync(path.join(repo, ".nexus", "config", "settings.yml"), settingsYaml);
-        }
-        return repo;
-    }
-
-    it("script and verb agree on a configured docs root", () => {
-        const repo: string = makeRepo(["cross-ref:", "  docs-root: https://github.com/acme/app/blob/main/docs"].join("\n"));
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(ABS_DOC_PATH_SRC, ["docs/a.md"], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["abs-doc-path", "docs/a.md"], repo);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("abs-doc-path", "configured", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree on the docs-root disagreement diagnostic", () => {
-        const repo: string = makeRepo(["cross-ref:", "  docs-root: https://github.com/acme/app/blob/main/other"].join("\n"));
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(ABS_DOC_PATH_SRC, ["docs/a.md"], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["abs-doc-path", "docs/a.md"], repo);
-
-        expect(source.status).toBe(1);
-        const divergences = diffRunResults("abs-doc-path", "disagreement", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree on the invalid-argument exit code (3, not the executable's 2)", () => {
-        const repo: string = makeRepo();
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(ABS_DOC_PATH_SRC, [], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["abs-doc-path"], repo);
-
-        expect(source.status).toBe(3);
-        const divergences = diffRunResults("abs-doc-path", "usage", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-});
-
-describe("migration axis — epic-resolve (story #272)", () => {
-    it("script and verb resolve a zero-sub-issue epic identically", () => {
-        const repo: string = makeTmpDir("parity-epic-resolve-");
-        fs.mkdirSync(path.join(repo, ".git"));
-        const bundlePath: string = writeBundle("nexus");
-        const env: NodeJS.ProcessEnv = ghStandInEnv(path.join(CORPUS, "epic-resolve", "success.json"));
-
-        const source: RunResult = runSource(EPIC_RESOLVE_SRC, ["--epic", "900", "--root", repo], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["epic-resolve", "--epic", "900", "--root", repo], repo, env);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("epic-resolve", "success", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree on the named diagnostic for an unresolvable epic", () => {
-        const repo: string = makeTmpDir("parity-epic-resolve-");
-        fs.mkdirSync(path.join(repo, ".git"));
-        const bundlePath: string = writeBundle("nexus");
-        const env: NodeJS.ProcessEnv = ghStandInEnv(path.join(CORPUS, "epic-resolve", "not-found.json"));
-
-        const source: RunResult = runSource(EPIC_RESOLVE_SRC, ["--epic", "901", "--root", repo], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["epic-resolve", "--epic", "901", "--root", repo], repo, env);
-
-        expect(source.status).toBe(1);
-        expect(source.stderr).toContain("epic-not-found");
-        const divergences = diffRunResults("epic-resolve", "not-found", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-});
-
-describe("migration axis — record-digest (story #272)", () => {
-    it("script and verb agree on an approved record", () => {
-        const repo: string = makeTmpDir("parity-record-digest-");
-        const bundlePath: string = writeBundle("nexus");
-        const env: NodeJS.ProcessEnv = ghStandInEnv(path.join(CORPUS, "record-digest", "approved.json"));
-
-        const source: RunResult = runSource(RECORD_DIGEST_SRC, ["--issue", "905"], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["record-digest", "--issue", "905"], repo, env);
-
-        expect(source.status).toBe(0);
-        expect(source.stdout).toContain("\"approved\":true");
-        const divergences = diffRunResults("record-digest", "approved", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree a not-planned closure is not approved", () => {
-        const repo: string = makeTmpDir("parity-record-digest-");
-        const bundlePath: string = writeBundle("nexus");
-        const env: NodeJS.ProcessEnv = ghStandInEnv(path.join(CORPUS, "record-digest", "not-planned.json"));
-
-        const source: RunResult = runSource(RECORD_DIGEST_SRC, ["--issue", "906"], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["record-digest", "--issue", "906"], repo, env);
-
-        expect(source.stdout).toContain("\"approved\":false");
-        const divergences = diffRunResults("record-digest", "not-planned", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree on a named diagnostic when the record issue is not found", () => {
-        const repo: string = makeTmpDir("parity-record-digest-");
-        const bundlePath: string = writeBundle("nexus");
-        const env: NodeJS.ProcessEnv = ghStandInEnv(path.join(CORPUS, "record-digest", "not-found.json"));
-
-        const source: RunResult = runSource(RECORD_DIGEST_SRC, ["--issue", "907"], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["record-digest", "--issue", "907"], repo, env);
-
-        expect(source.status).toBe(1);
-        const divergences = diffRunResults("record-digest", "not-found", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-});
-
-describe("migration axis — workspace status & docs-root (story #272, already-migrated pair)", () => {
-    it("workspace_status.ts and the verb agree on a resolved single-repo checkout via --root, invoked from elsewhere", () => {
-        const repo: string = makeTmpDir("parity-workspace-status-");
-        const elsewhere: string = makeTmpDir("parity-workspace-status-elsewhere-");
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(WORKSPACE_STATUS_SRC, ["--root", repo], elsewhere);
-        const bundle: RunResult = runBundle(bundlePath, ["workspace", "status", "--root", repo], elsewhere);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("workspace-status", "single-repo", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("workspace_status.ts and the verb agree on the failure path, both on stderr (decision record #277)", () => {
-        const repo: string = makeTmpDir("parity-workspace-status-");
-        fs.mkdirSync(path.join(repo, ".nexus", "config"), { recursive: true });
-        // A syntactically broken manifest — schema/parse failure, a genuine resolution error.
-        fs.writeFileSync(path.join(repo, ".nexus", "config", "workspace.yml"), "not: [valid, workspace, manifest");
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(WORKSPACE_STATUS_SRC, ["--root", repo], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["workspace", "status", "--root", repo], repo);
-
-        expect(source.status).toBe(1);
-        expect(source.stdout).toBe("");
-        expect(source.stderr).not.toBe("");
-        const divergences = diffRunResults("workspace-status", "resolution-failure", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("docs_root.ts and the verb agree on a resolved docs root via --root, invoked from elsewhere", () => {
-        const repo: string = makeTmpDir("parity-docs-root-");
-        const elsewhere: string = makeTmpDir("parity-docs-root-elsewhere-");
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(DOCS_ROOT_SRC, ["--root", repo], elsewhere);
-        const bundle: RunResult = runBundle(bundlePath, ["workspace", "docs-root", "--root", repo], elsewhere);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("docs-root", "single-repo", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-});
-
-describe("migration axis — pr-worktree (story #273)", () => {
-    it("script and verb agree on preflight for an open PR", () => {
-        const repo: string = makeTmpDir("parity-pr-worktree-preflight-");
-        shIgnore(repo, "git", "init", "-q", "-b", "main");
-        const fixturePath: string = writePrViewFixture(1, {
-            state: "OPEN",
-            merged: false,
-            base: "a".repeat(40),
-            head: "b".repeat(40),
-            mergeCommitOid: null,
-            commitCount: 2,
-        });
-        const env: NodeJS.ProcessEnv = ghStandInEnv(fixturePath);
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(PR_WORKTREE_SRC, ["preflight", "--pr", "1", "--mode", "analyze"], repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["pr-worktree", "preflight", "--pr", "1", "--mode", "analyze"], repo, env);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("pr-worktree", "preflight-open", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree on preflight via --root, invoked from elsewhere (story #282)", () => {
-        const repo: string = makeTmpDir("parity-pr-worktree-root-");
-        shIgnore(repo, "git", "init", "-q", "-b", "main");
-        const elsewhere: string = makeTmpDir("parity-pr-worktree-root-elsewhere-");
-        const fixturePath: string = writePrViewFixture(1, {
-            state: "OPEN",
-            merged: false,
-            base: "a".repeat(40),
-            head: "b".repeat(40),
-            mergeCommitOid: null,
-            commitCount: 2,
-        });
-        const env: NodeJS.ProcessEnv = ghStandInEnv(fixturePath);
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(
-            PR_WORKTREE_SRC,
-            ["preflight", "--pr", "1", "--mode", "analyze", "--root", repo],
-            elsewhere,
-            env,
-        );
-        const bundle: RunResult = runBundle(
-            bundlePath,
-            ["pr-worktree", "preflight", "--pr", "1", "--mode", "analyze", "--root", repo],
-            elsewhere,
-            env,
-        );
-
-        expect(source.status).toBe(0);
-        expect(JSON.parse(source.stdout).repoRoot).toBe(fs.realpathSync(repo));
-        const divergences = diffRunResults("pr-worktree", "preflight-root-override", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree on the usage diagnostic when --mode is missing", () => {
-        const repo: string = makeTmpDir("parity-pr-worktree-usage-");
-        shIgnore(repo, "git", "init", "-q", "-b", "main");
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(PR_WORKTREE_SRC, ["preflight", "--pr", "1"], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["pr-worktree", "preflight", "--pr", "1"], repo);
-
-        expect(source.status).toBe(2);
-        const divergences = diffRunResults("pr-worktree", "usage", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    // The second call (script, then verb) hits openAnalyzeWorktree's documented idempotent
-    // re-run path (worktree.ts: "reuses the worktree/branch if a prior run created them"), run
-    // against the SAME repo — deliberately, so wtPath is derived identically for both sides with
-    // no path normalisation needed (see decision stub: normalising two independent scratch trees
-    // was the refuted alternative).
-    it("script and verb agree on `open --mode analyze`, and leave the same worktree present", () => {
-        const fixture = buildPrWorktreeFixture(11);
-        const fixturePath: string = writePrViewFixture(11, {
-            state: "OPEN",
-            merged: false,
-            base: fixture.baseRefOid,
-            head: fixture.prHead,
-            mergeCommitOid: null,
-            commitCount: 2,
-        });
-        const env: NodeJS.ProcessEnv = ghStandInEnv(fixturePath);
-        const bundlePath: string = writeBundle("nexus");
-        const args: string[] = ["open", "--pr", "11", "--mode", "analyze"];
-
-        const source: RunResult = runSource(PR_WORKTREE_SRC, args, fixture.repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["pr-worktree", ...args], fixture.repo, env);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("pr-worktree", "open-analyze", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-
-        const parsed = JSON.parse(source.stdout) as { wtPath: string };
-        expect(worktreeCount(fixture.repo, parsed.wtPath)).toBe(1);
-    });
-
-    it("script and verb agree on `open --mode close`, and leave the same worktree present", () => {
-        const fixture = buildPrWorktreeFixture(12);
-        const fixturePath: string = writePrViewFixture(12, {
-            state: "MERGED",
-            merged: true,
-            base: fixture.baseRefOid,
-            head: fixture.prHead,
-            mergeCommitOid: fixture.mergeCommit,
-            commitCount: 2,
-        });
-        const env: NodeJS.ProcessEnv = ghStandInEnv(fixturePath);
-        const bundlePath: string = writeBundle("nexus");
-        const args: string[] = ["open", "--pr", "12", "--mode", "close", "--branch", "distill/2026-08-23-parity"];
-
-        const source: RunResult = runSource(PR_WORKTREE_SRC, args, fixture.repo, env);
-        const bundle: RunResult = runBundle(bundlePath, ["pr-worktree", ...args], fixture.repo, env);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("pr-worktree", "open-close", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-
-        const parsed = JSON.parse(source.stdout) as { wtPath: string };
-        expect(worktreeCount(fixture.repo, parsed.wtPath)).toBe(1);
-    });
-
-    it("script and verb agree that removing an unregistered path is a no-op", () => {
-        const repo: string = makeTmpDir("parity-pr-worktree-remove-");
-        shIgnore(repo, "git", "init", "-q", "-b", "main");
-        const bundlePath: string = writeBundle("nexus");
-        const wtPath: string = path.join(repo, "nonexistent-worktree");
-
-        const source: RunResult = runSource(PR_WORKTREE_SRC, ["remove", wtPath], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["pr-worktree", "remove", wtPath], repo);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("pr-worktree", "remove-noop", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-        expect(worktreeCount(repo, wtPath)).toBe(0);
-    });
-});
-
-describe("migration axis — close-migration (story #273)", () => {
-    it("script and verb agree on single-repo preflight", () => {
-        const repo: string = makeTmpDir("parity-close-migration-");
-        shIgnore(repo, "git", "init", "-q", "-b", "main");
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(CLOSE_MIGRATION_SRC, ["preflight", repo], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["close-migration", "preflight", repo], repo);
-
-        expect(source.status).toBe(0);
-        const divergences = diffRunResults("close-migration", "preflight-single-repo", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree when migrate refuses a nonexistent entry (entry-not-found)", () => {
-        const repo: string = makeTmpDir("parity-close-migration-refuse-");
-        const bundlePath: string = writeBundle("nexus");
-        const missingEntry: string = path.join(repo, "no-such-entry");
-
-        const source: RunResult = runSource(CLOSE_MIGRATION_SRC, ["migrate", missingEntry], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["close-migration", "migrate", missingEntry], repo);
-
-        expect(source.status).toBe(1);
-        expect(source.stdout).toContain("entry-not-found");
-        const divergences = diffRunResults("close-migration", "migrate-refused-not-found", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree when migrate refuses a non-member role (wrong-role)", () => {
-        const repo: string = makeTmpDir("parity-close-migration-role-");
-        shIgnore(repo, "git", "init", "-q", "-b", "main");
-        const entryDir: string = path.join(repo, "entry");
-        fs.mkdirSync(entryDir, { recursive: true });
-        fs.writeFileSync(path.join(entryDir, "epic.md"), "# epic\n");
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(CLOSE_MIGRATION_SRC, ["migrate", entryDir], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["close-migration", "migrate", entryDir], repo);
-
-        expect(source.status).toBe(1);
-        expect(source.stdout).toContain("wrong-role");
-        const divergences = diffRunResults("close-migration", "migrate-refused-wrong-role", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-
-    it("script and verb agree on the usage diagnostic when migrate has no entry-dir", () => {
-        const repo: string = makeTmpDir("parity-close-migration-usage-");
-        const bundlePath: string = writeBundle("nexus");
-
-        const source: RunResult = runSource(CLOSE_MIGRATION_SRC, ["migrate"], repo);
-        const bundle: RunResult = runBundle(bundlePath, ["close-migration", "migrate"], repo);
-
-        expect(source.status).toBe(2);
-        const divergences = diffRunResults("close-migration", "usage", source, bundle);
-        expect(divergences, formatDivergences(divergences)).toEqual([]);
-    });
-});
-
 // derive-entry-diff has no executed-diff coverage prior to this story (decision record #277: "A
 // usage-error case satisfies the requirement literally while proving nothing"), so this corpus
 // case materialises a real scratch multi-repo workspace (a hub + one member) with a real

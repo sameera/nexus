@@ -100,7 +100,7 @@ it never hard-fails with "queue entry not found" just because planning committed
     - **Materialize:**
 
         ```bash
-        tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>
+        nexus epic-resolve --epic <n>
         ```
 
       On a non-zero exit, report the diagnostic (`epic-resolve <problem>: <message>`) and stop. On
@@ -125,11 +125,11 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
    command runs in, exactly as `/nxs.close` Phase 1.0 resolves it:
 
     ```bash
-    ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root "<root>")"
+    ISSUES_REPO="$(nexus-gh config resolve epic-repo --root "<root>")"
     REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
-    NEEDS_DESIGN="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve needs-design-label --root "<root>")"
-    IN_PROGRESS="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve in-progress-label --root "<root>")"
-    RECORD_LABEL="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve record-label --root "<root>")"
+    NEEDS_DESIGN="$(nexus-gh config resolve needs-design-label --root "<root>")"
+    IN_PROGRESS="$(nexus-gh config resolve in-progress-label --root "<root>")"
+    RECORD_LABEL="$(nexus-gh config resolve record-label --root "<root>")"
     ```
 
     `<root>` is the repo root. An empty `ISSUES_REPO` means the epic lives in the current repo and
@@ -222,10 +222,9 @@ rule: no file paths / type names / API specs).
 Run the docs-root read-out:
 
 ```bash
-tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+nexus workspace docs-root
 ```
 
-In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
 Capture the printed line as **`<docs-root>`** (`docs` for single-repo/member, `.` for a repo-root hub,
 or the override). **On a non-zero exit, stop and report the diagnostic** — never pass a fake `docs`
 value nor treat failure as "context absent".
@@ -382,8 +381,8 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
    come from the same resolver (Phase 0.2 already read `$RECORD_LABEL`):
 
     ```bash
-    CLASSIFICATION="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve classification --root "<root>")"
-    RECORD_TYPE="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve record-type --root "<root>")"
+    CLASSIFICATION="$(nexus-gh config resolve classification --root "<root>")"
+    RECORD_TYPE="$(nexus-gh config resolve record-type --root "<root>")"
     ```
 
     **`labels` and `legacy-auto` modes** — create the label before applying it, so a repository that
@@ -454,7 +453,7 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
    an ad-hoc shell hash:
 
     ```bash
-    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    nexus record-digest --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
 **Never** write anything under `docs/` (permanent human artifacts only), and never emit a
@@ -481,7 +480,7 @@ Run these four acts **in order**, and do not skip one:
 
     ```bash
     gh issue view $RECORD $REPO_ARG --json body --jq .body > "<scratch>/superseded-body.md"
-    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    nexus record-digest --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
     gh issue reopen $RECORD $REPO_ARG
     ```
 
@@ -529,7 +528,7 @@ Run these four acts **in order**, and do not skip one:
 5. **Confirm the new identity.** Recompute the digest through the same program:
 
     ```bash
-    tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
+    nexus record-digest --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
     It **must differ** from `SUPERSEDED_HASH` — that difference is what makes any receipt stamped

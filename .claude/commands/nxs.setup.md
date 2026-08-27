@@ -21,20 +21,15 @@ Detect this repo's workspace role **through the resolver** — never by asking t
 1. Run the workspace status read-out (the sole observable surface over the workspace resolver):
 
     ```bash
-    tsx ./.claude/skills/nxs-workspace-status/scripts/workspace_status.ts
+    nexus workspace status
     ```
-
-    In a checkout with no in-repo Node toolchain, use the portable CLI instead —
-    `node <tools-dir>/nexus.mjs workspace status`. Both run the identical resolver.
 
     Then obtain the **resolved docs root** — the value every scaffold path below prefixes — from the
-    single-value read-out (the same two vehicles):
+    single-value read-out:
 
     ```bash
-    tsx ./.claude/skills/nxs-workspace-status/scripts/docs_root.ts
+    nexus workspace docs-root
     ```
-
-    In a checkout with no in-repo Node toolchain, use `node <tools-dir>/nexus.mjs workspace docs-root`.
 
     - Capture the one printed line as **`<docs-root>`**: `docs` for a single-repo project or a member,
       `.` for a hub whose docs root is the repo root, or the hub's configured override.
@@ -202,7 +197,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
    `cross-ref:` block, comments, and any key already declared are preserved untouched:
     1. **Classification.** Run the probe (it never crashes — it degrades):
         ```bash
-        python3 ./.claude/skills/nxs-gh-shared/delivery_config.py detect-classification
+        nexus-gh config detect-classification
         ```
         It prints `types` (the repo/org exposes issue-types), `labels` (it does not), or
         `unavailable` (gh could not be reached).
@@ -219,7 +214,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
     4. **Write** the resolved values (do **not** seed `issues-repo` — an absent target means "the
        current repo" and is never pinned):
         ```bash
-        python3 ./.claude/skills/nxs-gh-shared/delivery_config.py write-github \
+        nexus-gh config write-github \
           --classification <types|labels> --project <none|auto|owner/number> \
           # only on the gh-unavailable path:
           # --comment "seeded by /nxs.setup — gh unavailable; safe defaults, review when online"

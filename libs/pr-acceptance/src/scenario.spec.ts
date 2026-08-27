@@ -26,7 +26,7 @@ const NWO = scratch.nameWithOwner;
 /** The epic-creation component stamps `link:` back into the epic file it was handed. */
 function epicCreator(issue: number): Route {
     return {
-        match: "nxs_gh_create_epic.py",
+        match: "create-epic",
         result: { stdout: `✅ Created issue #${issue}\n   https://github.com/${NWO}/issues/${issue}\n` },
     };
 }
@@ -34,7 +34,7 @@ function epicCreator(issue: number): Route {
 /** The story-creation component leaves a resume ledger naming each created issue. */
 function storyCreator(numbers: number[], repo = NWO): Route {
     return {
-        match: "create_gh_issues.py",
+        match: "create-story",
         result: { stdout: numbers.map((n) => `https://github.com/${repo}/issues/${n}`).join("\n") },
     };
 }
@@ -97,16 +97,16 @@ describe("seedScenario", () => {
     it("creates the story issues through the shipped component, so parent linkage matches the real path", () => {
         const { ctx, run } = context(happy());
         seedScenario(ctx, "chain");
-        expect(callsMatching(run, "nxs_gh_create_epic.py").length).toBe(1);
-        expect(callsMatching(run, "create_gh_issues.py").length).toBe(1);
+        expect(callsMatching(run, "create-epic").length).toBe(1);
+        expect(callsMatching(run, "create-story").length).toBe(1);
     });
 
     it("runs every issue, PR, and git command with the working directory inside the clone", () => {
         const { ctx, clone, run } = context(happy());
         seedScenario(ctx, "chain");
         // Targeting resolves from the cwd's remote, so this is what keeps the run off the Nexus repo.
-        expect(cwdsMatching(run, "nxs_gh_create_epic.py")).toEqual([clone]);
-        expect(cwdsMatching(run, "create_gh_issues.py")).toEqual([clone]);
+        expect(cwdsMatching(run, "create-epic")).toEqual([clone]);
+        expect(cwdsMatching(run, "create-story")).toEqual([clone]);
         expect(cwdsMatching(run, "gh pr create")).toEqual([clone]);
         expect(cwdsMatching(run, "gh issue close")).toEqual([clone]);
         for (const cwd of run.cwds) expect(cwd).toBe(clone);
@@ -152,7 +152,7 @@ describe("seedScenario", () => {
     it("refuses when the epic issue landed on a repo other than the scratch repo", () => {
         const { ctx } = context([
             {
-                match: "nxs_gh_create_epic.py",
+                match: "create-epic",
                 result: { stdout: "https://github.com/sameera/nexus/issues/10\n" },
             },
             storyCreator([11, 12]),
@@ -183,7 +183,7 @@ describe("seedScenario", () => {
 
     it("reports a failing epic-creation component instead of continuing with a half-seeded scenario", () => {
         const { ctx, run } = context([
-            { match: "nxs_gh_create_epic.py", result: { status: 1, stderr: "gh: not authenticated" } },
+            { match: "create-epic", result: { status: 1, stderr: "gh: not authenticated" } },
         ]);
         const r = seedScenario(ctx, "chain");
         expect(r.ok).toBe(false);
@@ -231,7 +231,7 @@ describe("seedScenario — failures that must not leave a half-seeded scenario",
     it("reports a failing story-creation component", () => {
         const { ctx, run } = context([
             epicCreator(10),
-            { match: "create_gh_issues.py", result: { status: 1, stderr: "gh: HTTP 403" } },
+            { match: "create-story", result: { status: 1, stderr: "gh: HTTP 403" } },
         ]);
         const r = seedScenario(ctx, "chain");
         expect(r.ok).toBe(false);
@@ -287,7 +287,7 @@ describe("seedScenario — failures that must not leave a half-seeded scenario",
     });
 
     it("refuses when the epic-creation component reported no issue URL", () => {
-        const { ctx } = context([{ match: "nxs_gh_create_epic.py", result: { stdout: "done\n" } }]);
+        const { ctx } = context([{ match: "create-epic", result: { stdout: "done\n" } }]);
         const r = seedScenario(ctx, "chain");
         expect(r.ok).toBe(false);
         if (r.ok) return;

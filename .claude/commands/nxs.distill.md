@@ -107,7 +107,7 @@ $ARGUMENTS
    they are recovering, so an explicit invocation is sufficient and bounded.
 
     1. **Re-derive the epic through the resolver** —
-       `tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>` → the
+       `nexus epic-resolve --epic <n>` → the
        materialized `epic.md` under `.nexus/tmp/epic-<n>/`. A resolver failure is that diagnostic,
        reported verbatim; stop.
     2. **Take the *why* and the *what*-facts from the epic issue's close comment** — the durable
@@ -173,9 +173,9 @@ artifacts (a close just prepared it — the close record, backlog append, and le
        `settings.yml`), exactly as `/nxs.close` Phase 1.0 does:
 
         ```bash
-        ISSUES_REPO="$(python3 ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-repo --root .)"
+        ISSUES_REPO="$(nexus-gh config resolve epic-repo --root .)"
         gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body   # the why
-        tsx ./.claude/skills/nxs-record-digest/scripts/record_digest.ts --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
+        nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
         ```
 
         - **Hashes equal** → this is provably the rationale that was approved and analysed. Use the
@@ -214,7 +214,7 @@ artifacts (a close just prepared it — the close record, backlog append, and le
    (In continuation mode the tree is clean because the close committed its artifacts, and you are
    already on the `distill/*` branch — expected, not a block.)
 3. **Resolve the run mode once** — the same committed artifacts and presence check the
-   deterministic steps use to select their runner (Phase 5.3); never a new heuristic
+   deterministic steps read for their mode-conditional rules (Phase 5.3); never a new heuristic
    (e.g. never "no `package.json`"):
 
     ```bash
@@ -224,7 +224,8 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 
     - **hub** (`.nexus/config/workspace.yml` present): every mode-gated behavior below takes
       its hub branch — diff derivation (Phase 1), anchor source SHAs (Phase 5.2), provenance
-      form (Phase 0.6, Phase 3), tool invocation (Phase 5.3–5.5), and drain-SLO reporting
+      form (Phase 0.6, Phase 3), the argument discipline on the deterministic steps (Phase 5.3),
+      and drain-SLO reporting
       (Input Resolution 3, Phases 6/8).
     - **single-repo** (neither file present): every path below is exactly today's behavior,
       unchanged.
@@ -342,12 +343,11 @@ introducing-commit path in hub mode. Per entry, run the derivation tool with eac
 argument its own quoted token — never a shell-interpolated string:
 
     ```bash
-    node <tools-dir>/nexus.mjs derive-entry-diff --entry "<entry-dir>"
+    nexus derive-entry-diff --entry "<entry-dir>"
     ```
 
-    If the installed toolkit has no `derive-entry-diff` verb, the install predates this
-    capability — stop and tell the operator to update their Nexus install; do not derive the diff
-    another way.
+    If the toolkit reports no such verb, the installed toolkit predates this capability — stop and
+    tell the operator to update their Nexus install; do not derive the diff another way.
 
     The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
     full SHAs), resolves each named repo to its sibling member checkout through the workspace
@@ -680,17 +680,25 @@ Run these for each entry, in order, before its commit:
     - `<host/owner/repo>:<path>` — <one-line role in the concept>
     ```
 
-3. **The invocation.** Steps 4 and 5 both run the store tooling through the one `pnpm nexus:*`
-   invocation. Pass every page path and git ref as its own separate, quoted argument — never
-   build the command by interpolating a shell string. A member repo does not drain — Phase 0.3
-   already stopped the run before this point.
+3. **Mode-conditional rules for the deterministic steps.** Steps 4 and 5 run the same commands
+   whatever the mode — the toolkit is addressed by name, so there is nothing to choose. Pass every
+   page path and git ref as its own separate, quoted argument — never build the command by
+   interpolating a shell string. What the run mode **already resolved once in Phase 0.3** still
+   governs is what those commands are told (that check reads workspace resolution's own committed
+   artifacts, never a new heuristic — e.g. never "no `package.json`"):
+
+    - **hub**: the regenerated anchor sidecars are validated alongside the pages (Step 5), because
+      the per-repo `source_sha` mapping shape is part of the contract.
+    - **single-repo**: the changed pages alone are named — there are no anchor sidecars.
+    - **member**: a member repo does not drain — Phase 0.3 already stopped the run before this
+      point.
 
 4. **Atlas regeneration.** Rebuild the human orientation page from the store's current
    state — with no explicit output path, so the generator resolves its own location from the
    resolved docs root (epic #74; never a hardcoded path):
 
     ```bash
-    pnpm nexus:generate-atlas
+    nexus generate-atlas
     ```
 
    The command's own output names where it wrote: `Atlas written: <path> (<N> concepts)`.
@@ -701,14 +709,14 @@ Run these for each entry, in order, before its commit:
    whole, never hand-edited or prose-tweaked in the PR.
 
 5. **Validator.** Run it over every page the entry changed (staged working-tree state vs the
-   last commit) — each changed page **and anchor** path its own quoted argument, never
-   shell-interpolated (in hub mode the regenerated anchor sidecars are validated too, and the
-   per-repo `source_sha` mapping shape is part of the contract):
+   last commit), naming each path as its own argument:
 
     ```bash
-    pnpm nexus:validate-concepts -- --base HEAD "<changed-page-path>" "<changed-anchor-path>"
-    pnpm nexus:check-atlas
+    nexus validate-concepts --base HEAD "<changed-page-path>" ...
+    nexus generate-atlas --check
     ```
+
+    On a hub the regenerated anchor sidecar paths are named alongside the pages, per Step 3.
 
     The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
     page's own content, the per-bullet bound on Integration Points, `touches:` == Integration
@@ -811,10 +819,10 @@ For every concept queued in 6.1 with a "new subdomain" or "new domain" answer:
 **Drift advisory (epic #94, STORY-94.02) — deterministic, non-blocking, store-level; gated on
 registry presence.** When Phase 2 found a registry, now that every entry is applied and any Phase
 6.2 taxonomy change has landed (so the branch holds the final store state the atlas was regenerated
-from), run the advisory **once** over the whole store, through the Phase 5.3 invocation:
+from), run the advisory **once** over the whole store:
 
 ```bash
-pnpm nexus:drift-advisory
+nexus drift-advisory
 ```
 
 Capture its stdout — advisory markdown, possibly empty. It **never edits a page or the registry and

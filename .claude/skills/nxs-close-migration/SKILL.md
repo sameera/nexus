@@ -27,15 +27,15 @@ migration (the diagnostic names exactly what to fix).
 Preflight — read-only, safe to run anytime:
 
 ```bash
-tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts preflight
-tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts preflight /path/to/a/checkout
+nexus close-migration preflight
+nexus close-migration preflight /path/to/a/checkout
 ```
 
 Migrate — mutating, gated to member mode:
 
 ```bash
-tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts migrate .nexus/queue/<entry-dir>
-tsx ./.claude/skills/nxs-close-migration/scripts/close_migration.ts migrate .nexus/tmp/epic-<n>
+nexus close-migration migrate .nexus/queue/<entry-dir>
+nexus close-migration migrate .nexus/tmp/epic-<n>
 ```
 
 The source may be a committed queue entry (the old contract) or the gitignored

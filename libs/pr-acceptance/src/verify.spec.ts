@@ -190,7 +190,7 @@ describe("deriveRangeViaHelper", () => {
     it("reads the range the close record would be stamped with", () => {
         const run = fakeRunner([
             {
-                match: "pr_worktree.ts open",
+                match: "pr-worktree",
                 result: {
                     stdout: JSON.stringify({
                         command: "open",
@@ -212,7 +212,7 @@ describe("deriveRangeViaHelper", () => {
     it("carries the helper's named diagnostic through verbatim, for the record to quote", () => {
         const run = fakeRunner([
             {
-                match: "pr_worktree.ts open",
+                match: "pr-worktree",
                 result: { status: 1, stderr: "pr-worktree range-ambiguous: PR #13 landed as 1 commit-parent\n" },
             },
         ]);
@@ -223,7 +223,7 @@ describe("deriveRangeViaHelper", () => {
     });
 
     it("refuses output it cannot read as a range rather than inventing one", () => {
-        const run = fakeRunner([{ match: "pr_worktree.ts open", result: { stdout: "{}" } }]);
+        const run = fakeRunner([{ match: "pr-worktree", result: { stdout: "{}" } }]);
         const r = deriveRangeViaHelper({ run, clonePath, toolRoot }, 13, "distill/x");
         expect(r.ok).toBe(false);
         if (r.ok) return;
@@ -233,7 +233,7 @@ describe("deriveRangeViaHelper", () => {
     it("runs the helper with the working directory inside the clone", () => {
         const run = fakeRunner([
             {
-                match: "pr_worktree.ts open",
+                match: "pr-worktree",
                 result: { stdout: JSON.stringify({ wtPath: "/w", range: { repo: "r", base: "a", head: "b" } }) },
             },
         ]);

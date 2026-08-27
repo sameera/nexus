@@ -1,8 +1,9 @@
 /**
  * The docs-root read-out (STORY-81.01). One resolved value — the repo-relative docs root — emitted
- * through both vehicles: the `nexus workspace docs-root` verb (in-process, and from the bundled
- * artifact) and the in-repo `docs_root.ts` tsx script. These specs pin the value per role (`.` for a
- * hub, `docs` for single-repo/member, the override when set), that a resolution failure exits 1 with
+ * through both vehicles: the `nexus workspace docs-root` verb in-process, and the maintainer's
+ * from-source command shape `tsx nexus-cli.ts workspace docs-root` (which replaced the standalone
+ * `docs_root.ts` script story #302 deleted). These specs pin the value per role (`.` for a hub,
+ * `docs` for single-repo/member, the override when set), that a resolution failure exits 1 with
  * the resolver's diagnostic (never a silent "docs"), read-only-ness, and byte-parity between the two
  * vehicles (decision-record Invariant 8).
  */
@@ -18,14 +19,7 @@ import { runNexusCli, type CliIo } from "./nexus-cli";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
-const SCRIPT: string = path.join(
-    REPO_ROOT,
-    ".claude",
-    "skills",
-    "nxs-workspace-status",
-    "scripts",
-    "docs_root.ts",
-);
+const NEXUS_CLI_SRC: string = path.join(REPO_ROOT, "libs", "portable-tools", "src", "nexus-cli.ts");
 
 let tmpDirs: string[] = [];
 
@@ -125,10 +119,10 @@ interface CliResult {
     stderr: string;
 }
 
-/** Run the in-repo tsx script with cwd pointed at a checkout. */
+/** Run the verb through the from-source command shape, with cwd pointed at a checkout. */
 function runScript(cwd: string): CliResult {
     try {
-        const stdout = execFileSync(TSX_BIN, [SCRIPT], { cwd, encoding: "utf8" });
+        const stdout = execFileSync(TSX_BIN, [NEXUS_CLI_SRC, "workspace", "docs-root"], { cwd, encoding: "utf8" });
         return { status: 0, stdout, stderr: "" };
     } catch (error) {
         const err = error as { status: number; stdout: string; stderr: string };
@@ -217,7 +211,7 @@ describe("nexus workspace docs-root (verb)", () => {
     });
 });
 
-describe("docs_root.ts (in-repo script) — parity with the verb", () => {
+describe("the from-source command shape — parity with the verb", () => {
     it("prints '.' for a hub with no override, exit 0", () => {
         const result = runScript(writeHub(makeParent()));
         expect(result.status).toBe(0);

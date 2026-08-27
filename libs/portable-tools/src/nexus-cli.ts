@@ -72,8 +72,19 @@ export interface VerbEntry {
     summary: string;
     /** The full usage block for this verb (may span multiple lines). */
     usage: string;
+    /**
+     * The subverb names this verb dispatches, when it dispatches any. Declaring them here is what
+     * lets the dispatcher and the build-time invocation gate (story #301) read one list: the
+     * dispatcher rejects anything absent from it, and the gate composes the two-token dispatch
+     * names a component body is allowed to write from the same array.
+     */
+    subverbs?: readonly string[];
     run: (argv: string[], io: CliIo) => Promise<number>;
 }
+
+const WORKSPACE_SUBVERBS: readonly string[] = ["init", "status", "docs-root", "add-repo", "github-defaults"];
+const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "remove"];
+const CLOSE_MIGRATION_SUBVERBS: readonly string[] = ["preflight", "migrate"];
 
 const REGISTRY: Record<string, VerbEntry> = {
     deploy: {
@@ -105,6 +116,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus workspace add-repo        Add the invoking checkout to an existing workspace.",
             "  nexus workspace github-defaults Print the hub's github-publishing defaults as JSON.",
         ].join("\n"),
+        subverbs: WORKSPACE_SUBVERBS,
         run: runWorkspaceVerb,
     },
     "abs-doc-path": {
@@ -138,6 +150,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus pr-worktree open --pr <N> --mode analyze|close [--branch <distill/...>] [--root <dir>]",
             "  nexus pr-worktree remove <wtPath> [--root <dir>]",
         ].join("\n"),
+        subverbs: PR_WORKTREE_SUBVERBS,
         run: runPrWorktree,
     },
     "close-migration": {
@@ -146,6 +159,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus close-migration preflight [dir]",
             "  nexus close-migration migrate <entry-dir>",
         ].join("\n"),
+        subverbs: CLOSE_MIGRATION_SUBVERBS,
         run: runCloseMigration,
     },
     "generate-atlas": {
@@ -192,6 +206,16 @@ const REGISTRY: Record<string, VerbEntry> = {
 
 /** The registered verb names, derived from the registry — never a hand-maintained duplicate. */
 export const VERB_NAMES: readonly string[] = Object.keys(REGISTRY);
+
+/**
+ * Every complete dispatch name the executable answers to, derived from the same registry: a leaf
+ * verb contributes its own name, and a verb that dispatches subverbs contributes one two-token
+ * name per declared subverb instead of its bare self. This is the surface the invocation gate
+ * checks a component body against (story #301).
+ */
+export const DISPATCH_NAMES: readonly string[] = Object.entries(REGISTRY).flatMap(([verb, entry]) =>
+    entry.subverbs === undefined ? [verb] : entry.subverbs.map((sub) => `${verb} ${sub}`),
+);
 
 function composeUsage(): string {
     return ["usage: nexus <verb>", "", ...Object.values(REGISTRY).map((entry) => entry.usage + "\n")].join("\n").trimEnd();
@@ -340,6 +364,13 @@ function makeStdinPrompter(): Prompter {
 async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
     const [sub, ...rest] = argv;
 
+    // The one gate on the subverb name, read from the registry's own declaration. Everything
+    // below it is a declared subverb, so the last branch needs no condition.
+    if (sub === undefined || !WORKSPACE_SUBVERBS.includes(sub)) {
+        io.stderr(sub === undefined ? USAGE : `unknown workspace verb '${sub}'\n${USAGE}`);
+        return 2;
+    }
+
     if (sub === "init") {
         const args: string[] = [...rest];
         const payloadOpt = takeOption(args, "--payload", io);
@@ -410,7 +441,8 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         io.stdout(JSON.stringify(github));
         return 0;
     }
-    if (sub === "docs-root") {
+    // sub === "docs-root", the last declared subverb.
+    {
         const { root, rest: extra } = takeTargetRoot(rest, io.cwd);
         if (extra.length > 0) {
             io.stderr(`unknown argument for workspace docs-root: ${extra[0]}\n${USAGE}`);
@@ -427,8 +459,6 @@ async function runWorkspaceVerb(argv: string[], io: CliIo): Promise<number> {
         io.stdout(result.docsRoot);
         return 0;
     }
-    io.stderr(sub === undefined ? USAGE : `unknown workspace verb '${sub}'\n${USAGE}`);
-    return 2;
 }
 
 /**
@@ -579,6 +609,12 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
     const [subcommand, ...rest] = argv;
     const flags: PrWorktreeFlags = parsePrWorktreeFlags(rest, io.cwd);
 
+    // The subverb gate, read from the registry's own declaration (story #301).
+    if (subcommand === undefined || !PR_WORKTREE_SUBVERBS.includes(subcommand)) {
+        io.stderr("usage: pr_worktree.ts <preflight|open --pr <N> --mode analyze|close [--branch <b>] | remove <wtPath>>");
+        return 2;
+    }
+
     if (subcommand === "preflight" || subcommand === "open") {
         if (flags.pr === undefined || Number.isNaN(flags.pr)) {
             io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
@@ -670,23 +706,19 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
         return 0;
     }
 
-    if (subcommand === "remove") {
-        const wtPath: string | undefined = flags.positional[0];
-        if (!wtPath) {
-            io.stderr("usage: pr_worktree.ts remove <wtPath>");
-            return 2;
-        }
-        const r = removeWorktree(closeMigrationRunner, flags.root, wtPath);
-        if (!r.ok) {
-            io.stderr(renderPrWorktreeDiagnostic(r.error));
-            return 1;
-        }
-        io.stdout(JSON.stringify({ command: "remove", wtPath, removed: true }));
-        return 0;
+    // subcommand === "remove", the last declared subverb.
+    const wtPath: string | undefined = flags.positional[0];
+    if (!wtPath) {
+        io.stderr("usage: pr_worktree.ts remove <wtPath>");
+        return 2;
     }
-
-    io.stderr("usage: pr_worktree.ts <preflight|open --pr <N> --mode analyze|close [--branch <b>] | remove <wtPath>>");
-    return 2;
+    const r = removeWorktree(closeMigrationRunner, flags.root, wtPath);
+    if (!r.ok) {
+        io.stderr(renderPrWorktreeDiagnostic(r.error));
+        return 1;
+    }
+    io.stdout(JSON.stringify({ command: "remove", wtPath, removed: true }));
+    return 0;
 }
 
 /**
@@ -696,6 +728,12 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
  */
 async function runCloseMigration(argv: string[], io: CliIo): Promise<number> {
     const [subcommand, arg] = argv;
+
+    // The subverb gate, read from the registry's own declaration (story #301).
+    if (subcommand === undefined || !CLOSE_MIGRATION_SUBVERBS.includes(subcommand)) {
+        io.stderr("usage: close_migration.ts <preflight [dir] | migrate <entry-dir>>");
+        return 2;
+    }
 
     if (subcommand === "preflight") {
         const result = closePreflight(arg ?? io.cwd);
@@ -707,22 +745,18 @@ async function runCloseMigration(argv: string[], io: CliIo): Promise<number> {
         return 0;
     }
 
-    if (subcommand === "migrate") {
-        if (!arg) {
-            io.stderr("usage: close_migration.ts migrate <entry-dir>");
-            return 2;
-        }
-        const result = migrateEntry(arg);
-        if (!result.ok) {
-            io.stdout(renderMigrationFailure(result.error));
-            return 1;
-        }
-        io.stdout(renderMigrateOutcome(result.outcome));
-        return 0;
+    // subcommand === "migrate", the last declared subverb.
+    if (!arg) {
+        io.stderr("usage: close_migration.ts migrate <entry-dir>");
+        return 2;
     }
-
-    io.stderr("usage: close_migration.ts <preflight [dir] | migrate <entry-dir>>");
-    return 2;
+    const result = migrateEntry(arg);
+    if (!result.ok) {
+        io.stdout(renderMigrationFailure(result.error));
+        return 1;
+    }
+    io.stdout(renderMigrateOutcome(result.outcome));
+    return 0;
 }
 
 /**

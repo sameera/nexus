@@ -87,6 +87,17 @@ def _as_exit_code(entry) -> int:
     return 0 if result is None else int(result)
 
 
+def capability_listing() -> str:
+    """The declared capability names, shaped for a machine reader.
+
+    The build gate that checks component invocations (story #301) must read this toolkit's
+    declared surface from the surface itself. The human diagnostic `usage()` is prose — its
+    wording is free to change — so scraping it would make every rewording a gate break. This is
+    the second answer beside it: a JSON object carrying names and nothing a reader would reword.
+    """
+    return json.dumps({"capabilities": sorted(CAPABILITIES)})
+
+
 def usage() -> str:
     lines = [
         f"usage: {TOOLKIT_NAME} <capability> [args...]",
@@ -103,6 +114,9 @@ def usage() -> str:
 
 def main(argv: list[str]) -> int:
     """Dispatch `argv` to a capability. No capability, or an unknown one, is an error."""
+    if argv and argv[0] == "--capabilities":
+        print(capability_listing())
+        return 0
     if not argv or argv[0] in ("-h", "--help"):
         stream = sys.stdout if argv else sys.stderr
         print(usage(), file=stream)

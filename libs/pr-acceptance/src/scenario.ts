@@ -164,7 +164,7 @@ export function seedScenario(ctx: SeedContext, kind: ScenarioKind, opts: { id?: 
         fs.writeFileSync(epicPath, epicDoc(id, kind, ctx.today));
         const epicRun = run(
             "python3",
-            [path.join(ctx.toolRoot, ".claude/skills/nxs-gh-create-epic/scripts/nxs_gh_create_epic.py"), "--yes", epicPath],
+            [path.join(ctx.toolRoot, "libs/gh-toolkit/bin/nexus-gh"), "create-epic", "--yes", epicPath],
             { cwd: clonePath },
         );
         if (epicRun.status !== 0) {
@@ -195,7 +195,8 @@ export function seedScenario(ctx: SeedContext, kind: ScenarioKind, opts: { id?: 
         const storyRun = run(
             "python3",
             [
-                path.join(ctx.toolRoot, ".claude/skills/nxs-gh-create-story/scripts/create_gh_issues.py"),
+                path.join(ctx.toolRoot, "libs/gh-toolkit/bin/nexus-gh"),
+                "create-story",
                 storiesDir,
                 "--no-project",
             ],

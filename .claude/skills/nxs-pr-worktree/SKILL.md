@@ -62,26 +62,26 @@ a hub that wants one shared location must declare an **absolute** path.
 Preflight — read-only gate. `--mode close` exits non-zero unless the PR is merged:
 
 ```bash
-tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts preflight --pr <N> --mode analyze|close
+nexus pr-worktree preflight --pr <N> --mode analyze|close
 ```
 
 Open the analyze worktree (detached, at the PR head). Prints `{ wtPath, analyzedHead, base }`:
 
 ```bash
-tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts open --pr <N> --mode analyze
+nexus pr-worktree open --pr <N> --mode analyze
 ```
 
 Open the close worktree on a distill branch and derive the range. Prints
 `{ wtPath, range: { repo, base, head } }` (full SHAs for the close record's `range:`):
 
 ```bash
-tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts open --pr <N> --mode close --branch distill/<date>-<slug>
+nexus pr-worktree open --pr <N> --mode close --branch distill/<date>-<slug>
 ```
 
 Remove a worktree (force + prune; safe to call from inside the target or twice):
 
 ```bash
-tsx ./.claude/skills/nxs-pr-worktree/scripts/pr_worktree.ts remove <wtPath>
+nexus pr-worktree remove <wtPath>
 ```
 
 ## Contract

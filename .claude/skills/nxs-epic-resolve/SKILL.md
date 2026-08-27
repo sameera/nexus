@@ -43,7 +43,7 @@ of the story set — otherwise every stage that iterates stories (design coverag
 close's all-stories-closed gate) would act on a phantom story.
 
 -   **Classification** comes only from the shared publishing resolver
-    (`.claude/skills/nxs-gh-shared/delivery_config.py resolve …`): the declared `classification` mode
+    (`nexus-gh config resolve …`): the declared `classification` mode
     selects the record **label** or the record **issue type**. Nothing here parses `settings.yml`,
     and there is no fallback guess — an unresolvable classification is the named diagnostic
     `record-classification-unresolved`.
@@ -84,7 +84,7 @@ never ship. The surviving stories keep their own names, because those names are 
 ## Usage
 
 ```bash
-tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <N> [--out <path>] [--dir <startDir>] [--require-epic]
+nexus epic-resolve --epic <N> [--out <path>] [--root <startDir>] [--require-epic]
 ```
 
 -   `--epic <N>` — the epic issue number (required).
