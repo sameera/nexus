@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location"]
-last_updated_by: "#249"
+touches: ["portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard"]
+last_updated_by: "#251"
 status: active
 verification: verified
 ---
@@ -34,6 +34,8 @@ Every reachable capability is declared once in its toolkit's single registry, ma
 - [issue-sourced-planning](issue-sourced-planning.md) — its epic resolver is now reachable as a verb, matched byte-for-byte against its script form.
 - [target-root-convention](target-root-convention.md) — every reachable verb touching project state now parses this same argument before its own dispatch.
 - [toolkit-location](toolkit-location.md) — how a named toolkit is found once a capability has earned a name, and the second toolkit that rule now spans.
+- [release-identity](release-identity.md) — reported by a verb declared in each toolkit's registry, under the same one-object-on-standard-output contract every verb keeps.
+- [environment-guard](environment-guard.md) — cross-cutting behavior placed in the dispatcher rather than in each verb, which is what makes a later-added verb covered by it.
 
 ## Decision Log
 
@@ -48,3 +50,7 @@ Mechanical reciprocity fan-out: the target-root-convention page names every reac
 ### 2026-08-26 — #249 — Reachability by name spans a second toolkit, and a declared argument channel must be the real one
 
 The addressing rule was found to be a property of every toolkit rather than of the one executable: capabilities held out of the collapse because they need no install are still invoked by naming a toolkit and a capability, so the second toolkit was given a dispatcher built from the same kind of declared table, its usage text composed from that table and its unknown-name error rendered from it too. Building it exposed that the first dispatcher's declared per-capability argument signature was not the channel two of its capabilities actually read: the arguments really travelled through a process-global the dispatcher mutated, which any in-process caller, test, or nested invocation would have been handed wrongly and silently. The declared channel is now the real one, and the process-global is kept set only for the name it lends a capability's own usage text. Separately, the parity harness stopped seeding fixture repositories with a copy of the second toolkit and put its entry point on the path beside the platform stand-in instead — a seeded copy made every fixture unlike a real repository once the components stop being committed, and a build compared from a scratch directory has no checkout to fall back into, so source and build agree only when the toolkit is reachable by name for both. Refuted alternative: correct only the comment beside the process-global and keep it as the channel — cheaper, but it leaves a dispatcher whose declared signature cannot be trusted.
+
+### 2026-08-26 — #251 — Cross-cutting behavior belongs in the dispatcher, and the registry became injectable
+
+Behavior every verb must have is placed in the dispatcher, before dispatch, rather than wrapped around each capability at registration — because coverage of a verb added later is a property of where dispatch happens, not of anything that verb remembers to do. Making that demonstrable required the dispatcher to accept a verb registry as a parameter, so a verb the real registry does not contain can be dispatched; the registry type became public with it. That is a testability seam no story asked for, accepted because the property it proves is otherwise untestable. A reporting verb was also declared in both toolkits' registries, keeping the rule per-toolkit rather than per-language. Refuted: wrapping each verb's runnable at registration, which makes every future verb responsible for remembering the wrapper — precisely the coverage gap the placement exists to close.

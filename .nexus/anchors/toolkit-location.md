@@ -1,6 +1,6 @@
 ---
 concept: toolkit-location
-source_sha: 7b17dd760610bf045621a8a9b196859edd06aac1
+source_sha: bc452aa34f9fac29a4af6e74e5fe97b044d08974
 generated: 2026-08-26
 ---
 
@@ -24,3 +24,5 @@ generated: 2026-08-26
 - `libs/pr-worktree/src/worktree.ts` — consumer: `resolveWorktreeBase` reaches the resolver by name instead of joining a path onto the repo root.
 - `libs/pr-worktree/src/git-fixtures.ts` — the deleted `seedResolver`; fixture repos now carry no component tree, matching every real repo after the components stop being committed.
 - `libs/portable-tools/src/parity.spec.ts` — puts the toolkit's entry point on PATH beside the `gh` stand-in so source and bundle reach the same external program.
+- `libs/gh-toolkit/nexus_gh/release.py` — applies this same self-locating walk to the release's version declaration, starting from the module's own resolved position.
+- `libs/gh-toolkit/nexus_gh/cli.py` — the `version` capability added to the dispatcher table, reachable by name through the same entry point.

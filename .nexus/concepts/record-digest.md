@@ -1,8 +1,8 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability"]
-last_updated_by: "#247"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp"]
+last_updated_by: "#251"
 status: active
 verification: verified
 ---
@@ -33,6 +33,7 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 - [distiller](distiller.md) — re-verifies the stamp before draining and hard-errors on a mismatch.
 - [conformance-gate](conformance-gate.md) — the receipt this digest is stamped into.
 - [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, matched byte-for-byte against its script form.
+- [writer-stamp](writer-stamp.md) — sits beside this digest, outside the bytes it covers, so stamping changes no hash and this rule needed no exception.
 
 ## Decision Log
 
@@ -52,3 +53,7 @@ Both surfaces that carried this value — the conformance receipt and the close 
 ### 2026-08-23 — #247 — Reciprocal link from verb-reachability
 
 Mechanical reciprocity fan-out: the verb-reachability page names this digest capability as one of the ten now reachable as a verb on the shared executable, matched byte-for-byte against its script form by the migration-axis parity check.
+
+### 2026-08-26 — #251 — Reciprocal link from writer-stamp
+
+The writer stamp is placed outside the bytes this digest covers, so the canonicalisation rule gained no permanent exception. Recorded here as the reciprocal edge.

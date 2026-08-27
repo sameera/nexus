@@ -1,8 +1,8 @@
 ---
 title: "Nexus Setup CLI"
 aliases: ["nexus cli", "nexus deploy", "component-deploy primitive", "workspace init", "workspace add-repo", "workspace writer"]
-touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability"]
-last_updated_by: "#247"
+touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability", "environment-guard"]
+last_updated_by: "#251"
 status: active
 verification: verified
 ---
@@ -33,6 +33,7 @@ Deploy is an overwrite-to-match mirror over an explicit managed set: it refreshe
 - [portable-tooling](portable-tooling.md) — ships as a vendored entrypoint on this distributable, its component payload pinned by the same fingerprint gate.
 - [publishing-config-resolution](publishing-config-resolution.md) — a read-out here is the seam that resolver reads its hub-defaults layer across.
 - [verb-reachability](verb-reachability.md) — the shared registry this CLI's deploy and workspace verbs are dispatched from, now also hosting the newly reachable capabilities.
+- [environment-guard](environment-guard.md) — counts the component sets this CLI owns, by its own namespace predicate, and reports a duplicate this CLI resolves.
 
 ## Decision Log
 
@@ -47,3 +48,7 @@ The workspace manifest is owned by the resolver this CLI is thin over, so the pu
 ### 2026-08-23 — #247 — Dispatch unifies onto the shared verb registry; the workspace status diagnostic stream is fixed
 
 This CLI's own verbs — deploy, and every workspace verb — now dispatch from the same declarative verb registry that also hosts the newly reachable capabilities, rather than a dispatcher of their own: the usage text for every verb, this CLI's included, is composed from one shared object. Auditing the two capabilities the epic assumed needed no work surfaced a real divergence: the workspace status read-out sent its failure diagnostic to standard output in script form and to standard error in its already-shipped verb form, while a component body already named both forms as interchangeable alternatives. Standard error is correct for a failure diagnostic, so the script form was aligned to the verb form rather than the reverse. Refuted alternative: leave the two forms as believed-equivalent and take the epic's claim they need no work at face value — rejected because the parity gate that exists to catch exactly this class of defect found it live in a component body naming both forms as interchangeable today.
+
+### 2026-08-26 — #251 — Reciprocal link from environment-guard
+
+A second installed component set on one account is now detected and reported by the environment guard, using the same namespace predicate this CLI owns its files by; resolving one stays this CLI's job. Recorded here as the reciprocal edge.
