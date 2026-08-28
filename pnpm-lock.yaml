@@ -264,6 +264,9 @@ importers:
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:../close-migration
+      '@nexus/delivery-config':
+        specifier: workspace:*
+        version: link:../delivery-config
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace
@@ -311,6 +314,9 @@ importers:
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:../close-migration
+      '@nexus/delivery-config':
+        specifier: workspace:*
+        version: link:../delivery-config
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace

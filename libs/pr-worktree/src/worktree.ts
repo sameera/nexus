@@ -10,15 +10,15 @@
  * so a caller standing inside the target can still remove it.
  *
  * The *base* those worktrees are created under is declared config (epic #178): the
- * `worktree-path` key of the publishing block, read across the shared resolver's
- * process seam. A checkout that declares nothing gets the system-temp base this flow
- * has always used, character for character.
+ * `worktree-path` key of the publishing block, read through the shared resolver. A
+ * checkout that declares nothing gets the system-temp base this flow has always
+ * used, character for character.
  */
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { ghToolkitCommand } from "@nexus/workspace/gh-toolkit";
+import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { type Runner, git } from "./run.js";
 
@@ -87,29 +87,11 @@ function normalizeDeclaredBase(raw: string, repoRoot: string): string {
  * *failure* stops the run: conflating the two would silently ignore a declared base and write a
  * commit-bearing checkout into the very temp directory the operator configured away from.
  */
-export function resolveWorktreeBase(
-    run: Runner,
-    repoRoot: string,
-): { ok: true; base: string } | { ok: false; error: PrWorktreeDiagnostic } {
-    // Addressed by name (story #300): the resolver is the toolkit's own file, so it is looked
-    // for where the toolkit is installed and never inside the repository being acted on.
-    const invocation = ghToolkitCommand(["config", "resolve", WORKTREE_PATH_KEY, "--root", repoRoot]);
-    if (!invocation.ok) {
-        return { ok: false, error: { problem: "worktree-base-unresolved", message: invocation.message } };
-    }
-    const r = run(invocation.command, invocation.args, { cwd: repoRoot });
-    if (r.status !== 0) {
-        return {
-            ok: false,
-            error: {
-                problem: "worktree-base-unresolved",
-                message:
-                    `the shared publishing resolver could not resolve '${WORKTREE_PATH_KEY}': ` +
-                    `${r.stderr.trim() || "unknown error"}`,
-            },
-        };
-    }
-    const declared: string = r.stdout.trim();
+export function resolveWorktreeBase(repoRoot: string): { ok: true; base: string } {
+    // The resolver is a library in the same workspace now (decision record #362, D6), so there is
+    // nothing to locate and nothing to spawn. An undeclared key answers nothing, which means the
+    // built-in base.
+    const declared: string = resolvePublishingKey(repoRoot, WORKTREE_PATH_KEY).trim();
     return { ok: true, base: declared ? normalizeDeclaredBase(declared, repoRoot) : builtinWorktreeBase() };
 }
 
@@ -151,7 +133,7 @@ function prepareWorktreeDir(
     run: Runner,
     repoRoot: string,
 ): { ok: true; dir: string } | { ok: false; error: PrWorktreeDiagnostic } {
-    const resolved = resolveWorktreeBase(run, repoRoot);
+    const resolved = resolveWorktreeBase(repoRoot);
     if (!resolved.ok) return resolved;
     const base: string = resolved.base;
     const dir: string = path.join(base, checkoutSegment(repoRoot));

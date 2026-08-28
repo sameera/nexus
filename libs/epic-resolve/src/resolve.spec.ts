@@ -1,6 +1,21 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeGhRunner, type FixtureGraph } from "./gh-fixtures.js";
 import { resolveEpic } from "./resolve.js";
+
+/**
+ * A checkout declaring `github:` settings — what the shared publishing resolver reads now that it
+ * is called in process rather than spawned (decision record #362, D6). A target root with no
+ * declaration reads as empty and every key takes its built-in.
+ */
+function repoDeclaring(block: string): string {
+    const root: string = fs.mkdtempSync(path.join(os.tmpdir(), "epic-resolve-root-"));
+    fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), `github:\n${block}`);
+    return root;
+}
 
 const BODY = "# Epic: Planning\n\n## Description\n\nDo the thing.\n\n## Assumptions\n\n- one";
 
@@ -220,13 +235,12 @@ describe("resolveEpic — STORY-139.01: a record sub-issue is not a story", () =
     it("classifies by the configured issue type when the repo declares type-based publishing", () => {
         const typed: FixtureGraph = {
             ...graph(),
-            classification: "types",
             stories: [
                 ...(graph().stories ?? []),
                 { number: 119, title: "Decision Record: Planning", body: "Why.", issueType: "Decision Record" },
             ],
         };
-        const r = resolveEpic(makeGhRunner(typed), "/repo", 115);
+        const r = resolveEpic(makeGhRunner(typed), repoDeclaring("  classification: types\n"), 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.record).toEqual({ number: 119, state: "open" });
@@ -234,14 +248,18 @@ describe("resolveEpic — STORY-139.01: a record sub-issue is not a story", () =
     });
 
     it("keeps resolving under legacy-auto when the repo has no issue-types feature", () => {
-        const r = resolveEpic(makeGhRunner(withRecord({ classification: "legacy-auto", failSubIssueTypes: true })), "/repo", 115);
+        const r = resolveEpic(makeGhRunner(withRecord({ failSubIssueTypes: true })), "/repo", 115);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.record).toEqual({ number: 119, state: "open" });
     });
 
     it("aborts when the declared type-based classification cannot read the issue types", () => {
-        const r = resolveEpic(makeGhRunner(withRecord({ classification: "types", failSubIssueTypes: true })), "/repo", 115);
+        const r = resolveEpic(
+            makeGhRunner(withRecord({ failSubIssueTypes: true })),
+            repoDeclaring("  classification: types\n"),
+            115,
+        );
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("gh-failed");
@@ -270,16 +288,16 @@ describe("resolveEpic — STORY-139.01: a record sub-issue is not a story", () =
         expect(r.error.message).toContain("#120");
     });
 
-    it("aborts when the shared publishing resolver cannot classify", () => {
-        const r = resolveEpic(makeGhRunner(withRecord({ failClassification: true })), "/repo", 115);
-        expect(r.ok).toBe(false);
-        if (r.ok) return;
-        expect(r.error.problem).toBe("record-classification-unresolved");
+    it("classifies from the resolver's built-ins when the checkout declares nothing", () => {
+        const r = resolveEpic(makeGhRunner(withRecord()), repoDeclaring("  project: none\n"), 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.record).toEqual({ number: 119, state: "open" });
     });
 
-    it("never invokes the classification resolver for an epic with no sub-issues", () => {
+    it("resolves an epic with no sub-issues without consulting the classification at all", () => {
         const r = resolveEpic(
-            makeGhRunner({ epic: { number: 200, title: "Empty", body: "# Epic: Empty" }, stories: [], failClassification: true }),
+            makeGhRunner({ epic: { number: 200, title: "Empty", body: "# Epic: Empty" }, stories: [] }),
             "/repo",
             200,
         );
@@ -496,9 +514,8 @@ describe("resolveEpic — an unplanned epic is refused, not half-resolved (epic 
         const declared: FixtureGraph = {
             ...unplanned,
             epic: { ...unplanned.epic, labels: ["epic", "icebox"] },
-            unplannedLabel: "icebox",
         };
-        const r = resolveEpic(makeGhRunner(declared), "/repo", 300);
+        const r = resolveEpic(makeGhRunner(declared), repoDeclaring("  unplanned-label: icebox\n"), 300);
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("epic-not-planned");

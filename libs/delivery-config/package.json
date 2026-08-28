@@ -24,6 +24,11 @@
       "import": "./src/settings.ts",
       "default": "./src/settings.ts"
     },
+    "./publishing": {
+      "types": "./src/publishing.ts",
+      "import": "./src/publishing.ts",
+      "default": "./src/publishing.ts"
+    },
     "./registry": {
       "types": "./src/registry.ts",
       "import": "./src/registry.ts",

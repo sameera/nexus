@@ -8,7 +8,7 @@
  */
 
 import { readHubDefaults } from "./hub.js";
-import { normalizedKey } from "./keys.js";
+import { type GithubKey, keyEntry, normalizedKey } from "./keys.js";
 import { type DeliveryConfig, findConfigRoot, readDeliveryConfig } from "./settings.js";
 
 /** The precedence order, most-specific first. */
@@ -60,7 +60,20 @@ export function resolvePublishingKey(start: string, githubKey: string): string {
     return resolveKeyFromLayers(layers, githubKey) ?? "";
 }
 
-/** Resolve one github-block key against already-read layers. */
+/**
+ * Resolve one github-block key against already-read layers.
+ *
+ * The specific key wins over the general one it falls back to, which is how a member inheriting
+ * nothing of its own files into the repository the hub names; the built-in is the last resort.
+ */
 export function resolveKeyFromLayers(layers: RootLayers, githubKey: string): string | null {
-    return resolveSetting(normalizedKey(githubKey), { repo: layers.repo, hub: layers.hub });
+    const entry: GithubKey | undefined = keyEntry(githubKey);
+    const chain = { repo: layers.repo, hub: layers.hub };
+    const declared: string | null = resolveSetting(normalizedKey(githubKey), chain);
+    if (declared) return declared;
+    if (entry?.fallbackTo) {
+        const general: string | null = resolveSetting(entry.fallbackTo, chain);
+        if (general) return general;
+    }
+    return entry?.builtin ?? null;
 }
