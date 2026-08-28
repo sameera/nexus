@@ -1,8 +1,8 @@
 ---
 title: "Release Identity"
 aliases: ["release version", "one version identity", "version verb", "single version declaration", "no per-repository version pin"]
-touches: ["portable-tooling", "verb-reachability", "toolkit-location", "writer-stamp", "environment-guard", "release-changelog", "published-package"]
-last_updated_by: "#252"
+touches: ["portable-tooling", "verb-reachability", "toolkit-location", "writer-stamp", "environment-guard", "release-changelog", "published-package", "install-location"]
+last_updated_by: "#256"
 status: active
 verification: verified
 ---
@@ -40,6 +40,7 @@ An unresolved declaration reads as absent, never as a default: a reader already 
 - [environment-guard](environment-guard.md) — shares the interpreter resolution the verb reports, and fires on defects rather than on any difference between two versions.
 - [release-changelog](release-changelog.md) — its newest entry names this version, and carries in words the breaking-change signal a below-1.0 number cannot.
 - [published-package](published-package.md) — the package whose staged layout puts both toolkits at a fixed depth beneath this one declaration.
+- [install-location](install-location.md) — the account-scoped location this read-out reports beside the release, naming which content is present and, when it holds pointers, the checkout they resolve into.
 
 ## Decision Log
 
@@ -50,3 +51,7 @@ The release's version is declared in a single file at the release root and reach
 ### 2026-08-27 — #252 — Four declarations, one check, and a number that stops signalling breakage
 
 A release now has four places that name its version, so agreement between them became something to check rather than to assume: the check compares all four against the one declaration and names each divergence, which is what an author needs on release day rather than a single pass or fail. Releases stay below 1.0 while the package shape, the install surface and the invocation contract are still moving, and the cost of that is explicit — a minor bump may break a pipeline, so the signal moves into the changelog's words rather than disappearing. Refuted: cutting the first published version at 1.0, which gives adopters the strongest contract from day one but commits to compatibility guarantees before the invocation contract and the install verbs have shipped.
+
+### 2026-08-28 — #256 — Reciprocal link from install-location
+
+Mechanical reciprocity fan-out: the install-location page names this read-out as where an owner learns which content is present, so the release report and the account's component set are reachable from each other.

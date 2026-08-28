@@ -1,8 +1,8 @@
 ---
 title: "Component Migration"
 aliases: ["migrate-components", "committed component set", "repository component migration", "tracked-only removal", "unstaged removals", "ignore entries", "widened namespace match"]
-touches: ["component-mirror", "install-location"]
-last_updated_by: "#253"
+touches: ["component-mirror", "install-location", "authored-component-root"]
+last_updated_by: "#256"
 status: active
 verification: verified
 ---
@@ -33,9 +33,14 @@ Removals are plain deletions landing as unstaged changes; nothing is staged and 
 
 - [component-mirror](component-mirror.md) — the one operation this verb drives, with a declared empty payload and a veto on every untracked file.
 - [install-location](install-location.md) — must resolve and hold a component set before this verb removes anything, and is reported first.
+- [authored-component-root](authored-component-root.md) — never the target of this verb: an authored original is relocated with its history, not emptied as a mirrored copy would be.
 
 ## Decision Log
 
 ### 2026-08-27 — #253 — Tracked files only, because git is the entire undo story
 
 The verb buys out of a dry run, per-file confirmation and backups with one argument: the files are tracked, so git is the remedy. That argument is simply false for an untracked file, where deleting it leaves no recourse at all in a design that deliberately built none. The epic's own success metric was amended to match rather than left claiming something the build could not honour safely. Refuted: remove every namespaced file regardless of tracking — what the metric literally asked for, and one fewer command for the owner; it loses because it makes the safety argument untrue in the one case where safety is actually needed.
+
+### 2026-08-28 — #256 — Reciprocal link from authored-component-root
+
+Mechanical reciprocity fan-out: the authored-component-root page names this verb as the one thing never pointed at a repository holding the authored original, so the two operations' different safety arguments stay visible from both sides.

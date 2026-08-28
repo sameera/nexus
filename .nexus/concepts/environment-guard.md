@@ -1,8 +1,8 @@
 ---
 title: "Environment Guard"
 aliases: ["environment defect", "environment diagnostic", "stderr diagnostic", "duplicate component sets", "missing interpreter guard"]
-touches: ["verb-reachability", "release-identity", "nexus-setup-cli", "published-package", "install-location"]
-last_updated_by: "#253"
+touches: ["verb-reachability", "release-identity", "nexus-setup-cli", "published-package", "install-location", "pointing-install"]
+last_updated_by: "#256"
 status: active
 verification: verified
 ---
@@ -36,6 +36,7 @@ Detecting a duplicate installation is this guard's job; resolving one belongs to
 - [nexus-setup-cli](nexus-setup-cli.md) — owns the installed component set this guard counts, by the same namespace predicate, and owns resolving a duplicate the guard only reports.
 - [published-package](published-package.md) — that package declares the interpreter floor this guard's diagnostic names when the interpreter is absent at run time.
 - [install-location](install-location.md) — the account-side location this guard resolves and compares against the invoking repository, rather than a hard-coded home default.
+- [pointing-install](pointing-install.md) — resolves to the same real files as the checkout it points at, so a maintainer's arrangement never reports as a second component set.
 
 ## Decision Log
 
@@ -50,3 +51,7 @@ The published package declares the supported platforms and the interpreter floor
 ### 2026-08-27 — #253 — The duplicate check reads the resolved location and compares file sets
 
 The account side of the comparison became the resolved install location rather than a hard-coded home default, the comparison became one over fully resolved real paths at file level rather than over the two component directories, and ownership became the shared namespace predicate applied to a path segment rather than a match on a file's name. The guard already ran once before dispatch, wrote only to standard error and left the exit code alone — every placement criterion the work needed — so what was wrong with it was exactly what needed building. A directory-level comparison would have reported a duplicate on every run of the pointing arrangement, in which the two component roots are genuinely different real directories while each installed component resolves to the very file the repository holds. Refuted: leave the guard alone and add a separate check inside the new verbs, which loses on the guard's own founding argument — coverage of a verb added later is a property of where dispatch happens, not of what a verb remembers to do.
+
+### 2026-08-28 — #256 — Reciprocal link from pointing-install
+
+Mechanical reciprocity fan-out: the pointing-install page names this diagnostic's real-path comparison as the reason a maintainer's arrangement needs no exemption from the one-set rule.
