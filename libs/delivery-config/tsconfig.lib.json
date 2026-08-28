@@ -10,5 +10,9 @@
   },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.spec.ts", "vitest.config.mts"],
-  "references": []
+  "references": [
+    {
+      "path": "../workspace/tsconfig.lib.json"
+    }
+  ]
 }

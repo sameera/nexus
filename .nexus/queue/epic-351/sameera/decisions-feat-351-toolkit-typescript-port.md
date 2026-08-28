@@ -4,8 +4,8 @@
 - **Why:** The dispatcher is one story and the ported capabilities are six; a dispatcher whose rows had no handlers would leave the toolkit broken between commits.
 - **Refuted alternative:** Land the whole port in the dispatcher's commit — coherent at the end, but it collapses seven stories into one change set.
 
-## 2026-08-28 — D6's library rewiring lands with the resolver, not with the dispatcher
+## 2026-08-28 — D6's library rewiring lands with the key defaults, not with the dispatcher
 
-- **Choice:** Retiring `locateGhToolkit`/`ghToolkitCommand` and switching the epic-resolve and pr-worktree libraries to in-process resolution happens in story #357's commit, though the acceptance criterion sits on #355.
-- **Why:** Those libraries resolve configuration; there is no in-process resolver to call until #357 ports one.
-- **Refuted alternative:** Do it in #355 against a stub resolver — that is #357's code written twice.
+- **Choice:** Retiring `locateGhToolkit`/`ghToolkitCommand` and switching the epic-resolve and pr-worktree libraries to in-process resolution happens in story #358's commit, though the acceptance criterion sits on #355.
+- **Why:** Those libraries read `record-label`, `record-type` and `unplanned-label`, which resolve to nothing until #358 ports the built-in defaults — rewiring them at #357 would leave the epic resolver broken for one commit.
+- **Refuted alternative:** Rewire at #357 and port the three defaults early — that is #358's content moved, and it splits one catalogue across two commits.

@@ -9,6 +9,21 @@
       "import": "./src/io.ts",
       "default": "./src/io.ts"
     },
+    "./keys": {
+      "types": "./src/keys.ts",
+      "import": "./src/keys.ts",
+      "default": "./src/keys.ts"
+    },
+    "./resolve": {
+      "types": "./src/resolve.ts",
+      "import": "./src/resolve.ts",
+      "default": "./src/resolve.ts"
+    },
+    "./settings": {
+      "types": "./src/settings.ts",
+      "import": "./src/settings.ts",
+      "default": "./src/settings.ts"
+    },
     "./registry": {
       "types": "./src/registry.ts",
       "import": "./src/registry.ts",
@@ -27,6 +42,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@nexus/release-identity": "workspace:*"
+    "@nexus/release-identity": "workspace:*",
+    "@nexus/workspace": "workspace:*"
   }
 }

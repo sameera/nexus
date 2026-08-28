@@ -219,6 +219,9 @@ importers:
       '@nexus/release-identity':
         specifier: workspace:*
         version: link:../release-identity
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
 
   libs/editor:
     dependencies:

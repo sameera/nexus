@@ -14,6 +14,7 @@
 
 import { delegateToPython } from "./delegate.js";
 import { type ToolkitIo } from "./io.js";
+import { runConfig } from "./config-cli.js";
 import { runVersion } from "./version.js";
 
 /** The one literal the toolkit answers to, fixed by story #297. */
@@ -43,7 +44,7 @@ export const CAPABILITIES: readonly Capability[] = [
     {
         name: "config",
         summary: "Resolve delivery configuration (the shared publishing resolver).",
-        run: (args, io) => delegateToPython("config", args, io),
+        run: runConfig,
     },
     {
         name: "create-epic",
