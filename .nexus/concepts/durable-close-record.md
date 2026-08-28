@@ -1,8 +1,8 @@
 ---
 title: "Durable Close Record"
 aliases: ["close comment", "durable close rationale", "close machine block", "closing rationale"]
-touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp"]
-last_updated_by: "#251"
+touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding"]
+last_updated_by: "#258"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ The close stage always posted its rationale onto the epic issue; that side effec
 - [record-digest](record-digest.md) — the approved-body hash stamped in full beside the record reference.
 - [backlog-stub](backlog-stub.md) — the deferred-scope issues filed before this comment is composed, whose numbers and backlog query it then carries.
 - [writer-stamp](writer-stamp.md) — the record of which release wrote this comment's block and the mirrored file, placed beside the record hash rather than inside it.
+- [template-seeding](template-seeding.md) — places the close-record template this stage fills; the stage now stops on its absence rather than falling back.
 
 ## Decision Log
 
@@ -48,3 +49,7 @@ Mechanical reciprocity fan-out: the backlog-stub page names the ordering this co
 ### 2026-08-26 — #251 — The stamped block records its own writer
 
 The close comment's machine block and the mirrored close-record file now record which release wrote them, so a later change to how these facts are written is detectable instead of silently invalidating closes already in flight. The record sits beside the record hash, never inside the bytes that hash covers, so stamping leaves every value a later stage verifies exactly as it was. It is written even when the project's own record template — a tuned file that seeding never overwrites — predates the field and carries no placeholder for it: the command's field list is authoritative, not the template's. Where the release cannot be resolved the field is omitted rather than defaulted, because an absent record already reads as an unknown writer. Refuted: writing the field only when the template offers a placeholder, which would leave every project that tuned its template silently unstamped.
+
+### 2026-08-28 — #258 — Reciprocal link from template-seeding
+
+Mechanical reciprocity fan-out: the template the close stage fills now has a way to arrive in any repository, so the stage's old fallback to a copy living only in a Nexus source checkout was removed. An absent template is reported by name with the seeding step as the remedy. This narrows failure rather than widening it — the fallback only ever resolved for someone running inside that checkout, which is why close appeared to work elsewhere and did not. The durable copy of the rationale is unchanged.

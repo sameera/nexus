@@ -1,8 +1,8 @@
 ---
 title: "Shipped Payload"
 aliases: ["defined payload", "payload filter", "payload fingerprint", "stated set", "byte-code suppression", "payload manifest", "what ships"]
-touches: ["component-invocation-gate", "published-package", "portable-tooling", "release-gate", "verb-reachability", "authored-component-root"]
-last_updated_by: "#256"
+touches: ["component-invocation-gate", "published-package", "portable-tooling", "release-gate", "verb-reachability", "authored-component-root", "template-seeding", "checkout-only-path-gate"]
+last_updated_by: "#258"
 status: active
 verification: verified
 ---
@@ -39,6 +39,8 @@ The pin carries one entry for the executable and one for the payload, and stays 
 - [release-gate](release-gate.md) — reads what this payload carries to decide whether a shipped body's path reference still resolves after an install.
 - [verb-reachability](verb-reachability.md) — the single dispatcher where byte-code suppression is set, so no capability of that toolkit can forget it.
 - [authored-component-root](authored-component-root.md) — the tree this payload's component half is assembled from, whose relocation this manifest is the before-image for.
+- [template-seeding](template-seeding.md) — carries the template masters as a third part, so a repository is seeded from the release rather than a source tree.
+- [checkout-only-path-gate](checkout-only-path-gate.md) — this stated set decides exactly which bodies that gate scans for a checkout-only location.
 
 ## Decision Log
 
@@ -53,3 +55,7 @@ Mechanical reciprocity fan-out: the component-invocation-gate page names this st
 ### 2026-08-28 — #256 — Reciprocal link from authored-component-root
 
 Mechanical reciprocity fan-out: the authored-component-root page names this stated set as what proves relocating the authored tree changed nothing about what ships, so the manifest is the move's regression check rather than a coincidence.
+
+### 2026-08-28 — #258 — Reciprocal link from template-seeding and checkout-only-path-gate
+
+Mechanical reciprocity fan-out, two edges in one entry. The template-seeding page names this stated set as what carries the template masters, which is what lets a repository outside the source tree be seeded from what it installed. The checkout-only-path-gate page names the same set as the definition of which bodies it scans, so no shipped body can name a checkout-only location ungated.

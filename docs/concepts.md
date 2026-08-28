@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 69 active concepts. Each links to its full page
+Orientation map of the concept store — 71 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -18,28 +18,29 @@ Orientation map of the concept store — 69 active concepts. Each links to its f
 - [Concept Store](../.nexus/concepts/concept-store.md) — The concept store is Nexus's machine knowledge surface: one distilled concept per file, keyed by a readable slug, holding current behavior, hard invariants, blast radius, and the durable why.
 - [Approvable Decision Record](../.nexus/concepts/decision-record.md) — An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form.
 - [Publishing Config Resolution](../.nexus/concepts/publishing-config-resolution.md) — Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, resolved by a single shared resolver every publishing consumer goes through.
+- [Durable Close Record](../.nexus/concepts/durable-close-record.md) — The durable copy of a close's rationale is the comment the close stage posts on the epic issue, in every mode; the close-record file is a hand-off copy carrying no durability obligation.
 - [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
+- [Install Location](../.nexus/concepts/install-location.md) — Exactly one Nexus component set exists per user account, at the account's resolved configuration directory.
+- [Nexus Setup CLI](../.nexus/concepts/nexus-setup-cli.md) — The Nexus Setup CLI is the portable `nexus` command owning Nexus's *structural* half: placing a component set onto an account, declaring or growing a multi-repo workspace, and seeding one repository's templates.
 - [Portable Tooling](../.nexus/concepts/portable-tooling.md) — Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime.
 - [Published Package](../.nexus/concepts/published-package.md) — Nexus reaches an adopter as one package on the public registry, carrying both toolkits and the component payload together under a single version.
 - [Release Identity](../.nexus/concepts/release-identity.md) — One semantic version identifies the whole release — both toolkits and the component payload together — because they ship as one artifact and cannot be at different versions.
+- [Shipped Payload](../.nexus/concepts/shipped-payload.md) — The payload is a stated set of files rather than whatever happens to be on disk, so its fingerprint means something and nothing incidental reaches an adopter.
 - [Close-Entry Migration](../.nexus/concepts/close-entry-migration.md) — Close-entry migration is the cross-repo tail of the close stage: it puts a closed epic where its concepts are distilled.
 - [Conformance Gate](../.nexus/concepts/conformance-gate.md) — Analyze checks the implemented code against the epic's acceptance criteria and the decision record's invariants, then proves it ran by leaving a receipt.
-- [Durable Close Record](../.nexus/concepts/durable-close-record.md) — The durable copy of a close's rationale is the comment the close stage posts on the epic issue, in every mode; the close-record file is a hand-off copy carrying no durability obligation.
-- [Install Location](../.nexus/concepts/install-location.md) — Exactly one Nexus component set exists per user account, at the account's resolved configuration directory.
-- [Nexus Setup CLI](../.nexus/concepts/nexus-setup-cli.md) — The Nexus Setup CLI is the portable `nexus` command that owns the *structural* half of getting Nexus onto an account and declaring or growing a multi-repo workspace.
 - [PR-Driven Post-Merge Flow](../.nexus/concepts/pr-driven-flow.md) — The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch.
 - [Canonical Record Digest](../.nexus/concepts/record-digest.md) — One digest implementation computes the canonical hash of a decision-record body, and every stage that stamps or verifies the value invokes it.
 - [Toolkit Location](../.nexus/concepts/toolkit-location.md) — Nexus ships two toolkits, and every invocation names the one it wants rather than encoding where it lives.
 - [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub.
 - [Backlog Stub](../.nexus/concepts/backlog-stub.md) — A backlog stub is an epic identified but not yet planned — an epic issue carrying the repository's declared epic classification plus exactly one label denoting that unplanned state.
+- [Component Invocation Gate](../.nexus/concepts/component-invocation-gate.md) — Every toolkit invocation written in a shipped component body must name a toolkit and a dispatch name that toolkit declares, checked by the source repository's own gate.
 - [Taxonomy Drift Advisory](../.nexus/concepts/drift-advisory.md) — The drift advisory is a deterministic, non-blocking step of the drain that reads the concept link graph and each page's filing and reports taxonomy decay as text in the distillation-PR body.
 - [Environment Guard](../.nexus/concepts/environment-guard.md) — An environment defect is named where a human will see it, without any verb's output contract being disturbed.
 - [Ephemeral Hand-Off Entry](../.nexus/concepts/ephemeral-handoff-entry.md) — An ephemeral hand-off entry is the version-ignored directory a local close leaves for the very next drain: the materialized epic, the conformance receipt, and the close record, none of them committed.
 - [Pre-Epic Discovery](../.nexus/concepts/pre-epic-discovery.md) — Pre-epic discovery is the stage that runs before an epic is planned, and only when the initiative is underspecified, meaning the split itself hangs on decisions nobody has made.
-- [Shipped Payload](../.nexus/concepts/shipped-payload.md) — The payload is a stated set of files rather than whatever happens to be on disk, so its fingerprint means something and nothing incidental reaches an adopter.
-- [Component Invocation Gate](../.nexus/concepts/component-invocation-gate.md) — Every toolkit invocation written in a shipped component body must name a toolkit and a dispatch name that toolkit declares, checked by the source repository's own gate.
 - [Scratch Capture](../.nexus/concepts/scratch-capture.md) — Scratch capture is the committed per-user surface inside an epic's queue entry where an engineer's agent records decision stubs and working notes at the moment of choosing.
 - [Taxonomy Filing Gate](../.nexus/concepts/taxonomy-filing-gate.md) — When the drain creates a concept and a domain registry exists, it files the concept under a best-fit domain by matching it against the registry's rubrics.
+- [Template Seeding](../.nexus/concepts/template-seeding.md) — Three pipeline stages read a tool-agnostic template out of the project's own configuration, and template seeding is how those templates get there: a repo-bound step placing a first copy from masters that travel inside the release.
 - [Concept Page Capacity](../.nexus/concepts/concept-page-capacity.md) — The 400-word cap on a concept page measures the page's own content — its summary, its behavior section and its invariants — and never its neighbour list.
 - [Discovery Graduation](../.nexus/concepts/discovery-graduation.md) — A finished discovery becomes issues only through the epic stage, which reads the discovery document as its intent and files through the emission path it already owns.
 - [Distillation PR](../.nexus/concepts/distillation-pr.md) — The distiller does not write the concept store directly; it opens a reviewed pull request against the store.
@@ -48,6 +49,7 @@ Orientation map of the concept store — 69 active concepts. Each links to its f
 - [Target Root Convention](../.nexus/concepts/target-root-convention.md) — Every repository-bound capability accepts the project it operates against as an explicit target root, defaulting to the invoking directory only when the caller supplies none.
 - [Writer Stamp](../.nexus/concepts/writer-stamp.md) — Every artifact the toolkit writes that a later stage reads back records which release wrote it.
 - [Authored Component Root](../.nexus/concepts/authored-component-root.md) — The directory a repository authors its components in is not the directory the harness loads.
+- [Checkout-Only Path Gate](../.nexus/concepts/checkout-only-path-gate.md) — No shipped component body may send a stage to a location that resolves only inside the Nexus source checkout.
 - [Code Anchors](../.nexus/concepts/code-anchors.md) — Code anchors are derived sidecar files that map a concept to the source that implements it.
 - [Component Migration](../.nexus/concepts/component-migration.md) — A repository that still carries a committed component set is emptied of it by a gated verb — never automatically, and never as a side effect of another command.
 - [Component Mirror](../.nexus/concepts/component-mirror.md) — One convergent operation places a component payload at a component root and drops the Nexus-owned files that payload no longer carries; it is the only thing in Nexus that writes or deletes a component.
