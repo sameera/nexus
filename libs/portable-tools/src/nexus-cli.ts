@@ -54,6 +54,7 @@ import {
     ensureInstallLocation,
     inspectInstallLocation,
     resolveInstallLocation,
+    type InstalledContent,
     type InstallLocationResult,
     type InstallLocationState,
 } from "./install-location.js";
@@ -508,6 +509,29 @@ function resolvedPayloadDir(): string | null {
 }
 
 /**
+ * What the account's install location currently holds, for the version read-out (story #319 AC3).
+ *
+ * The maintainer's loop runs through a pointing install, and the only thing that distinguishes a
+ * working loop from a stale copy is which checkout the pointers name — so the read-out reports the
+ * content and names the checkout rather than leaving the maintainer to inspect the links by hand.
+ * A location that cannot be resolved is reported as unresolved, not raised: `version` is what a
+ * user runs when the environment is already broken.
+ */
+function reportedInstallLocation(): {
+    path: string | null;
+    source: string | null;
+    content: InstalledContent | null;
+    checkout: string | null;
+} {
+    const location: InstallLocationResult = resolveInstallLocation();
+    if (!location.ok) {
+        return { path: null, source: null, content: null, checkout: null };
+    }
+    const state: InstallLocationState = inspectInstallLocation(location.path);
+    return { path: location.path, source: location.source, content: state.content, checkout: state.checkout };
+}
+
+/**
  * `nexus version` — the release identity as one JSON object on standard output, the existing
  * verb contract. Never non-zero for an environment defect (AC3); only a usage error.
  */
@@ -521,6 +545,7 @@ async function runVersion(argv: string[], io: CliIo): Promise<number> {
         JSON.stringify({
             version: releaseVersion(),
             componentPayload: payloadDir === null ? null : hashComponentTree(payloadDir),
+            installLocation: reportedInstallLocation(),
             python: resolveInterpreter(),
         }),
     );
