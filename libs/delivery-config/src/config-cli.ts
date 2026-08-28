@@ -11,9 +11,10 @@
  */
 
 import * as path from "node:path";
+import { BACKLOG_QUERY_FORMS, backlogQuery } from "./backlog.js";
 import { delegateToPython } from "./delegate.js";
 import { type ToolkitIo } from "./io.js";
-import { resolvePublishingKey } from "./resolve.js";
+import { layersAt, resolvePublishingKey } from "./resolve.js";
 import { programName } from "./registry.js";
 
 const CAPABILITY = "config";
@@ -31,6 +32,7 @@ export function configUsage(): string {
         "",
         "commands:",
         "  resolve <key> [--root <path>]   Resolve one github-block key through the precedence chain.",
+        "  backlog-query [--form <form>]   Print the cross-feature backlog query (list | search | exclude).",
         "",
         `Run \`${programName(CAPABILITY)} <command> --help\` for a command's own arguments.`,
     ].join("\n");
@@ -51,9 +53,26 @@ export function runConfigResolve(args: string[], io: ToolkitIo): number {
     return 0;
 }
 
+/** `config backlog-query [--form <form>] [--root <path>]` — the backlog as one query. */
+export function runConfigBacklogQuery(args: string[], io: ToolkitIo): number {
+    const { value: root, rest: afterRoot } = takeOption(args, "--root");
+    const { value: form, rest } = takeOption(afterRoot, "--form");
+    if (rest.length > 0) return usageError(io, `backlog-query: unexpected argument '${rest[0]}'`);
+    const wanted: string = form ?? "list";
+    if (!BACKLOG_QUERY_FORMS.includes(wanted)) {
+        return usageError(
+            io,
+            `backlog-query: unknown form '${wanted}'; expected one of ${BACKLOG_QUERY_FORMS.join(", ")}`,
+        );
+    }
+    io.stdout(backlogQuery(layersAt(path.resolve(io.cwd, root ?? ".")), wanted));
+    return 0;
+}
+
 /** The commands this toolkit answers in process. Anything else is still the interpreter's. */
 export const CONFIG_COMMANDS: Record<string, (args: string[], io: ToolkitIo) => number> = {
     resolve: runConfigResolve,
+    "backlog-query": runConfigBacklogQuery,
 };
 
 export function runConfig(args: string[], io: ToolkitIo): number {

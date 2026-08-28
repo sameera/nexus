@@ -9,6 +9,11 @@
       "import": "./src/io.ts",
       "default": "./src/io.ts"
     },
+    "./backlog": {
+      "types": "./src/backlog.ts",
+      "import": "./src/backlog.ts",
+      "default": "./src/backlog.ts"
+    },
     "./keys": {
       "types": "./src/keys.ts",
       "import": "./src/keys.ts",
