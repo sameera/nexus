@@ -10,9 +10,11 @@
  * the incidental wording a parsing framework happens to generate.
  */
 
+import { spawnSync } from "node:child_process";
 import * as path from "node:path";
 import { BACKLOG_QUERY_FORMS, backlogQuery } from "./backlog.js";
 import { delegateToPython } from "./delegate.js";
+import { type GhRunner, type RunResult, defaultGhRunner, repoHasIssueTypes } from "./gh.js";
 import { type ToolkitIo } from "./io.js";
 import { layersAt, resolvePublishingKey } from "./resolve.js";
 import { programName } from "./registry.js";
@@ -33,6 +35,7 @@ export function configUsage(): string {
         "commands:",
         "  resolve <key> [--root <path>]   Resolve one github-block key through the precedence chain.",
         "  backlog-query [--form <form>]   Print the cross-feature backlog query (list | search | exclude).",
+        "  detect-classification           Probe whether the repository exposes issue types.",
         "",
         `Run \`${programName(CAPABILITY)} <command> --help\` for a command's own arguments.`,
     ].join("\n");
@@ -69,10 +72,35 @@ export function runConfigBacklogQuery(args: string[], io: ToolkitIo): number {
     return 0;
 }
 
+/** The client runner the capability runs with: the real client, never raising on an absent one. */
+export const cliGhRunner: GhRunner = defaultGhRunner((args: string[]): RunResult => {
+    const r = spawnSync("gh", args, { encoding: "utf8" });
+    return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
+});
+
+/**
+ * `config detect-classification [--root <path>]` — what the repository actually supports.
+ *
+ * A probe that cannot run at all reports `unavailable` and still exits 0: a bootstrap uses that to
+ * seed safe defaults, and a non-zero exit here would fail a setup over a missing client.
+ */
+export function runConfigDetectClassification(
+    args: string[],
+    io: ToolkitIo,
+    run: GhRunner = cliGhRunner,
+): number {
+    const { rest } = takeOption(args, "--root");
+    if (rest.length > 0) return usageError(io, `detect-classification: unexpected argument '${rest[0]}'`);
+    const hasTypes: boolean | null = repoHasIssueTypes(run);
+    io.stdout(hasTypes === null ? "unavailable" : hasTypes ? "types" : "labels");
+    return 0;
+}
+
 /** The commands this toolkit answers in process. Anything else is still the interpreter's. */
 export const CONFIG_COMMANDS: Record<string, (args: string[], io: ToolkitIo) => number> = {
     resolve: runConfigResolve,
     "backlog-query": runConfigBacklogQuery,
+    "detect-classification": runConfigDetectClassification,
 };
 
 export function runConfig(args: string[], io: ToolkitIo): number {
