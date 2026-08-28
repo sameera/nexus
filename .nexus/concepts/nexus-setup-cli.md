@@ -1,15 +1,15 @@
 ---
 title: "Nexus Setup CLI"
 aliases: ["nexus cli", "nexus install", "nexus uninstall", "migrate-components", "nexus deploy", "component-deploy primitive", "workspace init", "workspace add-repo", "workspace writer"]
-touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability", "environment-guard", "install-location", "component-mirror"]
-last_updated_by: "#253"
+touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability", "environment-guard", "install-location", "component-mirror", "template-seeding"]
+last_updated_by: "#258"
 status: active
 verification: verified
 ---
 
 # Nexus Setup CLI
 
-The Nexus Setup CLI is the portable `nexus` command that owns the *structural* half of getting Nexus onto an account and declaring or growing a multi-repo workspace. It is the structural counterpart to the judgment-owning setup interview: one owns placement and files, the other owns stack docs, standards, and product context.
+The Nexus Setup CLI is the portable `nexus` command owning Nexus's *structural* half: placing a component set onto an account, declaring or growing a multi-repo workspace, and seeding one repository's templates. It is the counterpart to the judgment-owning setup interview, which runs it: one owns placement and files, the other stack docs, standards, and product context.
 
 ## How It Works
 
@@ -36,6 +36,7 @@ Deploy is an overwrite-to-match mirror over an explicit managed set: it refreshe
 - [environment-guard](environment-guard.md) — counts the component sets this CLI owns, by its own namespace predicate, and reports a duplicate this CLI resolves.
 - [install-location](install-location.md) — the account-scoped destination this CLI's install and removal verbs act on, replacing per-repository placement.
 - [component-mirror](component-mirror.md) — the one operation behind every one of this CLI's component verbs, install, removal and migration alike.
+- [template-seeding](template-seeding.md) — the one repo-bound verb on this otherwise account- and workspace-scoped CLI, writing into a project rather than the install location.
 
 ## Decision Log
 
@@ -58,3 +59,7 @@ A second installed component set on one account is now detected and reported by 
 ### 2026-08-27 — #253 — Workspace initialisation loses its component fan-out entirely
 
 The fan-out seam was removed rather than made a no-op: its injection point, its confirmation prompt and its success line all went, and the payload argument that configured it went with them. Keeping a no-op would preserve a hook whose only purpose was the behaviour being deleted, and would leave the prompt and output free to keep describing a deploy that does not happen — an initialisation reporting components deployed into every repository while deploying nothing is worse than either honest state. The verb now names the account-scoped install and, for a repository still carrying a committed set, the migration verb. Refuted: keep the seam and pass a no-op for compatibility, which loses because the caller population is one — the same argument that settled the seam itself.
+
+### 2026-08-28 — #258 — A repo-bound verb joins an otherwise account- and workspace-scoped CLI
+
+Placing the templates a project's stages read is structural work, so it belongs here — but it is the first verb whose target is one repository rather than the account or the workspace, and the summary said so only after being rewritten. Folding it into the account-scoped placement was refuted: that placement writes once per account at a location no repository owns, so it would have to guess which repository to seed. The judgment-owning setup interview now runs this verb rather than seeding the templates itself, which keeps the split intact — this CLI still writes only structure, the interview still writes only per-repo judgment — and makes the interview's own statement that it does not seed them true again by naming the step that does. Recorded here as the reciprocal edge to the seeding concept.

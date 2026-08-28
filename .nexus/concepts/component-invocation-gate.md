@@ -1,8 +1,8 @@
 ---
 title: "Component Invocation Gate"
 aliases: ["code-span invocation scan", "addressing-form classification", "declared-surface check", "pending migration register", "no silent regression to a path"]
-touches: ["verb-reachability", "toolkit-location", "shipped-payload", "release-gate", "portable-tooling"]
-last_updated_by: "#250"
+touches: ["verb-reachability", "toolkit-location", "shipped-payload", "release-gate", "portable-tooling", "checkout-only-path-gate"]
+last_updated_by: "#258"
 status: active
 verification: verified
 ---
@@ -36,9 +36,14 @@ The span reader tracks the length of the marker that opened a fenced block, beca
 - [shipped-payload](shipped-payload.md) — defines which bodies ship, and so exactly which bodies this gate reads.
 - [release-gate](release-gate.md) — the narrower release-time path precondition this build-time check now keeps green ahead of it.
 - [portable-tooling](portable-tooling.md) — the source-repo gate this check was added to, beside the parity and fingerprint checks already run there.
+- [checkout-only-path-gate](checkout-only-path-gate.md) — the sibling scan over the same shipped bodies, checking the locations they name where this one checks invocations.
 
 ## Decision Log
 
 ### 2026-08-27 — #250 — The gated unit is a code span, and the check rides the gate that already reads the payload
 
 The check was added to the gate that already enforces bundle parity, the payload fingerprint and the payload composition boundary rather than shipping as its own step: that gate already reads the payload and already fails the source repository's test run, and with no continuous-integration runner a standalone step becomes the thing people forget to run. The gated unit is a code span of any kind rather than a fenced block only, which corrects the epic — measured against the live bodies, four real instructions sat in inline spans, and a fenced-only rule would have built in exactly the blind spot the rule exists to close, letting a body be certified migrated with a repository-bound path one backtick away. Being unrecognised was made reportable for the same reason: four sites named a repository-bound artifact with no command around it. An explicit register of not-yet-migrated bodies carried the migration, so the gate could land ahead of the rewrites and still guard every body already migrated; it reached empty when the last body was rewritten, which was this epic's recorded completion condition for it, and it was removed with its parameter so no unused exemption channel survives. Refuted: deriving migrated as "this body currently contains no repository-bound form", which needs no bookkeeping but makes the regression guard a tautology — reintroducing a path merely reclassifies the body and the build stays green.
+
+### 2026-08-28 — #258 — Reciprocal link from checkout-only-path-gate
+
+Mechanical reciprocity fan-out: a second build-time scan now reads the same shipped bodies this gate reads, checking the locations a body sends a stage to rather than the toolkit names it invokes. The two are siblings over one payload boundary; nothing about this gate changed.

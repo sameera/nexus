@@ -1,8 +1,8 @@
 ---
 title: "Install Location"
 aliases: ["one component set per account", "configuration directory", "account-scoped install", "install location resolution", "explicit placement verb"]
-touches: ["component-mirror", "component-migration", "environment-guard", "nexus-setup-cli", "published-package", "pointing-install", "release-identity"]
-last_updated_by: "#256"
+touches: ["component-mirror", "component-migration", "environment-guard", "nexus-setup-cli", "published-package", "pointing-install", "release-identity", "template-seeding"]
+last_updated_by: "#258"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ Placement is a deliberate verb rather than a package lifecycle step, because suc
 - [published-package](published-package.md) — installing the package delivers the payload; this location is where the explicit second step puts it.
 - [pointing-install](pointing-install.md) — the second of this location's two contents, split out from this page: pointers at a maintainer's checkout rather than a copied release.
 - [release-identity](release-identity.md) — the release read-out that reports this location and its content, so an owner sees what is present without inspecting the files.
+- [template-seeding](template-seeding.md) — the repo-bound placement this account-scoped one sits beside; a project's templates are never written here.
 
 ## Decision Log
 
@@ -47,3 +48,7 @@ The location became a first-class input resolved once and handed to the mirror, 
 ### 2026-08-28 — #256 — The pointing content splits out to its own page
 
 This page reached its capacity on its own content, and the half under pressure was the maintainer's arrangement: the epic that moved the authored tree made the pointing content the mechanism by which Nexus itself is developed, with its own derivation, its own read-out and its own relationship to the duplicate diagnostic. The seam holds because an adopter's question about where a set lives never needs the pointing half, and a maintainer's question about the edit-and-rerun loop never needs the resolution rules. What moved is the pointing content's mechanics and the checkout clause of the reporting invariant; the resolution rules, the explicit-placement rule and the managed-subtree bound stayed. Refuted: keep one page and compress the resolution prose to make room — it reads as the cheaper option and loses because the compressed half is still-true content that no delta here supersedes.
+
+### 2026-08-28 — #258 — Reciprocal link from template-seeding
+
+Mechanical reciprocity fan-out: the template-seeding page names this account-scoped location as the placement it deliberately sits beside, because a location serving every repository cannot own a resource that belongs to one. Nothing about this location changed.

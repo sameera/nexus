@@ -1,6 +1,6 @@
 ---
 concept: shipped-payload
-source_sha: 261ce2584d4096c52507a4419c669028bf6af453
+source_sha: 632f384e3d528235cb7b20dbc388f7a842e90da7
 generated: 2026-08-28
 ---
 
@@ -11,6 +11,7 @@ generated: 2026-08-28
 
 - `libs/portable-tools/src/release-payload.ts` — the stated set: the ignore denylist and its matcher, the sorted walk producing staged-path/source pairs, the canonical-manifest hash in code-unit order, and the per-file diagnostic manifest with its difference report.
 - `libs/portable-tools/src/release-payload.spec.ts` — coverage for the denylist categories, the code-unit ordering, hash stability across walks, and the difference report naming added, changed and removed files.
+- `libs/portable-tools/src/seed-templates.ts` — names the third part of the stated set, the tool-agnostic template masters and the directory they travel under.
 - `libs/portable-tools/src/vendor-components.ts` — the structural half the denylist layers over: which component subtrees ship at all, and the one definition of the authored root they are read from.
 - `libs/portable-tools/src/vendor-bundle.ts` — the pin step: builds the one executable, hashes the payload, and writes the two-entry pin and its per-file manifest in the same run.
 - `libs/portable-tools/bundle-fingerprint.json` — the committed pin, now exactly two entries: the executable and the payload.
