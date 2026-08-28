@@ -1,8 +1,8 @@
 ---
 title: "Shipped Payload"
 aliases: ["defined payload", "payload filter", "payload fingerprint", "stated set", "byte-code suppression", "payload manifest", "what ships"]
-touches: ["component-invocation-gate", "published-package", "portable-tooling", "release-gate", "verb-reachability"]
-last_updated_by: "#250"
+touches: ["component-invocation-gate", "published-package", "portable-tooling", "release-gate", "verb-reachability", "authored-component-root"]
+last_updated_by: "#256"
 status: active
 verification: verified
 ---
@@ -38,6 +38,7 @@ The pin carries one entry for the executable and one for the payload, and stays 
 - [portable-tooling](portable-tooling.md) — shares the two-entry fingerprint pin: one entry for the built executable, one for this payload.
 - [release-gate](release-gate.md) — reads what this payload carries to decide whether a shipped body's path reference still resolves after an install.
 - [verb-reachability](verb-reachability.md) — the single dispatcher where byte-code suppression is set, so no capability of that toolkit can forget it.
+- [authored-component-root](authored-component-root.md) — the tree this payload's component half is assembled from, whose relocation this manifest is the before-image for.
 
 ## Decision Log
 
@@ -48,3 +49,7 @@ The walk applied no filter, so gitignored byte-code and the toolkit's own tests 
 ### 2026-08-27 — #250 — Reciprocal link from component-invocation-gate
 
 Mechanical reciprocity fan-out: the component-invocation-gate page names this stated set as the definition of which bodies it reads, so a body cannot ship ungated.
+
+### 2026-08-28 — #256 — Reciprocal link from authored-component-root
+
+Mechanical reciprocity fan-out: the authored-component-root page names this stated set as what proves relocating the authored tree changed nothing about what ships, so the manifest is the move's regression check rather than a coincidence.
