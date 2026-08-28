@@ -1,0 +1,8 @@
+{
+  "name": "@nexus/delivery-config",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/delivery-config/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {}
+}

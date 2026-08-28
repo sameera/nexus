@@ -19,6 +19,9 @@
       "path": "./libs/close-migration"
     },
     {
+      "path": "./libs/delivery-config"
+    },
+    {
       "path": "./libs/epic-resolve"
     },
     {

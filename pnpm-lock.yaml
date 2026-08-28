@@ -214,6 +214,8 @@ importers:
         specifier: workspace:*
         version: link:../workspace
 
+  libs/delivery-config: {}
+
   libs/editor:
     dependencies:
       '@lexical/code':
@@ -269,6 +271,9 @@ importers:
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:../close-migration
+      '@nexus/delivery-config':
+        specifier: workspace:*
+        version: link:../delivery-config
       '@nexus/epic-resolve':
         specifier: workspace:*
         version: link:../epic-resolve

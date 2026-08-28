@@ -249,7 +249,7 @@ describe("fingerprint pin", () => {
     it("compares against the pin alone — no copy of the artifact inside any repository", () => {
         // Both sides of the comparison are produced here: a fresh in-process build and a fresh
         // walk of the payload sources. Nothing reads a vendored or deployed copy (story #310).
-        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", PAYLOAD_KEY].sort());
+        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", "nexus-gh.mjs", PAYLOAD_KEY].sort());
         expect(freshFingerprint[PAYLOAD_KEY]).toBe(hashPayload(REPO_ROOT));
     });
 
@@ -334,7 +334,7 @@ describe("component payload boundary (story #275)", () => {
 // reads the shipped payload and already fails the source-repo test run.
 // ---------------------------------------------------------------------------------------------
 describe("component invocations name a declared toolkit verb (story #301)", () => {
-    const surfaces: ToolkitSurfaces = readToolkitSurfaces(REPO_ROOT);
+    const surfaces: ToolkitSurfaces = readToolkitSurfaces();
     const inventory: Invocation[] = scanComponentInvocations(authoredComponentRoot(SRC_DIR), surfaces);
 
     it("reads each toolkit's declared surface from that surface, not from a duplicate", () => {
