@@ -65,6 +65,12 @@ import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
+import {
+    projectTemplateDir,
+    seedTemplates,
+    TEMPLATE_PAYLOAD_DIRNAME,
+    type SeedTemplatesResult,
+} from "./seed-templates.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { releaseVersion } from "./release.js";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
@@ -256,6 +262,17 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         run: (argv) => Promise.resolve(runSeedRegistry(argv)),
     },
+    "seed-templates": {
+        summary: "Place the tool-agnostic templates the pipeline stages read into a repository.",
+        usage: [
+            "  nexus seed-templates [--target <dir>] [--masters <dir>]",
+            "      Copy the templates the setup, decision-record and close stages read into",
+            "      .nexus/config/templates/ in the target repo (default: the current directory).",
+            "      Seeds only what is absent — a template your project has tuned is never",
+            "      overwritten — so it is safe to re-run. The masters travel inside the release.",
+        ].join("\n"),
+        run: runSeedTemplates,
+    },
 };
 
 /** The registered verb names, derived from the registry — never a hand-maintained duplicate. */
@@ -280,6 +297,11 @@ const USAGE: string = composeUsage();
 /** Where the vendored payload lives when running as a distributed artifact. */
 export function defaultPayloadDir(): string {
     return path.join(import.meta.dirname, COMPONENT_PAYLOAD_DIRNAME);
+}
+
+/** Where the template masters live when running as a distributed artifact (story #323). */
+export function defaultTemplateMasterDir(): string {
+    return path.join(import.meta.dirname, TEMPLATE_PAYLOAD_DIRNAME);
 }
 
 /** Extract `--flag value` pairs; returns null (after reporting) on a flag missing its value. */
@@ -325,6 +347,43 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
     io.stdout(
         `deployed ${result.written.length} component file(s) into ${path.join(targetRepoRoot, REPO_COMPONENT_DIRNAME)}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
+    );
+    return 0;
+}
+
+/**
+ * `nexus seed-templates` — the arrival of the three tool-agnostic templates (story #323).
+ *
+ * Repo-bound on purpose: the templates belong to the project, not to the account, so this is not
+ * part of `nexus install`, which writes once per account at a location no repository owns. It is
+ * the step `/nxs.setup` runs, and the step its own body now names.
+ */
+async function runSeedTemplates(argv: string[], io: CliIo): Promise<number> {
+    const rest: string[] = [...argv];
+    const targetOpt = takeOption(rest, "--target", io);
+    if (targetOpt === null) {
+        return 2;
+    }
+    const mastersOpt = takeOption(rest, "--masters", io);
+    if (mastersOpt === null) {
+        return 2;
+    }
+    if (rest.length > 0) {
+        io.stderr(`unknown argument for seed-templates: ${rest[0]}\n${USAGE}`);
+        return 2;
+    }
+
+    const targetRepoRoot: string = path.resolve(io.cwd, targetOpt.value ?? io.cwd);
+    let result: SeedTemplatesResult;
+    try {
+        result = seedTemplates(mastersOpt.value ?? defaultTemplateMasterDir(), targetRepoRoot);
+    } catch (error) {
+        io.stderr(error instanceof Error ? error.message : String(error));
+        return 1;
+    }
+    io.stdout(
+        `seeded ${result.seeded.length} template(s) into ${projectTemplateDir(targetRepoRoot)}` +
+            (result.kept.length > 0 ? `; kept ${result.kept.length} the project already has (${result.kept.join(", ")})` : ""),
     );
     return 0;
 }

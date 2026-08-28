@@ -270,6 +270,16 @@ once inside each such repository. It removes the Nexus-namespaced files it finds
 
 For multi-repo workspaces, the same CLI declares and inspects the workspace: `nexus workspace init`, `nexus workspace status`, and `nexus workspace add-repo`. Workspace initialisation deploys no components — they come from the install location. After the components are installed, run `/nxs.setup` inside a repo for the per-repo judgment pass (stack docs, standards, product context).
 
+## Per repository: the templates the stages read
+
+Three stages — setup, `/nxs.decision-record` and `/nxs.close` — read a template out of the repository's own configuration, under `.nexus/config/templates/`. `/nxs.setup` places them for you by running
+
+```bash
+nexus seed-templates
+```
+
+The masters travel inside the package, so this works in a repository that has never been a Nexus checkout. It seeds only what is absent: a template you have tuned is never overwritten, and re-running it adds anything a later release introduced without touching your edits. Run it directly if you want the templates without a full setup pass.
+
 # Upgrading
 
 Upgrade the package, then re-run `nexus install`. The mirror converges: components dropped from the managed set are removed, and files you own are untouched.

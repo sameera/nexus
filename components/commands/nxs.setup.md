@@ -64,6 +64,17 @@ Detect this repo's workspace role **through the resolver** — never by asking t
     > "This project has no CLAUDE.md. I recommend running `/init` first to generate baseline documentation. Proceed anyway, or stop so you can run `/init`? (proceed / stop)"
 
 3. If the user stops, end here. Otherwise continue.
+4. **Seed the tool-agnostic templates** the pipeline stages read, so the rest of this run — and
+   `/nxs.decision-record` and `/nxs.close` later — find them:
+
+    ```bash
+    nexus seed-templates
+    ```
+
+    It places `.nexus/config/templates/` from the masters that travel inside the release. It seeds
+    only what is absent, so a template this project has already tuned is left exactly as it is; it
+    is safe to run on every setup. Phase 3 reads `standard.template.md` from there, so this runs
+    before it.
 
 ## Phase 2: Stack detection
 
@@ -226,7 +237,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
 3. **`<docs-root>/delivery/lessons/`** — create the folder plus a `README.md` documenting the one-file-per-lesson convention (`<date>-<slug>.md`, source-epic in frontmatter). This is the home `/nxs.close` writes process/delivery lessons to.
 4. **`.nexus/queue/`** — this surface is **committed, not gitignored**. Do **not** add a `.nexus/` ignore rule for it.
 5. **`.nexus/discovery/`** — the pre-epic discovery store (`/nxs.discover`), also **committed, not gitignored**. It is deliberately a sibling of the queue rather than a folder inside it: the queue holds only closed, drainable entries, and a discovery is never closed and never drained. Do not create it at setup — `/nxs.discover` creates it on first use — and do not add an ignore rule for it.
-6. **Templates** — do **not** seed `.nexus/config/templates/` here. The install/update script seeds the tool-agnostic templates; setup only seeds project-generated config (above).
+6. **Templates** — nothing to do here. `nexus seed-templates` (Phase 1) has already placed the tool-agnostic templates under `.nexus/config/templates/`; this phase only seeds project-generated config (above).
 7. **Decision scratch is committed under `.nexus/queue/`, not gitignored.** Do **not** add a
    committed-path ignore for `.nexus/queue/**` — the whole point is that the per-user decision
    scratch (`.nexus/queue/epic-<epic-issue-number>/<username>/`) rides ordinary commits. Keep any pre-existing

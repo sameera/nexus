@@ -9,7 +9,7 @@
   "claude-components/commands/nxs.discover.md": "b6463188ea2e9476438d2e1efcdb6e85b9686c21a310d77c9a1116a09b017e18",
   "claude-components/commands/nxs.distill.md": "5003b1b0f4a76765677d27132a1bff0593782e5b9f1a911bc6f68fab71251ecb",
   "claude-components/commands/nxs.epic.md": "dccbf8ea969d73f7cdd935ae86e146c33df802be1f6d7c503c4b69888bfa57a3",
-  "claude-components/commands/nxs.setup.md": "03246644b6812b40b4f46aa264ff2b54925a4aa0c6300dadcf192708e646f1c9",
+  "claude-components/commands/nxs.setup.md": "0ec0df6dadbb9a07536a38cf421caf561c623530283c94ec1de7269d6663d30c",
   "claude-components/skills/nxs-abs-doc-path/SKILL.md": "676abe2fc3fd44cd5bc7d896580431dbf38b3d5e8b83b053e82d7b27ab86a7b4",
   "claude-components/skills/nxs-close-migration/SKILL.md": "3a4e9cf9cc2434837d480d6d3b6409f62e7f1da8ea10f3fee6f38a4e21a6031c",
   "claude-components/skills/nxs-epic-resolve/SKILL.md": "d095c5b19b24504cc967d7fa3fa00291a42de6619d2d9e27d71243478a14079c",
@@ -25,5 +25,8 @@
   "gh-toolkit/nexus_gh/create_epic.py": "867eba486ed25b237af662605b460609ca216859d66510490965ce8a39802c0c",
   "gh-toolkit/nexus_gh/create_story.py": "3bc2f9626d999b155e9a14b9bbaa7c1600e0158874eba358e25f642b87715deb",
   "gh-toolkit/nexus_gh/delivery_config.py": "4f2c565feff51d03f9f7f5110926426a2abfb5d411aaff989067f431d4d7b317",
-  "gh-toolkit/nexus_gh/release.py": "c82e51e15226eb1ec1bf91a59b3642cc27325d281c68a8b3d0976b38376d0128"
+  "gh-toolkit/nexus_gh/release.py": "c82e51e15226eb1ec1bf91a59b3642cc27325d281c68a8b3d0976b38376d0128",
+  "templates/close-record-template.md": "8db3a7ced5de5940545ab2c2f45e1c8068438ce028ff76e74a8e3b50b1a5488c",
+  "templates/decision-record-template.md": "d967a013a4ef41f686c452caefe9b5dd56122f2506a7f0b69f7e6f4e89bc93b9",
+  "templates/standard.template.md": "16843e962fcf9cd8420c4b4bed4be431ea8389de62b39740edafd569728918c7"
 }
