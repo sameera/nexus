@@ -19,9 +19,9 @@
  * Node builtins only; this file is not a bundle entry point, so it is never itself vendored.
  */
 
-import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { CAPABILITY_NAMES } from "@nexus/delivery-config/registry";
 import { DISPATCH_NAMES } from "./nexus-cli.js";
 import { listComponentFiles } from "./vendor-components.js";
 
@@ -304,24 +304,16 @@ export function formatInvocationProblems(problems: readonly InvocationProblem[])
     ].join("\n");
 }
 
-/** The Python toolkit's entry point inside this checkout — the only Python the gate ever runs. */
-export function pythonToolkitEntry(repoRoot: string): string {
-    return path.join(repoRoot, "libs", "gh-toolkit", "bin", "nexus-gh");
-}
-
 /**
- * Both declared surfaces, each read from the surface itself (decision record #325). The
- * executable's dispatch names come from the registry that composes its own usage text; the Python
- * toolkit's capability names come from executing its entry point and reading the machine listing
- * it emits for this purpose — never the human usage prose, and never a duplicate of either list.
- * A surface that cannot be obtained throws; the gate never falls back to an assumed list.
+ * Both declared surfaces, each read from the surface itself (decision records #325, #362).
+ *
+ * Each name set comes from the registry that composes that toolkit's own usage text — never the
+ * human usage prose, and never a duplicate of either list. Both surfaces are now the same
+ * language, so the toolkit's listing is read as a value: executing a process to ask a question the
+ * compiler can already answer buys no extra fidelity, and it is the only reason a build step would
+ * spawn anything. The machine-readable listing flag stays on the toolkit itself, because it is a
+ * declared part of the capability surface for readers outside this build.
  */
-export function readToolkitSurfaces(repoRoot: string): ToolkitSurfaces {
-    const entry: string = pythonToolkitEntry(repoRoot);
-    const listing: string = execFileSync("python3", [entry, "--capabilities"], { encoding: "utf8" });
-    const parsed: { capabilities?: unknown } = JSON.parse(listing);
-    if (!Array.isArray(parsed.capabilities)) {
-        throw new Error(`the Python toolkit's capability listing is not a name array: ${listing}`);
-    }
-    return { nexus: DISPATCH_NAMES, nexusGh: parsed.capabilities as string[] };
+export function readToolkitSurfaces(): ToolkitSurfaces {
+    return { nexus: DISPATCH_NAMES, nexusGh: [...CAPABILITY_NAMES] };
 }

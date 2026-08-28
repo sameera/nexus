@@ -12,6 +12,9 @@
   "exclude": ["src/**/*.spec.ts", "src/gh-fixtures.ts", "vitest.config.mts"],
   "references": [
     {
+      "path": "../delivery-config/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace/tsconfig.lib.json"
     },
     {

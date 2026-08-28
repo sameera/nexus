@@ -1,30 +1,22 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { classifySubIssue, isWithdrawnStory, resolveRecordClassification } from "./classify.js";
-import { type RunResult, type Runner } from "./run.js";
 
-/** A Runner that answers the shared publishing resolver's `resolve <key>` calls from a map. */
-function resolverRunner(values: Record<string, string>, opts: { fail?: string } = {}): {
-    run: Runner;
-    calls: string[][];
-} {
-    const calls: string[][] = [];
-    const run: Runner = (cmd: string, args: string[]): RunResult => {
-        calls.push([cmd, ...args]);
-        const key = args[args.indexOf("resolve") + 1];
-        if (opts.fail === key) return { status: 1, stdout: "", stderr: "boom" };
-        return { status: 0, stdout: (values[key] ?? "") + "\n", stderr: "" };
-    };
-    return { run, calls };
+/** A checkout declaring `settings` — the only thing the resolver reads. */
+function repoWith(settings: string): string {
+    const root: string = fs.mkdtempSync(path.join(os.tmpdir(), "classify-"));
+    fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), settings);
+    return root;
 }
 
-describe("resolveRecordClassification — the one shared publishing resolver, across a process seam", () => {
+describe("resolveRecordClassification — the one shared publishing resolver, called in process", () => {
     it("takes the mode and the record names from the resolver, reading no config itself", () => {
-        const { run, calls } = resolverRunner({
-            classification: "labels",
-            "record-label": "decision-record",
-            "record-type": "Decision Record",
-        });
-        const r = resolveRecordClassification(run, "/repo");
+        const r = resolveRecordClassification(
+            repoWith("github:\n  classification: labels\n  record-label: decision-record\n  record-type: Decision Record\n"),
+        );
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.classification).toEqual({
@@ -32,42 +24,27 @@ describe("resolveRecordClassification — the one shared publishing resolver, ac
             recordLabel: "decision-record",
             recordType: "Decision Record",
         });
-        // Every call names the Python toolkit's resolver capability and targets the repo root —
-        // and no call names a path inside that repo (story #300).
-        expect(calls.length).toBe(3);
-        for (const call of calls) {
-            expect(call.join(" ")).toContain("config resolve");
-            expect(call.join(" ")).toContain("--root /repo");
-            expect(call.join(" ")).not.toContain("/repo/.claude");
-        }
     });
 
     it("treats an unset mode as the resolver's legacy-auto default", () => {
-        const { run } = resolverRunner({
-            classification: "",
-            "record-label": "decision-record",
-            "record-type": "Decision Record",
-        });
-        const r = resolveRecordClassification(run, "/repo");
+        const r = resolveRecordClassification(repoWith("github:\n  project: none\n"));
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.classification.mode).toBe("legacy-auto");
     });
 
-    it("reports a named diagnostic when the resolver cannot be invoked", () => {
-        const { run } = resolverRunner({}, { fail: "classification" });
-        const r = resolveRecordClassification(run, "/repo");
-        expect(r.ok).toBe(false);
-        if (r.ok) return;
-        expect(r.error.problem).toBe("record-classification-unresolved");
+    it("takes the record names from the resolver's built-ins when none are declared", () => {
+        const r = resolveRecordClassification(repoWith("github:\n  project: none\n"));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.classification.recordLabel).toBe("decision-record");
+        expect(r.classification.recordType).toBe("Decision Record");
     });
 
-    it("reports a named diagnostic when the resolver yields no record label", () => {
-        const { run } = resolverRunner({ classification: "labels", "record-label": "", "record-type": "X" });
-        const r = resolveRecordClassification(run, "/repo");
-        expect(r.ok).toBe(false);
-        if (r.ok) return;
-        expect(r.error.problem).toBe("record-classification-unresolved");
+    it("resolves without spawning anything, from a checkout with nothing installed", () => {
+        const root: string = fs.mkdtempSync(path.join(os.tmpdir(), "classify-bare-"));
+        const r = resolveRecordClassification(root);
+        expect(r.ok).toBe(true);
     });
 });
 

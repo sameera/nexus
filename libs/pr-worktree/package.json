@@ -42,6 +42,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@nexus/delivery-config": "workspace:*",
     "@nexus/close-migration": "workspace:*",
     "@nexus/workspace": "workspace:*"
   }

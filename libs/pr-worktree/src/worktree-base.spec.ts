@@ -1,7 +1,7 @@
 /**
  * Where the --pr flow's worktrees are created (epic #178).
  *
- * The base is declared config resolved across the shared publishing-resolver seam, so these specs
+ * The base is declared config resolved through the shared publishing resolver, so these specs
  * drive it the way an operator does — a `worktree-path` key in the repo's settings.yml — and assert
  * on the location the flow actually opens a worktree at, not on the resolution internals.
  */
@@ -10,8 +10,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "./worktree.js";
-import { type RunResult, type Runner, defaultRunner } from "./run.js";
+import { builtinWorktreeBase, openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "./worktree.js";
+import { type Runner, defaultRunner } from "./run.js";
 import { buildRepoWithOrigin, declareGithubKey, makeParent, sh } from "./git-fixtures.js";
 
 const tracked: string[] = [];
@@ -146,18 +146,21 @@ describe("a repo declares where its --pr worktrees are created", () => {
         expect(r.wtPath.startsWith(path.join(home, "wt") + path.sep)).toBe(true);
     });
 
-    it("stops with a named diagnostic when the resolver itself fails", () => {
+    it("takes the built-in base from a checkout that declares nothing, spawning no resolver", () => {
         const repo = repoWithPr();
-        const broken: Runner = (cmd, args, opts) =>
-            cmd === "python3"
-                ? ({ status: 1, stdout: "", stderr: "resolver exploded" } as RunResult)
-                : defaultRunner(cmd, args, opts);
+        const spawned: string[] = [];
+        const watched: Runner = (cmd, args, opts) => {
+            spawned.push(cmd);
+            return defaultRunner(cmd, args, opts);
+        };
 
-        const r = openAnalyzeWorktree(broken, repo, 1);
-        expect(r.ok).toBe(false);
-        if (r.ok) return;
-        expect(r.error.problem).toBe("worktree-base-unresolved");
-        expect(r.error.message).toContain("resolver exploded");
+        const r = openAnalyzeWorktree(watched, repo, 1);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        opened(repo, r.wtPath);
+        expect(r.wtPath.startsWith(builtinWorktreeBase() + path.sep)).toBe(true);
+        expect(spawned).not.toContain("python3");
+        expect(spawned).not.toContain("nexus-gh");
     });
 });
 

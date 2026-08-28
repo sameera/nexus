@@ -1,0 +1,68 @@
+{
+  "name": "@nexus/delivery-config",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./io": {
+      "types": "./src/io.ts",
+      "import": "./src/io.ts",
+      "default": "./src/io.ts"
+    },
+    "./backlog": {
+      "types": "./src/backlog.ts",
+      "import": "./src/backlog.ts",
+      "default": "./src/backlog.ts"
+    },
+    "./gh": {
+      "types": "./src/gh.ts",
+      "import": "./src/gh.ts",
+      "default": "./src/gh.ts"
+    },
+    "./write": {
+      "types": "./src/write.ts",
+      "import": "./src/write.ts",
+      "default": "./src/write.ts"
+    },
+    "./keys": {
+      "types": "./src/keys.ts",
+      "import": "./src/keys.ts",
+      "default": "./src/keys.ts"
+    },
+    "./resolve": {
+      "types": "./src/resolve.ts",
+      "import": "./src/resolve.ts",
+      "default": "./src/resolve.ts"
+    },
+    "./settings": {
+      "types": "./src/settings.ts",
+      "import": "./src/settings.ts",
+      "default": "./src/settings.ts"
+    },
+    "./publishing": {
+      "types": "./src/publishing.ts",
+      "import": "./src/publishing.ts",
+      "default": "./src/publishing.ts"
+    },
+    "./registry": {
+      "types": "./src/registry.ts",
+      "import": "./src/registry.ts",
+      "default": "./src/registry.ts"
+    },
+    "./dispatch": {
+      "types": "./src/dispatch.ts",
+      "import": "./src/dispatch.ts",
+      "default": "./src/dispatch.ts"
+    },
+    "./delegate": {
+      "types": "./src/delegate.ts",
+      "import": "./src/delegate.ts",
+      "default": "./src/delegate.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@nexus/release-identity": "workspace:*",
+    "@nexus/workspace": "workspace:*"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@nexus/release-identity",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./release": {
+      "types": "./src/release.ts",
+      "import": "./src/release.ts",
+      "default": "./src/release.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {}
+}

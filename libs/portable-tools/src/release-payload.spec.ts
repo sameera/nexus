@@ -10,7 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { ENTRY_POINTS } from "./build-bundles";
-import { buildReleaseTree } from "./pack-release";
+import { BIN_NAMES, buildReleaseTree } from "./pack-release";
 import { hashPayload, isIgnoredPayloadEntry, listPayloadFiles, PAYLOAD_IGNORE, PAYLOAD_KEY } from "./release-payload";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
@@ -144,13 +144,13 @@ describe("the toolkit writes no byte-code into the repository it runs against (A
     });
 });
 
-describe("the release builds one executable (AC5)", () => {
-    it("declares a single JavaScript entry point", () => {
-        expect(Object.keys(ENTRY_POINTS)).toEqual(["nexus"]);
+describe("the release builds one bundle per declared toolkit name (AC5, story #355)", () => {
+    it("declares one JavaScript entry point per binary the manifest names", () => {
+        expect(Object.keys(ENTRY_POINTS).sort()).toEqual([...BIN_NAMES].sort());
     });
 
-    it("pins one bundle entry plus the payload entry", () => {
+    it("pins one entry per bundle plus the payload entry", () => {
         const pinned: Record<string, string> = JSON.parse(fs.readFileSync(PIN_PATH, "utf8"));
-        expect(Object.keys(pinned).sort()).toEqual(["nexus.mjs", PAYLOAD_KEY].sort());
+        expect(Object.keys(pinned).sort()).toEqual([...BIN_NAMES.map((n) => `${n}.mjs`), PAYLOAD_KEY].sort());
     });
 });

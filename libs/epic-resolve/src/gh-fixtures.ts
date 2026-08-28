@@ -4,9 +4,10 @@
  * the resolver specs the way pr-worktree's specs import git-fixtures.ts.
  *
  * It answers the call shapes the read layer makes: `gh repo view`, `gh issue view <n>`, `gh api
- * graphql` (sub-issues, sub-issue types, parent), `gh api …/dependencies/blocked_by`, and the
- * shared publishing resolver's `python3 … resolve <key>` seam. Faults are injected per call shape
- * so a spec can prove fail-closed behavior at any fetch.
+ * graphql` (sub-issues, sub-issue types, parent) and `gh api …/dependencies/blocked_by`. Faults are
+ * injected per call shape so a spec can prove fail-closed behavior at any fetch. Publishing
+ * configuration is not among them: the shared resolver is called in process and reads a checkout,
+ * so a spec that needs a declared value writes one at the target root.
  */
 
 import { type RunResult, type Runner } from "./run.js";
@@ -42,15 +43,10 @@ export interface FixtureGraph {
     failIssueView?: Set<number>;
     malformedIssues?: Set<number>;
     failBlockedBy?: Set<number>;
-    /** What the shared publishing resolver reports for `classification` (default: labels). */
-    classification?: string;
     /** What it reports for `record-label` / `record-type` (defaults: the record contract's names). */
     recordLabel?: string;
     recordType?: string;
     /** What it reports for `unplanned-label` (default: the built-in `backlog`). */
-    unplannedLabel?: string;
-    /** The shared publishing resolver cannot be invoked at all. */
-    failClassification?: boolean;
     /** The sub-issue issue-type GraphQL query fails (a repo without the issue-types feature). */
     failSubIssueTypes?: boolean;
 }
@@ -73,16 +69,6 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
         const ok = (stdout: string): RunResult => ({ status: 0, stdout, stderr: "" });
         const fail = (stderr: string): RunResult => ({ status: 1, stdout: "", stderr });
 
-        // The shared publishing resolver, invoked across the process seam for classification.
-        if (cmd === "python3" && args.includes("resolve")) {
-            if (graph.failClassification) return fail("python3: no such file");
-            const key = args[args.indexOf("resolve") + 1];
-            if (key === "classification") return ok((graph.classification ?? "labels") + "\n");
-            if (key === "record-label") return ok((graph.recordLabel ?? "decision-record") + "\n");
-            if (key === "record-type") return ok((graph.recordType ?? "Decision Record") + "\n");
-            if (key === "unplanned-label") return ok((graph.unplannedLabel ?? "backlog") + "\n");
-            return ok("\n");
-        }
 
         if (cmd !== "gh") return fail(`unexpected command: ${cmd}`);
 

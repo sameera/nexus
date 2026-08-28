@@ -19,6 +19,9 @@
       "path": "./libs/close-migration"
     },
     {
+      "path": "./libs/delivery-config"
+    },
+    {
       "path": "./libs/epic-resolve"
     },
     {
@@ -32,6 +35,9 @@
     },
     {
       "path": "./libs/record-digest"
+    },
+    {
+      "path": "./libs/release-identity"
     },
     {
       "path": "./apps/prime"

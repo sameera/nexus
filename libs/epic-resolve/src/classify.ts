@@ -9,16 +9,15 @@
  * epic whose stories carry no story marker — resolving byte-identically to the pre-change output.
  *
  * The marker (a label, or a GitHub issue type, whichever the declared classification mode selects)
- * is resolved **only** through the shared publishing resolver, invoked across a process seam
- * (decision-record Invariant 4). The resolver is the single reader of the publishing configuration;
+ * is resolved **only** through the shared publishing resolver, now called in process (decision
+ * record #362, D6). The resolver is the single reader of the publishing configuration;
  * this module never parses `settings.yml` and carries no default of its own — an unresolvable
  * classification is a named diagnostic, never a guess, because guessing wrong silently injects the
  * record into the story set, which is the exact corruption this story exists to prevent.
  */
 
-import { GH_TOOLKIT_NAME, ghToolkitCommand } from "@nexus/workspace/gh-toolkit";
+import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { type EpicResolveDiagnostic } from "./diagnostic.js";
-import { type Runner } from "./run.js";
 
 /** The declared publishing classification mode, as the shared resolver reports it. */
 export type ClassificationMode = "types" | "labels" | "legacy-auto";
@@ -84,22 +83,13 @@ function unresolved(message: string): Err {
 }
 
 /**
- * Read one publishing key through the shared resolver CLI (the process seam, Invariant 4).
+ * Read one publishing key through the shared resolver.
  *
- * The toolkit is addressed by name (story #300). A target repo carrying no committed components is
- * the ordinary case, so an absent resolver is reported as an absent *toolkit* with the remedy —
- * never as a missing file inside the user's repository.
+ * The resolver is a library in the same workspace now, so there is nothing to locate and no process
+ * to spawn — and no question of how a checkout with nothing installed reaches it.
  */
-function resolveKey(run: Runner, targetRoot: string, key: string): Ok<{ value: string }> | Err {
-    const invocation = ghToolkitCommand(["config", "resolve", key, "--root", targetRoot]);
-    if (!invocation.ok) return unresolved(invocation.message);
-    const r = run(invocation.command, invocation.args, { cwd: targetRoot });
-    if (r.status !== 0) {
-        return unresolved(
-            `the shared publishing resolver could not resolve '${key}': ${r.stderr.trim() || "unknown error"}`,
-        );
-    }
-    return { ok: true, value: r.stdout.trim() };
+function resolveKey(targetRoot: string, key: string): string {
+    return resolvePublishingKey(targetRoot, key).trim();
 }
 
 /**
@@ -110,30 +100,24 @@ function resolveKey(run: Runner, targetRoot: string, key: string): Ok<{ value: s
  * however, means the resolver in this checkout predates the record contract — that is reported,
  * not defaulted, so no second source of the record marker can ever exist.
  */
-export function resolveRecordClassification(
-    run: Runner,
-    targetRoot: string,
-): Ok<{ classification: RecordClassification }> | Err {
-    const mode = resolveKey(run, targetRoot, "classification");
-    if (!mode.ok) return mode;
-    const label = resolveKey(run, targetRoot, "record-label");
-    if (!label.ok) return label;
-    const type = resolveKey(run, targetRoot, "record-type");
-    if (!type.ok) return type;
+export function resolveRecordClassification(targetRoot: string): Ok<{ classification: RecordClassification }> | Err {
+    const mode: string = resolveKey(targetRoot, "classification");
+    const label: string = resolveKey(targetRoot, "record-label");
+    const type: string = resolveKey(targetRoot, "record-type");
 
-    if (label.value.length === 0 || type.value.length === 0) {
+    if (label.length === 0 || type.length === 0) {
         return unresolved(
             "the shared publishing resolver returned no record label/type; the installed " +
-                `${GH_TOOLKIT_NAME} predates the decision-record sub-issue contract — update Nexus`,
+                "resolver predates the decision-record sub-issue contract — update Nexus",
         );
     }
-    const normalized: string = mode.value.toLowerCase();
+    const normalized: string = mode.toLowerCase();
     return {
         ok: true,
         classification: {
             mode: (MODES.has(normalized) ? normalized : "legacy-auto") as ClassificationMode,
-            recordLabel: label.value,
-            recordType: type.value,
+            recordLabel: label,
+            recordType: type,
         },
     };
 }
@@ -146,16 +130,15 @@ export function resolveRecordClassification(
  * A resolver that answers nothing predates the stub contract; that is reported rather than
  * defaulted, exactly as the record marker is.
  */
-export function resolveUnplannedLabel(run: Runner, targetRoot: string): Ok<{ label: string }> | Err {
-    const label = resolveKey(run, targetRoot, "unplanned-label");
-    if (!label.ok) return label;
-    if (label.value.length === 0) {
+export function resolveUnplannedLabel(targetRoot: string): Ok<{ label: string }> | Err {
+    const label: string = resolveKey(targetRoot, "unplanned-label");
+    if (label.length === 0) {
         return unresolved(
             "the shared publishing resolver returned no unplanned label; the installed " +
-                `${GH_TOOLKIT_NAME} predates the backlog-stub contract — update Nexus`,
+                "resolver predates the backlog-stub contract — update Nexus",
         );
     }
-    return { ok: true, label: label.value };
+    return { ok: true, label };
 }
 
 /** Whether an epic issue is still an unplanned stub, under the resolved unplanned label. */

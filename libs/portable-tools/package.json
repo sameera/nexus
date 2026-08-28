@@ -9,8 +9,10 @@
   "dependencies": {
     "@nexus/workspace": "workspace:*",
     "@nexus/close-migration": "workspace:*",
+    "@nexus/delivery-config": "workspace:*",
     "@nexus/abs-doc-path": "workspace:*",
     "@nexus/epic-resolve": "workspace:*",
+    "@nexus/release-identity": "workspace:*",
     "@nexus/record-digest": "workspace:*",
     "yaml": "^2.9.0"
   }

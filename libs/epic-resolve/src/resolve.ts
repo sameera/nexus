@@ -98,7 +98,7 @@ export function resolveEpic(
     // empty, which every downstream stage reads as "an epic that plans nothing" rather than "work
     // nobody has planned". Refuse it by name instead (Invariant 14).
     if (epic.issue.labels.length > 0) {
-        const unplanned = resolveUnplannedLabel(run, targetRoot);
+        const unplanned = resolveUnplannedLabel(targetRoot);
         if (!unplanned.ok) return unplanned;
         if (isUnplannedEpic(epic.issue.labels, unplanned.label)) {
             return {
@@ -123,7 +123,7 @@ export function resolveEpic(
     let classification: RecordClassification | null = null;
     let issueTypes = new Map<number, string>();
     if (subs.numbers.length > 0) {
-        const resolved = resolveRecordClassification(run, targetRoot);
+        const resolved = resolveRecordClassification(targetRoot);
         if (!resolved.ok) return resolved;
         classification = resolved.classification;
         if (classification.mode !== "labels") {
