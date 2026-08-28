@@ -1,6 +1,6 @@
 ---
 concept: environment-guard
-source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
+source_sha: 43ee3223bce8f01b2e4457218a45f2fbf8f51ecc
 generated: 2026-08-27
 ---
 
@@ -9,10 +9,12 @@ generated: 2026-08-27
 
 # Code Anchors: Environment Guard
 
-- `libs/portable-tools/src/environment-guard.ts` — the guard: interpreter resolution, the two defect detectors, the namespace predicate deciding whether a location holds a component set, and the once-per-invocation reporter writing only to standard error.
-- `libs/portable-tools/src/environment-guard.spec.ts` — defect detection, the standard-error-only and unchanged-exit-code properties, and the report-once behavior.
+- `libs/portable-tools/src/environment-guard.ts` — the guard: interpreter resolution, the two defect detectors, the resolved-real-path duplicate comparison bounded to the invoking repository and the resolved install location, the shared namespace predicate, and the once-per-invocation reporter writing only to standard error.
+- `libs/portable-tools/src/environment-guard.spec.ts` — defect detection, the standard-error-only and unchanged-exit-code properties, the report-once behavior, and the pointing arrangement reporting no duplicate.
+- `libs/portable-tools/src/install-location.ts` — resolves the account-side location this guard compares against, replacing the hard-coded home default.
+- `libs/portable-tools/src/nexus-namespace.ts` — the one ownership predicate the guard now shares with the mirror, so the two cannot disagree about which files Nexus owns.
 - `libs/portable-tools/src/nexus-cli.ts` — the dispatcher running the guard before dispatch, and the injectable verb registry that makes coverage of an unknown verb demonstrable.
 - `libs/portable-tools/src/nexus-cli.spec.ts` — dispatcher coverage, including a verb the real registry does not contain still being covered.
-- `libs/portable-tools/src/vendor-components.ts` — supplies the component-tree listing the duplicate-set detector counts over.
+- `libs/portable-tools/src/vendor-components.ts` — defines the managed subtrees the duplicate detector counts over.
 - `package.json` — declares the interpreter floor and the supported platforms; the declaration is the whole of the answer for this release, so this guard's run-time diagnostic remains the only thing that names a missing interpreter.
 - `README.md` — the Requirements section carrying the same declaration for a reader who has not installed yet.

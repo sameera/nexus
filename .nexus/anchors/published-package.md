@@ -1,6 +1,6 @@
 ---
 concept: published-package
-source_sha: 6f6e8225a6b09a3cf7ee37e94df65f1b4b70eb41
+source_sha: 43ee3223bce8f01b2e4457218a45f2fbf8f51ecc
 generated: 2026-08-27
 ---
 
@@ -14,10 +14,10 @@ generated: 2026-08-27
 - `.npmignore` — the deliberate empty ignore shadow: it exists only to stop the packer falling back to the source-control ignore rules, which exclude the staged release tree that IS the payload.
 - `libs/portable-tools/src/pack-release.ts` — the staging step: clears and rebuilds the release tree, writes the one bundle, copies the stated payload set beneath it, and preserves each source file's mode.
 - `libs/portable-tools/src/pack-release.spec.ts` — staging coverage: the declared binaries are present and executable, the payload lands at its staged depth, and a stale tree is replaced rather than merged into.
+- `libs/portable-tools/src/install-location.ts` — where the delivered payload is placed by the explicit second step, rather than by installation itself.
 - `libs/portable-tools/src/entry-point.ts` — the direct-run test, resolving both the module's own location and the invoked path through realpath so a package-manager symlink still counts as a direct run.
 - `libs/portable-tools/src/bundle.ts` — emits the interpreter line as part of the build banner, so the bytes the pin records are the bytes a linked binary executes.
-- `libs/portable-tools/src/nexus-cli.ts`, `libs/portable-tools/src/build-bundles.ts`, `libs/portable-tools/src/vendor-bundle.ts` — the entry points switched onto the shared realpath direct-run test.
 - `libs/gh-toolkit/bin/nexus-gh` — the second declared binary, reached by the manifest's `bin` mapping into the staged tree.
 - `VERSION` — the single declaration every published part sits at a fixed depth beneath.
-- `README.md` — the Requirements section declaring the two interpreters and the supported platforms.
+- `README.md` — the Requirements section declaring the two interpreters and the supported platforms, and the Installing section naming the explicit second step.
 - `docs/delivery/release-procedure.md` — the end-to-end procedure: choose the version, write the entry, re-pin and verify, run the gate, tag, publish, then publish the releases-page entry.
