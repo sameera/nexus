@@ -1,25 +1,25 @@
 ---
 title: "Nexus Setup CLI"
-aliases: ["nexus cli", "nexus deploy", "component-deploy primitive", "workspace init", "workspace add-repo", "workspace writer"]
-touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability", "environment-guard"]
-last_updated_by: "#251"
+aliases: ["nexus cli", "nexus install", "nexus uninstall", "migrate-components", "nexus deploy", "component-deploy primitive", "workspace init", "workspace add-repo", "workspace writer"]
+touches: ["workspace-resolution", "portable-tooling", "publishing-config-resolution", "verb-reachability", "environment-guard", "install-location", "component-mirror"]
+last_updated_by: "#253"
 status: active
 verification: verified
 ---
 
 # Nexus Setup CLI
 
-The Nexus Setup CLI is the portable `nexus` command that owns the *structural* half of getting Nexus into a repo or a whole multi-repo workspace — installing components and declaring or growing a workspace. It is the structural counterpart to the judgment-owning setup interview: one owns placement and files, the other owns stack docs, standards, and product context.
+The Nexus Setup CLI is the portable `nexus` command that owns the *structural* half of getting Nexus onto an account and declaring or growing a multi-repo workspace. It is the structural counterpart to the judgment-owning setup interview: one owns placement and files, the other owns stack docs, standards, and product context.
 
 ## How It Works
 
-A single entrypoint exposes its verbs over two capabilities it never duplicates: the workspace resolver (the sole authority on workspace shape) and one component-deploy primitive (the sole component installer). `deploy` mirrors the managed component set into a repo. `init` declares a workspace — the human designates a hub and members from the discovered sibling checkouts, and every declared repo is deployed. `add-repo` adds one member. The rest are read-outs over resolver-owned values: workspace status, the resolved docs root, and the hub's publishing defaults, that last emitted as machine-readable output for a consumer in another language.
+A single entrypoint exposes its verbs over two capabilities it never duplicates: the workspace resolver (the sole authority on workspace shape) and one component-deploy primitive (the sole component installer). Three verbs place, empty, and migrate a component set through that one mirror. `init` declares a workspace only — the human designates a hub and members from the discovered sibling checkouts, and nothing is deployed into any of them; its output names the account-scoped install instead, and names the migration verb for a repository still carrying a committed set. `add-repo` adds one member. The repository-targeted deploy verb still works, and its own usage text states that a per-repository set is no longer the supported arrangement. The rest are read-outs over resolver-owned values: workspace status, the resolved docs root, and the hub's publishing defaults, that last emitted as machine-readable output for a consumer in another language.
 
 Deploy is an overwrite-to-match mirror over an explicit managed set: it refreshes managed files and drops retired ones, converging to an identical set on re-run, and never touches user-owned files. Every workspace-writing verb renders a candidate, runs it back through the resolver, and writes only if resolution accepts it unchanged — so the resolver, not the CLI, judges every artifact.
 
 ## Key Invariants
 
-1. One component-deploy primitive is the sole component installer; the legacy update script is retired.
+1. ~~One component-deploy primitive is the sole component installer; the legacy update script is retired.~~ One mirror is the sole component installer, and a component set is placed once per account rather than once per repository.
 2. Deploy is idempotent: re-running converges the managed component set and never touches user-owned files.
 3. Every workspace-writing verb re-resolves its own output and writes nothing unless hub and member resolution agree.
 4. The CLI never re-declares workspace shape or collision logic — it takes both from the resolver.
@@ -34,6 +34,8 @@ Deploy is an overwrite-to-match mirror over an explicit managed set: it refreshe
 - [publishing-config-resolution](publishing-config-resolution.md) — a read-out here is the seam that resolver reads its hub-defaults layer across.
 - [verb-reachability](verb-reachability.md) — the shared registry this CLI's deploy and workspace verbs are dispatched from, now also hosting the newly reachable capabilities.
 - [environment-guard](environment-guard.md) — counts the component sets this CLI owns, by its own namespace predicate, and reports a duplicate this CLI resolves.
+- [install-location](install-location.md) — the account-scoped destination this CLI's install and removal verbs act on, replacing per-repository placement.
+- [component-mirror](component-mirror.md) — the one operation behind every one of this CLI's component verbs, install, removal and migration alike.
 
 ## Decision Log
 
@@ -52,3 +54,7 @@ This CLI's own verbs — deploy, and every workspace verb — now dispatch from 
 ### 2026-08-26 — #251 — Reciprocal link from environment-guard
 
 A second installed component set on one account is now detected and reported by the environment guard, using the same namespace predicate this CLI owns its files by; resolving one stays this CLI's job. Recorded here as the reciprocal edge.
+
+### 2026-08-27 — #253 — Workspace initialisation loses its component fan-out entirely
+
+The fan-out seam was removed rather than made a no-op: its injection point, its confirmation prompt and its success line all went, and the payload argument that configured it went with them. Keeping a no-op would preserve a hook whose only purpose was the behaviour being deleted, and would leave the prompt and output free to keep describing a deploy that does not happen — an initialisation reporting components deployed into every repository while deploying nothing is worse than either honest state. The verb now names the account-scoped install and, for a repository still carrying a committed set, the migration verb. Refuted: keep the seam and pass a no-op for compatibility, which loses because the caller population is one — the same argument that settled the seam itself.
