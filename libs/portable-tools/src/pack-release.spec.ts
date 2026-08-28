@@ -12,6 +12,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BIN_NAMES, buildReleaseTree, RELEASE_TREE_DIRNAME } from "./pack-release";
+import { PAYLOAD_MANIFEST_FILE } from "./release-payload";
+import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const MANIFEST_PATH: string = path.join(REPO_ROOT, "package.json");
@@ -178,5 +180,36 @@ describe("both toolkits run from a machine with no Nexus checkout (AC1, AC4)", (
         const installed: string = path.join(prefix, "lib", "node_modules", manifest.name);
         expect(fs.existsSync(installed)).toBe(true);
         expect(fs.existsSync(path.join(installed, "node_modules"))).toBe(false);
+    });
+});
+
+/**
+ * Story #321 AC4 — the regression check that matters when the authored tree moves: the move must
+ * not silently change what ships. The committed payload manifest is the before-image, and it is
+ * only a real check while the tree's internal shape is preserved across the move (invariant 3),
+ * which is why the relocation moved the root and nothing below it.
+ */
+describe("the release built after the authored tree moved ships the same components", () => {
+    it("stages exactly the component files the committed payload manifest records", async () => {
+        const recorded: Record<string, string> = JSON.parse(
+            fs.readFileSync(path.join(REPO_ROOT, "libs", "portable-tools", PAYLOAD_MANIFEST_FILE), "utf8"),
+        );
+        const expected: string[] = Object.keys(recorded)
+            .filter((staged) => staged.startsWith(`${COMPONENT_PAYLOAD_DIRNAME}/`))
+            .sort();
+        const outDir: string = fs.mkdtempSync(path.join(os.tmpdir(), "release-tree-"));
+
+        try {
+            const written: string[] = await buildReleaseTree(REPO_ROOT, outDir);
+            const staged: string[] = written
+                .map((abs) => path.relative(outDir, abs).split(path.sep).join("/"))
+                .filter((rel) => rel.startsWith(`${COMPONENT_PAYLOAD_DIRNAME}/`))
+                .sort();
+
+            expect(expected.length).toBeGreaterThan(0);
+            expect(staged).toEqual(expected);
+        } finally {
+            fs.rmSync(outDir, { recursive: true, force: true });
+        }
     });
 });

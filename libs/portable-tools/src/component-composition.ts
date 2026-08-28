@@ -15,7 +15,7 @@ import { listComponentFiles } from "./vendor-components.js";
 
 /** One component file that imports a workspace package with no waiver on record. */
 export interface CompositionViolation {
-    /** Posix-style path relative to the `.claude/` root, e.g. "skills/nxs-example/scripts/x.ts". */
+    /** Posix-style path relative to the component root, e.g. "skills/nxs-example/scripts/x.ts". */
     relPath: string;
     /** Every distinct workspace-package specifier the file imports, in first-seen order. */
     imports: string[];

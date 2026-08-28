@@ -10,6 +10,14 @@
 
 **Discovery (`/nxs.discover`)** is the pre-epic stage, and it runs only when an initiative is *underspecified* — foggy, so that the split itself hangs on unmade decisions. That is distinct from *oversized* — big but clear, which `/nxs.epic` still decomposes into backlog stubs. Its durable contract: discovery is a multi-session loop, its unit is the decision ticket (a question whose resolution is a decision, never a slice of build work), its output is functional goals that `/nxs.epic` files, and a discovery is shared by ordinary git operations. It writes nothing to GitHub — the issues appear when `/nxs.epic --discovery` consumes the finished discovery. *First iteration:* the store is a committed folder under `.nexus/discovery/` holding a discovery doc and one file per ticket.
 
+## Working on Nexus itself
+
+Nexus's components are authored under `components/` at the repository root — **not** under
+`.claude/`, which is the directory the harness loads and which this repository deliberately keeps
+empty of components. Read `CONTRIBUTING.md` before changing one: it describes the authored tree and
+the maintainer's loop, which points the account's install location at this checkout instead of
+copying a release.
+
 ## Code Conventions
 
 - **No barrel files.** Don't create `index.ts` (or `index.js`) files whose only job is

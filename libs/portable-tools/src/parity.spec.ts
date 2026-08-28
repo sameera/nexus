@@ -33,7 +33,7 @@ import {
     scanComponentInvocations,
     type ToolkitSurfaces,
 } from "./component-invocations";
-import { listComponentFiles, liveClaudeDir } from "./vendor-components";
+import { authoredComponentRoot, listComponentFiles } from "./vendor-components";
 import { diffPayloadManifest, hashPayload, payloadManifest, PAYLOAD_KEY, PAYLOAD_MANIFEST_FILE, type PayloadManifest } from "./release-payload";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
@@ -315,13 +315,13 @@ describe("component payload boundary (story #275)", () => {
         // equal the waiver register exactly — neither a live file the register fails to cover
         // (an unwaived violation would slip into the payload) nor a stale entry for a file that
         // no longer violates the check (the register "only ever shrinks" per decision record).
-        const violations = checkComponentComposition(liveClaudeDir(SRC_DIR), []);
+        const violations = checkComponentComposition(authoredComponentRoot(SRC_DIR), []);
         const violatingPaths: string[] = violations.map((v) => v.relPath).sort();
         expect(violatingPaths).toEqual([...COMPONENT_COMPOSITION_WAIVERS].sort());
     });
 
     it("the acceptance harness is absent from the live component tree (moved beside its library)", () => {
-        const files = listComponentFiles(liveClaudeDir(SRC_DIR));
+        const files = listComponentFiles(authoredComponentRoot(SRC_DIR));
         const harnessFiles = files.filter((f) => f.includes("pr-acceptance"));
         expect(harnessFiles, harnessFiles.join(", ")).toEqual([]);
     });
@@ -335,7 +335,7 @@ describe("component payload boundary (story #275)", () => {
 // ---------------------------------------------------------------------------------------------
 describe("component invocations name a declared toolkit verb (story #301)", () => {
     const surfaces: ToolkitSurfaces = readToolkitSurfaces(REPO_ROOT);
-    const inventory: Invocation[] = scanComponentInvocations(liveClaudeDir(SRC_DIR), surfaces);
+    const inventory: Invocation[] = scanComponentInvocations(authoredComponentRoot(SRC_DIR), surfaces);
 
     it("reads each toolkit's declared surface from that surface, not from a duplicate", () => {
         // The executable's names come from the registry that composes its own usage text; the
@@ -361,13 +361,13 @@ describe("component invocations name a declared toolkit verb (story #301)", () =
         expect(inventory.length).toBeGreaterThan(0);
         for (const site of inventory) {
             expect(["resolving", "undeclared", "unmigrated"]).toContain(site.classification);
-            expect(listComponentFiles(liveClaudeDir(SRC_DIR))).toContain(site.relPath);
+            expect(listComponentFiles(authoredComponentRoot(SRC_DIR))).toContain(site.relPath);
         }
     });
 
     it("the gate fails, naming the body and the name, when a body names an undeclared verb", () => {
         // The self-test the gate needs: a doctored body must be reported, or the axis proves nothing.
-        const doctored: Invocation[] = scanComponentInvocations(liveClaudeDir(SRC_DIR), {
+        const doctored: Invocation[] = scanComponentInvocations(authoredComponentRoot(SRC_DIR), {
             nexus: [],
             nexusGh: [],
         }).filter((site) => site.classification === "undeclared");

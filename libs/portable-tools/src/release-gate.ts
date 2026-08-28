@@ -19,7 +19,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { isDirectRun } from "./entry-point.js";
-import { listComponentFiles, liveClaudeDir } from "./vendor-components.js";
+import { authoredComponentRoot, listComponentFiles } from "./vendor-components.js";
 
 /** What a releaser does about a finding — never an edit to the payload's path layout. */
 export const RELEASE_GATE_REMEDIATION: string =
@@ -71,7 +71,7 @@ export function runCli(argv: string[]): number {
         return 1;
     }
 
-    const claudeDir: string = liveClaudeDir(import.meta.dirname);
+    const claudeDir: string = authoredComponentRoot(import.meta.dirname);
     const findings: InRepoInvocation[] = findInRepoInvocations(claudeDir);
 
     if (findings.length === 0) {

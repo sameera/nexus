@@ -204,10 +204,11 @@ This repository root contains:
 
 - `CLAUDE.md` (this file)
 - `docs/system/standards/` - shared standards and configurations
-- `.claude/commands/` - slash commands
 
 When any command or agent references paths under `system/`, `docs/`, or `scripts/`, treat them as relative to this repository root, not as absolute filesystem paths.
 ```
+
+The Nexus slash commands are not part of your repository: they come from the component set installed once for your account.
 
 # Requirements
 
@@ -285,3 +286,8 @@ not to a repository-local one:
 
 Nexus writes no settings file. Adding these entries is your action.
 
+# Contributing to Nexus itself
+
+Working on Nexus rather than with it? Read `CONTRIBUTING.md`. Nexus's own components are authored
+outside the directory the harness loads, and the maintainer's loop points the install location at a
+checkout — neither is something an adopter needs.

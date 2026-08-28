@@ -15,6 +15,7 @@ import {
     inspectInstallLocation,
     resolveInstallLocation,
 } from "./install-location";
+import { AUTHORED_ROOT_DIRNAME } from "./vendor-components";
 
 let tmpDirs: string[] = [];
 function makeTmpDir(prefix: string): string {
@@ -92,7 +93,7 @@ describe("reading what the install location holds", () => {
 
     it("reports a pointer at a checkout, naming the tree pointed at", () => {
         const checkout: string = makeTmpDir("install-checkout-");
-        const claude: string = path.join(checkout, ".claude", "commands");
+        const claude: string = path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands");
         fs.mkdirSync(claude, { recursive: true });
         fs.writeFileSync(path.join(claude, "nxs.epic.md"), "epic\n");
         const location: string = makeTmpDir("install-pointer-");
@@ -101,7 +102,7 @@ describe("reading what the install location holds", () => {
 
         const state = inspectInstallLocation(location);
         expect(state).toMatchObject({ populated: true, content: "checkout-pointer" });
-        expect(state.checkout).toBe(path.join(checkout, ".claude"));
+        expect(state.checkout).toBe(path.join(checkout, AUTHORED_ROOT_DIRNAME));
     });
 
     it("ignores files it does not own", () => {

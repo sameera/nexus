@@ -70,7 +70,7 @@ export interface ToolkitSurfaces {
 
 /** One invocation found in one code span of one body. */
 export interface Invocation {
-    /** Posix-style path relative to the `.claude/` root; empty from the content-only entry point. */
+    /** Posix-style path relative to the component root; empty from the content-only entry point. */
     relPath: string;
     /** 1-indexed line of the body the code span sits on. */
     line: number;

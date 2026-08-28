@@ -16,7 +16,8 @@ import {
     copyComponentTree,
     hashComponentTree,
     listComponentFiles,
-    liveClaudeDir,
+    authoredComponentRoot,
+    AUTHORED_ROOT_DIRNAME,
 } from "./vendor-components";
 
 let tmpDirs: string[] = [];
@@ -134,9 +135,9 @@ describe("copyComponentTree", () => {
 });
 
 describe("the live component source", () => {
-    it("liveClaudeDir points at the repo-root .claude tree and it carries the managed subtrees", () => {
-        const live: string = liveClaudeDir(__dirname);
-        expect(path.basename(live)).toBe(".claude");
+    it("the authored root is the repository's component tree and it carries the managed subtrees", () => {
+        const live: string = authoredComponentRoot(__dirname);
+        expect(path.basename(live)).toBe(AUTHORED_ROOT_DIRNAME);
         for (const subtree of COMPONENT_SUBTREES) {
             expect(fs.existsSync(path.join(live, subtree)), `${live}/${subtree}`).toBe(true);
         }

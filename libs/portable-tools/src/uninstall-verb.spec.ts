@@ -9,6 +9,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { deployComponents, EMPTY_PAYLOAD, payloadDirectory } from "./deploy-components";
 import { CONFIG_DIR_VAR } from "./install-location";
+import { AUTHORED_ROOT_DIRNAME } from "./vendor-components";
 import { runNexusCli, type CliIo } from "./nexus-cli";
 
 let tmpDirs: string[] = [];
@@ -105,8 +106,8 @@ describe("nexus uninstall", () => {
 
     it("unlinks the pointers and never deletes the checkout's files (AC4)", async () => {
         const checkout: string = makeTmpDir("uninstall-checkout-");
-        fs.mkdirSync(path.join(checkout, ".claude", "commands"), { recursive: true });
-        fs.writeFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "authored\n");
+        fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
         const location: string = makeTmpDir("uninstall-pointing-");
         process.env[CONFIG_DIR_VAR] = location;
         await runNexusCli(["install", "--from-checkout", checkout], makeIo(makeTmpDir("uninstall-cwd-")));
@@ -115,13 +116,13 @@ describe("nexus uninstall", () => {
 
         expect(code).toBe(0);
         expect(fs.existsSync(path.join(location, "commands", "nxs.epic.md"))).toBe(false);
-        expect(fs.readFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "utf8")).toBe("authored\n");
+        expect(fs.readFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "utf8")).toBe("authored\n");
     });
 
     it("names the checkout the pointers resolve to before it removes them (invariant 7)", async () => {
         const checkout: string = makeTmpDir("uninstall-named-checkout-");
-        fs.mkdirSync(path.join(checkout, ".claude", "commands"), { recursive: true });
-        fs.writeFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "authored\n");
+        fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
         const location: string = makeTmpDir("uninstall-named-location-");
         process.env[CONFIG_DIR_VAR] = location;
         await runNexusCli(["install", "--from-checkout", checkout], makeIo(makeTmpDir("uninstall-cwd-")));

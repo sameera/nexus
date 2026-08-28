@@ -11,7 +11,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runNexusCli, type CliIo } from "./nexus-cli";
 import { RELEASE_VERSION_FILE, releaseVersion } from "./release";
-import { hashComponentTree } from "./vendor-components";
+import { authoredComponentRoot, AUTHORED_ROOT_DIRNAME, hashComponentTree } from "./vendor-components";
 
 let tmpDirs: string[] = [];
 function makeTmpDir(prefix: string): string {
@@ -57,7 +57,7 @@ describe("nexus version", () => {
         expect(io.out).toHaveLength(1);
         const reported = JSON.parse(io.out[0]);
         expect(reported.version).toBe(releaseVersion());
-        expect(reported.componentPayload).toBe(hashComponentTree(path.join(REPO_ROOT, ".claude")));
+        expect(reported.componentPayload).toBe(hashComponentTree(authoredComponentRoot(import.meta.dirname)));
         expect(reported.python).toEqual({ path: expect.any(String), version: expect.any(String) });
     });
 
@@ -117,5 +117,71 @@ describe("no repository carries a Nexus version (AC4 — the refuted per-reposit
             expect(path.basename(file)).not.toBe(RELEASE_VERSION_FILE);
             expect(fs.readFileSync(file, "utf8")).not.toContain(version);
         }
+    });
+});
+
+/**
+ * Story #319 AC3: the maintainer whose install location points at a checkout has to be able to
+ * see that from the one verb they run when they want to know what is installed — and it has to
+ * name the checkout, because "a pointing install" without the path does not tell them which
+ * working tree is currently the one that runs.
+ */
+describe("nexus version reports what the install location holds", () => {
+    function pointingInstall(): { location: string; checkout: string } {
+        const checkout: string = makeTmpDir("version-checkout-");
+        fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
+        const location: string = makeTmpDir("version-location-");
+        fs.mkdirSync(path.join(location, "commands"), { recursive: true });
+        fs.symlinkSync(
+            path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"),
+            path.join(location, "commands", "nxs.epic.md"),
+        );
+        return { location, checkout };
+    }
+
+    async function reportWithLocation(location: string): Promise<Record<string, unknown>> {
+        const io: CapturedIo = makeIo(REPO_ROOT);
+        const saved: string | undefined = process.env["CLAUDE_CONFIG_DIR"];
+        process.env["CLAUDE_CONFIG_DIR"] = location;
+        try {
+            expect(await runNexusCli(["version"], io)).toBe(0);
+        } finally {
+            if (saved === undefined) delete process.env["CLAUDE_CONFIG_DIR"];
+            else process.env["CLAUDE_CONFIG_DIR"] = saved;
+        }
+        expect(io.out).toHaveLength(1);
+        return JSON.parse(io.out[0]);
+    }
+
+    it("says the location points at a checkout, and names the checkout", async () => {
+        const { location, checkout } = pointingInstall();
+
+        const reported = await reportWithLocation(location);
+
+        const installLocation = reported["installLocation"] as Record<string, unknown>;
+        expect(installLocation["path"]).toBe(location);
+        expect(installLocation["content"]).toBe("checkout-pointer");
+        expect(installLocation["checkout"]).toBe(path.join(checkout, AUTHORED_ROOT_DIRNAME));
+    });
+
+    it("says a copied release is a copy, and names no checkout", async () => {
+        const location: string = makeTmpDir("version-copy-");
+        fs.mkdirSync(path.join(location, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(location, "commands", "nxs.epic.md"), "copied\n");
+
+        const reported = await reportWithLocation(location);
+
+        const installLocation = reported["installLocation"] as Record<string, unknown>;
+        expect(installLocation["content"]).toBe("copy");
+        expect(installLocation["checkout"]).toBeNull();
+    });
+
+    it("reports no component set rather than guessing when the location holds none", async () => {
+        const reported = await reportWithLocation(makeTmpDir("version-empty-"));
+
+        const installLocation = reported["installLocation"] as Record<string, unknown>;
+        expect(installLocation["content"]).toBeNull();
+        expect(installLocation["checkout"]).toBeNull();
     });
 });

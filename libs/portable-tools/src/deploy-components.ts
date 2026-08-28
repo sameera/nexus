@@ -14,7 +14,8 @@
  * Two shapes the record fixed:
  *
  * - **The target is the component root itself**, not a repository root. The configuration-directory
- *   variable exists precisely to name a location that is not `.claude` under a home directory, so a
+ *   variable exists precisely to name a location other than the harness's default directory
+ *   under a home directory, so a
  *   mirror that appends that fixed name itself cannot express the install location at all. The join
  *   moved out to the repository-facing callers.
  * - **An empty payload is a declared mode**, never an empty directory. The throw on a missing
