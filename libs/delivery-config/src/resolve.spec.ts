@@ -30,6 +30,26 @@ function repoWith(files: Record<string, string>): string {
     return root;
 }
 
+/**
+ * A checkout that is its own workspace hub, declaring the `github:` defaults the hub layer reads.
+ * The manifest is written for the workspace library to resolve — this toolkit never parses it.
+ */
+function hubRepoWith(github: Record<string, string>, settings?: string): string {
+    const files: Record<string, string> = {
+        ".nexus/config/workspace.yml": [
+            "hub:",
+            "  name: docs-hub",
+            "  remote: git@github.com:acme/docs-hub.git",
+            "members: []",
+            "github:",
+            ...Object.entries(github).map(([key, value]) => `  ${key}: ${value}`),
+            "",
+        ].join("\n"),
+    };
+    if (settings !== undefined) files[".nexus/config/settings.yml"] = settings;
+    return repoWith(files);
+}
+
 function resolved(root: string, key: string): { code: number; value: string } {
     const io = recordingIo(root);
     const code: number = runNexusGh(["config", "resolve", key, "--root", root], io);
@@ -99,10 +119,41 @@ describe("the hub layer", () => {
         expect(resolved(root, "issues-repo").value).toBe("");
     });
 
-    it("maps only the keys the catalogue declares, trimming and dropping the rest", () => {
-        expect(normalizeHubDefaults({ "issues-repo": " acme/hub ", nonsense: "x", project: "" })).toEqual({
-            issuesRepo: "acme/hub",
+    it("keeps a declared key whose normalized name is its own github spelling", () => {
+        expect(
+            normalizeHubDefaults({ "issues-repo": " acme/hub ", project: " Delivery Board ", classification: "types" }),
+        ).toEqual({ issuesRepo: "acme/hub", project: "Delivery Board", classification: "types" });
+    });
+
+    it("carries the whole catalogue, so no key is declarable at a hub but unlayerable from one", () => {
+        const block: Record<string, string> = Object.fromEntries(
+            GITHUB_KEYS.map((key, i) => [key.githubKey, `value-${i}`]),
+        );
+        const defaults = normalizeHubDefaults(block);
+        GITHUB_KEYS.forEach((key, i) => expect(defaults[key.normalized]).toBe(`value-${i}`));
+    });
+
+    it("drops an undeclared key, a blank value, and a value that is not a string", () => {
+        expect(normalizeHubDefaults({ nonsense: "x", project: "   ", classification: 7 })).toEqual({});
+    });
+
+    it("contributes nothing, rather than failing the resolution, when the workspace is unresolvable", () => {
+        const root: string = repoWith({
+            ".nexus/config/workspace.yml": "hub:\n  name: docs-hub\nmembers: []\n",
+            ".nexus/config/settings.yml": "github:\n  issues-repo: acme/local\n",
         });
+        expect(resolved(root, "issues-repo")).toEqual({ code: 0, value: "acme/local" });
+        expect(resolved(root, "project")).toEqual({ code: 0, value: "" });
+    });
+
+    it("layers a hub's declared defaults under the repository's own, for every key alike", () => {
+        const root: string = hubRepoWith(
+            { project: "Delivery Board", classification: "types", "issues-repo": "acme/hub" },
+            "github:\n  project: Local Board\n",
+        );
+        expect(resolved(root, "project").value).toBe("Local Board");
+        expect(resolved(root, "classification").value).toBe("types");
+        expect(resolved(root, "issues-repo").value).toBe("acme/hub");
     });
 });
 

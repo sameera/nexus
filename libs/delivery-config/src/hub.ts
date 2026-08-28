@@ -15,7 +15,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
-import { normalizedKey } from "./keys.js";
+import { type GithubKey, keyEntry } from "./keys.js";
 import { type DeliveryConfig } from "./settings.js";
 
 /** The manifest names whose presence declares a checkout part of a workspace. */
@@ -27,13 +27,19 @@ export function declaresWorkspace(projectRoot: string): boolean {
     return WORKSPACE_MANIFESTS.some((name) => fs.existsSync(path.join(configDir, name)));
 }
 
-/** Map a hub's github block onto the resolver's normalized keys, dropping anything unknown. */
+/**
+ * Map a hub's github block onto the resolver's normalized keys, dropping anything unknown.
+ *
+ * Membership is the catalogue lookup itself, never a comparison of the two spellings: a row whose
+ * normalized name equals its github spelling (`project`, `classification`) is as declared as any
+ * other, and testing `normalized !== githubKey` silently drops exactly those from the hub layer.
+ */
 export function normalizeHubDefaults(github: Record<string, unknown>): DeliveryConfig {
     const result: DeliveryConfig = {};
     for (const [githubKey, value] of Object.entries(github)) {
-        const normalized: string = normalizedKey(githubKey);
-        if (normalized !== githubKey && typeof value === "string" && value.trim() !== "") {
-            result[normalized] = value.trim();
+        const entry: GithubKey | undefined = keyEntry(githubKey);
+        if (entry && typeof value === "string" && value.trim() !== "") {
+            result[entry.normalized] = value.trim();
         }
     }
     return result;
