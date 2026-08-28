@@ -2,7 +2,7 @@
 title: "Release Identity"
 aliases: ["release version", "one version identity", "version verb", "single version declaration", "no per-repository version pin"]
 touches: ["portable-tooling", "verb-reachability", "toolkit-location", "writer-stamp", "environment-guard", "release-changelog", "published-package", "install-location"]
-last_updated_by: "#256"
+last_updated_by: "#351"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ One semantic version identifies the whole release — both toolkits and the comp
 
 ## How It Works
 
-The declaration is a single file at the release root. Neither toolkit carries a version literal, and neither is generated at build time: each reaches the one declaration by walking up from its own file position until it appears. That walk is what lets one declaration serve both postures without a build step — in a source checkout it lands on the repository root, in a distributable on the package root the halves are installed under, with neither layout written down anywhere.
+The declaration is a single file at the release root. Neither toolkit carries a version literal, nor is generated at build time: both reach it through one shared reader walking up from its own position until the declaration appears. That walk is what lets one declaration serve both postures without a build step — in a source checkout it lands on the repository root, in a distributable on the package root the halves are installed under, with neither layout written down anywhere.
 
 A verb reports the release as one object on standard output: the version, the component payload's fingerprint, and the interpreter the other half runs on with its version. The payload it fingerprints is the one that would actually be installed, not a committed pin that does not travel with the release. Because this is the verb a user runs when something is already broken, an environment it cannot resolve is reported as unresolved and the verb still succeeds.
 
@@ -25,7 +25,7 @@ An unresolved declaration reads as absent, never as a default: a reader already 
 
 1. One version covers both toolkits and the component payload together; neither half carries a version of its own.
 2. The version is declared exactly once, at the release root; the published manifest, the newest changelog entry and the release tag must all name it.
-3. Each half finds that declaration by walking up from its own file position, so no layout is written down anywhere.
+3. One shared reader both halves depend on walks up from its own position to that declaration, so they cannot disagree and no layout is recorded.
 4. An unresolved version is reported as absent, never as a guessed or default value.
 5. The version verb reports the payload that would actually be installed, not a committed fingerprint pin.
 6. The version verb still reports and still succeeds when part of the environment cannot be resolved.
@@ -55,3 +55,7 @@ A release now has four places that name its version, so agreement between them b
 ### 2026-08-28 — #256 — Reciprocal link from install-location
 
 Mechanical reciprocity fan-out: the install-location page names this read-out as where an owner learns which content is present, so the release report and the account's component set are reachable from each other.
+
+### 2026-08-28 — #351 — One shared reader, placed as a leaf, so the two names cannot disagree
+
+The version reader lived inside the part that also builds the release and runs the build gates. When the second toolkit became a library in the same workspace, reaching into that part would have made it both depend on and be depended on by the toolkit — a cycle — so the reader was relocated into a leaf both bundles depend on. That placement is also what makes both names report the same value by construction rather than by agreement: there is one reader, not two walks that happen to land on the same file. **Refuted alternative:** give the toolkit its own version reader — cheap and cycle-free, but it recreates the exact duplication the single version declaration exists to prevent, in the one place where a divergence stays invisible until someone reads a stale stamp.

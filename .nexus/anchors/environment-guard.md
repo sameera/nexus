@@ -1,6 +1,6 @@
 ---
 concept: environment-guard
-source_sha: 261ce2584d4096c52507a4419c669028bf6af453
+source_sha: 1db15668658c46d6d8a877156e3cd4c3bac60bbd
 generated: 2026-08-28
 ---
 
@@ -16,5 +16,6 @@ generated: 2026-08-28
 - `libs/portable-tools/src/nexus-cli.ts` — the dispatcher running the guard before dispatch, and the injectable verb registry that makes coverage of an unknown verb demonstrable.
 - `libs/portable-tools/src/nexus-cli.spec.ts` — dispatcher coverage, including a verb the real registry does not contain still being covered.
 - `libs/portable-tools/src/vendor-components.ts` — defines the managed subtrees the duplicate detector counts over.
-- `package.json` — declares the interpreter floor and the supported platforms; the declaration is the whole of the answer for this release, so this guard's run-time diagnostic remains the only thing that names a missing interpreter.
+- `package.json` — declares the interpreter floor and the supported platforms; the floor now exists only for the two capabilities still reached by delegation, and retires with the last of them.
 - `README.md` — the Requirements section carrying the same declaration for a reader who has not installed yet.
+- `libs/delivery-config/src/python-entry.ts` — the one place the delegated capabilities' interpreter is named, which is what bounds how long this guard's interpreter diagnostic stays meaningful.

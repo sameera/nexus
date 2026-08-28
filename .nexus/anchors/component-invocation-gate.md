@@ -1,6 +1,6 @@
 ---
 concept: component-invocation-gate
-source_sha: 632f384e3d528235cb7b20dbc388f7a842e90da7
+source_sha: 1db15668658c46d6d8a877156e3cd4c3bac60bbd
 generated: 2026-08-28
 ---
 
@@ -9,10 +9,10 @@ generated: 2026-08-28
 
 # Code Anchors: Component Invocation Gate
 
-- `libs/portable-tools/src/component-invocations.ts` — the whole gate: the closed `AddressingForm` set and its `LEADERS` table, the run-length-tracking `codeSpans` fence reader, `findInvocations`, `resolveName`'s longest-declared-prefix shortening, `classify`, `checkComponentInvocations`, and `readToolkitSurfaces`, which reads both declared surfaces and never falls back to an assumed list.
+- `libs/portable-tools/src/component-invocations.ts` — the whole gate: the closed `AddressingForm` set and its `LEADERS` table, the run-length-tracking `codeSpans` fence reader, `findInvocations`, `resolveName`'s longest-declared-prefix shortening, `classify`, `checkComponentInvocations`, and `readToolkitSurfaces`, which now reads both declared surfaces as values and executes nothing, and still never falls back to an assumed list.
 - `libs/portable-tools/src/component-invocations.spec.ts` — gate coverage: inline versus fenced spans, prose exclusion, nested fence markers, every legacy addressing form, the unrecognised repository-bound artifact, and the named-body/named-verb failure text.
 - `libs/portable-tools/src/parity.spec.ts` — where the gate rides the required source-repo gate: the inventory over the live component tree, the no-undeclared-name and no-legacy-form assertions, and the doctored-surface case proving the failure names the body and the name.
 - `libs/portable-tools/src/vendor-components.ts` — `listComponentFiles`, the shipped-body set the gate walks, shared with the payload-composition boundary.
 - `libs/portable-tools/src/nexus-cli.ts` — `DISPATCH_NAMES`, the executable's declared surface the gate resolves a named invocation against.
-- `libs/gh-toolkit/nexus_gh/cli.py` — `capability_listing` and the `--capabilities` branch: the Python toolkit's machine-readable surface, sorted JSON distinct from `usage()`.
-- `libs/gh-toolkit/tests/test_capability_listing.py` — pins the listing's shape, its sortedness, and its independence from the human usage text.
+- `libs/delivery-config/src/registry.ts` — the second toolkit's declared surface, now read directly as a value rather than by executing its entry point under another runtime.
+- `libs/delivery-config/src/dispatch.spec.ts` — pins the machine listing's shape and sortedness, which stays published for readers outside this build.

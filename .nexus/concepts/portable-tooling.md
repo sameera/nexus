@@ -2,7 +2,7 @@
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
 touches: ["component-invocation-gate", "distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity", "published-package", "shipped-payload"]
-last_updated_by: "#250"
+last_updated_by: "#351"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Portable tooling is the offline form of distillation's deterministic steps — t
 
 ## How It Works
 
-Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only checkout lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable carries the `nexus` setup CLI and the component payload under one fingerprint gate, and now reaches a machine inside the published package. The build produces exactly one executable: the five standalone launchers are deleted, their capabilities reachable as verbs. The artifact and the payload it carries share one version identity, which it can report alongside the payload it would actually install. The build copies nothing into any repository.
+Distillation's validator and atlas steps were written to run through a code repo's development toolchain, which a docs-only checkout lacks. The portable form drops that dependency: each check is compiled into a self-contained artifact that runs under a bare runtime (the validator still calling git). Every outside dependency is folded in, so nothing resolves from an installed package tree at run time. The same distributable carries the `nexus` setup CLI and the component payload under one fingerprint gate, and now reaches a machine inside the published package. The build produces one artifact per declared toolkit name; the standalone launchers stay deleted, their capabilities reachable as verbs. The artifact and the payload it carries share one version identity, which it can report alongside the payload it would actually install. The build copies nothing into any repository.
 
 ## Key Invariants
 
@@ -23,7 +23,7 @@ Distillation's validator and atlas steps were written to run through a code repo
 4. The build folds every outside dependency in; nothing is resolved from an installed package tree at run time.
 5. ~~The committed artifact runs offline with no install step, executing only trusted, review-gated code.~~ It is never written into the repository it acts on.
 6. A parity check is a required gate in the source repo: it rebuilds from source over a representative corpus and fails, naming any mismatch in findings, exit codes, or atlas bytes, and reads no copy of the artifact inside any repository.
-7. A committed two-entry pin — the executable and the payload — catches an artifact left stale against its source, and the bytes it records are the bytes that ship.
+7. A committed pin covering each built artifact by name and the payload catches anything left stale against its source, and the bytes it records are the bytes that ship.
 
 ## Integration Points
 
@@ -85,3 +85,7 @@ The build collapses to a single entry point and the five standalone launchers ar
 ### 2026-08-27 — #250 — Reciprocal link from component-invocation-gate
 
 Mechanical reciprocity fan-out: the component-invocation-gate page names this tooling's required source-repo gate as the step its check was added to.
+
+### 2026-08-28 — #351 — One artifact per declared toolkit name, not one executable
+
+The build stopped producing a single executable and now produces one self-contained artifact for each toolkit name the release declares, because the second toolkit's shell moved onto this runtime and had to ship the same way. Nothing downstream changed: the fingerprint pin already covered an arbitrary set of bundles by name, so gaining a second entry needed no new mechanism. The five standalone launchers stay deleted — the change is the number of *named toolkits* built, not a reversal of the collapse that removed per-capability launchers. **Refuted alternative:** one multi-call bundle serving both names and switching on the name it was invoked under, keeping the release to a single artifact and a single pin entry; refused because the invoked name is not reliably observable across package managers.

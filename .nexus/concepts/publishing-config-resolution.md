@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location"]
-last_updated_by: "#249"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue"]
+last_updated_by: "#351"
 status: active
 verification: verified
 ---
@@ -13,9 +13,9 @@ Publishing config resolution replaces every discovered-by-failure GitHub-publish
 
 ## How It Works
 
-These decisions used to be discovered through live calls that could fail, and the config reader existed as two drifting copies. The logic is defined exactly once; the issue-creation scripts import it, the filing and close stages invoke it, and the epic resolver reads it across a process seam. The key map is the resolver's schema; a key a hub may default needs registering in the manifest allowlist too. The record marker and design-gate labels resolve through the same chain, so classification never disagrees with filing.
+These decisions used to be discovered through live calls that could fail, and the config reader existed as two drifting copies. The logic is defined exactly once; the issue-creation scripts import it, the filing and close stages invoke it, and the toolkit's own libraries now import it rather than spawning it, retiring the entry-point lookup that seam needed. Its keys are declared in one catalogue; a key a hub may default needs registering in the manifest allowlist too. The record marker and design-gate labels resolve through the same chain, so classification never disagrees with filing.
 
-Every key resolves most-specific-first: invocation argument, per-item frontmatter, repo settings, workspace-wide hub defaults, then a built-in guaranteeing a value. The hub-defaults layer reaches the workspace read-out through the executable's name; it stays best-effort, discarding a failed run on its exit code rather than on output that happens not to parse.
+Every key resolves most-specific-first: invocation argument, per-item frontmatter, repo settings, workspace-wide hub defaults, then a built-in guaranteeing a value. The hub layer reads the resolved workspace as a value, guarded on the checkout declaring one so a single-repo checkout spawns nothing; it stays best-effort, an unresolvable workspace contributing nothing while resolution completes with the exit code it would have had.
 
 Classification is an explicit issue-type mode, an explicit label mode, or the default legacy mode preserving the former discover-then-fall-back flow. The project target is deliberate absence, an explicit target, or discovery. Repo targeting resolves independently for the epic and the stories, falling back to a general issues repository, then the current repo.
 
@@ -23,7 +23,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 
 1. The logic exists in exactly one place; no consumer re-derives config by parsing settings itself.
 2. Given identical config and frontmatter, every consumer resolves any key to the same value.
-3. Precedence is invocation argument, frontmatter, repo settings, hub defaults, built-in — and the hub-defaults layer finds the executable by name, consulting no location inside any repository, yielding nothing on every failure.
+3. Precedence is invocation argument, frontmatter, repo settings, hub defaults, built-in — and the hub layer applies only where the checkout declares a workspace, never parses its manifest, and yields nothing on every failure.
 4. With no block declared, every consumer reaches the classification, project, and repository it reached before — with one exception.
 5. That exception is the epic's fallback label, now epic-specific and upserted before use, so filing never strands on a missing label.
 6. A deliberately-absent project target makes no lookup, no add call, no warning.
@@ -39,7 +39,8 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [pr-worktree](pr-worktree.md) — its base is one more declared key.
 - [backlog-stub](backlog-stub.md) — the unplanned label and the stub's epic classification are two more keys only this resolver supplies.
 - [target-root-convention](target-root-convention.md) — the two issue-creation scripts that call this resolver now take their target repo through that convention and reject an out-of-root input artifact.
-- [toolkit-location](toolkit-location.md) — supplies the by-name lookup this resolver's hub-defaults layer uses to reach the executable.
+- [toolkit-location](toolkit-location.md) — the by-name rule still governing how bodies and stages address this resolver's toolkit, now that its own callers reach it in process.
+- [settings-key-catalogue](settings-key-catalogue.md) — which keys exist and what each falls back to, declared once; split out from here, which keeps what a key resolves to.
 
 ## Decision Log
 
@@ -66,3 +67,7 @@ Mechanical reciprocity fan-out: the target-root-convention page names this resol
 ### 2026-08-26 — #249 — The hub-defaults layer finds the executable by name, and discards a failed run on its exit code
 
 The layer used to locate the executable by trying candidate files inside a repository — this checkout's own vendored copy, then a hop into a sibling directory named by a member's pointer — an arrangement that only works while every repository carries a committed copy of the toolkit. It now asks for the executable by name, which a hub and a member reach identically, so the sibling hop disappeared rather than being ported. The two properties this layer was bought with stayed intact and were pinned by tests that fail if either guard is removed: a checkout declaring no workspace artifact still spawns nothing at all, and every failure still yields no hub defaults rather than an exception reaching issue creation. One guard was strengthened in passing — a failed run is now discarded on its exit code, deliberately, because a verb that fails after printing a partial object would otherwise have contributed half a hub layer through output that merely happened to parse. Refuted alternative: keep the candidate-file search as a fallback behind the name — it would have preserved the very repository-relative addressing this change exists to remove.
+
+### 2026-08-28 — #351 — The hub layer stops being a spawn, and callers reach the resolver in process
+
+The resolver moved onto the runtime its callers are written in, so the two libraries that used to locate and spawn it now import it, and the hub layer reads the resolved workspace as a value instead of obtaining it as text from another process. That deletes a spawn from every key resolution and removes the degradation surface that existed only to describe an inter-process channel; the layer stays guarded on the checkout declaring a workspace, so a single-repo checkout still pays nothing. One behaviour delta was ratified at the design gate: hub defaults that vanished silently when the executable was off the path now apply. The source-side entry-point locator was retired rather than repointed, because a library in the same workspace raises no question of how a checkout with nothing installed runs an entry point. The key catalogue was split out to [settings-key-catalogue](settings-key-catalogue.md), which this page had no room to absorb. **Refuted alternative:** keep spawning the defaults verb, preserving today's behaviour to the letter including the silent vanishing — refused because it left one bundle spawning another to read a local file several times per stage.

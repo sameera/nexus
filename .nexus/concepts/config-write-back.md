@@ -1,8 +1,8 @@
 ---
 title: "Config Write-Back"
 aliases: ["publishing config seeding", "config write-back", "gap-fill persistence", "setup config seed", "surgical settings merge"]
-touches: ["publishing-config-resolution"]
-last_updated_by: "#121"
+touches: ["publishing-config-resolution", "settings-key-catalogue"]
+last_updated_by: "#351"
 status: active
 verification: verified
 ---
@@ -34,9 +34,14 @@ Either write merges into the settings file surgically, leaving unrelated section
 ## Integration Points
 
 - [publishing-config-resolution](publishing-config-resolution.md) — populates the declared block that resolver reads, persisting only values it resolved and only where the block was silent.
+- [settings-key-catalogue](settings-key-catalogue.md) — the one declaration these producers translate through, so a key they can resolve is a key they can seed.
 
 ## Decision Log
 
 ### 2026-07-24 — #121 — Two producers, gap-fill only, never pinning the current repo
 
 Keeping both producers is the decision: setup has a human present, so it alone can disambiguate a repo with several candidate projects and can record a deliberate fallback when the tooling is offline — judgment no unattended run should exercise. But setup never re-runs on repos bootstrapped earlier, which would leave exactly those discovering forever, so the unattended gap-fill is the net that closes it. Gap-fill-only is the second decision: a declared value is operator intent, and freezing an explicit discovery mode to its discovered result would silently revoke an opt-in to re-discovery, so filling absent keys is the only write that is always safe. The current repo is deliberately never pinned — an absent target is the expression that survives a rename, where a concrete one strands publishing. Refuted alternatives: unattended write-back alone with no setup seeding — rejected because it forfeits human disambiguation and acts only after the first failure rather than deciding up front while someone is watching; and persisting every resolved value after every run, including pinning the current repo — rejected because it overwrites deliberate choices and breaks on a rename, turning a convenience into a surprise.
+
+### 2026-08-28 — #351 — Reciprocal link from settings-key-catalogue
+
+Both producers now translate the resolver's names back to written ones through the catalogue's derived inverse. The hand-maintained inverse they used before had drifted, so a key a consumer could resolve was one these producers silently could not seed.
