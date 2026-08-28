@@ -25,7 +25,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isNexusNamespaced } from "./nexus-namespace.js";
+import { isNexusNamespaced, isNexusNamespacedPath } from "./nexus-namespace.js";
 import { COMPONENT_SUBTREES, listComponentFiles } from "./vendor-components.js";
 
 /** What to mirror: a payload directory, or emptiness said out loud. */
@@ -64,6 +64,15 @@ export interface DeployResult {
     retained: string[];
 }
 
+/** True only for a directory the path itself names — never for a pointer at one (invariant 6). */
+function isRealDirectory(candidate: string): boolean {
+    try {
+        return fs.lstatSync(candidate).isDirectory();
+    } catch {
+        return false;
+    }
+}
+
 function walkFiles(dir: string, base: string, out: string[]): void {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const abs: string = path.join(dir, entry.name);
@@ -77,9 +86,13 @@ function walkFiles(dir: string, base: string, out: string[]): void {
     }
 }
 
-/** Remove now-empty directories left behind under `root` after stale-file removal. */
+/**
+ * Remove now-empty directories left behind under `root` after stale-file removal. A pointer standing
+ * where a directory should be is an entry, never a door (invariant 6): `lstat`, so a link is left
+ * alone rather than followed out of the component root.
+ */
 function pruneEmptyDirs(root: string): void {
-    if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    if (!isRealDirectory(root)) {
         return;
     }
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -127,13 +140,13 @@ export function deployComponents(payload: ComponentPayload, componentRoot: strin
     const candidates: string[] = [];
     for (const subtree of COMPONENT_SUBTREES) {
         const subtreeRoot: string = path.join(componentRoot, subtree);
-        if (!fs.existsSync(subtreeRoot) || !fs.statSync(subtreeRoot).isDirectory()) {
+        if (!isRealDirectory(subtreeRoot)) {
             continue;
         }
         const existing: string[] = [];
         walkFiles(subtreeRoot, componentRoot, existing);
         for (const rel of existing) {
-            if (isNexusNamespaced(rel.split("/")[1])) {
+            if (isNexusNamespacedPath(rel)) {
                 candidates.push(rel);
             }
         }

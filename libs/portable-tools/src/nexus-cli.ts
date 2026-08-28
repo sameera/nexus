@@ -50,6 +50,7 @@ import { allowlistNoticeLines } from "./allowlist.js";
 import { deployComponents, EMPTY_PAYLOAD, payloadDirectory, type DeployResult } from "./deploy-components.js";
 import {
     describeInstallLocation,
+    describeInstalledContent,
     ensureInstallLocation,
     inspectInstallLocation,
     resolveInstallLocation,
@@ -405,7 +406,10 @@ async function runUninstall(argv: string[], io: CliIo): Promise<number> {
         io.stderr(location.message);
         return 1;
     }
+    // Invariant 7: the location AND what it holds are named before anything is removed — in the
+    // pointing mode that means naming the checkout, since this verb removes every pointer at it.
     io.stdout(describeInstallLocation(location));
+    io.stdout(describeInstalledContent(inspectInstallLocation(location.path)));
 
     let result: DeployResult;
     try {
@@ -458,11 +462,7 @@ async function runMigrateComponents(argv: string[], io: CliIo): Promise<number> 
         );
         return 1;
     }
-    io.stdout(
-        state.content === "checkout-pointer"
-            ? `install location holds: pointers at the checkout ${state.checkout}`
-            : `install location holds: a copied release (${state.files.length} component file(s))`,
-    );
+    io.stdout(describeInstalledContent(state));
 
     const result: MigrationResult = migrateComponents({ repoRoot });
     if (!result.ok) {

@@ -118,6 +118,37 @@ describe("nexus uninstall", () => {
         expect(fs.readFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "utf8")).toBe("authored\n");
     });
 
+    it("names the checkout the pointers resolve to before it removes them (invariant 7)", async () => {
+        const checkout: string = makeTmpDir("uninstall-named-checkout-");
+        fs.mkdirSync(path.join(checkout, ".claude", "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "authored\n");
+        const location: string = makeTmpDir("uninstall-named-location-");
+        process.env[CONFIG_DIR_VAR] = location;
+        await runNexusCli(["install", "--from-checkout", checkout], makeIo(makeTmpDir("uninstall-cwd-")));
+
+        const io: CapturedIo = makeIo(makeTmpDir("uninstall-cwd-"));
+        await runNexusCli(["uninstall"], io);
+
+        const named: number = io.out.findIndex((line) => line.includes(checkout));
+        const removalReport: number = io.out.findIndex((line) => line.startsWith("removed "));
+        expect(named).toBeGreaterThanOrEqual(0);
+        expect(named).toBeLessThan(removalReport);
+    });
+
+    it("says what a copied install location holds before it empties it (invariant 7)", async () => {
+        const location: string = makeTmpDir("uninstall-copy-report-");
+        process.env[CONFIG_DIR_VAR] = location;
+        await runNexusCli(["install", "--payload", makePayload()], makeIo(makeTmpDir("uninstall-cwd-")));
+
+        const io: CapturedIo = makeIo(makeTmpDir("uninstall-cwd-"));
+        await runNexusCli(["uninstall"], io);
+
+        const held: number = io.out.findIndex((line) => line.includes("copied release"));
+        const removalReport: number = io.out.findIndex((line) => line.startsWith("removed "));
+        expect(held).toBeGreaterThanOrEqual(0);
+        expect(held).toBeLessThan(removalReport);
+    });
+
     it("completes on a declared empty payload while the missing-payload throw survives (AC5)", () => {
         const location: string = makeTmpDir("uninstall-empty-");
         fs.mkdirSync(path.join(location, "commands"), { recursive: true });

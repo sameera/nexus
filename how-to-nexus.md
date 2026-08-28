@@ -133,7 +133,7 @@ For teams that deliver through pull requests, the tail of the pipeline runs agai
 
 Nexus scales past one repo. A workspace is a set of code **member** repos plus a **hub** docs repo. Members plan and close locally; the hub holds the concept store and drains the queue — close migrates each finished epic's entry to the hub, and one distillation-PR there updates the shared knowledge.
 
-The portable `nexus` CLI manages all of it: `nexus deploy` installs or refreshes the Nexus components in a repo (idempotent, never touches your own files), and `nexus workspace init` / `add-repo` / `status` declare and inspect the workspace.
+The portable `nexus` CLI manages all of it: `nexus install` installs or refreshes the Nexus components once per account, at the Claude configuration directory rather than in any repo (idempotent, never touches your own files), and `nexus workspace init` / `add-repo` / `status` declare and inspect the workspace. A repo that still carries a committed component set from an earlier version is cleared with `nexus migrate-components`.
 
 ---
 

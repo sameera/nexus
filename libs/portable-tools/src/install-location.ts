@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { isNexusNamespaced } from "./nexus-namespace.js";
+import { isNexusNamespacedPath } from "./nexus-namespace.js";
 import { COMPONENT_SUBTREES } from "./vendor-components.js";
 
 /** The environment variable that names the configuration directory. */
@@ -118,7 +118,7 @@ export function inspectInstallLocation(location: string): InstallLocationState {
                     continue;
                 }
                 const rel: string = path.relative(location, abs).split(path.sep).join("/");
-                if (!isNexusNamespaced(rel.split("/")[1])) {
+                if (!isNexusNamespacedPath(rel)) {
                     continue;
                 }
                 files.push(rel);
@@ -148,4 +148,18 @@ export function inspectInstallLocation(location: string): InstallLocationState {
 export function describeInstallLocation(resolved: { path: string; source: LocationSource }): string {
     const origin: string = resolved.source === "environment" ? `$${CONFIG_DIR_VAR}` : "home-directory default";
     return `install location: ${resolved.path} (${origin})`;
+}
+
+/**
+ * The second half of invariant 7's disclosure: what the location holds, and — in the pointing mode
+ * — the checkout it points at. One wording for every verb, so the user who empties a set reads the
+ * same sentence about it as the user who migrates a repository away from one.
+ */
+export function describeInstalledContent(state: InstallLocationState): string {
+    if (state.content === null) {
+        return "install location holds: no Nexus component set";
+    }
+    return state.content === "checkout-pointer"
+        ? `install location holds: pointers at the checkout ${state.checkout}`
+        : `install location holds: a copied release (${state.files.length} component file(s))`;
 }

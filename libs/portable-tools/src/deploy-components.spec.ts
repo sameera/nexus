@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { deployComponents, payloadDirectory } from "./deploy-components";
+import { deployComponents, EMPTY_PAYLOAD, payloadDirectory } from "./deploy-components";
 
 let tmpDirs: string[] = [];
 
@@ -133,6 +133,21 @@ describe("deployComponents", () => {
         expect(fs.existsSync(path.join(claude, "skills", "nxs-oldskill"))).toBe(false);
         expect(fs.existsSync(path.join(claude, "commands", "my-command.md"))).toBe(true);
         expect(result.removed.sort()).toEqual(["commands/nxs.obsolete.md", "skills/nxs-oldskill/SKILL.md"]);
+    });
+
+    it("never follows a pointer standing where a managed subtree should be (invariant 6)", () => {
+        const outside: string = makeTmpDir("deploy-outside-");
+        fs.mkdirSync(path.join(outside, "nxs-elsewhere"), { recursive: true });
+        fs.writeFileSync(path.join(outside, "nxs-elsewhere", "SKILL.md"), "not ours to remove\n");
+        const repo: string = makeTmpDir("deploy-target-");
+        const claude: string = path.join(repo, ".claude");
+        fs.mkdirSync(claude, { recursive: true });
+        fs.symlinkSync(outside, path.join(claude, "skills"));
+
+        const result = deployComponents(EMPTY_PAYLOAD, claude);
+
+        expect(result.removed).toEqual([]);
+        expect(fs.readFileSync(path.join(outside, "nxs-elsewhere", "SKILL.md"), "utf8")).toBe("not ours to remove\n");
     });
 
     it("fails with a named error when the payload directory is missing", () => {

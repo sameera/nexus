@@ -19,7 +19,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveInstallLocation, type InstallLocationResult } from "./install-location.js";
-import { isNexusNamespaced } from "./nexus-namespace.js";
+import { isNexusNamespacedPath } from "./nexus-namespace.js";
 import { COMPONENT_SUBTREES } from "./vendor-components.js";
 
 export interface EnvironmentDefect {
@@ -84,7 +84,7 @@ function componentRealPaths(componentRoot: string): Set<string> {
                     continue;
                 }
                 const rel: string = path.relative(componentRoot, abs).split(path.sep).join("/");
-                if (!isNexusNamespaced(rel.split("/")[1])) {
+                if (!isNexusNamespacedPath(rel)) {
                     continue;
                 }
                 try {

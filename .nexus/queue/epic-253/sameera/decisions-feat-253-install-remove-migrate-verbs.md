@@ -57,3 +57,15 @@
 - **Choice:** README's "Installing & Updating" becomes "Installing" plus a separate "# Upgrading" section; the old repo-targeted `nexus deploy` walkthrough is replaced by `nexus install`.
 - **Why:** The record requires the section be rewritten — the allowlist entries cannot be added to a document that teaches the arrangement this epic exists to remove — and the upgrade notes need a heading of their own to be findable and testable as a distinct surface.
 - **Refuted alternative:** Keep one combined section and append an upgrade subsection; refuted because the two allowlist copies would then be indistinguishable to a test asserting each surface carries one.
+
+## 2026-08-27 — Invariant 7's "what it holds" line becomes one shared, total describer
+
+- **Choice:** `describeInstalledContent(state)` in install-location.ts returns a sentence for all three states — pointers at a checkout, a copied release, and no set at all — and both `uninstall` and `migrate-components` print it.
+- **Why:** Uninstall was the one verb that never named the checkout it was about to unlink from, and a second hand-written copy of migrate's wording would let the two verbs drift apart on the disclosure the invariant is written for.
+- **Refuted alternative:** Return `string | null` and let each caller guard; refuted because migrate already proved the set is populated, so its guard would be an unreachable branch that only exists to satisfy the type.
+
+## 2026-08-27 — The `nexus deploy` ban is pinned over the shipped payload, not the repository's prose
+
+- **Choice:** A spec asserts no vendored component file mentions `nexus deploy`; README's note that the verb still works but is unsupported stays.
+- **Why:** A component instructing an adopter into the per-repository arrangement is shipped to their machine and immediately trips the duplicate-set diagnostic, while README's mention is the deprecation notice a migrating reader needs.
+- **Refuted alternative:** Ban the phrase repository-wide; refuted because it would delete exactly the sentence that tells an existing adopter what happened to the verb they know.
