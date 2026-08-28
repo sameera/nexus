@@ -38,7 +38,7 @@ which component bodies this release actually moved, so an entry that names some 
 when it omits the change this release made. That is accepted, deliberately, as the author's
 judgement rather than a gate. Read the release's own component diff before you write the entry:
 
-    git diff --name-only <previous tag>..HEAD -- .claude
+    git diff --name-only <previous tag>..HEAD -- components
 
 Every path that list names is a body a lead runs; an item accounts for each behaviour change
 among them, or you decide in the open that it changes nothing a lead experiences.

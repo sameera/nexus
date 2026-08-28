@@ -27,3 +27,9 @@
 - **Choice:** The check matches the plain text of the loaded directory's name anywhere in a file, and waives whole files with a stated reason, rather than trying to recognise only path-building uses.
 - **Why:** A syntactic "is this a path join" test is the kind of check that quietly stops matching; matching text and forcing a named waiver makes every mention a decision someone wrote down. `nexus-cli.ts` was rewritten to derive its usage text from the existing constants so it needs no waiver at all.
 - **Refuted alternative:** Match only `path.join`/`path.resolve` arguments — narrower, and it would have missed the invocation gate's regex, which is precisely the kind of site worth seeing.
+
+## 2026-08-27 — The AC3 documentation check reads fenced blocks, and lessons are exempt
+
+- **Choice:** The "no instruction deploys components here" check matches only the contents of fenced code blocks, and skips `docs/delivery/lessons/` entirely.
+- **Why:** A fenced block is the part of a document a reader runs, so it separates an instruction from a mention — the contributor guide has to be able to say *not* to run the deploy verb. Lessons are dated records of what was true when written; rewriting them to match today's arrangement would destroy the record.
+- **Refuted alternative:** Match any occurrence of the verb outside an allowlisted phrase — it makes the check pass on a magic sentence rather than on the document's shape.
