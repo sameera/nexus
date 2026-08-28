@@ -11,6 +11,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CONFIG_DIR_VAR } from "./install-location";
 import { runNexusCli, type CliIo } from "./nexus-cli";
+import { AUTHORED_ROOT_DIRNAME } from "./vendor-components";
 
 let tmpDirs: string[] = [];
 function makeTmpDir(prefix: string): string {
@@ -127,8 +128,8 @@ describe("nexus migrate-components", () => {
     it("names the checkout when the install location points at one (AC2)", async () => {
         const repo: string = makeRepo();
         const checkout: string = makeTmpDir("migrate-checkout-");
-        fs.mkdirSync(path.join(checkout, ".claude", "commands"), { recursive: true });
-        fs.writeFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "authored\n");
+        fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
         const location: string = makeTmpDir("migrate-pointing-");
         process.env[CONFIG_DIR_VAR] = location;
         await runNexusCli(["install", "--from-checkout", checkout], makeIo(makeTmpDir("migrate-cwd-")));

@@ -66,7 +66,7 @@ import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { releaseVersion } from "./release.js";
-import { COMPONENT_PAYLOAD_DIRNAME, hashComponentTree, liveClaudeDir } from "./vendor-components.js";
+import { checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree, liveClaudeDir } from "./vendor-components.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -362,8 +362,10 @@ async function runInstall(argv: string[], io: CliIo): Promise<number> {
     const pointing: boolean = checkoutOpt.present;
     let payloadDir: string;
     if (pointing) {
+        // Invariant 5: the derivation and the authored tree's location move together, so a
+        // pointing install never looks in the directory the tree used to occupy.
         const checkout: string = path.resolve(io.cwd, checkoutOpt.value as string);
-        payloadDir = path.join(checkout, ".claude");
+        payloadDir = checkoutComponentRoot(checkout);
         io.stdout(`pointing at checkout: ${checkout}`);
     } else {
         payloadDir = payloadOpt.value ?? defaultPayloadDir();

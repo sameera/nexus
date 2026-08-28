@@ -9,6 +9,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ALLOWLIST_BLOCK } from "./allowlist";
 import { CONFIG_DIR_VAR } from "./install-location";
+import { AUTHORED_ROOT_DIRNAME } from "./vendor-components";
 import { runNexusCli, type CliIo } from "./nexus-cli";
 
 let tmpDirs: string[] = [];
@@ -109,8 +110,8 @@ describe("nexus install", () => {
 
     it("points the location at a checkout's authored tree and names it (AC4)", async () => {
         const checkout: string = makeTmpDir("install-checkout-");
-        fs.mkdirSync(path.join(checkout, ".claude", "commands"), { recursive: true });
-        fs.writeFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "authored\n");
+        fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
         const location: string = makeTmpDir("install-pointing-");
         process.env[CONFIG_DIR_VAR] = location;
         const io: CapturedIo = makeIo(makeTmpDir("install-cwd-"));
@@ -126,15 +127,15 @@ describe("nexus install", () => {
 
     it("never writes through a pointer when a later install copies over it", async () => {
         const checkout: string = makeTmpDir("install-checkout-");
-        fs.mkdirSync(path.join(checkout, ".claude", "commands"), { recursive: true });
-        fs.writeFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "authored\n");
+        fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
         const location: string = makeTmpDir("install-pointing-");
         process.env[CONFIG_DIR_VAR] = location;
 
         await runNexusCli(["install", "--from-checkout", checkout], makeIo(makeTmpDir("install-cwd-")));
         await runNexusCli(["install", "--payload", makePayload(false)], makeIo(makeTmpDir("install-cwd-")));
 
-        expect(fs.readFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "utf8")).toBe("authored\n");
+        expect(fs.readFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "utf8")).toBe("authored\n");
     });
 
     it("prints the allowlist entry for each toolkit and says it wrote no settings file (AC5)", async () => {

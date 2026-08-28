@@ -11,7 +11,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runNexusCli, type CliIo } from "./nexus-cli";
 import { RELEASE_VERSION_FILE, releaseVersion } from "./release";
-import { hashComponentTree } from "./vendor-components";
+import { authoredComponentRoot, AUTHORED_ROOT_DIRNAME, hashComponentTree } from "./vendor-components";
 
 let tmpDirs: string[] = [];
 function makeTmpDir(prefix: string): string {
@@ -57,7 +57,7 @@ describe("nexus version", () => {
         expect(io.out).toHaveLength(1);
         const reported = JSON.parse(io.out[0]);
         expect(reported.version).toBe(releaseVersion());
-        expect(reported.componentPayload).toBe(hashComponentTree(path.join(REPO_ROOT, ".claude")));
+        expect(reported.componentPayload).toBe(hashComponentTree(authoredComponentRoot(import.meta.dirname)));
         expect(reported.python).toEqual({ path: expect.any(String), version: expect.any(String) });
     });
 
@@ -129,12 +129,12 @@ describe("no repository carries a Nexus version (AC4 — the refuted per-reposit
 describe("nexus version reports what the install location holds", () => {
     function pointingInstall(): { location: string; checkout: string } {
         const checkout: string = makeTmpDir("version-checkout-");
-        fs.mkdirSync(path.join(checkout, ".claude", "commands"), { recursive: true });
-        fs.writeFileSync(path.join(checkout, ".claude", "commands", "nxs.epic.md"), "authored\n");
+        fs.mkdirSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"), "authored\n");
         const location: string = makeTmpDir("version-location-");
         fs.mkdirSync(path.join(location, "commands"), { recursive: true });
         fs.symlinkSync(
-            path.join(checkout, ".claude", "commands", "nxs.epic.md"),
+            path.join(checkout, AUTHORED_ROOT_DIRNAME, "commands", "nxs.epic.md"),
             path.join(location, "commands", "nxs.epic.md"),
         );
         return { location, checkout };
@@ -162,7 +162,7 @@ describe("nexus version reports what the install location holds", () => {
         const installLocation = reported["installLocation"] as Record<string, unknown>;
         expect(installLocation["path"]).toBe(location);
         expect(installLocation["content"]).toBe("checkout-pointer");
-        expect(installLocation["checkout"]).toBe(path.join(checkout, ".claude"));
+        expect(installLocation["checkout"]).toBe(path.join(checkout, AUTHORED_ROOT_DIRNAME));
     });
 
     it("says a copied release is a copy, and names no checkout", async () => {

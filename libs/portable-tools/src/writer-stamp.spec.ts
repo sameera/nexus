@@ -9,8 +9,10 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { releaseVersion } from "./release";
 import { readWriterStamp, UNKNOWN_WRITER, WRITER_STAMP_FIELD, writerStampLine } from "./writer-stamp";
+import { authoredComponentRoot } from "./vendor-components";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
+const AUTHORED_ROOT: string = authoredComponentRoot(import.meta.dirname);
 
 /**
  * Every surface that writes or reads the stamp, named so a new one cannot be added silently.
@@ -20,11 +22,19 @@ const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
  * surface therefore names the section that must carry the field — the text of the `#` heading the
  * artifact is written under, matched from that heading to the next one — and a file-wide surface
  * names no section.
+ *
+ * A surface is either a shipped component — named relative to the authored component root, which
+ * is no longer the repository root — or an ordinary repository file. `component` says which.
  */
-const STAMPED_SURFACES: readonly { readonly surface: string; readonly path: string; readonly section?: string }[] = [
-    { surface: "the analyze receipt", path: ".claude/commands/nxs.analyze.md", section: "# Phase 3 — Report (inline) and write the receipt" },
-    { surface: "the close record", path: ".claude/commands/nxs.close.md", section: "# Phase 4 — Write the close record" },
-    { surface: "the close comment's machine block", path: ".claude/commands/nxs.close.md", section: "# Phase 8 — Post the comments and close the epic issue" },
+const STAMPED_SURFACES: readonly {
+    readonly surface: string;
+    readonly path: string;
+    readonly component?: true;
+    readonly section?: string;
+}[] = [
+    { surface: "the analyze receipt", path: "commands/nxs.analyze.md", component: true, section: "# Phase 3 — Report (inline) and write the receipt" },
+    { surface: "the close record", path: "commands/nxs.close.md", component: true, section: "# Phase 4 — Write the close record" },
+    { surface: "the close comment's machine block", path: "commands/nxs.close.md", component: true, section: "# Phase 8 — Post the comments and close the epic issue" },
     { surface: "the seeded close-record template", path: "common/templates/close-record-template.md" },
     { surface: "the close-side reader of the analyze receipt", path: "libs/pr-acceptance/src/verify.ts" },
 ];
@@ -69,7 +79,7 @@ describe("reading the stamp back (AC2 — an unstamped artifact is an unknown wr
 describe("every stamped surface uses the declared field name (AC1)", () => {
     for (const stamped of STAMPED_SURFACES) {
         it(`${stamped.surface} writes or reads '${WRITER_STAMP_FIELD}'`, () => {
-            const text: string = fs.readFileSync(path.join(REPO_ROOT, stamped.path), "utf8");
+            const text: string = fs.readFileSync(path.join(stamped.component === true ? AUTHORED_ROOT : REPO_ROOT, stamped.path), "utf8");
             expect(stamped.section === undefined ? text : section(text, stamped.section)).toContain(WRITER_STAMP_FIELD);
         });
     }
