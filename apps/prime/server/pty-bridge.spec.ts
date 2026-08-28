@@ -1,6 +1,6 @@
 import express from "express";
 import { WebSocket } from "ws";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppServer } from "./http-server";
 import { attachPtyBridgeHandler } from "./pty-bridge";
 import { getActiveSessionCount } from "./pty-session";
@@ -44,10 +44,26 @@ async function waitUntil(predicate: () => boolean, timeoutMs = 3000, intervalMs 
     }
 }
 
+/**
+ * The shell these tests drive, pinned rather than inherited. The bridge spawns `$SHELL` as a login
+ * shell in the user's home directory, so an un-pinned run is really a test of whoever's startup
+ * files happen to be on the machine: a shell that prints a prompt slowly, or reads stdin during
+ * startup, fails the tests that type a command and wait for its output while the bridge itself is
+ * behaving correctly. What is under test here is the bridge, not the developer's dotfiles.
+ */
+const TEST_SHELL = "/bin/bash";
+
 describe("pty bridge", () => {
     let cleanup: (() => Promise<void>) | undefined;
+    const ambientOverride = process.env.PRIME_SHELL;
+
+    beforeEach(() => {
+        process.env.PRIME_SHELL = TEST_SHELL;
+    });
 
     afterEach(async () => {
+        if (ambientOverride === undefined) delete process.env.PRIME_SHELL;
+        else process.env.PRIME_SHELL = ambientOverride;
         if (cleanup) {
             await cleanup();
             cleanup = undefined;

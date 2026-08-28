@@ -459,8 +459,11 @@ Rationale section is then empty (a matched implementation, not a gap), and nothi
 
 Fill the seeded template and write it into the queue entry.
 
-1. Read the seeded project template: **`.nexus/config/templates/close-record-template.md`**. (If the
-   seeded copy is absent, fall back to the toolkit master `common/templates/close-record-template.md`.)
+1. Read the seeded project template: **`.nexus/config/templates/close-record-template.md`**. If it is
+   absent, **stop and report that path**, naming the remedy: run `nexus seed-templates` in this
+   repository to place it, then re-run close. There is no second location to try — the only other
+   copy of this template lives in the Nexus source checkout and travels in no release, so reaching
+   for it would resolve for a maintainer and silently resolve for nobody else.
 
    The seeded copy is a tuned project file — seeding never clobbers it — so it may predate any field
    this command names and carry no placeholder for it. **The field list in step 2 is authoritative,

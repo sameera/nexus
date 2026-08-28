@@ -15,6 +15,7 @@
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { authoredTemplateMasterDir, SEEDED_TEMPLATES, TEMPLATE_PAYLOAD_DIRNAME } from "./seed-templates.js";
 import { authoredComponentRoot, COMPONENT_PAYLOAD_DIRNAME, listComponentFiles } from "./vendor-components.js";
 
 /** Key of the payload entry in the committed fingerprint pin — one entry for the whole payload. */
@@ -82,19 +83,27 @@ function walk(dir: string, stagedPrefix: string, out: PayloadFile[]): void {
 }
 
 /**
- * Every file the release payload carries, sorted by staged path. Two parts: the Python toolkit,
- * filtered; and the managed component subtrees, which `listComponentFiles` already defines.
+ * Every file the release payload carries, sorted by staged path. Three parts: the Python toolkit,
+ * filtered; the managed component subtrees, which `listComponentFiles` already defines; and the
+ * tool-agnostic template masters, which travel so that a repository outside this checkout can be
+ * seeded from the release rather than from a path that only exists here (story #323).
  */
 export function listPayloadFiles(repoRoot: string): PayloadFile[] {
     const files: PayloadFile[] = [];
     walk(path.join(repoRoot, "libs", "gh-toolkit"), GH_TOOLKIT_DIRNAME, files);
 
-    const claudeDir: string = authoredComponentRoot(path.join(repoRoot, "libs", "portable-tools", "src"));
+    const srcDir: string = path.join(repoRoot, "libs", "portable-tools", "src");
+    const claudeDir: string = authoredComponentRoot(srcDir);
     for (const rel of listComponentFiles(claudeDir)) {
         files.push({
             staged: `${COMPONENT_PAYLOAD_DIRNAME}/${rel}`,
             source: path.join(claudeDir, ...rel.split("/")),
         });
+    }
+
+    const masterDir: string = authoredTemplateMasterDir(srcDir);
+    for (const name of SEEDED_TEMPLATES) {
+        files.push({ staged: `${TEMPLATE_PAYLOAD_DIRNAME}/${name}`, source: path.join(masterDir, name) });
     }
     // Code-unit order, not locale order: a locale-sensitive comparison would make the
     // canonical manifest — and so the fingerprint — a property of the machine.
