@@ -6,8 +6,9 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard";
+import { CONFIG_DIR_VAR } from "./install-location";
 import { runNexusCli, type CliIo, type VerbEntry } from "./nexus-cli";
 
 let tmpDirs: string[] = [];
@@ -17,6 +18,11 @@ function makeTmpDir(prefix: string): string {
     return dir;
 }
 afterEach(() => {
+    if (priorConfigDir === undefined) {
+        delete process.env[CONFIG_DIR_VAR];
+    } else {
+        process.env[CONFIG_DIR_VAR] = priorConfigDir;
+    }
     for (const dir of tmpDirs) {
         fs.rmSync(dir, { recursive: true, force: true });
     }
@@ -52,6 +58,13 @@ function makeComponentSet(prefix: string): string {
 }
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
+
+/** The duplicate check reads the install location; an inherited value would decide these tests. */
+let priorConfigDir: string | undefined;
+beforeEach(() => {
+    priorConfigDir = process.env[CONFIG_DIR_VAR];
+    delete process.env[CONFIG_DIR_VAR];
+});
 
 describe("detecting environment defects", () => {
     it("names a missing required interpreter and its remedy", () => {
@@ -139,5 +152,104 @@ describe("the guard never disturbs a verb's contract", () => {
     it("returns the code the verb itself produced (AC3)", async () => {
         expect((await runInDefectiveEnvironment(0)).code).toBe(0);
         expect((await runInDefectiveEnvironment(3)).code).toBe(3);
+    });
+});
+
+describe("the duplicate report after story #317", () => {
+    /** A component root (not a repo root) holding one Nexus-owned file. */
+    function makeComponentRoot(prefix: string): string {
+        const root: string = makeTmpDir(prefix);
+        fs.mkdirSync(path.join(root, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(root, "commands", "nxs.epic.md"), "epic\n");
+        return root;
+    }
+
+    it("names both locations when a repository-local set and an installed one both resolve (AC1)", () => {
+        const location: string = makeComponentRoot("dup-location-");
+        process.env[CONFIG_DIR_VAR] = location;
+        const repo: string = makeComponentSet("dup-repo-");
+
+        const defects = detectEnvironmentDefects({ cwd: repo });
+
+        const duplicate = defects.find((d) => d.defect.includes("component set"));
+        expect(duplicate?.detail).toContain(location);
+        expect(duplicate?.detail).toContain(path.join(repo, ".claude"));
+    });
+
+    it("looks at the configuration directory rather than a hard-coded home default (AC1)", () => {
+        const location: string = makeComponentRoot("dup-env-location-");
+        process.env[CONFIG_DIR_VAR] = location;
+        const repo: string = makeComponentSet("dup-env-repo-");
+        // A home directory that holds nothing must not make the duplicate disappear.
+        const emptyHome: string = makeTmpDir("dup-env-home-");
+
+        const defects = detectEnvironmentDefects({ cwd: repo, home: emptyHome });
+
+        expect(defects.find((d) => d.defect.includes("component set"))?.detail).toContain(location);
+    });
+
+    it("reports no duplicate when the install location points at the repository's own tree (AC2)", () => {
+        const repo: string = makeComponentSet("dup-checkout-");
+        const location: string = makeTmpDir("dup-pointer-");
+        fs.mkdirSync(path.join(location, "commands"), { recursive: true });
+        fs.symlinkSync(path.join(repo, ".claude", "commands", "nxs.epic.md"), path.join(location, "commands", "nxs.epic.md"));
+        process.env[CONFIG_DIR_VAR] = location;
+
+        const defects = detectEnvironmentDefects({ cwd: repo });
+
+        expect(defects.find((d) => d.defect.includes("component set"))).toBeUndefined();
+    });
+
+    it("scopes the check to the account, not the machine (AC3)", () => {
+        // A second account's component set sits on the same machine and is never consulted.
+        makeComponentSet("dup-other-account-");
+        const location: string = makeComponentRoot("dup-this-account-");
+        process.env[CONFIG_DIR_VAR] = location;
+        const repo: string = makeTmpDir("dup-plain-repo-");
+
+        const defects = detectEnvironmentDefects({ cwd: repo });
+
+        expect(defects.find((d) => d.defect.includes("component set"))).toBeUndefined();
+    });
+
+    it("agrees with the installer about which files Nexus owns", () => {
+        // A non-namespaced file in a managed subtree is not a component set.
+        const location: string = makeComponentRoot("dup-owned-location-");
+        process.env[CONFIG_DIR_VAR] = location;
+        const repo: string = makeTmpDir("dup-unowned-repo-");
+        fs.mkdirSync(path.join(repo, ".claude", "commands"), { recursive: true });
+        fs.writeFileSync(path.join(repo, ".claude", "commands", "my-own.md"), "mine\n");
+
+        const defects = detectEnvironmentDefects({ cwd: repo });
+
+        expect(defects.find((d) => d.defect.includes("component set"))).toBeUndefined();
+    });
+
+    it("leaves the verb's exit code and standard output untouched when it fires (AC4)", async () => {
+        const location: string = makeComponentRoot("dup-contract-location-");
+        process.env[CONFIG_DIR_VAR] = location;
+        const repo: string = makeComponentSet("dup-contract-repo-");
+        const io: CapturedIo = makeIo(repo);
+
+        const code: number = await runNexusCli(
+            ["later-verb"],
+            io,
+            {
+                registry: {
+                    "later-verb": {
+                        summary: "A verb added after the guard.",
+                        usage: "  nexus later-verb",
+                        run: (_argv: string[], verbIo: CliIo): Promise<number> => {
+                            verbIo.stdout(JSON.stringify({ ok: true }));
+                            return Promise.resolve(3);
+                        },
+                    },
+                },
+            },
+        );
+
+        expect(code).toBe(3);
+        expect(io.out).toEqual([JSON.stringify({ ok: true })]);
+        expect(io.err.filter((line) => line.includes("component set"))).toHaveLength(1);
     });
 });

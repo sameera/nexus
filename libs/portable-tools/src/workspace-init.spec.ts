@@ -63,22 +63,18 @@ function listTree(root: string): string[] {
 interface Session {
     out: string[];
     err: string[];
-    deployed: string[];
     run: (cwd: string, answers: string[]) => Promise<number>;
 }
 
 function makeSession(): Session {
     const out: string[] = [];
     const err: string[] = [];
-    const deployed: string[] = [];
     return {
         out,
         err,
-        deployed,
         run: (cwd: string, answers: string[]): Promise<number> => {
             const queue: string[] = [...answers];
-            return runWorkspaceInit(
-                {
+            return runWorkspaceInit({
                     cwd,
                     stdout: (line: string): void => {
                         out.push(line);
@@ -90,13 +86,7 @@ function makeSession(): Session {
                         out.push(question);
                         return Promise.resolve(queue.shift() ?? "");
                     },
-                },
-                {
-                    deploy: (repoRoot: string): void => {
-                        deployed.push(repoRoot);
-                    },
-                },
-            );
+            });
         },
     };
 }
@@ -159,8 +149,8 @@ describe("runWorkspaceInit — declaration", () => {
             expect(fromHub.workspace.members.every((m) => m.checkout === "present")).toBe(true);
         }
 
-        // Components were deployed into every declared repo via the shared primitive.
-        expect(session.deployed.sort()).toEqual([api, hub, web].sort());
+        // No component file was written into any declared repo (story #316).
+        expect(listTree(parent).filter((rel) => rel.includes("/.claude/"))).toEqual([]);
     });
 
     it("writes nothing when the final confirmation is declined", async () => {
@@ -174,7 +164,6 @@ describe("runWorkspaceInit — declaration", () => {
 
         expect(code).toBe(1);
         expect(listTree(parent)).toEqual(before);
-        expect(session.deployed).toEqual([]);
     });
 
     it("reports a member/hub remote collision through the resolver's rule and writes nothing", async () => {
@@ -190,7 +179,6 @@ describe("runWorkspaceInit — declaration", () => {
         expect(code).toBe(1);
         expect(session.err.join("\n")).toContain("github.com/acme/docs-hub");
         expect(listTree(parent)).toEqual(before);
-        expect(session.deployed).toEqual([]);
     });
 
     it("reports an existing declaration and changes nothing without explicit confirmation", async () => {
@@ -235,5 +223,46 @@ describe("runWorkspaceInit — declaration", () => {
 
         expect(code).toBe(1);
         expect(session.err.join("\n")).toContain("sibling");
+    });
+});
+
+describe("runWorkspaceInit — the component fan-out is retired (story #316)", () => {
+    it("writes no component file into any declared repo (AC1)", async () => {
+        const parent: string = makeParent();
+        const hub: string = makeRepo(parent, "docs-hub", "git@github.com:acme/docs-hub.git");
+        makeRepo(parent, "web-app", "git@github.com:acme/web-app.git");
+        const session: Session = makeSession();
+
+        const code: number = await session.run(hub, ["1", "2", "y"]);
+
+        expect(code).toBe(0);
+        expect(listTree(parent).filter((rel) => rel.includes(".claude"))).toEqual([]);
+    });
+
+    it("neither offers nor describes a component deploy, in the prompt or the output (AC2)", async () => {
+        const parent: string = makeParent();
+        const hub: string = makeRepo(parent, "docs-hub", "git@github.com:acme/docs-hub.git");
+        makeRepo(parent, "web-app", "git@github.com:acme/web-app.git");
+        const session: Session = makeSession();
+
+        await session.run(hub, ["1", "2", "y"]);
+
+        const prompts: string[] = session.out.filter((line) => line.includes("(y/N)"));
+        expect(prompts.join("\n").toLowerCase()).not.toContain("deploy");
+        const success: string = session.out.find((line) => line.startsWith("Workspace declared")) ?? "";
+        expect(success.toLowerCase()).not.toContain("deploy");
+    });
+
+    it("tells the lead where components come from and what an already-committed repo needs (AC3)", async () => {
+        const parent: string = makeParent();
+        const hub: string = makeRepo(parent, "docs-hub", "git@github.com:acme/docs-hub.git");
+        makeRepo(parent, "web-app", "git@github.com:acme/web-app.git");
+        const session: Session = makeSession();
+
+        await session.run(hub, ["1", "2", "y"]);
+
+        const printed: string = session.out.join("\n");
+        expect(printed).toContain("nexus install");
+        expect(printed).toContain("nexus migrate-components");
     });
 });

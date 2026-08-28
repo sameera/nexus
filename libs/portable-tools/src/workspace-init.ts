@@ -11,8 +11,13 @@
  * surface there via the remote-identity rule, before any write), and after writing, the verb
  * re-resolves from the hub AND every member, requiring the identical workspace description
  * from each entry point. A verb that cannot achieve clean parity rolls its writes back and
- * reports failure. Components are then fanned out through the same deploy primitive as
- * `nexus deploy`.
+ * reports failure.
+ *
+ * It deploys NO components (story #316). Exactly one component set exists per user account, at the
+ * Claude configuration directory — a fan-out into every member would recreate the per-repository
+ * copies this epic exists to remove. The seam is gone rather than made a no-op: keeping it would
+ * preserve a hook whose only purpose was the behaviour being deleted, and would leave the prompt
+ * and the success line free to keep describing a deploy that does not happen.
  */
 
 import { execFileSync } from "node:child_process";
@@ -47,11 +52,6 @@ export interface InitIo {
     stderr: (line: string) => void;
     /** Interactive prompt; production wires readline, tests script the answers. */
     ask: (question: string) => Promise<string>;
-}
-
-export interface InitDeps {
-    /** The component-deploy primitive, payload already bound (same primitive as `nexus deploy`). */
-    deploy: (repoRoot: string) => void;
 }
 
 /** The checkout's `origin` remote via the git CLI (read-only), or null when unset. */
@@ -132,7 +132,7 @@ function restore(backups: FileBackup[]): void {
     }
 }
 
-export async function runWorkspaceInit(io: InitIo, deps: InitDeps): Promise<number> {
+export async function runWorkspaceInit(io: InitIo): Promise<number> {
     const candidates: RepoCandidate[] = discoverSiblings(io.cwd);
     if (candidates.length < 2) {
         io.stderr(
@@ -194,7 +194,7 @@ export async function runWorkspaceInit(io: InitIo, deps: InitDeps): Promise<numb
     for (const m of members) {
         io.stdout(`Member:  ${m.name}  (${m.remote})`);
     }
-    const confirm: string = await io.ask("Write the workspace declaration and deploy components? (y/N): ");
+    const confirm: string = await io.ask("Write the workspace declaration? (y/N): ");
     if (!confirm.trim().toLowerCase().startsWith("y")) {
         io.stdout("No changes made.");
         return 1;
@@ -243,12 +243,14 @@ export async function runWorkspaceInit(io: InitIo, deps: InitDeps): Promise<numb
         }
     }
 
-    for (const repo of [hub, ...members]) {
-        deps.deploy(repo.root);
-    }
-
+    io.stdout(`Workspace declared: hub '${hub.name}' + ${members.length} member(s).`);
     io.stdout(
-        `Workspace declared: hub '${hub.name}' + ${members.length} member(s); components deployed into every repo.`,
+        "Components are not deployed per repository. They are installed once for your account at the " +
+            "Claude configuration directory — run `nexus install` if you have not already.",
+    );
+    io.stdout(
+        "Any repository here that still carries a committed component set needs `nexus migrate-components` " +
+            "run inside it, once per repository.",
     );
     return 0;
 }

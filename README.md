@@ -218,20 +218,70 @@ Nexus ships as one package carrying both toolkits, so an adopter supplies only t
 
 Supported platforms are **macOS and Linux**. A release targets POSIX-like environments only; on Windows, run Nexus inside WSL.
 
-# Installing & Updating
+# Installing
 
-Installing Nexus into a repo — and refreshing it later — is one command, the portable `nexus` CLI (the legacy `nxs.update.claude.sh` script is retired):
+Nexus's components — the slash commands, agents and skills Claude Code loads — are installed **once for your user account**, not once per repository. Install the package, then run the install verb:
 
 ```bash
-node <tools-dir>/nexus.mjs deploy
+nexus install
 ```
 
-`<tools-dir>` is wherever the portable distributable lives. The CLI ships as a self-contained bundle with the Nexus `.claude/` components vendored beside it, so it runs on a bare `node` binary — no install or build step, no in-repo toolchain.
+`nexus install` does the following:
 
-`nexus deploy` does the following:
+1. Resolves the Claude configuration directory — `$CLAUDE_CONFIG_DIR` when you have set it, otherwise `.claude` in your home directory — and prints the location it resolved before changing anything. A `$CLAUDE_CONFIG_DIR` that is set but unusable is an error; Nexus never quietly installs somewhere else.
+2. Mirrors the Nexus-managed component set (commands, agents, skills — the `nxs`-prefixed files) into that location, overwriting managed files in place.
+3. Removes `nxs`-prefixed files that are no longer part of the managed set, so re-running always converges to the current component set (an idempotent refresh).
+4. Leaves everything else at that location untouched — your own commands, agents and skills, and your `settings.json`, are never modified or deleted.
 
-1. Mirrors the Nexus-managed component set (slash commands, agents, skills — the `nxs`-prefixed files) into your repo's `.claude/`, overwriting managed files in place.
-2. Removes `nxs`-prefixed files that are no longer part of the managed set, so re-running always converges to the current component set (idempotent refresh).
-3. Leaves everything else untouched — `.claude/settings.local.json` and any of your own files are never modified or deleted.
+Installing is two steps on purpose. A package-manager lifecycle script is blocked by default in some package managers and commonly disabled in continuous integration, so a share of installs would end silently with no component set and no error — and the second step has to print text you must act on anyway.
 
-For multi-repo workspaces, the same CLI also declares and inspects the workspace: `nexus workspace init`, `nexus workspace status`, and `nexus workspace add-repo`. After components are in place, run `/nxs.setup` inside the repo for the per-repo judgment pass (stack docs, standards, product context).
+## Grant the two toolkits permission, once
+
+Add these two entries to your account-scoped settings file (settings.json at the install location),
+not to a repository-local one:
+
+    Bash(nexus:*)
+    Bash(nexus-gh:*)
+
+Nexus writes no settings file. Adding these entries is your action.
+
+Each entry is a trailing-wildcard prefix, so one entry per toolkit covers every verb and every argument list. Approving the permission prompt interactively instead saves the grant to the repository you happen to be in, and offers you no scope choice — you would re-approve once per repository, while the install itself is once per account.
+
+## Removing Nexus
+
+```bash
+nexus uninstall
+```
+
+Run it **before** removing the package. The verb ships inside the package, and your package manager has no record of a component set copied into the configuration directory, so removing the package first leaves the components behind with nothing left to clear them.
+
+## Repositories that still carry committed components
+
+Earlier versions installed the components into each repository's `.claude/`. Run
+
+```bash
+nexus migrate-components
+```
+
+once inside each such repository. It removes the Nexus-namespaced files it finds under `.claude/` — including at that directory's own root — and adds namespaced ignore entries so they do not come back. It removes only files git tracks, stages nothing and makes no commit, so the removals arrive as ordinary working-tree changes for you to review and commit yourself.
+
+`nexus deploy`, which installs the components into one repository, still works, but per-repository deployment is no longer the supported arrangement.
+
+For multi-repo workspaces, the same CLI declares and inspects the workspace: `nexus workspace init`, `nexus workspace status`, and `nexus workspace add-repo`. Workspace initialisation deploys no components — they come from the install location. After the components are installed, run `/nxs.setup` inside a repo for the per-repo judgment pass (stack docs, standards, product context).
+
+# Upgrading
+
+Upgrade the package, then re-run `nexus install`. The mirror converges: components dropped from the managed set are removed, and files you own are untouched.
+
+If you are coming from a version that deployed components into each repository, run `nexus migrate-components` once in each of those repositories (see above). While both a repository-local and an account-level component set resolve, every `nexus` invocation writes a diagnostic naming both locations to standard error.
+
+The permission entries have not changed, and they belong to your account rather than to any repository:
+
+Add these two entries to your account-scoped settings file (settings.json at the install location),
+not to a repository-local one:
+
+    Bash(nexus:*)
+    Bash(nexus-gh:*)
+
+Nexus writes no settings file. Adding these entries is your action.
+
