@@ -15,3 +15,9 @@
 - **Choice:** a scanner that finds every mention of `common/templates/` in the component payload and exempts one governed by a contrast marker (`not`, `never`, `rather than`, `instead of`, `no longer`) within the same sentence, capped at a 60-character window.
 - **Why:** AC3 explicitly says a passage naming the directory only to rule it out is not a match, and the decision-record body uses exactly that shape deliberately.
 - **Refuted alternative:** ban the literal string outright — it would force deleting a passage the epic asks to keep.
+
+## 2026-08-27 — Pin the pty tests' shell rather than widen their timeouts
+
+- **Choice:** the `pty bridge` suite sets `PRIME_SHELL` to a fixed shell for every test, leaving the shell-configuration block that is actually testing resolution to set its own.
+- **Why:** the bridge spawns `$SHELL` as a login shell in the user's home, so the suite was really testing whichever startup files the machine had; four tests failed on a developer box while the bridge behaved correctly.
+- **Refuted alternative:** raise the `waitUntil` timeouts — it hides a machine dependency behind a longer wait instead of removing it, and the run went from 13s timeouts to 863ms once the shell was pinned.
