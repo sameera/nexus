@@ -7,7 +7,7 @@
  * *next* argument as the root.
  *
  * Both the compiled command surface (`nexus-cli.ts`) and the in-repo development-script vehicle
- * (the scripts under `.claude/skills/*\/scripts`) import this same implementation rather than
+ * (the component skills' own scripts) import this same implementation rather than
  * each parsing the flag themselves, so the two surfaces cannot name it differently or default it
  * differently — the parity corpus (`parity.spec.ts`) is the structural check that would catch a
  * divergence if one crept in regardless.

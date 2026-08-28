@@ -13,9 +13,9 @@
  * The managed set is exactly the three component subtrees (`commands/`, `agents/`, `skills/`).
  * Everything else beside them is user-owned and never vendored, never deployed, never hashed.
  * `hashComponentTree` is the payload half of the fingerprint gate: it hashes a canonical manifest
- * of the managed set (sorted relative paths +
- * per-file content hashes), so a distributable whose payload lags the live tree fails the
- * source-repo test gate instead of deploying stale components.
+ * of the managed set (sorted relative paths + per-file content hashes), so a distributable whose
+ * payload lags the authored tree fails the source-repo test gate instead of deploying stale
+ * components.
  *
  * Node builtins only; bundled into the `nexus` entrypoint.
  */
@@ -24,7 +24,7 @@ import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-/** The managed component subtrees — the set the retired nxs.update.claude.sh installed. */
+/** The managed component subtrees — the set the retired update script installed. */
 export const COMPONENT_SUBTREES: string[] = ["commands", "agents", "skills"];
 
 /** Key of the payload entry in the committed fingerprint pin. */
@@ -47,15 +47,6 @@ export function authoredComponentRoot(srcDir: string): string {
 /** The authored component tree of an arbitrary checkout — what a pointing install points at. */
 export function checkoutComponentRoot(checkoutRoot: string): string {
     return path.join(checkoutRoot, AUTHORED_ROOT_DIRNAME);
-}
-
-/**
- * @deprecated The former name for {@link authoredComponentRoot}, from when the authored tree and
- * the loaded path were the same directory. Its callers move to the new name in story #321; it
- * already resolves the new location, so nothing reads the vacated one in the meantime.
- */
-export function liveClaudeDir(srcDir: string): string {
-    return authoredComponentRoot(srcDir);
 }
 
 function walkFiles(dir: string, base: string, out: string[]): void {

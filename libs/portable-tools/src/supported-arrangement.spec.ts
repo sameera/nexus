@@ -10,14 +10,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { listComponentFiles, liveClaudeDir } from "./vendor-components";
+import { authoredComponentRoot, listComponentFiles } from "./vendor-components";
 
-const CLAUDE_DIR: string = liveClaudeDir(import.meta.dirname);
+const COMPONENT_ROOT: string = authoredComponentRoot(import.meta.dirname);
 
 describe("the shipped component payload", () => {
     it("never instructs an adopter into the per-repository arrangement", () => {
-        const offenders: string[] = listComponentFiles(CLAUDE_DIR).filter((rel) =>
-            fs.readFileSync(path.join(CLAUDE_DIR, ...rel.split("/")), "utf8").includes("nexus deploy"),
+        const offenders: string[] = listComponentFiles(COMPONENT_ROOT).filter((rel) =>
+            fs.readFileSync(path.join(COMPONENT_ROOT, ...rel.split("/")), "utf8").includes("nexus deploy"),
         );
 
         expect(offenders).toEqual([]);

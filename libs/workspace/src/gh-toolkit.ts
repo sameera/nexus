@@ -4,9 +4,9 @@
  * The toolkit's own TypeScript libraries call the toolkit's own Python half, and that is a fourth
  * class of invocation: not a component body (#250 rewrites those), but the executable's libraries
  * reaching for the shared publishing resolver. They used to reach for it as a file inside the
- * target repository's vendored component tree — `<target-root>/.claude/skills/nxs-gh-shared/…` —
- * which is the arrangement the component-distribution refactor removes. Once no repository carries
- * a committed component set, that file is not there to read.
+ * target repository's vendored component tree, at the path the harness loads — which is the
+ * arrangement the component-distribution refactor removes. Once no repository carries a committed
+ * component set, that file is not there to read.
  *
  * So the toolkit is addressed by name, in the same direction the Python half addresses `nexus`:
  *

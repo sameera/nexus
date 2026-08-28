@@ -2,7 +2,7 @@
  * The single portable `nexus` entrypoint (epic #60): the structural half of getting Nexus into
  * a repo or a whole workspace. A thin writer/orchestrator over two capabilities it must not
  * duplicate — the workspace resolver (`@nexus/workspace`, the single authority on workspace
- * shape) and the component-deploy primitive (`deploy-components.ts`, the sole `.claude/`
+ * shape) and the component-deploy primitive (`deploy-components.ts`, the sole component-root
  * installer). Judgment stays with `/nxs.setup`.
  *
  * Bundled as `nexus.mjs` on the portable distributable (ENTRY_POINTS in build-bundles.ts) with
@@ -49,6 +49,7 @@ import { isDirectRun } from "./entry-point.js";
 import { allowlistNoticeLines } from "./allowlist.js";
 import { deployComponents, EMPTY_PAYLOAD, payloadDirectory, type DeployResult } from "./deploy-components.js";
 import {
+    DEFAULT_CONFIG_DIRNAME,
     describeInstallLocation,
     describeInstalledContent,
     ensureInstallLocation,
@@ -66,7 +67,7 @@ import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { releaseVersion } from "./release.js";
-import { checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree, liveClaudeDir } from "./vendor-components.js";
+import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -106,10 +107,10 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Install the Nexus Claude components into the target repo.",
         usage: [
             "  nexus deploy [--payload <dir>] [--target <dir>]",
-            "      Install the Nexus Claude components (.claude/ commands, agents, skills) into the",
+            `      Install the Nexus Claude components (${REPO_COMPONENT_DIRNAME}/ commands, agents, skills) into the`,
             "      target repo (default: the current directory), mirroring the vendored payload",
             "      (default: the claude-components directory beside this artifact). Idempotent;",
-            "      user-owned files such as .claude/settings.local.json are never touched.",
+            `      user-owned files such as ${REPO_COMPONENT_DIRNAME}/settings.local.json are never touched.`,
             "      Per-repository deployment is no longer the supported arrangement: components are",
             "      installed once for your account with `nexus install`. This verb is kept for the",
             "      cases that still need a repository-local copy.",
@@ -121,7 +122,7 @@ const REGISTRY: Record<string, VerbEntry> = {
         usage: [
             "  nexus install [--payload <dir>] [--from-checkout <dir>]",
             "      Install the Nexus Claude components (commands, agents, skills) at the Claude",
-            "      configuration directory — $CLAUDE_CONFIG_DIR, or .claude in your home directory.",
+            `      configuration directory — $CLAUDE_CONFIG_DIR, or ${DEFAULT_CONFIG_DIRNAME} in your home directory.`,
             "      Exactly one component set exists per account, so this replaces per-repository",
             "      deployment. With --from-checkout the location is pointed at that checkout's",
             "      authored tree instead of holding a copy (the maintainer's edit-and-rerun mode).",
@@ -144,7 +145,7 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Remove a repository's committed Nexus components, once they are installed per account.",
         usage: [
             "  nexus migrate-components [--target <dir>]",
-            "      Remove the Nexus-namespaced files a repository still carries under .claude/ —",
+            `      Remove the Nexus-namespaced files a repository still carries under ${REPO_COMPONENT_DIRNAME}/ —`,
             "      including at its root — and add namespaced ignore entries so they do not come",
             "      back. Requires an installed account-level component set; removes only files git",
             "      tracks; stages nothing and commits nothing, so the removals are yours to review.",
@@ -316,13 +317,13 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
 
     let result: DeployResult;
     try {
-        result = deployComponents(payloadDirectory(payloadDir), path.join(targetRepoRoot, ".claude"));
+        result = deployComponents(payloadDirectory(payloadDir), path.join(targetRepoRoot, REPO_COMPONENT_DIRNAME));
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
     }
     io.stdout(
-        `deployed ${result.written.length} component file(s) into ${path.join(targetRepoRoot, ".claude")}` +
+        `deployed ${result.written.length} component file(s) into ${path.join(targetRepoRoot, REPO_COMPONENT_DIRNAME)}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
     );
     return 0;
@@ -497,7 +498,7 @@ async function runMigrateComponents(argv: string[], io: CliIo): Promise<number> 
 
 /**
  * The component payload this artifact would deploy. A distributable carries it vendored beside
- * the bundle; a source checkout has no vendored copy, and there the live root `.claude/` tree is
+ * the bundle; a source checkout has no vendored copy, and there the authored component tree is
  * the payload — it is the same tree the vendor step hashes into the fingerprint pin, so both
  * postures report the fingerprint of the components that would actually be installed.
  */
@@ -506,7 +507,7 @@ function resolvedPayloadDir(): string | null {
     if (fs.existsSync(vendored)) {
         return vendored;
     }
-    const live: string = liveClaudeDir(import.meta.dirname);
+    const live: string = authoredComponentRoot(import.meta.dirname);
     return fs.existsSync(live) ? live : null;
 }
 

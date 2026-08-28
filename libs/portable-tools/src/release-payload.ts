@@ -15,7 +15,7 @@
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { COMPONENT_PAYLOAD_DIRNAME, listComponentFiles, liveClaudeDir } from "./vendor-components.js";
+import { authoredComponentRoot, COMPONENT_PAYLOAD_DIRNAME, listComponentFiles } from "./vendor-components.js";
 
 /** Key of the payload entry in the committed fingerprint pin — one entry for the whole payload. */
 export const PAYLOAD_KEY = "payload";
@@ -89,7 +89,7 @@ export function listPayloadFiles(repoRoot: string): PayloadFile[] {
     const files: PayloadFile[] = [];
     walk(path.join(repoRoot, "libs", "gh-toolkit"), GH_TOOLKIT_DIRNAME, files);
 
-    const claudeDir: string = liveClaudeDir(path.join(repoRoot, "libs", "portable-tools", "src"));
+    const claudeDir: string = authoredComponentRoot(path.join(repoRoot, "libs", "portable-tools", "src"));
     for (const rel of listComponentFiles(claudeDir)) {
         files.push({
             staged: `${COMPONENT_PAYLOAD_DIRNAME}/${rel}`,
