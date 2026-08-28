@@ -5,6 +5,18 @@
 
 [How this works](how-to-nexus.md)
 
+## Get Started
+
+Nexus installs **once for your user account**, then bootstraps each repository you use it in:
+
+```bash
+npm install -g @sameeraperera/nexus   # 1. the package  (needs Node 22.22.0+ and Python 3.10+)
+nexus install                   # 2. the Claude components, once per account
+```
+
+Then add two permission entries to your account-scoped `settings.json`, and run `/nxs.setup` inside
+each repository. Full steps, and what each command touches: [Installing](#installing).
+
 ## The Archaeology Problem
 
 [![Watch the video](https://img.youtube.com/vi/EkZb5mK1j7o/0.jpg)](https://www.youtube.com/watch?v=EkZb5mK1j7o)
@@ -221,7 +233,37 @@ Supported platforms are **macOS and Linux**. A release targets POSIX-like enviro
 
 # Installing
 
-Nexus's components — the slash commands, agents and skills Claude Code loads — are installed **once for your user account**, not once per repository. Install the package, then run the install verb:
+Nexus's components — the slash commands, agents and skills Claude Code loads — are installed **once
+for your user account**, not once per repository. Getting the package onto your machine and its
+components into your account is two steps (1 and 2); granting permission and bootstrapping a
+repository (3 and 4) follow once each.
+
+## 1. Install the package
+
+Nexus is published to npm as `@sameeraperera/nexus`, carrying both toolkits under one version. Install it
+globally:
+
+```bash
+npm install -g @sameeraperera/nexus
+```
+
+That places two executables — `nexus` and `nexus-gh` — in the global binary directory your Node
+installation already exposes. Whatever installed Node (nvm, fnm, volta, Homebrew, a system package)
+put that directory on your `PATH`; Nexus edits no shell startup file, so removal has none to undo.
+
+Verify from a directory that is not a Nexus checkout:
+
+```bash
+nexus version
+nexus-gh version
+```
+
+Both print the same release version. If the shell cannot find either one, the global binary
+directory is missing from `PATH` — `npm prefix -g` names it.
+
+To hold a particular release rather than the newest, name it: `npm install -g @sameeraperera/nexus@<version>`.
+
+## 2. Install the components for your account
 
 ```bash
 nexus install
@@ -236,7 +278,7 @@ nexus install
 
 Installing is two steps on purpose. A package-manager lifecycle script is blocked by default in some package managers and commonly disabled in continuous integration, so a share of installs would end silently with no component set and no error — and the second step has to print text you must act on anyway.
 
-## Grant the two toolkits permission, once
+## 3. Grant the two toolkits permission, once
 
 Add these two entries to your account-scoped settings file (settings.json at the install location),
 not to a repository-local one:
@@ -248,13 +290,31 @@ Nexus writes no settings file. Adding these entries is your action.
 
 Each entry is a trailing-wildcard prefix, so one entry per toolkit covers every verb and every argument list. Approving the permission prompt interactively instead saves the grant to the repository you happen to be in, and offers you no scope choice — you would re-approve once per repository, while the install itself is once per account.
 
+## 4. Bootstrap each repository
+
+The account-level install makes the `/nxs.*` commands available everywhere; it decides nothing about
+any one repository. Inside each repository you want to run the pipeline in, start a Claude Code
+session and run
+
+```
+/nxs.setup
+```
+
+It detects the stack, writes the system docs and standards, seeds the templates the stages read, and
+interviews you for the product context. It is a one-time bootstrap per repository — re-run it later
+only to refresh the product context.
+
+Nothing about `/nxs.setup` installs components: the slash commands it is invoked through came from
+step 2, and a repository never carries its own copy.
+
 ## Removing Nexus
 
 ```bash
-nexus uninstall
+nexus uninstall          # first: clears the installed component set
+npm uninstall -g @sameeraperera/nexus
 ```
 
-Run it **before** removing the package. The verb ships inside the package, and your package manager has no record of a component set copied into the configuration directory, so removing the package first leaves the components behind with nothing left to clear them.
+Run `nexus uninstall` **before** removing the package. The verb ships inside the package, and your package manager has no record of a component set copied into the configuration directory, so removing the package first leaves the components behind with nothing left to clear them.
 
 ## Repositories that still carry committed components
 
@@ -282,7 +342,14 @@ The masters travel inside the package, so this works in a repository that has ne
 
 # Upgrading
 
-Upgrade the package, then re-run `nexus install`. The mirror converges: components dropped from the managed set are removed, and files you own are untouched.
+Upgrade the package, then re-run `nexus install`:
+
+```bash
+npm install -g @sameeraperera/nexus@latest
+nexus install
+```
+
+The mirror converges: components dropped from the managed set are removed, and files you own are untouched. `nexus version` reports what you are now on.
 
 If you are coming from a version that deployed components into each repository, run `nexus migrate-components` once in each of those repositories (see above). While both a repository-local and an account-level component set resolve, every `nexus` invocation writes a diagnostic naming both locations to standard error.
 

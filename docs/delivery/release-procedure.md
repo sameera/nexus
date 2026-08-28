@@ -98,7 +98,7 @@ decides the tarball's contents. The package is published under public access.
 
 Verify the published release the way an adopter meets it, from a directory that is not a checkout:
 
-    npm install -g @sameera/nexus
+    npm install -g @sameeraperera/nexus
     nexus version
     nexus-gh version
 
