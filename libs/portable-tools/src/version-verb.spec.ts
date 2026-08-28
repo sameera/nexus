@@ -10,7 +10,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runNexusCli, type CliIo } from "./nexus-cli";
-import { RELEASE_VERSION_FILE, releaseVersion } from "./release";
+import { RELEASE_VERSION_FILE, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, AUTHORED_ROOT_DIRNAME, hashComponentTree } from "./vendor-components";
 
 let tmpDirs: string[] = [];

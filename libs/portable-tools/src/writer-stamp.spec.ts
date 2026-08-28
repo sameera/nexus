@@ -7,7 +7,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { releaseVersion } from "./release";
+import { releaseVersion } from "@nexus/release-identity/release";
 import { readWriterStamp, UNKNOWN_WRITER, WRITER_STAMP_FIELD, writerStampLine } from "./writer-stamp";
 import { authoredComponentRoot } from "./vendor-components";
 

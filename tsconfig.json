@@ -37,6 +37,9 @@
       "path": "./libs/record-digest"
     },
     {
+      "path": "./libs/release-identity"
+    },
+    {
       "path": "./apps/prime"
     }
   ]

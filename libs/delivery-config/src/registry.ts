@@ -14,6 +14,7 @@
 
 import { delegateToPython } from "./delegate.js";
 import { type ToolkitIo } from "./io.js";
+import { runVersion } from "./version.js";
 
 /** The one literal the toolkit answers to, fixed by story #297. */
 export const TOOLKIT_NAME = "nexus-gh";
@@ -37,7 +38,7 @@ export const CAPABILITIES: readonly Capability[] = [
     {
         name: "version",
         summary: "Report the release this toolkit is part of.",
-        run: (args, io) => delegateToPython("version", args, io),
+        run: runVersion,
     },
     {
         name: "config",

@@ -72,7 +72,7 @@ import {
     type SeedTemplatesResult,
 } from "./seed-templates.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
-import { releaseVersion } from "./release.js";
+import { releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";

@@ -214,7 +214,11 @@ importers:
         specifier: workspace:*
         version: link:../workspace
 
-  libs/delivery-config: {}
+  libs/delivery-config:
+    dependencies:
+      '@nexus/release-identity':
+        specifier: workspace:*
+        version: link:../release-identity
 
   libs/editor:
     dependencies:
@@ -280,6 +284,9 @@ importers:
       '@nexus/record-digest':
         specifier: workspace:*
         version: link:../record-digest
+      '@nexus/release-identity':
+        specifier: workspace:*
+        version: link:../release-identity
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace
@@ -310,6 +317,8 @@ importers:
       '@nexus/close-migration':
         specifier: workspace:*
         version: link:../close-migration
+
+  libs/release-identity: {}
 
   libs/workspace:
     dependencies:

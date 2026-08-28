@@ -1,0 +1,8 @@
+{
+  "name": "@nexus/release-identity",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/release-identity/src",
+  "projectType": "library",
+  "tags": [],
+  "targets": {}
+}
