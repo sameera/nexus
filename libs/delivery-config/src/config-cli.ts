@@ -13,10 +13,10 @@
 import { spawnSync } from "node:child_process";
 import * as path from "node:path";
 import { BACKLOG_QUERY_FORMS, backlogQuery } from "./backlog.js";
-import { delegateToPython } from "./delegate.js";
 import { type GhRunner, type RunResult, defaultGhRunner, repoHasIssueTypes } from "./gh.js";
 import { type ToolkitIo } from "./io.js";
 import { layersAt, resolvePublishingKey } from "./resolve.js";
+import { type WriteReport, writeGithubBlock } from "./write.js";
 import { programName } from "./registry.js";
 
 const CAPABILITY = "config";
@@ -36,6 +36,7 @@ export function configUsage(): string {
         "  resolve <key> [--root <path>]   Resolve one github-block key through the precedence chain.",
         "  backlog-query [--form <form>]   Print the cross-feature backlog query (list | search | exclude).",
         "  detect-classification           Probe whether the repository exposes issue types.",
+        "  write-github [--root <path>]    Seed absent github-block keys into settings.yml (add-only).",
         "",
         `Run \`${programName(CAPABILITY)} <command> --help\` for a command's own arguments.`,
     ].join("\n");
@@ -96,11 +97,47 @@ export function runConfigDetectClassification(
     return 0;
 }
 
+/** The keys `write-github` accepts, each as its own flag, named as the block spells them. */
+export const WRITE_GITHUB_KEYS: readonly string[] = [
+    "classification",
+    "project",
+    "issues-repo",
+    "epic-repo",
+    "story-repo",
+];
+
+/** `config write-github [--root <path>] [--<key> <value>…] [--comment <text>]`. */
+export function runConfigWriteGithub(args: string[], io: ToolkitIo): number {
+    let rest: string[] = args;
+    const values: Record<string, string> = {};
+    for (const key of WRITE_GITHUB_KEYS) {
+        const taken = takeOption(rest, `--${key}`);
+        rest = taken.rest;
+        if (taken.value !== null) values[key] = taken.value;
+    }
+    const takenRoot = takeOption(rest, "--root");
+    const takenComment = takeOption(takenRoot.rest, "--comment");
+    if (takenComment.rest.length > 0) {
+        return usageError(io, `write-github: unexpected argument '${takenComment.rest[0]}'`);
+    }
+    // The given root is the target: a bootstrap seeds *this* repository's settings, so no ancestor
+    // is walked to and the configuration directory is created when it is absent.
+    const root: string = path.resolve(io.cwd, takenRoot.value ?? ".");
+    const report: WriteReport = writeGithubBlock(root, values, takenComment.value);
+    io.stdout(
+        report.added.length > 0
+            ? `Seeded github block (${report.added.join(", ")}) into ${report.path}`
+            : `No changes — every requested key is already declared in ${report.path}`,
+    );
+    return 0;
+}
+
 /** The commands this toolkit answers in process. Anything else is still the interpreter's. */
 export const CONFIG_COMMANDS: Record<string, (args: string[], io: ToolkitIo) => number> = {
     resolve: runConfigResolve,
     "backlog-query": runConfigBacklogQuery,
     "detect-classification": runConfigDetectClassification,
+    "write-github": runConfigWriteGithub,
 };
 
 export function runConfig(args: string[], io: ToolkitIo): number {
@@ -110,10 +147,6 @@ export function runConfig(args: string[], io: ToolkitIo): number {
         return 0;
     }
     const command = CONFIG_COMMANDS[args[0]];
-    if (command === undefined) {
-        // Not ported yet: the remaining commands land in stories #359, #360 and #361, and until
-        // they do they are still answered by the retained Python entry point.
-        return delegateToPython(CAPABILITY, args, io);
-    }
+    if (command === undefined) return usageError(io, `unknown command '${args[0]}'`);
     return command(args.slice(1), io);
 }

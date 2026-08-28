@@ -19,6 +19,11 @@
       "import": "./src/gh.ts",
       "default": "./src/gh.ts"
     },
+    "./write": {
+      "types": "./src/write.ts",
+      "import": "./src/write.ts",
+      "default": "./src/write.ts"
+    },
     "./keys": {
       "types": "./src/keys.ts",
       "import": "./src/keys.ts",
