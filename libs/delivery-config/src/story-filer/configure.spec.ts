@@ -64,8 +64,13 @@ describe("resolving what this run publishes", () => {
         const gh = fakePlatform();
         runCreateStory([scratch(root)], io, gh.env);
         expect(io.out.join("\n")).toContain("Story repo (from config): acme/tracker");
-        expect(gh.calls.length).toBeGreaterThan(0);
-        for (const args of gh.calls) expect(args.join(" ")).toContain("-R acme/tracker");
+        // The repository probe behind project auto-discovery asks about *this* checkout, so it is
+        // deliberately untargeted; everything acting on an issue or a label carries the target.
+        const targeted: string[][] = gh.calls.filter(
+            (args) => args[0] === "issue" || args[0] === "label" || (args[0] === "api" && args[1] !== "graphql"),
+        );
+        expect(targeted.length).toBeGreaterThan(0);
+        for (const args of targeted) expect(args.join(" ")).toContain("-R acme/tracker");
     });
 
     it("binds every platform call to the resolved target root", () => {
@@ -182,7 +187,7 @@ describe("persisting the decisions this run reached", () => {
     });
 
     it("never overwrites a key the repository already declares, and re-reads it on the next run", () => {
-        const root: string = checkoutWith({ classification: "legacy-auto" });
+        const root: string = checkoutWith({ classification: "legacy-auto", project: "none" });
         writeItem(root, "STORY-1.md", story("1"));
         const before: string = fs.readFileSync(path.join(root, ".nexus/config/settings.yml"), "utf8");
         const io = recordingIo(root);

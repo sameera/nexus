@@ -22,6 +22,7 @@ import { NO_PROJECT, createPass } from "./create.js";
 import { ensureBatchLabels } from "./labels.js";
 import { type Ledger, ledgerPathFor, loadLedger } from "./ledger.js";
 import { Platform } from "./platform.js";
+import { type ProjectPlan, ProjectLookup, planProjects, projectAssignment } from "./projects.js";
 import { type RetryingRunner, retryingRunner } from "./retry.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { previewLine } from "./preview.js";
@@ -77,6 +78,11 @@ export function runCreateStory(
     );
     const platform: Platform = new Platform(gh, config.issuesRepo, io);
 
+    // Resolved once for the whole batch. The lookups take the plain runner: they are the calls that
+    // deliberately do not retry, and that is observable as latency and as warning lines.
+    const lookup: ProjectLookup = new ProjectLookup(run, io);
+    const plan: ProjectPlan = planProjects(ready.layers, args, lookup, io);
+
     const ledgerPath: string = ledgerPathFor(ready.targetFolder);
     const ledger: Ledger = loadLedger(ledgerPath, io);
     const carried: number = Object.keys(ledger).length;
@@ -85,10 +91,25 @@ export function runCreateStory(
     createPass(
         ready.items,
         config,
-        { platform, plainRun: run, issueTypeId, ledger, ledgerPath, projects: NO_PROJECT },
+        {
+            platform,
+            plainRun: run,
+            issueTypeId,
+            ledger,
+            ledgerPath,
+            projects: args.noProject ? NO_PROJECT : projectAssignment(plan, lookup, platform, io),
+        },
         io,
     );
 
-    writeBackDecisions(ready.projectRoot, { classification: config.classification }, io);
+    writeBackDecisions(
+        ready.projectRoot,
+        {
+            classification: config.classification,
+            // Only the discovery path found something this repository had not been told.
+            discoveredProject: plan.ranAutoDiscovery ? plan.discoveredRef : undefined,
+        },
+        io,
+    );
     return 0;
 }
