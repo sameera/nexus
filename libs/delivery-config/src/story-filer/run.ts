@@ -24,6 +24,8 @@ import { type Ledger, ledgerPathFor, loadLedger } from "./ledger.js";
 import { Platform } from "./platform.js";
 import { type ProjectPlan, ProjectLookup, planProjects, projectAssignment } from "./projects.js";
 import { type RetryingRunner, retryingRunner } from "./retry.js";
+import { type CreatePassResult } from "./create.js";
+import { refToDbId, wirePass } from "./wire.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { previewLine } from "./preview.js";
 import { writeBackDecisions } from "./writeback.js";
@@ -88,7 +90,7 @@ export function runCreateStory(
     const carried: number = Object.keys(ledger).length;
     if (carried > 0) io.stdout(`Resuming from manifest (${carried} issue(s) already created): ${ledgerPath}`);
 
-    createPass(
+    const pass1: CreatePassResult = createPass(
         ready.items,
         config,
         {
@@ -101,6 +103,8 @@ export function runCreateStory(
         },
         io,
     );
+
+    wirePass(pass1.created, refToDbId(pass1.created, ledger), platform, io);
 
     writeBackDecisions(
         ready.projectRoot,
