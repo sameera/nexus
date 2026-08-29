@@ -16,7 +16,8 @@ import { type ToolkitIo } from "../io.js";
 import { programName } from "../registry.js";
 import { CAPABILITY, type ArgsOutcome, type EpicArgs, epicUsage, parseEpicArgs } from "./args.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
-import { deriveFiledBody } from "./document.js";
+import { type ClassificationPlan, type EpicConfig, planClassification, resolveEpicConfig } from "./configure.js";
+import { type ParsedDraft, deriveFiledBody, parseDraft } from "./document.js";
 import { type EpicOutput, epicOutput } from "./output.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 
@@ -41,7 +42,20 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     out.line(`📄 Processing: ${args.draft}`);
 
     const content: string = fs.readFileSync(ready.draft, "utf8");
+    const { frontmatter }: ParsedDraft = parseDraft(content);
     const filedBody: string = deriveFiledBody(content);
+
+    const config: EpicConfig = resolveEpicConfig(ready.layers, frontmatter);
+    if (config.epicRepo !== null) out.line(`📦 Epic repo (from config): ${config.epicRepo}`);
+
+    const classification: ClassificationPlan = planClassification(config);
+    if (classification.warning !== null) out.warn(classification.warning);
+
+    const title: string = frontmatter["epic"] ?? "";
+    out.line(`📋 Epic Title: ${title}  (classification: ${config.classification})`);
+    if (classification.issueType !== null) out.line(`🏷️  Type: ${classification.issueType}`);
+    else if (classification.createLabel !== null) out.line(`🏷️  Label: ${classification.createLabel}`);
+
     if (filedBody.trim() === "") {
         out.error("No content found after frontmatter");
         return 1;

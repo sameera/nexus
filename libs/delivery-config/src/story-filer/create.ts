@@ -13,7 +13,7 @@ import { type ToolkitIo } from "../io.js";
 import { type FilerConfig } from "./configure.js";
 import { type WorkItem, fileStem } from "./frontmatter.js";
 import { type Ledger, type LedgerEntry, saveLedger } from "./ledger.js";
-import { type Platform, extractIssueNumber } from "./platform.js";
+import { type Outcome, type Platform, extractIssueNumber } from "./platform.js";
 
 /** What pass 1 hands the later passes about one work item. */
 export interface CreatedRecord {
@@ -95,7 +95,9 @@ function fileOne(
         title = fileStem(item.fileName);
     }
 
-    const url: string | null = deps.platform.createIssue(title, labels, item.body);
+    const created: Outcome<string> = deps.platform.createIssue(title, labels, item.body);
+    if (created.error !== null) io.stderr(`Error creating issue: ${created.error}`);
+    const url: string | null = created.value;
     if (url === null || url === "") {
         io.stderr(`  Failed to create issue for ${item.filePath}`);
         return null;
@@ -103,7 +105,7 @@ function fileOne(
     io.stdout(`  Created issue: ${url}`);
 
     const number: string | null = extractIssueNumber(url);
-    const dbId: string | null = number !== null ? deps.platform.issueDbId(number) : null;
+    const dbId: string | null = number !== null ? databaseId(number, deps, io) : null;
 
     // Before anything else. The issue exists now; a duplicate is the one failure this capability
     // cannot take back.
@@ -122,7 +124,7 @@ function resume(item: WorkItem, carried: LedgerEntry, deps: CreatePassDeps, io: 
     const number: string | null = carried.number ?? null;
     let dbId: string | null = carried.db_id ?? null;
     if ((dbId === null || dbId === "") && number !== null) {
-        dbId = deps.platform.issueDbId(number);
+        dbId = databaseId(number, deps, io);
         if (dbId !== null && dbId !== "") {
             carried.db_id = dbId;
             saveLedger(deps.ledgerPath, deps.ledger, io);
@@ -135,7 +137,7 @@ function resume(item: WorkItem, carried: LedgerEntry, deps: CreatePassDeps, io: 
 /** Issue type, project membership and the parent link — every one of them best-effort. */
 function decorate(item: WorkItem, number: string, deps: CreatePassDeps, io: ToolkitIo): void {
     if (deps.issueTypeId !== null) {
-        const nodeId: string | null = deps.platform.issueNodeId(number);
+        const nodeId: string | null = nodeIdOf(number, deps, io);
         if (nodeId !== null && nodeId !== "" && setIssueType(nodeId, deps.issueTypeId, deps.plainRun)) {
             io.stdout("  Issue type set");
         } else {
@@ -145,7 +147,7 @@ function decorate(item: WorkItem, number: string, deps: CreatePassDeps, io: Tool
 
     const projectId: string | null = deps.projects.idFor(item);
     if (projectId !== null && projectId !== "") {
-        const nodeId: string | null = deps.platform.issueNodeId(number);
+        const nodeId: string | null = nodeIdOf(number, deps, io);
         if (nodeId !== null && nodeId !== "") {
             if (deps.projects.add(projectId, nodeId)) io.stdout("  Added to project");
             else io.stderr("  Warning: Failed to add issue to project");
@@ -153,7 +155,23 @@ function decorate(item: WorkItem, number: string, deps: CreatePassDeps, io: Tool
     }
 
     if (item.parent !== "") {
-        if (deps.platform.assignParent(number, item.parent)) io.stdout(`  Linked as sub-issue of: ${item.parent}`);
+        const linked: Outcome<true> = deps.platform.assignParent(number, item.parent);
+        if (linked.error !== null) io.stderr(`Error creating sub-issue relationship: ${linked.error}`);
+        if (linked.value === true) io.stdout(`  Linked as sub-issue of: ${item.parent}`);
         else io.stderr("  Warning: Failed to create sub-issue relationship");
     }
+}
+
+/** The database id of `number`, with a failed lookup reported in this filer's own wording. */
+function databaseId(number: string, deps: CreatePassDeps, io: ToolkitIo): string | null {
+    const found: Outcome<string> = deps.platform.issueDbId(number);
+    if (found.error !== null) io.stderr(`Error getting database id for #${number}: ${found.error}`);
+    return found.value;
+}
+
+/** The node id of `number`, with a failed lookup reported in this filer's own wording. */
+function nodeIdOf(number: string, deps: CreatePassDeps, io: ToolkitIo): string | null {
+    const found: Outcome<string> = deps.platform.issueNodeId(number);
+    if (found.error !== null) io.stderr(`Error getting issue ID for ${number}: ${found.error}`);
+    return found.value;
 }

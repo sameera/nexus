@@ -13,7 +13,7 @@
 import { type ToolkitIo } from "../io.js";
 import { type CreatedRecord } from "./create.js";
 import { type Ledger } from "./ledger.js";
-import { type Platform } from "./platform.js";
+import { type Outcome, type Platform } from "./platform.js";
 
 /** A dependency reference naming an issue that already exists, rather than one this batch creates. */
 const LITERAL_REF = /^#(\d+)$/;
@@ -52,12 +52,16 @@ export function wirePass(
     for (const record of created) {
         if (record.number === null || record.blockedBy.length === 0) continue;
         const number: string = record.number;
-        const existing: Set<string> | null = platform.blockedByDbIds(number);
+        const read: Outcome<Set<string>> = platform.blockedByDbIds(number);
+        if (read.error !== null) {
+            io.stderr(`  Warning: could not read existing blocked_by for #${number}: ${read.error}`);
+        }
+        const existing: Set<string> | null = read.value;
 
         for (const ref of record.blockedBy) {
             const literal: RegExpExecArray | null = LITERAL_REF.exec(ref);
             const blockerDbId: string | null =
-                refMap.get(ref) ?? (literal !== null ? platform.issueDbId(literal[1]) : null);
+                refMap.get(ref) ?? (literal !== null ? blockerId(literal[1], platform, io) : null);
             if (blockerDbId === null || blockerDbId === "") {
                 io.stderr(`  Unresolved: blocked_by ref '${ref}' for #${number} not among created issues`);
                 result.unresolved.push([number, ref]);
@@ -68,13 +72,24 @@ export function wirePass(
                 result.present++;
                 continue;
             }
-            if (platform.addBlockedBy(number, blockerDbId)) {
+            const added: Outcome<true> = platform.addBlockedBy(number, blockerDbId);
+            if (added.value === true) {
                 io.stdout(`  #${number} blocked_by ref '${ref}'`);
                 result.wired++;
             } else {
+                io.stderr(
+                    `Error adding blocked_by for #${number} (blocker id ${blockerDbId}): ${added.error ?? ""}`,
+                );
                 result.failed.push([number, ref]);
             }
         }
     }
     return result;
+}
+
+/** An out-of-batch blocker's database id, with a failed lookup reported by this pass. */
+function blockerId(number: string, platform: Platform, io: ToolkitIo): string | null {
+    const found: Outcome<string> = platform.issueDbId(number);
+    if (found.error !== null) io.stderr(`Error getting database id for #${number}: ${found.error}`);
+    return found.value;
 }
