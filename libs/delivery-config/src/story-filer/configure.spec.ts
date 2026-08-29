@@ -6,7 +6,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { OK, FAIL, checkout, checkoutWith, fakePlatform, recordingIo, scratch, story, writeItem } from "./fixtures";
+import { OK, FAIL, checkout, checkoutWith, filingPlatform, recordingIo, scratch, story, writeItem } from "./fixtures";
 import { runCreateStory } from "./run";
 
 /** The `label create` calls, as name → the flags it was created with. */
@@ -39,7 +39,7 @@ describe("resolving what this run publishes", () => {
             ".nexus/config/settings.yml": "github:\n  classification: labels\n  story-label: local-story\n",
         });
         writeItem(root, "STORY-1.md", story("1"));
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         expect(runCreateStory([scratch(root)], recordingIo(root), gh.env)).toBe(0);
         expect(Object.keys(labelCreates(gh.calls))).toContain("local-story");
     });
@@ -52,7 +52,7 @@ describe("resolving what this run publishes", () => {
             ".nexus/config/settings.yml": "github:\n  classification: labels\n  story-label:\n",
         });
         writeItem(root, "STORY-1.md", story("1"));
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         runCreateStory([scratch(root)], recordingIo(root), gh.env);
         expect(Object.keys(labelCreates(gh.calls))).toContain("hub-story");
     });
@@ -61,7 +61,7 @@ describe("resolving what this run publishes", () => {
         const root: string = checkoutWith({ classification: "labels", "story-repo": "acme/tracker" });
         writeItem(root, "STORY-1.md", story("1"));
         const io = recordingIo(root);
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         runCreateStory([scratch(root)], io, gh.env);
         expect(io.out.join("\n")).toContain("Story repo (from config): acme/tracker");
         // The repository probe behind project auto-discovery asks about *this* checkout, so it is
@@ -70,13 +70,16 @@ describe("resolving what this run publishes", () => {
             (args) => args[0] === "issue" || args[0] === "label" || (args[0] === "api" && args[1] !== "graphql"),
         );
         expect(targeted.length).toBeGreaterThan(0);
-        for (const args of targeted) expect(args.join(" ")).toContain("-R acme/tracker");
+        // Named as the repo flag, or as the repository in the api path — never left to the checkout.
+        for (const args of targeted) {
+            expect(args.join(" ")).toMatch(/-R acme\/tracker|repos\/acme\/tracker\//);
+        }
     });
 
     it("binds every platform call to the resolved target root", () => {
         const root: string = checkoutWith({ classification: "labels" });
         writeItem(root, "STORY-1.md", story("1"));
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         runCreateStory([scratch(root)], recordingIo(root), gh.env);
         expect(gh.roots).toEqual([root]);
     });
@@ -86,7 +89,7 @@ describe("the canonical classification", () => {
     it("uses the resolved story label when the caller passes no classification", () => {
         const root: string = checkoutWith({ classification: "labels", "story-label": "user-story" });
         writeItem(root, "STORY-1.md", story("1"));
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         runCreateStory([scratch(root)], recordingIo(root), gh.env);
         expect(Object.keys(labelCreates(gh.calls))).toContain("user-story");
     });
@@ -94,7 +97,7 @@ describe("the canonical classification", () => {
     it("lets --classification-label outrank the resolved default", () => {
         const root: string = checkoutWith({ classification: "labels", "story-label": "user-story" });
         writeItem(root, "STORY-1.md", story("1"));
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         runCreateStory([scratch(root), "--classification-label", "epic"], recordingIo(root), gh.env);
         const created: string[] = Object.keys(labelCreates(gh.calls));
         expect(created).toContain("epic");
@@ -105,7 +108,7 @@ describe("the canonical classification", () => {
         const root: string = checkoutWith({ classification: "types", "story-type": "Story" });
         writeItem(root, "STORY-1.md", story("1"));
         const io = recordingIo(root);
-        const gh = fakePlatform(typesAnswers);
+        const gh = filingPlatform(typesAnswers);
         runCreateStory([scratch(root)], io, gh.env);
         expect(io.out.join("\n")).toContain("Classification: types — issue-type 'Story'");
         expect(Object.keys(labelCreates(gh.calls))).not.toContain("story");
@@ -115,7 +118,7 @@ describe("the canonical classification", () => {
         const root: string = checkoutWith({ classification: "types", "story-type": "Story" });
         writeItem(root, "STORY-1.md", story("1"));
         const io = recordingIo(root);
-        runCreateStory([scratch(root), "--classification-type", "Task"], io, fakePlatform(typesAnswers).env);
+        runCreateStory([scratch(root), "--classification-type", "Task"], io, filingPlatform(typesAnswers).env);
         expect(io.all()).toContain("'Task'");
     });
 
@@ -123,7 +126,7 @@ describe("the canonical classification", () => {
         const root: string = checkoutWith({ classification: "types", "story-type": "Nonexistent" });
         writeItem(root, "STORY-1.md", story("1"));
         const io = recordingIo(root);
-        expect(runCreateStory([scratch(root)], io, fakePlatform(typesAnswers).env)).toBe(0);
+        expect(runCreateStory([scratch(root)], io, filingPlatform(typesAnswers).env)).toBe(0);
         expect(io.err.join("\n")).toContain("'Nonexistent' not found");
         expect(io.err.join("\n")).toContain("untyped");
     });
@@ -132,7 +135,7 @@ describe("the canonical classification", () => {
         const root: string = checkoutWith({ classification: "types" });
         writeItem(root, "STORY-1.md", story("1"));
         const io = recordingIo(root);
-        expect(runCreateStory([scratch(root)], io, fakePlatform(typesAnswers).env)).toBe(0);
+        expect(runCreateStory([scratch(root)], io, filingPlatform(typesAnswers).env)).toBe(0);
         expect(io.err.join("\n")).toContain("no issue-type configured");
     });
 });
@@ -142,7 +145,7 @@ describe("every label exists before the first issue", () => {
         const root: string = checkoutWith({ classification: "labels", "story-label": "story" });
         writeItem(root, "STORY-1.md", story("1", { labels: "[needs-design, spike]" }));
         writeItem(root, "STORY-2.md", story("2", { labels: "chore" }));
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         runCreateStory([scratch(root)], recordingIo(root), gh.env);
         expect(Object.keys(labelCreates(gh.calls)).sort()).toEqual(["chore", "needs-design", "spike", "story"]);
     });
@@ -150,7 +153,7 @@ describe("every label exists before the first issue", () => {
     it("creates the story label with its established styling and everything else with the default", () => {
         const root: string = checkoutWith({ classification: "labels", "story-label": "story" });
         writeItem(root, "STORY-1.md", story("1", { labels: "spike" }));
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         runCreateStory([scratch(root)], recordingIo(root), gh.env);
         const created = labelCreates(gh.calls);
         expect(created["story"]).toContain("BFD4F2");
@@ -162,7 +165,7 @@ describe("every label exists before the first issue", () => {
         const root: string = checkoutWith({ classification: "labels", "story-label": "story" });
         writeItem(root, "STORY-1.md", story("1", { labels: "[locked-a, locked-b]" }));
         const io = recordingIo(root);
-        const gh = fakePlatform((args) => {
+        const gh = filingPlatform((args) => {
             if (args[0] === "label" && args[1] === "create" && args[2].startsWith("locked")) return FAIL("no scope");
             if (args[0] === "label" && args[1] === "list") return OK("story\n");
             return undefined;
@@ -179,7 +182,7 @@ describe("persisting the decisions this run reached", () => {
         const root: string = checkout();
         writeItem(root, "STORY-1.md", story("1"));
         const io = recordingIo(root);
-        expect(runCreateStory([scratch(root)], io, fakePlatform().env)).toBe(0);
+        expect(runCreateStory([scratch(root)], io, filingPlatform().env)).toBe(0);
         const settings: string = fs.readFileSync(path.join(root, ".nexus/config/settings.yml"), "utf8");
         expect(settings).toContain("classification: labels");
         expect(io.out.join("\n")).toContain("Seeded github config");
@@ -191,7 +194,7 @@ describe("persisting the decisions this run reached", () => {
         writeItem(root, "STORY-1.md", story("1"));
         const before: string = fs.readFileSync(path.join(root, ".nexus/config/settings.yml"), "utf8");
         const io = recordingIo(root);
-        runCreateStory([scratch(root)], io, fakePlatform().env);
+        runCreateStory([scratch(root)], io, filingPlatform().env);
         expect(fs.readFileSync(path.join(root, ".nexus/config/settings.yml"), "utf8")).toBe(before);
         expect(io.out.join("\n")).not.toContain("Seeded github config");
     });
@@ -202,7 +205,7 @@ describe("the dry run", () => {
         const root: string = checkoutWith({ classification: "labels", "story-label": "story" });
         writeItem(root, "STORY-1.md", story("1", { labels: "spike", parent: '"#353"', blocked_by: "[STORY-0]" }));
         const io = recordingIo(root);
-        const gh = fakePlatform();
+        const gh = filingPlatform();
         expect(runCreateStory([scratch(root), "--dry-run", "--classification-label", "epic"], io, gh.env)).toBe(0);
         const preview: string = io.out.find((line) => line.includes("STORY-1.md:")) ?? "";
         expect(preview).toContain("ref='STORY-1'");
@@ -218,7 +221,7 @@ describe("the dry run", () => {
         writeItem(root, "STORY-1.md", story("1", { project: '"acme/4"' }));
         writeItem(root, "STORY-2.md", story("2"));
         const io = recordingIo(root);
-        runCreateStory([scratch(root), "--dry-run"], io, fakePlatform().env);
+        runCreateStory([scratch(root), "--dry-run"], io, filingPlatform().env);
         expect(io.out.find((l) => l.includes("STORY-1.md:"))).toContain("project='acme/4'");
         expect(io.out.find((l) => l.includes("STORY-2.md:"))).toContain("project='(auto)'");
     });

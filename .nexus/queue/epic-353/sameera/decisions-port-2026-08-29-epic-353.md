@@ -22,3 +22,8 @@
 - **Choice:** Pass 1 takes an `idFor`/`add` pair, wired inert (`NO_PROJECT`) until story #370 supplies the real one.
 - **Why:** #370 is blocked_by #369, so pass 1 has to exist and be fully tested before project targeting is resolvable; the seam keeps #370 a wiring change rather than a rewrite of pass 1.
 - **Refuted alternative:** Thread the resolved project ids through pass 1's parameters directly, as the Python original does.
+
+## 2026-08-29 — The resume hint is rebuilt from the parsed arguments, not from the raw vector
+- **Choice:** `reconstructFlags(FilerArgs)` renders one canonical spelling per flag; the raw argv is not retained.
+- **Why:** Invariant 13 requires a flag added to the capability to be added to the hint with it — deriving from the parsed shape makes that a single edit, and normalises `--retries=5` and `--retries 5` to one line.
+- **Refuted alternative:** Echo the argv verbatim, which reproduces the operator's exact typing but re-echoes nothing when a default was applied and cannot be checked for completeness.

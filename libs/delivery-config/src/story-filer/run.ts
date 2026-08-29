@@ -20,13 +20,14 @@ import { type FilerConfig, reportIssuesRepo, resolveFilerConfig } from "./config
 import { type FilerEnvironment, defaultEnvironment } from "./environment.js";
 import { NO_PROJECT, createPass } from "./create.js";
 import { ensureBatchLabels } from "./labels.js";
-import { type Ledger, ledgerPathFor, loadLedger } from "./ledger.js";
+import { type Ledger, ledgerPathFor, loadLedger, removeLedger } from "./ledger.js";
+import { type RunOutcome, printFinalReport } from "./report.js";
 import { Platform } from "./platform.js";
 import { type ProjectPlan, ProjectLookup, planProjects, projectAssignment } from "./projects.js";
 import { type RetryingRunner, retryingRunner } from "./retry.js";
 import { type CreatePassResult } from "./create.js";
-import { refToNumber, rewritePass } from "./rewrite.js";
-import { refToDbId, wirePass } from "./wire.js";
+import { type RewriteResult, refToNumber, rewritePass } from "./rewrite.js";
+import { type WireResult, refToDbId, wirePass } from "./wire.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { previewLine } from "./preview.js";
 import { writeBackDecisions } from "./writeback.js";
@@ -105,8 +106,8 @@ export function runCreateStory(
         io,
     );
 
-    wirePass(pass1.created, refToDbId(pass1.created, ledger), platform, io);
-    rewritePass(pass1.created, refToNumber(pass1.created, ledger), platform, io);
+    const pass2: WireResult = wirePass(pass1.created, refToDbId(pass1.created, ledger), platform, io);
+    const pass3: RewriteResult = rewritePass(pass1.created, refToNumber(pass1.created, ledger), platform, io);
 
     writeBackDecisions(
         ready.projectRoot,
@@ -117,5 +118,24 @@ export function runCreateStory(
         },
         io,
     );
+
+    const reused: number = pass1.created.filter((record) => record.reused).length;
+    const outcome: RunOutcome = {
+        total: ready.items.length,
+        created: pass1.created.length - reused,
+        reused,
+        createFailed: pass1.failed,
+        depWired: pass2.wired,
+        depPresent: pass2.present,
+        depUnresolved: pass2.unresolved,
+        depFailed: pass2.failed,
+        bodyRewritten: pass3.rewritten,
+        bodyUnresolved: pass3.unresolved,
+        bodyFailed: pass3.failed,
+    };
+    const complete: boolean = printFinalReport(outcome, args, ready.targetFolder, ledgerPath, io);
+    if (!complete) return 1;
+    // A clean run has nothing left to resume from.
+    if (!args.keepManifest) removeLedger(ledgerPath, io);
     return 0;
 }

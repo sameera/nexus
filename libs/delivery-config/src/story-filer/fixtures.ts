@@ -114,3 +114,30 @@ export function story(ref: string, extra: Record<string, string> = {}, body = "A
     for (const [key, value] of Object.entries(extra)) lines.push(`${key}: ${value}`);
     return `---\n${lines.join("\n")}\n---\n\n${body}`;
 }
+
+/**
+ * A platform that files a batch cleanly: it mints issue numbers from 100 up, serves each issue the
+ * body it was created with, and answers every probe the filer makes. `answers` gets first refusal,
+ * which is how a case makes exactly one call fail.
+ */
+export function filingPlatform(answers: (args: string[]) => RunResult | undefined = () => undefined): FakePlatform {
+    let next = 100;
+    const stored: Record<string, string> = {};
+    const numberIn = (args: string[]): string => args.slice(2).find((arg) => /^\d+$/.test(arg)) ?? "";
+    return fakePlatform((args: string[]): RunResult | undefined => {
+        const answer: RunResult | undefined = answers(args);
+        if (answer !== undefined) return answer;
+        if (args[0] === "issue" && args[1] === "create") {
+            const number = String(next++);
+            stored[number] = fs.readFileSync(args[args.indexOf("--body-file") + 1], "utf8");
+            return OK(`https://github.com/acme/tracker/issues/${number}\n`);
+        }
+        if (args[0] === "issue" && args[1] === "view" && args.includes("body")) return OK(stored[numberIn(args)] ?? "");
+        if (args[0] === "issue" && args[1] === "view") return OK("I_node\n");
+        if (args[0] === "issue" && args[1] === "edit") return OK("");
+        if (args[0] === "api" && args[3] === ".id") return OK(`900${/issues\/(\d+)/.exec(args[1])?.[1]}\n`);
+        if (args[0] === "api" && args[1] === "--method") return OK("{}");
+        if (args[0] === "api" && args[1].endsWith("/dependencies/blocked_by")) return OK("");
+        return undefined;
+    });
+}
