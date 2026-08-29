@@ -115,7 +115,21 @@ describe("the ledger is written before anything is decorated", () => {
         );
         runCreateStory([scratch(root), "--keep-manifest"], io, gh.env);
         expect(io.err.join("\n")).toContain("Failed to create sub-issue relationship");
+        expect(io.err.join("\n")).toContain("Error creating sub-issue relationship: could not add sub-issue");
         expect(ledgerAt(root)["1"]).toMatchObject({ number: "100" });
+    });
+
+    it("tells an unresolvable issue id apart from a link the platform refused", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-1.md", story("1", { parent: '"#353"' }));
+        const io = recordingIo(root);
+        // The node-id lookup for the parent is what fails, so the link never reaches the platform.
+        const gh = platform((args) =>
+            args[0] === "issue" && args[1] === "view" && args.includes("353") ? FAIL("no such issue") : undefined,
+        );
+        runCreateStory([scratch(root), "--keep-manifest"], io, gh.env);
+        expect(io.err.join("\n")).toContain("Could not resolve issue IDs");
+        expect(io.err.join("\n")).not.toContain("Error creating sub-issue relationship: Could not resolve");
     });
 
     it("sets the issue type in types mode, and warns without failing when it cannot", () => {

@@ -21,3 +21,27 @@
 - **Choice:** `story-filer/shared-module.spec.ts` now scans both filer directories and covers the epic-only capabilities (`ensureLabel`, `epicNeedsDesign`, `resolveSetting`) instead of a second spec beside the epic filer.
 - **Why:** One check over both directories cannot drift from itself, and the decision record asks for the existing check to be extended.
 - **Refuted alternative:** A parallel `epic-filer/shared-module.spec.ts` — reads more locally, but two copies of a structural rule is exactly the drift the rule exists to prevent.
+
+## 2026-08-29 — Colour is gated per output stream, not on the input terminal
+
+- **Choice:** `EpicEnvironment.isTerminal(stream)` answers the colour gate for stdout and stderr independently; `interactive()` stays the prompt gate and is now only about stdin.
+- **Why:** Invariant 19's ratified exception is about *output* going to a terminal, and the two streams are redirected independently — one gate on stdout would strip colour from errors still being read on screen.
+- **Refuted alternative:** A single gate on `process.stdout.isTTY` for both streams — simpler, but it silently drops colour from a stderr terminal whenever stdout is piped.
+
+## 2026-08-29 — argparse's `--flag=value` and prefix abbreviations are part of the frozen surface
+
+- **Choice:** The hand-rolled parser accepts a value attached with `=`, expands an unambiguous prefix of a long flag, refuses an ambiguous one naming the candidates, and treats `--` as end-of-options.
+- **Why:** Invariant 19 freezes the flags' spellings at what the Python filer accepted, and that parser was argparse with its defaults — a caller may already be passing either form.
+- **Refuted alternative:** Freeze only the canonical spellings and let the abbreviations lapse as an undocumented argparse accident — rejected because the invariant is about what a caller can pass, not about what the help text lists.
+
+## 2026-08-29 — A failed project lookup returns a named step, not a finished sentence
+
+- **Choice:** `FoundProject.failure` carries `{ step, detail }`; each filer words the step itself.
+- **Why:** Invariant 16 keeps the shared lookups report-free, and the two filers genuinely word the same failure differently — the story filer says "Error fetching repository projects", the epic filer "Could not determine repository name".
+- **Refuted alternative:** Carry the finished line as the failure text and have callers print it verbatim — cheaper, but it cannot serve two vocabularies, which is the whole reason the layer stopped printing.
+
+## 2026-08-29 — `assignParent` reports whether it ever reached the platform
+
+- **Choice:** `ParentLink` adds `unresolved`, so the caller renders "Error: Could not resolve issue IDs (…)" separately from "Error creating sub-issue relationship: …".
+- **Why:** Making the layer report-free had collapsed two Python diagnostics into one; an operator chasing an unresolved id is looking for a missing issue, not a broken mutation.
+- **Refuted alternative:** Resolve the node ids in the caller and pass them in — restores the distinction without a new field, but moves platform mechanics into the create pass.

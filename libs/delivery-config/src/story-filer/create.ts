@@ -13,7 +13,7 @@ import { type ToolkitIo } from "../io.js";
 import { type FilerConfig } from "./configure.js";
 import { type WorkItem, fileStem } from "./frontmatter.js";
 import { type Ledger, type LedgerEntry, saveLedger } from "./ledger.js";
-import { type Outcome, type Platform, extractIssueNumber } from "./platform.js";
+import { type Outcome, type ParentLink, type Platform, extractIssueNumber } from "./platform.js";
 
 /** What pass 1 hands the later passes about one work item. */
 export interface CreatedRecord {
@@ -155,8 +155,12 @@ function decorate(item: WorkItem, number: string, deps: CreatePassDeps, io: Tool
     }
 
     if (item.parent !== "") {
-        const linked: Outcome<true> = deps.platform.assignParent(number, item.parent);
-        if (linked.error !== null) io.stderr(`Error creating sub-issue relationship: ${linked.error}`);
+        const linked: ParentLink = deps.platform.assignParent(number, item.parent);
+        // A link the platform refused and a pair of ids that never resolved are different failures,
+        // and an operator chasing the second is looking for a missing issue, not a broken mutation.
+        if (linked.error !== null) {
+            io.stderr(linked.unresolved ? `Error: ${linked.error}` : `Error creating sub-issue relationship: ${linked.error}`);
+        }
         if (linked.value === true) io.stdout(`  Linked as sub-issue of: ${item.parent}`);
         else io.stderr("  Warning: Failed to create sub-issue relationship");
     }

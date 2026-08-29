@@ -48,6 +48,11 @@ export function extractIssueNumber(issueUrl: string): string | null {
     return /\/issues\/(\d+)$/.exec(issueUrl.trim())?.[1] ?? null;
 }
 
+/** A sub-issue link that failed, and whether it failed before the platform was ever asked. */
+export interface ParentLink extends Outcome<true> {
+    unresolved: boolean;
+}
+
 export class Platform {
     constructor(
         private readonly gh: RetryingRunner,
@@ -91,12 +96,21 @@ export class Platform {
         }
     }
 
-    /** Link `child` as a sub-issue of `parent`. An already-linked pair is success, not failure. */
-    assignParent(child: string, parent: string): Outcome<true> {
+    /**
+     * Link `child` as a sub-issue of `parent`. An already-linked pair is success, not failure.
+     *
+     * The two ways this fails read differently to an operator — a pair of ids that would not resolve
+     * never reached the platform at all — so the outcome says which happened and the caller words
+     * each one for itself.
+     */
+    assignParent(child: string, parent: string): ParentLink {
         const parentId: string | null = this.issueNodeId(parent).value;
         const childId: string | null = this.issueNodeId(child).value;
         if (parentId === null || childId === null || parentId === "" || childId === "") {
-            return failed(`Could not resolve issue IDs (parent=${parentId}, child=${childId})`);
+            return {
+                ...failed<true>(`Could not resolve issue IDs (parent=${parentId}, child=${childId})`),
+                unresolved: true,
+            };
         }
         const mutation = `
     mutation {
@@ -111,11 +125,11 @@ export class Platform {
     `;
         try {
             this.gh(["api", "graphql", "-H", "GraphQL-Features: sub_issues", "-f", `query=${mutation}`]);
-            return succeeded(true);
+            return { ...succeeded<true>(true), unresolved: false };
         } catch (error) {
             const failure: GhError = asGhError(error);
-            if (failure.stderr.toLowerCase().includes("already")) return succeeded(true);
-            return failed(failure.stderr);
+            if (failure.stderr.toLowerCase().includes("already")) return { ...succeeded<true>(true), unresolved: false };
+            return { ...failed<true>(failure.stderr), unresolved: false };
         }
     }
 
