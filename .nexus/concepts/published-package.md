@@ -1,8 +1,8 @@
 ---
 title: "Published Package"
 aliases: ["one package", "published manifest", "release package", "release tree", "two binaries", "install from the registry", "files allowlist"]
-touches: ["release-identity", "shipped-payload", "portable-tooling", "release-changelog", "release-gate", "toolkit-location", "environment-guard", "install-location"]
-last_updated_by: "#253"
+touches: ["release-identity", "shipped-payload", "portable-tooling", "release-changelog", "release-gate", "toolkit-location", "environment-guard", "install-location", "delegating-port"]
+last_updated_by: "#351"
 status: active
 verification: verified
 ---
@@ -41,6 +41,7 @@ An entry point decides whether it was run directly by comparing fully resolved r
 - [toolkit-location](toolkit-location.md) — the two declared binaries are how each toolkit is found by name once a package manager links them onto the caller's path.
 - [environment-guard](environment-guard.md) — this package declares the interpreter floor; the guard names a missing interpreter at run time, since nothing checks it at install.
 - [install-location](install-location.md) — where the payload this package delivers is placed, by an explicit second step rather than by installation itself.
+- [delegating-port](delegating-port.md) — carries the new entry point and the retained one together, which is what lets a delegating row resolve at all.
 
 ## Decision Log
 
@@ -51,3 +52,7 @@ The manifest that was private, unversioned and binary-less is the thing the epic
 ### 2026-08-27 — #253 — Getting installed is two steps, and the second is an explicit verb
 
 Installing the package delivers both toolkits and the payload, but placing the component set is a separate verb the adopter runs. A package-manager lifecycle script was refuted: such scripts are blocked by default in this project's package manager and are commonly disabled in continuous integration, so a share of installs would end silently with no component set and no error — and the second step has to print permission text the user must act on regardless, which a silent hook cannot deliver. Recording it here because this page otherwise reads as though installation alone leaves a working Nexus.
+
+### 2026-08-28 — #351 — Reciprocal link from delegating-port
+
+Delegation only resolves if the package ships both halves, so the retained entry point stays a published part for as long as any capability delegates to it — and the older runtime stays a declared floor alongside it.

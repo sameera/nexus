@@ -1,6 +1,6 @@
 ---
 concept: release-identity
-source_sha: 261ce2584d4096c52507a4419c669028bf6af453
+source_sha: 1db15668658c46d6d8a877156e3cd4c3bac60bbd
 generated: 2026-08-28
 ---
 
@@ -10,16 +10,17 @@ generated: 2026-08-28
 # Code Anchors: Release Identity
 
 - `VERSION` — the release's one declaration, at the release root; both toolkits read this file and neither carries a version literal.
-- `libs/portable-tools/src/release.ts` — the TypeScript half: the declaration filename, the upward walk from a caller-supplied directory, and the walk seeded from this module's own position; an empty or absent declaration returns null.
-- `libs/portable-tools/src/release.spec.ts` — walk coverage: found at the start directory, found above it, absent, and the empty-file-is-absent case.
+- `libs/release-identity/src/release.ts` — the one shared reader, relocated into a leaf both bundles depend on: the declaration filename, the upward walk from a caller-supplied directory, and the walk seeded from the module's own position; an empty or absent declaration returns null.
+- `libs/release-identity/src/release.spec.ts` — walk coverage: found at the start directory, found above it, absent, and the empty-file-is-absent case.
 - `libs/gh-toolkit/nexus_gh/release.py` — the Python half: the same filename and the same walk from the module's own position, returning None when unresolved.
 - `libs/gh-toolkit/tests/test_release_version.py` — the Python walk's coverage, plus the two halves agreeing on one declaration.
 - `libs/portable-tools/src/nexus-cli.ts` — the `version` verb: the single JSON object (version, component payload fingerprint, install location, resolved interpreter), the install-location read-out that names the content and the checkout pointers resolve into, and the payload selection that prefers the vendored copy and falls back to the authored tree.
 - `libs/portable-tools/src/version-verb.spec.ts` — verb coverage: the object's shape, the unresolved-interpreter case still exiting zero, the payload-selection fallback, and each install-location content the read-out reports.
-- `libs/gh-toolkit/nexus_gh/cli.py` — the Python toolkit's `version` capability, reporting the same one declaration under the same one-JSON-object contract.
+- `libs/delivery-config/src/version.ts`, `libs/delivery-config/src/version.spec.ts` — the second toolkit's `version` capability, reporting through that same shared reader so the two names cannot disagree.
 - `libs/portable-tools/src/vendor-components.ts` — supplies the component-tree hash the verb reports and the authored-root derivation it falls back to.
 - `libs/portable-tools/src/release-notes.ts` — the identity check comparing the declaration against the published manifest, the newest changelog entry and the tag, naming each divergence.
 - `libs/portable-tools/src/release-notes.spec.ts` — identity-check coverage, including the tag's leading-v tolerance and one finding per diverging declaration.
 - `package.json` — the published manifest's version, one of the four declarations the check compares, moved off its never-bumped initial value.
 - `CHANGELOG.md` — the newest entry's heading, another of the four declarations.
 - `docs/delivery/release-procedure.md` — step 1, which states that the declaration is edited and nothing else, and the below-1.0 policy that moves the breaking-change signal into the changelog's words.
+- `libs/release-identity/package.json` — the leaf placement itself: nothing it depends on depends back on the part that builds the release and runs the build gates.

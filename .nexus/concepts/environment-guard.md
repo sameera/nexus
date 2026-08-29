@@ -1,8 +1,8 @@
 ---
 title: "Environment Guard"
 aliases: ["environment defect", "environment diagnostic", "stderr diagnostic", "duplicate component sets", "missing interpreter guard"]
-touches: ["verb-reachability", "release-identity", "nexus-setup-cli", "published-package", "install-location", "pointing-install"]
-last_updated_by: "#256"
+touches: ["verb-reachability", "release-identity", "nexus-setup-cli", "published-package", "install-location", "pointing-install", "delegating-port"]
+last_updated_by: "#351"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ Detecting a duplicate installation is this guard's job; resolving one belongs to
 - [published-package](published-package.md) — that package declares the interpreter floor this guard's diagnostic names when the interpreter is absent at run time.
 - [install-location](install-location.md) — the account-side location this guard resolves and compares against the invoking repository, rather than a hard-coded home default.
 - [pointing-install](pointing-install.md) — resolves to the same real files as the checkout it points at, so a maintainer's arrangement never reports as a second component set.
+- [delegating-port](delegating-port.md) — the older runtime this guard diagnoses stays a real requirement for exactly as long as one delegating row survives.
 
 ## Decision Log
 
@@ -55,3 +56,7 @@ The account side of the comparison became the resolved install location rather t
 ### 2026-08-28 — #256 — Reciprocal link from pointing-install
 
 Mechanical reciprocity fan-out: the pointing-install page names this diagnostic's real-path comparison as the reason a maintainer's arrangement needs no exemption from the one-set rule.
+
+### 2026-08-28 — #351 — Reciprocal link from delegating-port
+
+A port that leaves capabilities delegating to a retained entry point keeps the older runtime a genuine requirement, so this guard's diagnostics stay live for it. The requirement retires with the last delegating row, not with the first ported capability.

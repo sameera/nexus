@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "shipped-payload"]
-last_updated_by: "#250"
+touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "shipped-payload", "delegating-port"]
+last_updated_by: "#351"
 status: active
 verification: verified
 ---
@@ -39,6 +39,7 @@ Every reachable capability is declared once in its toolkit's single registry, ma
 - [release-identity](release-identity.md) — reported by a verb declared in each toolkit's registry, under the same one-object-on-standard-output contract every verb keeps.
 - [environment-guard](environment-guard.md) — cross-cutting behavior placed in the dispatcher rather than in each verb, which is what makes a later-added verb covered by it.
 - [shipped-payload](shipped-payload.md) — the dispatcher is where that payload's byte-code suppression is set, so no capability of that toolkit can forget it.
+- [delegating-port](delegating-port.md) — a row here whose runnable delegates to a retained entry point on another runtime, so porting needs no second registry.
 
 ## Decision Log
 
@@ -65,3 +66,7 @@ The five distiller capabilities' standalone forms are deleted rather than left u
 ### 2026-08-27 — #250 — A further dispatch name is part of the declared surface, and a machine listing is a flag rather than a name
 
 The names a component body may write are the complete dispatch names, so a verb that dispatches further names declares them beside itself and the gate composes the two-token names from that same array: checking only the leading name would have left the commonest realistic typo ungated, since most high-traffic invocations in the bodies are two-token. Each dispatcher was given one membership guard reading that array, which makes "the dispatcher and the gate read one list" literally true and leaves no unreachable unknown-name tail, without touching any existing message or exit code. The second toolkit's machine surface became a flag emitting sorted structured output rather than a declared capability of its own: a flag cannot collide with a capability name, whereas a declared capability would appear in its own listing and in the human usage as though it were a delivery capability. Structured output also means rewording the human diagnostic can never break the gate. Refuted: restructuring each dispatcher into a name-to-handler table mirroring the registry — cleaner symmetry, but it rewrites five working bodies for a story about the gate; and checking leading names only, the literal reading of the epic, which leaves the busiest sites unchecked.
+
+### 2026-08-28 — #351 — Reciprocal link from delegating-port
+
+A delegating port leaves its not-yet-ported capabilities as ordinary rows in this registry, their runnables crossing a process boundary to a retained entry point. The registry's own contract is untouched by that: what a row declares is unchanged, so the declared surface stays complete throughout a port.
