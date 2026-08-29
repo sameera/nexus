@@ -6,6 +6,11 @@
  * this capability by name. The list below is the capability's whole surface — `--from` belongs to
  * the `/nxs.epic` command, not to this capability, which is why the promotion refusal quotes it
  * inside a message rather than accepting it as input.
+ *
+ * Spelling is frozen at what the Python filer accepted (Invariant 19), and that parser was argparse:
+ * a long flag takes its value attached with `=` as readily as in the next token, and an unambiguous
+ * prefix of a long flag names that flag. Both forms are part of the surface a caller may already be
+ * using, so both are accepted here; an ambiguous prefix is refused naming the flags it could mean.
  */
 
 import { programName } from "../registry.js";
@@ -51,10 +56,28 @@ export function epicUsage(): string {
     ].join("\n");
 }
 
+/** Every long flag the capability accepts, which is also the set an abbreviation may name. */
+const LONG_FLAGS: string[] = ["--help", "--no-project", "--project", "--promote", "--root", "--yes"];
+
+/** The long flags whose presence is the whole argument — a value attached to one is an error. */
+const VALUELESS: string[] = ["--help", "--no-project", "--yes"];
+
+type FlagMatch = { flag: string } | { ambiguous: string[] };
+
+/** The long flag `name` denotes, expanding an unambiguous prefix, or null when it names none. */
+function longFlag(name: string): FlagMatch | null {
+    if (LONG_FLAGS.includes(name)) return { flag: name };
+    const matches: string[] = LONG_FLAGS.filter((flag) => flag.startsWith(name));
+    if (matches.length === 1) return { flag: matches[0] };
+    if (matches.length > 1) return { ambiguous: matches };
+    return null;
+}
+
 export function parseEpicArgs(argv: string[]): ArgsOutcome {
     const args: EpicArgs = { draft: "", root: null, yes: false, project: null, noProject: false, promote: null };
     const positional: string[] = [];
     let invalid: string | null = null;
+    let optionsEnded = false;
 
     /** The value belonging to the flag at `i`, or null when the flag was given none. */
     function value(i: number, flag: string): string | null {
@@ -68,30 +91,52 @@ export function parseEpicArgs(argv: string[]): ArgsOutcome {
 
     for (let i = 0; i < argv.length && invalid === null; i++) {
         const token: string = argv[i];
-        switch (token) {
-            case "-h":
-            case "--help":
-                return { kind: "help" };
-            case "-y":
-            case "--yes":
-                args.yes = true;
-                break;
-            case "--no-project":
-                args.noProject = true;
-                break;
-            case "--root":
-                args.root = value(++i, token) ?? args.root;
-                break;
-            case "--project":
-                args.project = value(++i, token) ?? args.project;
-                break;
-            case "--promote":
-                args.promote = value(++i, token) ?? args.promote;
-                break;
-            default:
-                if (token.startsWith("-") && token !== "-") invalid = `unrecognized argument '${token}'`;
-                else positional.push(token);
+
+        if (!optionsEnded && token === "--") {
+            optionsEnded = true;
+            continue;
         }
+        if (optionsEnded || !token.startsWith("-") || token === "-") {
+            positional.push(token);
+            continue;
+        }
+        if (!token.startsWith("--")) {
+            if (token === "-h") return { kind: "help" };
+            if (token === "-y") args.yes = true;
+            else invalid = `unrecognized argument '${token}'`;
+            continue;
+        }
+
+        const at: number = token.indexOf("=");
+        const name: string = at === -1 ? token : token.slice(0, at);
+        const attached: string | null = at === -1 ? null : token.slice(at + 1);
+        const matched: FlagMatch | null = longFlag(name);
+        if (matched === null) {
+            invalid = `unrecognized argument '${token}'`;
+            continue;
+        }
+        if ("ambiguous" in matched) {
+            invalid = `ambiguous option: ${name} could match ${matched.ambiguous.join(", ")}`;
+            continue;
+        }
+        const flag: string = matched.flag;
+
+        if (VALUELESS.includes(flag)) {
+            if (attached !== null) {
+                invalid = `argument ${flag}: ignored explicit argument '${attached}'`;
+                continue;
+            }
+            if (flag === "--help") return { kind: "help" };
+            if (flag === "--yes") args.yes = true;
+            else args.noProject = true;
+            continue;
+        }
+
+        const given: string | null = attached ?? value(++i, flag);
+        if (given === null) continue;
+        if (flag === "--root") args.root = given;
+        else if (flag === "--project") args.project = given;
+        else args.promote = given;
     }
 
     if (invalid !== null) return { kind: "error", message: invalid };

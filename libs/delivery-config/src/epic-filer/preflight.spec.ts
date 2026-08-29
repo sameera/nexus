@@ -56,6 +56,32 @@ describe("the flags the capability accepts", () => {
     it("refuses a flag given no value", () => {
         expect(parseEpicArgs(["epic.md", "--root"])).toEqual({ kind: "error", message: "--root expects a value" });
     });
+
+    it("reads a value attached with '=', the way the filer has always accepted it", () => {
+        expect(parseEpicArgs(["epic.md", "--root=/repo", "--project=acme/1", "--promote=42"])).toMatchObject({
+            kind: "ok",
+            args: { root: "/repo", project: "acme/1", promote: "42" },
+        });
+    });
+
+    it("expands an unambiguous abbreviation of a long flag", () => {
+        expect(parseEpicArgs(["epic.md", "--roo", "/repo", "--proj", "acme/1", "--prom", "42", "--no"])).toMatchObject({
+            kind: "ok",
+            args: { root: "/repo", project: "acme/1", promote: "42", noProject: true },
+        });
+        expect(parseEpicArgs(["epic.md", "--ye"])).toMatchObject({ kind: "ok", args: { yes: true } });
+    });
+
+    it("refuses an abbreviation that two flags share, naming both", () => {
+        const parsed = parseEpicArgs(["epic.md", "--pro", "acme/1"]);
+        expect(parsed).toMatchObject({ kind: "error" });
+        expect((parsed as { message: string }).message).toContain("--project");
+        expect((parsed as { message: string }).message).toContain("--promote");
+    });
+
+    it("refuses a value attached to a flag that takes none", () => {
+        expect(parseEpicArgs(["epic.md", "--yes=1"])).toMatchObject({ kind: "error" });
+    });
 });
 
 describe("the run refuses before it reaches GitHub", () => {
