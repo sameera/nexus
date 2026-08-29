@@ -15,3 +15,9 @@
 - **Choice:** `Platform`, `ProjectLookup` and `writeBackDecisions` now return their outcomes (failure text included) instead of printing; the epic filer wraps its plain runner in a `throwingRunner` so it reuses the shared calls with one attempt each.
 - **Why:** Invariant 16 requires the shared layer to print nothing, and the Python epic filer has never retried anything — which calls retry is observable as latency, so reusing the story filer's retrying tier would change behaviour.
 - **Refuted alternative:** Keep the printing layer and let the epic filer inherit the story filer's wording on those lines — the ratified fallback in the record, held in reserve; the refactor came in bounded, so the divergence was not needed.
+
+## 2026-08-29 — The source-level conformance check is extended in place rather than duplicated
+
+- **Choice:** `story-filer/shared-module.spec.ts` now scans both filer directories and covers the epic-only capabilities (`ensureLabel`, `epicNeedsDesign`, `resolveSetting`) instead of a second spec beside the epic filer.
+- **Why:** One check over both directories cannot drift from itself, and the decision record asks for the existing check to be extended.
+- **Refuted alternative:** A parallel `epic-filer/shared-module.spec.ts` — reads more locally, but two copies of a structural rule is exactly the drift the rule exists to prevent.

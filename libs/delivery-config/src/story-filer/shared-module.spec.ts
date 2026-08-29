@@ -1,7 +1,7 @@
 /**
- * Invariant 10 — the filer reaches configuration, classification, project targets, label upsert,
- * the issue-type probe and the settings writer only through the shared module, and defines no
- * equivalent of its own.
+ * Invariant 10 (story filer) and Invariant 15 (epic filer) — each filer reaches configuration,
+ * classification, project and repository targets, label upsert, the issue-type probe and the
+ * settings writer only through the shared module, and defines no equivalent of its own.
  *
  * The point of the port was to stop a second copy existing. A private re-implementation would drift
  * from the epic filer and from `/nxs.epic` silently, which is exactly the failure the shared module
@@ -12,7 +12,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 
-const FILER_DIR: string = import.meta.dirname;
+const FILER_DIRS: string[] = [import.meta.dirname, path.join(import.meta.dirname, "..", "epic-filer")];
 
 /** The capability, and the shared module that owns it. */
 const SHARED: { symbol: string; module: string }[] = [
@@ -24,13 +24,18 @@ const SHARED: { symbol: string; module: string }[] = [
     { symbol: "layersAt", module: "../resolve.js" },
     { symbol: "resolveKeyFromLayers", module: "../resolve.js" },
     { symbol: "writeGithubBlock", module: "../write.js" },
+    { symbol: "ensureLabel", module: "../gh.js" },
+    { symbol: "epicNeedsDesign", module: "../publishing.js" },
+    { symbol: "resolveSetting", module: "../resolve.js" },
 ];
 
 function filerSources(): { name: string; text: string }[] {
-    return fs
-        .readdirSync(FILER_DIR)
-        .filter((name) => name.endsWith(".ts") && !name.endsWith(".spec.ts") && name !== "fixtures.ts")
-        .map((name) => ({ name, text: fs.readFileSync(path.join(FILER_DIR, name), "utf8") }));
+    return FILER_DIRS.flatMap((dir) =>
+        fs
+            .readdirSync(dir)
+            .filter((name) => name.endsWith(".ts") && !name.endsWith(".spec.ts") && name !== "fixtures.ts")
+            .map((name) => ({ name: `${path.basename(dir)}/${name}`, text: fs.readFileSync(path.join(dir, name), "utf8") })),
+    );
 }
 
 describe("the shared publishing module is the only implementation", () => {
