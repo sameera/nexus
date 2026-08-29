@@ -45,3 +45,9 @@
 - **Choice:** `ParentLink` adds `unresolved`, so the caller renders "Error: Could not resolve issue IDs (…)" separately from "Error creating sub-issue relationship: …".
 - **Why:** Making the layer report-free had collapsed two Python diagnostics into one; an operator chasing an unresolved id is looking for a missing issue, not a broken mutation.
 - **Refuted alternative:** Resolve the node ids in the caller and pass them in — restores the distinction without a new field, but moves platform mechanics into the create pass.
+
+## 2026-08-29 — Only the last scope a project lookup tried reports its failure
+
+- **Choice:** `byNumber` / `byTitle` try `organization` then `user` and carry forward only the final attempt's failure, so one refused GraphQL call yields at most one warning line.
+- **Why:** The Python filer reassigned `result` before its single `warn`, so the org attempt's failure was never printed on its own — a per-scope line would add a diagnostic the frozen surface never had.
+- **Refuted alternative:** Report every failed scope — more honest about what was tried, but it doubles a line Invariant 19 freezes at one.

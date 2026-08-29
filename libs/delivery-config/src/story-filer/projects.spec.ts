@@ -136,6 +136,10 @@ describe("auto-discovery", () => {
     });
 });
 
+/** Every project query refused, and every other call left to the fake platform's defaults. */
+const refusedGraphql = (args: string[]): RunResult | undefined =>
+    args[0] === "api" && args[1] === "graphql" ? FAIL("gh: 502") : undefined;
+
 describe("a lookup that failed rather than found nothing", () => {
     it("reports why the owner could not be read for a bare project reference", () => {
         const root: string = repo({ project: "4" });
@@ -157,6 +161,32 @@ describe("a lookup that failed rather than found nothing", () => {
         );
         expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
         expect(io.err.join("\n")).toContain("Error fetching repository projects: gh: no such repository");
+    });
+
+    it("reports a numbered lookup and a title search the platform refused", () => {
+        const byNumber: string = repo({ project: "acme/4" });
+        writeItem(byNumber, "STORY-1.md", story("1"));
+        const numbered = recordingIo(byNumber);
+        expect(runCreateStory([scratch(byNumber)], numbered, platform(refusedGraphql).env)).toBe(0);
+        expect(numbered.err.join("\n")).toContain("Error fetching project by number: gh: 502");
+
+        const byTitle: string = repo({ project: "acme/Roadmap" });
+        writeItem(byTitle, "STORY-1.md", story("1"));
+        const titled = recordingIo(byTitle);
+        expect(runCreateStory([scratch(byTitle)], titled, platform(refusedGraphql).env)).toBe(0);
+        expect(titled.err.join("\n")).toContain("Error searching for project by title: gh: 502");
+    });
+
+    it("reports an answer it could not read", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) => {
+            if (args[0] === "repo" && args.includes(".nameWithOwner")) return OK(`${REPO}\n`);
+            return args[0] === "api" && args[1] === "graphql" ? OK("<html>not json</html>") : undefined;
+        });
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Error parsing project response:");
     });
 
     it("reports a repository name it cannot split into owner and repo", () => {

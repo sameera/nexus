@@ -36,6 +36,10 @@ function announce(found: FoundProject, out: EpicOutput): string | null {
         const { step, detail }: LookupFailure = found.failure;
         if (step === "owner") out.warn(`Error getting repo owner: ${detail}`);
         else if (step === "repository-name") out.warn(`Could not determine repository name: ${detail}`);
+        else if (step === "project-by-number") out.warn(`Error fetching project: ${detail}`);
+        else if (step === "project-by-title") out.warn(`Error searching for project: ${detail}`);
+        else if (step === "repository-projects") out.warn(`Error fetching repository projects: ${detail}`);
+        else if (step === "parse") out.warn(`Error parsing project response: ${detail}`);
         else out.warn(`Unexpected repository name format: ${detail}`);
     }
     if (found.id !== null) out.line(`📊 Found project: ${found.title}`);

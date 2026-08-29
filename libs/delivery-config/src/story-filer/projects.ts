@@ -79,7 +79,14 @@ interface ProjectNode {
  * step in different words, so the sentence belongs to the caller and only the fact belongs here.
  */
 export interface LookupFailure {
-    step: "owner" | "repository-name" | "repository-name-format";
+    step:
+        | "owner"
+        | "repository-name"
+        | "repository-name-format"
+        | "project-by-number"
+        | "project-by-title"
+        | "repository-projects"
+        | "parse";
     detail: string;
 }
 
@@ -98,6 +105,15 @@ export interface DiscoveredProject extends FoundProject {
 
 export const NOT_FOUND: FoundProject = { id: null, title: "", failure: null };
 
+/** What one GraphQL call produced: the parsed payload, or the step that stopped it. */
+interface QueryOutcome {
+    data: unknown | null;
+    failure: LookupFailure | null;
+}
+
+/** What a thrown value says for itself, for the parse failure a caller renders. */
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
 /** A lookup that could not run, carrying the step that stopped it. */
 const notLookedUp = (step: LookupFailure["step"], detail: string): FoundProject => ({
     ...NOT_FOUND,
@@ -108,16 +124,21 @@ const notLookedUp = (step: LookupFailure["step"], detail: string): FoundProject 
 export class ProjectLookup {
     constructor(private readonly run: GhRunner) {}
 
-    private query(query: string, variables: [string, string][], numbers: [string, string][] = []): unknown | null {
+    private query(
+        step: LookupFailure["step"],
+        query: string,
+        variables: [string, string][],
+        numbers: [string, string][] = [],
+    ): QueryOutcome {
         const args: string[] = ["api", "graphql", "-f", `query=${query}`];
         for (const [key, value] of variables) args.push("-f", `${key}=${value}`);
         for (const [key, value] of numbers) args.push("-F", `${key}=${value}`);
         const result: RunResult = this.run(args);
-        if (result.status !== 0) return null;
+        if (result.status !== 0) return { data: null, failure: { step, detail: result.stderr } };
         try {
-            return JSON.parse(result.stdout);
-        } catch {
-            return null;
+            return { data: JSON.parse(result.stdout), failure: null };
+        } catch (error) {
+            return { data: null, failure: { step: "parse", detail: messageOf(error) } };
         }
     }
 
@@ -151,27 +172,40 @@ export class ProjectLookup {
     }
 
     byNumber(owner: string, projectNumber: string): FoundProject {
+        // Only the last attempt's failure is reported: a scope that answers nothing is an ordinary
+        // miss the next scope is expected to cover, not a failure worth a line of its own.
+        let failure: LookupFailure | null = null;
         for (const scope of ["organization", "user"]) {
-            const data = this.query(BY_NUMBER(scope), [["owner", owner]], [["number", projectNumber]]) as {
-                data?: Record<string, { projectV2?: ProjectNode | null } | null>;
-            } | null;
+            const outcome: QueryOutcome = this.query(
+                "project-by-number",
+                BY_NUMBER(scope),
+                [["owner", owner]],
+                [["number", projectNumber]],
+            );
+            failure = outcome.failure;
+            const data = outcome.data as { data?: Record<string, { projectV2?: ProjectNode | null } | null> } | null;
             const project: ProjectNode | null | undefined = data?.data?.[scope]?.projectV2;
             if (project) return this.found(project);
         }
-        return NOT_FOUND;
+        return failure === null ? NOT_FOUND : { ...NOT_FOUND, failure };
     }
 
     byTitle(owner: string, title: string): FoundProject {
         let nodes: ProjectNode[] = [];
+        let failure: LookupFailure | null = null;
         for (const scope of ["organization", "user"]) {
-            const data = this.query(BY_TITLE(scope), [
+            const outcome: QueryOutcome = this.query("project-by-title", BY_TITLE(scope), [
                 ["owner", owner],
                 ["title", title],
-            ]) as { data?: Record<string, { projectsV2?: { nodes?: ProjectNode[] } | null } | null> } | null;
+            ]);
+            failure = outcome.failure;
+            const data = outcome.data as {
+                data?: Record<string, { projectsV2?: { nodes?: ProjectNode[] } | null } | null>;
+            } | null;
             nodes = data?.data?.[scope]?.projectsV2?.nodes ?? [];
             if (nodes.length > 0) break;
         }
-        if (nodes.length === 0) return NOT_FOUND;
+        if (nodes.length === 0) return failure === null ? NOT_FOUND : { ...NOT_FOUND, failure };
         const exact: ProjectNode | undefined = nodes.find(
             (node) => (node.title ?? "").toLowerCase() === title.toLowerCase(),
         );
@@ -188,12 +222,15 @@ export class ProjectLookup {
         }
         const at: number = nameWithOwner.indexOf("/");
         const owner: string = nameWithOwner.slice(0, at);
-        const data = this.query(FOR_REPOSITORY, [
+        const outcome: QueryOutcome = this.query("repository-projects", FOR_REPOSITORY, [
             ["owner", owner],
             ["repo", nameWithOwner.slice(at + 1)],
-        ]) as { data?: { repository?: { projectsV2?: { nodes?: ProjectNode[] } | null } | null } } | null;
+        ]);
+        const data = outcome.data as {
+            data?: { repository?: { projectsV2?: { nodes?: ProjectNode[] } | null } | null };
+        } | null;
         const nodes: ProjectNode[] = data?.data?.repository?.projectsV2?.nodes ?? [];
-        if (nodes.length === 0) return { ...NOT_FOUND, ref: null };
+        if (nodes.length === 0) return { ...NOT_FOUND, failure: outcome.failure, ref: null };
         const project: ProjectNode = nodes[0];
         return {
             ...this.found(project),
@@ -218,7 +255,11 @@ function reportFailure(found: FoundProject, io: ToolkitIo): void {
     if (found.failure === null) return;
     const { step, detail }: LookupFailure = found.failure;
     if (step === "owner") io.stderr(`Error getting repo owner: ${detail}`);
-    else if (step === "repository-name") io.stderr(`Error fetching repository projects: ${detail}`);
+    else if (step === "repository-name" || step === "repository-projects") {
+        io.stderr(`Error fetching repository projects: ${detail}`);
+    } else if (step === "project-by-number") io.stderr(`Error fetching project by number: ${detail}`);
+    else if (step === "project-by-title") io.stderr(`Error searching for project by title: ${detail}`);
+    else if (step === "parse") io.stderr(`Error parsing project response: ${detail}`);
     else io.stderr(`Unexpected repository name format: ${detail}`);
 }
 

@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { type RunResult } from "../gh";
 import { FAIL, OK, checkoutWith, draft, fakeEnvironment, recordingIo, writeDraft } from "./fixtures";
 import { runCreateEpic } from "./run";
 
@@ -102,6 +103,61 @@ describe("a lookup that failed rather than found nothing", () => {
     });
 });
 
+describe("a lookup call the platform refused", () => {
+    /** File one epic with `answer` deciding every call the run makes. */
+    function refusing(github: Record<string, string>, answer: (args: string[]) => RunResult | undefined) {
+        const root: string = checkoutWith(github);
+        const path: string = writeDraft(root, draft());
+        const io = recordingIo(root);
+        const code: number = runCreateEpic([path], io, fakeEnvironment({ answer }).env);
+        return { code, io };
+    }
+
+    const graphql = (matching: string, result: RunResult) => (args: string[]): RunResult | undefined =>
+        args[0] === "api" && args[1] === "graphql" && args.join(" ").includes(matching) ? result : undefined;
+
+    it("says why the numbered lookup could not run", () => {
+        const run = refusing({ classification: "labels", project: "acme/1" }, graphql("projectV2(number", FAIL("gh: 502")));
+        expect(run.code).toBe(0);
+        expect(run.io.all()).toContain("Error fetching project: gh: 502");
+    });
+
+    it("says why the title search could not run", () => {
+        const run = refusing({ classification: "labels", project: "acme/Roadmap" }, graphql("query: $title", FAIL("gh: 502")));
+        expect(run.code).toBe(0);
+        expect(run.io.all()).toContain("Error searching for project: gh: 502");
+    });
+
+    it("says why the repository probe could not run", () => {
+        const run = refusing({ classification: "labels" }, graphql("repository(", FAIL("gh: 502")));
+        expect(run.code).toBe(0);
+        expect(run.io.all()).toContain("Error fetching repository projects: gh: 502");
+    });
+
+    it("says when the answer it did get could not be read", () => {
+        const run = refusing({ classification: "labels" }, graphql("repository(", OK("<html>not json</html>")));
+        expect(run.code).toBe(0);
+        expect(run.io.all()).toContain("Error parsing project response:");
+    });
+});
+
+describe("the node id both decorations need", () => {
+    it("says why the issue id could not be read, and still does not fail the run", () => {
+        const root: string = checkoutWith({ classification: "labels", project: "acme/1" });
+        const path: string = writeDraft(root, draft());
+        const io = recordingIo(root);
+        const fake = fakeEnvironment({
+            answer: (args: string[]) => {
+                if (args[0] === "issue" && args[1] === "view") return FAIL("gh: issue not found");
+                if (args[0] === "api" && args[1] === "graphql") return OK(PROJECT);
+                return undefined;
+            },
+        });
+        expect(runCreateEpic([path], io, fake.env)).toBe(0);
+        expect(io.all()).toContain("Error getting issue ID: gh: issue not found");
+    });
+});
+
 describe("a deliberate absence stays silent", () => {
     it("makes no lookup, no discovery and no project call for a declared none", () => {
         const run = file({ classification: "labels", project: "none" });
@@ -129,6 +185,9 @@ describe("board membership is decoration", () => {
         });
         const io = recordingIo(root);
         expect(runCreateEpic([path], io, fake.env)).toBe(0);
+        // What the platform said, beside the step that did not happen — the second alone is a
+        // failure with no reason attached.
+        expect(io.all()).toContain("Error adding issue to project: nope");
         expect(io.all()).toContain("Failed to add issue to project");
     });
 });

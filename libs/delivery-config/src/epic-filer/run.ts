@@ -16,7 +16,7 @@ import { type ToolkitIo } from "../io.js";
 import { programName } from "../registry.js";
 import { CAPABILITY, type ArgsOutcome, type EpicArgs, epicUsage, parseEpicArgs } from "./args.js";
 import { type GhRunner, ensureLabel } from "../gh.js";
-import { Platform, extractIssueNumber } from "../story-filer/platform.js";
+import { type Outcome, Platform, extractIssueNumber } from "../story-filer/platform.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
 import { withLink } from "./link.js";
 import { lookupIssueTypeId, setIssueType } from "../gh.js";
@@ -189,10 +189,14 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
 
     let appliedLabel: string | null = classification.createLabel;
     const nodeId: string | null =
-        project.projectId !== null || classification.issueType !== null ? platform.issueNodeId(issueNumber).value : null;
+        project.projectId !== null || classification.issueType !== null ? issueNodeId(issueNumber, platform, out) : null;
 
     if (project.projectId !== null && nodeId !== null && nodeId !== "") {
-        if (platform.addToProject(project.projectId, nodeId).value === true) out.line("📊 Added to project");
+        const added: Outcome<true> = platform.addToProject(project.projectId, nodeId);
+        // Both lines, in this order: what the platform said, then the step that did not happen.
+        // The second alone leaves the lead with a failure and no reason for it (Invariant 16).
+        if (added.error !== null) out.warn(`Error adding issue to project: ${added.error}`);
+        if (added.value === true) out.line("📊 Added to project");
         else out.warn("Failed to add issue to project");
     }
 
@@ -259,4 +263,11 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     out.line(`   Epic frontmatter updated with: link: "#${issueNumber}"`);
     if (args.promote !== null) out.line(`   Identity: #${issueNumber} kept — no second issue, nothing closed`);
     return 0;
+}
+
+/** The node id of `issueNumber`, with a failed lookup reported in this filer's own wording. */
+function issueNodeId(issueNumber: string, platform: Platform, out: EpicOutput): string | null {
+    const found: Outcome<string> = platform.issueNodeId(issueNumber);
+    if (found.error !== null) out.warn(`Error getting issue ID: ${found.error}`);
+    return found.value;
 }
