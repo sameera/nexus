@@ -81,6 +81,41 @@ files, compared by resolved real path.
 Re-run the install verb only when you add or remove a component file; editing an existing one needs
 nothing.
 
+## The other half of the loop: put the toolkits on your PATH
+
+Pointing the install location at your checkout makes the *components* live. It does nothing for the
+*toolkits* they invoke. Every component body addresses `nexus` and `nexus-gh` by bare name — a
+component never encodes a path to the toolkit it invokes, and the build-time invocation gate
+enforces that — so both executables have to resolve on your `PATH` or every `/nxs.*` stage that
+shells out fails with `command not found`.
+
+Build the release tree and link it from the checkout:
+
+```bash
+pnpm nexus:build-release
+npm link
+```
+
+That puts `nexus` and `nexus-gh` on your `PATH`, resolved to this checkout's `dist/`. Confirm with
+
+```bash
+nexus version
+nexus-gh version
+```
+
+Both print the same release version, and `nexus version` reports the same install location the
+source run above reported.
+
+**Re-run `pnpm nexus:build-release` when you change anything under `libs/`, and whenever you add a
+verb or a capability.** The two halves of the loop refresh on different triggers, and the mismatch
+bites in one direction: components are live from the checkout, so a body may name a dispatch name
+the linked `dist/` does not carry yet. The invocation gate passes — it reads the checkout's own
+registry — while the command fails at run time. This is the toolkit's version of the false
+affordance the authored-tree move removed for components, and rebuilding is the whole remedy.
+
+An adopter needs none of this: `npm install -g @sameeraperera/nexus` places both executables, and
+`README.md` documents that path.
+
 ## What not to run in this checkout
 
 - **`nexus deploy`** installs components into one repository's loaded directory. Running it here

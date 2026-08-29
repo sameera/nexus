@@ -27,8 +27,8 @@ Ask for either form rather than spelling the label out, so a repository that ren
 its queries too:
 
 ```bash
-python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query --form search
-python ./.claude/skills/nxs-gh-shared/delivery_config.py backlog-query --form exclude
+nexus-gh config backlog-query --form search
+nexus-gh config backlog-query --form exclude
 ```
 
 ## Feature index

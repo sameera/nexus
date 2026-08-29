@@ -95,6 +95,23 @@ describe("no instruction places components at this repository's loaded path (AC3
 
         expect(offenders).toEqual([]);
     });
+
+    /**
+     * The sibling of the two checks above, over the class they miss (#340). Those ban *placing*
+     * components at the loaded path; this bans *running* something from it. Nothing Nexus owns
+     * lives there any more, so a fenced command reaching into it cannot run — and unlike a broken
+     * link, it fails only for the reader who tries it.
+     *
+     * Fenced blocks only, for the reason the block above gives: a fence is what a reader runs, and
+     * a dated record citing a source line as it stood is a mention, not an instruction.
+     */
+    it("runs nothing out of it, since nothing Nexus owns lives there", () => {
+        const offenders: string[] = surfaces.filter((rel) =>
+            fencedBlocks(read(rel)).some((block) => block.includes(`${LOADED_DIRNAME}/`)),
+        );
+
+        expect(offenders).toEqual([]);
+    });
 });
 
 describe("the release procedure's component diff", () => {
