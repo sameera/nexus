@@ -22,6 +22,8 @@ import { withLink } from "./link.js";
 import { lookupIssueTypeId, setIssueType } from "../gh.js";
 import { EpicPlatform, throwingRunner } from "./platform.js";
 import { type ProjectPlan, planProject } from "./projects.js";
+import { type WriteReport } from "../write.js";
+import { writeBackDecisions } from "../story-filer/writeback.js";
 import { type ClassificationPlan, type EpicConfig, planClassification, resolveEpicConfig } from "./configure.js";
 import { type DesignDecision, applyNeedsDesign, designDecision } from "./design.js";
 import { type ParsedDraft, deriveFiledBody, parseDraft } from "./document.js";
@@ -216,6 +218,25 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
             if (epic.addLabel(issueNumber, appliedLabel)) out.line(`🏷️  Fallback label added: ${appliedLabel}`);
             else out.warn(`Could not add fallback label '${appliedLabel}' to issue #${issueNumber}`);
         }
+    }
+
+    // The first run on a repository that declares nothing persists what it just decided, so the
+    // fragile probe and the discovery run at most once per repository. The shared writer is
+    // add-only, and no repository target is ever written: an absent one means "the current
+    // repository", and pinning it would freeze what is meant to stay inherited (Invariant 13).
+    const seeded: WriteReport = writeBackDecisions(ready.projectRoot, {
+        classification:
+            config.classification === "types" || (config.classification === "legacy-auto" && typeApplied)
+                ? "types"
+                : "labels",
+        // Only the auto-discovery path has a concrete project value to freeze.
+        discoveredProject: project.ranAutoDiscovery ? project.discoveredRef : undefined,
+    });
+    if (seeded.added.length > 0) {
+        out.warn(
+            `Seeded github config (${seeded.added.join(", ")}) into ` +
+                ".nexus/config/settings.yml — review and commit",
+        );
     }
 
     out.line("");
