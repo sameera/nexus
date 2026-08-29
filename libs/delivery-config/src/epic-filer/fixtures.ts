@@ -62,6 +62,20 @@ export interface FakeOptions {
     isRepo?: boolean;
 }
 
+/**
+ * The platform client the carried-across Python cases run against: it authenticates, names the
+ * repository, reports no projects, upserts any label and mints issue #7. A case's own `answer` gets
+ * first refusal, which is how it makes exactly one call fail.
+ */
+export function cannedGh(args: string[]): RunResult | undefined {
+    if (args[0] === "repo" && args[1] === "view") return OK("acme/repo\n");
+    if (args[0] === "api" && args[1] === "graphql") {
+        return OK(JSON.stringify({ data: { repository: { projectsV2: { nodes: [] } } } }));
+    }
+    if (args[0] === "issue" && args[1] === "create") return OK("https://github.com/acme/repo/issues/7\n");
+    return undefined;
+}
+
 export function fakeEnvironment(options: FakeOptions = {}): FakeEnvironment {
     const calls: string[][] = [];
     const gitCalls: string[][] = [];
@@ -77,7 +91,7 @@ export function fakeEnvironment(options: FakeOptions = {}): FakeEnvironment {
                 roots.push(root);
                 return (args: string[]): RunResult => {
                     calls.push(args);
-                    return options.answer?.(args) ?? OK();
+                    return options.answer?.(args) ?? cannedGh(args) ?? OK();
                 };
             },
             gitFor: (root: string): GhRunner => {
