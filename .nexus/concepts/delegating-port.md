@@ -1,8 +1,8 @@
 ---
 title: "Delegating Port"
 aliases: ["delegating port", "non-flag-day port", "cross-runtime delegation", "retained entry point", "delegating registry row", "incremental language port"]
-touches: ["verb-reachability", "toolkit-location", "environment-guard", "published-package"]
-last_updated_by: "#351"
+touches: ["verb-reachability", "toolkit-location", "environment-guard", "published-package", "resumable-batch-filing"]
+last_updated_by: "#353"
 status: active
 verification: verified
 ---
@@ -27,7 +27,7 @@ Delegation targets that entry point, never a module inside it. Running the entry
 4. Arguments reach a delegated capability unmodified, its output is inherited rather than captured, and its exit code is forwarded unchanged.
 5. A retained entry that cannot be found is reported as an incomplete installation naming the remedy, never raised as a spawn error.
 6. The old runtime's requirement stays declared, and anything the old half still calls stays unchanged, for exactly as long as one delegating row survives.
-7. Behaviour preservation is the bar: a ported capability keeps its flags, output routing and exit codes, and the old half's tests are the specification carried across rather than reinvented.
+7. Behaviour preservation is the bar — flags, output routing, exit codes and the old half's tests as specification — save for a line the port would leave misleading, corrected only by design-gate ratification.
 
 ## Integration Points
 
@@ -35,9 +35,14 @@ Delegation targets that entry point, never a module inside it. Running the entry
 - [toolkit-location](toolkit-location.md) — the name that stays the contract while the implementation behind it moves, which is what spares every body and stage a rewrite.
 - [environment-guard](environment-guard.md) — the old runtime it diagnoses stays a real requirement while any row delegates, and stops being one when the last retires.
 - [published-package](published-package.md) — ships the new entry and the retained one together, which is what makes a delegating row resolvable at all.
+- [resumable-batch-filing](resumable-batch-filing.md) — the contract this port had to keep intact, and the source of the one line it corrected instead of preserving.
 
 ## Decision Log
 
 ### 2026-08-28 — #351 — One dispatcher from the first commit, unported capabilities delegating to the retained entry
 
 The toolkit's name resolved to the new implementation at the first story, with the two issue filers left as registry rows running the retained entry point as a child process. This is what makes the switch non-flag-day: the filers move in their own epics without the dispatcher changing again, and the name written into every component body and pipeline stage is never rewritten. Delegating through the entry point rather than its individual modules preserves three things for free — the program name the filers report in their own usage and error text, their two different ways of signalling failure, and the runtime declaration, which stays in exactly one place until it is retired. **Refuted alternative:** leave the old entry as the installed binary and add a separate new one for the ported capabilities, avoiding any cross-runtime spawn entirely; it loses because it means either two names or a flag day at the end, and every body and stage naming the toolkit would then be rewritten twice.
+
+### 2026-08-29 — #353 — The preservation bar admits a ratified exception, and a row flips last in one binding
+
+Porting the batch issue filer forced the bar to be stated more exactly than "keep everything". One line could not be kept: the message a half-finished run prints telling the operator how to resume it named the runtime being retired and reconstructed only two of the seven flags the run was given, so preserving it would have sent a resumed batch to a different root or filed it under the wrong classification. It is emitted in the new spelling instead, carrying every flag the run actually received — and the correction was ratified at the design gate, recorded as the single deliberate deviation, rather than taken quietly during the port. The blast radius is human readers only: the stages that consume this capability branch on its incomplete marker and its exit code and re-run the identical command themselves. The sequencing rule that made the switch safe is the second half: the capability was built and fully tested behind its handler while the registry row still delegated, and the row flipped last in one binding, so no intermediate state served part of a batch correctly. **Refuted alternative:** freeze the line verbatim, keeping the bar absolute and leaving no judgement call in the port — refused because the preserved text is not merely stale but misleading in the one situation it exists to serve, which would leave the story requiring an accurate resume command asserted by nothing.
