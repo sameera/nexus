@@ -19,7 +19,9 @@ import { type GhRunner, ensureLabel } from "../gh.js";
 import { Platform, extractIssueNumber } from "../story-filer/platform.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
 import { withLink } from "./link.js";
+import { lookupIssueTypeId, setIssueType } from "../gh.js";
 import { EpicPlatform, throwingRunner } from "./platform.js";
+import { type ProjectPlan, planProject } from "./projects.js";
 import { type ClassificationPlan, type EpicConfig, planClassification, resolveEpicConfig } from "./configure.js";
 import { type DesignDecision, applyNeedsDesign, designDecision } from "./design.js";
 import { type ParsedDraft, deriveFiledBody, parseDraft } from "./document.js";
@@ -115,6 +117,8 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
         return 1;
     }
 
+    const project: ProjectPlan = planProject(ready.layers, args, ready.run, out);
+
     const run: GhRunner = ready.run;
     const platform: Platform = new Platform(throwingRunner(run), config.epicRepo);
 
@@ -172,19 +176,60 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     if (linked.content === null) out.error("Could not find frontmatter boundaries");
     else fs.writeFileSync(ready.draft, linked.content, "utf8");
 
+    // Every step from here is decoration: a failure warns and the run still exits zero.
     // The gate is made and applied the same way on both paths.
     const design: DesignDecision = designDecision(frontmatter["complexity"]);
     if (design.needed) applyNeedsDesign(issueNumber, config, epic, ready.run, out, design.rollup);
+
+    let appliedLabel: string | null = classification.createLabel;
+    const nodeId: string | null =
+        project.projectId !== null || classification.issueType !== null ? platform.issueNodeId(issueNumber).value : null;
+
+    if (project.projectId !== null && nodeId !== null && nodeId !== "") {
+        if (platform.addToProject(project.projectId, nodeId).value === true) out.line("📊 Added to project");
+        else out.warn("Failed to add issue to project");
+    }
+
+    let typeApplied = false;
+    if (classification.issueType !== null) {
+        out.line(`🏷️  Setting issue type: ${classification.issueType}...`);
+        const typeId: string | null = lookupIssueTypeId(classification.issueType, run, config.epicRepo);
+        typeApplied = typeId !== null && nodeId !== null && nodeId !== "" && setIssueType(nodeId, typeId, run);
+        if (typeApplied) {
+            out.line(`🏷️  Issue type set: ${classification.issueType}`);
+        } else if (config.classification === "types") {
+            // The repository declared that it types its issues, so a type it cannot apply is a
+            // configuration error to surface — never papered over with a label (Invariant 11).
+            out.warn(
+                typeId !== null
+                    ? `Failed to set issue type '${classification.issueType}' on issue #${issueNumber}`
+                    : `Issue type '${classification.issueType}' not found in repository — type not set (classification: types)`,
+            );
+        } else {
+            out.warn(
+                typeId !== null
+                    ? `Failed to set issue type '${classification.issueType}' on issue #${issueNumber} — falling back to label`
+                    : `Issue type '${classification.issueType}' not found in repository — falling back to label '${config.epicLabel}'`,
+            );
+            appliedLabel = config.epicLabel;
+            ensureLabel(appliedLabel, run, config.epicRepo, "5319E7", "Epic (created by nxs-gh-create-epic)");
+            if (epic.addLabel(issueNumber, appliedLabel)) out.line(`🏷️  Fallback label added: ${appliedLabel}`);
+            else out.warn(`Could not add fallback label '${appliedLabel}' to issue #${issueNumber}`);
+        }
+    }
 
     out.line("");
     out.success(args.promote !== null ? "Unplanned Epic Promoted" : "GitHub Issue Created");
     out.line("");
     out.line(`   Issue:  #${issueNumber}`);
     out.line(`   Title:  ${title}`);
+    if (typeApplied) out.line(`   Type:   ${classification.issueType}`);
+    else if (appliedLabel !== null) out.line(`   Label:  ${appliedLabel}`);
     out.line(
         `   Design: ${design.needed ? `needs a decision record (${config.needsDesignLabel})` : `no record needed (${design.rollup} epic)`}`,
     )
     out.line(`   URL:    ${issueUrl}`);
+    if (project.projectId !== null) out.line("   Project: Added ✓");
     out.line("");
     out.line(`   Epic frontmatter updated with: link: "#${issueNumber}"`);
     if (args.promote !== null) out.line(`   Identity: #${issueNumber} kept — no second issue, nothing closed`);

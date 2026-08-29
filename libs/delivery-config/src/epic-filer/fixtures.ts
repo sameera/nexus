@@ -73,6 +73,7 @@ export function cannedGh(args: string[]): RunResult | undefined {
         return OK(JSON.stringify({ data: { repository: { projectsV2: { nodes: [] } } } }));
     }
     if (args[0] === "issue" && args[1] === "create") return OK("https://github.com/acme/repo/issues/7\n");
+    if (args[0] === "issue" && args[1] === "view" && args.includes("id")) return OK("I_node\n");
     return undefined;
 }
 
