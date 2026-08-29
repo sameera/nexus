@@ -19,7 +19,7 @@ import { type GhRunner, ensureLabel } from "../gh.js";
 import { Platform, extractIssueNumber } from "../story-filer/platform.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
 import { withLink } from "./link.js";
-import { throwingRunner } from "./platform.js";
+import { EpicPlatform, throwingRunner } from "./platform.js";
 import { type ClassificationPlan, type EpicConfig, planClassification, resolveEpicConfig } from "./configure.js";
 import { type ParsedDraft, deriveFiledBody, parseDraft } from "./document.js";
 import { type EpicOutput, epicOutput } from "./output.js";
@@ -59,6 +59,27 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
 
     const config: EpicConfig = resolveEpicConfig(ready.layers, frontmatter);
     if (config.epicRepo !== null) out.line(`📦 Epic repo (from config): ${config.epicRepo}`);
+
+    const epic: EpicPlatform = new EpicPlatform(ready.run, config.epicRepo);
+
+    // `--promote` states the operation; the unplanned label answers whether the operation applies
+    // to an epic in that state. Both are read before any write (Invariant 10).
+    if (args.promote !== null) {
+        const labels: string[] | null = epic.issueLabels(args.promote);
+        if (labels === null) {
+            out.error(`Cannot promote #${args.promote}: no such issue in the target repository.`);
+            return 1;
+        }
+        if (!labels.includes(config.unplannedLabel)) {
+            out.error(
+                `Cannot promote #${args.promote}: it does not carry the '${config.unplannedLabel}' label, ` +
+                    "so it is not an unplanned epic. Nothing was written. To load an already-planned " +
+                    `epic instead, use \`/nxs.epic --from #${args.promote}\`.`,
+            );
+            return 1;
+        }
+        out.line(`⬆️  Promoting unplanned epic #${args.promote} in place (no new issue is created)`);
+    }
 
     const classification: ClassificationPlan = planClassification(config);
     if (classification.warning !== null) out.warn(classification.warning);
@@ -104,17 +125,43 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
         }
     }
 
-    out.line("🚀 Creating GitHub issue...");
-    const created = platform.createIssue(title, classification.createLabel === null ? [] : [classification.createLabel], filedBody);
-    if (created.value === null || created.value === "") {
-        out.error(`Failed to create GitHub issue: ${created.error ?? ""}`);
-        return 1;
-    }
-    const issueUrl: string = created.value;
-    const issueNumber: string | null = extractIssueNumber(issueUrl) ?? /(\d+)$/.exec(issueUrl.trim())?.[1] ?? null;
-    if (issueNumber === null) {
-        out.error(`Could not extract issue number from: ${issueUrl}`);
-        return 1;
+    let issueUrl: string;
+    let issueNumber: string;
+    if (args.promote !== null) {
+        // The stub's own issue becomes the epic, so every reference written when the scope was
+        // deferred survives the promotion.
+        out.line(`🚀 Populating GitHub issue #${args.promote}...`);
+        const populated = epic.populateIssue(
+            args.promote,
+            title,
+            filedBody,
+            config.unplannedLabel,
+            classification.createLabel,
+        );
+        if (populated.url === null) {
+            out.error(`Failed to populate GitHub issue #${args.promote}: ${populated.error ?? ""}`);
+            return 1;
+        }
+        issueUrl = populated.url;
+        issueNumber = args.promote;
+    } else {
+        out.line("🚀 Creating GitHub issue...");
+        const created = platform.createIssue(
+            title,
+            classification.createLabel === null ? [] : [classification.createLabel],
+            filedBody,
+        );
+        if (created.value === null || created.value === "") {
+            out.error(`Failed to create GitHub issue: ${created.error ?? ""}`);
+            return 1;
+        }
+        issueUrl = created.value;
+        const number: string | null = extractIssueNumber(issueUrl) ?? /(\d+)$/.exec(issueUrl.trim())?.[1] ?? null;
+        if (number === null) {
+            out.error(`Could not extract issue number from: ${issueUrl}`);
+            return 1;
+        }
+        issueNumber = number;
     }
 
     // Before anything else. Everything after this point is decoration, and a decoration failure
@@ -125,12 +172,13 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     else fs.writeFileSync(ready.draft, linked.content, "utf8");
 
     out.line("");
-    out.success("GitHub Issue Created");
+    out.success(args.promote !== null ? "Unplanned Epic Promoted" : "GitHub Issue Created");
     out.line("");
     out.line(`   Issue:  #${issueNumber}`);
     out.line(`   Title:  ${title}`);
     out.line(`   URL:    ${issueUrl}`);
     out.line("");
     out.line(`   Epic frontmatter updated with: link: "#${issueNumber}"`);
+    if (args.promote !== null) out.line(`   Identity: #${issueNumber} kept — no second issue, nothing closed`);
     return 0;
 }

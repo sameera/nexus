@@ -8,6 +8,9 @@
  * as latency. Everything here returns its outcome; the run renders every line it prints.
  */
 
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { type GhRunner, type RunResult } from "../gh.js";
 import { GhError, type RetryingRunner } from "../story-filer/retry.js";
 
@@ -61,17 +64,28 @@ export class EpicPlatform {
     populateIssue(
         issueNumber: string,
         title: string,
-        bodyFile: string,
+        body: string,
         removeLabel: string,
         addLabel: string | null,
     ): { url: string | null; error: string | null } {
-        const args: string[] = ["issue", "edit", issueNumber, "--title", title, "--body-file", bodyFile, "--remove-label", removeLabel];
-        if (addLabel !== null) args.push("--add-label", addLabel);
-        const result: RunResult = this.run(this.targeted(args));
-        if (result.status !== 0) return { url: null, error: result.stderr };
-        const reported: string = result.stdout.trim();
-        if (reported.startsWith("http")) return { url: reported, error: null };
-        return { url: `https://github.com/${this.repo ?? "the repository"}/issues/${issueNumber}`, error: null };
+        const scratch: string = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "nxs-epic-")), "body.md");
+        fs.writeFileSync(scratch, body, "utf8");
+        try {
+            const args: string[] = [
+                "issue", "edit", issueNumber,
+                "--title", title,
+                "--body-file", scratch,
+                "--remove-label", removeLabel,
+            ];
+            if (addLabel !== null) args.push("--add-label", addLabel);
+            const result: RunResult = this.run(this.targeted(args));
+            if (result.status !== 0) return { url: null, error: result.stderr };
+            const reported: string = result.stdout.trim();
+            if (reported.startsWith("http")) return { url: reported, error: null };
+            return { url: `https://github.com/${this.repo ?? "the repository"}/issues/${issueNumber}`, error: null };
+        } finally {
+            fs.rmSync(path.dirname(scratch), { recursive: true, force: true });
+        }
     }
 
     /** Add one label to an issue that already exists. */
