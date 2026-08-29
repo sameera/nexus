@@ -1,8 +1,8 @@
 ---
 title: "Target Root Convention"
 aliases: ["explicit target root", "repo-bound argument", "operator-supplied root", "target-root helper", "root outranks artifact location"]
-touches: ["publishing-config-resolution", "verb-reachability", "issue-sourced-planning", "toolkit-location"]
-last_updated_by: "#249"
+touches: ["publishing-config-resolution", "verb-reachability", "issue-sourced-planning", "toolkit-location", "resumable-batch-filing"]
+last_updated_by: "#353"
 status: active
 verification: verified
 ---
@@ -30,6 +30,7 @@ A repository-bound capability is one that reaches this project's committed store
 - [verb-reachability](verb-reachability.md) — every reachable verb touching project state now parses this same argument before its own dispatch.
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver now takes its target root through this same convention rather than a bespoke argument of its own.
 - [toolkit-location](toolkit-location.md) — the complement this convention deliberately excludes: where a capability's toolkit lives, not where its project lives.
+- [resumable-batch-filing](resumable-batch-filing.md) — refuses a target folder resolving outside the passed root, and binds every platform call it makes to that same root.
 
 ## Decision Log
 
@@ -40,3 +41,7 @@ Every repository-bound capability used to decide its target in one of six differ
 ### 2026-08-26 — #249 — Reciprocal link from toolkit-location
 
 Mechanical reciprocity fan-out: the toolkit-location page names this convention as its complement — this one parameterizes where a capability's project state lives, that one governs how a capability locates its own toolkit, the concern this convention's sixth invariant explicitly holds apart.
+
+### 2026-08-29 — #353 — Reciprocal link from resumable-batch-filing
+
+Mechanical reciprocity fan-out: the resumable-batch-filing page names this convention as the source of the root its preflight measures the target folder against, and as what every platform call the run issues is bound to rather than the ambient process directory.

@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue"]
-last_updated_by: "#351"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing"]
+last_updated_by: "#353"
 status: active
 verification: verified
 ---
@@ -41,6 +41,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [target-root-convention](target-root-convention.md) — the two issue-creation scripts that call this resolver now take their target repo through that convention and reject an out-of-root input artifact.
 - [toolkit-location](toolkit-location.md) — the by-name rule still governing how bodies and stages address this resolver's toolkit, now that its own callers reach it in process.
 - [settings-key-catalogue](settings-key-catalogue.md) — which keys exist and what each falls back to, declared once; split out from here, which keeps what a key resolves to.
+- [resumable-batch-filing](resumable-batch-filing.md) — the batch path resolving every key here before its first issue, its own sources checked for holding no second copy.
 
 ## Decision Log
 
@@ -71,3 +72,7 @@ The layer used to locate the executable by trying candidate files inside a repos
 ### 2026-08-28 — #351 — The hub layer stops being a spawn, and callers reach the resolver in process
 
 The resolver moved onto the runtime its callers are written in, so the two libraries that used to locate and spawn it now import it, and the hub layer reads the resolved workspace as a value instead of obtaining it as text from another process. That deletes a spawn from every key resolution and removes the degradation surface that existed only to describe an inter-process channel; the layer stays guarded on the checkout declaring a workspace, so a single-repo checkout still pays nothing. One behaviour delta was ratified at the design gate: hub defaults that vanished silently when the executable was off the path now apply. The source-side entry-point locator was retired rather than repointed, because a library in the same workspace raises no question of how a checkout with nothing installed runs an entry point. The key catalogue was split out to [settings-key-catalogue](settings-key-catalogue.md), which this page had no room to absorb. **Refuted alternative:** keep spawning the defaults verb, preserving today's behaviour to the letter including the silent vanishing — refused because it left one bundle spawning another to read a local file several times per stage.
+
+### 2026-08-29 — #353 — The one-place rule is checked against a consumer's sources, not left to review
+
+This page's first invariant has always said the resolver is defined exactly once, but nothing enforced it at the consumer: a capability could quietly grow its own reader for classification, project targets, labels or the settings write-back, agree with the shared answer on the day it was written, and drift silently afterwards. Porting the batch issue filer onto this runtime added a structural check over that consumer's own sources — it defines nothing equivalent to a shared capability, and each shared capability it uses is reached from the one place that defines it. The invariant is unchanged; what changed is that it is now held mechanically at one consumer rather than by review. Checking structurally rather than behaviourally is the load-bearing part: a private re-implementation that happens to agree today is invisible to a behavioural assertion, and agreeing on the day of writing is exactly what the duplicated reader this rule exists to prevent also did. **Refuted alternative:** assert only that the consumer's resolved values match the shared resolver's, and leave the no-second-copy rule to review — cheaper and free of any reading of source text, but it passes for precisely the drifting copy the invariant is aimed at.
