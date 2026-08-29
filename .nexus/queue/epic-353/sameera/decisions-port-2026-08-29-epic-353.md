@@ -12,3 +12,13 @@
 - **Choice:** A spec reads every `story-filer/*.ts` source and asserts none defines a function named for a shared capability, and that each such symbol is imported from the shared module that owns it.
 - **Why:** The success metric asks for a test that the filer defines no equivalent of its own; a behavioural test cannot see a private re-implementation that happens to agree today.
 - **Refuted alternative:** Assert only behaviourally, that resolved values match the shared resolver's, and leave the no-second-copy rule to review.
+
+## 2026-08-29 — The retrying runner throws, mirroring the Python wrapper
+- **Choice:** `retryingRunner` returns a successful `RunResult` or throws `GhError`; each platform method catches and reports.
+- **Why:** Keeps the call sites a one-to-one read against the Python original, where the same distinction (raise vs. report) is what decides which failures are fatal and which only warn.
+- **Refuted alternative:** Return a result union and branch at every call site — no exceptions, but it re-shapes twelve call sites the port is meant to preserve.
+
+## 2026-08-29 — Project membership enters pass 1 through a `ProjectAssignment` collaborator
+- **Choice:** Pass 1 takes an `idFor`/`add` pair, wired inert (`NO_PROJECT`) until story #370 supplies the real one.
+- **Why:** #370 is blocked_by #369, so pass 1 has to exist and be fully tested before project targeting is resolvable; the seam keeps #370 a wiring change rather than a rewrite of pass 1.
+- **Refuted alternative:** Thread the resolved project ids through pass 1's parameters directly, as the Python original does.

@@ -18,7 +18,11 @@ import { CAPABILITY, type ArgsOutcome, type FilerArgs, filerUsage, parseFilerArg
 import { resolveIssueTypeId } from "./classify.js";
 import { type FilerConfig, reportIssuesRepo, resolveFilerConfig } from "./configure.js";
 import { type FilerEnvironment, defaultEnvironment } from "./environment.js";
+import { NO_PROJECT, createPass } from "./create.js";
 import { ensureBatchLabels } from "./labels.js";
+import { type Ledger, ledgerPathFor, loadLedger } from "./ledger.js";
+import { Platform } from "./platform.js";
+import { type RetryingRunner, retryingRunner } from "./retry.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { previewLine } from "./preview.js";
 import { writeBackDecisions } from "./writeback.js";
@@ -60,8 +64,30 @@ export function runCreateStory(
     // the run resolved (Invariant 11).
     const run: GhRunner = env.runnerFor(ready.projectRoot);
 
-    resolveIssueTypeId(config, run, io);
+    const issueTypeId: string | null = resolveIssueTypeId(config, run, io);
     if (!ensureBatchLabels(ready.items, config, run, io)) return 1;
+
+    // The retrying tier wraps exactly the calls that carry it today; the shared helpers above keep
+    // the plain runner, so a permission gap is still reported before anything is created.
+    const gh: RetryingRunner = retryingRunner(
+        run,
+        { retries: args.retries, baseDelay: args.retryBaseDelay },
+        env,
+        io,
+    );
+    const platform: Platform = new Platform(gh, config.issuesRepo, io);
+
+    const ledgerPath: string = ledgerPathFor(ready.targetFolder);
+    const ledger: Ledger = loadLedger(ledgerPath, io);
+    const carried: number = Object.keys(ledger).length;
+    if (carried > 0) io.stdout(`Resuming from manifest (${carried} issue(s) already created): ${ledgerPath}`);
+
+    createPass(
+        ready.items,
+        config,
+        { platform, plainRun: run, issueTypeId, ledger, ledgerPath, projects: NO_PROJECT },
+        io,
+    );
 
     writeBackDecisions(ready.projectRoot, { classification: config.classification }, io);
     return 0;
