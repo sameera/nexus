@@ -21,6 +21,7 @@ import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
 import { withLink } from "./link.js";
 import { EpicPlatform, throwingRunner } from "./platform.js";
 import { type ClassificationPlan, type EpicConfig, planClassification, resolveEpicConfig } from "./configure.js";
+import { type DesignDecision, applyNeedsDesign, designDecision } from "./design.js";
 import { type ParsedDraft, deriveFiledBody, parseDraft } from "./document.js";
 import { type EpicOutput, epicOutput } from "./output.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
@@ -171,11 +172,18 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     if (linked.content === null) out.error("Could not find frontmatter boundaries");
     else fs.writeFileSync(ready.draft, linked.content, "utf8");
 
+    // The gate is made and applied the same way on both paths.
+    const design: DesignDecision = designDecision(frontmatter["complexity"]);
+    if (design.needed) applyNeedsDesign(issueNumber, config, epic, ready.run, out, design.rollup);
+
     out.line("");
     out.success(args.promote !== null ? "Unplanned Epic Promoted" : "GitHub Issue Created");
     out.line("");
     out.line(`   Issue:  #${issueNumber}`);
     out.line(`   Title:  ${title}`);
+    out.line(
+        `   Design: ${design.needed ? `needs a decision record (${config.needsDesignLabel})` : `no record needed (${design.rollup} epic)`}`,
+    )
     out.line(`   URL:    ${issueUrl}`);
     out.line("");
     out.line(`   Epic frontmatter updated with: link: "#${issueNumber}"`);
