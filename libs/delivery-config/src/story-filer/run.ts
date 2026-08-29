@@ -25,6 +25,7 @@ import { Platform } from "./platform.js";
 import { type ProjectPlan, ProjectLookup, planProjects, projectAssignment } from "./projects.js";
 import { type RetryingRunner, retryingRunner } from "./retry.js";
 import { type CreatePassResult } from "./create.js";
+import { refToNumber, rewritePass } from "./rewrite.js";
 import { refToDbId, wirePass } from "./wire.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { previewLine } from "./preview.js";
@@ -105,6 +106,7 @@ export function runCreateStory(
     );
 
     wirePass(pass1.created, refToDbId(pass1.created, ledger), platform, io);
+    rewritePass(pass1.created, refToNumber(pass1.created, ledger), platform, io);
 
     writeBackDecisions(
         ready.projectRoot,
