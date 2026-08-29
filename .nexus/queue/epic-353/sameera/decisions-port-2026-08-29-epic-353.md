@@ -7,3 +7,8 @@
 - **Choice:** `preflight()` returns `ready | empty | refused`; only the handler turns that into an exit code.
 - **Why:** Keeps the empty-folder case (exit 0) and the refusal cases (non-zero) distinguishable at the seam the tests drive, with no process-level exit anywhere in the library.
 - **Refuted alternative:** Throw a typed error per refusal and catch it in the handler.
+
+## 2026-08-29 — Invariant 10 is asserted structurally, over the filer's own sources
+- **Choice:** A spec reads every `story-filer/*.ts` source and asserts none defines a function named for a shared capability, and that each such symbol is imported from the shared module that owns it.
+- **Why:** The success metric asks for a test that the filer defines no equivalent of its own; a behavioural test cannot see a private re-implementation that happens to agree today.
+- **Refuted alternative:** Assert only behaviourally, that resolved values match the shared resolver's, and leave the no-second-copy rule to review.

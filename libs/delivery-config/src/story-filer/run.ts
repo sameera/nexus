@@ -11,13 +11,23 @@
  * assert — without concurrency.
  */
 
+import { type GhRunner } from "../gh.js";
 import { type ToolkitIo } from "../io.js";
-import { type ArgsOutcome, type FilerArgs, filerUsage, parseFilerArgs, CAPABILITY } from "./args.js";
 import { programName } from "../registry.js";
+import { CAPABILITY, type ArgsOutcome, type FilerArgs, filerUsage, parseFilerArgs } from "./args.js";
+import { resolveIssueTypeId } from "./classify.js";
+import { type FilerConfig, reportIssuesRepo, resolveFilerConfig } from "./configure.js";
+import { type FilerEnvironment, defaultEnvironment } from "./environment.js";
+import { ensureBatchLabels } from "./labels.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { previewLine } from "./preview.js";
+import { writeBackDecisions } from "./writeback.js";
 
-export function runCreateStory(argv: string[], io: ToolkitIo): number {
+export function runCreateStory(
+    argv: string[],
+    io: ToolkitIo,
+    env: FilerEnvironment = defaultEnvironment,
+): number {
     const parsed: ArgsOutcome = parseFilerArgs(argv);
     if (parsed.kind === "help") {
         io.stdout(filerUsage());
@@ -34,12 +44,25 @@ export function runCreateStory(argv: string[], io: ToolkitIo): number {
     if (ready.kind === "refused") return 1;
     if (ready.kind === "empty") return 0;
 
+    const config: FilerConfig = resolveFilerConfig(ready.layers, args);
+    reportIssuesRepo(config, io);
+
     if (args.dryRun) {
+        // A rehearsal reaches nothing: no type probe, no label upsert, no write-back.
         io.stdout("");
         io.stdout("Dry run - would process:");
-        for (const item of ready.items) io.stdout(previewLine(item, args.classificationLabel));
+        const canonical: string | null = config.classification === "types" ? null : config.classificationLabel;
+        for (const item of ready.items) io.stdout(previewLine(item, canonical));
         return 0;
     }
 
+    // Bound once to the resolved target root, so every call this run makes targets the repository
+    // the run resolved (Invariant 11).
+    const run: GhRunner = env.runnerFor(ready.projectRoot);
+
+    resolveIssueTypeId(config, run, io);
+    if (!ensureBatchLabels(ready.items, config, run, io)) return 1;
+
+    writeBackDecisions(ready.projectRoot, { classification: config.classification }, io);
     return 0;
 }
