@@ -141,6 +141,62 @@ describe("a lookup call the platform refused", () => {
     });
 });
 
+describe("a scope that answered is not asked again", () => {
+    /** File one epic, keeping every call the run made. */
+    function filing(github: Record<string, string>, answer: (args: string[]) => RunResult | undefined) {
+        const root: string = checkoutWith(github);
+        const path: string = writeDraft(root, draft());
+        const io = recordingIo(root);
+        const fake = fakeEnvironment({ answer });
+        const code: number = runCreateEpic([path], io, fake.env);
+        return { code, io, calls: fake.calls.map((call) => call.join(" ")) };
+    }
+
+    /** The organization scope answering that it has no such project — a miss, not a failure. */
+    const NO_PROJECT = JSON.stringify({ data: { organization: { projectV2: null } } });
+    const NO_MATCHES = JSON.stringify({ data: { organization: { projectsV2: { nodes: [] } } } });
+
+    /**
+     * Asking the user scope about an organization login is a bad question, and the platform refuses
+     * it. That refusal is only ever seen when the first scope did not answer — so a lookup that ends
+     * "no such project" must not manufacture one on its way there.
+     */
+    const userScopeRefused =
+        (answered: string) =>
+        (args: string[]): RunResult | undefined => {
+            if (args[0] !== "api" || args[1] !== "graphql") return undefined;
+            return args.join(" ").includes("user(login") ? FAIL("gh: Could not resolve to a User") : OK(answered);
+        };
+
+    const userScopeCalls = (calls: string[]): string[] => calls.filter((call) => call.includes("user(login"));
+
+    it("asks the user scope nothing once the organization scope has answered a numbered lookup", () => {
+        const run = filing({ classification: "labels", project: "acme/404" }, userScopeRefused(NO_PROJECT));
+        expect(run.code).toBe(0);
+        expect(userScopeCalls(run.calls)).toEqual([]);
+        expect(run.io.all()).toContain("Project 'acme/404' from config not found, issue will not be added to a project");
+        expect(run.io.all()).not.toContain("Error fetching project");
+    });
+
+    it("asks the user scope nothing once the organization scope has answered a title search", () => {
+        const run = filing({ classification: "labels", project: "acme/Roadmap" }, userScopeRefused(NO_MATCHES));
+        expect(run.code).toBe(0);
+        expect(userScopeCalls(run.calls)).toEqual([]);
+        expect(run.io.all()).toContain("Project 'acme/Roadmap' from config not found, issue will not be added to a project");
+        expect(run.io.all()).not.toContain("Error searching for project");
+    });
+
+    it("still falls through to the user scope when the organization scope could not answer", () => {
+        const run = filing({ classification: "labels", project: "acme/1" }, (args) => {
+            if (args[0] !== "api" || args[1] !== "graphql") return undefined;
+            if (args.join(" ").includes("organization(login")) return FAIL("gh: Could not resolve to an Organization");
+            return OK(JSON.stringify({ data: { user: { projectV2: { id: "PVT_9", title: "Personal" } } } }));
+        });
+        expect(userScopeCalls(run.calls).length).toBeGreaterThan(0);
+        expect(run.io.all()).toContain("Found project: Personal");
+    });
+});
+
 describe("the node id both decorations need", () => {
     it("says why the issue id could not be read, and still does not fail the run", () => {
         const root: string = checkoutWith({ classification: "labels", project: "acme/1" });

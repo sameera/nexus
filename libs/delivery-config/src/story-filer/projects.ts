@@ -108,6 +108,10 @@ export const NOT_FOUND: FoundProject = { id: null, title: "", failure: null };
 /** What one GraphQL call produced: the parsed payload, or the step that stopped it. */
 interface QueryOutcome {
     data: unknown | null;
+    /** The platform's raw answer, which the numbered lookup reads to decide whether it was answered. */
+    stdout: string;
+    /** Whether the call itself was refused, as distinct from answering something unreadable. */
+    refused: boolean;
     failure: LookupFailure | null;
 }
 
@@ -134,11 +138,18 @@ export class ProjectLookup {
         for (const [key, value] of variables) args.push("-f", `${key}=${value}`);
         for (const [key, value] of numbers) args.push("-F", `${key}=${value}`);
         const result: RunResult = this.run(args);
-        if (result.status !== 0) return { data: null, failure: { step, detail: result.stderr } };
+        if (result.status !== 0) {
+            return { data: null, stdout: result.stdout, refused: true, failure: { step, detail: result.stderr } };
+        }
         try {
-            return { data: JSON.parse(result.stdout), failure: null };
+            return { data: JSON.parse(result.stdout), stdout: result.stdout, refused: false, failure: null };
         } catch (error) {
-            return { data: null, failure: { step: "parse", detail: messageOf(error) } };
+            return {
+                data: null,
+                stdout: result.stdout,
+                refused: false,
+                failure: { step: "parse", detail: messageOf(error) },
+            };
         }
     }
 
@@ -171,41 +182,59 @@ export class ProjectLookup {
             : this.byTitle(owner, reference);
     }
 
+    /**
+     * A project by number, asked of the organization scope and only then of the user scope.
+     *
+     * The second scope is a fallback for a first that did not answer *as a scope* — a refused call,
+     * or a body that is not organization-shaped — never for one that answered "no such project".
+     * A login is either an organization or a user, so asking the other scope about an organization
+     * is a question the platform refuses; asking it anyway would turn an ordinary miss into a
+     * reported failure the lookup never had (Invariant 19).
+     */
     byNumber(owner: string, projectNumber: string): FoundProject {
-        // Only the last attempt's failure is reported: a scope that answers nothing is an ordinary
-        // miss the next scope is expected to cover, not a failure worth a line of its own.
-        let failure: LookupFailure | null = null;
-        for (const scope of ["organization", "user"]) {
-            const outcome: QueryOutcome = this.query(
-                "project-by-number",
-                BY_NUMBER(scope),
-                [["owner", owner]],
-                [["number", projectNumber]],
-            );
-            failure = outcome.failure;
-            const data = outcome.data as { data?: Record<string, { projectV2?: ProjectNode | null } | null> } | null;
-            const project: ProjectNode | null | undefined = data?.data?.[scope]?.projectV2;
-            if (project) return this.found(project);
-        }
-        return failure === null ? NOT_FOUND : { ...NOT_FOUND, failure };
+        const ask = (scope: string): QueryOutcome =>
+            this.query("project-by-number", BY_NUMBER(scope), [["owner", owner]], [["number", projectNumber]]);
+
+        let outcome: QueryOutcome = ask("organization");
+        if (outcome.refused || !outcome.stdout.includes("organization")) outcome = ask("user");
+        if (outcome.failure !== null) return { ...NOT_FOUND, failure: outcome.failure };
+
+        const data = outcome.data as {
+            data?: {
+                organization?: { projectV2?: ProjectNode | null } | null;
+                user?: { projectV2?: ProjectNode | null } | null;
+            };
+        } | null;
+        return this.found(data?.data?.organization?.projectV2 ?? data?.data?.user?.projectV2);
     }
 
+    /**
+     * A project by title, with the same organization-then-user fallback.
+     *
+     * The title search never inspects the body to decide, only whether the call was refused: a
+     * scope that answered with no matches has answered, and the search ends there.
+     */
     byTitle(owner: string, title: string): FoundProject {
-        let nodes: ProjectNode[] = [];
-        let failure: LookupFailure | null = null;
-        for (const scope of ["organization", "user"]) {
-            const outcome: QueryOutcome = this.query("project-by-title", BY_TITLE(scope), [
+        const ask = (scope: string): QueryOutcome =>
+            this.query("project-by-title", BY_TITLE(scope), [
                 ["owner", owner],
                 ["title", title],
             ]);
-            failure = outcome.failure;
-            const data = outcome.data as {
-                data?: Record<string, { projectsV2?: { nodes?: ProjectNode[] } | null } | null>;
-            } | null;
-            nodes = data?.data?.[scope]?.projectsV2?.nodes ?? [];
-            if (nodes.length > 0) break;
-        }
-        if (nodes.length === 0) return failure === null ? NOT_FOUND : { ...NOT_FOUND, failure };
+
+        let outcome: QueryOutcome = ask("organization");
+        if (outcome.refused) outcome = ask("user");
+        if (outcome.failure !== null) return { ...NOT_FOUND, failure: outcome.failure };
+
+        const data = outcome.data as {
+            data?: {
+                organization?: { projectsV2?: { nodes?: ProjectNode[] } | null } | null;
+                user?: { projectsV2?: { nodes?: ProjectNode[] } | null } | null;
+            };
+        } | null;
+        const organization: ProjectNode[] = data?.data?.organization?.projectsV2?.nodes ?? [];
+        const nodes: ProjectNode[] =
+            organization.length > 0 ? organization : (data?.data?.user?.projectsV2?.nodes ?? []);
+        if (nodes.length === 0) return NOT_FOUND;
         const exact: ProjectNode | undefined = nodes.find(
             (node) => (node.title ?? "").toLowerCase() === title.toLowerCase(),
         );

@@ -51,3 +51,9 @@
 - **Choice:** `byNumber` / `byTitle` try `organization` then `user` and carry forward only the final attempt's failure, so one refused GraphQL call yields at most one warning line.
 - **Why:** The Python filer reassigned `result` before its single `warn`, so the org attempt's failure was never printed on its own — a per-scope line would add a diagnostic the frozen surface never had.
 - **Refuted alternative:** Report every failed scope — more honest about what was tried, but it doubles a line Invariant 19 freezes at one.
+
+## 2026-08-29 — The scope fallback short-circuits on the platform's answer, superseding the last-failure rule
+
+- **Choice:** `byNumber` asks the user scope only when the organization query was refused *or* its body is not organization-shaped (Python's `returncode != 0 or "organization" not in stdout`); `byTitle` asks it only when the call was refused (Python's `returncode != 0` alone). The last-attempt-failure rule recorded above is superseded — with the short-circuit there is at most one failure to carry.
+- **Why:** A login is either an organization or a user, so the second scope's query is one the platform refuses. Looping both scopes unconditionally turned every not-found lookup on an org-owned repository into an extra `Error fetching project` / `Error searching for project` line the Python filer never printed — an unratified third exception to Invariant 19, and one extra remote call per miss.
+- **Refuted alternative:** Keep the loop and suppress a failure whenever an earlier scope answered cleanly — no raw-stdout plumbing, but it still makes the refused call, and it re-derives the retry decision instead of porting the one Python states.
