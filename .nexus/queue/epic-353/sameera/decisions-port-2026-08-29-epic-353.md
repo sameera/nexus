@@ -27,3 +27,13 @@
 - **Choice:** `reconstructFlags(FilerArgs)` renders one canonical spelling per flag; the raw argv is not retained.
 - **Why:** Invariant 13 requires a flag added to the capability to be added to the hint with it — deriving from the parsed shape makes that a single edit, and normalises `--retries=5` and `--retries 5` to one line.
 - **Refuted alternative:** Echo the argv verbatim, which reproduces the operator's exact typing but re-echoes nothing when a default was applied and cannot be checked for completeness.
+
+## 2026-08-29 — The no-interpreter assertion mocks the process module, not the filer's own seam
+- **Choice:** `cutover.spec.ts` mocks `node:child_process` and asserts every recorded spawn is `gh`, running the batch through the real default environment.
+- **Why:** The filer's injected seam is exactly what a test could use to *hide* a spawn; asserting one layer below it is the only level at which "no interpreter is spawned on any path" is actually checked.
+- **Refuted alternative:** Assert that the registry row's handler is the ported function — cheap, but it tests the binding rather than the behaviour the criterion names.
+
+## 2026-08-29 — The bundle fingerprint is re-pinned in the cut-over commit
+- **Choice:** `pnpm nexus:pin-bundles` runs as part of #374, not the earlier stories.
+- **Why:** Until the row flips, the filer's modules are unreachable from the entry point and tree-shaking keeps them out of the bundle; the flip is the first change that alters the released artifact's bytes.
+- **Refuted alternative:** Re-pin on every story, which would have churned the fingerprint seven times for one real change.

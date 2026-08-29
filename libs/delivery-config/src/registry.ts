@@ -7,15 +7,17 @@
  * here, because both surfaces are rendered from this one table: the human usage text and the
  * machine listing the build gate reads. There is never a second list.
  *
- * Rows whose handler delegates are the two issue filers, still Python until epics #352 and #353
- * port them. Which language a row is implemented in is invisible from here — that is what lets a
- * filer move without the dispatcher changing again.
+ * The one row that still delegates is the epic filer, Python until epic #352 ports it. The story
+ * filer moved in place (#374): its row now names the in-process handler, and nothing else about the
+ * row changed. Which language a row is implemented in is invisible from here — that is what let the
+ * filer move without the dispatcher changing at all.
  */
 
 import { delegateToPython } from "./delegate.js";
 import { type ToolkitIo } from "./io.js";
 import { runConfig } from "./config-cli.js";
 import { runVersion } from "./version.js";
+import { runCreateStory } from "./story-filer/run.js";
 
 /** The one literal the toolkit answers to, fixed by story #297. */
 export const TOOLKIT_NAME = "nexus-gh";
@@ -54,7 +56,7 @@ export const CAPABILITIES: readonly Capability[] = [
     {
         name: "create-story",
         summary: "File one GitHub issue per STORY-*.md work item.",
-        run: (args, io) => delegateToPython("create-story", args, io),
+        run: runCreateStory,
     },
 ];
 
