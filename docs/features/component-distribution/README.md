@@ -20,6 +20,7 @@ How Nexus components and their tooling are packaged, installed, and addressed ou
 - **Separate authoring from loading in the Nexus repository** — [#256](https://github.com/sameera/nexus/issues/256)
 - **Port the toolkit shell and the shared delivery-config resolver to TypeScript** — [#351](https://github.com/sameera/nexus/issues/351)
 - **Port the story filer to TypeScript** — [#353](https://github.com/sameera/nexus/issues/353)
+- **Port the epic filer to TypeScript** — [#352](https://github.com/sameera/nexus/issues/352)
 
 ## Running a verb from source
 
