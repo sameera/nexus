@@ -11,10 +11,12 @@
  * and report.
  */
 
+import * as fs from "node:fs";
 import { type ToolkitIo } from "../io.js";
 import { programName } from "../registry.js";
 import { CAPABILITY, type ArgsOutcome, type EpicArgs, epicUsage, parseEpicArgs } from "./args.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
+import { deriveFiledBody } from "./document.js";
 import { type EpicOutput, epicOutput } from "./output.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 
@@ -37,5 +39,12 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     if (ready.kind === "refused") return 1;
 
     out.line(`📄 Processing: ${args.draft}`);
+
+    const content: string = fs.readFileSync(ready.draft, "utf8");
+    const filedBody: string = deriveFiledBody(content);
+    if (filedBody.trim() === "") {
+        out.error("No content found after frontmatter");
+        return 1;
+    }
     return 0;
 }
