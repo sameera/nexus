@@ -19,6 +19,7 @@ How Nexus components and their tooling are packaged, installed, and addressed ou
 - **Build the install, removal and migration verbs on one component-mirror primitive** — [#253](https://github.com/sameera/nexus/issues/253)
 - **Separate authoring from loading in the Nexus repository** — [#256](https://github.com/sameera/nexus/issues/256)
 - **Port the toolkit shell and the shared delivery-config resolver to TypeScript** — [#351](https://github.com/sameera/nexus/issues/351)
+- **Port the story filer to TypeScript** — [#353](https://github.com/sameera/nexus/issues/353)
 
 ## Running a verb from source
 
