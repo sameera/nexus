@@ -36,8 +36,12 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
         io.stdout(epicUsage());
         return 0;
     }
-    // Colour follows the terminal, never the stream's contents (Invariant 19).
-    const out: EpicOutput = epicOutput(io, env.interactive());
+    // Colour follows each stream's own terminal, never the input's and never the contents
+    // (Invariant 19): a run whose output is redirected leaves no escape sequence in the file.
+    const out: EpicOutput = epicOutput(io, {
+        stdout: env.isTerminal("stdout"),
+        stderr: env.isTerminal("stderr"),
+    });
     if (parsed.kind === "error") {
         io.stderr(epicUsage());
         out.error(`${programName(CAPABILITY)}: ${parsed.message}`);

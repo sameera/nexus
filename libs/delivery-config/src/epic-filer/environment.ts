@@ -5,7 +5,9 @@
  * once to the resolved target root, so every call targets the repository the run resolved. The
  * confirmation prompt lives here too rather than on the shared output seam: it is the only
  * interactive point in the capability, and widening a seam four capabilities implement in order to
- * serve one caller costs more than one field on this record.
+ * serve one caller costs more than one field on this record. The terminal is asked about twice —
+ * once about input, for the prompt, and once per output stream, for colour — because those are
+ * different file descriptors and a run can have one without the other.
  */
 
 import { spawnSync } from "node:child_process";
@@ -19,8 +21,16 @@ export interface EpicEnvironment {
     gitFor: (root: string) => GhRunner;
     /** Whether the platform client is installed at all. */
     hasGh: () => boolean;
-    /** Whether the run has a terminal attached — the colour gate and the prompt gate. */
+    /** Whether a terminal can answer a question — the prompt gate, which is about *input*. */
     interactive: () => boolean;
+    /**
+     * Whether one output stream is an attached terminal — the colour gate (Invariant 19).
+     *
+     * Deliberately not the prompt gate: colour lands in whatever receives the run's output, so a
+     * run reading from a terminal with its output redirected must write no escape sequence into
+     * the file. The two questions are asked of two different file descriptors.
+     */
+    isTerminal: (stream: "stdout" | "stderr") => boolean;
     /**
      * One line read from the terminal, or null when no answer can be read.
      *
@@ -44,6 +54,7 @@ export const defaultEpicEnvironment: EpicEnvironment = {
     hasGh: (): boolean =>
         spawnSync(process.platform === "win32" ? "where" : "which", ["gh"], { encoding: "utf8" }).status === 0,
     interactive: (): boolean => process.stdin.isTTY === true,
+    isTerminal: (stream: "stdout" | "stderr"): boolean => process[stream].isTTY === true,
     prompt: (question: string): string | null => {
         process.stdout.write(question);
         const buffer: Buffer = Buffer.alloc(1024);

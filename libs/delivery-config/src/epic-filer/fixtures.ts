@@ -54,8 +54,12 @@ export interface FakeOptions {
     answer?: (args: string[]) => RunResult | undefined;
     /** Whether the platform client is installed. */
     hasGh?: boolean;
-    /** Whether a terminal is attached. */
+    /** Whether a terminal is attached to input — what the prompt can be answered on. */
     interactive?: boolean;
+    /** Whether stdout is a terminal. Defaults to `interactive`, the everyday case of both or neither. */
+    stdoutIsTerminal?: boolean;
+    /** Whether stderr is a terminal. Defaults to `interactive`. */
+    stderrIsTerminal?: boolean;
     /** The line the prompt reads back, or null for an answer that cannot be read. */
     reply?: string | null;
     /** Whether the target root is a git repository. */
@@ -104,6 +108,9 @@ export function fakeEnvironment(options: FakeOptions = {}): FakeEnvironment {
             },
             hasGh: () => options.hasGh !== false,
             interactive: () => options.interactive === true,
+            isTerminal: (stream: "stdout" | "stderr"): boolean =>
+                (stream === "stdout" ? options.stdoutIsTerminal : options.stderrIsTerminal) ??
+                options.interactive === true,
             prompt: (question: string): string | null => {
                 asked.push(question);
                 return options.reply ?? null;

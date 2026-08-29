@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkout, checkoutWith, draft, fakeEnvironment, recordingIo, writeDraft } from "./fixtures";
-import { GREEN } from "./output";
+import { GREEN, RED, YELLOW } from "./output";
 import { runCreateEpic } from "./run";
 
 const SETTINGS = path.join(".nexus", "config", "settings.yml");
@@ -116,5 +116,23 @@ describe("what the run reports", () => {
         const coloured = recordingIo(root);
         runCreateEpic([writeDraft(root, draft(), "other.md")], coloured, fakeEnvironment({ interactive: true }).env);
         expect(coloured.all()).toContain(GREEN);
+    });
+
+    it("emits no colour into a redirected stream, whatever is attached to input", () => {
+        const root: string = checkoutWith({ classification: "labels", project: "none" });
+        const io = recordingIo(root);
+        const env = fakeEnvironment({ interactive: true, stdoutIsTerminal: false, stderrIsTerminal: false }).env;
+        runCreateEpic([writeDraft(root, draft())], io, env);
+        expect(io.all()).not.toContain(GREEN);
+    });
+
+    it("keeps colour on the stream that is still a terminal when the other is redirected", () => {
+        const root: string = checkoutWith({ classification: "labels", project: "none" });
+        const io = recordingIo(root);
+        const env = fakeEnvironment({ stdoutIsTerminal: false, stderrIsTerminal: true }).env;
+        // No epic title: the run refuses on stderr and reports nothing on stdout.
+        runCreateEpic([writeDraft(root, "---\nfeature: \"Demo\"\n---\n\n# Epic\n")], io, env);
+        expect(io.err.join("\n")).toContain(RED);
+        expect(io.out.join("\n")).not.toContain(YELLOW);
     });
 });
