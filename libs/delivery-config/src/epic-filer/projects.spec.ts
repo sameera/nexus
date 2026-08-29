@@ -76,6 +76,32 @@ describe("which project target wins", () => {
     });
 });
 
+describe("a lookup that failed rather than found nothing", () => {
+    it("says why the owner could not be read for a bare reference, and still does not fail the run", () => {
+        const root: string = checkoutWith({ classification: "labels", project: "1" });
+        const path: string = writeDraft(root, draft());
+        const io = recordingIo(root);
+        const fake = fakeEnvironment({
+            answer: (args: string[]) =>
+                args[0] === "repo" && args.includes(".owner.login") ? FAIL("gh: not authenticated") : undefined,
+        });
+        expect(runCreateEpic([path], io, fake.env)).toBe(0);
+        expect(io.all()).toContain("Error getting repo owner: gh: not authenticated");
+    });
+
+    it("says why the repository could not be named on the auto path", () => {
+        const root: string = checkoutWith({ classification: "labels" });
+        const path: string = writeDraft(root, draft());
+        const io = recordingIo(root);
+        const fake = fakeEnvironment({
+            answer: (args: string[]) =>
+                args[0] === "repo" && args.includes(".nameWithOwner") ? FAIL("gh: no such repository") : undefined,
+        });
+        expect(runCreateEpic([path], io, fake.env)).toBe(0);
+        expect(io.all()).toContain("Could not determine repository name: gh: no such repository");
+    });
+});
+
 describe("a deliberate absence stays silent", () => {
     it("makes no lookup, no discovery and no project call for a declared none", () => {
         const run = file({ classification: "labels", project: "none" });

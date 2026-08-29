@@ -12,6 +12,11 @@
  * The lookups themselves print nothing: each returns what it found, the project's title included,
  * and the caller renders its own line. Two filers reach these lookups with two different output
  * vocabularies, and a lookup that printed would hand one of them the other's wording (#387).
+ *
+ * "Found nothing" and "could not look" are different answers, and a lookup that collapsed them
+ * would strand the operator with a silent absence where the real story is an unauthenticated client
+ * (Invariant 16). A lookup that could not run names the step that failed and what the platform said;
+ * the caller turns that into a line, because the two filers word the same failure differently.
  */
 
 import { type GhRunner, type RunResult } from "../gh.js";
@@ -67,10 +72,23 @@ interface ProjectNode {
     title?: string;
 }
 
+/**
+ * Which step of a lookup could not be completed, and what the platform said about it.
+ *
+ * The step is named rather than phrased: the epic filer and the story filer report the same failed
+ * step in different words, so the sentence belongs to the caller and only the fact belongs here.
+ */
+export interface LookupFailure {
+    step: "owner" | "repository-name" | "repository-name-format";
+    detail: string;
+}
+
 /** A project that was looked up: its node id, and the title a caller announces it by. */
 export interface FoundProject {
     id: string | null;
     title: string;
+    /** Why the lookup could not run, or null when it ran and simply found no project. */
+    failure: LookupFailure | null;
 }
 
 /** The `owner/number` a repository probe found, beside the node id the membership call takes. */
@@ -78,7 +96,13 @@ export interface DiscoveredProject extends FoundProject {
     ref: string | null;
 }
 
-export const NOT_FOUND: FoundProject = { id: null, title: "" };
+export const NOT_FOUND: FoundProject = { id: null, title: "", failure: null };
+
+/** A lookup that could not run, carrying the step that stopped it. */
+const notLookedUp = (step: LookupFailure["step"], detail: string): FoundProject => ({
+    ...NOT_FOUND,
+    failure: { step, detail },
+});
 
 /** The project lookups, each answered by the platform and none of them retried. */
 export class ProjectLookup {
@@ -99,7 +123,7 @@ export class ProjectLookup {
 
     private found(project: ProjectNode | null | undefined): FoundProject {
         if (project === null || project === undefined) return NOT_FOUND;
-        return { id: project.id ?? null, title: project.title ?? "Unknown" };
+        return { id: project.id ?? null, title: project.title ?? "Unknown", failure: null };
     }
 
     /**
@@ -117,7 +141,7 @@ export class ProjectLookup {
             reference = name.slice(at + 1);
         } else {
             const result: RunResult = this.run(["repo", "view", "--json", "owner", "--jq", ".owner.login"]);
-            if (result.status !== 0) return NOT_FOUND;
+            if (result.status !== 0) return notLookedUp("owner", result.stderr);
             owner = result.stdout.trim();
             reference = name;
         }
@@ -157,9 +181,11 @@ export class ProjectLookup {
     /** The repository's first project, and the concrete `owner/number` a write-back can persist. */
     forRepository(): DiscoveredProject {
         const named: RunResult = this.run(["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]);
-        if (named.status !== 0) return { ...NOT_FOUND, ref: null };
+        if (named.status !== 0) return { ...notLookedUp("repository-name", named.stderr), ref: null };
         const nameWithOwner: string = named.stdout.trim();
-        if (!nameWithOwner.includes("/")) return { ...NOT_FOUND, ref: null };
+        if (!nameWithOwner.includes("/")) {
+            return { ...notLookedUp("repository-name-format", nameWithOwner), ref: null };
+        }
         const at: number = nameWithOwner.indexOf("/");
         const owner: string = nameWithOwner.slice(0, at);
         const data = this.query(FOR_REPOSITORY, [
@@ -187,6 +213,15 @@ export interface ProjectPlan {
 
 export const NO_PROJECT_PLAN: ProjectPlan = { batchProjectId: null, ranAutoDiscovery: false, discoveredRef: null };
 
+/** A failed lookup, in this filer's wording. Absence is reported by the caller, not here. */
+function reportFailure(found: FoundProject, io: ToolkitIo): void {
+    if (found.failure === null) return;
+    const { step, detail }: LookupFailure = found.failure;
+    if (step === "owner") io.stderr(`Error getting repo owner: ${detail}`);
+    else if (step === "repository-name") io.stderr(`Error fetching repository projects: ${detail}`);
+    else io.stderr(`Unexpected repository name format: ${detail}`);
+}
+
 /** Resolve the batch's project target, once, for the whole run. */
 export function planProjects(
     layers: RootLayers,
@@ -200,12 +235,14 @@ export function planProjects(
     if (target.mode === "explicit") {
         io.stdout(`Looking up project from config: ${target.value}`);
         const found: FoundProject = lookup.byName(target.value);
+        reportFailure(found, io);
         if (found.id === null) io.stderr(`Warning: Project '${target.value}' from config not found`);
         else io.stdout(`Found project: ${found.title}`);
         return { batchProjectId: found.id, ranAutoDiscovery: false, discoveredRef: null };
     }
     io.stdout("Looking for repository project (fallback)...");
     const discovered: DiscoveredProject = lookup.forRepository();
+    reportFailure(discovered, io);
     if (discovered.id === null) io.stdout("No repository project found (will use frontmatter project if available)");
     else io.stdout(`Found project: ${discovered.title}`);
     return { batchProjectId: discovered.id, ranAutoDiscovery: true, discoveredRef: discovered.ref };
@@ -223,6 +260,7 @@ export function projectAssignment(plan: ProjectPlan, lookup: ProjectLookup, plat
         idFor: (item: WorkItem): string | null => {
             if (item.project === "") return plan.batchProjectId;
             const found: FoundProject = lookup.byName(item.project);
+            reportFailure(found, io);
             if (found.id === null) io.stderr(`  Warning: Project '${item.project}' not found`);
             else io.stdout(`Found project: ${found.title}`);
             return found.id;

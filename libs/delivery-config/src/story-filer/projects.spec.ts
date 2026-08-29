@@ -136,6 +136,41 @@ describe("auto-discovery", () => {
     });
 });
 
+describe("a lookup that failed rather than found nothing", () => {
+    it("reports why the owner could not be read for a bare project reference", () => {
+        const root: string = repo({ project: "4" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) =>
+            args[0] === "repo" && args.includes(".owner.login") ? FAIL("gh: not authenticated") : undefined,
+        );
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Error getting repo owner: gh: not authenticated");
+    });
+
+    it("reports why the repository could not be named during auto-discovery", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) =>
+            args[0] === "repo" && args.includes(".nameWithOwner") ? FAIL("gh: no such repository") : undefined,
+        );
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Error fetching repository projects: gh: no such repository");
+    });
+
+    it("reports a repository name it cannot split into owner and repo", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) =>
+            args[0] === "repo" && args.includes(".nameWithOwner") ? OK("tracker\n") : undefined,
+        );
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Unexpected repository name format: tracker");
+    });
+});
+
 describe("a target declared none", () => {
     it("performs no lookup, no discovery and no project call, and warns about nothing", () => {
         const root: string = repo({ project: "none" });

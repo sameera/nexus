@@ -10,7 +10,7 @@
 import { type GhRunner } from "../gh.js";
 import { type ProjectTarget, resolveProjectTarget } from "../publishing.js";
 import { type RootLayers, resolveKeyFromLayers } from "../resolve.js";
-import { type DiscoveredProject, type FoundProject, ProjectLookup } from "../story-filer/projects.js";
+import { type DiscoveredProject, type FoundProject, type LookupFailure, ProjectLookup } from "../story-filer/projects.js";
 import { type EpicArgs } from "./args.js";
 import { type EpicOutput } from "./output.js";
 
@@ -25,8 +25,19 @@ export interface ProjectPlan {
 
 const NO_PROJECT: ProjectPlan = { projectId: null, ranAutoDiscovery: false, discoveredRef: null };
 
-/** Announce a project the run found, in this capability's wording. */
+/**
+ * Announce what a lookup produced, in this capability's wording.
+ *
+ * A lookup that could not run is a different report from one that ran and found nothing: the second
+ * is the caller's own "not found" warning, the first names the step that stopped it (Invariant 16).
+ */
 function announce(found: FoundProject, out: EpicOutput): string | null {
+    if (found.failure !== null) {
+        const { step, detail }: LookupFailure = found.failure;
+        if (step === "owner") out.warn(`Error getting repo owner: ${detail}`);
+        else if (step === "repository-name") out.warn(`Could not determine repository name: ${detail}`);
+        else out.warn(`Unexpected repository name format: ${detail}`);
+    }
     if (found.id !== null) out.line(`📊 Found project: ${found.title}`);
     return found.id;
 }
