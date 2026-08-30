@@ -1,20 +1,30 @@
 /**
- * The component-invocation gate (story #301, decision record #325): every toolkit invocation
- * written in a shipped component body must name a toolkit and a dispatch name that toolkit
- * declares, and the migration to that shape cannot silently regress.
+ * The component-invocation gate (story #301, decision record #325): every invocation written in a
+ * shipped component body must name the executable and a dispatch name it declares, and the
+ * migration to that shape cannot silently regress.
  *
  * One scanner walks the same set of shipped bodies the payload-composition boundary already walks,
  * extracts every invocation written in a code span — fenced or inline, because a legacy path one
  * backtick away is still an instruction — and classifies it against a closed set of addressing
- * forms: the two named-toolkit forms, and the legacy repository-bound ones (a transpiler run
- * against a script, an interpreter run against a script, a runtime run against a bundle, and a
- * workspace script alias). Being unrecognised is itself reportable.
+ * forms: the named-executable form, and the legacy repository-bound ones (a transpiler run against
+ * a script, a runtime run against a bundle, and a workspace script alias). Being unrecognised is
+ * itself reportable.
  *
- * A named form is resolved against the toolkit's own declared surface, which the caller obtains
+ * A named form is resolved against the executable's own declared surface, which the caller obtains
  * from that surface and never from a copy. A legacy form fails the gate by name, wherever it sits.
  * The pending register that carried the migration is gone: it reached empty when story #303
  * rewrote the last body, which was epic #250's completion condition for it, so enforcement is
- * unconditional and a reintroduced path or bare `python` fails the build immediately.
+ * unconditional and a reintroduced path fails the build immediately.
+ *
+ * Story #399 narrowed the form set with the runtime it described. The interpreter leader tokens and
+ * the interpreter-script form are gone, and so is the form that recognised the second toolkit,
+ * because neither names anything the release still has. That is a real reduction: an interpreter
+ * invoked against a script *outside* the component tree stops being a gate failure. It removes no
+ * enforcement the gate exists for — the recogniser for repository-bound artefacts is untouched, so
+ * a script path under the component tree, a bundle named by filename and a workspace script alias
+ * all still fail exactly as before. Once no Nexus capability has a Python implementation, an
+ * interpreter invocation in a body can only be the adopting project's own tooling, which the gate
+ * has no standing to fail.
  *
  * Node builtins only; this file is not a bundle entry point, so it is never itself vendored.
  */
@@ -26,14 +36,10 @@ import { listComponentFiles } from "./vendor-components.js";
 
 /** The closed set of addressing forms a code-span invocation can take. */
 export type AddressingForm =
-    /** `nexus <verb> [<subverb>]` — the named TypeScript executable. */
+    /** `nexus <verb> [<subverb>]` — the named executable. */
     | "named-executable"
-    /** `nexus-gh <capability>` — the named Python toolkit. */
-    | "named-python-toolkit"
     /** `tsx <script>` / `npx tsx <script>` — a transpiler run against a repository-relative script. */
     | "transpiler-script"
-    /** `python <script>` / `python3 <script>` — an interpreter run against a script path. */
-    | "interpreter-script"
     /** `node <bundle>.mjs` — a runtime run against a vendored bundle. */
     | "bundle-runtime"
     /** `pnpm <script>` — a workspace script alias, which resolves only inside a Nexus checkout. */
@@ -41,10 +47,9 @@ export type AddressingForm =
     /** A repository-bound artifact named in a code span with no command around it. */
     | "unrecognised";
 
-/** Every form other than the two named ones is repository-bound and must not survive this epic. */
+/** Every form other than the named one is repository-bound and must not survive this epic. */
 export const LEGACY_FORMS: readonly AddressingForm[] = [
     "transpiler-script",
-    "interpreter-script",
     "bundle-runtime",
     "workspace-alias",
     "unrecognised",
@@ -52,19 +57,17 @@ export const LEGACY_FORMS: readonly AddressingForm[] = [
 
 /** How one invocation stands against the declared surfaces. */
 export type Classification =
-    /** A named form whose dispatch name the toolkit declares. */
+    /** A named form whose dispatch name the executable declares. */
     | "resolving"
-    /** A named form whose dispatch name the toolkit does not declare — always a failure. */
+    /** A named form whose dispatch name the executable does not declare — always a failure. */
     | "undeclared"
     /** A legacy repository-bound form — a failure unless the body is still on the register. */
     | "unmigrated";
 
-/** The declared surface of each toolkit, read from that surface and never from a duplicate. */
+/** The declared surface, read from that surface and never from a duplicate. */
 export interface ToolkitSurfaces {
     /** Complete dispatch names the `nexus` executable answers to, subverbs included. */
     nexus: readonly string[];
-    /** Capability names the `nexus-gh` toolkit answers to. */
-    nexusGh: readonly string[];
 }
 
 /** One invocation found in one code span of one body. */
@@ -91,7 +94,7 @@ export interface InvocationProblem {
 /** Bodies the gate reads; everything else in a component subtree carries no instruction. */
 const BODY_EXTENSION = ".md";
 
-/** A dispatch name, a capability name, or a workspace script alias — never a path or a flag. */
+/** A dispatch name or a workspace script alias — never a path or a flag. */
 const NAME_RE = /^[a-z][a-z0-9:-]*$/;
 
 /** Repository-bound artifacts, recognised even when no command surrounds them. */
@@ -107,14 +110,10 @@ interface Leader {
     nameTokens: number;
 }
 
-// Longest first: `nexus-gh` must win over `nexus`.
 const LEADERS: readonly Leader[] = [
-    { token: "nexus-gh", form: "named-python-toolkit", nameTokens: 1 },
     { token: "nexus", form: "named-executable", nameTokens: 2 },
     { token: "npx", form: "transpiler-script", nameTokens: 0 },
     { token: "tsx", form: "transpiler-script", nameTokens: 0 },
-    { token: "python3", form: "interpreter-script", nameTokens: 0 },
-    { token: "python", form: "interpreter-script", nameTokens: 0 },
     { token: "node", form: "bundle-runtime", nameTokens: 0 },
     { token: "pnpm", form: "workspace-alias", nameTokens: 0 },
 ];
@@ -224,9 +223,6 @@ function classify(invocation: Invocation, surfaces: ToolkitSurfaces): Classifica
     if (invocation.form === "named-executable") {
         return surfaces.nexus.includes(invocation.name ?? "") ? "resolving" : "undeclared";
     }
-    if (invocation.form === "named-python-toolkit") {
-        return surfaces.nexusGh.includes(invocation.name ?? "") ? "resolving" : "undeclared";
-    }
     return "unmigrated";
 }
 
@@ -280,14 +276,14 @@ export function checkComponentInvocations(inventory: readonly Invocation[]): Inv
             problems.push({
                 relPath: site.relPath,
                 message:
-                    `${site.relPath}:${site.line} names '${site.name}', which the toolkit does not declare ` +
+                    `${site.relPath}:${site.line} names '${site.name}', which the executable does not declare ` +
                     `— in: ${site.text}`,
             });
         } else if (site.classification === "unmigrated") {
             problems.push({
                 relPath: site.relPath,
                 message:
-                    `${site.relPath}:${site.line} addresses a toolkit by ${site.form} rather than by name ` +
+                    `${site.relPath}:${site.line} addresses the executable by ${site.form} rather than by name ` +
                     `— in: ${site.text}`,
             });
         }
@@ -295,13 +291,10 @@ export function checkComponentInvocations(inventory: readonly Invocation[]): Inv
     return problems;
 }
 
-/** The capabilities the withdrawn second name declared, as a body may still name them. */
-const WITHDRAWN_TOOLKIT_CAPABILITIES: readonly string[] = ["config", "create-epic", "create-story", "version"];
-
 /** The gate's failure text: every problem, one per line, each naming its body and its name. */
 export function formatInvocationProblems(problems: readonly InvocationProblem[]): string {
     return [
-        "Component invocation gate (story #301) — a shipped body addresses a toolkit it must not:",
+        "Component invocation gate (story #301) — a shipped body addresses the executable in a way it must not:",
         ...problems.map((problem) => `  - ${problem.message}`),
     ].join("\n");
 }
@@ -309,13 +302,7 @@ export function formatInvocationProblems(problems: readonly InvocationProblem[])
 /**
  * The declared surface, read from the registry that composes the executable's own usage text —
  * never the human usage prose, and never a duplicate of that list (decision records #325, #362).
- *
- * The withdrawn toolkit's name set is a frozen literal rather than a live registry read: story
- * #397 deleted the second name, its dispatcher and its capability table, so there is no surface
- * left to read and no usage text for a list to be derived from. What the gate keeps is a memory of
- * the names a body used to write, so an unrewritten body is still failed by name. Story #399
- * removes the memory with the form that consults it.
  */
 export function readToolkitSurfaces(): ToolkitSurfaces {
-    return { nexus: DISPATCH_NAMES, nexusGh: WITHDRAWN_TOOLKIT_CAPABILITIES };
+    return { nexus: DISPATCH_NAMES };
 }

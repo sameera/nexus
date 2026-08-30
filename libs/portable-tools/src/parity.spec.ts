@@ -331,22 +331,21 @@ describe("component invocations name a declared toolkit verb (story #301)", () =
     const surfaces: ToolkitSurfaces = readToolkitSurfaces();
     const inventory: Invocation[] = scanComponentInvocations(authoredComponentRoot(SRC_DIR), surfaces);
 
-    it("reads each toolkit's declared surface from that surface, not from a duplicate", () => {
-        // The executable's names come from the registry that composes its own usage text; the
-        // Python toolkit's come from executing its entry point. Neither list is written down here.
+    it("reads the declared surface from that surface, not from a duplicate", () => {
+        // The executable's names come from the registry that composes its own usage text — the
+        // list is never written down here.
         expect(surfaces.nexus).toContain("workspace docs-root");
-        expect(surfaces.nexusGh.length).toBeGreaterThan(0);
-        expect(surfaces.nexusGh).toEqual([...surfaces.nexusGh].sort());
+        expect(surfaces.nexus).toContain("config resolve");
     });
 
-    it("no shipped body names a verb or capability the toolkit does not declare", () => {
+    it("no shipped body names a verb the executable does not declare", () => {
         const undeclared: Invocation[] = inventory.filter((site) => site.classification === "undeclared");
         expect(undeclared.map((site) => `${site.relPath}:${site.line} ${site.name}`)).toEqual([]);
     });
 
-    it("no shipped body addresses a toolkit by a repository-bound form", () => {
+    it("no shipped body addresses the executable by a repository-bound form", () => {
         // Unconditional since story #303 emptied and removed the pending register: a reintroduced
-        // script path, bundle path, workspace alias or bare `python` fails the build immediately.
+        // script path, bundle path or workspace alias fails the build immediately.
         const problems: InvocationProblem[] = checkComponentInvocations(inventory);
         expect(problems.length, problems.length > 0 ? formatInvocationProblems(problems) : undefined).toBe(0);
     });

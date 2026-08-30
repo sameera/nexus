@@ -199,8 +199,11 @@ describe("the procedure records what the suite does not check (record #334, ADDR
         expect(procedure.toLowerCase()).toContain("breaking");
     });
 
-    it("records that the declared interpreter floor is the whole of the prerequisite answer", () => {
-        expect(procedure).toMatch(/interpreter floor|python.{0,20}floor/i);
+    // Story #399: the release declares one runtime, so the prerequisite the procedure records is
+    // the Node floor — and it must not claim an interpreter floor the manifest no longer declares.
+    it("records that the declared Node floor is the whole of the prerequisite answer", () => {
+        expect(procedure).toMatch(/node floor/i);
+        expect(procedure).not.toMatch(/python|interpreter floor/i);
     });
 });
 

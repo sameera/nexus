@@ -11,7 +11,7 @@ How Nexus components and their tooling are packaged, installed, and addressed ou
 - **Collapse the component-invoked TypeScript capabilities into verbs on one named executable** — [#247](https://github.com/sameera/nexus/issues/247)
 - **Reach project state through an explicitly passed target root** — [#248](https://github.com/sameera/nexus/issues/248)
 - **Retire the hub's vendored tools directory** — [#257](https://github.com/sameera/nexus/issues/257)
-- **Make the Python toolkit reachable by name and let it find the executable by name** — [#249](https://github.com/sameera/nexus/issues/249)
+- **Make the forge toolkit reachable by name and let it find the executable by name** — [#249](https://github.com/sameera/nexus/issues/249)
 - **Rewrite every component invocation to name a toolkit, behind a build-time gate** — [#250](https://github.com/sameera/nexus/issues/250)
 - **Give the release one version identity and a writer stamp** — [#251](https://github.com/sameera/nexus/issues/251)
 - **Seed the project templates the pipeline stages read** — [#258](https://github.com/sameera/nexus/issues/258)

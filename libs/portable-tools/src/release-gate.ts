@@ -1,19 +1,20 @@
 /**
  * The release tail's precondition (invariant 15, epic #252).
  *
- * The package definition is complete on its own, but the tag and the public publish must wait:
- * shipped component bodies still reach the Python toolkit's capabilities by an in-repository
- * script path rather than by the declared toolkit name. Those paths exist in no checkout, so a
- * release cut today would put bodies on the registry that cannot work — and the changelog's own
- * claim that a stage runs without a checkout would be false on the first release.
+ * The package definition is complete on its own, but the tag and the public publish must wait on
+ * this check. A shipped body that reaches a capability by an in-repository script path names a
+ * path that exists in no adopter's checkout, so a release cut over such a body would put bodies
+ * on the registry that cannot work — and the changelog's own claim that a stage runs without a
+ * checkout would be false.
  *
  * The rule the gate enforces is narrow and checkable: a shipped body may name a path under the
  * component tree only when the payload itself carries that file. A path the payload carries
  * resolves wherever the components are deployed; a path it does not carry is a capability that
- * has moved into a toolkit and must be reached by the toolkit's declared name.
+ * has moved into the executable and must be reached by the executable's declared name.
  *
- * This is a release-time gate, not a suite gate. It is expected to fail until the invocation
- * rewrite lands, which is exactly what makes it a precondition worth running.
+ * This is a release-time gate, not a suite gate. Every shipped body now addresses its
+ * capabilities by that name (epic #354), so the gate passes; it stays as the check that keeps it
+ * so.
  */
 
 import * as fs from "node:fs";
@@ -23,8 +24,8 @@ import { authoredComponentRoot, listComponentFiles } from "./vendor-components.j
 
 /** What a releaser does about a finding — never an edit to the payload's path layout. */
 export const RELEASE_GATE_REMEDIATION: string =
-    "Rewrite the body to invoke the capability by its declared toolkit name (`nexus-gh <verb>` or " +
-    "`nexus <verb>`), which resolves from any directory once the package is installed.";
+    "Rewrite the body to invoke the capability by the executable's declared name (`nexus <verb>`), " +
+    "which resolves from any directory once the package is installed.";
 
 /** A single place where a shipped body reaches outside the payload by path. */
 export interface InRepoInvocation {
