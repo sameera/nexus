@@ -57,7 +57,7 @@ describe("the toolkit answers create-epic in process", () => {
     it("reaches the capability's own arguments through the dispatcher", () => {
         const io = recordingIo("/tmp");
         expect(runNexusGh(["create-epic", "--help"], io)).toBe(0);
-        expect(io.out.join("\n")).toContain("nexus-gh create-epic <path-to-epic.md>");
+        expect(io.out.join("\n")).toContain("nexus create-epic <path-to-epic.md>");
         expect(io.out.join("\n")).toContain("--promote");
         expect(spawned.mock.calls).toEqual([]);
     });

@@ -189,13 +189,13 @@ describe("the config capability's own argument handling", () => {
     it("writes usage and exits 2 when no command is given", () => {
         const io = recordingIo("/tmp");
         expect(runNexusGh(["config"], io)).toBe(2);
-        expect(io.err.join("\n")).toContain("usage: nexus-gh config");
+        expect(io.err.join("\n")).toContain("usage: nexus config");
     });
 
     it("writes its usage to stdout and exits 0 for --help", () => {
         const io = recordingIo("/tmp");
         expect(runNexusGh(["config", "--help"], io)).toBe(0);
-        expect(io.out.join("\n")).toContain("usage: nexus-gh config");
+        expect(io.out.join("\n")).toContain("usage: nexus config");
     });
 
     it("requires a key for resolve", () => {

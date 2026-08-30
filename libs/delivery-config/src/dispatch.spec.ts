@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { runNexusGh } from "./dispatch";
 import { type ToolkitIo } from "./io";
-import { CAPABILITY_NAMES, TOOLKIT_NAME, capabilityListing, findCapability, usage } from "./registry";
+import { CAPABILITY_NAMES, PROGRAM_NAME, capabilityListing, findCapability, usage } from "./registry";
 
 function recordingIo(): ToolkitIo & { out: string[]; err: string[] } {
     const out: string[] = [];
@@ -40,7 +40,7 @@ describe("nexus-gh dispatch", () => {
     it("names the unknown capability, then the usage text, on stderr with exit 2", () => {
         const io = recordingIo();
         expect(runNexusGh(["not-a-capability", "--flag"], io)).toBe(2);
-        expect(io.err[0]).toBe(`${TOOLKIT_NAME}: unknown capability 'not-a-capability'`);
+        expect(io.err[0]).toBe(`${PROGRAM_NAME}: unknown capability 'not-a-capability'`);
         expect(io.err.slice(1).join("\n")).toBe(usage());
         expect(io.out).toEqual([]);
     });

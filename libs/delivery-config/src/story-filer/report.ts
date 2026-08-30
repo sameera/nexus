@@ -8,7 +8,7 @@
 
 import { type ToolkitIo } from "../io.js";
 import { type FilerArgs, reconstructFlags } from "./args.js";
-import { TOOLKIT_NAME } from "../registry.js";
+import { PROGRAM_NAME } from "../registry.js";
 import { CAPABILITY } from "./args.js";
 
 const RULE = "=".repeat(60);
@@ -38,7 +38,7 @@ export interface RunOutcome {
  * run was actually given; a flag added to this capability is added here with it.
  */
 export function resumeCommand(args: FilerArgs, targetFolder: string): string {
-    return [TOOLKIT_NAME, CAPABILITY, `"${targetFolder}"`, ...reconstructFlags(args)].join(" ");
+    return [PROGRAM_NAME, CAPABILITY, `"${targetFolder}"`, ...reconstructFlags(args)].join(" ");
 }
 
 /** Whether anything at all went wrong or went unresolved. */

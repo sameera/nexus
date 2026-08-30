@@ -82,7 +82,7 @@ describe("the toolkit answers create-story in process", () => {
         const root: string = batch();
         const io = recordingIo(root);
         expect(runNexusGh(["create-story", "--help"], io)).toBe(0);
-        expect(io.out.join("\n")).toContain("nexus-gh create-story <target-folder>");
+        expect(io.out.join("\n")).toContain("nexus create-story <target-folder>");
         expect(io.out.join("\n")).toContain("--keep-manifest");
         expect(spawned.mock.calls).toEqual([]);
     });

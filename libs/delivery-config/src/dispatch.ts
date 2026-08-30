@@ -9,7 +9,7 @@
  */
 
 import { type ToolkitIo } from "./io.js";
-import { TOOLKIT_NAME, capabilityListing, findCapability, usage } from "./registry.js";
+import { PROGRAM_NAME, capabilityListing, findCapability, usage } from "./registry.js";
 
 export function runNexusGh(argv: string[], io: ToolkitIo): number {
     if (argv[0] === "--capabilities") {
@@ -27,7 +27,7 @@ export function runNexusGh(argv: string[], io: ToolkitIo): number {
     const name: string = argv[0];
     const capability = findCapability(name);
     if (capability === undefined) {
-        io.stderr(`${TOOLKIT_NAME}: unknown capability '${name}'`);
+        io.stderr(`${PROGRAM_NAME}: unknown capability '${name}'`);
         io.stderr(usage());
         return 2;
     }

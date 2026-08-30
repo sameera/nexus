@@ -59,6 +59,21 @@
       "import": "./src/delegate.ts",
       "default": "./src/delegate.ts"
     },
+    "./config-cli": {
+      "types": "./src/config-cli.ts",
+      "import": "./src/config-cli.ts",
+      "default": "./src/config-cli.ts"
+    },
+    "./epic-filer/run": {
+      "types": "./src/epic-filer/run.ts",
+      "import": "./src/epic-filer/run.ts",
+      "default": "./src/epic-filer/run.ts"
+    },
+    "./story-filer/run": {
+      "types": "./src/story-filer/run.ts",
+      "import": "./src/story-filer/run.ts",
+      "default": "./src/story-filer/run.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

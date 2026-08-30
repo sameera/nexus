@@ -19,12 +19,19 @@ import { runVersion } from "./version.js";
 import { runCreateEpic } from "./epic-filer/run.js";
 import { runCreateStory } from "./story-filer/run.js";
 
-/** The one literal the toolkit answers to, fixed by story #297. */
-export const TOOLKIT_NAME = "nexus-gh";
+/**
+ * The program name a capability reports in its own usage and error text.
+ *
+ * Story #396 folds every capability onto the executable, so this flips from the second binary name
+ * to `nexus` in one edit rather than being threaded through each invocation (decision record #400).
+ * For the length of the overlap the withdrawn name therefore prints the executable's name in its
+ * own usage — which points a reader at the command that will exist rather than the one going away.
+ */
+export const PROGRAM_NAME = "nexus";
 
 /** The program name a capability reports in its own usage and error text. */
 export function programName(capability: string): string {
-    return `${TOOLKIT_NAME} ${capability}`;
+    return `${PROGRAM_NAME} ${capability}`;
 }
 
 /** A capability's implementation: its own arguments, its own output, its own exit code. */
@@ -83,11 +90,11 @@ export function capabilityListing(): string {
 export function usage(): string {
     const width: number = Math.max(...CAPABILITIES.map((capability) => capability.name.length));
     return [
-        `usage: ${TOOLKIT_NAME} <capability> [args...]`,
+        `usage: ${PROGRAM_NAME} <capability> [args...]`,
         "",
         "capabilities:",
         ...CAPABILITIES.map((c) => `  ${c.name.padEnd(width)}  ${c.summary}`),
         "",
-        `Run \`${TOOLKIT_NAME} <capability> --help\` for a capability's own arguments.`,
+        `Run \`${PROGRAM_NAME} <capability> --help\` for a capability's own arguments.`,
     ].join("\n");
 }
