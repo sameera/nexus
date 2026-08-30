@@ -160,11 +160,12 @@ describe("the packed package carries all three parts (AC2)", () => {
         }
     });
 
-    it("contains the Python toolkit's importable package files", () => {
-        const pythonModules: string[] = packedFiles.filter((f) => f.endsWith(".py"));
-        expect(pythonModules).toContain(`${RELEASE_TREE_DIRNAME}/gh-toolkit/nexus_gh/cli.py`);
-        expect(pythonModules).toContain(`${RELEASE_TREE_DIRNAME}/gh-toolkit/nexus_gh/release.py`);
-        expect(pythonModules).toContain(`${RELEASE_TREE_DIRNAME}/gh-toolkit/nexus_gh/delivery_config.py`);
+    // Story #392: an adopter downloads only files the release executes.
+    it("contains no interpreter artefact at any depth, and nothing under the withdrawn toolkit directory", () => {
+        expect(packedFiles.filter((f) => f.endsWith(".py"))).toEqual([]);
+        expect(packedFiles.filter((f) => f.endsWith(".pyc"))).toEqual([]);
+        expect(packedFiles.filter((f) => f.includes("__pycache__"))).toEqual([]);
+        expect(packedFiles.filter((f) => f.includes("/gh-toolkit/"))).toEqual([]);
     });
 
     it("contains the component payload", () => {

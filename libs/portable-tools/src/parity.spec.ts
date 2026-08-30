@@ -45,9 +45,6 @@ const MANIFEST_PATH: string = path.join(LIB_ROOT, PAYLOAD_MANIFEST_FILE);
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 const GH_STANDIN_DIR: string = path.join(CORPUS, "bin");
-// The Python toolkit's entry point, placed on PATH under its own name — the install shape
-// story #297 names, and what makes `nexus-gh` reachable identically from source and bundle.
-const GH_TOOLKIT_BIN: string = path.join(REPO_ROOT, "libs", "gh-toolkit", "bin");
 
 // Story #276: the dispatcher's own source form — `tsx nexus-cli.ts <verb>` — is "the one command
 // shape" a maintainer runs any verb through with no build step. It is the only source-side entry
@@ -129,10 +126,7 @@ function runCapabilitySource(verb: string, args: string[], cwd: string, env?: No
 function ghStandInEnv(fixtureAbsPath: string): NodeJS.ProcessEnv {
     return {
         ...process.env,
-        // `nexus-gh` joins `gh` on the path: since story #300 the Python toolkit is an external
-        // program addressed by name, so source and bundle must reach the same one — a bundle
-        // written to a scratch directory has no checkout to fall back into.
-        PATH: [GH_STANDIN_DIR, GH_TOOLKIT_BIN, process.env.PATH].join(path.delimiter),
+        PATH: [GH_STANDIN_DIR, process.env.PATH].join(path.delimiter),
         NEXUS_PARITY_GH_FIXTURE: fixtureAbsPath,
     };
 }
@@ -254,12 +248,12 @@ describe("fingerprint pin", () => {
     });
 
     it("names the payload file that differs, not only that the digests differ", () => {
-        const recorded: PayloadManifest = { "gh-toolkit/nexus_gh/cli.py": "aaaa", "claude-components/commands/nxs.epic.md": "bbbb" };
-        const current: PayloadManifest = { "gh-toolkit/nexus_gh/cli.py": "cccc", "gh-toolkit/nexus_gh/new.py": "dddd" };
+        const recorded: PayloadManifest = { "claude-components/commands/nxs.epic.md": "bbbb", "claude-components/commands/nxs.close.md": "aaaa" };
+        const current: PayloadManifest = { "claude-components/commands/nxs.close.md": "cccc", "claude-components/commands/nxs.new.md": "dddd" };
         const differences: string[] = diffPayloadManifest(recorded, current);
         const message: string | null = checkFingerprint({ [PAYLOAD_KEY]: "x" }, { [PAYLOAD_KEY]: "y" }, differences);
-        expect(message).toContain("changed: gh-toolkit/nexus_gh/cli.py");
-        expect(message).toContain("added: gh-toolkit/nexus_gh/new.py");
+        expect(message).toContain("changed: claude-components/commands/nxs.close.md");
+        expect(message).toContain("added: claude-components/commands/nxs.new.md");
         expect(message).toContain("removed: claude-components/commands/nxs.epic.md");
     });
 

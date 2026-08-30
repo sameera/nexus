@@ -31,37 +31,30 @@ afterEach(() => {
 });
 
 describe("the payload walk applies a stated ignore filter (AC3)", () => {
-    it("states the categories it excludes rather than sweeping the directory", () => {
-        expect([...PAYLOAD_IGNORE]).toEqual(expect.arrayContaining(["__pycache__", "*.pyc", "tests", "test_*.py"]));
+    // Story #392: every entry the filter carried excluded an interpreter's byte-code or an
+    // interpreter's tests, and the payload no longer walks a tree that can hold either.
+    it("names no category that can never match again", () => {
+        expect([...PAYLOAD_IGNORE]).toEqual([]);
     });
 
-    it("excludes byte-code and test files wherever they sit", () => {
-        expect(isIgnoredPayloadEntry("__pycache__")).toBe(true);
-        expect(isIgnoredPayloadEntry("cli.cpython-312.pyc")).toBe(true);
-        expect(isIgnoredPayloadEntry("tests")).toBe(true);
-        expect(isIgnoredPayloadEntry("test_packaging.py")).toBe(true);
-    });
-
-    it("keeps the capability modules a release exists to ship", () => {
-        for (const kept of ["cli.py", "release.py", "delivery_config.py", "nexus-gh", "nxs.epic.md"]) {
+    it("excludes nothing the payload would otherwise ship", () => {
+        for (const kept of ["nxs.epic.md", "SKILL.md", "nxs-architect.md", "tests", "__pycache__"]) {
             expect(isIgnoredPayloadEntry(kept), kept).toBe(false);
         }
     });
 });
 
 describe("the shipped payload carries nothing incidental (AC1)", () => {
-    it("lists no test file and no byte-code", () => {
+    it("carries no interpreter artefact and nothing under the withdrawn toolkit directory", () => {
         const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
-        expect(staged.filter((f) => f.includes("__pycache__"))).toEqual([]);
+        expect(staged.filter((f) => f.startsWith("gh-toolkit/"))).toEqual([]);
+        expect(staged.filter((f) => f.endsWith(".py"))).toEqual([]);
         expect(staged.filter((f) => f.endsWith(".pyc"))).toEqual([]);
-        expect(staged.filter((f) => path.basename(f).startsWith("test_"))).toEqual([]);
-        expect(staged.filter((f) => f.includes("/tests/"))).toEqual([]);
+        expect(staged.filter((f) => f.includes("__pycache__"))).toEqual([]);
     });
 
-    it("carries the Python toolkit's modules and the component tree", () => {
+    it("carries the component tree", () => {
         const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
-        expect(staged).toContain("gh-toolkit/nexus_gh/cli.py");
-        expect(staged).toContain("gh-toolkit/bin/nexus-gh");
         expect(staged).toContain("claude-components/commands/nxs.epic.md");
     });
 
@@ -86,23 +79,6 @@ describe("the shipped payload carries nothing incidental (AC1)", () => {
 });
 
 describe("the fingerprint is a property of the commit, not the machine (AC2)", () => {
-    it("is unchanged by cached byte-code left behind by a different interpreter", () => {
-        const before: string = hashPayload(REPO_ROOT);
-        const cache: string = path.join(REPO_ROOT, "libs", "gh-toolkit", "nexus_gh", "__pycache__");
-        const existed: boolean = fs.existsSync(cache);
-        fs.mkdirSync(cache, { recursive: true });
-        const stray: string = path.join(cache, "cli.cpython-99.pyc");
-        fs.writeFileSync(stray, "byte-code from another interpreter");
-        try {
-            expect(hashPayload(REPO_ROOT)).toBe(before);
-        } finally {
-            fs.rmSync(stray, { force: true });
-            if (!existed) {
-                fs.rmSync(cache, { recursive: true, force: true });
-            }
-        }
-    });
-
     it("is unchanged by a re-walk, and changes when a shipped file changes", () => {
         expect(hashPayload(REPO_ROOT)).toBe(hashPayload(REPO_ROOT));
         const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
