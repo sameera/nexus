@@ -1,8 +1,8 @@
 ---
 title: "Resumable Batch Filing"
 aliases: ["resume ledger", "batch filing", "re-runnable batch", "half-filed batch", "duplicate-issue guard", "filing preflight", "keep manifest"]
-touches: ["delegating-port", "backlog-stub", "publishing-config-resolution", "story-identity", "target-root-convention"]
-last_updated_by: "#353"
+touches: ["delegating-port", "backlog-stub", "publishing-config-resolution", "story-identity", "target-root-convention", "report-free-shared-layer"]
+last_updated_by: "#352"
 status: active
 verification: verified
 ---
@@ -36,9 +36,14 @@ The run then reports what it created, reused, wired and rewrote, and — where a
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the classification, labels and project target the run establishes before the first issue, none of them hard-coded here.
 - [story-identity](story-identity.md) — resolves the pre-filing ref, in dependency graph and prose alike, into the issue number that becomes a story's only name.
 - [target-root-convention](target-root-convention.md) — the root the folder must resolve inside, and the root every platform call is bound to rather than the ambient directory.
+- [report-free-shared-layer](report-free-shared-layer.md) — this contract's own platform calls and lookups, generalised into a shared layer once a second capability needed them.
 
 ## Decision Log
 
 ### 2026-08-29 — #353 — The ledger is written before an issue is decorated, and an illegal batch is refused before anything exists
 
 Two orderings carry this contract, and both were preserved deliberately rather than improved. The ledger entry is written the moment a created issue's identity resolves and before any typing, parent linking or project work, because the gap between an issue existing and the ledger recording it is the only path that can produce a duplicate — and a retried call currently sits inside it. Separately, the legality check runs ahead of everything, including configuration resolution, so a bad work item costs a corrected file rather than a half-filed repository nobody can unpick; the consequence accepted here is that a refused batch reports one line fewer than before, on a path that creates nothing. Decoration was made best-effort for the mirror-image reason: an issue that already exists is never abandoned over its type, its parent link or its board membership. **Refuted alternative:** narrow the duplicate window by recording the entry the instant the issue exists and leaving its identity to the existing backfill path. This is a genuine improvement and closes the one gap named above, but the bar for this work was preservation, and a resumed batch is checked against the current ordering; it belongs in its own change rather than smuggled into a port.
+
+### 2026-08-30 — #352 — Reciprocal link from report-free-shared-layer
+
+Mechanical reciprocity fan-out: the report-free-shared-layer page names this contract's platform calls and project lookups as the mechanism it generalised — this page's calls stopped printing for themselves so a second capability could reuse them in its own vocabulary, with no change to this contract's own outcomes or ordering.

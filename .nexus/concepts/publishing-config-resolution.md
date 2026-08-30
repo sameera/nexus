@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing"]
-last_updated_by: "#353"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing"]
+last_updated_by: "#352"
 status: active
 verification: verified
 ---
@@ -42,6 +42,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [toolkit-location](toolkit-location.md) — the by-name rule still governing how bodies and stages address this resolver's toolkit, now that its own callers reach it in process.
 - [settings-key-catalogue](settings-key-catalogue.md) — which keys exist and what each falls back to, declared once; split out from here, which keeps what a key resolves to.
 - [resumable-batch-filing](resumable-batch-filing.md) — the batch path resolving every key here before its first issue, its own sources checked for holding no second copy.
+- [epic-issue-filing](epic-issue-filing.md) — the single-issue filing path resolving classification, project target and repository through this same resolver.
 
 ## Decision Log
 
@@ -76,3 +77,7 @@ The resolver moved onto the runtime its callers are written in, so the two libra
 ### 2026-08-29 — #353 — The one-place rule is checked against a consumer's sources, not left to review
 
 This page's first invariant has always said the resolver is defined exactly once, but nothing enforced it at the consumer: a capability could quietly grow its own reader for classification, project targets, labels or the settings write-back, agree with the shared answer on the day it was written, and drift silently afterwards. Porting the batch issue filer onto this runtime added a structural check over that consumer's own sources — it defines nothing equivalent to a shared capability, and each shared capability it uses is reached from the one place that defines it. The invariant is unchanged; what changed is that it is now held mechanically at one consumer rather than by review. Checking structurally rather than behaviourally is the load-bearing part: a private re-implementation that happens to agree today is invisible to a behavioural assertion, and agreeing on the day of writing is exactly what the duplicated reader this rule exists to prevent also did. **Refuted alternative:** assert only that the consumer's resolved values match the shared resolver's, and leave the no-second-copy rule to review — cheaper and free of any reading of source text, but it passes for precisely the drifting copy the invariant is aimed at.
+
+### 2026-08-30 — #352 — Reciprocal link from epic-issue-filing
+
+Mechanical reciprocity fan-out: the epic-issue-filing page names this resolver as the source of the classification, project target and repository it files into, holding the structural one-place check the previous entry describes over its own sources as well.
