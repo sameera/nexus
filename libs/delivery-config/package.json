@@ -54,11 +54,6 @@
       "import": "./src/dispatch.ts",
       "default": "./src/dispatch.ts"
     },
-    "./delegate": {
-      "types": "./src/delegate.ts",
-      "import": "./src/delegate.ts",
-      "default": "./src/delegate.ts"
-    },
     "./config-cli": {
       "types": "./src/config-cli.ts",
       "import": "./src/config-cli.ts",

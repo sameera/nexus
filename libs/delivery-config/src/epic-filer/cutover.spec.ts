@@ -11,9 +11,15 @@ import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import { runNexusGh } from "../dispatch";
-import { PYTHON_INTERPRETER } from "../python-entry";
 import { CAPABILITIES, capabilityListing, usage } from "../registry";
 import { cannedGh, checkoutWith, draft, recordingIo, writeDraft } from "./fixtures";
+
+/**
+ * The interpreter no path may reach. Story #394 removed the delegation seam, so this is stated
+ * here as the literal it always was rather than imported from a module that no longer exists —
+ * the assertion is still worth making, it just cannot source the name from the removed seam.
+ */
+const AN_INTERPRETER = "python3";
 
 vi.mock("node:child_process", () => ({ spawnSync: vi.fn() }));
 
@@ -44,14 +50,14 @@ describe("the toolkit answers create-epic in process", () => {
         expect(io.out.join("\n")).toContain("GitHub Issue Created");
         expect(fs.readFileSync(file, "utf8")).toContain('link: "#7"');
         expect(spawnedCommands().length).toBeGreaterThan(0);
-        expect(spawnedCommands()).not.toContain(PYTHON_INTERPRETER);
+        expect(spawnedCommands()).not.toContain(AN_INTERPRETER);
     });
 
     it("spawns no interpreter for a run it refuses either", () => {
         const { root } = scratchEpic();
         const io = recordingIo(root);
         expect(runNexusGh(["create-epic", path.join(root, "absent.md")], io)).toBe(1);
-        expect(spawnedCommands()).not.toContain(PYTHON_INTERPRETER);
+        expect(spawnedCommands()).not.toContain(AN_INTERPRETER);
     });
 
     it("reaches the capability's own arguments through the dispatcher", () => {

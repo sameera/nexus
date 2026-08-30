@@ -163,8 +163,8 @@ export function seedScenario(ctx: SeedContext, kind: ScenarioKind, opts: { id?: 
         const epicPath = path.join(workDir, "epic.md");
         fs.writeFileSync(epicPath, epicDoc(id, kind, ctx.today));
         const epicRun = run(
-            "python3",
-            [path.join(ctx.toolRoot, "libs/gh-toolkit/bin/nexus-gh"), "create-epic", "--yes", epicPath],
+            "tsx",
+            [path.join(ctx.toolRoot, "libs/portable-tools/src/nexus-cli.ts"), "create-epic", "--yes", epicPath],
             { cwd: clonePath },
         );
         if (epicRun.status !== 0) {
@@ -193,9 +193,9 @@ export function seedScenario(ctx: SeedContext, kind: ScenarioKind, opts: { id?: 
             storyDoc("STORY-02", `Be closable (${id})`, epicIssue, "**As a** harness, **I want** a second child issue."),
         );
         const storyRun = run(
-            "python3",
+            "tsx",
             [
-                path.join(ctx.toolRoot, "libs/gh-toolkit/bin/nexus-gh"),
+                path.join(ctx.toolRoot, "libs/portable-tools/src/nexus-cli.ts"),
                 "create-story",
                 storiesDir,
                 "--no-project",

@@ -11,9 +11,15 @@ import * as path from "node:path";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { runNexusGh } from "../dispatch";
-import { PYTHON_INTERPRETER } from "../python-entry";
 import { CAPABILITIES, capabilityListing, usage } from "../registry";
 import { checkoutWith, recordingIo, scratch, story, writeItem } from "./fixtures";
+
+/**
+ * The interpreter no path may reach. Story #394 removed the delegation seam, so this is stated
+ * here as the literal it always was rather than imported from a module that no longer exists —
+ * the assertion is still worth making, it just cannot source the name from the removed seam.
+ */
+const AN_INTERPRETER = "python3";
 
 vi.mock("node:child_process", () => ({ spawnSync: vi.fn() }));
 
@@ -67,7 +73,7 @@ describe("the toolkit answers create-story in process", () => {
         expect(io.out.join("\n")).toContain("Issues:       2 created");
         const commands: string[] = spawned.mock.calls.map((call) => call[0] as string);
         expect(commands.length).toBeGreaterThan(0);
-        expect(commands).not.toContain(PYTHON_INTERPRETER);
+        expect(commands).not.toContain(AN_INTERPRETER);
         for (const command of commands) expect(command).toBe("gh");
     });
 

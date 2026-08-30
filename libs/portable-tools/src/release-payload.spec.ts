@@ -4,7 +4,6 @@
  * than of the machine, and the build produces one executable.
  */
 
-import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -108,39 +107,6 @@ describe("the fingerprint is a property of the commit, not the machine (AC2)", (
         expect(hashPayload(REPO_ROOT)).toBe(hashPayload(REPO_ROOT));
         const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
         expect(staged).toEqual([...staged].sort());
-    });
-});
-
-describe("the toolkit writes no byte-code into the repository it runs against (AC4)", () => {
-    it("leaves no __pycache__ behind after a capability runs", () => {
-        const repo: string = makeTmpDir("payload-target-repo-");
-        fs.mkdirSync(path.join(repo, ".nexus", "config"), { recursive: true });
-        fs.writeFileSync(path.join(repo, ".nexus", "config", "settings.yml"), "github:\n  unplanned-label: icebox\n");
-        // A pristine copy: byte-code written by this run is the only byte-code that can appear.
-        const copy: string = path.join(makeTmpDir("payload-toolkit-"), "gh-toolkit");
-        for (const file of listPayloadFiles(REPO_ROOT).filter((f) => f.staged.startsWith("gh-toolkit/"))) {
-            const dest: string = path.join(copy, ...file.staged.split("/").slice(1));
-            fs.mkdirSync(path.dirname(dest), { recursive: true });
-            fs.copyFileSync(file.source, dest);
-        }
-        execFileSync("python3", [path.join(copy, "bin", "nexus-gh"), "config", "resolve", "unplanned-label"], {
-            cwd: repo,
-            encoding: "utf8",
-        });
-
-        const byteCode: string[] = [];
-        const scan = (dir: string): void => {
-            for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-                if (entry.isDirectory()) {
-                    scan(path.join(dir, entry.name));
-                } else if (entry.name.endsWith(".pyc")) {
-                    byteCode.push(path.join(dir, entry.name));
-                }
-            }
-        };
-        scan(repo);
-        scan(copy);
-        expect(byteCode, byteCode.join(", ")).toEqual([]);
     });
 });
 
