@@ -14,7 +14,7 @@ import { type ToolkitIo } from "../io.js";
 import { type CreatedRecord } from "./create.js";
 import { normalizeRef } from "./frontmatter.js";
 import { type Ledger } from "./ledger.js";
-import { type Platform } from "./platform.js";
+import { type Outcome, type Platform } from "./platform.js";
 
 /**
  * A story ref as it appears in issue *prose*, with or without the code-span backticks authors tend
@@ -94,7 +94,9 @@ export function rewritePass(
     const result: RewriteResult = { rewritten: 0, unresolved: [], failed: [] };
 
     for (const number of rewriteTargets(created)) {
-        const body: string | null = platform.issueBody(number);
+        const read: Outcome<string> = platform.issueBody(number);
+        if (read.error !== null) io.stderr(`Error reading body of #${number}: ${read.error}`);
+        const body: string | null = read.value;
         if (body === null) {
             result.failed.push(number);
             continue;
@@ -107,10 +109,12 @@ export function rewritePass(
         // No refs left to resolve means no write — this is what makes a re-run a no-op, since a
         // rewritten body no longer carries the tokens that would trigger another edit.
         if (next === body) continue;
-        if (platform.setIssueBody(number, next)) {
+        const written: Outcome<true> = platform.setIssueBody(number, next);
+        if (written.value === true) {
             io.stdout(`  #${number} body refs rewritten to issue numbers`);
             result.rewritten++;
         } else {
+            io.stderr(`Error rewriting body of #${number}: ${written.error ?? ""}`);
             result.failed.push(number);
         }
     }

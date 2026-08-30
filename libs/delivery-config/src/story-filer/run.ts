@@ -30,6 +30,7 @@ import { type RewriteResult, refToNumber, rewritePass } from "./rewrite.js";
 import { type WireResult, refToDbId, wirePass } from "./wire.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 import { previewLine } from "./preview.js";
+import { type WriteReport } from "../write.js";
 import { writeBackDecisions } from "./writeback.js";
 
 export function runCreateStory(
@@ -80,11 +81,11 @@ export function runCreateStory(
         env,
         io,
     );
-    const platform: Platform = new Platform(gh, config.issuesRepo, io);
+    const platform: Platform = new Platform(gh, config.issuesRepo);
 
     // Resolved once for the whole batch. The lookups take the plain runner: they are the calls that
     // deliberately do not retry, and that is observable as latency and as warning lines.
-    const lookup: ProjectLookup = new ProjectLookup(run, io);
+    const lookup: ProjectLookup = new ProjectLookup(run);
     const plan: ProjectPlan = planProjects(ready.layers, args, lookup, io);
 
     const ledgerPath: string = ledgerPathFor(ready.targetFolder);
@@ -109,15 +110,18 @@ export function runCreateStory(
     const pass2: WireResult = wirePass(pass1.created, refToDbId(pass1.created, ledger), platform, io);
     const pass3: RewriteResult = rewritePass(pass1.created, refToNumber(pass1.created, ledger), platform, io);
 
-    writeBackDecisions(
-        ready.projectRoot,
-        {
-            classification: config.classification,
-            // Only the discovery path found something this repository had not been told.
-            discoveredProject: plan.ranAutoDiscovery ? plan.discoveredRef : undefined,
-        },
-        io,
-    );
+    const seeded: WriteReport = writeBackDecisions(ready.projectRoot, {
+        classification: config.classification,
+        // Only the discovery path found something this repository had not been told.
+        discoveredProject: plan.ranAutoDiscovery ? plan.discoveredRef : undefined,
+    });
+    if (seeded.added.length > 0) {
+        io.stdout("");
+        io.stdout(
+            `🌱 Seeded github config (${seeded.added.join(", ")}) into ` +
+                ".nexus/config/settings.yml — review and commit",
+        );
+    }
 
     const reused: number = pass1.created.filter((record) => record.reused).length;
     const outcome: RunOutcome = {

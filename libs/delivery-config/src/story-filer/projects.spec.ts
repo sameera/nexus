@@ -136,6 +136,124 @@ describe("auto-discovery", () => {
     });
 });
 
+/** Every project query refused, and every other call left to the fake platform's defaults. */
+const refusedGraphql = (args: string[]): RunResult | undefined =>
+    args[0] === "api" && args[1] === "graphql" ? FAIL("gh: 502") : undefined;
+
+describe("a lookup that failed rather than found nothing", () => {
+    it("reports why the owner could not be read for a bare project reference", () => {
+        const root: string = repo({ project: "4" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) =>
+            args[0] === "repo" && args.includes(".owner.login") ? FAIL("gh: not authenticated") : undefined,
+        );
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Error getting repo owner: gh: not authenticated");
+    });
+
+    it("reports why the repository could not be named during auto-discovery", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) =>
+            args[0] === "repo" && args.includes(".nameWithOwner") ? FAIL("gh: no such repository") : undefined,
+        );
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Error fetching repository projects: gh: no such repository");
+    });
+
+    it("reports a numbered lookup and a title search the platform refused", () => {
+        const byNumber: string = repo({ project: "acme/4" });
+        writeItem(byNumber, "STORY-1.md", story("1"));
+        const numbered = recordingIo(byNumber);
+        expect(runCreateStory([scratch(byNumber)], numbered, platform(refusedGraphql).env)).toBe(0);
+        expect(numbered.err.join("\n")).toContain("Error fetching project by number: gh: 502");
+
+        const byTitle: string = repo({ project: "acme/Roadmap" });
+        writeItem(byTitle, "STORY-1.md", story("1"));
+        const titled = recordingIo(byTitle);
+        expect(runCreateStory([scratch(byTitle)], titled, platform(refusedGraphql).env)).toBe(0);
+        expect(titled.err.join("\n")).toContain("Error searching for project by title: gh: 502");
+    });
+
+    it("reports an answer it could not read", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) => {
+            if (args[0] === "repo" && args.includes(".nameWithOwner")) return OK(`${REPO}\n`);
+            return args[0] === "api" && args[1] === "graphql" ? OK("<html>not json</html>") : undefined;
+        });
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Error parsing project response:");
+    });
+
+    it("reports a repository name it cannot split into owner and repo", () => {
+        const root: string = repo();
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) =>
+            args[0] === "repo" && args.includes(".nameWithOwner") ? OK("tracker\n") : undefined,
+        );
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(io.err.join("\n")).toContain("Unexpected repository name format: tracker");
+    });
+});
+
+describe("a scope that answered is not asked again", () => {
+    /**
+     * Asking the user scope about an organization login is a bad question, and the platform refuses
+     * it. That refusal is only ever seen when the first scope did not answer — so a lookup that ends
+     * "no such project" must not manufacture one on its way there.
+     */
+    const userScopeRefused =
+        (answered: string) =>
+        (args: string[]): RunResult | undefined => {
+            if (args[0] !== "api" || args[1] !== "graphql") return undefined;
+            return args[3].includes("user(login") ? FAIL("gh: Could not resolve to a User") : OK(answered);
+        };
+
+    const userScopeQueries = (calls: string[][]): string[] =>
+        graphqlQueries(calls).filter((query) => query.includes("user(login"));
+
+    it("leaves the user scope unasked once the organization scope has answered a numbered lookup", () => {
+        const root: string = repo({ project: "acme/404" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform(userScopeRefused(projectPayload("organization", null)));
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(userScopeQueries(gh.calls)).toEqual([]);
+        expect(io.err.join("\n")).toContain("Warning: Project 'acme/404' from config not found");
+        expect(io.err.join("\n")).not.toContain("Error fetching project by number");
+    });
+
+    it("leaves the user scope unasked once the organization scope has answered a title search", () => {
+        const root: string = repo({ project: "acme/Roadmap" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform(userScopeRefused(projectsPayload("organization", [])));
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(userScopeQueries(gh.calls)).toEqual([]);
+        expect(io.err.join("\n")).toContain("Warning: Project 'acme/Roadmap' from config not found");
+        expect(io.err.join("\n")).not.toContain("Error searching for project by title");
+    });
+
+    it("still asks the user scope when the organization scope could not answer", () => {
+        const root: string = repo({ project: "acme/4" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = platform((args) => {
+            if (args[0] !== "api" || args[1] !== "graphql") return undefined;
+            if (args[3].includes("organization(login")) return FAIL("gh: Could not resolve to an Organization");
+            return OK(projectPayload("user", { id: "PVT_9", title: "Personal" }));
+        });
+        expect(runCreateStory([scratch(root)], io, gh.env)).toBe(0);
+        expect(userScopeQueries(gh.calls).length).toBeGreaterThan(0);
+        expect(io.out.join("\n")).toContain("Found project: Personal");
+    });
+});
+
 describe("a target declared none", () => {
     it("performs no lookup, no discovery and no project call, and warns about nothing", () => {
         const root: string = repo({ project: "none" });

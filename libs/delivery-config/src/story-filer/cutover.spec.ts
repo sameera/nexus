@@ -103,9 +103,4 @@ describe("the capability's place in the toolkit is unchanged", () => {
         expect(usage()).toContain("create-story  File one GitHub issue per STORY-*.md work item.");
     });
 
-    it("leaves the epic filer delegating, since its port is its own epic", () => {
-        const io = recordingIo("/tmp");
-        runNexusGh(["create-epic", "epic.md"], io);
-        expect(spawned.mock.calls.map((call) => call[0] as string)).toContain(PYTHON_INTERPRETER);
-    });
 });

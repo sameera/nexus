@@ -7,16 +7,16 @@
  * here, because both surfaces are rendered from this one table: the human usage text and the
  * machine listing the build gate reads. There is never a second list.
  *
- * The one row that still delegates is the epic filer, Python until epic #352 ports it. The story
- * filer moved in place (#374): its row now names the in-process handler, and nothing else about the
- * row changed. Which language a row is implemented in is invisible from here — that is what let the
- * filer move without the dispatcher changing at all.
+ * No row delegates any more. The story filer moved in place (#374) and the epic filer followed it
+ * (#386): each row now names an in-process handler, and nothing else about either row changed.
+ * Which language a row is implemented in is invisible from here — that is what let both filers move
+ * without the dispatcher changing at all.
  */
 
-import { delegateToPython } from "./delegate.js";
 import { type ToolkitIo } from "./io.js";
 import { runConfig } from "./config-cli.js";
 import { runVersion } from "./version.js";
+import { runCreateEpic } from "./epic-filer/run.js";
 import { runCreateStory } from "./story-filer/run.js";
 
 /** The one literal the toolkit answers to, fixed by story #297. */
@@ -51,7 +51,7 @@ export const CAPABILITIES: readonly Capability[] = [
     {
         name: "create-epic",
         summary: "File a GitHub issue from an epic document.",
-        run: (args, io) => delegateToPython("create-epic", args, io),
+        run: runCreateEpic,
     },
     {
         name: "create-story",
