@@ -63,7 +63,7 @@ import {
     type InstallLocationState,
 } from "./install-location.js";
 import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from "./migrate-components.js";
-import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
+import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
@@ -168,11 +168,11 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runMigrateComponents,
     },
     version: {
-        summary: "Report the installed release, its component payload and the resolved interpreter.",
+        summary: "Report the installed release, its component payload and its install location.",
         usage: [
             "  nexus version",
-            "      Print { version, componentPayload, python } — the release's one semantic version,",
-            "      the component payload's fingerprint, and the resolved python3 and its version.",
+            "      Print { version, componentPayload, installLocation } — the release's one semantic",
+            "      version, the component payload's fingerprint, and where the components are installed.",
         ].join("\n"),
         run: runVersion,
     },
@@ -644,7 +644,6 @@ async function runVersion(argv: string[], io: CliIo): Promise<number> {
             version: releaseVersion(),
             componentPayload: payloadDir === null ? null : hashComponentTree(payloadDir),
             installLocation: reportedInstallLocation(),
-            python: resolveInterpreter(),
         }),
     );
     return 0;

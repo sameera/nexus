@@ -67,18 +67,21 @@ beforeEach(() => {
 });
 
 describe("detecting environment defects", () => {
-    it("names a missing required interpreter and its remedy", () => {
+    // Story #395: the release no longer runs on an interpreter, so a machine without one has no
+    // defect to report. The guard names only what can actually stop Nexus running.
+    it("reports nothing on a machine with no interpreter on PATH", async () => {
         const emptyPath: string = makeTmpDir("guard-no-python-");
+        const io: CapturedIo = makeIo(REPO_ROOT);
         const saved: string | undefined = process.env["PATH"];
         process.env["PATH"] = emptyPath;
         try {
             const defects = detectEnvironmentDefects({ cwd: REPO_ROOT, home: makeTmpDir("guard-home-") });
-            const missing = defects.find((d) => d.defect.includes("python3"));
-            expect(missing).toBeDefined();
-            expect(missing?.remedy).not.toBe("");
+            expect(defects).toEqual([]);
+            expect(await runNexusCli(["version"], io)).toBe(0);
         } finally {
             process.env["PATH"] = saved;
         }
+        expect(io.err).toEqual([]);
     });
 
     it("names two component sets resolving on one account, and where they are", () => {
