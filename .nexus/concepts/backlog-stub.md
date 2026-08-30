@@ -1,8 +1,8 @@
 ---
 title: "Backlog Stub"
 aliases: ["backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "cross-feature backlog", "deferred scope filing"]
-touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing"]
-last_updated_by: "#353"
+touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing"]
+last_updated_by: "#352"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ Two writers create stubs: the epic stage when scope exceeds one epic, and the cl
 - [discovery-graduation](discovery-graduation.md) — files stubs from a finished discovery through this same contract, adding the decisions each goal hangs on.
 - [fog-referral-gate](fog-referral-gate.md) — separates fog from oversized scope, so only scope that is big but clear reaches this decomposition path.
 - [resumable-batch-filing](resumable-batch-filing.md) — the one batch path both stub writers file through, whose preflight refuses a parented stub before anything is created.
+- [epic-issue-filing](epic-issue-filing.md) — the single-issue path a promotion runs through, checking and clearing the unplanned marker this page names.
 
 ## Decision Log
 
@@ -52,3 +53,7 @@ Graduating a discovery files one stub per functional goal through the same batch
 ### 2026-08-29 — #353 — Reciprocal link from resumable-batch-filing
 
 Mechanical reciprocity fan-out: the resumable-batch-filing page names this page's stub contract as what its preflight enforces — a work item marked unplanned that also asks for a parent refuses the whole batch, which is the never-a-sub-issue rule stopping a stub that would deadlock the stage that filed it.
+
+### 2026-08-30 — #352 — Reciprocal link from epic-issue-filing
+
+Mechanical reciprocity fan-out: the epic-issue-filing page names this page's unplanned marker as the one it checks before writing and clears on promotion, refusing the operation before any write when the marker is already gone.
