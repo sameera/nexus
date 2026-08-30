@@ -18,7 +18,7 @@ Create a GitHub issue from an Epic document's content and link it back to the ep
 2. **Run the capability** to create the issue and update frontmatter:
 
 ```bash
-nexus-gh create-epic "<path-to-epic.md>"
+nexus create-epic "<path-to-epic.md>"
 ```
 
 ### Optional Flags
@@ -35,18 +35,18 @@ The plain form above auto-discovers the project from the repository. The flags v
 
 ```bash
 # Specify target project explicitly
-nexus-gh create-epic --project "acme-corp/backend-roadmap" "<path-to-epic.md>"
+nexus create-epic --project "acme-corp/backend-roadmap" "<path-to-epic.md>"
 
 # Skip confirmation for existing links
-nexus-gh create-epic -y "<path-to-epic.md>"
+nexus create-epic -y "<path-to-epic.md>"
 
 # Create issue without adding to any project
-nexus-gh create-epic --no-project "<path-to-epic.md>"
+nexus create-epic --no-project "<path-to-epic.md>"
 ```
 
 ## Capability Behavior
 
-`nexus-gh create-epic`:
+`nexus create-epic`:
 
 1. Parses YAML frontmatter for `epic` (title) and `type` (issue type name)
 2. Resolves the classification mode from `github.classification` in `.nexus/config/settings.yml`

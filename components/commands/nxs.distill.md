@@ -173,7 +173,7 @@ artifacts (a close just prepared it — the close record, backlog append, and le
        `settings.yml`), exactly as `/nxs.close` Phase 1.0 does:
 
         ```bash
-        ISSUES_REPO="$(nexus-gh config resolve epic-repo --root .)"
+        ISSUES_REPO="$(nexus config resolve epic-repo --root .)"
         gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body   # the why
         nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
         ```
