@@ -12,8 +12,7 @@
   },
   "homepage": "https://github.com/sameera/nexus#readme",
   "bin": {
-    "nexus": "dist/nexus.mjs",
-    "nexus-gh": "dist/nexus-gh.mjs"
+    "nexus": "dist/nexus.mjs"
   },
   "files": [
     "dist",

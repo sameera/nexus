@@ -1,6 +1,6 @@
 /**
- * The allowlist entries where an adopter will look (story #318): the exact permission entry is
- * written down, so a first-time adopter grants the toolkits permission once for their account
+ * The allowlist entry where an adopter will look (stories #318, #397): the exact permission entry
+ * is written down, so a first-time adopter grants the executable permission once for their account
  * instead of being prompted once per repository.
  *
  * Three surfaces must carry byte-identical text — the install documentation, the upgrade notes and
@@ -51,13 +51,13 @@ afterEach(() => {
 });
 
 describe("the documented allowlist entries", () => {
-    it("carries exactly two entries in the install documentation, one per named toolkit (AC1)", () => {
+    it("carries exactly one entry in the install documentation, for the one executable (AC1)", () => {
         const install: string = section("install");
         expect(install).toContain(ALLOWLIST_BLOCK);
         for (const entry of ALLOWLIST_ENTRIES) {
             expect(install.split(entry)).toHaveLength(2);
         }
-        expect(ALLOWLIST_ENTRIES).toHaveLength(2);
+        expect(ALLOWLIST_ENTRIES).toEqual(["Bash(nexus:*)"]);
     });
 
     it("states each entry in the trailing-wildcard prefix form (AC1)", () => {
@@ -71,7 +71,7 @@ describe("the documented allowlist entries", () => {
         expect(ALLOWLIST_BLOCK).toContain("not to a repository-local one");
     });
 
-    it("carries the same two entries, byte-identical, in the upgrade notes (AC2)", () => {
+    it("carries the same entry, byte-identical, in the upgrade notes (AC2)", () => {
         expect(section("upgrade")).toContain(ALLOWLIST_BLOCK);
     });
 
@@ -94,8 +94,8 @@ describe("the documented allowlist entries", () => {
         expect(out.join("\n")).toContain(ALLOWLIST_BLOCK);
     });
 
-    it("says Nexus writes no settings file and that adding the entries is the user's action (AC4)", () => {
-        expect(section("install")).toContain("Nexus writes no settings file. Adding these entries is your action.");
+    it("says Nexus writes no settings file and that adding the entry is the user's action (AC4)", () => {
+        expect(section("install")).toContain("Nexus writes no settings file. Adding it is your action.");
     });
 
     it("no longer teaches installing the components into a repository as the way in", () => {

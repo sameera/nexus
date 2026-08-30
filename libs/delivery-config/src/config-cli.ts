@@ -17,7 +17,9 @@ import { type GhRunner, type RunResult, defaultGhRunner, repoHasIssueTypes } fro
 import { type ToolkitIo } from "./io.js";
 import { layersAt, resolvePublishingKey } from "./resolve.js";
 import { type WriteReport, writeGithubBlock } from "./write.js";
-import { programName } from "./registry.js";
+
+/** The program name this capability reports; the executable is the only name it answers to. */
+const PROGRAM_NAME = "nexus";
 
 const CAPABILITY = "config";
 
@@ -30,7 +32,7 @@ export function takeOption(args: string[], flag: string): { value: string | null
 
 export function configUsage(): string {
     return [
-        `usage: ${programName(CAPABILITY)} <command> [args...]`,
+        `usage: ${`${PROGRAM_NAME} ${CAPABILITY}`} <command> [args...]`,
         "",
         "commands:",
         "  resolve <key> [--root <path>]   Resolve one github-block key through the precedence chain.",
@@ -38,13 +40,13 @@ export function configUsage(): string {
         "  detect-classification           Probe whether the repository exposes issue types.",
         "  write-github [--root <path>]    Seed absent github-block keys into settings.yml (add-only).",
         "",
-        `Run \`${programName(CAPABILITY)} <command> --help\` for a command's own arguments.`,
+        `Run \`${`${PROGRAM_NAME} ${CAPABILITY}`} <command> --help\` for a command's own arguments.`,
     ].join("\n");
 }
 
 function usageError(io: ToolkitIo, message: string): number {
     io.stderr(configUsage());
-    io.stderr(`${programName(CAPABILITY)}: ${message}`);
+    io.stderr(`${`${PROGRAM_NAME} ${CAPABILITY}`}: ${message}`);
     return 2;
 }
 

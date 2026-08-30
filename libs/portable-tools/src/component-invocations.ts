@@ -21,7 +21,6 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { CAPABILITY_NAMES } from "@nexus/delivery-config/registry";
 import { DISPATCH_NAMES } from "./nexus-cli.js";
 import { listComponentFiles } from "./vendor-components.js";
 
@@ -296,6 +295,9 @@ export function checkComponentInvocations(inventory: readonly Invocation[]): Inv
     return problems;
 }
 
+/** The capabilities the withdrawn second name declared, as a body may still name them. */
+const WITHDRAWN_TOOLKIT_CAPABILITIES: readonly string[] = ["config", "create-epic", "create-story", "version"];
+
 /** The gate's failure text: every problem, one per line, each naming its body and its name. */
 export function formatInvocationProblems(problems: readonly InvocationProblem[]): string {
     return [
@@ -305,15 +307,15 @@ export function formatInvocationProblems(problems: readonly InvocationProblem[])
 }
 
 /**
- * Both declared surfaces, each read from the surface itself (decision records #325, #362).
+ * The declared surface, read from the registry that composes the executable's own usage text —
+ * never the human usage prose, and never a duplicate of that list (decision records #325, #362).
  *
- * Each name set comes from the registry that composes that toolkit's own usage text — never the
- * human usage prose, and never a duplicate of either list. Both surfaces are now the same
- * language, so the toolkit's listing is read as a value: executing a process to ask a question the
- * compiler can already answer buys no extra fidelity, and it is the only reason a build step would
- * spawn anything. The machine-readable listing flag stays on the toolkit itself, because it is a
- * declared part of the capability surface for readers outside this build.
+ * The withdrawn toolkit's name set is a frozen literal rather than a live registry read: story
+ * #397 deleted the second name, its dispatcher and its capability table, so there is no surface
+ * left to read and no usage text for a list to be derived from. What the gate keeps is a memory of
+ * the names a body used to write, so an unrewritten body is still failed by name. Story #399
+ * removes the memory with the form that consults it.
  */
 export function readToolkitSurfaces(): ToolkitSurfaces {
-    return { nexus: DISPATCH_NAMES, nexusGh: [...CAPABILITY_NAMES] };
+    return { nexus: DISPATCH_NAMES, nexusGh: WITHDRAWN_TOOLKIT_CAPABILITIES };
 }

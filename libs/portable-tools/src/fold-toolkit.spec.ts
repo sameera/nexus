@@ -16,8 +16,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { runNexusGh } from "@nexus/delivery-config/dispatch";
-import { CAPABILITY_NAMES } from "@nexus/delivery-config/registry";
 import { type ToolkitIo } from "@nexus/delivery-config/io";
 import { DISPATCH_NAMES, runNexusCli, VERB_NAMES, type CliIo } from "./nexus-cli";
 
@@ -82,12 +80,9 @@ describe("the folded toolkit capabilities", () => {
 
     it("exactly one dispatch name reports release identity", () => {
         expect(DISPATCH_NAMES.filter((name) => name === "version")).toEqual(["version"]);
-        // The toolkit's narrower one is never folded: it is absent from the executable's surface
-        // even though the second name still declares it during the overlap.
-        expect(CAPABILITY_NAMES).toContain("version");
     });
 
-    it("a folded capability resolves a key through the executable exactly as it did through the toolkit", async () => {
+    it("a folded capability resolves a key through the executable", async () => {
         const root: string = makeTmpDir();
         fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
         fs.writeFileSync(
@@ -96,23 +91,16 @@ describe("the folded toolkit capabilities", () => {
         );
 
         const viaExecutable: CapturedIo = makeIo(root);
-        const viaToolkit: CapturedIo = makeIo(root);
-        const executableCode: number = await runNexusCli(["config", "resolve", "epic-repo"], viaExecutable);
-        const toolkitCode: number = runNexusGh(["config", "resolve", "epic-repo"], viaToolkit);
 
-        expect(executableCode).toBe(toolkitCode);
-        expect(viaExecutable.out).toEqual(viaToolkit.out);
+        expect(await runNexusCli(["config", "resolve", "epic-repo"], viaExecutable)).toBe(0);
         expect(viaExecutable.out).toEqual(["acme/epics"]);
     });
 
-    it("a folded capability that fails signals failure the same way through either name", async () => {
-        const root: string = makeTmpDir();
-        const viaExecutable: CapturedIo = makeIo(root);
-        const viaToolkit: CapturedIo = makeIo(root);
+    it("a folded capability that fails signals failure with its own exit code", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir());
 
-        expect(await runNexusCli(["config", "resolve"], viaExecutable)).toBe(2);
-        expect(runNexusGh(["config", "resolve"], viaToolkit)).toBe(2);
-        expect(viaExecutable.err).toEqual(viaToolkit.err);
+        expect(await runNexusCli(["config", "resolve"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("resolve requires a github-block key");
     });
 
     it("a folded capability reports the executable's program name in its usage and error text", async () => {

@@ -2,11 +2,10 @@
  * CLI entry for the nx "bundle" target: builds the release's JavaScript executables into
  * self-contained ESM bundles.
  *
- * There is one entry point per declared binary name (stories #309, #355). The build once produced
- * six — `nexus` plus five standalone launchers — but every one of those five capabilities has been
- * reachable as a verb on `nexus` since story #247. What remains is the two toolkit names the
- * manifest declares, each a self-contained artifact with no runtime dependencies. The fingerprint
- * pin already covers an arbitrary set of bundles by name, so nothing downstream changes.
+ * There is one entry point per declared binary name (stories #309, #355, #397). The build once
+ * produced six, then two; the manifest now declares one name, so it produces one — a self-contained
+ * artifact with no runtime dependencies. The fingerprint pin already covers an arbitrary set of
+ * bundles by name, so nothing downstream changes.
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -15,11 +14,6 @@ import { isDirectRun } from "./entry-point.js";
 
 export const ENTRY_POINTS: Record<string, string> = {
     nexus: "nexus-cli.ts",
-    // The toolkit's own entry (story #355). It is a second self-contained artifact rather than
-    // one multi-call bundle switching on the name it was invoked under: some package managers
-    // link the binary while others generate a shim that erases the invoked name, so that switch
-    // would silently pick the wrong toolkit on one installer and not the other.
-    "nexus-gh": "../../delivery-config/src/nexus-gh-cli.ts",
 };
 
 export async function buildAllBundles(srcDir: string, outDir: string): Promise<string[]> {

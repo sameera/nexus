@@ -243,7 +243,7 @@ describe("fingerprint pin", () => {
     it("compares against the pin alone — no copy of the artifact inside any repository", () => {
         // Both sides of the comparison are produced here: a fresh in-process build and a fresh
         // walk of the payload sources. Nothing reads a vendored or deployed copy (story #310).
-        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", "nexus-gh.mjs", PAYLOAD_KEY].sort());
+        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", PAYLOAD_KEY].sort());
         expect(freshFingerprint[PAYLOAD_KEY]).toBe(hashPayload(REPO_ROOT));
     });
 

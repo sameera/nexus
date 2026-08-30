@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { runNexusGh } from "./dispatch";
+import { runConfig } from "./config-cli";
 import { type ToolkitIo } from "./io";
 
 function emptyRoot(): string {
@@ -28,7 +28,7 @@ function settingsOf(root: string): string {
 function write(root: string, ...args: string[]): { code: number; out: string } {
     const out: string[] = [];
     const io: ToolkitIo = { cwd: root, stdout: (l) => out.push(l), stderr: (l) => out.push(l) };
-    const code: number = runNexusGh(["config", "write-github", "--root", root, ...args], io);
+    const code: number = runConfig(["write-github", "--root", root, ...args], io);
     return { code, out: out.join("\n") };
 }
 

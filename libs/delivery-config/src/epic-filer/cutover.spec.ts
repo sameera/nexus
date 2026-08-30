@@ -10,8 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
-import { runNexusGh } from "../dispatch";
-import { CAPABILITIES, capabilityListing, usage } from "../registry";
+import { runCreateEpic } from "./run";
 import { cannedGh, checkoutWith, draft, recordingIo, writeDraft } from "./fixtures";
 
 /**
@@ -42,11 +41,11 @@ function scratchEpic(): { root: string; file: string } {
 
 const spawnedCommands = (): string[] => spawned.mock.calls.map((call) => call[0] as string);
 
-describe("the toolkit answers create-epic in process", () => {
+describe("create-epic runs in process", () => {
     it("files an epic to completion with no interpreter process spawned", () => {
         const { root, file } = scratchEpic();
         const io = recordingIo(root);
-        expect(runNexusGh(["create-epic", file], io)).toBe(0);
+        expect(runCreateEpic([file], io)).toBe(0);
         expect(io.out.join("\n")).toContain("GitHub Issue Created");
         expect(fs.readFileSync(file, "utf8")).toContain('link: "#7"');
         expect(spawnedCommands().length).toBeGreaterThan(0);
@@ -56,13 +55,13 @@ describe("the toolkit answers create-epic in process", () => {
     it("spawns no interpreter for a run it refuses either", () => {
         const { root } = scratchEpic();
         const io = recordingIo(root);
-        expect(runNexusGh(["create-epic", path.join(root, "absent.md")], io)).toBe(1);
+        expect(runCreateEpic([path.join(root, "absent.md")], io)).toBe(1);
         expect(spawnedCommands()).not.toContain(AN_INTERPRETER);
     });
 
-    it("reaches the capability's own arguments through the dispatcher", () => {
+    it("reaches the capability's own arguments", () => {
         const io = recordingIo("/tmp");
-        expect(runNexusGh(["create-epic", "--help"], io)).toBe(0);
+        expect(runCreateEpic(["--help"], io)).toBe(0);
         expect(io.out.join("\n")).toContain("nexus create-epic <path-to-epic.md>");
         expect(io.out.join("\n")).toContain("--promote");
         expect(spawned.mock.calls).toEqual([]);
@@ -72,36 +71,19 @@ describe("the toolkit answers create-epic in process", () => {
 describe("the exit codes are unchanged for every case", () => {
     it("exits zero for a filed epic and for a declined overwrite, non-zero for every refusal", () => {
         const { root, file } = scratchEpic();
-        expect(runNexusGh(["create-epic", file], recordingIo(root))).toBe(0);
+        expect(runCreateEpic([file], recordingIo(root))).toBe(0);
 
         // A declined overwrite: the draft now carries a link, and no terminal can answer.
-        expect(runNexusGh(["create-epic", file], recordingIo(root))).toBe(1);
+        expect(runCreateEpic([file], recordingIo(root))).toBe(1);
 
         const missingTitle: string = writeDraft(root, '---\nfeature: "Demo"\n---\n\n# Epic\n\nBody.\n', "untitled.md");
-        expect(runNexusGh(["create-epic", missingTitle], recordingIo(root))).toBe(1);
-        expect(runNexusGh(["create-epic", path.join(root, "absent.md")], recordingIo(root))).toBe(1);
-        expect(runNexusGh(["create-epic", file, "--promote", "42"], recordingIo(root))).toBe(1);
-        expect(runNexusGh(["create-epic", file, "--nope"], recordingIo(root))).toBe(2);
+        expect(runCreateEpic([missingTitle], recordingIo(root))).toBe(1);
+        expect(runCreateEpic([path.join(root, "absent.md")], recordingIo(root))).toBe(1);
+        expect(runCreateEpic([file, "--promote", "42"], recordingIo(root))).toBe(1);
+        expect(runCreateEpic([file, "--nope"], recordingIo(root))).toBe(2);
     });
 });
 
-describe("the registry after the cut-over", () => {
-    it("declares no row that delegates to an interpreter", () => {
-        const registry: string = fs.readFileSync(path.join(import.meta.dirname, "..", "registry.ts"), "utf8");
-        expect(registry).not.toContain("delegateToPython");
-    });
-
-    it("keeps every row's name, summary and position in the listing", () => {
-        expect(CAPABILITIES.map((capability) => capability.name)).toEqual([
-            "version",
-            "config",
-            "create-epic",
-            "create-story",
-        ]);
-        expect(CAPABILITIES[2].summary).toBe("File a GitHub issue from an epic document.");
-        expect(capabilityListing()).toBe(
-            JSON.stringify({ capabilities: ["config", "create-epic", "create-story", "version"] }),
-        );
-        expect(usage()).toContain("create-epic   File a GitHub issue from an epic document.");
-    });
-});
+// The capability's place on the executable's own registry is asserted where that registry lives,
+// in portable-tools' fold suite. Story #397 withdrew the second name and the table that declared
+// it, so there is no second listing left here to hold to.

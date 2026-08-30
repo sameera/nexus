@@ -22,8 +22,8 @@ import { listPayloadFiles } from "./release-payload.js";
 /** The staged directory, relative to the package root. Named in the manifest's `files`. */
 export const RELEASE_TREE_DIRNAME = "dist";
 
-/** The two toolkit names the manifest declares as binaries. */
-export const BIN_NAMES: readonly string[] = ["nexus", "nexus-gh"];
+/** The one binary name the manifest declares. */
+export const BIN_NAMES: readonly string[] = ["nexus"];
 
 /**
  * Stages every published part under `<repoRoot>/dist`, replacing whatever was there. Returns the

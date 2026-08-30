@@ -13,7 +13,6 @@
 
 import { type GhRunner } from "../gh.js";
 import { type ToolkitIo } from "../io.js";
-import { programName } from "../registry.js";
 import { CAPABILITY, type ArgsOutcome, type FilerArgs, filerUsage, parseFilerArgs } from "./args.js";
 import { resolveIssueTypeId } from "./classify.js";
 import { type FilerConfig, reportIssuesRepo, resolveFilerConfig } from "./configure.js";
@@ -33,6 +32,9 @@ import { previewLine } from "./preview.js";
 import { type WriteReport } from "../write.js";
 import { writeBackDecisions } from "./writeback.js";
 
+/** The program name this capability reports; the executable is the only name it answers to. */
+const PROGRAM_NAME = "nexus";
+
 export function runCreateStory(
     argv: string[],
     io: ToolkitIo,
@@ -45,7 +47,7 @@ export function runCreateStory(
     }
     if (parsed.kind === "error") {
         io.stderr(filerUsage());
-        io.stderr(`${programName(CAPABILITY)}: ${parsed.message}`);
+        io.stderr(`${`${PROGRAM_NAME} ${CAPABILITY}`}: ${parsed.message}`);
         return 2;
     }
     const args: FilerArgs = parsed.args;

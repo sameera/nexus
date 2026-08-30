@@ -1,14 +1,14 @@
 /**
- * The release identity (story #305). One semantic version covers the TypeScript executable, the
- * Python toolkit and the component payload together, because they ship as one artifact and
- * cannot be at different versions.
+ * The release identity (story #305). One semantic version covers the executable and the
+ * component payload together, because they ship as one artifact and cannot be at different
+ * versions.
  *
- * That version is declared exactly once, in a `VERSION` file at the release root, and both
- * toolkits reach it the same way: walk up from the reader's own file position until a
+ * That version is declared exactly once, in a `VERSION` file at the release root, and every
+ * reader reaches it the same way: walk up from the reader's own file position until a
  * declaration appears. The walk is what makes the one declaration serve both layouts without a
  * build step — in a source checkout it lands on the repository root, and in a distributable it
- * lands on the package root the two toolkits are installed under. Neither half carries a version
- * literal of its own, so there is nothing to keep in step.
+ * lands on the package root the release is installed under. No part carries a version literal of
+ * its own, so there is nothing to keep in step.
  *
  * An unresolved declaration is reported as `null`, never as a guessed or default version: a
  * fabricated version in a writer stamp is worse than an absent one, which a reader already knows

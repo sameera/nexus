@@ -44,16 +44,6 @@
       "import": "./src/publishing.ts",
       "default": "./src/publishing.ts"
     },
-    "./registry": {
-      "types": "./src/registry.ts",
-      "import": "./src/registry.ts",
-      "default": "./src/registry.ts"
-    },
-    "./dispatch": {
-      "types": "./src/dispatch.ts",
-      "import": "./src/dispatch.ts",
-      "default": "./src/dispatch.ts"
-    },
     "./config-cli": {
       "types": "./src/config-cli.ts",
       "import": "./src/config-cli.ts",

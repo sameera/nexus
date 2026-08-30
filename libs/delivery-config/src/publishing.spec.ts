@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { runNexusGh } from "./dispatch";
+import { runConfig } from "./config-cli";
 import { type ToolkitIo } from "./io";
 import { epicNeedsDesign, resolveClassification, resolveProjectTarget } from "./publishing";
 import { resolvePublishingKey } from "./resolve";
@@ -22,7 +22,7 @@ function repoWith(settings: string | null): string {
 function cliValue(root: string, key: string): string {
     const out: string[] = [];
     const io: ToolkitIo = { cwd: root, stdout: (line) => out.push(line), stderr: () => undefined };
-    expect(runNexusGh(["config", "resolve", key, "--root", root], io)).toBe(0);
+    expect(runConfig(["resolve", key, "--root", root], io)).toBe(0);
     return out.join("\n");
 }
 
