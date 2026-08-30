@@ -76,19 +76,29 @@ describe("the manifest and the readme declare the environment a release supports
         expect(manifest.os ?? []).not.toContain("win32");
     });
 
-    it("declares the Python interpreter floor beside the Node one", () => {
+    it("declares exactly one engine, the Node floor", () => {
         expect(manifest.engines?.node ?? "").toMatch(/^>=\d+\.\d+/);
-        expect(manifest.engines?.python ?? "").toMatch(/^>=\d+\.\d+/);
+        expect(Object.keys(manifest.engines ?? {})).toEqual(["node"]);
     });
 
-    it("names the same platforms and floors where an adopter reads them before installing", () => {
+    it("names the same platforms and floor where an adopter reads them before installing", () => {
         const requirements: string = section("Requirements");
         const nodeFloor: string = (manifest.engines?.node ?? "").replace(/^>=/, "");
-        const pythonFloor: string = (manifest.engines?.python ?? "").replace(/^>=/, "");
         expect(requirements).toMatch(/macOS/i);
         expect(requirements).toMatch(/Linux/i);
         expect(requirements).toContain(nodeFloor);
-        expect(requirements).toContain(pythonFloor);
+    });
+
+    // Story #393: the requirements section states one runtime, because the release has one.
+    it("states exactly one required runtime, and claims no interpreter anywhere in the readme", () => {
+        const requirements: string = section("Requirements");
+        const runtimeBullets: string[] = requirements
+            .split("\n")
+            .filter((line) => /^-\s+\*\*/.test(line));
+        expect(runtimeBullets).toHaveLength(1);
+        expect(runtimeBullets[0]).toMatch(/Node/i);
+        expect(readme).not.toMatch(/python/i);
+        expect(readme).not.toMatch(/two halves/i);
     });
 });
 

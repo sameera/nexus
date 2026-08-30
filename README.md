@@ -10,7 +10,7 @@
 Nexus installs **once for your user account**, then bootstraps each repository you use it in:
 
 ```bash
-npm install -g @sameeraperera/nexus   # 1. the package  (needs Node 22.22.0+ and Python 3.10+)
+npm install -g @sameeraperera/nexus   # 1. the package  (needs Node 22.22.0+)
 nexus install                   # 2. the Claude components, once per account
 ```
 
@@ -224,10 +224,9 @@ The Nexus slash commands are not part of your repository: they come from the com
 
 # Requirements
 
-Nexus ships as one package carrying both toolkits, so an adopter supplies only the two interpreters they run on:
+Nexus runs on one runtime, and an adopter supplies only that:
 
 - **Node.js 22.22.0 or newer** — runs the `nexus` executable.
-- **Python 3.10 or newer** — runs the `nexus-gh` toolkit.
 
 Supported platforms are **macOS and Linux**. A release targets POSIX-like environments only; on Windows, run Nexus inside WSL.
 
