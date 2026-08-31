@@ -1,8 +1,8 @@
 ---
 title: "Delegating Port"
 aliases: ["delegating port", "non-flag-day port", "cross-runtime delegation", "retained entry point", "delegating registry row", "incremental language port"]
-touches: ["verb-reachability", "toolkit-location", "environment-guard", "published-package", "resumable-batch-filing"]
-last_updated_by: "#352"
+touches: ["verb-reachability", "toolkit-location", "environment-guard", "published-package", "resumable-batch-filing", "inert-declaration-removal", "additive-surface-fold"]
+last_updated_by: "#354"
 status: active
 verification: verified
 ---
@@ -36,8 +36,11 @@ Delegation targets that entry point, never a module inside it. Running the entry
 - [environment-guard](environment-guard.md) — the old runtime it diagnoses stays a real requirement while any row delegates, and stops being one when the last retires.
 - [published-package](published-package.md) — ships the new entry and the retained one together, which is what makes a delegating row resolvable at all.
 - [resumable-batch-filing](resumable-batch-filing.md) — the contract this port had to keep intact, and the source of the one line it corrected instead of preserving.
+- [inert-declaration-removal](inert-declaration-removal.md) — the closing pass that ends this port, deleting the scaffolding the last flipped row leaves standing rather than emptying it.
+- [additive-surface-fold](additive-surface-fold.md) — the complement: this pattern holds the name fixed and moves the implementation, that one holds the implementation fixed and moves the name.
 
 ## Decision Log
+
 
 ### 2026-08-28 — #351 — One dispatcher from the first commit, unported capabilities delegating to the retained entry
 
@@ -50,3 +53,7 @@ Porting the batch issue filer forced the bar to be stated more exactly than "kee
 ### 2026-08-30 — #352 — The last delegating row flips, and the ratified-exception pattern gets two more instances
 
 The epic filer was the final registry row still delegating to the retained runtime; both toolkit capabilities now name an in-process handler, and the toolkit's dispatcher declares zero delegating rows. This does not retire the older runtime's declared requirement by itself — the interpreter stays on disk and stays required until a separate, later step removes it, held open by a golden corpus of real output the port committed while the interpreter could still generate it, so that removal's evidence survives long after the comparison target is gone. The port's own behaviour-preservation bar admitted two more ratified exceptions beside the one already recorded: a confirmation this capability cannot get an answer to stays a hang in the retained runtime and becomes a same-invocation refusal here, and colour that printed unconditionally becomes conditional on the receiving stream actually being a terminal — both chosen because nothing that matters depends on the old behaviour, and both decided at the design gate rather than discovered mid-port. **Refuted alternative:** treat the last row flipping as reason enough to also retire the runtime requirement in the same change — rejected because the byte-identity evidence this port's own corpus provides is exactly what the later removal needs, and generating it and removing the requirement are safer as two separate, ordered steps.
+
+### 2026-08-31 — #354 — The port terminates in a closing pass, which is its own rule
+
+Three port epics emptied the other half and left its scaffolding standing: a shipped tree nothing executed, a declared runtime floor nothing enforced, an environment defect for a runtime nothing used, and an unimported locator and child-process call. This page's invariant 6 already binds the old runtime's declared requirement to the last surviving delegating row, so what the closing pass owes is the rest of the scaffolding — and the rules it follows generalise past this pattern, so they are recorded as their own concept rather than grown onto this one. The viable alternative was to state the teardown here and treat it as part of the port's definition; it was refuted because the same rules govern removals that no port produced, and this page is at its capacity for the concept it already carries.

@@ -1,42 +1,44 @@
 ---
 title: "Toolkit Location"
-aliases: ["by-name toolkit addressing", "second toolkit", "python toolkit", "self-locating entry point", "no repository-relative toolkit path", "toolkit found on the path"]
-touches: ["component-invocation-gate", "verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity", "release-gate", "delegating-port"]
-last_updated_by: "#351"
+aliases: ["by-name addressing", "second toolkit", "python toolkit", "self-locating entry point", "no repository-relative toolkit path", "executable found on the path"]
+touches: ["component-invocation-gate", "verb-reachability", "publishing-config-resolution", "target-root-convention", "release-identity", "release-gate", "delegating-port", "additive-surface-fold"]
+last_updated_by: "#354"
 status: active
 verification: verified
 ---
 
 # Toolkit Location
 
-Nexus ships two toolkits, and every invocation names the one it wants rather than encoding where it lives. Each half locates the other by name too, so a lookup resolves against wherever the toolkit is installed — never against a copy sitting inside the repository being acted on.
+Nexus ships one executable, and every invocation names it and a dispatch name rather than encoding where it lives. The lookup resolves against wherever the release is installed — never against a copy sitting inside the repository being acted on.
 
 ## How It Works
 
-Both toolkits are self-contained artifacts built by the same pipeline and published under the binary name each declares, so a caller names a toolkit and a capability and nothing else. Two artifacts rather than one multi-call bundle switching on the invoked name is deliberate: some package managers link a declared binary while others generate a shim that erases that name, so the switch would pick the wrong toolkit on one installer.
+The executable is a self-contained artifact built by the release's pipeline and published under the one binary name the manifest declares, so a caller names it and a dispatch name and nothing else. Two artifacts existed while a second name did, because some package managers link a declared binary while others generate a shim erasing the invoked name, so one bundle switching on that name would pick wrong on one installer. That hazard went with the name.
 
-Locating a toolkit takes the same two steps in both directions. The installed name on the caller's path is consulted first, the ordinary case. Failing that, a caller may fall back to the entry point shipped beside its own source — which says where the toolkit is, never where the work is. A location inside the repository being acted on is not a candidate, save for a harness driving one named checkout. When neither resolves, the caller reports an absent toolkit and names the remedy, rather than a missing file inside the user's repository.
+Locating the executable is one step: the installed name on the caller's path. The fallback resolving an entry point beside the caller's own source existed to reach the other runtime's half, and retired with it. A location inside the repository being acted on is not a candidate, save for a harness driving one named checkout. When the name does not resolve, the caller reports an absent executable and names the remedy, rather than a missing file inside the user's repository.
 
 ## Key Invariants
 
-1. Every invocation names a toolkit and a capability, never a path to a toolkit file and never an inherited interpreter, whatever the runtime.
-2. A toolkit is found by its installed name first; the only fallback is the entry point beside the caller's own source, never a location inside the repository being acted on — save a harness, which is no shipped body, driving one named checkout. A caller able to import the capability locates nothing, its lookup retired rather than repointed.
-3. A toolkit that cannot be found is reported as an absent toolkit with the remedy named, never as a missing file in the user's repository.
-4. A best-effort lookup over a located toolkit yields an empty answer on every failure mode, and a non-zero exit is inspected deliberately rather than left to unparseable output.
+1. Every invocation names the executable and a dispatch name, never a path to a file the release ships and never an inherited interpreter.
+2. The executable is found by its installed name; ~~the only fallback is the entry point beside the caller's own source~~ — that cross-runtime fallback retired with the runtime it reached — and never a location inside the repository being acted on, save a harness, which is no shipped body, driving one named checkout. A caller able to import the capability locates nothing, its lookup retired rather than repointed.
+3. An executable that cannot be found is reported as absent with the remedy named, never as a missing file in the user's repository.
+4. A best-effort lookup over the located executable yields an empty answer on every failure mode, and a non-zero exit is inspected deliberately rather than left to unparseable output.
 5. A checkout declaring nothing for such a lookup to read spawns no subprocess at all.
 6. A capability finds its sibling files through its own packaging, never through a layout describing where it was once deployed.
 
 ## Integration Points
 
 - [component-invocation-gate](component-invocation-gate.md) — enforces this rule in every shipped body at build time, so a migrated body cannot regress to a path.
-- [verb-reachability](verb-reachability.md) — that rule decides which capabilities become reachable names; this one decides how a named toolkit is then found at invocation time.
-- [publishing-config-resolution](publishing-config-resolution.md) — its callers import it now rather than locating it; this rule still governs how bodies and stages address its toolkit.
+- [verb-reachability](verb-reachability.md) — that rule decides which capabilities become reachable names; this one decides how the named executable is then found at invocation time.
+- [publishing-config-resolution](publishing-config-resolution.md) — its callers import it now rather than locating it; this rule still governs how bodies and stages address it as a verb.
 - [delegating-port](delegating-port.md) — the name this rule holds fixed is what a port moves its implementation behind without rewriting a body or stage.
 - [target-root-convention](target-root-convention.md) — the complement: that convention says where a capability's project lives, this one says where its toolkit lives.
 - [release-identity](release-identity.md) — applies this same self-locating rule to the release's version declaration, walking up from the reader's own position rather than assuming a layout.
 - [release-gate](release-gate.md) — enforces this rule at release time: no tag or publish while a shipped body still names a path.
+- [additive-surface-fold](additive-surface-fold.md) — the pattern that withdrew the second name this rule once spanned, holding by-name addressing fixed while the name itself changed.
 
 ## Decision Log
+
 
 ### 2026-08-26 — #249 — Two toolkits, each named, neither reaching into a repository for the other
 
@@ -61,3 +63,7 @@ Seventy-nine invocations across twenty-three bodies were rewritten to name a too
 ### 2026-08-28 — #351 — Both toolkits are bundled artifacts under their declared names, and an imported capability locates nothing
 
 The second toolkit stopped being a set of plain files held out of the collapse because they needed nothing installed: it is now built by the same pipeline into a self-contained artifact under the binary name it already declared, so only the file the name points at moved and nothing downstream changed. Two artifacts were chosen over one multi-call bundle keyed on the invoked name because that name is not reliably observable — some package managers link the binary, others generate a shim that erases it — and a dispatch that silently picks the wrong toolkit on one installer is not worth a saved file. Separately, where a capability became a library its caller already depends on, the source-side lookup was retired rather than repointed: there is no longer any question of how a checkout with nothing installed runs an entry point, because nothing needs to. **Refuted alternative:** repoint the source-side fallback at the new entry, holding the blast radius to zero — refused because it then requires choosing how a checkout with no build output runs source, which is machinery in service of a path this decision deletes.
+
+### 2026-08-31 — #354 — One name to address, and the cross-runtime fallback retires with the runtime
+
+The second name was withdrawn outright rather than kept resolving to the executable as a deprecation shim for a release or two. The shim is what a competent engineer would reach for on a published executable name, and it was refuted on the epic's own assumption: the product is pre-1.0, its own component set is the primary caller, and the break lands in one release beside the readme and upgrade-note changes that announce it — with a shim available as separate scope if that assumption proves wrong. The sibling-entry fallback was deleted rather than repointed at the executable, because it existed only to cross a process boundary into another runtime and the surviving executable is always found by its installed name.
