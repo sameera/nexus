@@ -141,7 +141,7 @@ describe("a run that did not finish", () => {
         expect(code).not.toBe(0);
         const report: string = io.out.join("\n");
         expect(report).toContain(`Progress saved to: ${path.join(scratch(root), LEDGER_NAME)}`);
-        const echoed: string = report.split("\n").find((line) => line.includes("nexus-gh create-story")) ?? "";
+        const echoed: string = report.split("\n").find((line) => line.includes("nexus create-story")) ?? "";
         expect(echoed).toContain(`"${scratch(root)}"`);
         expect(echoed).toContain(`--root ${root}`);
         expect(echoed).toContain("--no-project");
@@ -157,7 +157,7 @@ describe("a run that did not finish", () => {
         writeItem(root, "STORY-1.md", story("1", { blocked_by: "[STORY-absent]" }));
         const io = recordingIo(root);
         runCreateStory([scratch(root)], io, platform().env);
-        const echoed: string = io.out.find((line) => line.includes("nexus-gh create-story")) ?? "";
-        expect(echoed.trim()).toBe(`nexus-gh create-story "${scratch(root)}"`);
+        const echoed: string = io.out.find((line) => line.includes("nexus create-story")) ?? "";
+        expect(echoed.trim()).toBe(`nexus create-story "${scratch(root)}"`);
     });
 });

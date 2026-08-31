@@ -209,7 +209,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
    `cross-ref:` block, comments, and any key already declared are preserved untouched:
     1. **Classification.** Run the probe (it never crashes — it degrades):
         ```bash
-        nexus-gh config detect-classification
+        nexus config detect-classification
         ```
         It prints `types` (the repo/org exposes issue-types), `labels` (it does not), or
         `unavailable` (gh could not be reached).
@@ -226,7 +226,7 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
     4. **Write** the resolved values (do **not** seed `issues-repo` — an absent target means "the
        current repo" and is never pinned):
         ```bash
-        nexus-gh config write-github \
+        nexus config write-github \
           --classification <types|labels> --project <none|auto|owner/number> \
           # only on the gh-unavailable path:
           # --comment "seeded by /nxs.setup — gh unavailable; safe defaults, review when online"

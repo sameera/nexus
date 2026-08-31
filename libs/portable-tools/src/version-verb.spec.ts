@@ -1,8 +1,7 @@
 /**
  * `nexus version` (story #305): the one command that reports what is installed — the release
- * version, the component payload's fingerprint, and the `python3` the other half of the release
- * would run on. It is what a user runs when something is already wrong, so a broken environment
- * must not stop it reporting.
+ * version, the component payload's fingerprint and the install location. It is what a user runs
+ * when something is already wrong, so a broken environment must not stop it reporting.
  */
 
 import * as fs from "node:fs";
@@ -49,7 +48,7 @@ function makeIo(cwd: string): CapturedIo {
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
 
 describe("nexus version", () => {
-    it("prints exactly one JSON object carrying the release, the payload fingerprint and the interpreter", async () => {
+    it("prints exactly one JSON object carrying the release, the payload fingerprint and the install location", async () => {
         const io: CapturedIo = makeIo(REPO_ROOT);
         const code: number = await runNexusCli(["version"], io);
 
@@ -58,15 +57,16 @@ describe("nexus version", () => {
         const reported = JSON.parse(io.out[0]);
         expect(reported.version).toBe(releaseVersion());
         expect(reported.componentPayload).toBe(hashComponentTree(authoredComponentRoot(import.meta.dirname)));
-        expect(reported.python).toEqual({ path: expect.any(String), version: expect.any(String) });
+        expect(reported.installLocation).toBeDefined();
+        expect(reported).not.toHaveProperty("python");
     });
 
-    it("reports the same release as the Python toolkit, because there is one declaration", () => {
+    it("reports the release the one declaration states", () => {
         const declared: string = fs.readFileSync(path.join(REPO_ROOT, RELEASE_VERSION_FILE), "utf8").trim();
         expect(releaseVersion()).toBe(declared);
     });
 
-    it("still reports, with the interpreter unresolved and exit zero, when python3 cannot be resolved", async () => {
+    it("still reports every key, and exits zero, on a machine with no interpreter on PATH", async () => {
         const io: CapturedIo = makeIo(REPO_ROOT);
         const emptyPath: string = makeTmpDir("no-python-");
         const saved: string | undefined = process.env["PATH"];
@@ -81,8 +81,9 @@ describe("nexus version", () => {
         expect(code).toBe(0);
         expect(io.out).toHaveLength(1);
         const reported = JSON.parse(io.out[0]);
-        expect(reported.python).toEqual({ path: null, version: null });
+        expect(reported).not.toHaveProperty("python");
         expect(reported.version).toBe(releaseVersion());
+        expect(io.err).toEqual([]);
     });
 
     it("rejects an unknown argument rather than reporting something it was not asked for", async () => {

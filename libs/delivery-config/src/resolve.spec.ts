@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { runNexusGh } from "./dispatch";
+import { runConfig } from "./config-cli";
 import { normalizeHubDefaults } from "./hub";
 import { type ToolkitIo } from "./io";
 import { GITHUB_KEYS, githubKeyFor, normalizedKey } from "./keys";
@@ -52,7 +52,7 @@ function hubRepoWith(github: Record<string, string>, settings?: string): string 
 
 function resolved(root: string, key: string): { code: number; value: string } {
     const io = recordingIo(root);
-    const code: number = runNexusGh(["config", "resolve", key, "--root", root], io);
+    const code: number = runConfig(["resolve", key, "--root", root], io);
     return { code, value: io.out.join("\n") };
 }
 
@@ -164,7 +164,7 @@ describe("the config root", () => {
             "src/deep/keep.txt": "",
         });
         const io = recordingIo(root);
-        expect(runNexusGh(["config", "resolve", "issues-repo", "--root", path.join(root, "src", "deep")], io)).toBe(0);
+        expect(runConfig(["resolve", "issues-repo", "--root", path.join(root, "src", "deep")], io)).toBe(0);
         expect(io.out.join("\n")).toBe("acme/tracker");
     });
 
@@ -175,12 +175,12 @@ describe("the config root", () => {
         const io = recordingIo(inner);
         // The walk is keyed to the config directory, so the inner root only inherits when it has
         // no ancestor of its own — which is exactly the outer repository here.
-        expect(runNexusGh(["config", "resolve", "issues-repo", "--root", inner], io)).toBe(0);
+        expect(runConfig(["resolve", "issues-repo", "--root", inner], io)).toBe(0);
         expect(io.out.join("\n")).toBe("acme/outer");
 
         const detached: string = fs.mkdtempSync(path.join(os.tmpdir(), "delivery-config-bare-"));
         const bare = recordingIo(detached);
-        expect(runNexusGh(["config", "resolve", "issues-repo", "--root", detached], bare)).toBe(0);
+        expect(runConfig(["resolve", "issues-repo", "--root", detached], bare)).toBe(0);
         expect(bare.out.join("\n")).toBe("");
     });
 });
@@ -188,18 +188,18 @@ describe("the config root", () => {
 describe("the config capability's own argument handling", () => {
     it("writes usage and exits 2 when no command is given", () => {
         const io = recordingIo("/tmp");
-        expect(runNexusGh(["config"], io)).toBe(2);
-        expect(io.err.join("\n")).toContain("usage: nexus-gh config");
+        expect(runConfig([], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("usage: nexus config");
     });
 
     it("writes its usage to stdout and exits 0 for --help", () => {
         const io = recordingIo("/tmp");
-        expect(runNexusGh(["config", "--help"], io)).toBe(0);
-        expect(io.out.join("\n")).toContain("usage: nexus-gh config");
+        expect(runConfig(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("usage: nexus config");
     });
 
     it("requires a key for resolve", () => {
         const io = recordingIo("/tmp");
-        expect(runNexusGh(["config", "resolve"], io)).toBe(2);
+        expect(runConfig(["resolve"], io)).toBe(2);
     });
 });

@@ -1,15 +1,16 @@
 /**
  * The release tree (story #308): the directory the published package's `files` allowlist points
- * at, assembled from the three parts that ship together — the bundled TypeScript executable, the
- * Python toolkit's files, and the component payload.
+ * at, assembled from the two parts that ship together — the bundled TypeScript executable and
+ * the component payload.
  *
  * The parts are staged into one directory under the package root rather than published from
- * where they live in the checkout, because the package root is what both toolkits walk up to
- * when they resolve the single `VERSION` declaration. A layout where the two halves sat at
- * different depths under different roots would give them different answers.
+ * where they live in the checkout, because the package root is what the executable walks up to
+ * when it resolves the single `VERSION` declaration. A layout where a part sat at a different
+ * depth under a different root would give it a different answer.
  *
  * Nothing here is fetched at install time: the payload travels inside the package, so an adopter
- * runs no network step after installing and the two halves cannot reach different versions.
+ * runs no network step after installing and the executable and its payload cannot reach
+ * different versions.
  */
 
 import * as fs from "node:fs";
@@ -21,8 +22,8 @@ import { listPayloadFiles } from "./release-payload.js";
 /** The staged directory, relative to the package root. Named in the manifest's `files`. */
 export const RELEASE_TREE_DIRNAME = "dist";
 
-/** The two toolkit names the manifest declares as binaries. */
-export const BIN_NAMES: readonly string[] = ["nexus", "nexus-gh"];
+/** The one binary name the manifest declares. */
+export const BIN_NAMES: readonly string[] = ["nexus"];
 
 /**
  * Stages every published part under `<repoRoot>/dist`, replacing whatever was there. Returns the

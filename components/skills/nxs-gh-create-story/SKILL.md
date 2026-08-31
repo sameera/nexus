@@ -13,7 +13,7 @@ skill at its approval gate.
 ## Usage
 
 ```bash
-nexus-gh create-story <target_folder> [--dry-run] [--no-project] \
+nexus create-story <target_folder> [--dry-run] [--no-project] \
     [--retries N] [--retry-base-delay S] [--keep-manifest]
 ```
 
@@ -143,7 +143,7 @@ This is resolved independently of the epic's target, so epics and stories can la
 ## Examples
 
 ```bash
-nexus-gh create-story <scratch>/stories --dry-run
-nexus-gh create-story <scratch>/stories
-nexus-gh create-story <scratch>/stories --no-project
+nexus create-story <scratch>/stories --dry-run
+nexus create-story <scratch>/stories
+nexus create-story <scratch>/stories --no-project
 ```

@@ -1,7 +1,7 @@
 # Release Procedure
 
-One release is one package: the `nexus` executable, the `nexus-gh` toolkit and the component
-payload, at one semantic version. This procedure is the whole of it — follow it top to bottom.
+One release is one package: the `nexus` executable and the component payload, at one
+semantic version. This procedure is the whole of it — follow it top to bottom.
 
 ## 1. Choose the version
 
@@ -47,7 +47,6 @@ among them, or you decide in the open that it changes nothing a lead experiences
 
     pnpm nexus:pin-bundles
     npx nx run-many -t test --all
-    python3 -m unittest discover -s libs/gh-toolkit/tests
 
 The first command rebuilds the executable, recomputes the payload hash and rewrites the
 fingerprint pin and its payload manifest. It copies nothing into any repository. The test run is
@@ -69,8 +68,8 @@ release.
 
 The gate prints every offending body, the line, and the path it names; it exits non-zero while
 any remain. **A non-zero exit stops the release here.** The fix is never to add the path back to
-the payload — it is to rewrite the body to invoke the capability by its declared toolkit name
-(`nexus-gh <verb>`, `nexus <verb>`), which is the epic that follows this one.
+the payload — it is to rewrite the body to invoke the capability by the executable's declared name
+(`nexus <verb>`).
 
 Packing and installing locally is unaffected by this gate, and is the intended way to consume the
 package definition before it goes green:
@@ -100,9 +99,8 @@ Verify the published release the way an adopter meets it, from a directory that 
 
     npm install -g @sameeraperera/nexus
     nexus version
-    nexus-gh version
 
-Both print the version you tagged.
+It prints the version you tagged.
 
 ## 7. Publish the releases-page entry
 
@@ -112,8 +110,7 @@ a git repository whichever channel installs it.
 
 ## What a release does not check for the adopter
 
-The manifest and the readme declare the supported platforms and the Python interpreter floor. That
-declaration is the whole of the answer for this release: nothing checks the interpreter at install
-time or on first run, so an adopter who installs without it meets an interpreter-not-found error
-that never mentions Nexus. This is accepted rather than overlooked — a first-run prerequisite check
-on the second toolkit is a later release's work.
+The manifest and the readme declare the supported platforms and the Node floor. That declaration is
+the whole of the answer for this release: nothing checks the runtime at install time or on first
+run, so an adopter on an unsupported platform meets an error that never mentions Nexus. This is
+accepted rather than overlooked — a first-run prerequisite check is a later release's work.

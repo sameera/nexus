@@ -45,9 +45,6 @@ const MANIFEST_PATH: string = path.join(LIB_ROOT, PAYLOAD_MANIFEST_FILE);
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
 
 const GH_STANDIN_DIR: string = path.join(CORPUS, "bin");
-// The Python toolkit's entry point, placed on PATH under its own name — the install shape
-// story #297 names, and what makes `nexus-gh` reachable identically from source and bundle.
-const GH_TOOLKIT_BIN: string = path.join(REPO_ROOT, "libs", "gh-toolkit", "bin");
 
 // Story #276: the dispatcher's own source form — `tsx nexus-cli.ts <verb>` — is "the one command
 // shape" a maintainer runs any verb through with no build step. It is the only source-side entry
@@ -129,10 +126,7 @@ function runCapabilitySource(verb: string, args: string[], cwd: string, env?: No
 function ghStandInEnv(fixtureAbsPath: string): NodeJS.ProcessEnv {
     return {
         ...process.env,
-        // `nexus-gh` joins `gh` on the path: since story #300 the Python toolkit is an external
-        // program addressed by name, so source and bundle must reach the same one — a bundle
-        // written to a scratch directory has no checkout to fall back into.
-        PATH: [GH_STANDIN_DIR, GH_TOOLKIT_BIN, process.env.PATH].join(path.delimiter),
+        PATH: [GH_STANDIN_DIR, process.env.PATH].join(path.delimiter),
         NEXUS_PARITY_GH_FIXTURE: fixtureAbsPath,
     };
 }
@@ -249,17 +243,17 @@ describe("fingerprint pin", () => {
     it("compares against the pin alone — no copy of the artifact inside any repository", () => {
         // Both sides of the comparison are produced here: a fresh in-process build and a fresh
         // walk of the payload sources. Nothing reads a vendored or deployed copy (story #310).
-        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", "nexus-gh.mjs", PAYLOAD_KEY].sort());
+        expect(Object.keys(freshFingerprint).sort()).toEqual(["nexus.mjs", PAYLOAD_KEY].sort());
         expect(freshFingerprint[PAYLOAD_KEY]).toBe(hashPayload(REPO_ROOT));
     });
 
     it("names the payload file that differs, not only that the digests differ", () => {
-        const recorded: PayloadManifest = { "gh-toolkit/nexus_gh/cli.py": "aaaa", "claude-components/commands/nxs.epic.md": "bbbb" };
-        const current: PayloadManifest = { "gh-toolkit/nexus_gh/cli.py": "cccc", "gh-toolkit/nexus_gh/new.py": "dddd" };
+        const recorded: PayloadManifest = { "claude-components/commands/nxs.epic.md": "bbbb", "claude-components/commands/nxs.close.md": "aaaa" };
+        const current: PayloadManifest = { "claude-components/commands/nxs.close.md": "cccc", "claude-components/commands/nxs.new.md": "dddd" };
         const differences: string[] = diffPayloadManifest(recorded, current);
         const message: string | null = checkFingerprint({ [PAYLOAD_KEY]: "x" }, { [PAYLOAD_KEY]: "y" }, differences);
-        expect(message).toContain("changed: gh-toolkit/nexus_gh/cli.py");
-        expect(message).toContain("added: gh-toolkit/nexus_gh/new.py");
+        expect(message).toContain("changed: claude-components/commands/nxs.close.md");
+        expect(message).toContain("added: claude-components/commands/nxs.new.md");
         expect(message).toContain("removed: claude-components/commands/nxs.epic.md");
     });
 
@@ -337,22 +331,21 @@ describe("component invocations name a declared toolkit verb (story #301)", () =
     const surfaces: ToolkitSurfaces = readToolkitSurfaces();
     const inventory: Invocation[] = scanComponentInvocations(authoredComponentRoot(SRC_DIR), surfaces);
 
-    it("reads each toolkit's declared surface from that surface, not from a duplicate", () => {
-        // The executable's names come from the registry that composes its own usage text; the
-        // Python toolkit's come from executing its entry point. Neither list is written down here.
+    it("reads the declared surface from that surface, not from a duplicate", () => {
+        // The executable's names come from the registry that composes its own usage text — the
+        // list is never written down here.
         expect(surfaces.nexus).toContain("workspace docs-root");
-        expect(surfaces.nexusGh.length).toBeGreaterThan(0);
-        expect(surfaces.nexusGh).toEqual([...surfaces.nexusGh].sort());
+        expect(surfaces.nexus).toContain("config resolve");
     });
 
-    it("no shipped body names a verb or capability the toolkit does not declare", () => {
+    it("no shipped body names a verb the executable does not declare", () => {
         const undeclared: Invocation[] = inventory.filter((site) => site.classification === "undeclared");
         expect(undeclared.map((site) => `${site.relPath}:${site.line} ${site.name}`)).toEqual([]);
     });
 
-    it("no shipped body addresses a toolkit by a repository-bound form", () => {
+    it("no shipped body addresses the executable by a repository-bound form", () => {
         // Unconditional since story #303 emptied and removed the pending register: a reintroduced
-        // script path, bundle path, workspace alias or bare `python` fails the build immediately.
+        // script path, bundle path or workspace alias fails the build immediately.
         const problems: InvocationProblem[] = checkComponentInvocations(inventory);
         expect(problems.length, problems.length > 0 ? formatInvocationProblems(problems) : undefined).toBe(0);
     });

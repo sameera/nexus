@@ -81,12 +81,12 @@ files, compared by resolved real path.
 Re-run the install verb only when you add or remove a component file; editing an existing one needs
 nothing.
 
-## The other half of the loop: put the toolkits on your PATH
+## The other half of the loop: put the executable on your PATH
 
 Pointing the install location at your checkout makes the *components* live. It does nothing for the
-*toolkits* they invoke. Every component body addresses `nexus` and `nexus-gh` by bare name — a
-component never encodes a path to the toolkit it invokes, and the build-time invocation gate
-enforces that — so both executables have to resolve on your `PATH`.
+*executable* they invoke. Every component body addresses `nexus` by bare name — a component never
+encodes a path to the executable it invokes, and the build-time invocation gate enforces that — so
+that executable has to resolve on your `PATH`.
 
 Build the release tree and link it from the checkout:
 
@@ -95,57 +95,55 @@ pnpm nexus:build-release
 npm link
 ```
 
-That puts `nexus` and `nexus-gh` on your `PATH`, resolved to this checkout's `dist/`. Confirm with
+That puts `nexus` on your `PATH`, resolved to this checkout's `dist/`. Confirm with
 
 ```bash
 nexus version
-nexus-gh version
 ```
 
-Both print the same release version, and `nexus version` reports the same install location the
-source run above reported.
+It reports the same install location the source run above reported.
 
 `npm link`, not `pnpm link --global`, even in this pnpm workspace. The link has to land in the bin
 directory your `PATH` already carries for node, which is npm's global prefix; pnpm's global bin is a
 separate directory that may not be on your `PATH` at all. `npm link` writes two symlinks — the
 package into npm's global `node_modules`, and one per `bin` entry into the global bin directory —
 and creates no `package-lock.json` and no `node_modules/` changes here, so it leaves the pnpm
-workspace alone. Both symlinks resolve back into this checkout, which means a later
+workspace alone. Both resolve back into this checkout, which means a later
 `pnpm nexus:build-release` is live the moment it finishes. You never re-link because `dist/` changed.
 
 **Re-run `pnpm nexus:build-release` when you change anything under `libs/`, and whenever you add a
 verb or a capability.** The two halves of the loop refresh on different triggers, and the mismatch
 bites in one direction: components are live from the checkout, so a body may name a dispatch name
 the linked `dist/` does not carry yet. The invocation gate passes — it reads the checkout's own
-registry — while the command fails at run time. This is the toolkit's version of the false
+registry — while the command fails at run time. This is the executable's version of the false
 affordance the authored-tree move removed for components, and rebuilding is the whole remedy.
 
-An adopter needs none of this: `npm install -g @sameeraperera/nexus` places both executables, and
+An adopter needs none of this: `npm install -g @sameeraperera/nexus` places the executable, and
 `README.md` documents that path.
 
-## An unresolvable toolkit fails silently, not loudly
+## An unresolvable executable fails silently, not loudly
 
 Worth knowing before it costs you a session. The natural assumption is that a missing `nexus` stops
-a stage with `command not found`. It does not. Component bodies read the toolkits through command
+a stage with `command not found`. It does not. Component bodies read the executable through command
 substitution:
 
 ```bash
-ISSUES_REPO="$(nexus-gh config resolve epic-repo --root "<root>")"
+ISSUES_REPO="$(nexus config resolve epic-repo --root "<root>")"
 REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
 ```
 
 `command not found` goes to stderr and the substitution yields an **empty string**. The stage does
 not stop — it proceeds, and an empty value is indistinguishable from a legitimately absent setting.
-An unset `epic-repo` and an unreachable toolkit produce the same empty `REPO_ARG`, so the stage files
+An unset `epic-repo` and an unreachable executable produce the same empty `REPO_ARG`, so the stage files
 into the current repo and reports success. The same shape misses the epic classification label,
 targets the wrong project, and lets a design gate read a complexity it never resolved. Nothing in the
-transcript says the toolkit was missing.
+transcript says the executable was missing.
 
 So confirm both halves of the loop before trusting a stage, rather than waiting for a failure that
 will not come:
 
 ```bash
-command -v nexus nexus-gh || echo "TOOLKITS NOT ON PATH — see above"
+command -v nexus || echo "NEXUS NOT ON PATH — see above"
 nexus version
 ```
 
@@ -153,7 +151,7 @@ And when a stage resolves a setting to nothing, verify the setting is genuinely 
 believing it:
 
 ```bash
-nexus-gh config resolve epic-repo --root .   # empty output …
+nexus config resolve epic-repo --root .   # empty output …
 grep -n 'epic-repo\|issues-repo' .nexus/config/settings.yml   # … and no key? then empty is correct
 ```
 

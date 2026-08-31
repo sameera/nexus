@@ -7,7 +7,6 @@
  * not — only the non-zero exit is.
  */
 
-import { programName } from "../registry.js";
 
 export const CAPABILITY = "create-story";
 
@@ -33,9 +32,12 @@ export type ArgsOutcome =
     | { kind: "help" }
     | { kind: "error"; message: string };
 
+/** The program name this capability reports; the executable is the only name it answers to. */
+const PROGRAM_NAME = "nexus";
+
 export function filerUsage(): string {
     return [
-        `usage: ${programName(CAPABILITY)} <target-folder> [options]`,
+        `usage: ${`${PROGRAM_NAME} ${CAPABILITY}`} <target-folder> [options]`,
         "",
         "Create GitHub issues from STORY-*.md work-item files.",
         "",

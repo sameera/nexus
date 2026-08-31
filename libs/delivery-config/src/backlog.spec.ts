@@ -7,7 +7,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { runNexusGh } from "./dispatch";
+import { runConfig } from "./config-cli";
 import { type ToolkitIo } from "./io";
 
 function repoWith(block: string): string {
@@ -21,7 +21,7 @@ function query(root: string, ...args: string[]): { code: number; out: string; er
     const out: string[] = [];
     const err: string[] = [];
     const io: ToolkitIo = { cwd: root, stdout: (l) => out.push(l), stderr: (l) => err.push(l) };
-    const code: number = runNexusGh(["config", "backlog-query", "--root", root, ...args], io);
+    const code: number = runConfig(["backlog-query", "--root", root, ...args], io);
     return { code, out: out.join("\n"), err: err.join("\n") };
 }
 

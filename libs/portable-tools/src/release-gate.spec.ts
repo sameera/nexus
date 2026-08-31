@@ -64,7 +64,7 @@ describe("a shipped body may not reach a toolkit capability by an in-repository 
 
     it("passes a body that names the declared toolkit rather than a path", () => {
         const claudeDir: string = componentTree({
-            "commands/nxs.close.md": "    ISSUES_REPO=\"$(nexus-gh config resolve epic-repo)\"\n",
+            "commands/nxs.close.md": "    ISSUES_REPO=\"$(nexus config resolve epic-repo)\"\n",
         });
 
         expect(findInRepoInvocations(claudeDir)).toEqual([]);
@@ -100,7 +100,7 @@ describe("a shipped body may not reach a toolkit capability by an in-repository 
     });
 
     it("the remediation names the declared toolkit, not an edit to the payload", () => {
-        expect(RELEASE_GATE_REMEDIATION).toContain("nexus-gh");
+        expect(RELEASE_GATE_REMEDIATION).toContain("nexus <verb>");
     });
 });
 

@@ -13,7 +13,6 @@
 
 import * as fs from "node:fs";
 import { type ToolkitIo } from "../io.js";
-import { programName } from "../registry.js";
 import { CAPABILITY, type ArgsOutcome, type EpicArgs, epicUsage, parseEpicArgs } from "./args.js";
 import { type GhRunner, ensureLabel } from "../gh.js";
 import { type Outcome, Platform, extractIssueNumber } from "../story-filer/platform.js";
@@ -30,6 +29,9 @@ import { type ParsedDraft, deriveFiledBody, parseDraft } from "./document.js";
 import { type EpicOutput, epicOutput } from "./output.js";
 import { type PreflightOutcome, preflight } from "./preflight.js";
 
+/** The program name this capability reports; the executable is the only name it answers to. */
+const PROGRAM_NAME = "nexus";
+
 export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironment = defaultEpicEnvironment): number {
     const parsed: ArgsOutcome = parseEpicArgs(argv);
     if (parsed.kind === "help") {
@@ -44,7 +46,7 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     });
     if (parsed.kind === "error") {
         io.stderr(epicUsage());
-        out.error(`${programName(CAPABILITY)}: ${parsed.message}`);
+        out.error(`${`${PROGRAM_NAME} ${CAPABILITY}`}: ${parsed.message}`);
         return 2;
     }
     const args: EpicArgs = parsed.args;

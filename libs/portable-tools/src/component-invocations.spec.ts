@@ -21,8 +21,7 @@ import {
 } from "./component-invocations";
 
 const SURFACES: ToolkitSurfaces = {
-    nexus: ["deploy", "abs-doc-path", "workspace status", "workspace docs-root", "pr-worktree remove"],
-    nexusGh: ["config", "create-epic"],
+    nexus: ["deploy", "abs-doc-path", "workspace status", "workspace docs-root", "pr-worktree remove", "config resolve", "create-epic"],
 };
 
 let tmpDirs: string[] = [];
@@ -75,29 +74,25 @@ describe("findInvocations — what counts as an invocation", () => {
     });
 
     it("reads a capability name after the Python toolkit's name", () => {
-        const found: Invocation[] = findInvocations(fence('nexus-gh config resolve epic-repo --root "<root>"'));
-        expect(found).toEqual([expect.objectContaining({ form: "named-python-toolkit", name: "config" })]);
+        const found: Invocation[] = findInvocations(fence('nexus config resolve epic-repo --root "<root>"'));
+        expect(found).toEqual([expect.objectContaining({ form: "named-executable", name: "config resolve" })]);
     });
 
     it("finds an invocation nested in a command substitution", () => {
-        const found: Invocation[] = findInvocations(fence('REPO="$(nexus-gh config resolve epic-repo)"'));
-        expect(found).toEqual([expect.objectContaining({ form: "named-python-toolkit", name: "config" })]);
+        const found: Invocation[] = findInvocations(fence('REPO="$(nexus config resolve epic-repo)"'));
+        expect(found).toEqual([expect.objectContaining({ form: "named-executable", name: "config resolve" })]);
     });
 
     it("names each legacy repository-bound form", () => {
         const found: Invocation[] = findInvocations(
             fence(
                 "tsx ./.claude/skills/nxs-epic-resolve/scripts/epic_resolve.ts --epic <n>",
-                "python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-label",
-                "python3 ./scripts/create_gh_issues.py <folder>",
                 "node .nexus/tools/generate-atlas.mjs",
                 "pnpm nexus:generate-atlas",
             ),
         );
         expect(found.map((f) => f.form)).toEqual([
             "transpiler-script",
-            "interpreter-script",
-            "interpreter-script",
             "bundle-runtime",
             "workspace-alias",
         ]);
@@ -189,8 +184,8 @@ describe("scanComponentInvocations — classification against the declared surfa
         expect(site).toMatchObject({ classification: "undeclared", name: "workspace statuss" });
     });
 
-    it("classifies an undeclared Python capability as undeclared", () => {
-        const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus-gh create-storey <folder>") });
+    it("classifies an undeclared capability as undeclared", () => {
+        const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus create-storey <folder>") });
         const [site] = scanComponentInvocations(dir, SURFACES);
         expect(site).toMatchObject({ classification: "undeclared", name: "create-storey" });
     });
@@ -205,7 +200,7 @@ describe("scanComponentInvocations — classification against the declared surfa
         const dir: string = makeClaudeDir({
             "commands/a.md": fence("nexus deploy"),
             "skills/s/SKILL.md": fence("pnpm nexus:generate-atlas"),
-            "agents/g.md": "Use `nexus-gh config resolve epic-repo` here.\n",
+            "agents/g.md": "Use `nexus config resolve epic-repo` here.\n",
             "commands/notes.txt": fence("nexus deploy"),
         });
         const sites: Invocation[] = scanComponentInvocations(dir, SURFACES);
@@ -237,9 +232,19 @@ describe("checkComponentInvocations — the verdict", () => {
         expect(problems[0].message).toContain("y.ts");
     });
 
-    it("fails a migrated body that reintroduces a bare python", () => {
-        const dir: string = makeClaudeDir({ "commands/a.md": fence("python ./scripts/x.py") });
+    // Story #399 narrowed the form set with the runtime it described, and that narrowing is real:
+    // an interpreter run against the adopting project's own script is no longer the gate's business.
+    // What the gate exists for is untouched — a Nexus capability reached by path still fails.
+    it("still fails a body that reaches a Nexus capability by path, whatever runs it", () => {
+        const dir: string = makeClaudeDir({
+            "commands/a.md": fence("python ./.claude/skills/nxs-gh-shared/delivery_config.py resolve epic-label"),
+        });
         expect(checkComponentInvocations(scanComponentInvocations(dir, SURFACES))).toHaveLength(1);
+    });
+
+    it("no longer fails a body for running the adopting project's own script under an interpreter", () => {
+        const dir: string = makeClaudeDir({ "commands/a.md": fence("python3 ./scripts/create_gh_issues.py <folder>") });
+        expect(checkComponentInvocations(scanComponentInvocations(dir, SURFACES))).toEqual([]);
     });
 
     it("fails a reintroduced bundle path and a reintroduced workspace script alias", () => {
@@ -251,7 +256,7 @@ describe("checkComponentInvocations — the verdict", () => {
     });
 
     it("names the offending body and name in the formatted failure", () => {
-        const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus-gh create-storey <folder>") });
+        const dir: string = makeClaudeDir({ "commands/a.md": fence("nexus create-storey <folder>") });
         const text: string = formatInvocationProblems(checkComponentInvocations(scanComponentInvocations(dir, SURFACES)));
         expect(text).toContain("commands/a.md");
         expect(text).toContain("create-storey");

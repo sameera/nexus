@@ -27,8 +27,8 @@ Ask for either form rather than spelling the label out, so a repository that ren
 its queries too:
 
 ```bash
-nexus-gh config backlog-query --form search
-nexus-gh config backlog-query --form exclude
+nexus config backlog-query --form search
+nexus config backlog-query --form exclude
 ```
 
 ## Feature index

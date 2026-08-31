@@ -122,7 +122,7 @@ current commit**, plus `.nexus/config/`, a docs root, and one feature folder
 Note the printed `clonePath`, `url`, and `toolchainCommit` — the record needs all three.
 
 ```bash
-CLONE=$($HARNESS status | python3 -c 'import json,sys; print(json.load(sys.stdin)["clonePath"])')
+CLONE=$($HARNESS status | node -e 'let i="";process.stdin.on("data",c=>i+=c).on("end",()=>console.log(JSON.parse(i).clonePath))')
 cd "$CLONE"
 ```
 
@@ -274,7 +274,7 @@ Confirm the distillation PR is open against the scratch trunk and contains the c
 the deletion of the queue entry it drained:
 
 ```bash
-gh pr list --repo "$($HARNESS status | python3 -c 'import json,sys; print(json.load(sys.stdin)["nameWithOwner"])')"
+gh pr list --repo "$($HARNESS status | node -e 'let i="";process.stdin.on("data",c=>i+=c).on("end",()=>console.log(JSON.parse(i).nameWithOwner))')"
 ```
 
 Distillation *content* is not under test — only the branch, the PR, and the drain.

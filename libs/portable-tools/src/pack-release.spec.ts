@@ -76,19 +76,29 @@ describe("the manifest and the readme declare the environment a release supports
         expect(manifest.os ?? []).not.toContain("win32");
     });
 
-    it("declares the Python interpreter floor beside the Node one", () => {
+    it("declares exactly one engine, the Node floor", () => {
         expect(manifest.engines?.node ?? "").toMatch(/^>=\d+\.\d+/);
-        expect(manifest.engines?.python ?? "").toMatch(/^>=\d+\.\d+/);
+        expect(Object.keys(manifest.engines ?? {})).toEqual(["node"]);
     });
 
-    it("names the same platforms and floors where an adopter reads them before installing", () => {
+    it("names the same platforms and floor where an adopter reads them before installing", () => {
         const requirements: string = section("Requirements");
         const nodeFloor: string = (manifest.engines?.node ?? "").replace(/^>=/, "");
-        const pythonFloor: string = (manifest.engines?.python ?? "").replace(/^>=/, "");
         expect(requirements).toMatch(/macOS/i);
         expect(requirements).toMatch(/Linux/i);
         expect(requirements).toContain(nodeFloor);
-        expect(requirements).toContain(pythonFloor);
+    });
+
+    // Story #393: the requirements section states one runtime, because the release has one.
+    it("states exactly one required runtime, and claims no interpreter anywhere in the readme", () => {
+        const requirements: string = section("Requirements");
+        const runtimeBullets: string[] = requirements
+            .split("\n")
+            .filter((line) => /^-\s+\*\*/.test(line));
+        expect(runtimeBullets).toHaveLength(1);
+        expect(runtimeBullets[0]).toMatch(/Node/i);
+        expect(readme).not.toMatch(/python/i);
+        expect(readme).not.toMatch(/two halves/i);
     });
 });
 
@@ -150,11 +160,12 @@ describe("the packed package carries all three parts (AC2)", () => {
         }
     });
 
-    it("contains the Python toolkit's importable package files", () => {
-        const pythonModules: string[] = packedFiles.filter((f) => f.endsWith(".py"));
-        expect(pythonModules).toContain(`${RELEASE_TREE_DIRNAME}/gh-toolkit/nexus_gh/cli.py`);
-        expect(pythonModules).toContain(`${RELEASE_TREE_DIRNAME}/gh-toolkit/nexus_gh/release.py`);
-        expect(pythonModules).toContain(`${RELEASE_TREE_DIRNAME}/gh-toolkit/nexus_gh/delivery_config.py`);
+    // Story #392: an adopter downloads only files the release executes.
+    it("contains no interpreter artefact at any depth, and nothing under the withdrawn toolkit directory", () => {
+        expect(packedFiles.filter((f) => f.endsWith(".py"))).toEqual([]);
+        expect(packedFiles.filter((f) => f.endsWith(".pyc"))).toEqual([]);
+        expect(packedFiles.filter((f) => f.includes("__pycache__"))).toEqual([]);
+        expect(packedFiles.filter((f) => f.includes("/gh-toolkit/"))).toEqual([]);
     });
 
     it("contains the component payload", () => {

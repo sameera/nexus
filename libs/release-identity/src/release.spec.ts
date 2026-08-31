@@ -62,12 +62,20 @@ describe("resolving the declaration from a toolkit file's own position", () => {
     });
 });
 
-describe("no second version declaration exists (AC2 — neither half carries its own)", () => {
-    it("the Python toolkit declares no version literal of its own", () => {
-        const pkg: string = path.join(REPO_ROOT, "libs", "gh-toolkit", "nexus_gh");
-        for (const entry of fs.readdirSync(pkg).filter((f) => f.endsWith(".py"))) {
-            const source: string = fs.readFileSync(path.join(pkg, entry), "utf8");
-            expect(source).not.toMatch(/^__version__\s*=/m);
+describe("no second version declaration exists (AC2 — one declaration, read by everything)", () => {
+    // Story #392 deleted the other half of the release, so the only place a second declaration
+    // could now appear is the source tree that reads this one.
+    it("no source module declares a release version literal of its own", () => {
+        const libs: string = path.join(REPO_ROOT, "libs");
+        const walk = (dir: string): string[] =>
+            fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+                const abs: string = path.join(dir, entry.name);
+                if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "out-tsc") return [];
+                if (entry.name === "origin") return [];
+                return entry.isDirectory() ? walk(abs) : entry.name.endsWith(".ts") ? [abs] : [];
+            });
+        for (const file of walk(libs)) {
+            expect(fs.readFileSync(file, "utf8"), file).not.toMatch(/^\s*(export )?const RELEASE_VERSION\s*=\s*"/m);
         }
     });
 });

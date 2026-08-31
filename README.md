@@ -10,7 +10,7 @@
 Nexus installs **once for your user account**, then bootstraps each repository you use it in:
 
 ```bash
-npm install -g @sameeraperera/nexus   # 1. the package  (needs Node 22.22.0+ and Python 3.10+)
+npm install -g @sameeraperera/nexus   # 1. the package  (needs Node 22.22.0+)
 nexus install                   # 2. the Claude components, once per account
 ```
 
@@ -224,10 +224,9 @@ The Nexus slash commands are not part of your repository: they come from the com
 
 # Requirements
 
-Nexus ships as one package carrying both toolkits, so an adopter supplies only the two interpreters they run on:
+Nexus runs on one runtime, and an adopter supplies only that:
 
 - **Node.js 22.22.0 or newer** — runs the `nexus` executable.
-- **Python 3.10 or newer** — runs the `nexus-gh` toolkit.
 
 Supported platforms are **macOS and Linux**. A release targets POSIX-like environments only; on Windows, run Nexus inside WSL.
 
@@ -240,14 +239,13 @@ repository (3 and 4) follow once each.
 
 ## 1. Install the package
 
-Nexus is published to npm as `@sameeraperera/nexus`, carrying both toolkits under one version. Install it
-globally:
+Nexus is published to npm as `@sameeraperera/nexus`. Install it globally:
 
 ```bash
 npm install -g @sameeraperera/nexus
 ```
 
-That places two executables — `nexus` and `nexus-gh` — in the global binary directory your Node
+That places one executable — `nexus` — in the global binary directory your Node
 installation already exposes. Whatever installed Node (nvm, fnm, volta, Homebrew, a system package)
 put that directory on your `PATH`; Nexus edits no shell startup file, so removal has none to undo.
 
@@ -255,11 +253,10 @@ Verify from a directory that is not a Nexus checkout:
 
 ```bash
 nexus version
-nexus-gh version
 ```
 
-Both print the same release version. If the shell cannot find either one, the global binary
-directory is missing from `PATH` — `npm prefix -g` names it.
+If the shell cannot find it, the global binary directory is missing from `PATH` — `npm prefix -g`
+names it.
 
 To hold a particular release rather than the newest, name it: `npm install -g @sameeraperera/nexus@<version>`.
 
@@ -278,17 +275,16 @@ nexus install
 
 Installing is two steps on purpose. A package-manager lifecycle script is blocked by default in some package managers and commonly disabled in continuous integration, so a share of installs would end silently with no component set and no error — and the second step has to print text you must act on anyway.
 
-## 3. Grant the two toolkits permission, once
+## 3. Grant the executable permission, once
 
-Add these two entries to your account-scoped settings file (settings.json at the install location),
+Add this entry to your account-scoped settings file (settings.json at the install location),
 not to a repository-local one:
 
     Bash(nexus:*)
-    Bash(nexus-gh:*)
 
-Nexus writes no settings file. Adding these entries is your action.
+Nexus writes no settings file. Adding it is your action.
 
-Each entry is a trailing-wildcard prefix, so one entry per toolkit covers every verb and every argument list. Approving the permission prompt interactively instead saves the grant to the repository you happen to be in, and offers you no scope choice — you would re-approve once per repository, while the install itself is once per account.
+The entry is a trailing-wildcard prefix, so one entry covers every verb and every argument list. Approving the permission prompt interactively instead saves the grant to the repository you happen to be in, and offers you no scope choice — you would re-approve once per repository, while the install itself is once per account.
 
 ## 4. Bootstrap each repository
 
@@ -353,15 +349,14 @@ The mirror converges: components dropped from the managed set are removed, and f
 
 If you are coming from a version that deployed components into each repository, run `nexus migrate-components` once in each of those repositories (see above). While both a repository-local and an account-level component set resolve, every `nexus` invocation writes a diagnostic naming both locations to standard error.
 
-The permission entries have not changed, and they belong to your account rather than to any repository:
+The permission entry belongs to your account rather than to any repository:
 
-Add these two entries to your account-scoped settings file (settings.json at the install location),
+Add this entry to your account-scoped settings file (settings.json at the install location),
 not to a repository-local one:
 
     Bash(nexus:*)
-    Bash(nexus-gh:*)
 
-Nexus writes no settings file. Adding these entries is your action.
+Nexus writes no settings file. Adding it is your action.
 
 # Contributing to Nexus itself
 

@@ -100,9 +100,9 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
    resolver**, never by parsing `settings.yml` (see `/nxs.close` Phase 1.0):
 
     ```bash
-    ISSUES_REPO="$(nexus-gh config resolve epic-repo --root "<root>")"
+    ISSUES_REPO="$(nexus config resolve epic-repo --root "<root>")"
     REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
-    NEEDS_DESIGN="$(nexus-gh config resolve needs-design-label --root "<root>")"
+    NEEDS_DESIGN="$(nexus config resolve needs-design-label --root "<root>")"
     ```
 
     `<root>` is the repo root, or `$wtPath` in `--pr` mode (the config lives inside the worktree).

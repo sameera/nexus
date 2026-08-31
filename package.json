@@ -12,8 +12,7 @@
   },
   "homepage": "https://github.com/sameera/nexus#readme",
   "bin": {
-    "nexus": "dist/nexus.mjs",
-    "nexus-gh": "dist/nexus-gh.mjs"
+    "nexus": "dist/nexus.mjs"
   },
   "files": [
     "dist",
@@ -30,8 +29,7 @@
     "linux"
   ],
   "engines": {
-    "node": ">=22.22.0",
-    "python": ">=3.10"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "nexus:validate-concepts": "tsx libs/portable-tools/src/nexus-cli.ts validate-concepts",

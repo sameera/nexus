@@ -2,9 +2,8 @@
  * The environment guard (story #307): a defect in the environment is named where a human will see
  * it, without any verb's output contract being disturbed.
  *
- * A guard fires on a **defect** — an interpreter the release needs and cannot find, two component
- * sets resolving on one account — never on a version difference. The version-difference ladder is
- * deferred; this is not a rung of it.
+ * A guard fires on a **defect** — two component sets resolving on one account — never on a version
+ * difference. The version-difference ladder is deferred; this is not a rung of it.
  *
  * Three placements make it safe rather than intrusive, and each is an acceptance criterion:
  *
@@ -15,7 +14,6 @@
  *   own and is still covered, because coverage is a property of where dispatch happens.
  */
 
-import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { resolveInstallLocation, type InstallLocationResult } from "./install-location.js";
@@ -29,35 +27,6 @@ export interface EnvironmentDefect {
     detail: string;
     /** What to do about it. */
     remedy: string;
-}
-
-export interface InterpreterReport {
-    path: string | null;
-    version: string | null;
-}
-
-/**
- * The `python3` the Python half of the release runs on. An interpreter that cannot be resolved is
- * reported as unresolved rather than raised: the verbs that report on the environment are exactly
- * the ones a user runs when the environment is already broken.
- */
-export function resolveInterpreter(): InterpreterReport {
-    const unresolved: InterpreterReport = { path: null, version: null };
-    let resolvedPath: string;
-    try {
-        resolvedPath = execFileSync("command", ["-v", "python3"], { encoding: "utf8", shell: true, stdio: ["ignore", "pipe", "ignore"] }).trim();
-    } catch {
-        return unresolved;
-    }
-    if (resolvedPath === "") {
-        return unresolved;
-    }
-    try {
-        const reported: string = execFileSync(resolvedPath, ["--version"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-        return { path: resolvedPath, version: reported.replace(/^Python\s+/, "") };
-    } catch {
-        return unresolved;
-    }
 }
 
 /**
@@ -111,20 +80,9 @@ export interface EnvironmentScope {
     home?: string;
 }
 
-/**
- * Every defect the environment currently has. Ordered so the interpreter — the one that stops the
- * other half of the release from running at all — is named first.
- */
+/** Every defect the environment currently has. */
 export function detectEnvironmentDefects(scope: EnvironmentScope): EnvironmentDefect[] {
     const defects: EnvironmentDefect[] = [];
-
-    if (resolveInterpreter().path === null) {
-        defects.push({
-            defect: "required interpreter 'python3' could not be resolved",
-            detail: "searched PATH",
-            remedy: "install python3, or put the interpreter already installed on PATH",
-        });
-    }
 
     // The scope is the user account, never the machine: exactly two places are examined — the
     // location a verb would install to, and the repository the verb was invoked from.

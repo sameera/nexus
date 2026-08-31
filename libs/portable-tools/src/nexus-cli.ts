@@ -36,6 +36,9 @@ import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migrati
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
+import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
+import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -60,7 +63,7 @@ import {
     type InstallLocationState,
 } from "./install-location.js";
 import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from "./migrate-components.js";
-import { detectEnvironmentDefects, makeEnvironmentGuard, resolveInterpreter } from "./environment-guard.js";
+import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
@@ -107,6 +110,12 @@ export interface VerbEntry {
 const WORKSPACE_SUBVERBS: readonly string[] = ["init", "status", "docs-root", "add-repo", "github-defaults"];
 const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "remove"];
 const CLOSE_MIGRATION_SUBVERBS: readonly string[] = ["preflight", "migrate"];
+
+/**
+ * The configuration resolver's own commands, read from the table that dispatches them (story #396)
+ * rather than copied here — the gate composes this verb's two-token dispatch names from it.
+ */
+const CONFIG_SUBVERBS: readonly string[] = Object.keys(CONFIG_COMMANDS);
 
 const REGISTRY: Record<string, VerbEntry> = {
     deploy: {
@@ -159,11 +168,11 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runMigrateComponents,
     },
     version: {
-        summary: "Report the installed release, its component payload and the resolved interpreter.",
+        summary: "Report the installed release, its component payload and its install location.",
         usage: [
             "  nexus version",
-            "      Print { version, componentPayload, python } — the release's one semantic version,",
-            "      the component payload's fingerprint, and the resolved python3 and its version.",
+            "      Print { version, componentPayload, installLocation } — the release's one semantic",
+            "      version, the component payload's fingerprint, and where the components are installed.",
         ].join("\n"),
         run: runVersion,
     },
@@ -261,6 +270,33 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Write draft domain-registry files for a maintainer to review.",
         ].join("\n"),
         run: (argv) => Promise.resolve(runSeedRegistry(argv)),
+    },
+    config: {
+        summary: "Resolve delivery configuration (the shared publishing resolver).",
+        usage: [
+            "  nexus config resolve <key> [--root <path>]      Resolve one github-block key through the precedence chain.",
+            "  nexus config backlog-query [--form <form>]      Print the cross-feature backlog query (list | search | exclude).",
+            "  nexus config detect-classification             Probe whether the repository exposes issue types.",
+            "  nexus config write-github [--root <path>]      Seed absent github-block keys into settings.yml (add-only).",
+        ].join("\n"),
+        subverbs: CONFIG_SUBVERBS,
+        run: (argv, io) => Promise.resolve(runConfig(argv, io)),
+    },
+    "create-epic": {
+        summary: "File a GitHub issue from an epic document.",
+        usage: [
+            "  nexus create-epic <path-to-epic.md> [--yes] [--dry-run]",
+            "      File the epic draft as a GitHub issue and record the number back on the draft.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runCreateEpic(argv, io)),
+    },
+    "create-story": {
+        summary: "File one GitHub issue per STORY-*.md work item.",
+        usage: [
+            "  nexus create-story <target-folder> [--yes] [--dry-run]",
+            "      File one GitHub issue per STORY-*.md work item in the folder, resumably.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runCreateStory(argv, io)),
     },
     "seed-templates": {
         summary: "Place the tool-agnostic templates the pipeline stages read into a repository.",
@@ -608,7 +644,6 @@ async function runVersion(argv: string[], io: CliIo): Promise<number> {
             version: releaseVersion(),
             componentPayload: payloadDir === null ? null : hashComponentTree(payloadDir),
             installLocation: reportedInstallLocation(),
-            python: resolveInterpreter(),
         }),
     );
     return 0;

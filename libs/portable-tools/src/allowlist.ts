@@ -1,6 +1,8 @@
 /**
- * The permission allowlist entries (stories #313 and #318): the two entries an adopter adds once,
- * for their account, so the two named toolkits are not re-approved per repository.
+ * The permission allowlist entry (stories #313, #318, #397): the entry an adopter adds once, for
+ * their account, so the executable is not re-approved per repository. It counted one entry per
+ * named toolkit until the second name was withdrawn; a stale second entry left in an adopter's
+ * existing settings file is inert, so no migration is owed.
  *
  * Nexus writes the components it owns and never the files governing what those components are
  * permitted to do (decision record #339, invariant 2) — so this is text, printed and documented,
@@ -9,8 +11,8 @@
  * when any of the three diverges (invariant 17).
  */
 
-/** One trailing-wildcard prefix entry per named toolkit — each covers every verb and argument. */
-export const ALLOWLIST_ENTRIES: readonly string[] = ["Bash(nexus:*)", "Bash(nexus-gh:*)"];
+/** One trailing-wildcard prefix entry — it covers every verb and every argument list. */
+export const ALLOWLIST_ENTRIES: readonly string[] = ["Bash(nexus:*)"];
 
 /**
  * The block as an adopter reads it. Account-scoped by construction: the entries belong in the
@@ -18,13 +20,12 @@ export const ALLOWLIST_ENTRIES: readonly string[] = ["Bash(nexus:*)", "Bash(nexu
  * is per account.
  */
 export const ALLOWLIST_BLOCK: string = [
-    "Add these two entries to your account-scoped settings file (settings.json at the install location),",
+    "Add this entry to your account-scoped settings file (settings.json at the install location),",
     "not to a repository-local one:",
     "",
     `    ${ALLOWLIST_ENTRIES[0]}`,
-    `    ${ALLOWLIST_ENTRIES[1]}`,
     "",
-    "Nexus writes no settings file. Adding these entries is your action.",
+    "Nexus writes no settings file. Adding it is your action.",
 ].join("\n");
 
 /** The block as printed lines, for a verb whose IO is line-oriented. */

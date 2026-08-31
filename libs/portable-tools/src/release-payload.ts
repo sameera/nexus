@@ -2,14 +2,13 @@
  * The shipped payload, as an explicit set (story #309).
  *
  * The payload used to be "whatever is on disk under the directories we copy". That made its
- * fingerprint machine-dependent — a clean checkout with no cached byte-code, or a different
- * `python3` minor version, produced a different hash — and it shipped the toolkit's own tests to
- * adopters who will never run them. What ships is now stated here, and the fingerprint is taken
- * over exactly that set.
+ * fingerprint machine-dependent and shipped files an adopter would never run. What ships is now
+ * stated here, and the fingerprint is taken over exactly that set.
  *
  * The filter is a denylist of *incidental* entries rather than an allowlist of files, because a
- * new capability module must ship the moment it is written; a new test file must never ship.
- * Both properties follow from naming the categories, not the files.
+ * new file that belongs in the payload must ship the moment it is written. Story #392 emptied it:
+ * every entry it carried existed to exclude an interpreter's byte-code or an interpreter's tests,
+ * and the payload no longer walks a tree that can contain either.
  */
 
 import { createHash } from "node:crypto";
@@ -21,20 +20,17 @@ import { authoredComponentRoot, COMPONENT_PAYLOAD_DIRNAME, listComponentFiles } 
 /** Key of the payload entry in the committed fingerprint pin — one entry for the whole payload. */
 export const PAYLOAD_KEY = "payload";
 
-/** Directory the Python toolkit travels under inside the release tree. */
-export const GH_TOOLKIT_DIRNAME = "gh-toolkit";
-
 /**
  * The stated ignore filter. Each entry is a directory or file name matched exactly, or a
- * `*.<ext>` suffix pattern:
+ * `*.<ext>` suffix pattern.
  *
- *   - `__pycache__` / `*.pyc` — interpreter byte-code. It is gitignored, it differs between
- *     interpreter minor versions, and it is absent on a checkout that has never run the toolkit,
- *     so hashing it makes the fingerprint a property of the machine rather than of the release.
- *   - `tests` / `test_*.py` — the toolkit's own tests. They exercise the release; they are not
- *     part of what an adopter installs.
+ * It is empty: the four entries it carried — `__pycache__`, `*.pyc`, `tests`, `test_*.py` —
+ * existed only to keep an interpreter's byte-code and an interpreter's tests out of the payload,
+ * and story #392 removed the tree that held them. Naming a pattern that can never match again
+ * would read as though the payload still carried an interpreter's output. The mechanism stays,
+ * because the next incidental category is named here rather than in a new filter.
  */
-export const PAYLOAD_IGNORE: readonly string[] = ["__pycache__", "*.pyc", "tests", "test_*.py"];
+export const PAYLOAD_IGNORE: readonly string[] = [];
 
 /** True when the filter excludes an entry by its own name, whatever directory it sits in. */
 export function isIgnoredPayloadEntry(name: string): boolean {
@@ -83,15 +79,13 @@ function walk(dir: string, stagedPrefix: string, out: PayloadFile[]): void {
 }
 
 /**
- * Every file the release payload carries, sorted by staged path. Three parts: the Python toolkit,
- * filtered; the managed component subtrees, which `listComponentFiles` already defines; and the
- * tool-agnostic template masters, which travel so that a repository outside this checkout can be
- * seeded from the release rather than from a path that only exists here (story #323).
+ * Every file the release payload carries, sorted by staged path. Two parts: the managed component
+ * subtrees, which `listComponentFiles` already defines; and the tool-agnostic template masters,
+ * which travel so that a repository outside this checkout can be seeded from the release rather
+ * than from a path that only exists here (story #323).
  */
 export function listPayloadFiles(repoRoot: string): PayloadFile[] {
     const files: PayloadFile[] = [];
-    walk(path.join(repoRoot, "libs", "gh-toolkit"), GH_TOOLKIT_DIRNAME, files);
-
     const srcDir: string = path.join(repoRoot, "libs", "portable-tools", "src");
     const claudeDir: string = authoredComponentRoot(srcDir);
     for (const rel of listComponentFiles(claudeDir)) {

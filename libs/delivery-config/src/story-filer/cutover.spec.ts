@@ -10,10 +10,15 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
-import { runNexusGh } from "../dispatch";
-import { PYTHON_INTERPRETER } from "../python-entry";
-import { CAPABILITIES, capabilityListing, usage } from "../registry";
+import { runCreateStory } from "./run";
 import { checkoutWith, recordingIo, scratch, story, writeItem } from "./fixtures";
+
+/**
+ * The interpreter no path may reach. Story #394 removed the delegation seam, so this is stated
+ * here as the literal it always was rather than imported from a module that no longer exists —
+ * the assertion is still worth making, it just cannot source the name from the removed seam.
+ */
+const AN_INTERPRETER = "python3";
 
 vi.mock("node:child_process", () => ({ spawnSync: vi.fn() }));
 
@@ -58,49 +63,35 @@ function batch(): string {
     return root;
 }
 
-describe("the toolkit answers create-story in process", () => {
+describe("create-story runs in process", () => {
     it("runs a full batch to completion with no interpreter process spawned", () => {
         const root: string = batch();
         const io = recordingIo(root);
-        expect(runNexusGh(["create-story", scratch(root)], io)).toBe(0);
+        expect(runCreateStory([scratch(root)], io)).toBe(0);
         expect(io.out.join("\n")).toContain("✅ Complete");
         expect(io.out.join("\n")).toContain("Issues:       2 created");
         const commands: string[] = spawned.mock.calls.map((call) => call[0] as string);
         expect(commands.length).toBeGreaterThan(0);
-        expect(commands).not.toContain(PYTHON_INTERPRETER);
+        expect(commands).not.toContain(AN_INTERPRETER);
         for (const command of commands) expect(command).toBe("gh");
     });
 
     it("spawns nothing at all for a batch it refuses", () => {
         const root: string = checkoutWith({ classification: "labels" });
         const io = recordingIo(root);
-        expect(runNexusGh(["create-story", path.join(root, "absent")], io)).not.toBe(0);
+        expect(runCreateStory([path.join(root, "absent")], io)).not.toBe(0);
         expect(spawned.mock.calls).toEqual([]);
     });
 
-    it("reaches the filer's own arguments through the dispatcher", () => {
+    it("reaches the filer's own arguments", () => {
         const root: string = batch();
         const io = recordingIo(root);
-        expect(runNexusGh(["create-story", "--help"], io)).toBe(0);
-        expect(io.out.join("\n")).toContain("nexus-gh create-story <target-folder>");
+        expect(runCreateStory(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus create-story <target-folder>");
         expect(io.out.join("\n")).toContain("--keep-manifest");
         expect(spawned.mock.calls).toEqual([]);
     });
 });
 
-describe("the capability's place in the toolkit is unchanged", () => {
-    it("keeps its name, its summary and its position in the listing", () => {
-        expect(CAPABILITIES.map((capability) => capability.name)).toEqual([
-            "version",
-            "config",
-            "create-epic",
-            "create-story",
-        ]);
-        expect(CAPABILITIES[3].summary).toBe("File one GitHub issue per STORY-*.md work item.");
-        expect(capabilityListing()).toBe(
-            JSON.stringify({ capabilities: ["config", "create-epic", "create-story", "version"] }),
-        );
-        expect(usage()).toContain("create-story  File one GitHub issue per STORY-*.md work item.");
-    });
-
-});
+// See the note in the epic filer's cut-over suite: the surviving registry is the executable's,
+// and it is asserted where it lives.

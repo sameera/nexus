@@ -13,7 +13,6 @@
  * using, so both are accepted here; an ambiguous prefix is refused naming the flags it could mean.
  */
 
-import { programName } from "../registry.js";
 
 export const CAPABILITY = "create-epic";
 
@@ -36,9 +35,12 @@ export type ArgsOutcome =
     | { kind: "help" }
     | { kind: "error"; message: string };
 
+/** The program name this capability reports; the executable is the only name it answers to. */
+const PROGRAM_NAME = "nexus";
+
 export function epicUsage(): string {
     return [
-        `usage: ${programName(CAPABILITY)} <path-to-epic.md> [options]`,
+        `usage: ${`${PROGRAM_NAME} ${CAPABILITY}`} <path-to-epic.md> [options]`,
         "",
         "Create a GitHub issue from an Epic document.",
         "",
