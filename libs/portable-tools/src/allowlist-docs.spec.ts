@@ -60,6 +60,23 @@ describe("the documented allowlist entries", () => {
         expect(ALLOWLIST_ENTRIES).toEqual(["Bash(nexus:*)"]);
     });
 
+    it("counts the permission entries consistently wherever the readme mentions them (AC1)", () => {
+        // Not scoped to a section: the readme's summary above "# Installing" makes the same count
+        // claim the install documentation does, and sits outside the slice the comparisons read.
+        const COUNTS: Record<string, number> = { one: 1, two: 2, three: 3 };
+        const claims: RegExpMatchArray[] = [...README.matchAll(/(\w+) permission (entry|entries)\b/g)];
+        expect(claims.length).toBeGreaterThan(0);
+        for (const [, word, noun] of claims) {
+            const counted: number | undefined = COUNTS[word.toLowerCase()];
+            if (counted === undefined) {
+                // No numeral, so the claim is carried by the noun's number alone.
+                expect(noun === "entry").toBe(ALLOWLIST_ENTRIES.length === 1);
+            } else {
+                expect(counted).toBe(ALLOWLIST_ENTRIES.length);
+            }
+        }
+    });
+
     it("states each entry in the trailing-wildcard prefix form (AC1)", () => {
         for (const entry of ALLOWLIST_ENTRIES) {
             expect(entry).toMatch(/^Bash\([a-z-]+:\*\)$/);

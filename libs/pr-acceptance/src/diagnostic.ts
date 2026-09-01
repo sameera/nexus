@@ -11,7 +11,10 @@
 export type PrAcceptanceProblem =
     /** `gh` is not authenticated, or its identity could not be read. */
     | "gh-unauthenticated"
-    /** The token lacks `delete_repo`, so teardown could not delete what provision would create. */
+    /**
+     * The token lacks `delete_repo` and the operator did not opt into manual cleanup,
+     * so nothing named would delete what provision would create.
+     */
     | "missing-delete-scope"
     /** The scratch repo does not have all three merge methods enabled. */
     | "merge-methods-disabled"

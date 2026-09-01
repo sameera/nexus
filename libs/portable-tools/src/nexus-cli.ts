@@ -141,7 +141,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Exactly one component set exists per account, so this replaces per-repository",
             "      deployment. With --from-checkout the location is pointed at that checkout's",
             "      authored tree instead of holding a copy (the maintainer's edit-and-rerun mode).",
-            "      Idempotent. Writes no settings file; it prints the permission entries to add.",
+            "      Idempotent. Writes no settings file; it prints the permission entry to add.",
         ].join("\n"),
         run: runInstall,
     },

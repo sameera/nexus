@@ -25,7 +25,13 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { preflightCapabilities, requireAllMergeMethods, resolveMergeMethods } from "./capability.js";
+import {
+    type RemoteTeardown,
+    preflightCapabilities,
+    remoteTeardownMode,
+    requireAllMergeMethods,
+    resolveMergeMethods,
+} from "./capability.js";
 import { type Result, fail, ok } from "./diagnostic.js";
 import { verifyDeleteGuard } from "./guard.js";
 import { MARKER_PATH, SCRATCH_REPO_NAME, type ScratchIdentity, cloneDir, renderMarker, scratchIdentity } from "./names.js";
@@ -211,6 +217,11 @@ export interface ProvisionOptions {
     /** Override the disposable clone's location (defaults to the deterministic path). */
     cloneDir?: string;
     today?: string;
+    /**
+     * The maintainer has accepted deleting the scratch repo by hand, so a
+     * credential without `delete_repo` no longer blocks provision.
+     */
+    manualTeardown?: boolean;
 }
 
 export interface Provisioned {
@@ -222,6 +233,12 @@ export interface Provisioned {
     reused: boolean;
     /** Whether the clone could borrow the primary checkout's dependency closure. */
     dependencyClosure: "linked" | "absent";
+    /**
+     * Who removes this repository at the end. Reported from provision because
+     * this is the moment the repo starts existing — the caller announces it
+     * here, not only at teardown, so an abandoned run was still warned.
+     */
+    remoteTeardown: RemoteTeardown;
 }
 
 function configureCommitIdentity(run: Runner, dir: string): void {
@@ -307,8 +324,9 @@ function ensureClone(run: Runner, id: ScratchIdentity, clonePath: string, cwd: s
 }
 
 export function provision(run: Runner, o: ProvisionOptions): Result<Provisioned> {
-    const caps = preflightCapabilities(run, o.sourceRepoRoot);
+    const caps = preflightCapabilities(run, o.sourceRepoRoot, { manualTeardown: o.manualTeardown });
     if (!caps.ok) return caps;
+    const remoteTeardown = remoteTeardownMode(caps.value, o.manualTeardown === true);
 
     const id = scratchIdentity(caps.value.login);
     const clonePath = o.cloneDir ?? cloneDir(caps.value.login);
@@ -369,5 +387,6 @@ export function provision(run: Runner, o: ProvisionOptions): Result<Provisioned>
         toolchainCommit,
         reused,
         dependencyClosure: linked.ok ? "linked" : "absent",
+        remoteTeardown,
     });
 }

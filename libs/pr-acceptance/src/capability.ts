@@ -11,6 +11,17 @@
  * *report* `delete_repo` is treated as unable to delete, even though a
  * fine-grained token might in fact be able to: refusing costs a runbook step,
  * guessing costs an orphaned repository.
+ *
+ * That refusal is the default, not the only path. `delete_repo` is a broad,
+ * irreversible grant on a maintainer's whole account, and a maintainer may
+ * reasonably decline to hold it for a runbook exercise — so `manualTeardown`
+ * lets them take the run and delete the scratch repo by hand instead. It is an
+ * explicit opt-in and never inferred from an absent scope: the original
+ * guarantee, that nothing is created which cannot be cleaned up, becomes a
+ * choice the operator makes on the command line rather than one the harness
+ * makes silently on their behalf. `canDelete` keeps reporting what the
+ * credential actually carries, so the opt-in never launders a missing scope
+ * into an apparent capability.
  */
 
 import { type Result, fail, ok } from "./diagnostic.js";
@@ -23,6 +34,17 @@ export interface AuthIdentity {
 
 export interface Capabilities extends AuthIdentity {
     canDelete: boolean;
+}
+
+/** Who removes the scratch repository once the exercise is over. */
+export type RemoteTeardown = "automatic" | "manual";
+
+export interface PreflightOptions {
+    /**
+     * The maintainer has explicitly accepted deleting the scratch repo by hand.
+     * Set only from the CLI's `--manual-teardown` flag — never inferred.
+     */
+    manualTeardown?: boolean;
 }
 
 export interface MergeMethods {
@@ -54,18 +76,28 @@ export function resolveAuth(run: Runner, cwd: string): Result<AuthIdentity> {
     return ok({ login, scopes: parseScopes(`${status.stdout}\n${status.stderr}`) });
 }
 
-export function preflightCapabilities(run: Runner, cwd: string): Result<Capabilities> {
+export function preflightCapabilities(run: Runner, cwd: string, o: PreflightOptions = {}): Result<Capabilities> {
     const auth = resolveAuth(run, cwd);
     if (!auth.ok) return auth;
     const canDelete = auth.value.scopes.includes("delete_repo");
-    if (!canDelete) {
+    if (!canDelete && o.manualTeardown !== true) {
         return fail(
             "missing-delete-scope",
             `the authenticated credential for "${auth.value.login}" does not report the \`delete_repo\` scope, so teardown could not delete the scratch repo this would create. ` +
-                `Grant it with \`gh auth refresh -h github.com -s delete_repo\` and retry.`,
+                `Grant it with \`gh auth refresh -h github.com -s delete_repo\` and retry, ` +
+                `or re-run with \`--manual-teardown\` to take the run anyway and delete the scratch repo yourself afterwards.`,
         );
     }
     return ok({ ...auth.value, canDelete });
+}
+
+/**
+ * The disposition every stage reports and the runbook records. Manual wins in
+ * both directions: an opt-in overrides a credential that could delete, and a
+ * credential that cannot delete is manual whether or not anyone opted in.
+ */
+export function remoteTeardownMode(caps: Capabilities, manualTeardown: boolean): RemoteTeardown {
+    return manualTeardown || !caps.canDelete ? "manual" : "automatic";
 }
 
 export function resolveMergeMethods(run: Runner, cwd: string, nameWithOwner: string): Result<MergeMethods> {

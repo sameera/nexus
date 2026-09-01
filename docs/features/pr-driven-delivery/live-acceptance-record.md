@@ -55,6 +55,8 @@ fork-originated heads out of scope.
 - **toolchain commit:** `<40-hex>`
 - **scratch repo:** <owner>/nexus-pr-acceptance-scratch
 - **operator:** <login>
+- **teardown mode:** automatic | manual (`--manual-teardown`)
+- **scratch repo deleted:** yes, by teardown | yes, by hand on <YYYY-MM-DD> | NO — still standing
 
 ### Verdicts
 
@@ -69,7 +71,8 @@ fork-originated heads out of scope.
 | close --pr (merge-required gate refuses) | |
 | close --pr (distill branch + close record pushed) | |
 | distill (distillation PR + queue drain) | |
-| residue after teardown | |
+| residue after teardown (local) | |
+| scratch repo removed | |
 | range refusal branch | NOT EXERCISED |
 | review publishing | NOT EXERCISED |
 
@@ -124,26 +127,33 @@ what stories #134–#136 exist to measure, and they need a real hosted PR the ha
 
 The harness refuses to create a scratch repository unless the credential reports `delete_repo` —
 teardown must be able to remove what provision creates, or the exercise leaks a repository. The
-maintainer's credential currently reports `gist, read:org, repo, workflow`. Granting the scope is an
-interactive browser flow:
+maintainer's credential reports `gist, read:org, repo, workflow`, and the maintainer has declined to
+hold `delete_repo` on their account for this exercise.
 
-```bash
-gh auth refresh -h github.com -s delete_repo
-```
+The unblock is `--manual-teardown`: the run proceeds, and the maintainer deletes the scratch repo by
+hand afterwards. That does **not** relax the delete guard — the name/owner/marker triple guard is
+untouched, and there is still no override flag. What it relaxes is the precondition that the harness
+itself must be the remover. The trade is stated in the runbook's *Manual cleanup* section: the
+guarantee "nothing is created that cannot be cleaned up" becomes a commitment the operator makes on
+the command line, bounded by the one-deterministic-name design, which caps a forgotten cleanup at a
+single private repository rather than a growing pile.
 
-That guard is deliberate and is not to be relaxed to unblock a run. Equally, a local git-only
-simulation of the three merge strategies must **not** be substituted: the decision record refutes it
-explicitly, because the PR metadata and post-branch-delete reachability would be fabricated by the
-same beliefs under test, so a green result would prove nothing.
+A run taken in that mode is not a zero-residue run, and the record must say so — see *teardown mode*
+in the run template.
+
+A local git-only simulation of the three merge strategies must still **not** be substituted: the
+decision record refutes it explicitly, because the PR metadata and post-branch-delete reachability
+would be fabricated by the same beliefs under test, so a green result would prove nothing.
 
 The harness, the runbook, and this record shipped with **STORY-132.01** (#133). The three exercise
 stories — **STORY-132.02** (#134, analyze), **STORY-132.03** (#135, range across all three merge
 strategies), and **STORY-132.04** (#136, close and distill) — fill in the slots above from an actual
 run.
 
-Performing that run requires a credential carrying the `delete_repo` scope
-(`gh auth refresh -h github.com -s delete_repo`), because the harness refuses to create a scratch
-repository it could not later delete.
+Performing that run needs a named remover for the scratch repository — either a credential carrying
+the `delete_repo` scope (`gh auth refresh -h github.com -s delete_repo`), so teardown removes it, or
+`--manual-teardown`, where the operator removes it by hand. The harness still refuses to create a
+scratch repository with neither.
 
 ### Divergences already known before the first run
 

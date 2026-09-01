@@ -14,7 +14,7 @@ npm install -g @sameeraperera/nexus   # 1. the package  (needs Node 22.22.0+)
 nexus install                   # 2. the Claude components, once per account
 ```
 
-Then add two permission entries to your account-scoped `settings.json`, and run `/nxs.setup` inside
+Then add one permission entry to your account-scoped `settings.json`, and run `/nxs.setup` inside
 each repository. Full steps, and what each command touches: [Installing](#installing).
 
 ## The Archaeology Problem

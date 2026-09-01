@@ -11,11 +11,20 @@
  * checks, and deletes the repository at teardown behind a name/owner/marker
  * triple guard.
  *
+ * `--manual-teardown` takes the run without a `delete_repo` credential: the
+ * harness creates the scratch repo but never deletes it, and provision and
+ * teardown both print an unmissable block naming the surviving repository and
+ * the command that removes it. The flag is the maintainer's explicit statement
+ * that they will do the deleting — without it, a credential that cannot delete
+ * still refuses at preflight, before anything exists.
+ *
  * Subcommands (success prints one JSON object on stdout; a failure prints a named
  * diagnostic on stderr):
  *
- *   preflight              Read-only. Identity, scopes, and whether the credential can delete.
- *   provision              Create-or-reuse the scratch repo and the disposable clone.
+ *   preflight [--manual-teardown]
+ *                          Read-only. Identity, scopes, and whether the credential can delete.
+ *   provision [--manual-teardown]
+ *                          Create-or-reuse the scratch repo and the disposable clone.
  *   status                 Where everything is, and whether the scratch repo exists.
  *   seed --kind <k>        Seed a fresh scenario: chain | multi-commit | single-commit | unmerged.
  *   merge --pr <N> --strategy squash|merge|rebase --branch <b>
@@ -27,8 +36,9 @@
  *   note --stage <s> --verdict pass|fail|not-exercised [--detail k=v] [--diagnostic <text>]
  *                          Record an operator-judged outcome as evidence.
  *   evidence               Render the recorded evidence as markdown for the acceptance record.
- *   teardown [--keep-alive]
- *                          Always removes local residue; deletes the repo unless kept alive.
+ *   teardown [--keep-alive] [--manual-teardown]
+ *                          Always removes local residue; deletes the repo unless kept alive
+ *                          or the maintainer owns the delete.
  *
  * Exit codes: 0 success · 1 a named diagnostic was printed · 2 usage error.
  *
@@ -39,13 +49,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { preflightCapabilities, resolveAuth } from "./capability.js";
+import { preflightCapabilities, remoteTeardownMode, resolveAuth } from "./capability.js";
 import { type PrAcceptanceDiagnostic } from "./diagnostic.js";
 import { type EvidenceRecord, type Verdict, readEvidence, renderEvidence, writeEvidence } from "./evidence.js";
 import { MARKER_PATH, cloneDir, evidenceDir, parseMarker, scratchIdentity } from "./names.js";
 import { MERGE_STRATEGIES, type MergeStrategy, mergeScenario } from "./merge.js";
 import { provision, remoteState } from "./provision.js";
-import { renderDiagnostic } from "./render.js";
+import { renderDiagnostic, renderManualTeardownNotice } from "./render.js";
 import { defaultRunner, git } from "./run.js";
 import { type ScenarioKind, seedScenario } from "./scenario.js";
 import { teardown } from "./teardown.js";
@@ -64,11 +74,12 @@ interface Flags {
     detail: string[];
     diagnostic: string[];
     keepAlive: boolean;
+    manualTeardown: boolean;
     positional: string[];
 }
 
 function parseFlags(argv: string[]): Flags {
-    const f: Flags = { detail: [], diagnostic: [], keepAlive: false, positional: [] };
+    const f: Flags = { detail: [], diagnostic: [], keepAlive: false, manualTeardown: false, positional: [] };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === "--pr") f.pr = Number(argv[++i]);
@@ -80,6 +91,7 @@ function parseFlags(argv: string[]): Flags {
         else if (a === "--detail") f.detail.push(argv[++i]);
         else if (a === "--diagnostic") f.diagnostic.push(argv[++i]);
         else if (a === "--keep-alive") f.keepAlive = true;
+        else if (a === "--manual-teardown") f.manualTeardown = true;
         else f.positional.push(a);
     }
     return f;
@@ -93,6 +105,14 @@ function emit(obj: unknown): never {
 function die(d: PrAcceptanceDiagnostic): never {
     process.stderr.write(`${renderDiagnostic(d)}\n`);
     process.exit(1);
+}
+
+/**
+ * Stderr, never stdout: the runbook pipes the JSON, and a warning that corrupts
+ * the thing it is warning inside would be worse than no warning at all.
+ */
+function warnManualTeardown(nameWithOwner: string, url: string | null): void {
+    process.stderr.write(renderManualTeardownNotice({ nameWithOwner, url }));
 }
 
 function usage(msg: string): never {
@@ -157,14 +177,22 @@ function main(): void {
     const flags = parseFlags(rest);
 
     if (subcommand === "preflight") {
-        const caps = preflightCapabilities(defaultRunner, TOOL_ROOT);
+        const caps = preflightCapabilities(defaultRunner, TOOL_ROOT, { manualTeardown: flags.manualTeardown });
         if (!caps.ok) die(caps.error);
         const id = scratchIdentity(caps.value.login);
-        emit({ command: "preflight", ...caps.value, scratchRepo: id.nameWithOwner, toolRoot: TOOL_ROOT });
+        const remoteTeardown = remoteTeardownMode(caps.value, flags.manualTeardown);
+        if (remoteTeardown === "manual") {
+            // Nothing exists yet, so this is a warning about what provision would do.
+            process.stderr.write(
+                `pr-acceptance: this run would leave ${id.nameWithOwner} standing — provision with ` +
+                    `--manual-teardown and delete it yourself, or grant delete_repo.\n`,
+            );
+        }
+        emit({ command: "preflight", ...caps.value, remoteTeardown, scratchRepo: id.nameWithOwner, toolRoot: TOOL_ROOT });
     }
 
     if (subcommand === "provision") {
-        const r = provision(defaultRunner, { sourceRepoRoot: TOOL_ROOT });
+        const r = provision(defaultRunner, { sourceRepoRoot: TOOL_ROOT, manualTeardown: flags.manualTeardown });
         if (!r.ok) die(r.error);
         const ctx = context();
         record(
@@ -178,11 +206,14 @@ function main(): void {
                 toolchainCommit: r.value.toolchainCommit,
                 reused: r.value.reused,
                 dependencyClosure: r.value.dependencyClosure,
+                remoteTeardown: r.value.remoteTeardown,
             },
             r.value.dependencyClosure === "absent"
                 ? ["the clone could not borrow a resolved dependency closure; helpers must be invoked from the primary checkout by absolute path"]
                 : [],
         );
+        // Announce at birth, not only at teardown: an abandoned run was still warned.
+        if (r.value.remoteTeardown === "manual") warnManualTeardown(r.value.nameWithOwner, r.value.url);
         emit({ command: "provision", ...r.value, evidencePath: ctx.evidencePath });
     }
 
@@ -355,14 +386,20 @@ function main(): void {
     }
 
     if (subcommand === "teardown") {
-        const r = teardown(defaultRunner, { sourceRepoRoot: TOOL_ROOT, keepAlive: flags.keepAlive });
+        const r = teardown(defaultRunner, {
+            sourceRepoRoot: TOOL_ROOT,
+            keepAlive: flags.keepAlive,
+            manualTeardown: flags.manualTeardown,
+        });
         if (!r.ok) die(r.error);
+        if (r.value.remoteDisposition === "manual") warnManualTeardown(r.value.nameWithOwner, r.value.survivingUrl);
         emit({ command: "teardown", ...r.value });
     }
 
     usage(
         "<preflight|provision|status|seed --kind <k>|merge --pr <N> --strategy <s> --branch <b>|" +
-            "range --pr <N>|receipt --pr <N>|residue|note --stage <s> --verdict <v>|evidence|teardown [--keep-alive]>",
+            "range --pr <N>|receipt --pr <N>|residue|note --stage <s> --verdict <v>|evidence|" +
+            "teardown [--keep-alive]> [--manual-teardown]",
     );
 }
 

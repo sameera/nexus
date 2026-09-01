@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { preflightCapabilities, requireAllMergeMethods, resolveAuth, resolveMergeMethods } from "./capability.js";
+import {
+    preflightCapabilities,
+    remoteTeardownMode,
+    requireAllMergeMethods,
+    resolveAuth,
+    resolveMergeMethods,
+} from "./capability.js";
 import { fakeRunner } from "./harness-fixtures.js";
 
 const LOGIN = { match: "gh api user", result: { stdout: "sameera\n" } };
@@ -126,5 +132,45 @@ describe("requireAllMergeMethods", () => {
         expect(r.error.problem).toBe("merge-methods-disabled");
         expect(r.error.message).toContain("merge");
         expect(r.error.message).toContain("rebase");
+    });
+});
+
+describe("preflightCapabilities — the manual-teardown opt-in", () => {
+    it("proceeds without the delete scope once the maintainer has opted in, and still reports it absent", () => {
+        const run = fakeRunner([LOGIN, scopesLine("'repo', 'workflow'")]);
+        const r = preflightCapabilities(run, "/tmp", { manualTeardown: true });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value).toMatchObject({ login: "sameera", canDelete: false });
+    });
+
+    it("does not claim a delete capability the credential actually has when opting in", () => {
+        const run = fakeRunner([LOGIN, scopesLine("'repo', 'delete_repo'")]);
+        const r = preflightCapabilities(run, "/tmp", { manualTeardown: true });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.canDelete).toBe(true);
+    });
+
+    it("names the opt-in in the refusal, so the escape hatch is discoverable from the failure", () => {
+        const run = fakeRunner([LOGIN, scopesLine("'repo'")]);
+        const r = preflightCapabilities(run, "/tmp");
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.message).toContain("--manual-teardown");
+    });
+});
+
+describe("remoteTeardownMode", () => {
+    it("is automatic only when the credential can delete and the maintainer did not opt out", () => {
+        expect(remoteTeardownMode({ login: "s", scopes: [], canDelete: true }, false)).toBe("automatic");
+    });
+
+    it("is manual when the maintainer opted in, even with a credential that could delete", () => {
+        expect(remoteTeardownMode({ login: "s", scopes: [], canDelete: true }, true)).toBe("manual");
+    });
+
+    it("is manual whenever the credential cannot delete, opt-in or not", () => {
+        expect(remoteTeardownMode({ login: "s", scopes: [], canDelete: false }, false)).toBe("manual");
     });
 });

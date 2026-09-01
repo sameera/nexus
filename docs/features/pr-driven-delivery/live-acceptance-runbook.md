@@ -37,17 +37,27 @@ This is a **maintainer-invoked, on-demand** exercise. There is no CI to run it i
 **You need:**
 
 1. `gh` authenticated as the owner the scratch repo will live under.
-2. The `delete_repo` scope. The harness refuses to create anything without it:
+2. A way to remove the scratch repo at the end. Pick one:
+
+    **Either** grant the `delete_repo` scope, and teardown removes the repo for you:
 
     ```bash
     gh auth refresh -h github.com -s delete_repo
     ```
 
+    **Or** run in manual-cleanup mode and delete the repo yourself afterwards, keeping the scope off
+    your credential entirely. Pass `--manual-teardown` to `preflight`, `provision`, and `teardown`.
+    See *Manual cleanup* below for what you take on.
+
+    There is no third option: without the scope and without the flag, `provision` refuses before
+    creating anything.
+
 3. A resolved dependency closure in this checkout (`pnpm install`). The clone borrows it — see
    *Known divergence: packaging* below.
 
 **What this creates:** exactly one private repository, `<your-login>/nexus-pr-acceptance-scratch`,
-deleted at step 9. Nothing is committed, pushed, branched, or filed against the Nexus repo itself.
+deleted at step 9 — or left standing for you to delete, in manual-cleanup mode. Nothing is
+committed, pushed, branched, or filed against the Nexus repo itself.
 
 Throughout, `HARNESS` means:
 
@@ -71,8 +81,8 @@ finding.
     or config write-back lands here — every live mutation goes to the scratch repo or its
     disposable clone, and each created URL is checked back against the scratch identity.
 
-`provision` refuses up front unless the credential reports `delete_repo`: teardown must be able to
-remove what provision is about to create.
+`provision` refuses up front unless the credential reports `delete_repo`, or you passed
+`--manual-teardown`: what provision creates must have a named remover, either the harness or you.
 
 **Subcommand reference** (success prints one JSON object on stdout; a failure prints a named
 diagnostic on stderr; exit codes: `0` success · `1` a named diagnostic · `2` usage):
@@ -89,7 +99,10 @@ diagnostic on stderr; exit codes: `0` success · `1` a named diagnostic · `2` u
 | `residue` | Enumerate worktrees and branches left in the Nexus checkout. Records evidence. |
 | `note --stage <s> --verdict pass\|fail\|not-exercised [--detail k=v] [--diagnostic <t>]` | Record an operator-judged outcome. |
 | `evidence` | Render everything recorded as markdown, for pasting into the acceptance record. |
-| `teardown [--keep-alive]` | Always removes local residue. Deletes the repo unless `--keep-alive`, which prints the surviving URL instead. |
+| `teardown [--keep-alive] [--manual-teardown]` | Always removes local residue. Deletes the repo unless `--keep-alive` (debugging) or `--manual-teardown` (you own the delete), either of which prints the surviving URL instead. |
+
+Add `--manual-teardown` to `preflight`, `provision`, and `teardown` to run without the `delete_repo`
+scope. Every other subcommand ignores it.
 
 **Run every stage command with the working directory inside the disposable clone** (`$CLONE`
 below) — issue and PR targeting resolves from the current checkout's remote, and the toolchain
@@ -102,16 +115,21 @@ commands do not.
 ## 1. Preflight
 
 ```bash
-$HARNESS preflight
+$HARNESS preflight                    # with the delete_repo scope
+$HARNESS preflight --manual-teardown  # without it — you delete the repo at the end
 ```
 
 Confirms your identity, your token's scopes, and that the credential can delete a repository. If
 this fails, fix it here — everything downstream assumes it passed.
 
+The reported `remoteTeardown` is the answer that matters: `automatic` means teardown removes the
+repo, `manual` means you do. It reads `manual` whenever the credential cannot delete, whether or not
+you passed the flag — the flag decides only whether the run is allowed to proceed.
+
 ## 2. Provision
 
 ```bash
-$HARNESS provision
+$HARNESS provision                    # add --manual-teardown if you are not granting delete_repo
 ```
 
 Creates `<your-login>/nexus-pr-acceptance-scratch` carrying the **toolchain tree at this repo's
@@ -326,6 +344,13 @@ To keep the repo for debugging while still cleaning up locally:
 $HARNESS teardown --keep-alive
 ```
 
+In manual-cleanup mode, pass the flag here too. Local residue still goes; the repo stays, and the
+command prints a block naming it and the command that removes it:
+
+```bash
+$HARNESS teardown --manual-teardown
+```
+
 Verify:
 
 ```bash
@@ -337,6 +362,41 @@ git status --porcelain
 
 Teardown is idempotent — run it again any time, including after a failed run. It needs no state left
 behind by provision.
+
+---
+
+## Manual cleanup
+
+`delete_repo` is a broad, irreversible grant on your whole account, and holding it permanently for
+an occasional runbook exercise is a reasonable thing to decline. `--manual-teardown` is that
+refusal made explicit: the harness runs, and **you** delete the scratch repo when you are done.
+
+What you take on, and what bounds it:
+
+-   **The repo survives every teardown.** `provision` and `teardown` each print an unmissable block
+    naming the repo and the exact delete command. Do it when the evidence is collected:
+
+    ```bash
+    gh auth refresh -h github.com -s delete_repo
+    gh repo delete <your-login>/nexus-pr-acceptance-scratch --yes
+    ```
+
+    Or in the browser: the repo's Settings → Danger Zone → Delete this repository.
+
+-   **It cannot become a pile.** The harness owns exactly one repository name, so forgetting to
+    delete costs one private repo, and the next run adopts that same repo rather than making a
+    second. This is why the one-deterministic-name design is what makes manual cleanup tolerable at
+    all.
+
+-   **Local residue is unaffected.** Worktrees, harness branches, and the disposable clone are
+    removed on every teardown regardless of mode — the remote repo is the only thing left behind.
+
+-   **The mode is never inferred.** A credential without the scope and without the flag still
+    refuses at preflight, before anything is created. The flag is the only way to say "I accept
+    this", and it must be passed on each of `preflight`, `provision`, and `teardown`.
+
+-   **The record must say so.** A run in this mode is not a zero-residue run. Say which mode the run
+    used in the acceptance record, and whether the repo was deleted afterwards.
 
 ---
 
@@ -363,3 +423,4 @@ absolute path while keeping the working directory inside the clone.
 - Member-repo rejection of `--pr` — a pure role gate, already covered by unit tests.
 - Wiring any of this into CI.
 - Fixing whatever the run surfaces.
+- Deleting the scratch repo for you in manual-cleanup mode — that is the point of the mode.

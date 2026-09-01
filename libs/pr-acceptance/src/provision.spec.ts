@@ -497,3 +497,96 @@ describe("provision — failure paths that must not leave a half-made repo", () 
         expect(r.error.problem).toBe("git-failed");
     });
 });
+
+describe("provision — manual cleanup opt-in", () => {
+    const LOGIN = { match: "gh api user", result: { stdout: "sameera\n" } };
+    const NO_DELETE = { match: "gh auth status", result: { stdout: "Token scopes: 'repo'\n" } };
+
+    function bare() {
+        const src = sourceCheckout();
+        fs.mkdirSync(path.join(src.root, "node_modules"), { recursive: true });
+        return { src, clone: path.join(makeTempDir(tracked), "clone") };
+    }
+
+    it("creates the scratch repo on a credential that cannot delete, and says cleanup is the maintainer's", () => {
+        const b = bare();
+        const run = fakeRunner(
+            [
+                LOGIN,
+                NO_DELETE,
+                {
+                    match: "gh repo view",
+                    sequence: [
+                        { status: 1, stderr: "Could not resolve to a Repository" },
+                        {
+                            stdout: JSON.stringify({
+                                url: `https://github.com/sameera/${SCRATCH_REPO_NAME}`,
+                                squashMergeAllowed: true,
+                                mergeCommitAllowed: true,
+                                rebaseMergeAllowed: true,
+                            }),
+                        },
+                    ],
+                },
+                { match: "gh repo create" },
+                { match: "gh repo edit" },
+                { match: "gh repo set-default" },
+                { match: "push -u origin main" },
+            ],
+            defaultRunner,
+        );
+        const r = provision(run, {
+            sourceRepoRoot: b.src.root,
+            cloneDir: b.clone,
+            today: "2026-07-25",
+            manualTeardown: true,
+        });
+        expect(r.ok ? "ok" : r.error).toBe("ok");
+        if (!r.ok) return;
+        expect(r.value.remoteTeardown).toBe("manual");
+        expect(callsMatching(run, "gh repo create").length).toBe(1);
+    });
+
+    it("still reports automatic teardown when the credential can delete and nothing was opted out", () => {
+        const b = bare();
+        const run = fakeRunner(
+            [
+                LOGIN,
+                { match: "gh auth status", result: { stdout: "Token scopes: 'repo', 'delete_repo'\n" } },
+                {
+                    match: "gh repo view",
+                    sequence: [
+                        { status: 1, stderr: "Could not resolve to a Repository" },
+                        {
+                            stdout: JSON.stringify({
+                                url: `https://github.com/sameera/${SCRATCH_REPO_NAME}`,
+                                squashMergeAllowed: true,
+                                mergeCommitAllowed: true,
+                                rebaseMergeAllowed: true,
+                            }),
+                        },
+                    ],
+                },
+                { match: "gh repo create" },
+                { match: "gh repo edit" },
+                { match: "gh repo set-default" },
+                { match: "push -u origin main" },
+            ],
+            defaultRunner,
+        );
+        const r = provision(run, { sourceRepoRoot: b.src.root, cloneDir: b.clone, today: "2026-07-25" });
+        expect(r.ok ? "ok" : r.error).toBe("ok");
+        if (!r.ok) return;
+        expect(r.value.remoteTeardown).toBe("automatic");
+    });
+
+    it("still refuses, unchanged, when the credential cannot delete and nobody opted in", () => {
+        const b = bare();
+        const run = fakeRunner([LOGIN, NO_DELETE], defaultRunner);
+        const r = provision(run, { sourceRepoRoot: b.src.root, cloneDir: b.clone, today: "2026-07-25" });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("missing-delete-scope");
+        expect(callsMatching(run, "gh repo create")).toEqual([]);
+    });
+});

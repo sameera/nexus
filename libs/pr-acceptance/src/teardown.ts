@@ -9,9 +9,13 @@
  * exactly the run that recorded nothing).
  *
  * Keep-alive suppresses only the remote delete, and prints the surviving URL so a
- * failed run can be inspected. The remote delete itself is permitted only behind
- * the name/owner/marker triple guard, and a missing repo is success, not an
- * error — teardown must converge, not throw, when run twice.
+ * failed run can be inspected. Manual teardown suppresses the same delete for a
+ * different reason — the maintainer declined to hold `delete_repo` and takes the
+ * removal on themselves — and the two are reported apart in `remoteDisposition`
+ * so the acceptance record says which one happened rather than just "kept". The
+ * remote delete itself is permitted only behind the name/owner/marker triple
+ * guard, and a missing repo is success, not an error — teardown must converge,
+ * not throw, when run twice.
  *
  * Local removal is deliberately narrow: only worktrees under the harness's own
  * temp roots and only branches under the harness prefix are touched, so an
@@ -56,11 +60,21 @@ export interface TeardownOptions {
     cloneDir?: string;
     /** Suppress only the remote delete; local residue is still removed. */
     keepAlive: boolean;
+    /**
+     * The maintainer owns the remote delete. Suppresses it like keep-alive, but
+     * for a reason the caller must announce rather than merely report.
+     */
+    manualTeardown?: boolean;
 }
+
+/** What became of the remote repository. `remoteDeleted` is the "deleted" case alone. */
+export type RemoteDisposition = "deleted" | "kept-alive" | "manual" | "already-gone";
 
 export interface TeardownReport {
     nameWithOwner: string;
     remoteDeleted: boolean;
+    /** Why the repo is or is not still there — the line the acceptance record carries. */
+    remoteDisposition: RemoteDisposition;
     /** Set when keep-alive kept the repo, or when it was already gone. */
     survivingUrl: string | null;
     /** Everything removed locally, in the order it was removed. */
@@ -121,12 +135,16 @@ export function teardown(run: Runner, o: TeardownOptions): Result<TeardownReport
 
     let remoteDeleted = false;
     let survivingUrl: string | null = null;
+    let remoteDisposition: RemoteDisposition;
 
     if (!state.value.exists) {
         // Already gone: teardown converges rather than erroring on a second run.
         survivingUrl = null;
-    } else if (o.keepAlive) {
+        remoteDisposition = "already-gone";
+    } else if (o.manualTeardown === true || o.keepAlive) {
         survivingUrl = state.value.url || `https://github.com/${id.nameWithOwner}`;
+        // Manual is the stronger statement: it says nobody here *can* delete it.
+        remoteDisposition = o.manualTeardown === true ? "manual" : "kept-alive";
     } else {
         const guard = verifyDeleteGuard({
             owner: id.owner,
@@ -140,6 +158,7 @@ export function teardown(run: Runner, o: TeardownOptions): Result<TeardownReport
             return fail("gh-failed", `gh repo delete ${id.nameWithOwner} failed: ${deleted.stderr.trim()}`);
         }
         remoteDeleted = true;
+        remoteDisposition = "deleted";
     }
 
     const residue = verifyResidue(run, o.sourceRepoRoot, clonePath);
@@ -148,6 +167,7 @@ export function teardown(run: Runner, o: TeardownOptions): Result<TeardownReport
     return ok({
         nameWithOwner: id.nameWithOwner,
         remoteDeleted,
+        remoteDisposition,
         survivingUrl,
         removedLocal,
         evidencePath: evidenceDir(auth.value.login),

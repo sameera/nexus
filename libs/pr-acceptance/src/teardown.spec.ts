@@ -190,3 +190,59 @@ describe("teardown", () => {
         expect(r.error.problem).toBe("gh-unauthenticated");
     });
 });
+
+describe("teardown — manual cleanup", () => {
+    it("leaves the repo standing and reports why, while still removing every local trace", () => {
+        const w = world({ cloneWorktree: true, hostBranch: true });
+        const run = runner([LOGIN, SCOPES, EXISTS, OWN_MARKER]);
+        const r = teardown(run, {
+            sourceRepoRoot: w.host,
+            cloneDir: w.clone,
+            keepAlive: false,
+            manualTeardown: true,
+        });
+        expect(r.ok ? "ok" : r.error).toBe("ok");
+        if (!r.ok) return;
+        expect(r.value.remoteDisposition).toBe("manual");
+        expect(r.value.remoteDeleted).toBe(false);
+        expect(r.value.survivingUrl).toBe(`https://github.com/${NWO}`);
+        expect(callsMatching(run, "gh repo delete")).toEqual([]);
+        // Local residue is the part that must never be skipped, whatever the remote does.
+        expect(fs.existsSync(w.clone)).toBe(false);
+        expect(sh(w.host, "git", "branch", "--list")).not.toContain("acceptance/leftover");
+        expect(r.value.residue.clean).toBe(true);
+    });
+
+    it("succeeds on a credential that could never have deleted anything", () => {
+        const w = world();
+        const noDelete: Route = { match: "gh auth status", result: { stdout: "Token scopes: 'repo'\n" } };
+        const run = runner([LOGIN, noDelete, EXISTS, OWN_MARKER]);
+        const r = teardown(run, {
+            sourceRepoRoot: w.host,
+            cloneDir: w.clone,
+            keepAlive: false,
+            manualTeardown: true,
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.remoteDisposition).toBe("manual");
+        expect(callsMatching(run, "gh repo delete")).toEqual([]);
+    });
+
+    it("distinguishes a manual hand-off from a keep-alive and from a repo already gone", () => {
+        const kept = world();
+        const keptRun = runner([LOGIN, SCOPES, EXISTS, OWN_MARKER]);
+        const a = teardown(keptRun, { sourceRepoRoot: kept.host, cloneDir: kept.clone, keepAlive: true });
+        expect(a.ok && a.value.remoteDisposition).toBe("kept-alive");
+
+        const absent = world();
+        const absentRun = runner([LOGIN, SCOPES, GONE]);
+        const b = teardown(absentRun, { sourceRepoRoot: absent.host, cloneDir: absent.clone, keepAlive: false });
+        expect(b.ok && b.value.remoteDisposition).toBe("already-gone");
+
+        const deleted = world();
+        const deletedRun = runner([LOGIN, SCOPES, EXISTS, OWN_MARKER, { match: "gh repo delete" }]);
+        const c = teardown(deletedRun, { sourceRepoRoot: deleted.host, cloneDir: deleted.clone, keepAlive: false });
+        expect(c.ok && c.value.remoteDisposition).toBe("deleted");
+    });
+});
