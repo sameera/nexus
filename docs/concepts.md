@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 78 active concepts. Each links to its full page
+Orientation map of the concept store — 79 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -91,3 +91,7 @@ Orientation map of the concept store — 78 active concepts. Each links to its f
 - [Markdown Editor](../.nexus/concepts/markdown-editor.md) — The Markdown Editor is Prime's shared in-repo editing library: a rich Markdown-editing surface plus a distinct plain-text, submit-capable mode built for command entry.
 - [Same-Origin Shell Guard](../.nexus/concepts/same-origin-shell-guard.md) — The same-origin shell guard is the sole security boundary of the PTY bridge's unauthenticated shell: it rejects any WebSocket handshake whose stated origin does not match the host the request itself was addressed to, before any shell is spawned.
 - [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root.
+
+## Standalone
+
+- [Manual Teardown](../.nexus/concepts/manual-teardown.md) — The PR-acceptance harness refuses at preflight to create a scratch repository it cannot later delete: a credential lacking the delete grant stops the run before anything exists, rather than risk an orphaned repo.
