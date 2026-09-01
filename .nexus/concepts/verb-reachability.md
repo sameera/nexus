@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "shipped-payload", "delegating-port"]
-last_updated_by: "#351"
+touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "delegating-port", "additive-surface-fold"]
+last_updated_by: "#354"
 status: active
 verification: verified
 ---
@@ -13,16 +13,17 @@ A capability becomes reachable by name, a verb on one named executable, exactly 
 
 ## How It Works
 
-Every reachable capability is declared once in its toolkit's single registry, mapping a name to its summary, usage text, and a runnable; the rule is per toolkit, not per language, so a second toolkit answers to one name the same way. The registry is imported eagerly, so one object composes the usage text and supplies the declared surface a build-time gate checks invocations against: the complete dispatch name, further names included, answered also as a machine listing beside the human diagnostic. No capability keeps import-time behavior of its own; the one place a process reads its arguments and exits is the dispatcher built from the registry, once per runnable artifact, because a module inlined beside others loses any private sense of which file was invoked. Parity compares un-built source against a fresh build; the temporary axis against a legacy form retired with the last of them. A capability driving an external program is compared through a hermetic, committed stand-in on both sides, covering the arguments the program received and the file tree left behind, not console output alone.
+Every reachable capability is declared once in one registry, mapping a name to its summary, usage text, and a runnable. A second registry served another runtime's capabilities under a second name; those folded in here and it was deleted with that name, its machine listing withdrawn. The registry is imported eagerly, so one object composes the usage text and supplies the declared surface a build-time gate checks invocations against: the complete dispatch name, further names included, read from the table that dispatches them wherever one exists. No capability keeps import-time behavior of its own; the one place a process reads its arguments and exits is the dispatcher built from the registry, once per runnable artifact, because a module inlined beside others loses any private sense of which file was invoked. Parity compares un-built source against a fresh build. A capability driving an external program is compared through a hermetic, committed stand-in on both sides, covering the arguments the program received and the file tree left behind, not console output alone.
 
 ## Key Invariants
 
 1. A capability's reachability is decided by who invokes it: a component body earns a verb; a build- or release-only invoker keeps the capability source-only.
-2. Every reachable capability is declared in exactly one registry; the dispatcher composes its own usage text from that registry, so an undocumented verb cannot exist.
+2. Exactly one registry declares every reachable capability, whatever runtime it once ran on; the dispatcher composes its usage text from it, so an undocumented verb cannot exist.
 3. No capability may execute anything at import time; the process boundary exists exactly once per runnable artifact, in the dispatcher — which hands each capability its arguments directly, never through a process-global.
 4. Parity compares un-built source against a fresh build; a surviving legacy form adds a temporary axis against it, covering every reachable capability.
-5. A capability that drives an external program is compared through a hermetic, committed stand-in on both sides, covering the exact arguments it received and any file tree it left, not console output alone.
-6. The declared surface is the complete dispatch name; further names are declared beside the verb they own, and the dispatcher and the gate read that one declaration.
+5. A capability driving an external program is compared through a hermetic, committed stand-in on both sides, covering the arguments it received and any file tree it left.
+6. The declared surface is the complete dispatch name; further names are declared beside the verb they own, read from the table that dispatches them wherever one exists rather than hand-copied.
+7. Exactly one dispatch name reports release identity, at every commit, not only once a fold ends.
 
 ## Integration Points
 
@@ -35,13 +36,14 @@ Every reachable capability is declared once in its toolkit's single registry, ma
 - [distiller](distiller.md) — its atlas, validator, entry-diff, drift-advisory and registry-seeding steps are reachable only as verbs; their standalone forms are deleted.
 - [issue-sourced-planning](issue-sourced-planning.md) — its epic resolver is now reachable as a verb, matched byte-for-byte against its script form.
 - [target-root-convention](target-root-convention.md) — every reachable verb touching project state now parses this same argument before its own dispatch.
-- [toolkit-location](toolkit-location.md) — how a named toolkit is found once a capability has earned a name, and the second toolkit that rule now spans.
-- [release-identity](release-identity.md) — reported by a verb declared in each toolkit's registry, under the same one-object-on-standard-output contract every verb keeps.
+- [toolkit-location](toolkit-location.md) — how the named executable is found once a capability has earned a name on it.
+- [release-identity](release-identity.md) — reported by exactly one verb declared here, under the same one-object-on-standard-output contract every verb keeps.
 - [environment-guard](environment-guard.md) — cross-cutting behavior placed in the dispatcher rather than in each verb, which is what makes a later-added verb covered by it.
-- [shipped-payload](shipped-payload.md) — the dispatcher is where that payload's byte-code suppression is set, so no capability of that toolkit can forget it.
 - [delegating-port](delegating-port.md) — a row here whose runnable delegates to a retained entry point on another runtime, so porting needs no second registry.
+- [additive-surface-fold](additive-surface-fold.md) — rows added here while a second name still declared the same capabilities, which is what let the caller rewrite ship separately from the withdrawal.
 
 ## Decision Log
+
 
 ### 2026-08-23 — #247 — Ten more component-invoked capabilities become verbs on one shared, eagerly-dispatched registry
 
@@ -70,3 +72,7 @@ The names a component body may write are the complete dispatch names, so a verb 
 ### 2026-08-28 — #351 — Reciprocal link from delegating-port
 
 A delegating port leaves its not-yet-ported capabilities as ordinary rows in this registry, their runnables crossing a process boundary to a retained entry point. The registry's own contract is untouched by that: what a row declares is unchanged, so the declared surface stays complete throughout a port.
+
+### 2026-08-31 — #354 — One registry, subverbs read from the table that dispatches them, and one release-identity name
+
+The three capabilities that ran on the other runtime were folded in as flat top-level verbs under the names they already answered to, and the second registry was deleted with its name. Grouping them under one forge-facing verb reads better and would have signalled that these three talk to a forge while the rest do not — refuted because the gate resolves at most a verb plus one further name, and the configuration resolver already carries a command layer, so a grouping token would push its commands to three tokens and widen the gate in the epic that exists to narrow it. The folded resolver's further names are read from the table that dispatches them rather than hand-listed beside the three existing literal lists, because this was the one place the epic was adding surface and a hand-maintained copy is what invariant 7 forbids. Release identity resolved the same way it was deferred to be resolved: the narrower capability was never folded, so the registry never gained a second candidate and exactly one name reports identity at the fold rather than only after the withdrawal.
