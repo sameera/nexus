@@ -45,3 +45,18 @@
 - **Choice:** The distillation run names `epic.md` and the fetched decision-record body as grounding sources. The change diff is never named.
 - **Why:** The decision record's Scope Edits section removes the diff from this story's scope, and invariant 13 states it as a constraint; the story's own acceptance criterion still listed the diff, and the record governs.
 - **Refuted alternative:** Follow the story text and hand the diff over too — the richest source of what happened, but a contiguous span lifted from a diff is source code, which a concept page forbids outright.
+
+## 2026-09-02 — Where the record body becomes a readable grounding path
+- **Choice:** `/nxs.distill` Phase 0.1 writes the fetched record body to `<scratch>/<entry-slug>/record-body.md`, and every *why* branch (record sub-issue, committed `decision-record.md`, `close-record.md` alone) resolves to one named "*why* file" that Phase 4.6 hands the translator.
+- **Why:** the grounding pointer named a path no phase ever wrote, so half the corpus was unreachable and abstractions fell through to density findings.
+- **Refuted alternative:** re-fetch the record inside Phase 4.6 — a second network read of a body already hashed at Phase 0.1, and a second chance for the two copies to disagree.
+
+## 2026-09-02 — Deleting the pre-translation copy in the convention, not per translate point
+- **Choice:** the shared prose convention now ends `... run prose-verify, then delete <file>.pre`; the copy survives only a failed verify, for diagnosis. `/nxs.setup` additionally scaffolds a `*.pre` ignore rule.
+- **Why:** two translate targets are tracked files (the feature `README.md`, concept pages staged by `git add .nexus/concepts`), so a surviving copy rides into a commit and the concept validator cannot see it — it filters on `.endsWith(".md")`.
+- **Refuted alternative:** teach `validate-concepts.ts` to reject stray `.md.pre` — catches it late, only inside the concept store, and leaves the docs-tree README case uncovered.
+
+## 2026-09-02 — Invariant 18 stated at the transcription step
+- **Choice:** `/nxs.epic` Phase 6 step 3 states the story bodies are a verbatim transcription of the translated `${DRAFT_DIR}/epic.md`, with step 4 pass 3's ref rewrite named as the sole permitted post-translation edit.
+- **Why:** invariant 18 covers the per-story bodies written after the gate, and nothing in Phase 6 had stopped a run re-drafting one.
+- **Refuted alternative:** re-translate each story file after writing it — burns a translator run per story and reopens the gate's approved wording.

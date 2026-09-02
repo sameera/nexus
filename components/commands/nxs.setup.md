@@ -246,6 +246,14 @@ Use `.nexus/config/templates/standard.template.md` for structural guidance; adap
    seed a plan-capture hook or any opt-in registration — the agent writes the scratch directly,
    resolving the epic folder via `gh` (a bash `ExitPlanMode` hook cannot).
 
+8. **`.gitignore` — add one rule: `*.pre`.** The prose convention (`/nxs.epic`,
+   `/nxs.decision-record`, `/nxs.discover`, `/nxs.distill`) copies a file to `<file>.pre` before
+   translating it and deletes the copy when `nexus prose-verify` passes. A failed verify leaves the
+   copy behind on purpose, for diagnosis. Some translate targets are tracked files — the feature
+   `README.md`, the concept pages a distillation stages with `git add .nexus/concepts` — so without
+   this rule a failed run's leftovers ride into the next commit as duplicate pre-translation copies.
+   Add the rule even if no translate target exists yet.
+
 ## Phase 5: Build the product context (interactive)
 
 Invoke the **`nxs-setup` skill** to run the interactive product-context interview, **telling it the
@@ -305,7 +313,7 @@ Output a completion summary:
 - `.nexus/config/issue-labels.yaml` — task label set
 - `.nexus/config/settings.yml` — seeded the `github:` publishing block (`classification: <mode>`, `project: <target>`) — **review and commit** (if the gh-unavailable fallback ran, note the safe defaults and re-check when online)
 - `<docs-root>/delivery/lessons/README.md` — lessons convention
-- `.gitignore` — any pre-existing `.nexus/plans/` line kept as retired (no new ignore added; decision scratch is committed under `.nexus/queue/`)
+- `.gitignore` — added `*.pre` (pre-translation copies from the prose convention); any pre-existing `.nexus/plans/` line kept as retired (decision scratch stays committed under `.nexus/queue/`)
 
 ### Updated
 

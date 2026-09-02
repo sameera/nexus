@@ -47,11 +47,11 @@ per forced-fit concept, exactly three rendered options, "Other" still available.
 Write concrete, not abstract: "there are two copies; one can go stale", never "state duplication
 risks divergence". Add nothing: every sentence carries a fact, a decision or a consequence. These
 two rules are yours; the form rules belong to the translator. Where a phase says **translate
-`<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`, then
-run `nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops the run — write
-nothing out, open no pull request. Resolve every density finding: rewrite the flagged line, or say
-why it stands. No approval gate reads this run, so the completion report names every standing
-finding with its reason, and every grounding substitution the receipts list.
+`<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`, run
+`nexus prose-verify --before <file>.pre --after <file>`, then delete `<file>.pre`. A non-zero exit
+stops the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
+flagged line, or say why it stands. No approval gate reads this run, so the completion report names
+every standing finding with its reason, and every grounding substitution the receipts list.
 
 # User Input
 
@@ -181,16 +181,21 @@ artifacts (a close just prepared it — the close record, backlog append, and le
     1. **The record sub-issue** when the close record names one (`record: "#<n>"`) — fetch the body
        and **verify it against the hash stamped at close**, through the one digest program. Resolve
        the repo the record lives in once, through the shared publishing resolver (never by parsing
-       `settings.yml`), exactly as `/nxs.close` Phase 1.0 does:
+       `settings.yml`), exactly as `/nxs.close` Phase 1.0 does. **Write the fetched body to a file**,
+       `<scratch>/<entry-slug>/record-body.md` — Phase 4.6 hands the translator grounding sources as
+       readable paths, so a body captured only in context is grounding nothing:
 
         ```bash
         ISSUES_REPO="$(nexus config resolve epic-repo --root .)"
-        gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body   # the why
+        mkdir -p "<scratch>/<entry-slug>"
+        gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body \
+          > "<scratch>/<entry-slug>/record-body.md"                                    # the why
         nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
         ```
 
         - **Hashes equal** → this is provably the rationale that was approved and analysed. Use the
-          fetched body as the *why*, and read **no** `decision-record.md` for that entry.
+          fetched body as the *why* — it is the entry's ***why* file**, at the path above — and read
+          **no** `decision-record.md` for that entry.
         - **Hashes differ** → **hard-error this entry and write nothing for it.** There is no
           drain-side waiver: the drain writes permanently into the knowledge store, so a waived
           mismatch would file rationale for a design nobody approved. The remedy belongs upstream and
@@ -214,9 +219,14 @@ artifacts (a close just prepared it — the close record, backlog append, and le
           nothing. Never fall back to a stale local copy.
 
     2. **A committed `decision-record.md`** in the entry — an old-contract entry, read in full
-       exactly as today, so entries in flight before this change drain unchanged.
+       exactly as today, so entries in flight before this change drain unchanged. It is already a
+       readable path, so it is the entry's ***why* file** as it stands.
     3. **The close record alone** when the epic has no decision record at all — its Key Decisions
-       and Deviation Rationale are then the sole *why* carrier, unchanged from today.
+       and Deviation Rationale are then the sole *why* carrier, unchanged from today, and
+       `close-record.md` is the entry's ***why* file**.
+
+    Whichever branch resolves, the entry now has exactly one ***why* file** on disk. Phase 4.6 names
+    it to the translator; nothing downstream re-fetches the record.
 
     The drain stays **read-only** against the record issue: it fetches and hashes, never edits,
     closes, or comments.
@@ -618,7 +628,7 @@ manual curation, out of this drain's scope).
    are low-trust; the first touching drain re-validates them).
 6. **Translate the pages.** **Translate** each created or updated concept page (see *Prose
    convention*), one run per page, before Phase 5's validator reads them. Name the entry's `epic.md`
-   and the fetched record body (`<scratch>/record-body.md`) as grounding sources; never the diff.
+   and its *why* file (Phase 0.1, on disk) as grounding sources; never the diff.
 
 # Phase 5 — Deterministic steps (not judgment)
 

@@ -81,10 +81,10 @@ Write concrete, not abstract: "there are two copies of the record; one can go st
 duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
 consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
 **translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
-`<file>` naming **no** source files, then run
-`nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops the run — file
-nothing. Resolve every density finding before the gate: rewrite the flagged line, or state why the
-wording stands. File the translated file verbatim.
+`<file>` naming **no** source files, run `nexus prose-verify --before <file>.pre --after <file>`,
+then delete `<file>.pre`. A non-zero exit stops the run — file nothing. Resolve every density
+finding before the gate: rewrite the flagged line, or state why the wording stands. File the
+translated file verbatim.
 
 Run the phases in order.
 
@@ -677,7 +677,13 @@ story becomes one GitHub issue, child of the epic issue.
    is not knowable at authoring time, and a guess points at an unrelated issue.
 
 3. **Write transient story work-items** to the scratchpad, one `STORY-<EPIC>.<SEQ>.md` per story, with
-   the frontmatter the creation skill consumes and the story body as the issue body:
+   the frontmatter the creation skill consumes and the story body as the issue body.
+
+   Each body is a **verbatim transcription** of that story's section in the translated
+   `${DRAFT_DIR}/epic.md` — copy the prose across, do not re-draft it. The epic was translated in
+   Phase 4 and approved at the Phase 5 digest on that wording; a sentence rewritten here would
+   reach the issue untranslated and unapproved. Only the ref rewrite in step 4's pass 3
+   (`STORY-<EPIC>.<SEQ>` → `#<issue>`) may change a body after translation:
 
     ```markdown
     ---
