@@ -15,3 +15,15 @@
 - **Choice:** The receipt's fourth field is `density: <count>`, and the finding lines follow it directly; there is no separate general-findings list.
 - **Why:** Density is the only finding kind the translator raises, so a second list would always be empty and would still cost a line on every run.
 - **Refuted alternative:** Keep a generic `findings:` field with a typed prefix per line, which would extend to future finding kinds — but no other kind is in scope, and the epic's out-of-scope section rules out the one that might have been.
+
+## 2026-09-01 — Regions pair by ordinal position within their own kind
+
+- **Choice:** The comparison pairs the before copy's Nth fenced block with the after copy's Nth fenced block, and reports a surplus on either side as added or removed.
+- **Why:** A single inserted region would otherwise shift every later pair and turn one edit into a run of findings naming the wrong lines.
+- **Refuted alternative:** A longest-common-subsequence alignment over regions, which survives insertion better — but the extra machinery buys nothing for a check whose passing case is "nothing moved at all".
+
+## 2026-09-01 — A criteria line is recognised by emphasis or by all three keywords
+
+- **Choice:** A Given/When/Then line is a line carrying `**Given**`, `**When**` or `**Then**`, or one carrying all three keywords as standalone words.
+- **Why:** The emphasised form is the template shape, and the all-three test catches a plainly written criterion without locking ordinary prose that merely says "given".
+- **Refuted alternative:** Match any standalone `Given` — simpler, but it would freeze narrative sentences and make the translator unable to do its job on them.

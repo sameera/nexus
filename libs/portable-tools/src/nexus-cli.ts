@@ -44,6 +44,8 @@ import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
+import { renderVerifyResult } from "@nexus/prose-verify/render";
+import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
@@ -211,6 +213,14 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Print { issue, repo, state, stateReason, approved, digest }.",
         ].join("\n"),
         run: runRecordDigest,
+    },
+    "prose-verify": {
+        summary: "Prove a translated artifact's machine-read regions are byte-identical to the pre-translation copy.",
+        usage: [
+            "  nexus prose-verify --before <path> --after <path>",
+            "      Exit 0 when frontmatter, fenced blocks, HTML comments and Given/When/Then lines match; non-zero otherwise.",
+        ].join("\n"),
+        run: runProseVerify,
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
@@ -902,6 +912,46 @@ async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
 
     const { issue, repo, state, stateReason, approved, digest } = result.record;
     io.stdout(JSON.stringify({ issue, repo, state, stateReason, approved, digest }));
+    return 0;
+}
+
+interface ProseVerifyFlags {
+    before?: string;
+    after?: string;
+}
+
+function parseProseVerifyFlags(argv: string[]): ProseVerifyFlags {
+    const flags: ProseVerifyFlags = {};
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--before") flags.before = argv[++i];
+        else if (a === "--after") flags.after = argv[++i];
+    }
+    return flags;
+}
+
+/**
+ * `nexus prose-verify` — the deterministic half of the prose-translation contract (story #417).
+ * A shipped component body invokes it by this name, so the component-invocation gate resolves it
+ * against the declared surface rather than against a repository-relative script.
+ */
+async function runProseVerify(argv: string[], io: CliIo): Promise<number> {
+    const flags: ProseVerifyFlags = parseProseVerifyFlags(argv);
+    if (flags.before === undefined || flags.after === undefined) {
+        io.stderr("usage: nexus prose-verify --before <path> --after <path>");
+        return 2;
+    }
+
+    const result: VerifyResult = verifyTranslation(
+        (target: string) => fs.readFileSync(path.resolve(io.cwd, target), "utf8"),
+        flags.before,
+        flags.after,
+    );
+    if (!result.ok) {
+        io.stderr(renderVerifyResult(result));
+        return 1;
+    }
+    io.stdout(renderVerifyResult(result));
     return 0;
 }
 

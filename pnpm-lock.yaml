@@ -36,6 +36,9 @@ importers:
       '@nexus/pr-worktree':
         specifier: workspace:*
         version: link:libs/pr-worktree
+      '@nexus/prose-verify':
+        specifier: workspace:*
+        version: link:libs/prose-verify
       '@nexus/record-digest':
         specifier: workspace:*
         version: link:libs/record-digest
@@ -320,6 +323,8 @@ importers:
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace
+
+  libs/prose-verify: {}
 
   libs/record-digest:
     dependencies:

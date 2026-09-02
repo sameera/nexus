@@ -233,6 +233,43 @@ describe("nexus record-digest (registration only — network path covered by the
     });
 });
 
+describe("nexus prose-verify", () => {
+    it("exits 2 with a usage diagnostic when a copy is missing", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-prose-verify-"));
+        expect(await runNexusCli(["prose-verify", "--before", "a.md"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--after");
+    });
+
+    it("is a dispatch name the executable declares, so a component body may invoke it (story #417)", () => {
+        expect(DISPATCH_NAMES).toContain("prose-verify");
+    });
+
+    it("exits 0 when only the prose differs between the two copies", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "---\nslug: a\n---\n\nstate duplication risks divergence.\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "---\nslug: a\n---\n\nThere are two copies. One can go stale.\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "before.md", "--after", "after.md"], io)).toBe(0);
+    });
+
+    it("exits non-zero and names the region when the translated copy edited frontmatter", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "---\nslug: a\n---\n\nprose\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "---\nslug: b\n---\n\nprose\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "before.md", "--after", "after.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("frontmatter");
+    });
+
+    it("exits non-zero rather than reporting success when a copy cannot be read", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "after.md"), "prose\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "gone.md", "--after", "after.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("gone.md");
+    });
+});
+
 describe("nexus pr-worktree (registration only — git/gh effect path covered by the migration-axis parity corpus)", () => {
     it("exits 2 with a usage diagnostic when --pr is missing", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-pr-worktree-"));

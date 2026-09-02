@@ -1,0 +1,29 @@
+{
+  "name": "@nexus/prose-verify",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./regions": {
+      "types": "./src/regions.ts",
+      "import": "./src/regions.ts",
+      "default": "./src/regions.ts"
+    },
+    "./compare": {
+      "types": "./src/compare.ts",
+      "import": "./src/compare.ts",
+      "default": "./src/compare.ts"
+    },
+    "./verify": {
+      "types": "./src/verify.ts",
+      "import": "./src/verify.ts",
+      "default": "./src/verify.ts"
+    },
+    "./render": {
+      "types": "./src/render.ts",
+      "import": "./src/render.ts",
+      "default": "./src/render.ts"
+    },
+    "./package.json": "./package.json"
+  }
+}
