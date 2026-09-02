@@ -48,8 +48,11 @@ Write concrete, not abstract: "there are two copies; one can go stale", never "s
 risks divergence". Add nothing: every sentence carries a fact, a decision or a consequence. These
 two rules are yours; the form rules belong to the translator. Where a phase says **translate
 `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`, run
-`nexus prose-verify --before <file>.pre --after <file>`, then delete `<file>.pre`. A non-zero exit
-stops the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
+`nexus prose-verify --before <file>.pre --after <file>` with one `--source <path>` per grounding
+source you named the agent, then delete `<file>.pre`. The check proves the machine-read regions are
+byte-identical **and** that every number, modal, name-shaped token, heading, list item and table row
+survived; a grounded addition passes only because its `--source` carried it. A non-zero exit stops
+the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
 flagged line, or say why it stands. No approval gate reads this run, so the completion report names
 every standing finding with its reason, and every grounding substitution the receipts list.
 

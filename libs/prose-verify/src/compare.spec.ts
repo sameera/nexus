@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { compareRegions, type RegionProblem } from "./compare";
 
 describe("compareRegions — the machine-read regions must be byte-identical", () => {
-    const body: string = "---\nslug: a\n---\n\nprose\n\n```json\n{ \"a\": 1 }\n```\n\n<!-- nexus:meta n: 1 -->\n\n- [ ] **Given** a, **when** b, **then** c\n";
+    const body = "---\nslug: a\n---\n\nprose\n\n```json\n{ \"a\": 1 }\n```\n\n<!-- nexus:meta n: 1 -->\n\n- [ ] **Given** a, **when** b, **then** c\n";
 
     it("finds nothing when only the prose differs", () => {
         const after: string = body.replace("prose", "plain prose");
@@ -71,7 +71,7 @@ describe("compareRegions — the machine-read regions must be byte-identical", (
     });
 
     it("reports a region the translated copy truncated", () => {
-        const problems: RegionProblem[] = compareRegions(body, body.replace('{ \"a\": 1 }\n', ""));
+        const problems: RegionProblem[] = compareRegions(body, body.replace('{ "a": 1 }\n', ""));
         expect(problems).toHaveLength(1);
         expect(problems[0].kind).toBe("changed");
         expect(problems[0].region).toBe("fenced-block");

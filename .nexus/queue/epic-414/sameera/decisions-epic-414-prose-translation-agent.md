@@ -65,3 +65,33 @@
 - **Choice:** rule 3 becomes "no idioms or invented shorthand". Standard technical notation — `≤ M`, `95%`, `O(n)`, the project's defined terms — is named as explicitly out of its reach and left as written; the idiom half is justified by the non-native reader rather than by verbosity.
 - **Why:** the original rule expanded "≤ M" to "size M or smaller" in running prose, which throws words at an audience that reads the symbol faster; the reader this artifact set actually has is technical and often not a native English speaker, so the idiom is the hazard and the symbol is not.
 - **Refuted alternative:** keep the rule as re-homed from the retired skill, on the epic's "does not revise them" assumption — faithful to the re-homing scope, but it ships a known over-correction into every artifact the translator touches, and the assumption exists to stop drift, not to freeze a rule the maintainer has judged wrong.
+
+## 2026-09-02 — Structure is counted by shape, not by its text
+- **Choice:** a heading keys on its level (`h2`), a list item on `list-item`, a table row on `table-row`; only the counts must not drop.
+- **Why:** the translator legitimately rewrites the prose inside a bullet or a cell, and keying on text would fail every one of those rewrites; the words inside are still covered by the numeric, modal and name classes.
+- **Refuted alternative:** key each on its normalised text, which would also catch a reworded heading — stricter, and true to "headings are the invoking command's contract", but it trips on every legal in-bullet rewrite, which is most of what the translator does.
+
+## 2026-09-02 — A numeric's unit is the suffix written against the numeral
+- **Choice:** the numeric key is the value plus an attached suffix (`95%`, `10ms`) or the word `percent`; a free-standing unit word that merely follows the numeral is not part of the key.
+- **Why:** a following unit word is an ordinary lower-case word, which the story's form-based definition puts outside the tracked class, and binding it into the key fails an honest rewrite ("3 sentences" → "three of the sentences").
+- **Refuted alternative:** take the next word as the unit, which would catch "40 words" becoming "40 sentences" — a real defect, but bought with a false failure on every rewrite that changes what follows a numeral.
+
+## 2026-09-02 — "One" and "zero" are not tracked as numbers
+- **Choice:** the spelled-out number map covers `two` upward; `one`, `a` and `zero` are left out.
+- **Why:** English uses all three as determiner, article and pronoun as readily as counts ("one can go stale"), and a form-based reader cannot tell those apart — rule 5 actively asks the translator to replace the pronoun "one" with a noun, which would then read as a lost number.
+- **Refuted alternative:** track them and accept the noise, which catches the rare deliberate "1" rewritten as "one" but fails honest rewrites far more often.
+
+## 2026-09-02 — The proper-noun vocabulary is the union of both copies
+- **Choice:** tier two admits a capitalised, non-sentence-initial, non-function word found in **either** copy, then counts every occurrence of it at every position in both.
+- **Why:** the story derives the vocabulary from the pre-translation copy alone, which makes an *introduced* proper noun invisible to the tier and leaves the story's own grounding criterion unreachable for names; taking the union closes that without touching position-blindness, so a name moved to the start of a sentence still reports no change.
+- **Refuted alternative:** the pre-translation copy alone, as written — literal to the story, but then no `--source` check can ever fire on a name, which is the case the grounding criterion exists for.
+
+## 2026-09-02 — Machine-read regions are excluded from the preservation scan
+- **Choice:** the tracked-item reader skips every line `extractRegions` claims.
+- **Why:** those bytes are already compared by the region check, so scanning them would report one defect twice and bury the prose finding under frontmatter noise; each check covers its own territory.
+- **Refuted alternative:** scan the whole file, which needs no exclusion logic — but a changed fenced block would then surface as a region change *and* a run of missing tokens naming lines the author cannot act on.
+
+## 2026-09-02 — One verdict, one failure variant
+- **Choice:** `VerifyResult`'s failure collapses to a single `changed` variant carrying both the region problems and the preservation findings; the old `region-changed` discriminant is gone.
+- **Why:** the story requires one invocation to return one verdict covering both comparisons, and two failure variants would let a caller branch on one and ignore the other.
+- **Refuted alternative:** keep `region-changed` and add a sibling `not-preserved`, which is a smaller diff — but it reintroduces exactly the "satisfy one property, skip the other" shape the story forbids.

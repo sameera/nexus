@@ -24,6 +24,16 @@
       "import": "./src/render.ts",
       "default": "./src/render.ts"
     },
+    "./tokens": {
+      "types": "./src/tokens.ts",
+      "import": "./src/tokens.ts",
+      "default": "./src/tokens.ts"
+    },
+    "./preserve": {
+      "types": "./src/preserve.ts",
+      "import": "./src/preserve.ts",
+      "default": "./src/preserve.ts"
+    },
     "./package.json": "./package.json"
   }
 }

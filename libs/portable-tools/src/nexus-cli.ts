@@ -215,10 +215,12 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runRecordDigest,
     },
     "prose-verify": {
-        summary: "Prove a translated artifact's machine-read regions are byte-identical to the pre-translation copy.",
+        summary: "Prove a translated artifact kept its machine-read regions byte-identical and every tracked item intact.",
         usage: [
-            "  nexus prose-verify --before <path> --after <path>",
-            "      Exit 0 when frontmatter, fenced blocks, HTML comments and Given/When/Then lines match; non-zero otherwise.",
+            "  nexus prose-verify --before <path> --after <path> [--source <path>]...",
+            "      Exit 0 when frontmatter, fenced blocks, HTML comments and Given/When/Then lines match,",
+            "      and every number, modal, name-shaped token, heading, list item and table row survives.",
+            "      --source names a grounding source, which is what permits an introduced item.",
         ].join("\n"),
         run: runProseVerify,
     },
@@ -918,27 +920,35 @@ async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
 interface ProseVerifyFlags {
     before?: string;
     after?: string;
+    /** The grounding sources the run named, in the order they were given. Repeatable. */
+    sources: string[];
 }
 
 function parseProseVerifyFlags(argv: string[]): ProseVerifyFlags {
-    const flags: ProseVerifyFlags = {};
+    const flags: ProseVerifyFlags = { sources: [] };
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === "--before") flags.before = argv[++i];
         else if (a === "--after") flags.after = argv[++i];
+        else if (a === "--source") flags.sources.push(argv[++i]);
     }
     return flags;
 }
 
 /**
- * `nexus prose-verify` — the deterministic half of the prose-translation contract (story #417).
- * A shipped component body invokes it by this name, so the component-invocation gate resolves it
- * against the declared surface rather than against a repository-relative script.
+ * `nexus prose-verify` — the deterministic half of the prose-translation contract (stories #417 and
+ * #423). A shipped component body invokes it by this name, so the component-invocation gate
+ * resolves it against the declared surface rather than against a repository-relative script.
+ *
+ * One invocation returns one verdict covering both properties the contract claims: the machine-read
+ * regions are byte-identical, and every tracked item survived. `--source` is repeatable and names
+ * the grounding sources the translator was handed, which is what makes an introduced item
+ * permissible; a run that names none permits no introduction at all.
  */
 async function runProseVerify(argv: string[], io: CliIo): Promise<number> {
     const flags: ProseVerifyFlags = parseProseVerifyFlags(argv);
     if (flags.before === undefined || flags.after === undefined) {
-        io.stderr("usage: nexus prose-verify --before <path> --after <path>");
+        io.stderr("usage: nexus prose-verify --before <path> --after <path> [--source <path>]...");
         return 2;
     }
 
@@ -946,6 +956,7 @@ async function runProseVerify(argv: string[], io: CliIo): Promise<number> {
         (target: string) => fs.readFileSync(path.resolve(io.cwd, target), "utf8"),
         flags.before,
         flags.after,
+        flags.sources,
     );
     if (!result.ok) {
         io.stderr(renderVerifyResult(result));
