@@ -75,6 +75,10 @@ const CONTRACTED_NEGATIONS: Readonly<Record<string, string>> = {
  * an article as readily as it uses them as counts ("one can go stale"), and a form-based reader
  * cannot tell those apart. Tracking them would fail an honest rewrite, which is worse than missing
  * the rare deliberate "1" that becomes "one".
+ *
+ * The exclusion is symmetric: `UNTRACKED_VALUES` drops the numerals too. Dropping only the words
+ * would fail the same rewrite in both directions — a numeral one spelled out would read as a lost
+ * value, and the word written back as a numeral would read as an invented one.
  */
 const WORD_NUMBERS: Readonly<Record<string, number>> = {
     two: 2,
@@ -107,6 +111,18 @@ const WORD_NUMBERS: Readonly<Record<string, number>> = {
 
 /** The scale words a spelled-out number may carry. */
 const SCALE_WORDS: Readonly<Record<string, number>> = { hundred: 100, thousand: 1000 };
+
+/**
+ * The values that sit outside the tracked numeric class whatever their written form, suffix
+ * included. They are the values whose word forms English also uses as article, determiner and
+ * pronoun, so neither form can be counted without failing an honest rewrite.
+ */
+const UNTRACKED_VALUES: ReadonlySet<number> = new Set([0, 1]);
+
+/** Whether a numeric denotation is one the check refuses to track. */
+function isUntrackedValue(value: string): boolean {
+    return UNTRACKED_VALUES.has(Number(value));
+}
 
 /**
  * The closed list of English function words the proper-noun tier refuses. A capitalised word on
@@ -336,7 +352,9 @@ export function extractTracked(content: string): Scan {
                 const following = attached === "" ? percentSuffix(atoms, position) : { suffix: "", consumed: 0 };
                 skip = following.consumed;
                 const suffix: string = attached === "" ? following.suffix : attached;
-                items.push(item("numeric", `${value}${suffix}`, `${value}${suffix}`, line));
+                if (!isUntrackedValue(value)) {
+                    items.push(item("numeric", `${value}${suffix}`, `${value}${suffix}`, line));
+                }
                 continue;
             }
 

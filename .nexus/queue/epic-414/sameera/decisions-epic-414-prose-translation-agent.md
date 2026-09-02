@@ -95,3 +95,13 @@
 - **Choice:** `VerifyResult`'s failure collapses to a single `changed` variant carrying both the region problems and the preservation findings; the old `region-changed` discriminant is gone.
 - **Why:** the story requires one invocation to return one verdict covering both comparisons, and two failure variants would let a caller branch on one and ignore the other.
 - **Refuted alternative:** keep `region-changed` and add a sibling `not-preserved`, which is a smaller diff — but it reintroduces exactly the "satisfy one property, skip the other" shape the story forbids.
+
+## 2026-09-02 — Zero and one are excluded by denotation, not by spelling
+- **Choice:** the numeric reader drops any value whose denotation is 0 or 1 whatever its written form and whatever suffix it carries, so `1`, `one`, `1%`, `0ms` and `1.0` are all untracked.
+- **Why:** dropping only the word forms left the exclusion asymmetric, and the asymmetry false-failed in both directions — `1` rewritten as "one" read as a lost value, and "one" written back as `1` read as an invented one, neither of which clears on a retry.
+- **Refuted alternative:** exclude the bare numerals `1` and `0` only, leaving suffixed forms tracked — narrower, but "1%" and "one percent" then reproduce the same asymmetry one layer down.
+
+## 2026-09-02 — The retry is stated in the convention block, not at each translate point
+- **Choice:** the restore-and-retranslate step is one clause inside each command's shared prose-convention block ("on a failure, restore `<file>` from it and translate once more"), and no translate point repeats it.
+- **Why:** record #421's invariant 11 caps the shared block and buys that cap by keeping every translation point free of mechanics; stating the retry per point would multiply it by the number of artifacts a command drafts.
+- **Refuted alternative:** state the retry at each translate point, which reads better in place — but `/nxs.distill` carries two points and `/nxs.epic` two, so the mechanics would be written four times for one rule.

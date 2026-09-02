@@ -81,10 +81,11 @@ Write concrete, not abstract: "there are two copies of the record; one can go st
 duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
 consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
 **translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
-`<file>` naming **no** source files, run `nexus prose-verify --before <file>.pre --after <file>`,
-then delete `<file>.pre`. A non-zero exit stops the run — file nothing. Resolve every density
-finding before the gate: rewrite the flagged line, or state why the wording stands. File the
-translated file verbatim.
+`<file>` naming **no** source files, run `nexus prose-verify --before <file>.pre --after <file>`.
+On a pass, delete `<file>.pre`. On a failure, restore `<file>` from it and translate once more; a
+second failure stops the run — file nothing, and keep `<file>.pre` for diagnosis. Resolve every
+density finding before the gate: rewrite the flagged line, or state why the wording stands. File
+the translated file verbatim.
 
 Run the phases in order.
 

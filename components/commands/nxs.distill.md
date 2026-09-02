@@ -49,12 +49,14 @@ risks divergence". Add nothing: every sentence carries a fact, a decision or a c
 two rules are yours; the form rules belong to the translator. Where a phase says **translate
 `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`, run
 `nexus prose-verify --before <file>.pre --after <file>` with one `--source <path>` per grounding
-source you named the agent, then delete `<file>.pre`. The check proves the machine-read regions are
-byte-identical **and** that every number, modal, name-shaped token, heading, list item and table row
-survived; a grounded addition passes only because its `--source` carried it. A non-zero exit stops
-the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
-flagged line, or say why it stands. No approval gate reads this run, so the completion report names
-every standing finding with its reason, and every grounding substitution the receipts list.
+source you named the agent. The check proves the machine-read regions are byte-identical **and**
+that every number, modal, name-shaped token, heading, list item and table row survived; a grounded
+addition passes only because its `--source` carried it. On a pass, delete `<file>.pre`. On a
+failure, restore `<file>` from it and translate once more; a second failure stops the run — write
+nothing out, open no pull request, and keep `<file>.pre` for diagnosis. Resolve every density
+finding: rewrite the flagged line, or say why it stands. No approval gate reads this run, so the
+completion report names every standing finding with its reason, and every grounding substitution
+the receipts list.
 
 # User Input
 

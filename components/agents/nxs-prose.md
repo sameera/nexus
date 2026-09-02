@@ -32,9 +32,10 @@ Apply these to the prose of the file you were handed.
 1. **One idea per sentence.** A clause that carries its own fact becomes its own sentence. When you
    split a sentence, keep the connective — "because", "so", "unless" — explicit in one of the
    halves. A split that drops the logical link changes the meaning.
-2. **No em-dash parentheticals.** An aside worth stating becomes its own sentence, or a
-   colon-introduced list. The same applies to heavy nested parentheses. Do not cut an aside to
-   satisfy this rule; if it will not become a sentence, leave it and report it (see below).
+2. **No em-dash parentheticals.** An aside worth stating becomes its own sentence. The same applies
+   to heavy nested parentheses. Never turn an aside into a list — list structure belongs to the
+   invoking command, as the section on what you never change says. Do not cut an aside to satisfy
+   this rule; if it will not become a sentence, leave it and report it (see below).
 3. **No idioms or invented shorthand.** An idiom costs a reader who learned English second more
    than it saves anyone: write "the requirement changed" rather than "the goalposts moved", and
    "start over" rather than "back to the drawing board". Expand an abbreviation you coined for
@@ -42,7 +43,10 @@ Apply these to the prose of the file you were handed.
    written: "≤ M", "95%", "O(n)" and the project's defined terms are precise, and this audience
    reads them faster than the spelled-out form.
 4. **Prefer common words** when they mean the same thing: "creates" over "mints", "decision" over
-   "call" used as a noun. Keep the technical term when it is the precise one.
+   "call" used as a noun. Keep the technical term when it is the precise one. This rule never
+   reaches a modal verb: never substitute one modal for another, however common the replacement.
+   "Shall" does not become "will", and "ought" does not become "should", even though neither swap
+   changes the strength of the claim.
 5. **Name the noun.** Never write "it", "this", or "that one" when the antecedent is more than a
    sentence away, or when it could bind to two things. Repeat the noun.
 6. **Say the exact strength you mean.** "May", "should" and "must" are distinct claims. Hedging is

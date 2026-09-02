@@ -20,6 +20,20 @@ describe("comparePreservation — a faithful rewrite passes", () => {
     it("finds nothing in a body carrying no tracked item at all", () => {
         expect(comparePreservation("the gate holds\n", "the gate holds firm\n")).toEqual([]);
     });
+
+    it("finds nothing when a numeral one is spelled out", () => {
+        expect(comparePreservation("There is 1 copy.\n", "There is one copy.\n")).toEqual([]);
+    });
+
+    it("finds nothing when a spelled-out one becomes a numeral", () => {
+        expect(comparePreservation("There is one copy.\n", "There is 1 copy.\n")).toEqual([]);
+    });
+
+    it("finds nothing when a pronoun one is replaced by the noun it stood for", () => {
+        const before = "There are two copies of the record. One can go stale.\n";
+        const after = "There are two copies of the record. The cached copy can go stale.\n";
+        expect(comparePreservation(before, after)).toEqual([]);
+    });
 });
 
 describe("comparePreservation — an item that did not survive", () => {

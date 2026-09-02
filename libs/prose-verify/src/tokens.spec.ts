@@ -59,6 +59,26 @@ describe("extractTracked — numeric values", () => {
     it("does not read the article-like words one and zero as numbers", () => {
         expect(keysOf("One can go stale, and zero copies survive.\n", "numeric")).toEqual([]);
     });
+
+    it("does not read the numerals 1 and 0 either, so the exclusion is symmetric", () => {
+        expect(keysOf("There is 1 copy and 0 replicas.\n", "numeric")).toEqual([]);
+    });
+
+    it("does not read a suffixed one or zero", () => {
+        expect(keysOf("It grew 1% in 0ms.\n", "numeric")).toEqual([]);
+    });
+
+    it("does not read one written with a decimal part", () => {
+        expect(keysOf("The factor is 1.0 exactly.\n", "numeric")).toEqual([]);
+    });
+
+    it("still reads values that merely carry the digit one", () => {
+        expect(keysOf("It holds 10 rows, 1000 keys and 1.5 units.\n", "numeric")).toEqual([
+            "numeric:10",
+            "numeric:1000",
+            "numeric:1.5",
+        ]);
+    });
 });
 
 describe("extractTracked — modal verbs", () => {
