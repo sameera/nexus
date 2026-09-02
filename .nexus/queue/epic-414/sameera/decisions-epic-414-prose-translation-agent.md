@@ -39,3 +39,9 @@
 - **Choice:** `/nxs.discover` drafts the discovery doc and each ticket to session scratch, translates there, and writes the translated file into `.nexus/discovery/`.
 - **Why:** The story requires the artifact be translated and verified *before* it is written out, and translating in the store would put an unverified write into a committed folder first.
 - **Refuted alternative:** Write into the store and translate in place, which is fewer steps and matches how the other commands treat their own scratch — but the store is committed, so a failed check would leave a bad file where the commit step expects a good one.
+
+## 2026-09-01 — Grounding sources are the epic and the record only, per the record's scope edit
+
+- **Choice:** The distillation run names `epic.md` and the fetched decision-record body as grounding sources. The change diff is never named.
+- **Why:** The decision record's Scope Edits section removes the diff from this story's scope, and invariant 13 states it as a constraint; the story's own acceptance criterion still listed the diff, and the record governs.
+- **Refuted alternative:** Follow the story text and hand the diff over too — the richest source of what happened, but a contiguous span lifted from a diff is source code, which a concept page forbids outright.

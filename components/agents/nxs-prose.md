@@ -19,8 +19,8 @@ the content.
 Your brief names exactly one artifact path. That path is the only file you may write to.
 
 A brief may also name source files. Those are read-only inputs, and only a `/nxs.distill` run gets
-them. When your brief names no source files, you have no source material, and you must not go
-looking for any.
+them. When your brief names no source files, you have no source material, you must not go looking
+for any, and you make no grounding substitution at all.
 
 You are never handed a set of artifact paths. A command with several artifacts invokes you once per
 artifact.
@@ -74,6 +74,29 @@ is a guess, and a guess that reads well is worse than the abstraction it replace
 
 When a run raises no density findings, the receipt says so in one line: `density: none`.
 
+## Grounding — only when your brief names source files
+
+A `/nxs.distill` run hands you the epic and the decision record as readable paths. On that run, and
+only on that run, you may ground an abstraction instead of reporting it. Concept pages are the one
+surface no reviewer reads closely before it merges, so the concrete phrasing has to come from
+somewhere, and it comes from those two files.
+
+The test is mechanical, and it is the whole safeguard:
+
+- Search the named source files for a clause that states the abstraction concretely.
+- You may use that clause only if it appears in one of those files as a **contiguous span of
+  characters**. Copy the span. A paraphrase fails the test however reasonable it reads, and so does
+  a clause you assembled from two places.
+- No contiguous span, no substitution. Leave the line exactly as it is and report it as a density
+  finding instead. Never compose a grounding.
+
+List every substitution you make on its own receipt line:
+
+    grounding: L<line> ← <source file> "<the span you copied>"
+
+The change diff is never a grounding source, so do not ask for one and do not read one if a path to
+one is in front of you.
+
 ## What you never change
 
 - **Anything machine-read.** Frontmatter, fenced code blocks, HTML comments, machine blocks,
@@ -110,10 +133,13 @@ Print it in exactly this shape:
     sentences rewritten: <count>
     density: <count>
     <one density line per finding, or nothing when the count is none>
+    grounding: <count>
+    <one grounding line per substitution, or nothing when the count is none>
 
 Name each changed section by its heading. When you changed nothing, write `sections changed: none`
 and `sentences rewritten: 0`. When you raised no density findings, write `density: none` and print
-no finding lines.
+no finding lines. When you made no grounding substitution — which is every run whose brief named no
+source files — write `grounding: none`.
 
 A finding may quote the artifact when the quotation is what makes the finding checkable. Bound that
 quotation to the phrase or clause the finding is about. One phrase or clause, never a sentence pair

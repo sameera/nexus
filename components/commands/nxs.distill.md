@@ -44,14 +44,14 @@ per forced-fit concept, exactly three rendered options, "Other" still available.
 
 # Prose convention — human-facing artifacts
 
-Write concrete, not abstract: "there are two copies of the record; one can go stale", never "state
-duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
-consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
-**translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
-`<file>`, then run `nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops
-the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
-flagged line, or state why the wording stands. This command has no approval gate, so name every
-finding you leave standing, and its reason, in the completion report.
+Write concrete, not abstract: "there are two copies; one can go stale", never "state duplication
+risks divergence". Add nothing: every sentence carries a fact, a decision or a consequence. These
+two rules are yours; the form rules belong to the translator. Where a phase says **translate
+`<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`, then
+run `nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops the run — write
+nothing out, open no pull request. Resolve every density finding: rewrite the flagged line, or say
+why it stands. No approval gate reads this run, so the completion report names every standing
+finding with its reason, and every grounding substitution the receipts list.
 
 # User Input
 
@@ -617,7 +617,8 @@ manual curation, out of this drain's scope).
    touches: re-check its body against the current code while patching it (C13: bootstrap pages
    are low-trust; the first touching drain re-validates them).
 6. **Translate the pages.** **Translate** each created or updated concept page (see *Prose
-   convention*), one run per page, before Phase 5's validator reads them.
+   convention*), one run per page, before Phase 5's validator reads them. Name the entry's `epic.md`
+   and the fetched record body (`<scratch>/record-body.md`) as grounding sources; never the diff.
 
 # Phase 5 — Deterministic steps (not judgment)
 

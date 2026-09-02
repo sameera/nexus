@@ -66,10 +66,10 @@ Write concrete, not abstract: "there are two copies of the record; one can go st
 duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
 consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
 **translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
-`<file>`, then run `nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops
-the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
-flagged line, or state why the wording stands. This command has no approval gate, so name every
-finding you leave standing, and its reason, in the completion report.
+`<file>` naming no source files, then run
+`nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops the run — write
+nothing out. Resolve every density finding: rewrite the flagged line, or say why it stands. No
+approval gate reads this run, so the session report names every standing finding with its reason.
 
 ## Vocabulary
 
