@@ -27,3 +27,9 @@
 - **Choice:** A Given/When/Then line is a line carrying `**Given**`, `**When**` or `**Then**`, or one carrying all three keywords as standalone words.
 - **Why:** The emphasised form is the template shape, and the all-three test catches a plainly written criterion without locking ordinary prose that merely says "given".
 - **Refuted alternative:** Match any standalone `Given` — simpler, but it would freeze narrative sentences and make the translator unable to do its job on them.
+
+## 2026-09-01 — The convention names a `translate <file>` marker the phases point at
+
+- **Choice:** The resident block defines one marker, and each phase that needs a translation writes two lines naming the file and the moment.
+- **Why:** It keeps the mechanics — the pre-copy, the agent, the check, the stop-on-failure rule — stated once, so a command with three translation points still spends about thirteen lines in total.
+- **Refuted alternative:** State the full mechanics at each phase, which reads better in place but multiplies the resident cost by the number of translation points and would breach the fifteen-line cap on the epic command.
