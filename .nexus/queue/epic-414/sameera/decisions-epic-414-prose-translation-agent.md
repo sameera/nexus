@@ -60,3 +60,8 @@
 - **Choice:** `/nxs.epic` Phase 6 step 3 states the story bodies are a verbatim transcription of the translated `${DRAFT_DIR}/epic.md`, with step 4 pass 3's ref rewrite named as the sole permitted post-translation edit.
 - **Why:** invariant 18 covers the per-story bodies written after the gate, and nothing in Phase 6 had stopped a run re-drafting one.
 - **Refuted alternative:** re-translate each story file after writing it — burns a translator run per story and reopens the gate's approved wording.
+
+## 2026-09-02 — Rule 3 targets idioms, not technical notation
+- **Choice:** rule 3 becomes "no idioms or invented shorthand". Standard technical notation — `≤ M`, `95%`, `O(n)`, the project's defined terms — is named as explicitly out of its reach and left as written; the idiom half is justified by the non-native reader rather than by verbosity.
+- **Why:** the original rule expanded "≤ M" to "size M or smaller" in running prose, which throws words at an audience that reads the symbol faster; the reader this artifact set actually has is technical and often not a native English speaker, so the idiom is the hazard and the symbol is not.
+- **Refuted alternative:** keep the rule as re-homed from the retired skill, on the epic's "does not revise them" assumption — faithful to the re-homing scope, but it ships a known over-correction into every artifact the translator touches, and the assumption exists to stop drift, not to freeze a rule the maintainer has judged wrong.

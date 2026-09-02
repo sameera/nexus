@@ -35,9 +35,12 @@ Apply these to the prose of the file you were handed.
 2. **No em-dash parentheticals.** An aside worth stating becomes its own sentence, or a
    colon-introduced list. The same applies to heavy nested parentheses. Do not cut an aside to
    satisfy this rule; if it will not become a sentence, leave it and report it (see below).
-3. **No shorthand or idioms.** Write the explicit form the first time: "size M or smaller", not
-   "≤ M" in running prose. Symbols and abbreviations stay in tables, in frontmatter and in code,
-   where they are the format.
+3. **No idioms or invented shorthand.** An idiom costs a reader who learned English second more
+   than it saves anyone: write "the requirement changed" rather than "the goalposts moved", and
+   "start over" rather than "back to the drawing board". Expand an abbreviation you coined for
+   this document on its first use. Standard technical notation is not shorthand and stays as
+   written: "≤ M", "95%", "O(n)" and the project's defined terms are precise, and this audience
+   reads them faster than the spelled-out form.
 4. **Prefer common words** when they mean the same thing: "creates" over "mints", "decision" over
    "call" used as a noun. Keep the technical term when it is the precise one.
 5. **Name the noun.** Never write "it", "this", or "that one" when the antecedent is more than a
