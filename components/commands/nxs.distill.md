@@ -42,6 +42,17 @@ with one option per choice. The user can always pick "Other" for a custom answer
 taxonomy gate (epic #94, STORY-94.01) follows the identical convention — one `AskUserQuestion`
 per forced-fit concept, exactly three rendered options, "Other" still available.
 
+# Prose convention — human-facing artifacts
+
+Write concrete, not abstract: "there are two copies of the record; one can go stale", never "state
+duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
+consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
+**translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
+`<file>`, then run `nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops
+the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
+flagged line, or state why the wording stands. This command has no approval gate, so name every
+finding you leave standing, and its reason, in the completion report.
+
 # User Input
 
 ```text
@@ -605,6 +616,8 @@ manual curation, out of this drain's scope).
    code. This includes flipping a pre-existing `unverified` (bootstrap/manual) page that a delta
    touches: re-check its body against the current code while patching it (C13: bootstrap pages
    are low-trust; the first touching drain re-validates them).
+6. **Translate the pages.** **Translate** each created or updated concept page (see *Prose
+   convention*), one run per page, before Phase 5's validator reads them.
 
 # Phase 5 — Deterministic steps (not judgment)
 
@@ -875,9 +888,12 @@ Then ask via **`AskUserQuestion`**:
 
 # Phase 7 — Open the distillation-PR
 
+Draft the body below to a scratch file and **translate** it there (see *Prose convention*), then
+open the pull request from that file with `--body-file`. A failed check opens no pull request.
+
 ```bash
 git push -u origin <distill-branch>
-gh pr create --title "distill: <epic title(s) or local-ids>" --body "<body below>"
+gh pr create --title "distill: <epic title(s) or local-ids>" --body-file "<scratch>/pr-body.md"
 git checkout -
 ```
 

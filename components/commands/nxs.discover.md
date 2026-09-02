@@ -60,6 +60,17 @@ to. Render any context first as ordinary markdown, then call `AskUserQuestion` w
 choice**, using the canonical verb named at that gate as the option label and putting the action's
 effect in the option description. The user can always pick "Other" to give a custom answer.
 
+## Prose convention — human-facing artifacts
+
+Write concrete, not abstract: "there are two copies of the record; one can go stale", never "state
+duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
+consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
+**translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
+`<file>`, then run `nexus prose-verify --before <file>.pre --after <file>`. A non-zero exit stops
+the run — write nothing out, open no pull request. Resolve every density finding: rewrite the
+flagged line, or state why the wording stands. This command has no approval gate, so name every
+finding you leave standing, and its reason, in the completion report.
+
 ## Vocabulary
 
 Every artifact this command writes — discovery docs, ticket files, prompts, reports — uses Nexus
@@ -210,6 +221,9 @@ doc never carries a second copy of the ticket set that could fall out of step wi
 **Write the folder under `.nexus/discovery/`, never under `.nexus/queue/`** — see "The store".
 Location is what keeps a discovery out of reach of the rest of the pipeline.
 
+Draft `discovery.md` to session scratch first, **translate** it there (see *Prose convention*), and
+write the translated file into the folder. The check runs on the translator's write, before you edit.
+
 ## Phase 5 — Write the decision tickets
 
 Split the initiative's unknowns by the one test that matters: **can the question be stated precisely
@@ -242,6 +256,9 @@ completely open.
    question cannot be *stated* or *answered* until another resolves.
 
 Prefer the fewest tickets that cover the fog. A ticket per paragraph of the intent is padding.
+
+Draft each ticket to session scratch and **translate** it there (see *Prose convention*) — one run
+per ticket — then write the translated files beside the discovery doc.
 
 ## Phase 6 — Commit
 

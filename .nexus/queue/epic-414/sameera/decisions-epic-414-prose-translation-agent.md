@@ -33,3 +33,9 @@
 - **Choice:** The resident block defines one marker, and each phase that needs a translation writes two lines naming the file and the moment.
 - **Why:** It keeps the mechanics — the pre-copy, the agent, the check, the stop-on-failure rule — stated once, so a command with three translation points still spends about thirteen lines in total.
 - **Refuted alternative:** State the full mechanics at each phase, which reads better in place but multiplies the resident cost by the number of translation points and would breach the fifteen-line cap on the epic command.
+
+## 2026-09-01 — Discovery drafts to session scratch and writes the translated file into the store
+
+- **Choice:** `/nxs.discover` drafts the discovery doc and each ticket to session scratch, translates there, and writes the translated file into `.nexus/discovery/`.
+- **Why:** The story requires the artifact be translated and verified *before* it is written out, and translating in the store would put an unverified write into a committed folder first.
+- **Refuted alternative:** Write into the store and translate in place, which is fewer steps and matches how the other commands treat their own scratch — but the store is committed, so a failed check would leave a bad file where the commit step expects a good one.
