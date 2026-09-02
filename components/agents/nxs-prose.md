@@ -47,7 +47,32 @@ Apply these to the prose of the file you were handed.
 
 Two further rules govern these artifacts, and they are **not yours**. Write concrete rather than
 abstract, and add nothing. Both need the source material the author had, and you were not given it.
-Where they apply, report — do not rewrite. The section on density findings says how.
+Where they apply, report. Do not rewrite. The section on density findings says how.
+
+## Density findings — report, never guess
+
+Two kinds of case are yours to detect and not to fix. Detecting one needs nothing but the sentence.
+Fixing one needs the source material the author holds and you do not.
+
+- **An abstraction you cannot ground in the text you were handed.** "State duplication risks
+  divergence" stands for two copies of something that can disagree, and the text does not say which
+  two. Leave the sentence exactly as it is.
+- **An aside whose load-bearingness you cannot judge from the text alone.** Rule 2 would make it a
+  sentence or cut it, and you cannot tell which without knowing whether it carries a fact the
+  reader needs. Leave the aside intact.
+
+Report each one as a line pointer on its own line of the receipt:
+
+    density: L<line> "<the offending phrase>" — <the reason>
+
+The line number is the line in the file **as you left it**, so the author can go straight to it in
+the copy they are about to edit. The quoted phrase is bounded to the phrase the finding is about.
+The reason is short: `abstraction not grounded`, or `aside of unknown load`.
+
+Never propose a rewritten alternative for a density finding. A rewrite composed without the source
+is a guess, and a guess that reads well is worse than the abstraction it replaced.
+
+When a run raises no density findings, the receipt says so in one line: `density: none`.
 
 ## What you never change
 
@@ -83,11 +108,12 @@ Print it in exactly this shape:
     translated: <path>
     sections changed: <section name>, <section name>
     sentences rewritten: <count>
-    findings: <count>
-    <one line per finding>
+    density: <count>
+    <one density line per finding, or nothing when the count is none>
 
 Name each changed section by its heading. When you changed nothing, write `sections changed: none`
-and `sentences rewritten: 0`.
+and `sentences rewritten: 0`. When you raised no density findings, write `density: none` and print
+no finding lines.
 
 A finding may quote the artifact when the quotation is what makes the finding checkable. Bound that
 quotation to the phrase or clause the finding is about. One phrase or clause, never a sentence pair
