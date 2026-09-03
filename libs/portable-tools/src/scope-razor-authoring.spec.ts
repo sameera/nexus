@@ -141,3 +141,54 @@ describe("the epic gate", () => {
         expect(gate).toMatch(/do not create or modify GitHub issues/i);
     });
 });
+
+describe("the cut-gate convention", () => {
+    const skill: string = read(RAZOR);
+
+    it("is stated once in the skill and shared by shape, not by implementation", () => {
+        expect(skill).toMatch(/## 8\. The cut-gate convention/);
+        expect(skill.replace(/\s+/g, " ")).toContain("no implementation");
+    });
+
+    it("makes an empty selection identical to plain approval", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/empty selection is identical to plain approval/i);
+    });
+
+    it("keeps at least one story and refuses a cut of already-filed content", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/At least one story must survive/);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/refused, with the reason stated, never silently ignored/);
+    });
+});
+
+describe("the approval digest", () => {
+    const epic: string = read("commands/nxs.epic.md").replace(/\s+/g, " ");
+
+    it("renders one numbered cut list grouped by story", () => {
+        expect(epic).toContain("### Cuts");
+        expect(epic).toMatch(/every `inferred` item/);
+    });
+
+    it("offers three actions, so approving with cuts is one choice rather than a re-run", () => {
+        expect(epic).toContain("**approve with cuts**");
+        expect(epic).toContain("**approve as drafted**");
+    });
+
+    it("offers an excluded asked-for story as asked-for, never as an addition", () => {
+        expect(epic).toMatch(/Never render an asked-for story as an addition/);
+    });
+
+    it("applies cuts before any issue is created", () => {
+        expect(epic).toMatch(/before\*\* Phase 6 derives the filing body/);
+    });
+
+    it("re-parents the dependents of a cut story and states the cascade before applying it", () => {
+        expect(epic).toMatch(/Re-parent the dependents of a cut story/);
+        expect(epic).toMatch(/have the lead confirm before applying it/);
+    });
+
+    it("re-derives the complexity rollup, the design-warrant label and the risk banner after a whole-story cut", () => {
+        expect(epic).toMatch(/re-derive what the story set determined/i);
+        expect(epic).toContain("needs-design");
+        expect(epic).toMatch(/re-derived, or removed/);
+    });
+});

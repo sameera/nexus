@@ -27,3 +27,9 @@
 - **Choice:** the checker returns no advisory findings; the only advisory rule, mechanism-naming, is judged by the gate agent and reported as a low finding.
 - **Why:** invariant 5 limits blocking findings to counts, presence tests and containment — a judgment implemented in the deterministic checker would either be a bad heuristic or a blocking rule in disguise.
 - **Refuted alternative:** a keyword list of mechanism-shaped words in the checker, emitted as advisory. It is deterministic and cheap, but it would fire on every criterion naming a command or a gate, which the rule explicitly excludes.
+
+## 2026-09-03 — cuts re-run the gate rather than trusting the reduced draft
+
+- **Choice:** applying cuts ends by re-running Phase 4b on the cut draft before Phase 6.
+- **Why:** a cut changes the counts the gate checked — deleting five of six acceptance criteria leaves a stated reason with nothing to excuse, and a story cut changes the sequence table — so the verdict the reviewer saw is about a document that no longer exists.
+- **Refuted alternative:** trust the pre-cut gate result, since cutting only removes content and every counted limit is a ceiling. It holds for the limits, but not for the re-derived complexity, the re-parented edges or an orphaned stated reason.

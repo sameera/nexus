@@ -646,18 +646,85 @@ Personas — verbatim (condense only obvious redundancy).>
 the approval is made with them in view.>
 ```
 
-Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
-emit a free-text prompt line. Two options:
+**Then render the cut list** (nxs-razor §8), directly under the digest and before the choice. This
+is what makes removing scope cheaper than accepting it — the reviewer deletes in one action instead
+of editing a file and re-running the command.
 
-- **approve** — file the epic issue and one issue per story.
+```markdown
+### Cuts
+
+Number the entries stably and group them under the story each belongs to. The `## Smallest Usable
+Version` line is rendered first, above the list, because it is what the ordering follows.
+
+<A story the necessity answer leaves outside the smallest usable version, and every item under it:>
+
+**<Story Title>** — <asked-for | added by the drafting model>
+
+1. **the whole story** — <one line: what is lost>
+2. <an inferred acceptance criterion, verbatim minus its label>
+
+<Then the remaining stories, each with its inferred items:>
+
+**<Story Title>**
+
+3. <an inferred acceptance criterion>
+
+**Epic-level**
+
+4. <an inferred assumption>
+5. <an inferred out-of-scope item>
+```
+
+The list holds **every `inferred` item**, **every wholly inferred story**, and **each fully asked-for
+story the necessity answer excludes**. An excluded asked-for story sorts first and is rendered
+**asked-for**: cutting it removes something the lead requested, and they must be able to see that.
+Never render an asked-for story as an addition. If the gate reported a mechanism observation, show it
+beside its story here — it is not a cut, it is a thing to look at.
+
+Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
+emit a free-text prompt line. Three options:
+
+- **approve as drafted** — file the epic issue and one issue per story, cutting nothing.
+- **approve with cuts** — the same, after removing the numbers the reviewer names.
 - **revise** — stop; edit the `epic.md` draft in session scratch, then re-run with `/nxs.epic --resume`.
 
-**Do NOT create any issue without an explicit `approve`** (an `AskUserQuestion` selection of
-`approve`, or an "Other" answer that clearly means approve).
+**Do NOT create any issue without an explicit approval** (an `AskUserQuestion` selection of one of
+the two approve options, or an "Other" answer that clearly means approve).
 
-- `approve` → Phase 6.
+- `approve as drafted` → Phase 6.
+- `approve with cuts` → take the numbers (typed as a list, e.g. `1, 4, 5`), apply the cuts below,
+  then Phase 6. **An empty selection is plain approval**: go straight to Phase 6 with no
+  re-derivation, no re-render and no second confirmation.
 - `revise` → stop. Leave the scratch draft intact for editing; report how to resume. Nothing is
   committed, so there is nothing to clean up.
+
+### Applying cuts (before any issue is created)
+
+Cuts are edits to `${DRAFT_DIR}/epic.md`, made **before** Phase 6 derives the filing body — nothing
+is cut after something is filed.
+
+1. **Refuse a cut of already-filed content.** If a prior partial run filed the epic or a story (the
+   draft's frontmatter carries `link`, or a story carries an issue number), a cut naming it is
+   **refused with the reason stated** — never silently skipped. Report which numbers were refused and
+   what remains.
+2. **Refuse an all-stories cut.** At least one story must survive; an all-stories cut is a revise,
+   not an approval. Say so and return to the choice.
+3. **Delete the named items.** An item cut is the deletion of its lines. A story cut removes its
+   whole `### Story` section.
+4. **Re-parent the dependents of a cut story** onto that story's own blockers, rather than dropping
+   the edges. Dropping an edge can let a dependent start before a prerequisite that was only
+   reachable through the removed story; an under-constrained order breaks work, while an
+   over-constrained one merely delays it. **State the cascade — which surviving stories are
+   re-parented onto what — and have the lead confirm before applying it.**
+5. **Re-derive what the story set determined.** After a whole-story cut:
+    - the epic `complexity` rollup, from the reduced story set, by the Phase 3 step-4 rule;
+    - the **needs-design** label that follows from that new value in Phase 6 — a cut that drops the
+      epic below the threshold must drop the label, or the reduced epic demands a record it no longer
+      warrants;
+    - any utilization-risk or scope banner in the epic body quoting the pre-cut assessment —
+      **re-derived, or removed**. A stale banner asserts a sizing the epic no longer has, to every
+      future reader of the issue.
+6. **Re-run the gate** (Phase 4b) on the cut draft, then continue to Phase 6.
 
 ## Phase 6 — File the epic and story issues (on approve)
 

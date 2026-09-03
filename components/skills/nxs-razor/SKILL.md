@@ -152,3 +152,35 @@ This is the one razor rule whose answer a later reader genuinely consumes — it
 not planning bookkeeping — so unlike the labels it earns a durable home. It is also a lever rather
 than a statement: the approval digest sorts the stories it excludes to the top of the cut list, so
 the reviewer's eye lands first on what the smallest usable version does not need.
+
+## 8. The cut-gate convention
+
+A gate that shows a reviewer what the model added must also let them delete it, or the labels are
+decoration. The only route to less scope otherwise is revise, hand-edit, re-run — expensive enough
+that approving as drafted is always the cheaper action, which is the opposite of what the razor is
+for.
+
+Two gates render a cut list — the epic approval digest and the decision-record stage's pre-filing
+checkpoint. They share this convention and **no implementation**: what is mechanically decidable in
+either already lives in `nexus razor-check`, and what is left is prose one stage generates and a
+selection it parses.
+
+1. **Numbered prose, grouped by parent.** Stably numbered entries, grouped under the story (or the
+   decision) each belongs to. Not one interactive control per item: five stories easily yield twenty
+   cuttable items, and paginating them into batches turns one action into several rounds — which is
+   no longer cheaper than approving as drafted.
+2. **Three coarse actions**, plus any exit that gate already owes: **approve as drafted**, **approve
+   with cuts**, **revise**.
+3. **Selection is a list of the numbers**, typed. Not a click per item.
+4. **An empty selection is identical to plain approval** — no re-derivation, no re-render, no second
+   confirmation.
+5. **Cuts apply only to content not yet filed.** A cut naming something a prior partial run already
+   filed is refused, with the reason stated, never silently ignored.
+
+What the list holds, at the epic digest: every `inferred` item, every wholly inferred story, and each
+fully asked-for story the necessity answer (§7) leaves outside the smallest usable version. Those
+excluded asked-for stories sort first, and each is **rendered as asked-for** — cutting one removes
+something the lead requested, and the reviewer has to be able to see that. An asked-for story is
+never offered as an inferred addition.
+
+**At least one story must survive.** An all-stories cut is a revise, not an approval.
