@@ -39,3 +39,9 @@
 - **Choice:** Phase 3 writes `record-body.labelled.md` and derives `record-body.md` from it, rather than labelling `record-body.md` and stripping in place.
 - **Why:** Phase 4 refuses to file if `record-body.md` was not written by this run's Phase 3, and the assertion has to run over the file that is actually filed; two files make both true without changing the filing contract.
 - **Refuted alternative:** label in place and strip before filing. One fewer artifact, but a run that stops between the two leaves a labelled body at the exact path Phase 4 files from.
+
+## 2026-09-03 — the checkpoint reuses the strip assertion rather than adding a marker check
+
+- **Choice:** story #424's final criterion — no observation marker and no placeholder in the filed body — is satisfied by the existing `--assert-clean` run over the derived body, plus the rule that an observation is never written into the draft at all.
+- **Why:** an observation that lives only in the render has no marker to leak, so the remaining risk is a surviving template token, which the assertion already covers.
+- **Refuted alternative:** teach the checker a placeholder-token rule of its own (`{{...}}`). It would catch a template token the strip pass does not model, but it is a second assertion over the same body for a case the slot removal already eliminates.

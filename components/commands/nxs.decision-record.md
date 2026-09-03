@@ -363,7 +363,7 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
    invariant. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
 
-5b. **Derive the filing body.** The labelled draft is not what is filed. Strip every label into
+5b. **Derive the filing body** (after the Phase 3.5 checkpoint has been answered). The labelled draft is not what is filed. Strip every label into
    `<scratch>/record-body.md` and assert that none survived:
 
     ```bash
@@ -372,6 +372,8 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
 
     A non-zero exit stops the run — **file nothing**. The record body is the artifact the record hash
     is taken over, so a label surviving into it would report a design that did not change as changed.
+    The same assertion covers the checkpoint's other promise: no template placeholder token and no
+    observation marker reaches the filed body either.
 
 **The record body is pure human prose** — on the issue-sourced path it becomes a GitHub issue body,
 and that body is the artifact the record hash is taken over. So:
@@ -386,10 +388,57 @@ and that body is the artifact the record hash is taken over. So:
   today — `rating` = the epic's `complexity`, `epic` = the epic issue ref, `feature`/`title`/`date`,
   and `concepts:` carried over from the epic.
 
+## Phase 3.5 — Pre-filing checkpoint (MANDATORY STOP)
+
+The gate this command already refers to, now with a phase behind it. It runs **before every path
+that creates or updates the record sub-issue**, including `--revise`. The record body is durable the
+instant it is filed and frozen the instant it is approved, so a cut after filing is either an edit
+to a published body or a reopen — both worse than not filing it.
+
+**First, judge viability.** You are formatting a record the **architect** wrote; you are not the
+architect. Read each refuted alternative and ask whether its stated reason for losing names a
+**trade-off** — what the alternative was better at, and what it gave up. Where it names none, report
+that alternative as a **non-blocking observation**. It blocks nothing, it is rendered here and
+nowhere else, and it is **never written into the draft body** — so there is no marker to strip.
+
+**Then render the cut list** (nxs-razor §8), directly above the choice:
+
+```markdown
+### Refuted alternatives
+
+**<Decision Title>**
+
+1. <the alternative, as written> — <its stated reason for losing>
+   ⚠️ names no trade-off
+
+**<Decision Title>**
+
+2. <the alternative, as written> — <its stated reason for losing>
+```
+
+Every refuted alternative in the draft appears, numbered stably, grouped under the decision it
+belongs to. An observation is rendered beside its entry; it is a thing to look at, not a verdict.
+
+Then ask via **`AskUserQuestion`** (per the interaction convention). Four options:
+
+- **approve as drafted** — file the record as it stands.
+- **approve with cuts** — the same, after removing the alternatives the reviewer names.
+- **revise** — return to Phase 1 for the decisions the reviewer names.
+- **no record** — the epic proceeds without one (the Phase 0.2 step-4 exit: file nothing, remove the
+  needs-design label, stop).
+
+`approve with cuts` takes a typed list of the numbers. Delete those alternatives from the labelled
+draft **before Phase 3 step 5b derives the filing body**, so they are gone before any issue is
+created or updated. **Naming nothing is identical to plain approval** — no re-render and no second
+confirmation. A cut naming an alternative in a body that is already filed and approved is refused
+with the reason: an approved record is frozen and changes only through Phase 4.5's reopen path.
+
+The checkpoint writes no file and is spent when it is answered.
+
 ## Phase 4 — File the record as a sub-issue of the epic
 
 **Phase 4 and Phase 4.5 are filing steps, never entry points.** Every path reaches them through
-Phases 1–3: the body they write (`<scratch>/record-body.md`) is produced by Phase 3 from the Phase 1
+Phases 1–3.5 — including the Phase 3.5 checkpoint, which no filing path skips: the body they write (`<scratch>/record-body.md`) is produced by Phase 3 from the Phase 1
 analysis and is coverage-verified there. Phase 0.2 and the `--revise` token select *which* filing
 path is taken — file a new sub-issue, edit an open one, or reopen an approved one — never whether
 1–3 run. If `<scratch>/record-body.md` was not written by this run's Phase 3, stop: there is no new

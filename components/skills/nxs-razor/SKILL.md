@@ -184,3 +184,31 @@ something the lead requested, and the reviewer has to be able to see that. An as
 never offered as an inferred addition.
 
 **At least one story must survive.** An all-stories cut is a revise, not an approval.
+
+## 9. A refuted alternative is offered, not required
+
+The fourth content rule, and the razor's second judgment rule.
+
+**Write a refuted alternative only where a competent engineer might genuinely have chosen it**, and
+state the **trade-off it lost on**. A decision with no viable alternative carries no
+refuted-alternative line, and **no template may carry a standing slot, placeholder or fixed line for
+one**. The line exists only where an alternative was written.
+
+Removing the slot is the point. A fixed line with permission-to-omit in an adjacent comment is
+structurally identical to a personas heading with a deviations-only rule beside it, and it produces
+the same outcome: the slot gets filled. Removing it removes the generation pressure at its source
+rather than asking a model to resist it.
+
+**The provenance rule does not reach here.** A refuted alternative is the model's own by
+construction, so `asked` versus `inferred` discriminates nothing, and a third label value would
+break the two-valued vocabulary while restoring the self-judgment the razor removes. The question
+that discriminates is **viability**, and viability is a judgment — so, like mechanism-naming, it is
+prevented at drafting time and reported as a **non-blocking observation** for the reviewer.
+
+Two conditions on that observation:
+
+- It is produced by a party **other than the one that wrote the alternative**. A model asked to
+  judge its own additions answers in its own favour, and the author is precisely the party motivated
+  to keep them.
+- It lives **only in the gate's render**. It is never written into the draft body, so there is no
+  marker to strip and no way for one to reach a durable body by omission.

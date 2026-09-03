@@ -232,3 +232,65 @@ describe("the other drafting stages", () => {
         expect(discover).toMatch(/This is a routing constraint, not a ban on loading guidance/);
     });
 });
+
+describe("a refuted alternative", () => {
+    const template: string = fs.readFileSync(path.join(REPO_ROOT, "common", "templates", "decision-record-template.md"), "utf8");
+    const record: string = read("commands/nxs.decision-record.md").replace(/\s+/g, " ");
+
+    it("has no standing slot, fixed line or placeholder in the decision template", () => {
+        expect(template).not.toMatch(/^- \*\*Refuted alternative:\*\*/m);
+        expect(template).not.toContain("VIABLE_ALTERNATIVE_AND_WHY_IT_LOST");
+    });
+
+    it("is stated as offered-not-required where the architect authors", () => {
+        expect(read("agents/nxs-architect.md")).toMatch(/offered, not required/);
+        expect(read("agents/nxs-architect.md")).toContain("nxs-razor");
+    });
+
+    it("carries no provenance label, because viability rather than provenance discriminates it", () => {
+        expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/The provenance rule does not reach here/);
+    });
+
+    it("is reported as a non-blocking observation when its reason names no trade-off", () => {
+        expect(record).toMatch(/non-blocking observation/);
+        expect(record).toMatch(/names no trade-off/);
+    });
+
+    it("is judged by the formatting stage rather than by the agent that wrote it", () => {
+        expect(record).toMatch(/you are not the architect/i);
+    });
+});
+
+describe("the record's pre-filing checkpoint", () => {
+    const record: string = read("commands/nxs.decision-record.md").replace(/\s+/g, " ");
+
+    it("gives the gate the command already refers to a phase of its own", () => {
+        expect(record).toContain("## Phase 3.5 — Pre-filing checkpoint (MANDATORY STOP)");
+    });
+
+    it("precedes every path that creates or updates the record sub-issue", () => {
+        expect(record).toMatch(/before every path that creates or updates the record sub-issue/i);
+        expect(record).toMatch(/including `--revise`/);
+    });
+
+    it("lists every refuted alternative numbered and grouped by its decision", () => {
+        expect(record).toContain("### Refuted alternatives");
+        expect(record).toMatch(/numbered stably, grouped under the decision it belongs to/);
+    });
+
+    it("removes the named alternatives before any issue is created or updated", () => {
+        expect(record).toMatch(/before any issue is created or updated/);
+    });
+
+    it("keeps the proceed-without-a-record exit the existing reference promises", () => {
+        expect(record).toContain("**no record**");
+    });
+
+    it("treats an empty selection as plain approval", () => {
+        expect(record).toMatch(/Naming nothing is identical to plain approval/);
+    });
+
+    it("asserts that no observation marker or placeholder token reaches the filed body", () => {
+        expect(record).toMatch(/no template placeholder token and no observation marker reaches the filed body/);
+    });
+});
