@@ -36,6 +36,7 @@ nexus config backlog-query --form exclude
 | Feature                                                                    | What it covers                                                                   |
 | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | [Application Shell](application-shell/README.md)                           | The persistent frame and ephemeral surfaces wrapping the Claude Code session.     |
+| [Artifact Prose Style](artifact-prose-style/README.md)                     | Plain-language rules for every human-facing artifact, at a resident cost worth paying. |
 | [Command Input](command-input/README.md)                                   | An editable, multi-line command prompt in the terminal region.                    |
 | [Concept Domain Taxonomy](concept-domains/README.md)                       | A curated domain taxonomy for the concept atlas, replacing derived headings.      |
 | [Concept Store Capacity](concept-store-capacity/README.md)                 | Keeping concept pages cheap to load and their touches graph growable.             |
