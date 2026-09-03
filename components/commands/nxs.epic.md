@@ -505,6 +505,10 @@ nexus config backlog-query
     - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M**
       into ≤ M stories before finalizing — the story is the implementation unit (0009), so an
       oversized story is split here, not filed. Record each story's `size`.
+    - **Answer the necessity question** (nxs-razor §7): which of these stories does the smallest
+      usable version of this capability need? Write the answer as the epic's `## Smallest Usable
+      Version` line. It is scope reasoning a later reader consumes, so it is one of the few razor
+      outputs that reaches the filed body.
     - For unclear aspects, make informed guesses from context and standards. Mark `[NEEDS CLARIFICATION: …]` only when the choice materially changes scope or UX and no reasonable default exists. **Max 3 markers.** Prioritize: scope > security/privacy > UX > technical.
 3. For each story assign **`story_type`**:
     - `user` — acceptance criteria describe a behavioral outcome observable by an end-user.
@@ -905,9 +909,13 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 - <measurable, technology-agnostic criterion>
 
-## Personas
+## Personas   <!-- deviations only — no table when the canonical personas apply as-is (nxs-razor §6) -->
 
 <Deviations only. Personas are canonical in `<docs-root>/product/context.md` — the `<docs-root>` resolved in Phase 0, with the empty-prefix rule applied (so `product/context.md` on a repo-root hub, `docs/product/context.md` in a single-repo checkout). If this epic uses them as-is, write that resolved path: "Per `<docs-root>/product/context.md`." Tabulate only personas specific to this epic or deviations from the canonical set.>
+
+## Smallest Usable Version
+
+<the stories the smallest usable version of this capability needs, named by title, and nothing else — the necessity answer (nxs-razor §7). It reaches the filed issue and orders the digest's cut list.>
 
 ## User Stories
 
@@ -918,8 +926,9 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 **As a** <persona>, **I want** <goal>, **so that** <benefit>.
 
-#### Acceptance Criteria
+#### Acceptance Criteria   <!-- 3–5 (nxs-razor §5); above five, add one `**Reason for <n>:**` line here -->
 
+- [ ] **Given** <precondition>, <when>, <then>   <!-- names no mechanism (nxs-razor §6) -->
 - [ ] **Given** <precondition>, **when** <action>, **then** <expected result>
 <!-- For story_type: system, at least one AC must state a measurable metric, threshold,
      or pass/fail assertion — not prose like "implement caching". -->
@@ -932,11 +941,11 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 <repeat>
 
-## Assumptions
+## Assumptions   <!-- max 5, no escape; may be empty (nxs-razor §5) -->
 
 - <reasonable defaults chosen for unspecified details>
 
-## Out of Scope
+## Out of Scope   <!-- max 5, no escape; may be empty (nxs-razor §5) -->
 
 - <explicitly excluded; for the "full" oversized path, note deferred scope here>
 

@@ -92,3 +92,63 @@ surviving token fails the run before any issue is created or updated.**
 
 The assertion is the point. "Remember to strip the labels" is an instruction a model can drop; this
 is a condition that is checked, at the cost of one more invocation of a tool that already ran.
+
+## 5. The counted limits
+
+These numbers live here and nowhere else. A drafting template may restate one as a short phrase
+beside the heading it bounds; that restatement is a pointer, and `nexus razor-check` enforces the
+numbers on this page.
+
+| What is counted | Limit | Escape |
+|---|---|---|
+| acceptance criteria on one story | three to five | above five: one stated reason for the story |
+| items under `## Assumptions` | no more than five | none — the section may be empty |
+| items under `## Out of Scope` | no more than five | none — the section may be empty |
+
+**Only the ceiling blocks.** The lower bound of three is drafting guidance and is never checked:
+**no minimum-count check exists anywhere in the razor**, and no rule may require an item to be
+generated to satisfy a floor. A blocking floor is a generation mandate — a story with two genuinely
+sufficient criteria would be held until a third is manufactured, which is the padding the razor
+exists to remove.
+
+A story above the ceiling carries **one** labelled line beside its acceptance-criteria heading:
+
+    **Reason for six:** <why the sixth criterion is not a merge of two others>
+
+The reason is per story, not per criterion — the overage is a property of the story, not of the
+sixth item. The checker tests only that the reason is **present**; whether it is adequate is the
+reviewer's call at the digest, and the digest renders it so they can make it.
+
+## 6. The content rules
+
+**No personas table.** Personas are canonical in the product context. An epic whose personas match
+it writes the path and nothing else; a table is written only for a persona specific to this epic or
+a deviation from the canonical set. The presence of a table under the personas heading is a
+structural test, so it **blocks**.
+
+**No acceptance criterion names a mechanism.** A mechanism is a named product, protocol, data
+format, configuration file, or internal component of the system being built. A user-facing surface
+the lead interacts with — a command, a gate, a digest — is not a mechanism. A criterion that names
+one is decision-record content promoted into binding scope: it fixes the how before anyone has
+approved the what.
+
+Mechanism-naming is a judgment and not a count, so it is **prevented here, at drafting time**, and
+surfaced downstream only as a non-blocking observation for the reviewer. It never blocks.
+
+**A refuted alternative is offered, not required.** See §8.
+
+## 7. The necessity question
+
+Before the draft is finished, answer: **which of these stories does the smallest usable version of
+this capability need?**
+
+The answer is one line in the epic body, under its own heading, and it reaches the filed issue:
+
+    ## Smallest Usable Version
+
+    <the stories the smallest usable version needs, named by title, and nothing else>
+
+This is the one razor rule whose answer a later reader genuinely consumes — it is scope reasoning,
+not planning bookkeeping — so unlike the labels it earns a durable home. It is also a lever rather
+than a statement: the approval digest sorts the stories it excludes to the top of the cut list, so
+the reviewer's eye lands first on what the smallest usable version does not need.

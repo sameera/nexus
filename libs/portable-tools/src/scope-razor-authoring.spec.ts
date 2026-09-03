@@ -69,3 +69,48 @@ describe("the epic drafting stage", () => {
         expect(body).toMatch(/--assert-clean/);
     });
 });
+
+describe("the razor's counted limits and content rules", () => {
+    it("state the acceptance-criteria range and the ceiling's stated-reason escape", () => {
+        const body: string = read(RAZOR);
+        expect(body).toMatch(/three to five/i);
+        expect(body).toMatch(/stated reason/i);
+    });
+
+    it("state one limit for assumptions and out-of-scope items, with no escape", () => {
+        expect(read(RAZOR)).toMatch(/no more than five/i);
+    });
+
+    it("never require an item to be generated to satisfy a floor", () => {
+        expect(read(RAZOR)).toMatch(/no minimum-count check/i);
+    });
+
+    it("ban a personas table and a mechanism-naming acceptance criterion", () => {
+        const body: string = read(RAZOR);
+        expect(body).toMatch(/personas table/i);
+        expect(body).toMatch(/mechanism/i);
+    });
+
+    it("state the necessity question as one durable line", () => {
+        expect(read(RAZOR)).toMatch(/smallest usable version/i);
+    });
+});
+
+describe("the epic template", () => {
+    const template: string = read("commands/nxs.epic.md");
+
+    it("restates each counted limit beside the heading it bounds", () => {
+        // The observed failure was a heading's presence beating a rule stated far from it, so the
+        // number has to sit where the model is writing — pointing at the skill, not replacing it.
+        const headings: RegExp[] = [/#### Acceptance Criteria[^\n]*\n?[^\n]*3–5/, /## Assumptions[^\n]*max 5/, /## Out of Scope[^\n]*max 5/];
+        for (const heading of headings) expect(template).toMatch(heading);
+    });
+
+    it("restates the deviations-only personas rule as a ban on the table beside the heading", () => {
+        expect(template).toMatch(/## Personas[^\n]*no table/);
+    });
+
+    it("carries the necessity answer as a line of the epic body, so it reaches the filed issue", () => {
+        expect(template).toContain("## Smallest Usable Version");
+    });
+});

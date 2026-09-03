@@ -9,3 +9,9 @@
 - **Choice:** `[inferred]` and `[asked: "…"]` match with or without surrounding backticks, and stripping collapses the whitespace it leaves behind.
 - **Why:** a draft reads better with the label in code ticks and the checker must not make that a formatting rule the author has to get right.
 - **Refuted alternative:** require the backticks, so the grammar is exact. It converts a rendering preference into a blocking condition, which is the escape-valve failure the citation rule already refuses.
+
+## 2026-09-03 — the template restatements are HTML comments beside the heading
+
+- **Choice:** each counted limit is restated as an HTML comment on the heading's own line in the epic template, naming the skill section it points at.
+- **Why:** the template block is itself the thing a drafting model copies, so the restatement has to survive into the model's working copy without surviving into the epic it writes; a comment on the heading line does both.
+- **Refuted alternative:** a prose line under each heading. It renders in the draft the model produces, so the pointer would leak into the filed body — the same leak the derived-body assertion exists to stop.
