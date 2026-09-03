@@ -1,27 +1,27 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability"]
-last_updated_by: "#257"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification"]
+last_updated_by: "#414"
 status: active
 verification: verified
 ---
 
 # Distiller
 
-The distiller drains queue entries into the concept store — what changed from the merged diff, why from the closed records — inferring the mapping and applying it through a reviewed pull request.
+The distiller drains queue entries into the concept store. It draws what changed from the merged diff and why from closed records. It infers the mapping and applies it through a reviewed pull request.
 
 ## How It Works
 
-It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area alike. For each it recomputes the diff from history, resolves the why by precedence, and maps both to per-concept deltas. An entry absent from the trunk is gated on its recorded range head reaching the trunk or resolving to a merged pull request, never on a file's presence. A lost entry is rebuilt on explicit request from its close comment. Its reciprocity step never drops, demotes, or compresses an interaction to fit a page — an interaction too large for one bounded bullet is declared as two edges — and it splits a page only when the page's own content overflows. It writes the store only through the merge consuming each entry.
+It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area alike. It recomputes the diff from history for each entry, resolves the why by precedence, and maps both to per-concept deltas. An entry absent from the trunk is gated on its recorded range head reaching the trunk or resolving to a merged pull request, never on a file's presence. A lost entry is rebuilt on explicit request from its close comment. Its reciprocity step never drops, demotes, or compresses an interaction to fit a page. When an interaction is too large for one bounded bullet, it is declared as two edges. The distiller splits a page only when the page's own content overflows. It writes the store only through the merge consuming each entry. Every page it creates or updates, and the pull-request body, are translated and verified before the validator reads them. It is the one stage handed grounding sources: the epic and the decision record. A page's phrasing can therefore be lifted from them rather than left abstract.
 
 ## Key Invariants
 
 1. It is the single producer of the concept store.
 2. The what is the recomputed, never-stored diff; the why is the hash-verified record issue body, else the committed decision record, else the close record; a mismatch hard-errors with no waiver.
-3. Judgment is the model's; the reciprocity, anchor, and validator steps are deterministic.
+3. ~~Judgment is the model's; the reciprocity, anchor, and validator steps are deterministic.~~ Judgment is the model's; the reciprocity, anchor, prose-verification and validator steps are deterministic.
 4. ~~A validation failure blocks the apply; a failing page is never shipped.~~ A blocking validation result stops the apply and a failing page is never shipped; an advisory never blocks and is carried to the reviewer.
-5. It infers the concept mapping itself — the pipeline emits no structured concept list.
+5. It infers the concept mapping itself. The pipeline emits no structured concept list.
 6. Draining is a manually-invoked curated step, not an automated trigger; recovery from a closed epic issue is an explicit per-entry request, never a discovery scan.
 7. Input is only gated entries and the recomputed diff, never plans or ungated capture; decision-only memos drain diff-less into logs.
 
@@ -46,6 +46,8 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [finding-severity](finding-severity.md) — the two-class validation result it gates on by exit status alone.
 - [pre-epic-discovery](pre-epic-discovery.md) — the ungated store its behavioral diff excludes, alongside the queue.
 - [verb-reachability](verb-reachability.md) — its atlas, validator, entry-diff, drift-advisory and registry-seeding steps are now also reachable as verbs on the shared executable, alongside their standalone forms through the duplication window.
+- [prose-translation](prose-translation.md) — translates every page and pull-request body it writes, and takes grounding sources here alone.
+- [prose-verification](prose-verification.md) — proves each translated page kept its regions and tracked items before the validator runs.
 
 ## Decision Log
 
@@ -124,3 +126,7 @@ Mechanical reciprocity fan-out: the verb-reachability page names this drain's at
 ### 2026-08-27 — #257 — One invocation for the deterministic steps, in every mode
 
 The deterministic steps stopped choosing their runner from the checkout's role: the validator, the atlas regeneration and the drift advisory now run through the single in-repo invocation whatever the mode, and the hub branch that named a copy inside the repository is gone. That branch only ever existed because a hub carried its own copy of the toolkit; once the copy was retired the branch named nothing, so removing it was the honest reading rather than repointing it. What survives as a mode-gated call is the cross-repo diff derivation, which is genuinely a hub-only capability and is now asked for as a named capability on the installed toolkit rather than as a file inside the hub — a toolkit too old to offer it reports an install to update, not a missing file. The surviving single-mode validator instruction also absorbed the stricter argument list the deleted hub branch carried, because anchors are regenerated in every mode and the weaker form would have silently dropped their validation. Refuted alternative: keep the role branch and point its hub arm at the installed toolkit, preserving the shape — but it keeps a distinction alive for tooling that no longer has anything to distinguish.
+
+### 2026-09-02 — #414 — Concept pages are translated, and grounded from the records
+
+Concept pages are the one surface no reviewer reads closely before it merges, so the plain-language rules had to reach them without a human proofreading step. Each page and the pull-request body are now translated and verified before the validator sees them, and this is the only stage handed source material, so an abstraction can be replaced by a clause the epic or the record already states. The fetched record body is written to a file for that reason: the grounding pointer had named a path no phase ever wrote, leaving half the source material unreachable. Refuted alternative: re-fetch the record when the translator runs, which needs no new file — it lost because it is a second read of a body already hashed at preflight, and a second chance for the two copies to disagree.

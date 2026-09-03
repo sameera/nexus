@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "delegating-port", "additive-surface-fold"]
-last_updated_by: "#354"
+touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "delegating-port", "additive-surface-fold", "prose-verification"]
+last_updated_by: "#414"
 status: active
 verification: verified
 ---
@@ -41,6 +41,7 @@ Every reachable capability is declared once in one registry, mapping a name to i
 - [environment-guard](environment-guard.md) — cross-cutting behavior placed in the dispatcher rather than in each verb, which is what makes a later-added verb covered by it.
 - [delegating-port](delegating-port.md) — a row here whose runnable delegates to a retained entry point on another runtime, so porting needs no second registry.
 - [additive-surface-fold](additive-surface-fold.md) — rows added here while a second name still declared the same capabilities, which is what let the caller rewrite ship separately from the withdrawal.
+- [prose-verification](prose-verification.md) — a shipped component body invokes the translation check by name, so it earns a declared verb over a library.
 
 ## Decision Log
 
@@ -76,3 +77,7 @@ A delegating port leaves its not-yet-ported capabilities as ordinary rows in thi
 ### 2026-08-31 — #354 — One registry, subverbs read from the table that dispatches them, and one release-identity name
 
 The three capabilities that ran on the other runtime were folded in as flat top-level verbs under the names they already answered to, and the second registry was deleted with its name. Grouping them under one forge-facing verb reads better and would have signalled that these three talk to a forge while the rest do not — refuted because the gate resolves at most a verb plus one further name, and the configuration resolver already carries a command layer, so a grouping token would push its commands to three tokens and widen the gate in the epic that exists to narrow it. The folded resolver's further names are read from the table that dispatches them rather than hand-listed beside the three existing literal lists, because this was the one place the epic was adding surface and a hand-maintained copy is what invariant 7 forbids. Release identity resolved the same way it was deferred to be resolved: the narrower capability was never folded, so the registry never gained a second candidate and exactly one name reports identity at the fold rather than only after the withdrawal.
+
+### 2026-09-02 — #414 — Reciprocal link from prose-verification
+
+Recorded the fan-out from the prose-verification page. A shipped component body invokes that check, which is what earns it a verb on the shared executable rather than leaving it a source-only library.
