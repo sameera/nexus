@@ -49,6 +49,7 @@
     "@nexus/epic-resolve": "workspace:*",
     "@nexus/pr-acceptance": "workspace:*",
     "@nexus/pr-worktree": "workspace:*",
+    "@nexus/prose-verify": "workspace:*",
     "@nexus/record-digest": "workspace:*",
     "@nexus/workspace": "workspace:*",
     "@nx/eslint": "23.0.1",

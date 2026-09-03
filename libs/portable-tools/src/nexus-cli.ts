@@ -44,6 +44,8 @@ import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
+import { renderVerifyResult } from "@nexus/prose-verify/render";
+import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
 import { renderWorkspaceStatus } from "@nexus/workspace/status";
@@ -211,6 +213,16 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Print { issue, repo, state, stateReason, approved, digest }.",
         ].join("\n"),
         run: runRecordDigest,
+    },
+    "prose-verify": {
+        summary: "Prove a translated artifact kept its machine-read regions byte-identical and every tracked item intact.",
+        usage: [
+            "  nexus prose-verify --before <path> --after <path> [--source <path>]...",
+            "      Exit 0 when frontmatter, fenced blocks, HTML comments and Given/When/Then lines match,",
+            "      and every number, modal, name-shaped token, heading, list item and table row survives.",
+            "      --source names a grounding source, which is what permits an introduced item.",
+        ].join("\n"),
+        run: runProseVerify,
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
@@ -902,6 +914,55 @@ async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
 
     const { issue, repo, state, stateReason, approved, digest } = result.record;
     io.stdout(JSON.stringify({ issue, repo, state, stateReason, approved, digest }));
+    return 0;
+}
+
+interface ProseVerifyFlags {
+    before?: string;
+    after?: string;
+    /** The grounding sources the run named, in the order they were given. Repeatable. */
+    sources: string[];
+}
+
+function parseProseVerifyFlags(argv: string[]): ProseVerifyFlags {
+    const flags: ProseVerifyFlags = { sources: [] };
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--before") flags.before = argv[++i];
+        else if (a === "--after") flags.after = argv[++i];
+        else if (a === "--source") flags.sources.push(argv[++i]);
+    }
+    return flags;
+}
+
+/**
+ * `nexus prose-verify` — the deterministic half of the prose-translation contract (stories #417 and
+ * #423). A shipped component body invokes it by this name, so the component-invocation gate
+ * resolves it against the declared surface rather than against a repository-relative script.
+ *
+ * One invocation returns one verdict covering both properties the contract claims: the machine-read
+ * regions are byte-identical, and every tracked item survived. `--source` is repeatable and names
+ * the grounding sources the translator was handed, which is what makes an introduced item
+ * permissible; a run that names none permits no introduction at all.
+ */
+async function runProseVerify(argv: string[], io: CliIo): Promise<number> {
+    const flags: ProseVerifyFlags = parseProseVerifyFlags(argv);
+    if (flags.before === undefined || flags.after === undefined) {
+        io.stderr("usage: nexus prose-verify --before <path> --after <path> [--source <path>]...");
+        return 2;
+    }
+
+    const result: VerifyResult = verifyTranslation(
+        (target: string) => fs.readFileSync(path.resolve(io.cwd, target), "utf8"),
+        flags.before,
+        flags.after,
+        flags.sources,
+    );
+    if (!result.ok) {
+        io.stderr(renderVerifyResult(result));
+        return 1;
+    }
+    io.stdout(renderVerifyResult(result));
     return 0;
 }
 

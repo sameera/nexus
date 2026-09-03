@@ -1,0 +1,9 @@
+{
+  "name": "@nexus/prose-verify",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/prose-verify/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/prose-verify --web",
+  "targets": {}
+}
