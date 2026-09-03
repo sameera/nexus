@@ -53,6 +53,43 @@ export interface Scan {
  */
 const MODALS: readonly string[] = ["may", "might", "must", "shall", "should", "will", "would", "can", "could", "ought"];
 
+/**
+ * The adverbs a writer may set between a modal and its negation, as in "can simply not have it".
+ * Any word ending in "ly" qualifies too. The list is closed and the gap below is bounded so that a
+ * "not" belonging to a later clause never negates an earlier modal.
+ */
+const NEGATION_ADVERBS: ReadonlySet<string> = new Set([
+    "almost", "also", "always", "certainly", "even", "ever", "further", "generally", "just",
+    "merely", "necessarily", "normally", "now", "often", "only", "quite", "really", "simply",
+    "still", "then", "therefore", "thus", "usually", "yet",
+]);
+
+/** How many adverbs may stand between a modal and the "not" that negates it. */
+const MAX_NEGATION_GAP = 3;
+
+/** Whether a word may stand between a modal and its negation without breaking the pair. */
+function isNegationAdverb(word: string): boolean {
+    return NEGATION_ADVERBS.has(word) || (word.length > 3 && word.endsWith("ly"));
+}
+
+/**
+ * How many atoms ahead the "not" that negates this modal stands, or undefined when the modal is
+ * positive. Anything but an adverb between the two ends the search, so "it can stop runs that are
+ * not faithful" keeps its modal positive.
+ */
+function negationOffset(atoms: readonly Atom[], position: number): number | undefined {
+    for (let ahead = 1; ahead <= MAX_NEGATION_GAP + 1; ahead++) {
+        const word: string = at(atoms, position + ahead);
+        if (word === "not") {
+            return ahead;
+        }
+        if (!isNegationAdverb(word)) {
+            return undefined;
+        }
+    }
+    return undefined;
+}
+
 /** The contracted negations, mapped to the modal they negate. */
 const CONTRACTED_NEGATIONS: Readonly<Record<string, string>> = {
     cannot: "can",
@@ -364,9 +401,9 @@ export function extractTracked(content: string): Scan {
                 continue;
             }
             if (MODALS.includes(lowered)) {
-                const isNegated: boolean = at(atoms, position + 1) === "not";
-                skip = isNegated ? 1 : 0;
-                const value = isNegated ? `${lowered} not` : lowered;
+                const negated: number | undefined = negationOffset(atoms, position);
+                skip = negated ?? 0;
+                const value = negated === undefined ? lowered : `${lowered} not`;
                 items.push(item("modal", value, value, line));
                 continue;
             }

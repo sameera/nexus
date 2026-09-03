@@ -105,3 +105,8 @@
 - **Choice:** the restore-and-retranslate step is one clause inside each command's shared prose-convention block ("on a failure, restore `<file>` from it and translate once more"), and no translate point repeats it.
 - **Why:** record #421's invariant 11 caps the shared block and buys that cap by keeping every translation point free of mechanics; stating the retry per point would multiply it by the number of artifacts a command drafts.
 - **Refuted alternative:** state the retry at each translate point, which reads better in place — but `/nxs.distill` carries two points and `/nxs.epic` two, so the mechanics would be written four times for one rule.
+
+## 2026-09-02 — A negated modal tolerates a bounded run of adverbs
+- **Choice:** the modal reader pairs a modal with a later `not` across up to three intervening adverbs — a closed list plus any word ending in "ly" — so "can simply not have" keys the same as "cannot have".
+- **Why:** the first real translator run rewrote "the design can simply not have" to "the design cannot have", which is meaning-preserving and strength-preserving, and the reader failed it because it only recognised a negation sitting immediately after the modal.
+- **Refuted alternative:** scan forward to the next `not` anywhere in the sentence — catches every separation, but "it can stop runs that are not faithful" would then read as a negated modal, inverting a claim the author never made.

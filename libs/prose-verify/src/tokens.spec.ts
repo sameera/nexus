@@ -94,6 +94,26 @@ describe("extractTracked — modal verbs", () => {
         expect(keysOf("The run must not proceed.\n", "modal")).toEqual(["modal:must not"]);
     });
 
+    it("reads a negation the writer separated with an adverb", () => {
+        expect(keysOf("The design can simply not have it.\n", "modal")).toEqual(["modal:can not"]);
+    });
+
+    it("reads a negation separated by several adverbs", () => {
+        expect(keysOf("The gate must almost certainly not fire.\n", "modal")).toEqual(["modal:must not"]);
+    });
+
+    it("keeps a modal positive when too many adverbs stand before the not", () => {
+        expect(keysOf("The gate must simply really quite certainly not fire.\n", "modal")).toEqual(["modal:must"]);
+    });
+
+    it("keeps a modal positive when the nearby not belongs to a later clause", () => {
+        expect(keysOf("It can run the check, but the author does not read it.\n", "modal")).toEqual(["modal:can"]);
+    });
+
+    it("keeps a modal positive when a noun stands between it and a not", () => {
+        expect(keysOf("It can stop runs that are not faithful.\n", "modal")).toEqual(["modal:can"]);
+    });
+
     it("reads a contracted negation as the negated modal", () => {
         expect(keysOf("The run shouldn't proceed.\n", "modal")).toEqual(["modal:should not"]);
     });
