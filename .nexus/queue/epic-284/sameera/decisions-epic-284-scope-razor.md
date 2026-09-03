@@ -33,3 +33,9 @@
 - **Choice:** applying cuts ends by re-running Phase 4b on the cut draft before Phase 6.
 - **Why:** a cut changes the counts the gate checked — deleting five of six acceptance criteria leaves a stated reason with nothing to excuse, and a story cut changes the sequence table — so the verdict the reviewer saw is about a document that no longer exists.
 - **Refuted alternative:** trust the pre-cut gate result, since cutting only removes content and every counted limit is a ceiling. It holds for the limits, but not for the re-derived complexity, the re-parented edges or an orphaned stated reason.
+
+## 2026-09-03 — the record's labelled draft is a second file, not an in-place edit
+
+- **Choice:** Phase 3 writes `record-body.labelled.md` and derives `record-body.md` from it, rather than labelling `record-body.md` and stripping in place.
+- **Why:** Phase 4 refuses to file if `record-body.md` was not written by this run's Phase 3, and the assertion has to run over the file that is actually filed; two files make both true without changing the filing contract.
+- **Refuted alternative:** label in place and strip before filing. One fewer artifact, but a run that stops between the two leaves a labelled body at the exact path Phase 4 files from.

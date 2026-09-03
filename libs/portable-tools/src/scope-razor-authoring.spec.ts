@@ -192,3 +192,43 @@ describe("the approval digest", () => {
         expect(epic).toMatch(/re-derived, or removed/);
     });
 });
+
+describe("the other drafting stages", () => {
+    const record: string = read("commands/nxs.decision-record.md").replace(/\s+/g, " ");
+    const discover: string = read("commands/nxs.discover.md").replace(/\s+/g, " ");
+
+    it("load the razor rather than restating it", () => {
+        expect(record).toContain("nxs-razor");
+        expect(discover).toContain("nxs-razor");
+        expect(record).toMatch(/this command restates none of it/);
+    });
+
+    it("label the record's invariants and risks in the same two-valued form", () => {
+        expect(record).toMatch(/Label every invariant and every risk/);
+        expect(record).toContain("[inferred]");
+    });
+
+    it("label a discovery's questions and open entries, but never a resolution", () => {
+        expect(discover).toContain("[inferred]");
+        expect(discover).toMatch(/Resolutions are never labelled/);
+    });
+
+    it("check their own drafts with the shared checker and gain no gate agent", () => {
+        expect(record).toContain("nexus razor-check");
+        expect(discover).toContain("nexus razor-check");
+        expect(record).toMatch(/no gate agent and gains none/);
+    });
+
+    it("check each asked fragment against the source text that stage was given", () => {
+        expect(record).toMatch(/Materialize the run's source text/);
+        expect(discover).toMatch(/Materialize the run's source text beside the discovery/);
+    });
+
+    it("strip the labels before the record body is filed, and assert that none survived", () => {
+        expect(record).toContain("--assert-clean");
+    });
+
+    it("leave discovery's routing constraint intact while permitting the shared skill", () => {
+        expect(discover).toMatch(/This is a routing constraint, not a ban on loading guidance/);
+    });
+});

@@ -627,12 +627,22 @@ that files issues: `/nxs.epic --discovery <folder>`.
   that reads the queue.
 - **No durable link into the store.** Copy in full instead; the folder is removed when the discovery
   ends.
+- **The razor applies to what a discovery drafts.** Load the **`nxs-razor`** skill. Materialize the
+  run's source text beside the discovery — the initiative as the lead described it — and label the
+  discovery document's not-yet-specified and out-of-scope entries, and each ticket's question, in the
+  same two-valued form: `[asked: "…"]` with a fragment quoted from that source, or `[inferred]`.
+  **Resolutions are never labelled** — a resolution is a decision made in session and is inferred by
+  construction, so labelling it would be uniform noise. Run the same checker the epic gate runs
+  (`nexus razor-check --draft <the drafted file> --source <the materialized source>`) and fix what
+  blocks. Nothing here reaches the issue tracker, and no durable link enters the discovery folder.
 - **A decision ticket is a question whose resolution is a decision** — never a slice of build work.
   If a ticket reads like something an engineer would implement, it is not a ticket.
 - **The destination is immutable.** Changing it invalidates rulings that were made against the old
   boundary and never re-validated. Close the discovery and start another instead.
 - **The command commits and never pushes.** Sharing is the user's `git push`.
-- **No new agents or skills.** Every ticket type routes to machinery that already exists.
+- **No new agents, and every ticket type routes to machinery that already exists.** This is a
+  routing constraint, not a ban on loading guidance: the shared **`nxs-razor`** skill is loaded here
+  because the razor has one normative home and this is one of the stages that drafts under it.
 - **One decision per session, one commit.** Research agents may run in parallel to it, and they
   resolve nothing.
 - **A ticket is claimed before any work begins**, and the claim's owner is a GitHub login. The only

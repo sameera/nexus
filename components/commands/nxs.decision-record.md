@@ -341,9 +341,37 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
 
 3. Fill the template from the architect's output.
 4. Delete all template guidance comments before writing.
+4b. **Apply the razor** (load the **`nxs-razor`** skill; it is the same rule set `/nxs.epic` drafts
+   under, and this command restates none of it).
+
+    - **Materialize the run's source text** to `<scratch>/source.md` before labelling anything: the
+      epic body and its stories, plus the imported design doc in `--from` mode. Every citation in
+      this run is checked against that file and nothing else.
+    - **Label every invariant and every risk** inline, `[asked: "…"]` with a fragment quoted from
+      `source.md`, or `[inferred]`. The vocabulary has two values. Decisions and refuted alternatives
+      are not labelled — a refuted alternative is the model's own by construction, so the label would
+      discriminate nothing.
+    - **Check the draft**, and fix what blocks before going on:
+
+        ```bash
+        nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md"
+        ```
+
+      This stage has no gate agent and gains none. It runs the same checker the epic gate runs, over
+      its own draft, which is what makes "the same rules" true rather than asserted.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or
    invariant. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
+
+5b. **Derive the filing body.** The labelled draft is not what is filed. Strip every label into
+   `<scratch>/record-body.md` and assert that none survived:
+
+    ```bash
+    nexus razor-check --draft "<scratch>/record-body.md" --assert-clean
+    ```
+
+    A non-zero exit stops the run — **file nothing**. The record body is the artifact the record hash
+    is taken over, so a label surviving into it would report a design that did not change as changed.
 
 **The record body is pure human prose** — on the issue-sourced path it becomes a GitHub issue body,
 and that body is the artifact the record hash is taken over. So:
