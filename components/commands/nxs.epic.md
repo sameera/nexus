@@ -87,6 +87,19 @@ second failure stops the run — file nothing, and keep `<file>.pre` for diagnos
 density finding before the gate: rewrite the flagged line, or state why the wording stands. File
 the translated file verbatim.
 
+## Scope convention — the razor
+
+Before drafting anything, load the **`nxs-razor`** skill. It is the one normative statement of the
+provenance rule, and this command restates none of it — where a phrase below and the skill disagree,
+the skill governs and `nexus razor-check` enforces the skill's numbers.
+
+Two obligations land in this command's phases:
+
+- **Phase 4 materializes the run's source text** to `${DRAFT_DIR}/source.md` before any item is
+  labelled, and every citation check in the run compares against that file.
+- **Phase 6 files from a derived body**, not from the labelled draft. Provenance labels are for the
+  gate and the digest; a durable reader is never asked to read planning bookkeeping.
+
 Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
@@ -512,6 +525,16 @@ DRAFT_DIR="<your-session-scratch>/nxs-epic-${EPIC_SLUG}"
 mkdir -p "$DRAFT_DIR"
 ```
 
+**Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the
+capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the
+discovery document plus every resolved ticket (discovery mode). Write it before labelling anything —
+the labels cite it, and the gate has no other way to see what the lead actually asked for. It is
+session scratch and stays there: no part of it is posted to an issue, a comment or a report.
+
+**Then label every acceptance criterion, assumption and out-of-scope item** inline, `[asked: "…"]`
+with a fragment quoted from `source.md`, or `[inferred]`. The vocabulary is the skill's and has two
+values.
+
 `EPIC_SLUG` is the epic's kebab-case slug decided in Phase 3 (the same value written to the draft's
 `slug:` frontmatter). Write the epic to `${DRAFT_DIR}/epic.md` — this is the working draft the epic
 gate (Phase 4b) and the approval digest (Phase 5) read, and the source the filing skill (Phase 6)
@@ -622,6 +645,18 @@ emit a free-text prompt line. Two options:
   committed, so there is nothing to clean up.
 
 ## Phase 6 — File the epic and story issues (on approve)
+
+**Derive the filing body first (before step 1).** The draft carries provenance labels; the issues
+must not. Copy `${DRAFT_DIR}/epic.md` to `${DRAFT_DIR}/epic.filing.md`, remove every `[asked: "…"]`
+and `[inferred]` label from it, and assert that none survived:
+
+```bash
+nexus razor-check --draft "${DRAFT_DIR}/epic.filing.md" --assert-clean
+```
+
+A non-zero exit stops the run: **file nothing**, fix the derived body, and re-assert. Every step
+below files from `${DRAFT_DIR}/epic.filing.md`, and every reference to the draft in this phase means
+that derived file. The labelled `epic.md` stays in scratch as the reviewer's drill-down.
 
 Issue creation is **coupled**: the epic issue and its story sub-issues are created together in this
 one step. There is no separate task command — the story is the implementation unit (0009), so each

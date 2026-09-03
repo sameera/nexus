@@ -45,6 +45,8 @@ import { deriveRange } from "@nexus/pr-worktree/range";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
+import { survivingLabels, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
+import { renderSurvivingLabels } from "@nexus/scope-razor/render";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
@@ -223,6 +225,15 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      --source names a grounding source, which is what permits an introduced item.",
         ].join("\n"),
         run: runProseVerify,
+    },
+    "razor-check": {
+        summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
+        usage: [
+            "  nexus razor-check --draft <path> --assert-clean",
+            "      Exit 0 when the derived filing body carries no provenance label; exit 1 naming",
+            "      every surviving token, so a labelled body is never filed.",
+        ].join("\n"),
+        run: runRazorCheck,
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
@@ -963,6 +974,53 @@ async function runProseVerify(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
     io.stdout(renderVerifyResult(result));
+    return 0;
+}
+
+interface RazorCheckFlags {
+    draft?: string;
+    assertClean: boolean;
+}
+
+function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
+    const flags: RazorCheckFlags = { assertClean: false };
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--draft") flags.draft = argv[++i];
+        else if (argv[i] === "--assert-clean") flags.assertClean = true;
+    }
+    return flags;
+}
+
+/**
+ * `nexus razor-check` — the razor's one mechanical enforcer (epic #284). Every consumer of a
+ * counted limit, a citation comparison or a token-survival assertion invokes this verb rather than
+ * restating the rule, which is what makes "the same rules in four places" true instead of asserted.
+ *
+ * `--assert-clean` is the gate between a labelled draft and a filed issue body: it fails on any
+ * surviving provenance label, so leakage is a checked condition and not something a drafting model
+ * has to remember.
+ */
+async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
+    const flags: RazorCheckFlags = parseRazorCheckFlags(argv);
+    if (flags.draft === undefined || !flags.assertClean) {
+        io.stderr("usage: nexus razor-check --draft <path> --assert-clean");
+        return 2;
+    }
+
+    let body: string;
+    try {
+        body = fs.readFileSync(path.resolve(io.cwd, flags.draft), "utf8");
+    } catch {
+        io.stderr(`razor-check: cannot read ${flags.draft}`);
+        return 1;
+    }
+
+    const findings: RazorFinding[] = survivingLabels(body);
+    if (findings.length > 0) {
+        io.stderr(renderSurvivingLabels(flags.draft, findings));
+        return 1;
+    }
+    io.stdout(`razor-check: ${flags.draft} carries no drafting-time token`);
     return 0;
 }
 

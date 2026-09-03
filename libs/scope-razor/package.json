@@ -1,0 +1,19 @@
+{
+    "name": "@nexus/scope-razor",
+    "version": "0.0.1",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./labels": {
+            "types": "./src/labels.ts",
+            "import": "./src/labels.ts",
+            "default": "./src/labels.ts"
+        },
+        "./render": {
+            "types": "./src/render.ts",
+            "import": "./src/render.ts",
+            "default": "./src/render.ts"
+        },
+        "./package.json": "./package.json"
+    }
+}

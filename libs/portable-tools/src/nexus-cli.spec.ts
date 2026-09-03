@@ -457,3 +457,37 @@ describe("bare-runtime portability (epic #60 success metric)", () => {
         expect(stdout).toContain('"removed":true');
     });
 });
+
+describe("nexus razor-check", () => {
+    it("is a dispatch name the executable declares, so a component body may invoke it (story #285)", () => {
+        expect(DISPATCH_NAMES).toContain("razor-check");
+    });
+
+    it("exits 2 with a usage diagnostic when no draft is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-razor-check-"));
+        expect(await runNexusCli(["razor-check", "--assert-clean"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--draft");
+    });
+
+    it("exits 0 when the derived body carries no drafting-time token", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.filing.md"), "# Epic: A\n\n- The user can log out\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.filing.md", "--assert-clean"], io)).toBe(0);
+    });
+
+    it("exits non-zero and names the line when a provenance label survived into the filing body", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.filing.md"), "# Epic: A\n\n- The user can log out `[inferred]`\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.filing.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("3");
+        expect(io.err.join("\n")).toContain("inferred");
+    });
+
+    it("exits non-zero rather than reporting success when the draft cannot be read", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-razor-check-"));
+        expect(await runNexusCli(["razor-check", "--draft", "gone.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("gone.md");
+    });
+});

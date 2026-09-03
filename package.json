@@ -51,6 +51,7 @@
     "@nexus/pr-worktree": "workspace:*",
     "@nexus/prose-verify": "workspace:*",
     "@nexus/record-digest": "workspace:*",
+    "@nexus/scope-razor": "workspace:*",
     "@nexus/workspace": "workspace:*",
     "@nx/eslint": "23.0.1",
     "@nx/eslint-plugin": "23.0.1",
