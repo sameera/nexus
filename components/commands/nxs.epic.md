@@ -570,7 +570,18 @@ gate's.
 ```
 Invoke: nxs-epic-gate
 Input: ${DRAFT_DIR}/epic.md
+Source text: ${DRAFT_DIR}/source.md
 ```
+
+The gate runs the razor's checker (`nexus razor-check`) against that pair. It reports; it edits
+nothing and creates nothing. **A blocking razor finding is a high finding: do not render the Phase 5
+digest.** Fix `${DRAFT_DIR}/epic.md` — cut the item, restate the citation, or add the story's stated
+reason — and re-run the gate until it is clean. A draft that breaks a counted limit never reaches the
+reviewer.
+
+The gate's **mechanism observations** are the one razor finding that does not block. Carry each into
+the Phase 5 digest verbatim, as an observation beside the story it belongs to, and let the reviewer
+decide.
 
 Fold the findings into Phase 5:
 

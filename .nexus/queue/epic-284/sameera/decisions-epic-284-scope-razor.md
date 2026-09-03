@@ -15,3 +15,15 @@
 - **Choice:** each counted limit is restated as an HTML comment on the heading's own line in the epic template, naming the skill section it points at.
 - **Why:** the template block is itself the thing a drafting model copies, so the restatement has to survive into the model's working copy without surviving into the epic it writes; a comment on the heading line does both.
 - **Refuted alternative:** a prose line under each heading. It renders in the draft the model produces, so the pointer would leak into the filed body — the same leak the derived-body assertion exists to stop.
+
+## 2026-09-03 — the checker parses headings, not a schema
+
+- **Choice:** `checkDraft` finds stories and sections by markdown heading depth and counts list items, tolerating an HTML comment after a heading.
+- **Why:** the draft it reads is the same markdown that becomes the issue body, and the template now carries the limit restatements as comments on the heading lines — a parser that choked on them would fail on every draft the template produces.
+- **Refuted alternative:** require the drafting stage to emit a machine-readable sidecar the checker reads instead. It removes the parsing entirely, but it is the sidecar-key staleness the record already refuted for the labels, one layer along.
+
+## 2026-09-03 — mechanism-naming stays in the gate agent's prompt
+
+- **Choice:** the checker returns no advisory findings; the only advisory rule, mechanism-naming, is judged by the gate agent and reported as a low finding.
+- **Why:** invariant 5 limits blocking findings to counts, presence tests and containment — a judgment implemented in the deterministic checker would either be a bad heuristic or a blocking rule in disguise.
+- **Refuted alternative:** a keyword list of mechanism-shaped words in the checker, emitted as advisory. It is deterministic and cheap, but it would fire on every criterion naming a command or a gate, which the rule explicitly excludes.

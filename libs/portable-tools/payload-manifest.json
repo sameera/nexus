@@ -1,6 +1,6 @@
 {
   "claude-components/agents/nxs-architect.md": "5500ea53e2fa2bd256b7d0db3d34d735186c23d8648a3cbef1644d386b383350",
-  "claude-components/agents/nxs-epic-gate.md": "528d2a7f3133d46c1a5b80617f8b5402e88e049ac3ea8433cebafa06fc3b4387",
+  "claude-components/agents/nxs-epic-gate.md": "ec70dd4566755a58e0b745f8f3c91d3ac3a4ff491b45a42b5edc2872fda12cc4",
   "claude-components/agents/nxs-pm.md": "a5f39fb6ac2dea6b3c57b3e8cd3cd76e838c24a430dacc6e9002856d5d5ad500",
   "claude-components/agents/nxs-prose.md": "bac7447037a6da6938b9ff58ffd2f4c5e045a99a35e4cb94f444e6ae376aaaa2",
   "claude-components/commands/nxs.analyze.md": "1646da82c8d6f42bf4615be0413c8ea2e151d6549bb822efffe7a8915b79a87d",
@@ -9,7 +9,7 @@
   "claude-components/commands/nxs.decision-record.md": "03aaa4449397820d7ab9cf4e3c7a28c6d05ba219fcd667f7e6b19639d51cde26",
   "claude-components/commands/nxs.discover.md": "57840331159c0f3fa9b8e4287a45364ede4a25d2f7696b6f8853bc3fd9df7878",
   "claude-components/commands/nxs.distill.md": "b9059be246d92a91bdf41ff5965661f0ffcf3a21b86e26caeb9fc58c093b69b2",
-  "claude-components/commands/nxs.epic.md": "cc7e2f978f8d84c399141309402d4894e9f4ebbeac4fab21e36e8d3152d7aeb3",
+  "claude-components/commands/nxs.epic.md": "100df23a556e07630912d7a66f93f7c90851e7955731791a00d759f9582bce14",
   "claude-components/commands/nxs.setup.md": "8c7123a04586e0e86a4107a002f8964f22379da29e3965873a121f7012152e72",
   "claude-components/skills/nxs-abs-doc-path/SKILL.md": "676abe2fc3fd44cd5bc7d896580431dbf38b3d5e8b83b053e82d7b27ab86a7b4",
   "claude-components/skills/nxs-close-migration/SKILL.md": "3a4e9cf9cc2434837d480d6d3b6409f62e7f1da8ea10f3fee6f38a4e21a6031c",

@@ -46,7 +46,8 @@ import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktr
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
 import { survivingLabels, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
-import { renderSurvivingLabels } from "@nexus/scope-razor/render";
+import { checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
+import { renderRazorFindings, renderSurvivingLabels } from "@nexus/scope-razor/render";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
@@ -229,9 +230,11 @@ const REGISTRY: Record<string, VerbEntry> = {
     "razor-check": {
         summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
         usage: [
+            "  nexus razor-check --draft <path> --source <path>",
             "  nexus razor-check --draft <path> --assert-clean",
-            "      Exit 0 when the derived filing body carries no provenance label; exit 1 naming",
-            "      every surviving token, so a labelled body is never filed.",
+            "      Report every broken counted limit, unresolved asked-citation and personas table,",
+            "      exiting 1 when any finding blocks. With --assert-clean it instead asserts that a",
+            "      derived filing body carries no provenance label, so a labelled body is never filed.",
         ].join("\n"),
         run: runRazorCheck,
     },
@@ -979,6 +982,7 @@ async function runProseVerify(argv: string[], io: CliIo): Promise<number> {
 
 interface RazorCheckFlags {
     draft?: string;
+    source?: string;
     assertClean: boolean;
 }
 
@@ -986,6 +990,7 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
     const flags: RazorCheckFlags = { assertClean: false };
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--draft") flags.draft = argv[++i];
+        else if (argv[i] === "--source") flags.source = argv[++i];
         else if (argv[i] === "--assert-clean") flags.assertClean = true;
     }
     return flags;
@@ -1002,25 +1007,43 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
  */
 async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const flags: RazorCheckFlags = parseRazorCheckFlags(argv);
-    if (flags.draft === undefined || !flags.assertClean) {
-        io.stderr("usage: nexus razor-check --draft <path> --assert-clean");
+    if (flags.draft === undefined || (!flags.assertClean && flags.source === undefined)) {
+        io.stderr("usage: nexus razor-check --draft <path> (--source <path> | --assert-clean)");
         return 2;
     }
 
-    let body: string;
-    try {
-        body = fs.readFileSync(path.resolve(io.cwd, flags.draft), "utf8");
-    } catch {
-        io.stderr(`razor-check: cannot read ${flags.draft}`);
-        return 1;
+    const readOr = (target: string): string | undefined => {
+        try {
+            return fs.readFileSync(path.resolve(io.cwd, target), "utf8");
+        } catch {
+            io.stderr(`razor-check: cannot read ${target}`);
+            return undefined;
+        }
+    };
+
+    const body: string | undefined = readOr(flags.draft);
+    if (body === undefined) return 1;
+
+    if (flags.assertClean) {
+        const findings: RazorFinding[] = survivingLabels(body);
+        if (findings.length > 0) {
+            io.stderr(renderSurvivingLabels(flags.draft, findings));
+            return 1;
+        }
+        io.stdout(`razor-check: ${flags.draft} carries no drafting-time token`);
+        return 0;
     }
 
-    const findings: RazorFinding[] = survivingLabels(body);
-    if (findings.length > 0) {
-        io.stderr(renderSurvivingLabels(flags.draft, findings));
+    const sourceText: string | undefined = readOr(flags.source as string);
+    if (sourceText === undefined) return 1;
+
+    const findings: RazorRuleFinding[] = checkDraft(body, sourceText);
+    const report: string = renderRazorFindings(flags.draft, findings);
+    if (findings.some((f: RazorRuleFinding) => f.severity === "blocking")) {
+        io.stderr(report);
         return 1;
     }
-    io.stdout(`razor-check: ${flags.draft} carries no drafting-time token`);
+    io.stdout(report);
     return 0;
 }
 

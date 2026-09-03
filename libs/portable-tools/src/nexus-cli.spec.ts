@@ -491,3 +491,54 @@ describe("nexus razor-check", () => {
         expect(io.err.join("\n")).toContain("gone.md");
     });
 });
+
+describe("nexus razor-check against a source text (story #287)", () => {
+    function drafted(dir: string, body: string, source: string): CapturedIo {
+        fs.writeFileSync(path.join(dir, "epic.md"), body);
+        fs.writeFileSync(path.join(dir, "source.md"), source);
+        return makeIo(dir);
+    }
+
+    const clean: string = [
+        "# Epic: A", "", "## Personas", "", "Per `docs/product/context.md`.", "",
+        "## User Stories", "", "### Story 1: One", "", "#### Acceptance Criteria", "",
+        "- [ ] **Given** a, **when** b, **then** c", "", "## Assumptions", "", "- one", "",
+        "## Out of Scope", "", "- one", "",
+    ].join("\n");
+
+    it("exits 2 when neither a source nor an assertion is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-razor-check-"));
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--source");
+    });
+
+    it("exits 0 and reports nothing broken for a draft that meets every rule", async () => {
+        const io: CapturedIo = drafted(makeTmpDir("cli-razor-check-"), clean, "a capability");
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "source.md"], io)).toBe(0);
+    });
+
+    it("exits non-zero and names the story when a counted limit breaks", async () => {
+        const six: string = clean.replace(
+            "- [ ] **Given** a, **when** b, **then** c",
+            Array.from({ length: 6 }, (_, i) => `- [ ] **Given** a${i}, **when** b, **then** c`).join("\n"),
+        );
+        const io: CapturedIo = drafted(makeTmpDir("cli-razor-check-"), six, "a capability");
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "source.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("Story 1: One");
+    });
+
+    it("exits non-zero and names the item when an asked fragment is not in the source text", async () => {
+        const body: string = clean.replace("- one\n", '- an air-gapped deployment `[asked: "an air-gapped deployment"]`\n');
+        const io: CapturedIo = drafted(makeTmpDir("cli-razor-check-"), body, "a login screen the lead asked for");
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "source.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("air-gapped");
+    });
+
+    it("exits non-zero rather than reporting success when the source text cannot be read", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.md"), clean);
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "gone.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("gone.md");
+    });
+});

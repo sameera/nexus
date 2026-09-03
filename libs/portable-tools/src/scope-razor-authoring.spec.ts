@@ -114,3 +114,30 @@ describe("the epic template", () => {
         expect(template).toContain("## Smallest Usable Version");
     });
 });
+
+describe("the epic gate", () => {
+    const gate: string = read("agents/nxs-epic-gate.md");
+
+    it("invokes the one checker rather than counting the razor's limits itself", () => {
+        expect(gate).toContain("nexus razor-check");
+        expect(gate.replace(/\s+/g, " ")).toContain("Never count acceptance criteria or section items yourself");
+    });
+
+    it("is handed the materialized source text, not a live source", () => {
+        expect(gate).toContain("source.md");
+        expect(read("commands/nxs.epic.md")).toMatch(/Source text: \$\{DRAFT_DIR\}\/source\.md/);
+    });
+
+    it("blocks the digest on a blocking razor finding", () => {
+        expect(read("commands/nxs.epic.md")).toMatch(/blocking razor finding[^\n]*do not render the Phase 5\ndigest/i);
+    });
+
+    it("reports a suspected mechanism as an observation the reviewer decides, not a verdict", () => {
+        expect(gate).toMatch(/it does not block filing/);
+    });
+
+    it("still makes no edit and creates no issue", () => {
+        expect(gate).toMatch(/No persisted report and no edits/);
+        expect(gate).toMatch(/do not create or modify GitHub issues/i);
+    });
+});
