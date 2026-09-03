@@ -1,10 +1,10 @@
 ---
 title: "Forcing-Function Razor"
 aliases: ["over-generation razor", "forcing function test", "artifact razor", "generate-and-persist gates"]
-touches: ["two-store-split", "gold-plating", "nexus-pipeline"]
-last_updated_by: "bootstrap"
+touches: ["two-store-split", "gold-plating", "nexus-pipeline", "prose-translation"]
+last_updated_by: "#414"
 status: active
-verification: unverified
+verification: verified
 ---
 
 # Forcing-Function Razor
@@ -28,9 +28,14 @@ Each pipeline output is tested twice. First: does it exist to make a human stop 
 - [two-store-split](two-store-split.md) — the razor decides what earns a place on the lean human surface.
 - [gold-plating](gold-plating.md) — the pattern the razor exists to detect and cut.
 - [nexus-pipeline](nexus-pipeline.md) — the razor is applied stage by stage to keep the pipeline lean.
+- [prose-translation](prose-translation.md) — the razor cut the resident prose rulebook; the split restored its rules at a fraction of the cost.
 
 ## Decision Log
 
 ### 2026-06-10 — bootstrap — 0001 and 0002: the razor sharpened into two gates
 
 Adopted "every artifact is a forcing function for a human decision or it is cut scaffolding" as the governing rule, then sharpened it in the pipeline audit into two independent tests — forcing function (generate and stop) and persistence (a later reader consumes the result). The considered alternative — a single "is this useful?" test — was rejected: usefulness has no boundary and readmits speculative volume, whereas the twin gates cleanly separate a transient interaction from a durable artifact and let most gates write no file at all.
+
+### 2026-09-02 — #414 — Reciprocal link from prose-translation
+
+Recorded the fan-out from the prose-translation page, which names this razor as the reason the resident rulebook was cut and the rules re-homed rather than restored as they were.

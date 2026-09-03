@@ -20,3 +20,7 @@ vitest.config.*.timestamp*
 
 **/test-output/vitest/coverage
 *.tsbuildinfo
+
+# pre-translation copies made by the prose convention (deleted on a passing verify;
+# a failed run leaves one behind for diagnosis — never commit it)
+*.pre

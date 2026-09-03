@@ -233,6 +233,117 @@ describe("nexus record-digest (registration only — network path covered by the
     });
 });
 
+describe("nexus prose-verify", () => {
+    it("exits 2 with a usage diagnostic when a copy is missing", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-prose-verify-"));
+        expect(await runNexusCli(["prose-verify", "--before", "a.md"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--after");
+    });
+
+    it("is a dispatch name the executable declares, so a component body may invoke it (story #417)", () => {
+        expect(DISPATCH_NAMES).toContain("prose-verify");
+    });
+
+    it("exits 0 when only the prose differs between the two copies", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(
+            path.join(dir, "before.md"),
+            "---\nslug: a\n---\n\nthe gate must hold, so the run stops.\n",
+        );
+        fs.writeFileSync(
+            path.join(dir, "after.md"),
+            "---\nslug: a\n---\n\nthe gate must hold. The run stops because the gate held.\n",
+        );
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "before.md", "--after", "after.md"], io)).toBe(0);
+    });
+
+    it("exits non-zero and names the region when the translated copy edited frontmatter", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "---\nslug: a\n---\n\nprose\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "---\nslug: b\n---\n\nprose\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "before.md", "--after", "after.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("frontmatter");
+    });
+
+    it("exits non-zero rather than reporting success when a copy cannot be read", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "after.md"), "prose\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "gone.md", "--after", "after.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("gone.md");
+    });
+
+    it("exits non-zero and names the tracked item the translation dropped (story #423)", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "the gate must hold at 95% of statements\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "the gate must hold for most statements\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "before.md", "--after", "after.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("95%");
+    });
+
+    it("exits non-zero on an introduced item when the run names no grounding source", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "the gate holds\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "the gate holds at 95%\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "before.md", "--after", "after.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("introduced");
+    });
+
+    it("permits an introduced item a named grounding source carries", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "the gate holds\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "the gate holds at 95%\n");
+        fs.writeFileSync(path.join(dir, "epic.md"), "coverage is 95% of statements\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(
+            await runNexusCli(
+                ["prose-verify", "--before", "before.md", "--after", "after.md", "--source", "epic.md"],
+                io,
+            ),
+        ).toBe(0);
+    });
+
+    it("reads every --source the run names, so a second source can ground the addition", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "the gate holds\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "the gate holds at 95%\n");
+        fs.writeFileSync(path.join(dir, "epic.md"), "nothing relevant here\n");
+        fs.writeFileSync(path.join(dir, "why.md"), "coverage is 95% of statements\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(
+            await runNexusCli(
+                [
+                    "prose-verify",
+                    "--before",
+                    "before.md",
+                    "--after",
+                    "after.md",
+                    "--source",
+                    "epic.md",
+                    "--source",
+                    "why.md",
+                ],
+                io,
+            ),
+        ).toBe(0);
+    });
+
+    it("returns one verdict covering both comparisons, so no run satisfies one and skips the other", async () => {
+        const dir: string = makeTmpDir("cli-prose-verify-");
+        fs.writeFileSync(path.join(dir, "before.md"), "---\nslug: a\n---\n\nthe gate must hold\n");
+        fs.writeFileSync(path.join(dir, "after.md"), "---\nslug: b\n---\n\nthe gate should hold\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["prose-verify", "--before", "before.md", "--after", "after.md"], io)).toBe(1);
+        const rendered: string = io.err.join("\n");
+        expect(rendered).toContain("frontmatter");
+        expect(rendered).toContain("must");
+    });
+});
+
 describe("nexus pr-worktree (registration only — git/gh effect path covered by the migration-axis parity corpus)", () => {
     it("exits 2 with a usage diagnostic when --pr is missing", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-pr-worktree-"));

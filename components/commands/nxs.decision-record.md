@@ -64,6 +64,18 @@ a free-text prompt the user has to read and type a reply to. Render any context 
 effect). This renders one selectable option per line in both the VS Code extension and the terminal.
 The user can always pick "Other" for a custom answer.
 
+## Prose convention — human-facing artifacts
+
+Write concrete, not abstract: "there are two copies of the record; one can go stale", never "state
+duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
+consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
+**translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
+`<file>` naming **no** source files, run `nexus prose-verify --before <file>.pre --after <file>`.
+On a pass, delete `<file>.pre`. On a failure, restore `<file>` from it and translate once more; a
+second failure stops the run — file nothing, and keep `<file>.pre` for diagnosis. Resolve every
+density finding before the gate: rewrite the flagged line, or state why the wording stands. File
+the translated file verbatim.
+
 Run the phases in order.
 
 ## Phase 0 — Resolve the epic (dual-read: committed entry, else resolve from the issue)
@@ -367,6 +379,8 @@ not into a committed queue entry, not into the gitignored scratch path.
 Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 
 1. **Write the body to a scratch file** (`<scratch>/record-body.md`) — prose only, per Phase 3.
+   Then **translate `<scratch>/record-body.md`** (see *Prose convention*), before any step below
+   files or edits an issue.
 
 2. **Existing record? Target it, never file a second one.** From Phase 0.2 you already know whether
    the epic has a record sub-issue.
@@ -506,6 +520,9 @@ Run these four acts **in order**, and do not skip one:
 
     </details>
     ````
+
+    **Translate `<scratch>/revision-comment.md`** (see *Prose convention*) before posting it. The
+    embedded superseded body sits in a fenced block, which the check holds byte-identical.
 
     ```bash
     gh issue comment $RECORD $REPO_ARG --body-file "<scratch>/revision-comment.md"

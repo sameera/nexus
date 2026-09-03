@@ -1,24 +1,24 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation"]
-last_updated_by: "#228"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation"]
+last_updated_by: "#414"
 status: active
 verification: verified
 ---
 
 # Epic Approval Gate
 
-The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves. The digest, not the full epic document, is the read surface at the one checkpoint, and open questions block it.
+The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves. The digest, not the epic document, is the read surface at the gate, and open questions block it.
 
 ## How It Works
 
-The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning it commits nothing at planning — the draft stays in session scratch — files issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics; the gate's consent covers that irreversible filing.
+The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning, it commits nothing at planning. The draft stays in session scratch. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics; the gate's consent covers that irreversible filing. The epic is translated before the digest is built, so the gate reads the wording that will be filed. Each story body is then a verbatim transcription of the translated epic; only the reference rewrite to an issue number may change a body afterwards.
 
 ## Key Invariants
 
 1. The epic and its story issues are filed together, gated by one approval.
-2. The decision-grade digest, not the full epic document, is the read surface at the gate.
+2. The decision-grade digest, not the epic document, is the read surface at the gate.
 3. Open questions block filing; they are the only pre-filing safeguard.
 4. Oversized scope becomes backlog stub issues filed on the gate's consent, not fully generated epics.
 5. The epic stage takes intent directly; no separate brief is a precondition.
@@ -35,6 +35,7 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [backlog-stub](backlog-stub.md) — what oversized scope becomes, and what a promotion re-enters this gate as.
 - [fog-referral-gate](fog-referral-gate.md) — the sharpness test inside this stage's right-size phase, which stops an underspecified intent before sizing.
 - [discovery-graduation](discovery-graduation.md) — the entry mode consuming a finished discovery, which files through this stage's existing paths.
+- [prose-translation](prose-translation.md) — translates the epic before the digest, so the gate approves the wording that is filed.
 
 ## Decision Log
 
@@ -65,3 +66,7 @@ The oversized path stopped writing markdown blocks into a per-feature file and n
 ### 2026-08-11 — #228 — A sharpness test and a discovery entry mode, both inside existing phases
 
 The epic stage changed in two ways, and neither adds a phase. Its right-size phase now tests whether an intent's functional goals can be stated before it measures their size, and stops an underspecified intent with a referral to discovery rather than filing work-shaped stubs. A third entry mode consumes a finished discovery: it treats the discovery document as the intent, skips the sharpness test, and runs the right-size gate unchanged. Both behaviours are described on their own pages rather than here, because this page is already near its capacity and the store splits a concept that no longer fits rather than growing it. Filing itself is untouched. The stubs a discovery produces go through the same batch path under the same contract, and a sharp, right-sized intent sees exactly the run it saw before. Refuted alternative: describe the sharpness test and the discovery entry mode inline on this page — rejected on the same grounds the taxonomy behaviours were split out, and because each of the two is asked about on its own.
+
+### 2026-09-02 — #414 — The approved wording is the filed wording
+
+Translating the epic before the digest means the gate and the filed issues read the same words, rather than the reviewer approving one draft and a later phase writing another. Nothing in the filing phase had previously stopped a run re-drafting a story body after the gate, so a sentence rewritten there would have reached the issue both untranslated and unapproved. Refuted alternative: translate each story file separately after writing it, which keeps every issue body in plain language on its own — it lost because it spends a translator run per story and reopens wording the gate already approved.
