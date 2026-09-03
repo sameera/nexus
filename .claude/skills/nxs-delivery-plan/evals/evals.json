@@ -1,0 +1,53 @@
+{
+  "skill_name": "nxs-delivery-plan",
+  "evals": [
+    {
+      "id": 1,
+      "name": "recut-component-ordered-roadmap",
+      "prompt": "We've got the pagination work cut into eight epics (docs#32 through #39) and each epic is one runtime component, straight out of section 12 of the HLD. Delivery lead says four sprints. I want you to look at the epic breakdown and the HLD and tell me whether this order actually delivers anything incrementally, and if it doesn't, re-cut it. Write it to .nexus/tmp/pagination-delivery-plan.md.",
+      "expected_output": "A plan whose M1 is a full vertical slice including the completion mechanism (barrier), a Part 1 arguing specifically against the component ordering with named epics, corrections to wrong figures, per-milestone claim/evidence/deliberately-absent sections, no decisions-only M0, sequencing rules with reasons, and a total estimate stated as not smaller than four sprints.",
+      "files": [],
+      "assertions": [
+        "The first milestone's stated claim describes an outcome a person outside the team could observe, not a component being built",
+        "The completion mechanism (barrier / fan-in / terminal-status guarantee) is inside the first milestone, not a later one",
+        "There is no milestone consisting only of decisions, spikes, or investigations",
+        "Every decision listed is attached to the milestone that contains the code binding it, with the reason stated",
+        "The plan argues explicitly against the existing eight-epic component ordering, naming specific epics",
+        "Each milestone carries concrete observable evidence, including at least one deliberately-triggered failure",
+        "Each milestone carries a 'deliberately absent' list with reasons",
+        "The total estimate is compared against the original claim and stated as not smaller",
+        "The producer and consumer of the page-envelope contract land in the same milestone"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "cut-fresh-plan-from-design",
+      "prompt": "The HLD for the audit-export feature is accepted (issue #612). Nothing is built yet and nothing is in production. Scope is: export any workspace's audit log to a customer-supplied S3 bucket, signed manifests, resumable for exports over a million rows, per-run progress in the console, retry on partial failure. Give me a milestone plan I can actually run a sprint review against.",
+      "expected_output": "A milestone plan whose M1 exports a small audit log end to end to a real bucket and reports its own completion, with resumability, volume handling, console progress, and retry as later widening milestones. Deployment reality noted as pre-production so no dual-format or rollback scaffolding appears. No M0.",
+      "files": [],
+      "assertions": [
+        "M1 moves the unit of value (an audit log row) all the way to the customer bucket and reports whether it finished",
+        "M1 states a natural ceiling out loud rather than building the mechanism that lifts it",
+        "Resumability for large exports is a later milestone, not a prerequisite of M1",
+        "The plan records that nothing is in production and does not include dual-format, tolerant-reader, or rollback scaffolding",
+        "Later milestones are ordered by widening axis (volume, size, readability, failure behaviour, recovery) rather than by component",
+        "Each milestone names who verifies it and whether the claim is internal or customer-facing"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "audit-plan-with-m0-and-split-mechanism",
+      "prompt": "Here's the roadmap my team drafted for the tenant-migration feature. M0 is two days of decisions (pick the checkpoint format, decide the shard key, settle the rollback policy). M1 builds the reader. M2 builds the writer. M3 does the orchestration loop. M4 is observability and crash detection. M5 is hardening and verification of idempotency. Sanity-check this for me before I file the epics.",
+      "expected_output": "An audit naming the decisions-only M0, the reader/writer split of one contract, the deferred completion mechanism, and the end-loaded verification milestone, each with the specific consequence and a repair, followed by a re-cut milestone list.",
+      "files": [],
+      "assertions": [
+        "The audit identifies M0 as a decisions-only phase and redistributes each decision to the milestone that binds it",
+        "The audit identifies the reader/writer split as one mechanism across two milestones and merges them",
+        "The audit identifies that nothing before M3 can report whether a migration completed",
+        "The audit identifies M5's idempotency verification as belonging in the milestone that creates the concurrency hazard",
+        "The audit questions whether the rollback policy decision is justified by deployment reality",
+        "The response ends with a re-cut milestone sequence, not only a critique"
+      ]
+    }
+  ]
+}

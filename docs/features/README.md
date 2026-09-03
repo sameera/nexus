@@ -47,6 +47,7 @@ nexus config backlog-query --form exclude
 | [PR-Driven Delivery](pr-driven-delivery/README.md)                         | Conformance, closure, and distillation against a merged pull request.            |
 | [Pre-Epic Discovery](pre-epic-discovery/README.md)                         | Discovery of foggy initiatives into resolved decisions and backlog stubs.        |
 | [Queue Scratch Capture](queue-scratch-capture/README.md)                   | In-flight decision scratch as committed per-user subdirs in the queue entry.      |
+| [Scope Discipline](scope-discipline/README.md)                             | Keeping planning artifacts to the scope someone actually asked for.              |
 | [Server Platform](server-platform/README.md)                               | The server/runtime foundation the shell and terminal features sit on.             |
 | [Terminal Integration](terminal-integration/README.md)                     | A local PTY-over-WebSocket bridge and a real terminal mounted in Prime.           |
 
