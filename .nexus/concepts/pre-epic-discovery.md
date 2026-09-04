@@ -1,8 +1,8 @@
 ---
 title: "Pre-Epic Discovery"
 aliases: ["discovery", "decision ticket", "discovery store", "foggy initiative", "underspecified initiative", "discovery loop"]
-touches: ["nexus-pipeline", "committed-queue", "distiller", "pr-driven-flow", "discovery-graduation", "fog-referral-gate"]
-last_updated_by: "#228"
+touches: ["nexus-pipeline", "committed-queue", "distiller", "pr-driven-flow", "discovery-graduation", "fog-referral-gate", "scope-razor"]
+last_updated_by: "#284"
 status: active
 verification: verified
 ---
@@ -33,9 +33,14 @@ A discovery starts by fixing its destination and confirming its feature once, th
 - [pr-driven-flow](pr-driven-flow.md) — carries the same exclusion in the range it stamps, so a range holding only discovery prose is refused as empty.
 - [discovery-graduation](discovery-graduation.md) — where a finished discovery becomes issues, since this stage files none itself.
 - [fog-referral-gate](fog-referral-gate.md) — the test in the epic stage that refers an underspecified intent here.
+- [scope-razor](scope-razor.md) — the rule set this stage's document and tickets are labelled under; a resolution is exempt, being a decision made in session.
 
 ## Decision Log
 
 ### 2026-08-11 — #228 — Discovery becomes a stage, over a committed store outside the queue
 
 Nexus answered an underspecified initiative the same way it answered an oversized one, by decomposing it into work-shaped stubs, which assumes the split is already knowable. A pre-epic stage was added so that the decisions the split hangs on become tracked work instead. Its state is committed because discovery is the stage most likely to need more than one person: committing makes the whole loop shareable with version control alone, and it survives the loss of any one machine. The store sits outside the queue because the queue holds only closed, drainable entries, and a discovery is never closed and never drained. Refuted alternative: a committed folder inside the queue carrying no planning file, which costs nothing to add and inherits the drain's existing exclusion unchanged — rejected because it contradicts the queue's stated contract, and because its invisibility would then rest on a filename convention checked during a scan that already walks the whole queue tree. Refuted alternative: a machine-local, ignored store — the cheapest option, and it keeps the trunk clear of in-flight speculation, but a store on one person's disk cannot be handed to a domain expert and does not survive that machine. Refuted alternative: an issue-backed store, with a discovery issue, ticket sub-issues, native blocking, and assignee claims — still the better end state for visibility, and it gets blocking and claiming for free, but it creates two new issue classes plus resolver keys and labels, creates a concurrency problem on a shared issue body, and produces permanent public artifacts for a loop nobody has yet run against a real foggy initiative.
+
+### 2026-09-04 — #284 — Discovery drafts under the same scope rules, and its resolutions are exempt
+
+Scope the epic stage refuses would otherwise enter through the stage that runs before it, so discovery now materializes the initiative as the lead described it, labels the document's not-yet-specified and out-of-scope entries and each ticket's question with the same two-valued vocabulary, and runs the same checker the epic gate runs. Loading a shared rule set is not the new machinery this stage forbids: the ban is on routing a ticket to anything that does not already exist, and the rules have one normative home this stage reads rather than restating. The behaviour is described on the rule set's own page rather than here, because this page is at its capacity and the store splits or links rather than growing a page. Resolutions carry no label at all — a resolution is a decision reached in session and is the model's own by construction, so labelling one would print a single uniform value on every resolution and tell a reviewer nothing. Refuted alternative: label resolutions too, for uniformity across the three drafting stages — it lost as exactly the decoration the two-valued rule exists to avoid.
