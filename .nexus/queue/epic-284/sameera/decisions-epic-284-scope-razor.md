@@ -87,3 +87,9 @@
 - **Choice:** `/nxs.discover` labels the discovery document's open and out-of-scope entries and each ticket's question, and never a resolution.
 - **Why:** a resolution is a decision reached in session, so it is inferred by construction — labelling it would print one uniform value on every resolution and tell a reviewer nothing.
 - **Refuted alternative:** label resolutions too, for uniformity across the three drafting stages. It keeps one rule with no exception, but it is the decoration the razor's own two-valued rule exists to avoid, and it is the same argument that keeps a refuted alternative unlabelled.
+
+## 2026-09-04 — the story work-items are asserted individually, not the folder
+
+- **Choice:** Phase 6 step 3 ends with a shell loop running `nexus razor-check --draft "$item" --assert-clean` over each `STORY-*.md` work-item, before step 4's `create-story` files any of them.
+- **Why:** invariant 2 gates filing on a mechanical assertion over the body that is filed, and the story bodies are hand transcriptions of the asserted `epic.filing.md` — for a six-story epic that left six of the seven filed bodies clean by copying rather than by check.
+- **Refuted alternative:** teach `razor-check` a folder mode that asserts every file under a directory in one invocation. One call instead of N and a single exit code, but it adds a second input shape to the one verb four stages share, for a loop the caller can already write.

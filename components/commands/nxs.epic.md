@@ -848,6 +848,20 @@ story becomes one GitHub issue, child of the epic issue.
     and the skill resolves refs → issue numbers itself. Read valid labels from
     `.nexus/config/issue-labels.yaml`; select only applicable ones per story.
 
+    **Then assert every work-item, before step 4 files any of them:**
+
+    ```bash
+    for item in "<scratch-folder>"/STORY-*.md; do
+        nexus razor-check --draft "$item" --assert-clean || exit 1
+    done
+    ```
+
+    A non-zero exit stops the run: **file nothing**, fix the work-item, and re-assert. The epic body
+    was asserted at the top of this phase and each story body is transcribed out of it — but a
+    transcription is a copy made by hand, and for a six-story epic six of the seven bodies that
+    reach GitHub are copies. Clean-by-copying is the remembered-not-checked mode the derived body
+    exists to end, so the copies are checked on the same terms as the original.
+
 4. **Create the story issues:**
 
     ```bash

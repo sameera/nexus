@@ -80,7 +80,30 @@ describe("the epic drafting stage", () => {
         expect(body).toContain("razor-check");
         expect(body).toMatch(/--assert-clean/);
     });
+
+    it("asserts the story work-items too, so no filed body is clean only by transcription", () => {
+        // The epic body is asserted and each story body is copied out of it — but a copy made by
+        // hand is exactly the remembered-not-checked mode the derived body exists to end, and for a
+        // six-story epic six of the seven bodies that reach GitHub are copies.
+        expect(workItemStep()).toMatch(/razor-check[^\n]*--assert-clean/);
+    });
+
+    it("asserts them over the work-item files themselves, before create-story files any of them", () => {
+        const step: string = workItemStep();
+        expect(step).toContain("STORY-*.md");
+        expect(step).toMatch(/file nothing/i);
+    });
 });
+
+/** Phase 6's story-work-item step — from where the work-items are written to where they are filed. */
+function workItemStep(): string {
+    const phase: string = read("commands/nxs.epic.md");
+    const start: number = phase.indexOf("3. **Write transient story work-items**");
+    const end: number = phase.indexOf("4. **Create the story issues:**", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    return phase.slice(start, end);
+}
 
 /** The numerals §5 writes its limits as words in; a limit cell ends with the number it bounds. */
 const NUMERALS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
