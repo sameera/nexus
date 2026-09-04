@@ -1,6 +1,6 @@
 ---
 name: nxs-razor
-description: The razor — the one normative statement of the provenance rule, the counted limits, the content rules and the necessity question that every Nexus drafting stage authors under. Load it before drafting an epic, a decision record, or a discovery ticket; the mechanical half of it is enforced by `nexus razor-check`, which reads this file's numbers and nothing else.
+description: The razor — the one normative statement of the provenance rule, the counted limits, the content rules and the necessity question that every Nexus drafting stage authors under. Load it before drafting an epic, a decision record, or a discovery ticket; the mechanical half of it is enforced by `nexus razor-check`, whose constants are pinned to this file's numbers by a conformance test.
 ---
 
 # nxs-razor
@@ -86,18 +86,39 @@ gate cannot decide that for them.
 
 ## 4. No drafting-time token reaches a filed body
 
+Three vocabularies exist only while a draft is being written, and none of them is a filed body's to
+carry:
+
+| Token | Written by | Form |
+|---|---|---|
+| provenance label | the drafting stage (§1) | `[inferred]`, `[asked: "…"]` |
+| template placeholder | the template the draft was started from | `{{…}}` |
+| observation marker | a gate's advisory render (§6, §9) | `⚠️ razor:` |
+
 When filing begins, the stage derives a **clean body** from the labelled draft by removing every
 label and fragment, and then runs the checker in assertion mode over that derived body. **A
-surviving token fails the run before any issue is created or updated.**
+surviving token of any of the three kinds fails the run before any issue is created or updated.**
 
-The assertion is the point. "Remember to strip the labels" is an instruction a model can drop; this
-is a condition that is checked, at the cost of one more invocation of a tool that already ran.
+Only the label is derived away. A surviving placeholder is a question nobody answered and a
+surviving marker is a verdict the body was never meant to state, so the assertion **reports** those
+two for a human to resolve rather than deleting them.
+
+The observation marker is a distinct sentinel rather than a bare warning symbol on purpose: a filed
+body may legitimately carry a warning callout of its own — the epic's utilization-risk banner is one
+— and a rule that banned the symbol would ban the body's own content with it. Every advisory render
+in the pipeline prefixes its observation with `⚠️ razor:` so there is exactly one string to assert.
+
+The assertion is the point. "Remember to strip the labels" is an instruction a model can drop, and
+"replace every placeholder" is one a template can only ask for; this is a condition that is checked,
+at the cost of one more invocation of a tool that already ran.
 
 ## 5. The counted limits
 
-These numbers live here and nowhere else. A drafting template may restate one as a short phrase
-beside the heading it bounds; that restatement is a pointer, and `nexus razor-check` enforces the
-numbers on this page.
+**This table is the normative statement of the numbers.** A drafting template may restate one as a
+short phrase beside the heading it bounds; that restatement is a pointer, never a source. The
+checker holds the one implementation of them, and a conformance test pins its constants to this
+table — so the two cannot drift apart without failing a build, and where a restatement disagrees
+with this page, this page governs.
 
 | What is counted | Limit | Escape |
 |---|---|---|
@@ -133,9 +154,10 @@ one is decision-record content promoted into binding scope: it fixes the how bef
 approved the what.
 
 Mechanism-naming is a judgment and not a count, so it is **prevented here, at drafting time**, and
-surfaced downstream only as a non-blocking observation for the reviewer. It never blocks.
+surfaced downstream only as a non-blocking observation for the reviewer, carrying the `⚠️ razor:`
+marker (§4). It never blocks.
 
-**A refuted alternative is offered, not required.** See §8.
+**A refuted alternative is offered, not required.** See §9.
 
 ## 7. The necessity question
 
@@ -210,5 +232,6 @@ Two conditions on that observation:
 - It is produced by a party **other than the one that wrote the alternative**. A model asked to
   judge its own additions answers in its own favour, and the author is precisely the party motivated
   to keep them.
-- It lives **only in the gate's render**. It is never written into the draft body, so there is no
-  marker to strip and no way for one to reach a durable body by omission.
+- It lives **only in the gate's render**, prefixed with the `⚠️ razor:` marker (§4). It is never
+  written into the draft body — and because the marker is one asserted string, a render that leaked
+  into a body is caught at filing rather than trusted not to happen.

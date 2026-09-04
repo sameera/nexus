@@ -4,17 +4,24 @@
  * rather than "the check failed".
  */
 
-import type { Finding } from "./labels.js";
+import type { Finding, TokenKind } from "./labels.js";
 import type { RazorFinding } from "./check.js";
+
+/** What each surviving token asks of the reader — a label goes, a placeholder and a marker do not. */
+const REMEDY: Record<TokenKind, string> = {
+    label: "provenance label — strip it",
+    placeholder: "template placeholder — replace it",
+    observation: "observation marker — an observation belongs in the gate's render, not in the body",
+};
 
 /**
  * The assertion-mode diagnostic: the tokens that survived into a body that was about to be filed.
  * Callers render this only on failure — a clean assertion says nothing.
  */
-export function renderSurvivingLabels(draft: string, findings: Finding[]): string {
+export function renderSurvivingTokens(draft: string, findings: Finding[]): string {
     return [
         `razor-check: ${findings.length} drafting-time token(s) survived into ${draft} — file nothing until they are removed:`,
-        ...findings.map((f: Finding) => `  ${draft}:${f.line} ${f.token}`),
+        ...findings.map((f: Finding) => `  ${draft}:${f.line} ${f.token} — ${REMEDY[f.kind]}`),
     ].join("\n");
 }
 

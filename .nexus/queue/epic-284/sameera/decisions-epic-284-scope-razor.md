@@ -45,3 +45,45 @@
 - **Choice:** story #424's final criterion — no observation marker and no placeholder in the filed body — is satisfied by the existing `--assert-clean` run over the derived body, plus the rule that an observation is never written into the draft at all.
 - **Why:** an observation that lives only in the render has no marker to leak, so the remaining risk is a surviving template token, which the assertion already covers.
 - **Refuted alternative:** teach the checker a placeholder-token rule of its own (`{{...}}`). It would catch a template token the strip pass does not model, but it is a second assertion over the same body for a case the slot removal already eliminates.
+
+## 2026-09-04 — the assertion learns the other two token classes (supersedes the 2026-09-03 stub above)
+
+- **Choice:** `--assert-clean` now fails on a surviving template placeholder (`{{…}}`) and observation marker (`⚠️ razor:`) as well as a provenance label; the label is still stripped, the other two are only reported.
+- **Why:** the earlier stub reasoned that the strip assertion already covered a surviving template token, and it does not — the label grammar matches labels only, so a `{{RATIONALE}}` filed clean and invariant 2's "mechanical assertion that none survives" was never true of two of the three classes it names.
+- **Refuted alternative:** leave the checker alone and rely on the slot removal plus "replace every placeholder" in the template's filling rules. It is what shipped, and it is the remembered-not-checked failure the derived-body assertion exists to end.
+
+## 2026-09-04 — the observation marker is a named sentinel, not the warning symbol
+
+- **Choice:** every advisory render prefixes its observation with the literal `⚠️ razor:`, stated in nxs-razor §4, and that string is what the assertion looks for.
+- **Why:** a filed epic body legitimately carries a warning callout of its own — the utilization-risk banner — so banning the bare symbol would ban the body's own content, and there would be nothing left to assert on.
+- **Refuted alternative:** assert on the bare `⚠️`. One less convention to hold, but it makes the risk banner unfileable, and the banner is content the record's own re-derivation rule requires.
+
+## 2026-09-04 — an unlabelled item blocks
+
+- **Choice:** `checkDraft` gains a `provenance-label` rule: an acceptance criterion, assumption or out-of-scope item carrying neither label is a blocking finding.
+- **Why:** the first success metric claims every item is traceable or marked with no third state, and an unlabelled item was exactly that third state — invisible, because every other razor check reads a label that is there.
+- **Refuted alternative:** leave it to the gate agent's reading. It is judgment where none is needed: a label is present or it is not, which is the presence test invariant 5 explicitly permits in the deterministic checker.
+
+## 2026-09-04 — the counted limits are pinned by a conformance test, not read from the skill at run time
+
+- **Choice:** `AC_CEILING` and `SECTION_LIMIT` stay constants in the checker; an authoring test parses §5's table and asserts the two agree.
+- **Why:** the skill claimed the checker read its numbers and nothing else, which was never true; the defect in two copies is silent divergence, and a test that fails the build removes the silence without making the checker depend on locating an installed markdown file.
+- **Refuted alternative:** have `razor-check` parse the skill at run time, as the frontmatter claimed. It makes one copy genuinely, but the skill's location differs between a vendored payload, a pointer install and a bare checkout — so the checker gains a way to fail to run at all, for a guarantee the test already gives.
+
+## 2026-09-04 — Phase 6 names the derived body in every command, and the epic number is recorded on the labelled draft
+
+- **Choice:** each concrete command in the epic's Phase 6 names `epic.filing.md`, and after `create-epic` writes `link:` into that derived file the run copies the line back into `epic.md`.
+- **Why:** a blanket "every step below files from the derived file" did not survive a dozen literal commands that still said `epic.md`, and the derived file is rebuilt each run — so a number recorded only there is lost on a re-run and the next run files a second epic issue.
+- **Refuted alternative:** file from the labelled `epic.md` and strip at the filer. It keeps one file and one place the number lives, but it moves the strip inside a tool that four other callers share, and the assertion would then run over a body no step names.
+
+## 2026-09-04 — the record's derive step becomes Phase 3.6
+
+- **Choice:** "derive the filing body" leaves Phase 3 as step 5b and becomes Phase 3.6, after the Phase 3.5 checkpoint.
+- **Why:** the step ran after 3.5 while being numbered inside 3, so the document's own ordering contradicted its execution order; the body has to be derived from the draft the reviewer approved, cuts included.
+- **Refuted alternative:** keep it as step 5b and state the loop in prose, as it was. Coherent to a careful reader, but every reference to it had to re-explain the ordering, and a filing step that runs after a gate is a phase.
+
+## 2026-09-04 — a discovery's resolutions are exempt from the provenance rule
+
+- **Choice:** `/nxs.discover` labels the discovery document's open and out-of-scope entries and each ticket's question, and never a resolution.
+- **Why:** a resolution is a decision reached in session, so it is inferred by construction — labelling it would print one uniform value on every resolution and tell a reviewer nothing.
+- **Refuted alternative:** label resolutions too, for uniformity across the three drafting stages. It keeps one rule with no exception, but it is the decoration the razor's own two-valued rule exists to avoid, and it is the same argument that keeps a refuted alternative unlabelled.

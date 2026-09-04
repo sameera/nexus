@@ -730,31 +730,42 @@ is cut after something is filed.
 
 **Derive the filing body first (before step 1).** The draft carries provenance labels; the issues
 must not. Copy `${DRAFT_DIR}/epic.md` to `${DRAFT_DIR}/epic.filing.md`, remove every `[asked: "…"]`
-and `[inferred]` label from it, and assert that none survived:
+and `[inferred]` label from it, and assert that no drafting-time token survived:
 
 ```bash
 nexus razor-check --draft "${DRAFT_DIR}/epic.filing.md" --assert-clean
 ```
 
-A non-zero exit stops the run: **file nothing**, fix the derived body, and re-assert. Every step
-below files from `${DRAFT_DIR}/epic.filing.md`, and every reference to the draft in this phase means
-that derived file. The labelled `epic.md` stays in scratch as the reviewer's drill-down.
+A non-zero exit stops the run: **file nothing**, fix the derived body, and re-assert. The assertion
+covers a surviving template placeholder (`{{…}}`) and observation marker (`⚠️ razor:`) as well as a
+label, so nothing drafting-time reaches an issue.
+
+**Every command below names `epic.filing.md` explicitly.** The two files have different jobs and the
+distinction is not one a blanket sentence can carry through a dozen concrete commands:
+
+| File | Role |
+|---|---|
+| `${DRAFT_DIR}/epic.md` | the labelled draft — the reviewer's drill-down, and the run's **record of what was filed** (its frontmatter carries `link`) |
+| `${DRAFT_DIR}/epic.filing.md` | the derived clean body — **everything filed is filed from here**, and it is re-derived from `epic.md` on every run |
+
+Because the derived file is rebuilt each run, the epic issue number is recorded on the labelled
+`epic.md`, not on it. Step 1 says how.
 
 Issue creation is **coupled**: the epic issue and its story sub-issues are created together in this
 one step. There is no separate task command — the story is the implementation unit (0009), so each
 story becomes one GitHub issue, child of the epic issue.
 
-1. **Create (or reuse) the epic issue (idempotent).** If the scratch draft's frontmatter already
+1. **Create (or reuse) the epic issue (idempotent).** If `${DRAFT_DIR}/epic.md`'s frontmatter already
    carries `link` — the epic issue was filed in a prior run of this command — **reuse that number;
    do not create a second epic issue** (Success Metric / AC: a re-run reuses the recorded number).
    Otherwise:
 
     ```bash
     # intent mode — create a new epic issue
-    nexus create-epic "${DRAFT_DIR}/epic.md"
+    nexus create-epic "${DRAFT_DIR}/epic.filing.md"
 
     # promotion mode — populate the stub's OWN issue in place
-    nexus create-epic "${DRAFT_DIR}/epic.md" \
+    nexus create-epic "${DRAFT_DIR}/epic.filing.md" \
         --promote <PROMOTE>
     ```
 
@@ -768,9 +779,12 @@ story becomes one GitHub issue, child of the epic issue.
     The skill reads `epic` (title) and `type` from frontmatter, **embeds the raw planning
     frontmatter onto the issue as a hidden `nexus:epic-meta` block** (so the resolver can rebuild the
     full `epic.md` field shape from the issue number alone), creates the issue, and writes
-    `link: "#<n>"` back into the draft. Re-read the draft frontmatter; set `EPIC` = that number.
-    Because the number is now recorded in the draft, re-running is safe — the epic issue is created
-    at most once.
+    `link: "#<n>"` back into the file it was given — here, `epic.filing.md`. Set `EPIC` = that number.
+
+    **Then copy that `link: "#<n>"` line into `${DRAFT_DIR}/epic.md`'s frontmatter.** The derived
+    file is rebuilt from `epic.md` on every run, so a number recorded only on it is lost the moment
+    the run is repeated and the next run files a second epic issue. Recording it on the labelled
+    draft is what makes the idempotency check at the top of this step true.
 
     It also applies the **needs-design** label from the epic's `complexity` rollup (#139): **M or
     larger** carries it, **S** does not, and an absent rollup errs toward carrying it. That label is
@@ -797,8 +811,10 @@ story becomes one GitHub issue, child of the epic issue.
 3. **Write transient story work-items** to the scratchpad, one `STORY-<EPIC>.<SEQ>.md` per story, with
    the frontmatter the creation skill consumes and the story body as the issue body.
 
-   Each body is a **verbatim transcription** of that story's section in the translated
-   `${DRAFT_DIR}/epic.md` — copy the prose across, do not re-draft it. The epic was translated in
+   Each body is a **verbatim transcription** of that story's section in the translated, derived
+   `${DRAFT_DIR}/epic.filing.md` — copy the prose across, do not re-draft it. Transcribing from the
+   labelled `epic.md` would carry a provenance label onto a story issue, which is the one leak the
+   derived body exists to prevent. The epic was translated in
    Phase 4 and approved at the Phase 5 digest on that wording; a sentence rewritten here would
    reach the issue untranslated and unapproved. Only the ref rewrite in step 4's pass 3
    (`STORY-<EPIC>.<SEQ>` → `#<issue>`) may change a body after translation:
@@ -1006,8 +1022,7 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 #### Acceptance Criteria   <!-- 3–5 (nxs-razor §5); above five, add one `**Reason for <n>:**` line here -->
 
-- [ ] **Given** <precondition>, <when>, <then>   <!-- names no mechanism (nxs-razor §6) -->
-- [ ] **Given** <precondition>, **when** <action>, **then** <expected result>
+- [ ] **Given** <precondition>, **when** <action>, **then** <expected result>   <!-- names no mechanism (nxs-razor §6); label it `[asked: "…"]` or `[inferred]` (§1) -->
 <!-- For story_type: system, at least one AC must state a measurable metric, threshold,
      or pass/fail assertion — not prose like "implement caching". -->
 
@@ -1019,11 +1034,11 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 <repeat>
 
-## Assumptions   <!-- max 5, no escape; may be empty (nxs-razor §5) -->
+## Assumptions   <!-- max 5, no escape; may be empty (nxs-razor §5); label each item (§1) -->
 
 - <reasonable defaults chosen for unspecified details>
 
-## Out of Scope   <!-- max 5, no escape; may be empty (nxs-razor §5) -->
+## Out of Scope   <!-- max 5, no escape; may be empty (nxs-razor §5); label each item (§1) -->
 
 - <explicitly excluded; for the "full" oversized path, note deferred scope here>
 

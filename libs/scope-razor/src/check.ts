@@ -18,16 +18,22 @@ export type Severity = "blocking" | "advisory";
 export interface RazorFinding {
     severity: Severity;
     /** The rule that failed, as a stable slug the caller may group on. */
-    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table";
+    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label";
     /** The story title or section heading the finding belongs to. */
     where: string;
     message: string;
 }
 
+/**
+ * The counted limits. Their normative home is §5 of the `nxs-razor` skill; these constants are the
+ * one implementation of it, and a conformance test pins them to that table so a divergence fails a
+ * build rather than passing silently. Change the skill and this pair together.
+ */
+
 /** The ceiling on acceptance criteria for one story. Above it, the story states a reason. */
-const AC_CEILING: number = 5;
+export const AC_CEILING: number = 5;
 /** The limit on Assumptions and on Out of Scope. No escape; either section may be empty. */
-const SECTION_LIMIT: number = 5;
+export const SECTION_LIMIT: number = 5;
 
 /** A `## ` section of the draft, from its heading to the next one. */
 interface Section {
@@ -60,11 +66,31 @@ function bullets(lines: string[]): string[] {
     return lines.filter((line: string) => /^- /.test(line));
 }
 
+/** The two-valued vocabulary, as a presence test: an item carries one of them or it carries none. */
+const LABELLED: RegExp = /`?\[(?:inferred|asked:[ \t]*"[^"]*")\]`?/;
+
+/**
+ * The provenance rule (§1), as the presence test invariant 5 permits. Without it an unlabelled item
+ * is a third state the vocabulary denies — neither asked nor inferred — and it is the one state the
+ * gate cannot see, because every other razor check reads a label that is there.
+ */
+function unlabelled(items: string[], where: string): RazorFinding[] {
+    return items
+        .filter((item: string) => !LABELLED.test(item))
+        .map((item: string) => ({
+            severity: "blocking" as const,
+            rule: "provenance-label" as const,
+            where,
+            message: `"${item.replace(/^- (\[[ x]\] )?/, "").trim()}" carries no provenance label. Every item is \`[asked: "…"]\` or \`[inferred]\`.`,
+        }));
+}
+
 function checkStories(draft: string): RazorFinding[] {
     const findings: RazorFinding[] = [];
     for (const story of sections(draft, "###")) {
         const criteria: string[] = story.lines.filter((line: string) => /^- \[[ x]\] /.test(line));
         const reason: boolean = story.lines.some((line: string) => /^\*\*Reason for /.test(line.trim()));
+        findings.push(...unlabelled(criteria, story.heading));
         if (criteria.length > AC_CEILING && !reason) {
             findings.push({
                 severity: "blocking",
@@ -83,6 +109,7 @@ function checkSections(draft: string): RazorFinding[] {
         const name: string = section.heading.replace(/\s*<!--.*$/, "").trim();
         if (name !== "Assumptions" && name !== "Out of Scope") continue;
         const items: string[] = bullets(section.lines);
+        findings.push(...unlabelled(items, name));
         if (items.length > SECTION_LIMIT) {
             findings.push({
                 severity: "blocking",

@@ -45,9 +45,9 @@ import { deriveRange } from "@nexus/pr-worktree/range";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
-import { survivingLabels, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
+import { survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
 import { checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
-import { renderRazorFindings, renderSurvivingLabels } from "@nexus/scope-razor/render";
+import { renderRazorFindings, renderSurvivingTokens } from "@nexus/scope-razor/render";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
@@ -232,9 +232,10 @@ const REGISTRY: Record<string, VerbEntry> = {
         usage: [
             "  nexus razor-check --draft <path> --source <path>",
             "  nexus razor-check --draft <path> --assert-clean",
-            "      Report every broken counted limit, unresolved asked-citation and personas table,",
-            "      exiting 1 when any finding blocks. With --assert-clean it instead asserts that a",
-            "      derived filing body carries no provenance label, so a labelled body is never filed.",
+            "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
+            "      personas table, exiting 1 when any finding blocks. With --assert-clean it instead",
+            "      asserts that a derived filing body carries no provenance label, template placeholder",
+            "      token or observation marker, so a drafting-time body is never filed.",
         ].join("\n"),
         run: runRazorCheck,
     },
@@ -1002,8 +1003,9 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
  * restating the rule, which is what makes "the same rules in four places" true instead of asserted.
  *
  * `--assert-clean` is the gate between a labelled draft and a filed issue body: it fails on any
- * surviving provenance label, so leakage is a checked condition and not something a drafting model
- * has to remember.
+ * surviving drafting-time token — a provenance label, a template placeholder, or a gate's
+ * observation marker — so leakage is a checked condition and not something a drafting model has to
+ * remember.
  */
 async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const flags: RazorCheckFlags = parseRazorCheckFlags(argv);
@@ -1025,9 +1027,9 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     if (body === undefined) return 1;
 
     if (flags.assertClean) {
-        const findings: RazorFinding[] = survivingLabels(body);
+        const findings: RazorFinding[] = survivingTokens(body);
         if (findings.length > 0) {
-            io.stderr(renderSurvivingLabels(flags.draft, findings));
+            io.stderr(renderSurvivingTokens(flags.draft, findings));
             return 1;
         }
         io.stdout(`razor-check: ${flags.draft} carries no drafting-time token`);

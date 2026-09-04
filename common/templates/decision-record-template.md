@@ -72,7 +72,7 @@ date: {{YYYY-MM-DD}}
 - **Decision:** {{WHAT_WAS_DECIDED}}
 - **Why:** {{RATIONALE}}
 
-<!-- A refuted alternative is offered, not required (nxs-razor §6). Write
+<!-- A refuted alternative is offered, not required (nxs-razor §9). Write
      `- **Refuted alternative:** <what lost, and the trade-off it lost on>` ONLY where a competent
      engineer might genuinely have chosen it. There is no line to fill and no placeholder to
      replace: a decision with no viable alternative carries nothing here. -->

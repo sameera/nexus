@@ -12,6 +12,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
+import { AC_CEILING, SECTION_LIMIT } from "@nexus/scope-razor/check";
 
 const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
 const AUTHORED: string = path.join(REPO_ROOT, "components");
@@ -52,6 +53,17 @@ describe("the razor skill", () => {
         const body: string = read(RAZOR);
         expect(body).toMatch(/assertion mode/);
     });
+
+    it("names all three drafting-time vocabularies the assertion covers", () => {
+        const body: string = read(RAZOR).replace(/\s+/g, " ");
+        expect(body).toMatch(/template placeholder/i);
+        expect(body).toMatch(/observation marker/i);
+        expect(body).toContain("{{…}}");
+    });
+
+    it("gives the observation marker one asserted sentinel rather than a bare warning symbol", () => {
+        expect(read(RAZOR)).toContain("⚠️ razor:");
+    });
 });
 
 describe("the epic drafting stage", () => {
@@ -70,7 +82,33 @@ describe("the epic drafting stage", () => {
     });
 });
 
+/** The numerals §5 writes its limits as words in; a limit cell ends with the number it bounds. */
+const NUMERALS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+
+/** The rows of §5's table, so the numbers can be read out of the normative statement of them. */
+function limitRows(skill: string): string[] {
+    const start: number = skill.indexOf("## 5. The counted limits");
+    const section: string = skill.slice(start, skill.indexOf("\n## ", start + 1));
+    return section.split("\n").filter((line: string) => line.startsWith("| ") && !line.startsWith("| What"));
+}
+
+/** The number a limit cell bounds — the last numeral word in it ("three to five", "no more than five"). */
+function limitOf(row: string): number {
+    const words: string[] = row.split("|")[2].trim().toLowerCase().split(/\s+/);
+    return NUMERALS[words[words.length - 1]];
+}
+
 describe("the razor's counted limits and content rules", () => {
+    it("pin the checker's constants to the table, so a divergence fails a build rather than passing silently", () => {
+        // §5 states the numbers and the checker implements them. Two copies that agree today drift
+        // in silence; this is the assertion that makes the second copy answerable to the first.
+        const rows: string[] = limitRows(read(RAZOR));
+        expect(rows).toHaveLength(3);
+        expect(limitOf(rows[0])).toBe(AC_CEILING);
+        expect(limitOf(rows[1])).toBe(SECTION_LIMIT);
+        expect(limitOf(rows[2])).toBe(SECTION_LIMIT);
+    });
+
     it("state the acceptance-criteria range and the ceiling's stated-reason escape", () => {
         const body: string = read(RAZOR);
         expect(body).toMatch(/three to five/i);
@@ -237,6 +275,11 @@ describe("a refuted alternative", () => {
     const template: string = fs.readFileSync(path.join(REPO_ROOT, "common", "templates", "decision-record-template.md"), "utf8");
     const record: string = read("commands/nxs.decision-record.md").replace(/\s+/g, " ");
 
+    it("points its template restatement at the section that states the rule normatively", () => {
+        expect(template).toContain("nxs-razor §9");
+        expect(read("agents/nxs-architect.md")).toContain("nxs-razor §9");
+    });
+
     it("has no standing slot, fixed line or placeholder in the decision template", () => {
         expect(template).not.toMatch(/^- \*\*Refuted alternative:\*\*/m);
         expect(template).not.toContain("VIABLE_ALTERNATIVE_AND_WHY_IT_LOST");
@@ -291,6 +334,17 @@ describe("the record's pre-filing checkpoint", () => {
     });
 
     it("asserts that no observation marker or placeholder token reaches the filed body", () => {
-        expect(record).toMatch(/no template placeholder token and no observation marker reaches the filed body/);
+        expect(record).toMatch(/template placeholder token/i);
+        expect(record).toMatch(/observation marker/i);
+        expect(record).toContain("--assert-clean");
+    });
+
+    it("derives the filing body after the checkpoint, so the body is the one the reviewer approved", () => {
+        expect(record).toContain("## Phase 3.6 — Derive the filing body");
+        expect(record).toMatch(/\*\*before Phase 3\.6 derives the filing body\*\*/);
+    });
+
+    it("renders its observation with the sentinel the assertion looks for", () => {
+        expect(read("commands/nxs.decision-record.md")).toContain("⚠️ razor: names no trade-off");
     });
 });
