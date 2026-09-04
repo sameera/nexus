@@ -6,11 +6,21 @@
     "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
     "emitDeclarationOnly": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts", "vitest.config.mts"],
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "vitest.config.mts"
+  ],
   "references": [
+    {
+      "path": "../scope-razor/tsconfig.lib.json"
+    },
     {
       "path": "../prose-verify/tsconfig.lib.json"
     },

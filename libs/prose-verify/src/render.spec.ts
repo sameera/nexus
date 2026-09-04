@@ -43,7 +43,7 @@ describe("renderVerifyResult", () => {
             ok: false,
             problem: "changed",
             problems: [],
-            findings: [{ kind: "missing", item: "numeric", label: "95%", lines: [12] }],
+            findings: [{ kind: "missing", item: "numeric", label: "95%", had: 1, survived: 0, lines: [12] }],
         };
         const rendered: string = renderVerifyResult(result);
         expect(rendered).toContain("95%");
@@ -55,9 +55,39 @@ describe("renderVerifyResult", () => {
             ok: false,
             problem: "changed",
             problems: [],
-            findings: [{ kind: "missing", item: "name", label: "nexus", lines: [3, 9] }],
+            findings: [{ kind: "missing", item: "name", label: "nexus", had: 2, survived: 0, lines: [3, 9] }],
         };
         expect(renderVerifyResult(result)).toContain("lines 3, 9");
+    });
+
+    it("says how many occurrences stood before and how many survive", () => {
+        const result: VerifyResult = {
+            ok: false,
+            problem: "changed",
+            problems: [],
+            findings: [{ kind: "missing", item: "modal", label: "can", had: 6, survived: 5, lines: [18, 18, 22, 40, 63, 94] }],
+        };
+        const rendered: string = renderVerifyResult(result);
+        expect(rendered).toContain("6");
+        expect(rendered).toContain("5");
+        expect(rendered).toContain("lines 18, 18, 22, 40, 63, 94");
+    });
+
+    it("reads differently when one of several occurrences was lost than when all of them were", () => {
+        const lines: number[] = [18, 18, 22, 40, 63, 94];
+        const one: VerifyResult = {
+            ok: false,
+            problem: "changed",
+            problems: [],
+            findings: [{ kind: "missing", item: "modal", label: "can", had: 6, survived: 5, lines }],
+        };
+        const all: VerifyResult = {
+            ok: false,
+            problem: "changed",
+            problems: [],
+            findings: [{ kind: "missing", item: "modal", label: "can", had: 6, survived: 0, lines }],
+        };
+        expect(renderVerifyResult(one)).not.toEqual(renderVerifyResult(all));
     });
 
     it("says an introduced item was grounded in no named source", () => {
@@ -65,7 +95,7 @@ describe("renderVerifyResult", () => {
             ok: false,
             problem: "changed",
             problems: [],
-            findings: [{ kind: "introduced", item: "name", label: "Postgres", lines: [4] }],
+            findings: [{ kind: "introduced", item: "name", label: "Postgres", had: 0, survived: 1, lines: [4] }],
         };
         const rendered: string = renderVerifyResult(result);
         expect(rendered).toContain("introduced");
@@ -77,7 +107,7 @@ describe("renderVerifyResult", () => {
             ok: false,
             problem: "changed",
             problems: [{ kind: "changed", region: "frontmatter", line: 2, detail: "slug: b" }],
-            findings: [{ kind: "missing", item: "modal", label: "must", lines: [8] }],
+            findings: [{ kind: "missing", item: "modal", label: "must", had: 1, survived: 0, lines: [8] }],
         };
         const rendered: string = renderVerifyResult(result);
         expect(rendered).toContain("region-changed");

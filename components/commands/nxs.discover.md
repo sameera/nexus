@@ -66,11 +66,14 @@ Write concrete, not abstract: "there are two copies of the record; one can go st
 duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
 consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
 **translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
-`<file>` naming no source files, run `nexus prose-verify --before <file>.pre --after <file>`. On a
-pass, delete `<file>.pre`. On a failure, restore `<file>` from it and translate once more; a second
-failure stops the run — write nothing out, and keep `<file>.pre` for diagnosis. Resolve every
-density finding: rewrite the flagged line, or say why it stands. No approval gate reads this run,
-so the session report names every standing finding with its reason.
+`<file>`, naming `<file>.pre` as the pre-translation copy and no source files. The agent runs
+`nexus prose-verify` itself and repairs its own rewrite until it passes, so its receipt carries a
+`verified:` line. That line is the agent's report, not the gate. Run
+`nexus prose-verify --before <file>.pre --after <file>` yourself whatever it says. On a pass, delete
+`<file>.pre`. On a failure, restore `<file>` from it and translate once more; a second failure stops
+the run — write nothing out, and keep `<file>.pre` for diagnosis. Resolve every density finding:
+rewrite the flagged line, or say why it stands. No approval gate reads this run, so the session
+report names every standing finding with its reason.
 
 ## Vocabulary
 
@@ -627,12 +630,22 @@ that files issues: `/nxs.epic --discovery <folder>`.
   that reads the queue.
 - **No durable link into the store.** Copy in full instead; the folder is removed when the discovery
   ends.
+- **The razor applies to what a discovery drafts.** Load the **`nxs-razor`** skill. Materialize the
+  run's source text beside the discovery — the initiative as the lead described it — and label the
+  discovery document's not-yet-specified and out-of-scope entries, and each ticket's question, in the
+  same two-valued form: `[asked: "…"]` with a fragment quoted from that source, or `[inferred]`.
+  **Resolutions are never labelled** — a resolution is a decision made in session and is inferred by
+  construction, so labelling it would be uniform noise. Run the same checker the epic gate runs
+  (`nexus razor-check --draft <the drafted file> --source <the materialized source>`) and fix what
+  blocks. Nothing here reaches the issue tracker, and no durable link enters the discovery folder.
 - **A decision ticket is a question whose resolution is a decision** — never a slice of build work.
   If a ticket reads like something an engineer would implement, it is not a ticket.
 - **The destination is immutable.** Changing it invalidates rulings that were made against the old
   boundary and never re-validated. Close the discovery and start another instead.
 - **The command commits and never pushes.** Sharing is the user's `git push`.
-- **No new agents or skills.** Every ticket type routes to machinery that already exists.
+- **No new agents, and every ticket type routes to machinery that already exists.** This is a
+  routing constraint, not a ban on loading guidance: the shared **`nxs-razor`** skill is loaded here
+  because the razor has one normative home and this is one of the stages that drafts under it.
 - **One decision per session, one commit.** Research agents may run in parallel to it, and they
   resolve nothing.
 - **A ticket is claimed before any work begins**, and the claim's owner is a GitHub login. The only

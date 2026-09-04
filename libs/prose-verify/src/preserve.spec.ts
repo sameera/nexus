@@ -54,6 +54,32 @@ describe("comparePreservation — an item that did not survive", () => {
         expect(labels(findings).sort()).toEqual(["must", "should"]);
     });
 
+    it("counts how many occurrences stood before and how many survive", () => {
+        const findings: PreservationFinding[] = comparePreservation(
+            "the run can halt and the gate can hold\n",
+            "the run can halt and the gate holds\n",
+        );
+        expect(findings).toHaveLength(1);
+        expect(findings[0].label).toBe("can");
+        expect(findings[0].had).toBe(2);
+        expect(findings[0].survived).toBe(1);
+    });
+
+    it("reports no survivor when the only occurrence is gone", () => {
+        const findings: PreservationFinding[] = comparePreservation("the run can halt\n", "the run halts\n");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].had).toBe(1);
+        expect(findings[0].survived).toBe(0);
+    });
+
+    it("counts an introduced item as one that stood nowhere before", () => {
+        const findings: PreservationFinding[] = comparePreservation("the run halts\n", "the run should halt\n");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].kind).toBe("introduced");
+        expect(findings[0].had).toBe(0);
+        expect(findings[0].survived).toBe(1);
+    });
+
     it("treats a negated modal as its own item, so dropping the negation fails", () => {
         const findings: PreservationFinding[] = comparePreservation("The run must not proceed.\n", "The run must proceed.\n");
         expect(labels(findings).sort()).toEqual(["must", "must not"]);
