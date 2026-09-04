@@ -46,3 +46,21 @@ The "Pulled out of the line" verdicts on #197, `hub-design-gate` and `entry-aban
 ## Dies with the page
 
 The header pointer ("the inventory is the issue query") and the wave headings themselves. They describe the page's own structure, not any item.
+
+# Verdict verification for #403
+
+Verified 2026-09-04 against the resolved backlog query (`nexus config backlog-query` →
+`gh issue list --state open --label backlog`).
+
+| Verdict on the page | Item | State after this story |
+|---|---|---|
+| drop | #197 | CLOSED / not planned, with the drop rationale as a comment |
+| superseded by #139 | `hub-design-gate` | never filed — no open issue carries the name |
+| superseded by #114 | `entry-abandonment` | never filed — no open issue carries the name |
+| superseded by #114 | #109 | already CLOSED / not planned before this story |
+
+The query returns 44 open backlog issues and none of the above.
+
+Both never-filed supersessions are already recorded on the closed issues that superseded them
+(#139 and #114), so confirming they carry no open issue is the whole of the work — nothing new
+was written for them.
