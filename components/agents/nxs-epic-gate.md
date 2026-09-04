@@ -57,6 +57,29 @@ behavioral prose, or a `user` story whose ACs are all internal metrics) is a **f
   conflict — but do **not** guess which is canonical (no design exists yet to anchor it); leave it for
   the human.
 
+### 4. The razor (run the checker; do not count by eye)
+
+The razor's mechanical rules are not yours to re-derive. Run the one checker, from the draft's own
+folder, and report what it returns:
+
+```bash
+nexus razor-check --draft "<epic.md>" --source "<the source.md beside it>"
+```
+
+`source.md` is the run's materialized source text, written beside the draft before anything was
+labelled. If it is absent, that is itself a **finding (high)** — the drafting stage skipped a step
+and no citation in the draft can be checked.
+
+Every finding the checker marks `blocking` is a **finding (high)**: a counted limit broken, an
+`asked` fragment that is not in the source text, or a table under the personas heading. Report each
+one with the story or section the checker named. Fold nothing, soften nothing, and do not re-count.
+
+**One razor rule is yours, and it never blocks.** Read each acceptance criterion and ask whether it
+names a **mechanism** — a named product, protocol, data format, configuration file, or internal
+component of the system being built. A command, a gate or a digest the lead interacts with is not a
+mechanism. Report each suspected criterion as a **finding (low)** — an observation the digest carries
+to the reviewer, who decides. You do not decide it, and it does not block filing.
+
 ## Report (inline — never write a file)
 
 Return a concise summary. Do not create `task-review.md` or any other file.
@@ -70,6 +93,8 @@ Findings: <N> total
   Well-formedness issues:         <story titles + issue>
   Open clarifications remaining:  <markers, or none>
   Terminology conflicts:          <term A / term B, ...>
+  Razor — blocking:               <checker findings, each with its story or section, or none>
+  Razor — mechanism observations: <criteria that may name a mechanism, or none>
 
 Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
 ```
@@ -83,5 +108,7 @@ edit the epic; you report so the caller can gate.
 - **Epic only.** Read `epic.md`. Do **not** read a decision record (coverage and terminology-vs-design
   are `/nxs.decision-record`'s), implementation code, the diff, or git history (`/nxs.analyze`'s).
 - **No task analysis (0009).** Do not look for `TASK-*` files, `story_ref`, or task↔story traceability.
+- **The razor's numbers are the checker's, not yours.** Never count acceptance criteria or section
+  items yourself, and never decide a citation by reading. Invoke `nexus razor-check` and report it.
 - **No persisted report and no edits.** Findings are inline only; surface everything for the human to
   fix — do not rewrite stories or ACs.

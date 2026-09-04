@@ -457,3 +457,118 @@ describe("bare-runtime portability (epic #60 success metric)", () => {
         expect(stdout).toContain('"removed":true');
     });
 });
+
+describe("nexus razor-check", () => {
+    it("is a dispatch name the executable declares, so a component body may invoke it (story #285)", () => {
+        expect(DISPATCH_NAMES).toContain("razor-check");
+    });
+
+    it("exits 2 with a usage diagnostic when no draft is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-razor-check-"));
+        expect(await runNexusCli(["razor-check", "--assert-clean"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--draft");
+    });
+
+    it("exits 0 when the derived body carries no drafting-time token", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.filing.md"), "# Epic: A\n\n- The user can log out\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.filing.md", "--assert-clean"], io)).toBe(0);
+    });
+
+    it("exits non-zero and names the line when a provenance label survived into the filing body", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.filing.md"), "# Epic: A\n\n- The user can log out `[inferred]`\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.filing.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("3");
+        expect(io.err.join("\n")).toContain("inferred");
+    });
+
+    it("exits non-zero and names the token when a template placeholder survived into the filing body", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "record-body.md"), "# Decision Record: A\n\n- **Why:** {{RATIONALE}}\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "record-body.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("{{RATIONALE}}");
+    });
+
+    it("exits non-zero when an observation marker survived into the filing body", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "record-body.md"), "- **Refuted alternative:** a queue\n  \u26a0\ufe0f razor: names no trade-off\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "record-body.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("observation marker");
+    });
+
+    it("still files a body carrying a warning callout of its own", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.filing.md"), "# Epic: A\n\n> \u26a0\ufe0f **Utilization risk:** assessed L.\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.filing.md", "--assert-clean"], io)).toBe(0);
+    });
+
+    it("exits non-zero rather than reporting success when the draft cannot be read", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-razor-check-"));
+        expect(await runNexusCli(["razor-check", "--draft", "gone.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("gone.md");
+    });
+});
+
+describe("nexus razor-check against a source text (story #287)", () => {
+    function drafted(dir: string, body: string, source: string): CapturedIo {
+        fs.writeFileSync(path.join(dir, "epic.md"), body);
+        fs.writeFileSync(path.join(dir, "source.md"), source);
+        return makeIo(dir);
+    }
+
+    const clean: string = [
+        "# Epic: A", "", "## Personas", "", "Per `docs/product/context.md`.", "",
+        "## User Stories", "", "### Story 1: One", "", "#### Acceptance Criteria", "",
+        "- [ ] **Given** a, **when** b, **then** c `[inferred]`", "", "## Assumptions", "", "- one `[inferred]`", "",
+        "## Out of Scope", "", "- one `[inferred]`", "",
+    ].join("\n");
+
+    it("exits 2 when neither a source nor an assertion is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-razor-check-"));
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--source");
+    });
+
+    it("exits 0 and reports nothing broken for a draft that meets every rule", async () => {
+        const io: CapturedIo = drafted(makeTmpDir("cli-razor-check-"), clean, "a capability");
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "source.md"], io)).toBe(0);
+    });
+
+    it("exits non-zero and names the story when a counted limit breaks", async () => {
+        const six: string = clean.replace(
+            "- [ ] **Given** a, **when** b, **then** c `[inferred]`",
+            Array.from({ length: 6 }, (_, i) => `- [ ] **Given** a${i}, **when** b, **then** c \`[inferred]\``).join("\n"),
+        );
+        const io: CapturedIo = drafted(makeTmpDir("cli-razor-check-"), six, "a capability");
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "source.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("Story 1: One");
+    });
+
+    it("exits non-zero and names the item when an acceptance criterion carries no provenance label", async () => {
+        const body: string = clean.replace("- [ ] **Given** a, **when** b, **then** c `[inferred]`", "- [ ] **Given** a, **when** b, **then** c");
+        const io: CapturedIo = drafted(makeTmpDir("cli-razor-check-"), body, "a capability");
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "source.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("provenance label");
+    });
+
+    it("exits non-zero and names the item when an asked fragment is not in the source text", async () => {
+        const body: string = clean.replace("- one `[inferred]`\n", '- an air-gapped deployment `[asked: "an air-gapped deployment"]`\n');
+        const io: CapturedIo = drafted(makeTmpDir("cli-razor-check-"), body, "a login screen the lead asked for");
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "source.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("air-gapped");
+    });
+
+    it("exits non-zero rather than reporting success when the source text cannot be read", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.md"), clean);
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "gone.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("gone.md");
+    });
+});

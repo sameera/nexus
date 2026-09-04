@@ -343,6 +343,24 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
 
 3. Fill the template from the architect's output.
 4. Delete all template guidance comments before writing.
+4b. **Apply the razor** (load the **`nxs-razor`** skill; it is the same rule set `/nxs.epic` drafts
+   under, and this command restates none of it).
+
+    - **Materialize the run's source text** to `<scratch>/source.md` before labelling anything: the
+      epic body and its stories, plus the imported design doc in `--from` mode. Every citation in
+      this run is checked against that file and nothing else.
+    - **Label every invariant and every risk** inline, `[asked: "…"]` with a fragment quoted from
+      `source.md`, or `[inferred]`. The vocabulary has two values. Decisions and refuted alternatives
+      are not labelled — a refuted alternative is the model's own by construction, so the label would
+      discriminate nothing.
+    - **Check the draft**, and fix what blocks before going on:
+
+        ```bash
+        nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md"
+        ```
+
+      This stage has no gate agent and gains none. It runs the same checker the epic gate runs, over
+      its own draft, which is what makes "the same rules" true rather than asserted.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or
    invariant. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
@@ -360,13 +378,82 @@ and that body is the artifact the record hash is taken over. So:
   today — `rating` = the epic's `complexity`, `epic` = the epic issue ref, `feature`/`title`/`date`,
   and `concepts:` carried over from the epic.
 
+## Phase 3.5 — Pre-filing checkpoint (MANDATORY STOP)
+
+The gate this command already refers to, now with a phase behind it. It runs **before every path
+that creates or updates the record sub-issue**, including `--revise`. The record body is durable the
+instant it is filed and frozen the instant it is approved, so a cut after filing is either an edit
+to a published body or a reopen — both worse than not filing it.
+
+**First, judge viability.** You are formatting a record the **architect** wrote; you are not the
+architect. Read each refuted alternative and ask whether its stated reason for losing names a
+**trade-off** — what the alternative was better at, and what it gave up. Where it names none, report
+that alternative as a **non-blocking observation**, prefixed with the razor's marker `⚠️ razor:`
+(nxs-razor §4). It blocks nothing, it is rendered here and nowhere else, and it is **never written
+into the draft body** — and because the marker is one asserted string, a render that did leak into
+the body is caught at Phase 3.6 rather than trusted not to happen.
+
+**Then render the cut list** (nxs-razor §8), directly above the choice:
+
+```markdown
+### Refuted alternatives
+
+**<Decision Title>**
+
+1. <the alternative, as written> — <its stated reason for losing>
+   ⚠️ razor: names no trade-off
+
+**<Decision Title>**
+
+2. <the alternative, as written> — <its stated reason for losing>
+```
+
+Every refuted alternative in the draft appears, numbered stably, grouped under the decision it
+belongs to. An observation is rendered beside its entry; it is a thing to look at, not a verdict.
+
+Then ask via **`AskUserQuestion`** (per the interaction convention). Four options:
+
+- **approve as drafted** — file the record as it stands.
+- **approve with cuts** — the same, after removing the alternatives the reviewer names.
+- **revise** — return to Phase 1 for the decisions the reviewer names.
+- **no record** — the epic proceeds without one (the Phase 0.2 step-4 exit: file nothing, remove the
+  needs-design label, stop).
+
+`approve with cuts` takes a typed list of the numbers. Delete those alternatives from the labelled
+draft **before Phase 3.6 derives the filing body**, so they are gone before any issue is
+created or updated. **Naming nothing is identical to plain approval** — no re-render and no second
+confirmation. A cut naming an alternative in a body that is already filed and approved is refused
+with the reason: an approved record is frozen and changes only through Phase 4.5's reopen path.
+
+The checkpoint writes no file and is spent when it is answered.
+
+## Phase 3.6 — Derive the filing body
+
+The labelled draft is not what is filed. Once the checkpoint is answered and any cut is applied,
+strip every label from `<scratch>/record-body.labelled.md` into `<scratch>/record-body.md` and
+assert that no drafting-time token survived:
+
+```bash
+nexus razor-check --draft "<scratch>/record-body.md" --assert-clean
+```
+
+A non-zero exit stops the run — **file nothing**. The record body is the artifact the record hash is
+taken over, so a label surviving into it would report a design that did not change as changed. The
+same assertion covers the checkpoint's other promise: it fails on a surviving template placeholder
+token (`{{…}}`) and on a surviving observation marker (`⚠️ razor:`) as well, so neither reaches the
+filed body.
+
+This is a phase of its own rather than a step of Phase 3 because it runs **after** the Phase 3.5
+checkpoint: the body has to be derived from the draft the reviewer actually approved, cuts included.
+
+
 ## Phase 4 — File the record as a sub-issue of the epic
 
 **Phase 4 and Phase 4.5 are filing steps, never entry points.** Every path reaches them through
-Phases 1–3: the body they write (`<scratch>/record-body.md`) is produced by Phase 3 from the Phase 1
+Phases 1–3.6 — including the Phase 3.5 checkpoint, which no filing path skips: the body they write (`<scratch>/record-body.md`) is produced by Phase 3.6 from the Phase 1
 analysis and is coverage-verified there. Phase 0.2 and the `--revise` token select *which* filing
 path is taken — file a new sub-issue, edit an open one, or reopen an approved one — never whether
-1–3 run. If `<scratch>/record-body.md` was not written by this run's Phase 3, stop: there is no new
+1–3.6 run. If `<scratch>/record-body.md` was not written by this run's Phase 3.6, stop: there is no new
 body to file, and filing a stale one would overwrite a live record.
 
 **Old-contract path (a committed queue entry):** write the filled template to
@@ -380,7 +467,7 @@ not into a committed queue entry, not into the gitignored scratch path.
 
 Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 
-1. **Write the body to a scratch file** (`<scratch>/record-body.md`) — prose only, per Phase 3.
+1. **Write the body to a scratch file** (`<scratch>/record-body.md`) — prose only, per Phase 3.6.
    Then **translate `<scratch>/record-body.md`** (see *Prose convention*), before any step below
    files or edits an issue.
 

@@ -42,6 +42,9 @@ importers:
       '@nexus/record-digest':
         specifier: workspace:*
         version: link:libs/record-digest
+      '@nexus/scope-razor':
+        specifier: workspace:*
+        version: link:libs/scope-razor
       '@nexus/workspace':
         specifier: workspace:*
         version: link:libs/workspace
@@ -333,6 +336,8 @@ importers:
         version: link:../close-migration
 
   libs/release-identity: {}
+
+  libs/scope-razor: {}
 
   libs/workspace:
     dependencies:

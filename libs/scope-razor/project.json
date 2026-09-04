@@ -1,0 +1,9 @@
+{
+  "name": "@nexus/scope-razor",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/scope-razor/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project @nexus/scope-razor --web",
+  "targets": {}
+}

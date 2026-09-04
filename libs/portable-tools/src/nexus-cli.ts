@@ -45,6 +45,9 @@ import { deriveRange } from "@nexus/pr-worktree/range";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
+import { survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
+import { checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
+import { renderRazorFindings, renderSurvivingTokens } from "@nexus/scope-razor/render";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
@@ -223,6 +226,18 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      --source names a grounding source, which is what permits an introduced item.",
         ].join("\n"),
         run: runProseVerify,
+    },
+    "razor-check": {
+        summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
+        usage: [
+            "  nexus razor-check --draft <path> --source <path>",
+            "  nexus razor-check --draft <path> --assert-clean",
+            "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
+            "      personas table, exiting 1 when any finding blocks. With --assert-clean it instead",
+            "      asserts that a derived filing body carries no provenance label, template placeholder",
+            "      token or observation marker, so a drafting-time body is never filed.",
+        ].join("\n"),
+        run: runRazorCheck,
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
@@ -963,6 +978,74 @@ async function runProseVerify(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
     io.stdout(renderVerifyResult(result));
+    return 0;
+}
+
+interface RazorCheckFlags {
+    draft?: string;
+    source?: string;
+    assertClean: boolean;
+}
+
+function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
+    const flags: RazorCheckFlags = { assertClean: false };
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--draft") flags.draft = argv[++i];
+        else if (argv[i] === "--source") flags.source = argv[++i];
+        else if (argv[i] === "--assert-clean") flags.assertClean = true;
+    }
+    return flags;
+}
+
+/**
+ * `nexus razor-check` — the razor's one mechanical enforcer (epic #284). Every consumer of a
+ * counted limit, a citation comparison or a token-survival assertion invokes this verb rather than
+ * restating the rule, which is what makes "the same rules in four places" true instead of asserted.
+ *
+ * `--assert-clean` is the gate between a labelled draft and a filed issue body: it fails on any
+ * surviving drafting-time token — a provenance label, a template placeholder, or a gate's
+ * observation marker — so leakage is a checked condition and not something a drafting model has to
+ * remember.
+ */
+async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
+    const flags: RazorCheckFlags = parseRazorCheckFlags(argv);
+    if (flags.draft === undefined || (!flags.assertClean && flags.source === undefined)) {
+        io.stderr("usage: nexus razor-check --draft <path> (--source <path> | --assert-clean)");
+        return 2;
+    }
+
+    const readOr = (target: string): string | undefined => {
+        try {
+            return fs.readFileSync(path.resolve(io.cwd, target), "utf8");
+        } catch {
+            io.stderr(`razor-check: cannot read ${target}`);
+            return undefined;
+        }
+    };
+
+    const body: string | undefined = readOr(flags.draft);
+    if (body === undefined) return 1;
+
+    if (flags.assertClean) {
+        const findings: RazorFinding[] = survivingTokens(body);
+        if (findings.length > 0) {
+            io.stderr(renderSurvivingTokens(flags.draft, findings));
+            return 1;
+        }
+        io.stdout(`razor-check: ${flags.draft} carries no drafting-time token`);
+        return 0;
+    }
+
+    const sourceText: string | undefined = readOr(flags.source as string);
+    if (sourceText === undefined) return 1;
+
+    const findings: RazorRuleFinding[] = checkDraft(body, sourceText);
+    const report: string = renderRazorFindings(flags.draft, findings);
+    if (findings.some((f: RazorRuleFinding) => f.severity === "blocking")) {
+        io.stderr(report);
+        return 1;
+    }
+    io.stdout(report);
     return 0;
 }
 

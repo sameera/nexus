@@ -89,6 +89,19 @@ consequence. These two rules are yours; the form rules belong to the translator.
 the run — file nothing, and keep `<file>.pre` for diagnosis. Resolve every density finding before the
 gate: rewrite the flagged line, or state why the wording stands. File the translated file verbatim.
 
+## Scope convention — the razor
+
+Before drafting anything, load the **`nxs-razor`** skill. It is the one normative statement of the
+provenance rule, and this command restates none of it — where a phrase below and the skill disagree,
+the skill governs and `nexus razor-check` enforces the skill's numbers.
+
+Two obligations land in this command's phases:
+
+- **Phase 4 materializes the run's source text** to `${DRAFT_DIR}/source.md` before any item is
+  labelled, and every citation check in the run compares against that file.
+- **Phase 6 files from a derived body**, not from the labelled draft. Provenance labels are for the
+  gate and the digest; a durable reader is never asked to read planning bookkeeping.
+
 Run the phases in order.
 
 ## Phase 0 — Resolve entry mode
@@ -494,6 +507,10 @@ nexus config backlog-query
     - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M**
       into ≤ M stories before finalizing — the story is the implementation unit (0009), so an
       oversized story is split here, not filed. Record each story's `size`.
+    - **Answer the necessity question** (nxs-razor §7): which of these stories does the smallest
+      usable version of this capability need? Write the answer as the epic's `## Smallest Usable
+      Version` line. It is scope reasoning a later reader consumes, so it is one of the few razor
+      outputs that reaches the filed body.
     - For unclear aspects, make informed guesses from context and standards. Mark `[NEEDS CLARIFICATION: …]` only when the choice materially changes scope or UX and no reasonable default exists. **Max 3 markers.** Prioritize: scope > security/privacy > UX > technical.
 3. For each story assign **`story_type`**:
     - `user` — acceptance criteria describe a behavioral outcome observable by an end-user.
@@ -513,6 +530,16 @@ Nothing is committed at planning (#114); the committed queue entry is born at cl
 DRAFT_DIR="<your-session-scratch>/nxs-epic-${EPIC_SLUG}"
 mkdir -p "$DRAFT_DIR"
 ```
+
+**Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the
+capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the
+discovery document plus every resolved ticket (discovery mode). Write it before labelling anything —
+the labels cite it, and the gate has no other way to see what the lead actually asked for. It is
+session scratch and stays there: no part of it is posted to an issue, a comment or a report.
+
+**Then label every acceptance criterion, assumption and out-of-scope item** inline, `[asked: "…"]`
+with a fragment quoted from `source.md`, or `[inferred]`. The vocabulary is the skill's and has two
+values.
 
 `EPIC_SLUG` is the epic's kebab-case slug decided in Phase 3 (the same value written to the draft's
 `slug:` frontmatter). Write the epic to `${DRAFT_DIR}/epic.md` — this is the working draft the epic
@@ -545,7 +572,18 @@ gate's.
 ```
 Invoke: nxs-epic-gate
 Input: ${DRAFT_DIR}/epic.md
+Source text: ${DRAFT_DIR}/source.md
 ```
+
+The gate runs the razor's checker (`nexus razor-check`) against that pair. It reports; it edits
+nothing and creates nothing. **A blocking razor finding is a high finding: do not render the Phase 5
+digest.** Fix `${DRAFT_DIR}/epic.md` — cut the item, restate the citation, or add the story's stated
+reason — and re-run the gate until it is clean. A draft that breaks a counted limit never reaches the
+reviewer.
+
+The gate's **mechanism observations** are the one razor finding that does not block. Carry each into
+the Phase 5 digest verbatim, as an observation beside the story it belongs to, and let the reviewer
+decide.
 
 Fold the findings into Phase 5:
 
@@ -610,36 +648,126 @@ Personas — verbatim (condense only obvious redundancy).>
 the approval is made with them in view.>
 ```
 
-Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
-emit a free-text prompt line. Two options:
+**Then render the cut list** (nxs-razor §8), directly under the digest and before the choice. This
+is what makes removing scope cheaper than accepting it — the reviewer deletes in one action instead
+of editing a file and re-running the command.
 
-- **approve** — file the epic issue and one issue per story.
+```markdown
+### Cuts
+
+Number the entries stably and group them under the story each belongs to. The `## Smallest Usable
+Version` line is rendered first, above the list, because it is what the ordering follows.
+
+<A story the necessity answer leaves outside the smallest usable version, and every item under it:>
+
+**<Story Title>** — <asked-for | added by the drafting model>
+
+1. **the whole story** — <one line: what is lost>
+2. <an inferred acceptance criterion, verbatim minus its label>
+
+<Then the remaining stories, each with its inferred items:>
+
+**<Story Title>**
+
+3. <an inferred acceptance criterion>
+
+**Epic-level**
+
+4. <an inferred assumption>
+5. <an inferred out-of-scope item>
+```
+
+The list holds **every `inferred` item**, **every wholly inferred story**, and **each fully asked-for
+story the necessity answer excludes**. An excluded asked-for story sorts first and is rendered
+**asked-for**: cutting it removes something the lead requested, and they must be able to see that.
+Never render an asked-for story as an addition. If the gate reported a mechanism observation, show it
+beside its story here — it is not a cut, it is a thing to look at.
+
+Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
+emit a free-text prompt line. Three options:
+
+- **approve as drafted** — file the epic issue and one issue per story, cutting nothing.
+- **approve with cuts** — the same, after removing the numbers the reviewer names.
 - **revise** — stop; edit the `epic.md` draft in session scratch, then re-run with `/nxs.epic --resume`.
 
-**Do NOT create any issue without an explicit `approve`** (an `AskUserQuestion` selection of
-`approve`, or an "Other" answer that clearly means approve).
+**Do NOT create any issue without an explicit approval** (an `AskUserQuestion` selection of one of
+the two approve options, or an "Other" answer that clearly means approve).
 
-- `approve` → Phase 6.
+- `approve as drafted` → Phase 6.
+- `approve with cuts` → take the numbers (typed as a list, e.g. `1, 4, 5`), apply the cuts below,
+  then Phase 6. **An empty selection is plain approval**: go straight to Phase 6 with no
+  re-derivation, no re-render and no second confirmation.
 - `revise` → stop. Leave the scratch draft intact for editing; report how to resume. Nothing is
   committed, so there is nothing to clean up.
 
+### Applying cuts (before any issue is created)
+
+Cuts are edits to `${DRAFT_DIR}/epic.md`, made **before** Phase 6 derives the filing body — nothing
+is cut after something is filed.
+
+1. **Refuse a cut of already-filed content.** If a prior partial run filed the epic or a story (the
+   draft's frontmatter carries `link`, or a story carries an issue number), a cut naming it is
+   **refused with the reason stated** — never silently skipped. Report which numbers were refused and
+   what remains.
+2. **Refuse an all-stories cut.** At least one story must survive; an all-stories cut is a revise,
+   not an approval. Say so and return to the choice.
+3. **Delete the named items.** An item cut is the deletion of its lines. A story cut removes its
+   whole `### Story` section.
+4. **Re-parent the dependents of a cut story** onto that story's own blockers, rather than dropping
+   the edges. Dropping an edge can let a dependent start before a prerequisite that was only
+   reachable through the removed story; an under-constrained order breaks work, while an
+   over-constrained one merely delays it. **State the cascade — which surviving stories are
+   re-parented onto what — and have the lead confirm before applying it.**
+5. **Re-derive what the story set determined.** After a whole-story cut:
+    - the epic `complexity` rollup, from the reduced story set, by the Phase 3 step-4 rule;
+    - the **needs-design** label that follows from that new value in Phase 6 — a cut that drops the
+      epic below the threshold must drop the label, or the reduced epic demands a record it no longer
+      warrants;
+    - any utilization-risk or scope banner in the epic body quoting the pre-cut assessment —
+      **re-derived, or removed**. A stale banner asserts a sizing the epic no longer has, to every
+      future reader of the issue.
+6. **Re-run the gate** (Phase 4b) on the cut draft, then continue to Phase 6.
+
 ## Phase 6 — File the epic and story issues (on approve)
+
+**Derive the filing body first (before step 1).** The draft carries provenance labels; the issues
+must not. Copy `${DRAFT_DIR}/epic.md` to `${DRAFT_DIR}/epic.filing.md`, remove every `[asked: "…"]`
+and `[inferred]` label from it, and assert that no drafting-time token survived:
+
+```bash
+nexus razor-check --draft "${DRAFT_DIR}/epic.filing.md" --assert-clean
+```
+
+A non-zero exit stops the run: **file nothing**, fix the derived body, and re-assert. The assertion
+covers a surviving template placeholder (`{{…}}`) and observation marker (`⚠️ razor:`) as well as a
+label, so nothing drafting-time reaches an issue.
+
+**Every command below names `epic.filing.md` explicitly.** The two files have different jobs and the
+distinction is not one a blanket sentence can carry through a dozen concrete commands:
+
+| File | Role |
+|---|---|
+| `${DRAFT_DIR}/epic.md` | the labelled draft — the reviewer's drill-down, and the run's **record of what was filed** (its frontmatter carries `link`) |
+| `${DRAFT_DIR}/epic.filing.md` | the derived clean body — **everything filed is filed from here**, and it is re-derived from `epic.md` on every run |
+
+Because the derived file is rebuilt each run, the epic issue number is recorded on the labelled
+`epic.md`, not on it. Step 1 says how.
 
 Issue creation is **coupled**: the epic issue and its story sub-issues are created together in this
 one step. There is no separate task command — the story is the implementation unit (0009), so each
 story becomes one GitHub issue, child of the epic issue.
 
-1. **Create (or reuse) the epic issue (idempotent).** If the scratch draft's frontmatter already
+1. **Create (or reuse) the epic issue (idempotent).** If `${DRAFT_DIR}/epic.md`'s frontmatter already
    carries `link` — the epic issue was filed in a prior run of this command — **reuse that number;
    do not create a second epic issue** (Success Metric / AC: a re-run reuses the recorded number).
    Otherwise:
 
     ```bash
     # intent mode — create a new epic issue
-    nexus create-epic "${DRAFT_DIR}/epic.md"
+    nexus create-epic "${DRAFT_DIR}/epic.filing.md"
 
     # promotion mode — populate the stub's OWN issue in place
-    nexus create-epic "${DRAFT_DIR}/epic.md" \
+    nexus create-epic "${DRAFT_DIR}/epic.filing.md" \
         --promote <PROMOTE>
     ```
 
@@ -653,9 +781,12 @@ story becomes one GitHub issue, child of the epic issue.
     The skill reads `epic` (title) and `type` from frontmatter, **embeds the raw planning
     frontmatter onto the issue as a hidden `nexus:epic-meta` block** (so the resolver can rebuild the
     full `epic.md` field shape from the issue number alone), creates the issue, and writes
-    `link: "#<n>"` back into the draft. Re-read the draft frontmatter; set `EPIC` = that number.
-    Because the number is now recorded in the draft, re-running is safe — the epic issue is created
-    at most once.
+    `link: "#<n>"` back into the file it was given — here, `epic.filing.md`. Set `EPIC` = that number.
+
+    **Then copy that `link: "#<n>"` line into `${DRAFT_DIR}/epic.md`'s frontmatter.** The derived
+    file is rebuilt from `epic.md` on every run, so a number recorded only on it is lost the moment
+    the run is repeated and the next run files a second epic issue. Recording it on the labelled
+    draft is what makes the idempotency check at the top of this step true.
 
     It also applies the **needs-design** label from the epic's `complexity` rollup (#139): **M or
     larger** carries it, **S** does not, and an absent rollup errs toward carrying it. That label is
@@ -682,8 +813,10 @@ story becomes one GitHub issue, child of the epic issue.
 3. **Write transient story work-items** to the scratchpad, one `STORY-<EPIC>.<SEQ>.md` per story, with
    the frontmatter the creation skill consumes and the story body as the issue body.
 
-   Each body is a **verbatim transcription** of that story's section in the translated
-   `${DRAFT_DIR}/epic.md` — copy the prose across, do not re-draft it. The epic was translated in
+   Each body is a **verbatim transcription** of that story's section in the translated, derived
+   `${DRAFT_DIR}/epic.filing.md` — copy the prose across, do not re-draft it. Transcribing from the
+   labelled `epic.md` would carry a provenance label onto a story issue, which is the one leak the
+   derived body exists to prevent. The epic was translated in
    Phase 4 and approved at the Phase 5 digest on that wording; a sentence rewritten here would
    reach the issue untranslated and unapproved. Only the ref rewrite in step 4's pass 3
    (`STORY-<EPIC>.<SEQ>` → `#<issue>`) may change a body after translation:
@@ -872,9 +1005,13 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 - <measurable, technology-agnostic criterion>
 
-## Personas
+## Personas   <!-- deviations only — no table when the canonical personas apply as-is (nxs-razor §6) -->
 
 <Deviations only. Personas are canonical in `<docs-root>/product/context.md` — the `<docs-root>` resolved in Phase 0, with the empty-prefix rule applied (so `product/context.md` on a repo-root hub, `docs/product/context.md` in a single-repo checkout). If this epic uses them as-is, write that resolved path: "Per `<docs-root>/product/context.md`." Tabulate only personas specific to this epic or deviations from the canonical set.>
+
+## Smallest Usable Version
+
+<the stories the smallest usable version of this capability needs, named by title, and nothing else — the necessity answer (nxs-razor §7). It reaches the filed issue and orders the digest's cut list.>
 
 ## User Stories
 
@@ -885,9 +1022,9 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 **As a** <persona>, **I want** <goal>, **so that** <benefit>.
 
-#### Acceptance Criteria
+#### Acceptance Criteria   <!-- 3–5 (nxs-razor §5); above five, add one `**Reason for <n>:**` line here -->
 
-- [ ] **Given** <precondition>, **when** <action>, **then** <expected result>
+- [ ] **Given** <precondition>, **when** <action>, **then** <expected result>   <!-- names no mechanism (nxs-razor §6); label it `[asked: "…"]` or `[inferred]` (§1) -->
 <!-- For story_type: system, at least one AC must state a measurable metric, threshold,
      or pass/fail assertion — not prose like "implement caching". -->
 
@@ -899,11 +1036,11 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 
 <repeat>
 
-## Assumptions
+## Assumptions   <!-- max 5, no escape; may be empty (nxs-razor §5); label each item (§1) -->
 
 - <reasonable defaults chosen for unspecified details>
 
-## Out of Scope
+## Out of Scope   <!-- max 5, no escape; may be empty (nxs-razor §5); label each item (§1) -->
 
 - <explicitly excluded; for the "full" oversized path, note deferred scope here>
 

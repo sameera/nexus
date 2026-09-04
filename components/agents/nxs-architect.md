@@ -149,9 +149,10 @@ One entry per real decision. For each:
 
 - **Decision**: what was decided.
 - **Why**: the rationale.
-- **Refuted alternative**: the viable alternative that lost and why. Include this only when a
-  competent engineer might genuinely have chosen it and it lost on a real trade-off — never a
-  strawman. Omit the line if no viable alternative existed.
+- **Refuted alternative**: offered, not required (nxs-razor §9). Write the line **only** where a
+  competent engineer might genuinely have chosen the alternative, and state the **trade-off** it
+  lost on — never a strawman, and never a slot you are filling. A decision with no viable
+  alternative carries no such line and no placeholder standing in for one.
 
 ### Constraints & Invariants
 
