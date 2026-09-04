@@ -1,6 +1,6 @@
 # Rationale accounting for the retired sequencing page
 
-Every rationale line in `docs/delivery/sequencing.md`, and where it went. Nothing is unaccounted for.
+Every rationale line in the retired sequencing page, and where it went. Nothing is unaccounted for.
 
 ## Moved onto an open stub
 
@@ -64,3 +64,15 @@ The query returns 44 open backlog issues and none of the above.
 Both never-filed supersessions are already recorded on the closed issues that superseded them
 (#139 and #114), so confirming they carry no open issue is the whole of the work — nothing new
 was written for them.
+
+# Deletion checks for #404
+
+Run 2026-09-04, after `git rm`:
+
+- A fixed-string `git grep` for the deleted page's repository path over tracked files → 0 matches.
+  (This scratch file deliberately never spells that path out, so the check stays clean while the
+  branch is in flight.)
+- `git grep -E '\]\([^)]*sequencing\.md[^)]*\)'` over tracked markdown → 0 matches. No link
+  resolved to the file even before deletion; the criterion asserts it rather than assuming it.
+- The only surviving textual mention is `docs/delivery/lessons/2026-07-22-issue-sourced-planning.md`,
+  which names the page in past tense as a historical record. Left unchanged.
