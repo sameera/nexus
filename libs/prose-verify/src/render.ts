@@ -23,12 +23,28 @@ function describeLines(lines: readonly number[]): string {
     return lines.length === 1 ? `line ${lines[0]}` : `lines ${lines.join(", ")}`;
 }
 
+/**
+ * The counts a missing finding carries, phrased so a partial loss never reads as a total one.
+ *
+ * The line list names every place the item stood in the pre-translation copy, not the places it was
+ * lost from — counting is position-blind, so which occurrence went is not a fact the check holds.
+ * Without the counts an author reading six lines assumes six losses, repairs the wrong thing, and
+ * fails the check a second time. The counts say how many of the six to go looking for.
+ */
+function describeLoss(finding: PreservationFinding): string {
+    const occurrences: string = finding.had === 1 ? "1 occurrence" : `${finding.had} occurrences`;
+    if (finding.survived === 0) {
+        return `${occurrences} before, none left`;
+    }
+    return `${occurrences} before, ${finding.survived} left — ${finding.had - finding.survived} lost, and the check cannot say which`;
+}
+
 function describeFinding(finding: PreservationFinding): string {
     const where: string = describeLines(finding.lines);
     if (finding.kind === "introduced") {
         return `  - introduced ${finding.item} "${finding.label}" at ${where}, grounded in no named source`;
     }
-    return `  - missing ${finding.item} "${finding.label}", which stood at ${where}`;
+    return `  - missing ${finding.item} "${finding.label}": ${describeLoss(finding)}; stood at ${where}`;
 }
 
 /** The text the toolkit prints for one verdict. */

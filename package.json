@@ -23,7 +23,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "pnpm@11.25.0",
   "os": [
     "darwin",
     "linux"

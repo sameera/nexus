@@ -47,13 +47,17 @@ per forced-fit concept, exactly three rendered options, "Other" still available.
 Write concrete, not abstract: "there are two copies; one can go stale", never "state duplication
 risks divergence". Add nothing: every sentence carries a fact, a decision or a consequence. These
 two rules are yours; the form rules belong to the translator. Where a phase says **translate
-`<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`, run
-`nexus prose-verify --before <file>.pre --after <file>` with one `--source <path>` per grounding
-source you named the agent. The check proves the machine-read regions are byte-identical **and**
-that every number, modal, name-shaped token, heading, list item and table row survived; a grounded
-addition passes only because its `--source` carried it. On a pass, delete `<file>.pre`. On a
-failure, restore `<file>` from it and translate once more; a second failure stops the run — write
-nothing out, open no pull request, and keep `<file>.pre` for diagnosis. Resolve every density
+`<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`,
+naming `<file>.pre` as the pre-translation copy along with the grounding sources. The agent runs the
+check itself with those same `--source` flags and repairs its own rewrite until it passes, so its
+receipt carries a `verified:` line. That line is the agent's report, not the gate. Run
+`nexus prose-verify --before <file>.pre --after <file>` yourself whatever it says, with one
+`--source <path>` per grounding source you named the agent. The check proves the machine-read
+regions are byte-identical **and** that every number, modal, name-shaped token, heading, list item
+and table row survived; a grounded addition passes only because its `--source` carried it. On a
+pass, delete `<file>.pre`. On a failure, restore `<file>` from it and translate once more; a second
+failure stops the run — write nothing out, open no pull request, and keep `<file>.pre` for
+diagnosis. Resolve every density
 finding: rewrite the flagged line, or say why it stands. No approval gate reads this run, so the
 completion report names every standing finding with its reason, and every grounding substitution
 the receipts list.

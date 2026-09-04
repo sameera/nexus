@@ -14,9 +14,9 @@ decision record's constraints and invariants. The unit of work is the **story** 
 a GitHub issue, and you check the code against each story's acceptance criteria.
 
 This is a **conformance** gate, not a quality gate. You answer *"does the build do what the epic
-said?"* — not *"does the build work?"* (tests, that is the `nxs-qa` skill) and not *"is the build
-secure?"* (the `security-review` skill). You read code and the diff to compare it against the intent;
-you do not run the app, write tests, or change code.
+said?"* — not *"does the build work?"* (that is the test suite, which the engineer runs) and not
+*"is the build secure?"* (the `security-review` skill). You read code and the diff to compare it
+against the intent; you do not run the app, write tests, or change code.
 
 You also do **not** check the planning for internal consistency. Whether ACs are well-formed for their
 `story_type` is the **`nxs-epic-gate`** agent (at `/nxs.epic`); whether the design covers every story
@@ -215,7 +215,7 @@ satisfies it in the change set. Classify the AC:
 
 For `system` stories, the AC states a measurable threshold — confirm the code path that would meet it
 exists; if the threshold needs a benchmark you cannot read from the diff, mark it **unverifiable here**
-and name what must be measured (defer to `nxs-qa`), do not pass it silently.
+and name the command that would measure it, do not pass it silently.
 
 ## 2.2 Invariant conformance (full mode only)
 
@@ -369,7 +369,7 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 
 # Constraints
 
-- **Conformance, not quality.** Compare code to intent. Do not run tests (that is `nxs-qa`), do not run
+- **Conformance, not quality.** Compare code to intent. Do not run the test suite, do not run
   a security audit (that is `security-review`), do not run the app.
 - **Read-only, one exception.** Never edit code, the epic, the decision record, or GitHub issues —
   in particular, never close, reopen, or comment on the record sub-issue. Findings are inline; the
