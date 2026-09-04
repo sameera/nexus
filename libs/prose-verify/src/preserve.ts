@@ -35,6 +35,18 @@ export interface PreservationFinding {
     item: TrackedKind;
     /** The item as the author will recognise it. */
     label: string;
+    /**
+     * How many times it stood in the pre-translation copy. Zero for an introduced item, which by
+     * definition stood nowhere before.
+     */
+    had: number;
+    /**
+     * How many times it stands in the post-translation copy. Reported alongside `had` because the
+     * two together are what separate a partial loss from a total one: an item that stood six times
+     * and survives five is a different repair from one that stood six times and survives none, and
+     * the line list alone cannot tell an author which of the two they are looking at.
+     */
+    survived: number;
     /** The lines it stood on: in the pre-translation copy when missing, the post one when introduced. */
     lines: number[];
 }
@@ -124,14 +136,28 @@ export function comparePreservation(before: string, after: string, sources: read
     for (const [key, item] of mine) {
         const survived: number = theirs.get(key)?.lines.length ?? 0;
         if (survived < item.lines.length) {
-            missing.push({ kind: "missing", item: item.kind, label: item.label, lines: item.lines });
+            missing.push({
+                kind: "missing",
+                item: item.kind,
+                label: item.label,
+                had: item.lines.length,
+                survived,
+                lines: item.lines,
+            });
         }
     }
 
     const introduced: PreservationFinding[] = [];
     for (const [key, item] of theirs) {
         if (!mine.has(key) && !grounded.has(key)) {
-            introduced.push({ kind: "introduced", item: item.kind, label: item.label, lines: item.lines });
+            introduced.push({
+                kind: "introduced",
+                item: item.kind,
+                label: item.label,
+                had: 0,
+                survived: item.lines.length,
+                lines: item.lines,
+            });
         }
     }
 
