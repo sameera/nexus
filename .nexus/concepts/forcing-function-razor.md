@@ -1,8 +1,8 @@
 ---
 title: "Forcing-Function Razor"
 aliases: ["over-generation razor", "forcing function test", "artifact razor", "generate-and-persist gates"]
-touches: ["two-store-split", "gold-plating", "nexus-pipeline", "prose-translation"]
-last_updated_by: "#414"
+touches: ["two-store-split", "gold-plating", "nexus-pipeline", "prose-translation", "scope-razor"]
+last_updated_by: "#284"
 status: active
 verification: verified
 ---
@@ -29,6 +29,7 @@ Each pipeline output is tested twice. First: does it exist to make a human stop 
 - [gold-plating](gold-plating.md) — the pattern the razor exists to detect and cut.
 - [nexus-pipeline](nexus-pipeline.md) — the razor is applied stage by stage to keep the pipeline lean.
 - [prose-translation](prose-translation.md) — the razor cut the resident prose rulebook; the split restored its rules at a fraction of the cost.
+- [scope-razor](scope-razor.md) — the sibling test: this one asks whether an artifact forces a decision, that one whether its scope was ever asked for.
 
 ## Decision Log
 
@@ -39,3 +40,7 @@ Adopted "every artifact is a forcing function for a human decision or it is cut 
 ### 2026-09-02 — #414 — Reciprocal link from prose-translation
 
 Recorded the fan-out from the prose-translation page, which names this razor as the reason the resident rulebook was cut and the rules re-homed rather than restored as they were.
+
+### 2026-09-04 — #284 — Reciprocal link from scope-razor
+
+Recorded the fan-out from the scope razor's page, which names this razor as its sibling test and marks the boundary between the two: this one decides whether an artifact earns its existence, that one decides whether the scope inside it was ever asked for.

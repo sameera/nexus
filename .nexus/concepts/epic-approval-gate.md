@@ -1,8 +1,8 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation"]
-last_updated_by: "#414"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body"]
+last_updated_by: "#284"
 status: active
 verification: verified
 ---
@@ -13,13 +13,13 @@ The epic stage files the epic and its story issues together, gated by a single d
 
 ## How It Works
 
-The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning, it commits nothing at planning. The draft stays in session scratch. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics; the gate's consent covers that irreversible filing. The epic is translated before the digest is built, so the gate reads the wording that will be filed. Each story body is then a verbatim transcription of the translated epic; only the reference rewrite to an issue number may change a body afterwards.
+The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning, it commits nothing at planning. The draft stays in session scratch. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics; the gate's consent covers that irreversible filing. The epic is translated before the digest is built, so the gate reads the wording that will be filed. Each story body is then a verbatim transcription of the translated epic; only the reference rewrite to an issue number may change a body afterwards. The gate also runs the scope razor's checker, and a blocking finding stops the digest. The digest carries a numbered cut list, and issues are filed from a derived body, not the labelled draft.
 
 ## Key Invariants
 
 1. The epic and its story issues are filed together, gated by one approval.
 2. The decision-grade digest, not the epic document, is the read surface at the gate.
-3. Open questions block filing; they are the only pre-filing safeguard.
+3. Open questions and a blocking razor finding each stop the digest before filing.
 4. Oversized scope becomes backlog stub issues filed on the gate's consent, not fully generated epics.
 5. The epic stage takes intent directly; no separate brief is a precondition.
 6. Filing commits nothing at planning: the epic issue precedes its story children, and a re-run reuses an already-filed one.
@@ -36,6 +36,9 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [fog-referral-gate](fog-referral-gate.md) — the sharpness test inside this stage's right-size phase, which stops an underspecified intent before sizing.
 - [discovery-graduation](discovery-graduation.md) — the entry mode consuming a finished discovery, which files through this stage's existing paths.
 - [prose-translation](prose-translation.md) — translates the epic before the digest, so the gate approves the wording that is filed.
+- [scope-razor](scope-razor.md) — the rule set the draft is written under, whose checker this gate runs before any digest is rendered.
+- [cut-gate](cut-gate.md) — the convention behind the digest's cut list and its third approval action.
+- [derived-filing-body](derived-filing-body.md) — what every issue this gate files is filed from, asserted clean beforehand.
 
 ## Decision Log
 
@@ -70,3 +73,7 @@ The epic stage changed in two ways, and neither adds a phase. Its right-size pha
 ### 2026-09-02 — #414 — The approved wording is the filed wording
 
 Translating the epic before the digest means the gate and the filed issues read the same words, rather than the reviewer approving one draft and a later phase writing another. Nothing in the filing phase had previously stopped a run re-drafting a story body after the gate, so a sentence rewritten there would have reached the issue both untranslated and unapproved. Refuted alternative: translate each story file separately after writing it, which keeps every issue body in plain language on its own — it lost because it spends a translator run per story and reopens wording the gate already approved.
+
+### 2026-09-04 — #284 — The digest gained a scope axis, a cut list, and a derived body
+
+The gate had one pre-filing safeguard, and open questions were it: nothing asked whether the lead had requested the scope being filed as binding acceptance criteria. The gate now runs the scope razor's checker before the digest is rendered, so a draft breaking a counted limit or citing a fragment that is not in the source text never reaches the reviewer at all, and the one razor rule that is a judgment rather than a count is carried into the digest as an observation the reviewer decides. The digest itself gained a numbered cut list and a third action, because showing a reviewer the model's additions is pointless while deleting them costs a hand-edit and a re-run. Filing changed shape with it: the labelled draft is the reviewer's drill-down and the run's record of what was filed, while everything that reaches the tracker is filed from a body derived from it. Refuted alternative: let the drafting phase strip its own labels before the digest, which needs no second file — it lost because the digest's cut list is built from those labels and the record of the filed issue number would then live on a file rebuilt every run.
