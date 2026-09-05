@@ -247,6 +247,16 @@ completely open.
     There is no `prototype` type. A prototype-shaped question routes to an `interview` or a
     `council` ticket.
 
+    **Flag a ticket whose question decides what a person sees.** Set its frontmatter `surface:` to a
+    short name for that surface — `team channel post`, `preview turn`, `settings screen`. Leave the
+    field out otherwise. The flag routes the ticket to a sketch when it is resolved (Phase R2); it
+    is not a fifth type, it does not change how the ticket resolves, and it is set here rather than
+    read out of the resolution later, so the test is applied once to a question instead of
+    re-argued against every ruling's prose.
+
+    **No sketch is drawn here.** Start resolves no ticket, so a drawing made at start would show a
+    decision nobody has taken.
+
 2. **A suspicion that cannot yet be phrased sharply** goes into the discovery doc's **"Not yet
    specified"** section, and **no ticket is created for it**. It graduates into a ticket later, when
    a resolution makes it precisely statable.
@@ -377,6 +387,42 @@ agent and no skill.
   across a session boundary with the outcome pasted back by hand.
 - **`task`** → do the unblocking legwork in this session, then state the question it made statable.
 
+### Sketch a surface ticket before ruling on it
+
+A claimed ticket carrying `surface:` gets a **sketch pass**: it runs after the route above has
+produced its evidence and **before the ruling is written**. A ticket without the field skips this
+entirely. If the work makes it clear that an unflagged ticket does decide what a person sees, set
+`surface:` now and run the pass — the flag is a routing field, not a claim about who wrote it.
+
+Draft **two or three ASCII wireframes** of that surface, one per candidate answer to the ticket's
+question, and put each one in an `AskUserQuestion` option's `preview` field so the lead rules on the
+drawing rather than on a description of it. The option label is the answer that drawing embodies.
+The lead's pick is the ruling; "Other" is a correction to take, not a fourth drawing to render.
+
+A wireframe is drawn under four rules:
+
+- **Plain ASCII, at most 72 columns.** That is the one width that survives the terminal, the option
+  preview, and a GitHub issue body without a horizontal scrollbar.
+- **The variants differ in the decision at stake.** Two drawings of the same ruling in different
+  typography are decoration, and a gate that offers them is a gate with one option.
+- **Only what the ticket decides is drawn.** One representative row, not sample data; a labelled box
+  for anything the ticket does not rule on.
+- **No colour, no shading, no icon.** A drawing that needs any of them is drawing more than the
+  ruling.
+
+The sketch is a decision instrument, not a rendering. It is drawn before the ruling because a
+drawing made afterwards illustrates a decision already taken — the speculative over-generation the
+razor cuts — and because prose and picture are then two copies of one ruling, and the picture is the
+copy nobody redraws when the resolution is revised.
+
+**Never write the sketch to a file of its own**, in any format. The discovery folder is removed when
+the discovery ends; a drawing in a file cannot be copied into an issue body the way the resolution's
+words are; and no gate the lead reads in a terminal can display one. ASCII inside the ticket is the
+form that travels.
+
+Like an interview, this pass needs the human. If the lead is not available, leave the ticket
+claimed, say so, and stop.
+
 **An agent's output is evidence, never a resolution.** Record it on the ticket under an
 `## Evidence` heading, attributed to the agent that produced it. Only the session marks a ticket
 resolved and writes its index gist, because a fact is not a decision and closing a ticket on evidence
@@ -386,14 +432,28 @@ alone would record as decided something nobody decided.
 
 Append to the claimed ticket file:
 
-```markdown
+````markdown
 ## Resolution
 
 - **Decided:** <the decision, stated so it can be acted on>
+
+    ```text
+    <the wireframe the lead chose — a surface ticket only; see Phase R2>
+    ```
+
 - **Why:** <the reasoning — this is the part that travels onto the stubs at graduation>
 - **Refuted alternative:** <the viable option not taken, and why it lost — or "none">
 - **Resolved by:** <github-login> on <YYYY-MM-DD>
-```
+````
+
+The chosen wireframe is written **inside the `Decided:` clause**, indented under it, and nowhere
+else. `/nxs.epic` copies that clause onto every stub the decision hangs on, in full; a drawing under
+a heading of its own is not part of what travels, so it would be destroyed with the folder.
+
+**Exactly one sketch is recorded** — the variant the lead picked. A rejected variant is described in
+words on the refuted-alternative line, because a second drawing states the same thing the sentence
+does and no reader ever needs the shape of an option that lost. A ticket with no `surface:` records
+no block at all: no fenced block, **no empty heading**, nothing to say a drawing was considered.
 
 Set the ticket's `status: resolved` in frontmatter.
 
@@ -413,10 +473,10 @@ until graduation copies it onto the stubs.
 
 Re-read `## Not yet specified` against the resolution just recorded.
 
-1. **Fog the resolution made precisely statable** graduates: write a new typed ticket file for it,
-   then — in a second pass, once every new file exists — wire its `blocked_by`, and **remove the
-   entry from "Not yet specified"**. The test is unchanged: can the question be stated precisely
-   now, not can it be answered now.
+1. **Fog the resolution made precisely statable** graduates: write a new typed ticket file for it —
+   flagged with `surface:` by the same test Phase 5 applies — then, in a second pass once every new
+   file exists, wire its `blocked_by`, and **remove the entry from "Not yet specified"**. The test
+   is unchanged: can the question be stated precisely now, not can it be answered now.
 2. **Work the resolution ruled beyond the destination** moves to `## Out of scope`. Entries there
    **never graduate**.
 3. Everything else stays where it is.
@@ -440,6 +500,7 @@ be running in parallel — that is fine, they resolve nothing.
 Report:
 
 - The ticket resolved, **by title**, and the decision in one sentence.
+- For a surface ticket: the surface that was sketched, and the answer the chosen drawing embodies.
 - Any takeover that was recorded.
 - What graduated out of "Not yet specified" and what moved to "Out of scope", each **by title**.
 - What remains open, **by title**, and what is still blocked and by which ticket.
@@ -488,7 +549,7 @@ That folder already holds dated outcome notes written by a pipeline stage, so th
 convention. The note is the **only durable carrier** of everything this discovery learned, so it
 carries all three of:
 
-```markdown
+````markdown
 # <Initiative> — discovery closed, no build
 
 ## Destination
@@ -500,6 +561,11 @@ carries all three of:
 ### <Ticket title>
 
 - **Decided:** <the index line's decision sentence, copied>
+
+    ```text
+    <the ticket's wireframe, copied verbatim — a surface ticket only; omit the block otherwise>
+    ```
+
 - **Why:** <the reasoning, copied from the ticket's resolution>
 - **Refuted alternative:** <the option not taken, and why it lost — omit the line if none>
 
@@ -508,7 +574,11 @@ carries all three of:
 ## Conclusion
 
 <why no build follows, in the words confirmed at the gate>
-```
+````
+
+A ticket that carries a wireframe carries it into the note **verbatim**, ruled lines and all. The
+note is the only artifact that outlives this discovery, and a drawing described in prose is a
+drawing nobody has.
 
 Carry the index **in full** — one entry per index line, none dropped, none merged — and **drop the
 `Detail:` clause**: the ticket file it names stops existing in the next step, so copying it would
@@ -580,6 +650,7 @@ title: "<the question, as a question>"
 type: research | interview | council | task
 status: open | resolved
 blocked_by: [ticket-<nn>-<ticket-slug>.md, ...] | none
+surface: "<what a person sees>"   # only on a ticket that decides that; omit the key otherwise
 claimed_by:            # a GitHub login, set when a session claims it
 claimed_at:            # ISO-8601, set with claimed_by
 ---
@@ -599,9 +670,9 @@ claimed_at:            # ISO-8601, set with claimed_by
 ## Resolution          <!-- appended once, by the session that resolves the ticket -->
 ```
 
-The frontmatter is the **entire control surface**: the type, the blocking edges, the claim, and the
-status. The body holds the question and, later, its resolution. Each field has a one-to-one GitHub
-equivalent — the type is a label, the blocking edges are native dependency edges, the claim is an
+The frontmatter is the **entire control surface**: the type, the blocking edges, the surface flag,
+the claim, and the status. The body holds the question and, later, its resolution. Each field has a
+one-to-one GitHub equivalent — the type is a label, the blocking edges are native dependency edges, the claim is an
 assignee, the status is open or closed — so migrating this store to an issue-backed one later is a
 translation rather than a redesign.
 
@@ -635,9 +706,15 @@ that files issues: `/nxs.epic --discovery <folder>`.
   discovery document's not-yet-specified and out-of-scope entries, and each ticket's question, in the
   same two-valued form: `[asked: "…"]` with a fragment quoted from that source, or `[inferred]`.
   **Resolutions are never labelled** — a resolution is a decision made in session and is inferred by
-  construction, so labelling it would be uniform noise. Run the same checker the epic gate runs
+  construction, so labelling it would be uniform noise. For the same reason **a wireframe carries no
+  label**: it is part of the resolution it sits in. Run the same checker the epic gate runs
   (`nexus razor-check --draft <the drafted file> --source <the materialized source>`) and fix what
   blocks. Nothing here reaches the issue tracker, and no durable link enters the discovery folder.
+- **A ticket that decides what a person sees is ruled on against a drawing.** The drawing is ASCII,
+  it is offered as competing variants **before** the ruling, and the chosen one is recorded inside
+  the resolution's `Decided` clause. It is never a file of its own in any format, because the folder
+  is removed when the discovery ends, an image cannot be copied into an issue body the way words
+  are, and the lead reads this gate in a terminal.
 - **A decision ticket is a question whose resolution is a decision** — never a slice of build work.
   If a ticket reads like something an engineer would implement, it is not a ticket.
 - **The destination is immutable.** Changing it invalidates rulings that were made against the old
