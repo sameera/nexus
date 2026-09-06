@@ -2,7 +2,7 @@
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest"]
 touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body"]
-last_updated_by: "#284"
+last_updated_by: "#442"
 status: active
 verification: verified
 ---
@@ -77,3 +77,7 @@ Translating the epic before the digest means the gate and the filed issues read 
 ### 2026-09-04 — #284 — The digest gained a scope axis, a cut list, and a derived body
 
 The gate had one pre-filing safeguard, and open questions were it: nothing asked whether the lead had requested the scope being filed as binding acceptance criteria. The gate now runs the scope razor's checker before the digest is rendered, so a draft breaking a counted limit or citing a fragment that is not in the source text never reaches the reviewer at all, and the one razor rule that is a judgment rather than a count is carried into the digest as an observation the reviewer decides. The digest itself gained a numbered cut list and a third action, because showing a reviewer the model's additions is pointless while deleting them costs a hand-edit and a re-run. Filing changed shape with it: the labelled draft is the reviewer's drill-down and the run's record of what was filed, while everything that reaches the tracker is filed from a body derived from it. Refuted alternative: let the drafting phase strip its own labels before the digest, which needs no second file — it lost because the digest's cut list is built from those labels and the record of the filed issue number would then live on a file rebuilt every run.
+
+### 2026-09-06 — #442 — The gate reads the drafted wording, with no translation step before it
+
+The epic is no longer translated between drafting and the digest. The stage writes plain prose the first time, so the wording the gate approves is the wording the draft already carries, and each story body stays a verbatim transcription of the derived filing body. The property the translation step protected is unchanged: the reviewer approves the words that reach the tracker. The step was retired across four drafting stages because the translator re-read each artifact and its sources on every run, and that exchange cost more tokens and more time than it saved.

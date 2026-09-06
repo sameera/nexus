@@ -2,7 +2,7 @@
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
 touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor"]
-last_updated_by: "#263"
+last_updated_by: "#442"
 status: active
 verification: verified
 ---
@@ -136,3 +136,7 @@ Concept pages are the one surface no reviewer reads closely before it merges, so
 ### 2026-09-05 — #263 — Reciprocal links from fix-lane and fix-razor
 
 The drain discovered a second kind of entry and a limit on what that kind may write. Both are described here; the rules themselves live on the two pages, and nothing this page already asserted has changed. Applying, validating and committing one entry at a time was already how the drain worked, and is now essential rather than incidental: the limit compares a page against that entry's own starting point, so batching several entries into one staging pass would compare against the wrong one.
+
+### 2026-09-06 — #442 — Concept pages are drafted plain, not translated
+
+The drain no longer translates each page and the pull-request body before the validator reads them. It drafts them plain the first time, under the same style guide the other stages load, so the validator reads the prose that will be filed. Grounding survives as a drafting rule rather than a handoff: the epic and the resolved why file are still the only sources an abstraction may be lifted from, and the why file is still written to disk at preflight for that reason. The translation step was retired across four stages because the translator re-read each artifact and its sources on every run, and that exchange cost more tokens and more time than it saved.

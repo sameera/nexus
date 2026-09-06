@@ -2,7 +2,7 @@
 title: "Prose Verification"
 aliases: ["preservation check", "region comparison", "fail-closed translation check", "tracked token classes", "pre-translation copy", "bounded retranslation", "grounding enforcement"]
 touches: ["prose-translation", "verb-reachability", "distiller"]
-last_updated_by: "#414"
+last_updated_by: "#442"
 status: active
 verification: verified
 ---
@@ -38,3 +38,7 @@ Each class is drawn against the rewrites the form rules permit, so a legal rewri
 ### 2026-09-02 — #414 — Fidelity is proven by a token comparison, not by a reader
 
 The superseded design paid for fidelity with review time: the author re-read every changed section, and a distillation reviewer was asked to compare each page against a copy the convention had already deleted. Spotting a lost number needs no judgment, while grounding an abstraction needs all of it, so the machine took the first and the human kept the second. Refuted alternative: have a second model read the translation for fidelity, which reaches meaning no token class does and spends no human attention — it lost because a stochastic reader checking a stochastic writer produces a verdict nobody can check, and the returned prose is exactly the cost the split exists to avoid.
+
+### 2026-09-06 — #442 — The check no longer gates an artifact the pipeline wrote
+
+Every drafting stage now writes plain prose directly, so there is no pre-translation copy to compare a stage-authored artifact against and no verdict for a stage to wait on. The comparison itself is unchanged and still fails closed. What changed is its reach: it runs only where a translation still happens, which is rewriting text the pipeline did not author. The four drafting stages retired their translation step because the translator re-read each artifact and its sources on every run, and that exchange cost more tokens and more time than it saved.
