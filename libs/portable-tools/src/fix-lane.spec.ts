@@ -78,3 +78,66 @@ describe("/nxs.fix resolves a reference before it writes (story #266)", () => {
         expect(FIX).toMatch(/pull request is never substituted for\s*\n?the issue it closes/);
     });
 });
+
+describe("/nxs.fix creates the entry from a resolved range (story #267)", () => {
+    it("creates exactly two files under the ephemeral fix directory and reports both", () => {
+        expect(FIX).toContain(".nexus/tmp/fix-<n>/epic.md");
+        expect(FIX).toContain(".nexus/tmp/fix-<n>/close-record.md");
+        expect(FIX).toMatch(/exactly two files/);
+        expect(FIX).toContain("Run /nxs.distill to drain it");
+    });
+
+    it("creates nothing on GitHub and commits nothing", () => {
+        expect(FIX).toMatch(/no issue, no comment, no branch, no pull request, no commit/);
+    });
+
+    it("gives epic.md a title, a canonical link, a fix slug and the entry kind, and no body", () => {
+        expect(FIX).toMatch(/slug: fix-<n>/);
+        expect(FIX).toContain("entry_kind: fix");
+        expect(FIX).toMatch(/frontmatter only, \*\*no body\*\*/);
+    });
+
+    it("omits the feature key rather than guessing a value", () => {
+        expect(FIX).toMatch(/omit this key entirely when they left it empty/);
+        expect(FIX).toMatch(/Omit `feature` rather than writing a guessed value/);
+    });
+
+    it("gives close-record.md a literal analyze value, one range entry and the two prose sections", () => {
+        expect(FIX).toContain("analyze: n/a — fix entry (no acceptance criteria)");
+        expect(FIX).toMatch(/## Key Decisions/);
+        expect(FIX).toMatch(/A fix entry has no decision record to deviate from/);
+        expect(FIX).toMatch(/range:\s*\n\s*- repo:/);
+    });
+
+    it("gives close-record.md no record keys, no deferred scope and no process lesson", () => {
+        expect(FIX).toMatch(/no `record` key and no `record_hash` key/);
+        expect(FIX).toMatch(/no `## Deferred Scope` and no\s*\n?`?## Process Lesson`? section/);
+    });
+
+    it("asks for exactly two things, the reason required and the feature optional", () => {
+        expect(FIX).toMatch(/exactly \*\*two\*\* things/);
+        expect(FIX).toMatch(/Why the change mattered\*\* — \*\*required/);
+        expect(FIX).toMatch(/feature the fix belongs to\*\* — \*\*optional/);
+    });
+
+    it("derives the description of the change from the diff instead of asking for it", () => {
+        expect(FIX).toContain("git diff <base>..<head>");
+        expect(FIX).toMatch(/Do not ask the developer to describe the change/);
+    });
+
+    it("warns about behaviours with no existing page but still writes the entry, failing soft", () => {
+        expect(FIX).toMatch(/naming how many/);
+        expect(FIX).toMatch(/write the entry anyway/i);
+        expect(FIX).toMatch(/best-effort and fails soft/);
+    });
+
+    it("presents no approval checkpoint and writes no analyze receipt", () => {
+        expect(FIX).toMatch(/no approval checkpoint/i);
+        expect(FIX).toMatch(/Write \*\*no\*\*\s*\n?`analyze-receipt\.md`/);
+    });
+
+    it("qualifies a bare reference from a hub from the recorded range, keeping the number", () => {
+        expect(FIX).toMatch(/hub, bare reference given\*\* → write `<owner>\/<repo>#<n>`/);
+        expect(FIX).toMatch(/the number the developer gave, unchanged/);
+    });
+});

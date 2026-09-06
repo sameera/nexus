@@ -165,3 +165,121 @@ Then, in every path above:
     it now would only fail the drain's merge precondition later.
 
 Keep the resolved `{ repo, base, head }`. Phase 4 records it.
+
+# Phase 4 — Qualify the reference
+
+The reference written to the page is the one the developer named. Only its **qualification** may be
+added, and only in one case:
+
+- **single-repo** → write the reference exactly as given, normalised to `#<n>`.
+- **hub, qualified reference given** → write it as given: `<owner>/<repo>#<n>`.
+- **hub, bare reference given** → write `<owner>/<repo>#<n>`, where `<owner>/<repo>` is resolved
+  from the **recorded range's `repo`**, and `<n>` is the number the developer gave, unchanged.
+
+    A drain running from a hub must write only the qualified form: in a hub the issue never lives in
+    the drain's own repository, so a bare reference there resolves to the wrong issue. Qualifying is
+    not substituting — the artifact referenced is still the one the developer named — so this does
+    not weaken the rule in Phase 1. Deriving the qualification is preferred to refusing the bare
+    form, which would only make the developer supply what you can already resolve.
+
+# Phase 5 — Derive what changed, then ask why
+
+**Derive the description of the change yourself.** What changed can be read from the code, so read
+it from the code — exactly as `/nxs.close` already does. Diff the recorded range and summarise the
+behaviour that moved:
+
+```bash
+git diff --stat <base>..<head>
+git diff <base>..<head>
+```
+
+**Do not ask the developer to describe the change.** Then ask for exactly **two** things, in one
+prompt:
+
+1. **Why the change mattered** — **required.** This single question is the lane's forcing function
+   and the whole justification for the lane existing. Do not accept an empty answer, and do not
+   answer it for them from the diff: the diff says what moved, never why it was worth moving.
+2. **The feature the fix belongs to** — **optional**, and it may be left empty. No phase of the
+   drain reads it, so requiring it would only force you to invent a value you cannot verify.
+
+**The advisory razor check.** Before you prompt, map the behaviours you found in the diff onto the
+pages that already exist in the concept store. If some map to no existing page, **print a warning
+naming how many**, and say that a decision with no page is a decision that needs a page, which is
+epic work. Then **write the entry anyway.** This check is **best-effort and fails soft**: failing to
+warn is never a defect and never blocks anything. It cannot be load-bearing, because this command
+writes no pages and can only guess at what the drain will later synthesise. The load-bearing gate
+runs at the drain, against the page writes themselves.
+
+# Phase 6 — Write the entry
+
+Create `.nexus/tmp/fix-<n>/` holding **exactly two files**. The names are deliberate: they assert
+nothing about an epic existing or about anything having been closed, and they keep the drain's
+discovery rule one line long instead of a parallel code path. `entry_kind: fix` is the field that
+carries the truth about what the entry is.
+
+**`.nexus/tmp/fix-<n>/epic.md`** — frontmatter only, **no body**:
+
+```yaml
+---
+title: "<the referenced issue or pull request's title>"
+link: "<the Phase 4 reference — #<n> or <owner>/<repo>#<n>>"
+slug: fix-<n>
+entry_kind: fix
+feature: "<the feature the developer named>"   # omit this key entirely when they left it empty
+---
+```
+
+Omit `feature` rather than writing a guessed value.
+
+**`.nexus/tmp/fix-<n>/close-record.md`**:
+
+````markdown
+# Fix Record: <the referenced title>
+
+## Key Decisions
+- **<what changed, in one phrase, derived from the diff>:** <the reason the developer gave>
+
+## Deviation Rationale
+- A fix entry has no decision record to deviate from.
+
+<!-- nexus:close-record -->
+```yaml
+entry_kind: fix
+nexus_version: <VERSION>         # the toolkit that wrote this block (`nexus version`); omit if unresolved
+date: <YYYY-MM-DD>
+analyze: n/a — fix entry (no acceptance criteria)
+range:
+  - repo: <the recorded range repo identity>
+    base: <full 40-hex base>
+    head: <full 40-hex head>
+```
+````
+
+The record carries **no `record` key and no `record_hash` key**, and **no `## Deferred Scope` and no
+`## Process Lesson` section**. A fix has no decision record, so the drain reads its reasoning solely
+from this close record, which it already accepts. It has no estimate, no decomposition and no
+sequencing either, so a process lesson would be exactly the speculative over-generation the razor
+exists to cut, and the volume would bury the real lessons.
+
+The `analyze:` value is a **literal string**, never a blank: the state stays greppable and can never
+be read as a waiver. `/nxs.analyze` does not run against a fix entry — the gate checks code against
+acceptance criteria, success metrics and a decision record's invariants, and a fix entry has none of
+the three.
+
+# Phase 7 — Report, and stop
+
+There is **no approval checkpoint.** Under the forcing-function razor, generating and stopping is
+one gate and persisting is another; this command writes nothing durable and nothing to GitHub, so a
+second gate over a scratch directory would be ceremony that forces no decision. Write **no**
+`analyze-receipt.md`.
+
+Report and stop:
+
+```
+Fix entry written for <reference>:
+  .nexus/tmp/fix-<n>/epic.md
+  .nexus/tmp/fix-<n>/close-record.md
+Run /nxs.distill to drain it into the concept store.
+```
+
+Confirm to yourself before you finish: no issue, no comment, no branch, no pull request, no commit.
