@@ -9,3 +9,4 @@ A pre-epic discovery stage: `/nxs.discover` turns a large, foggy initiative into
 ## Epics
 
 - **Pre-epic discovery: /nxs.discover and the fog referral gate** — [#228](https://github.com/sameera/nexus/issues/228)
+- **The lead agrees before an irreversible decision is recorded** — [#434](https://github.com/sameera/nexus/issues/434)
