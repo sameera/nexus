@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification"]
-last_updated_by: "#414"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor"]
+last_updated_by: "#263"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The distiller drains queue entries into the concept store. It draws what changed
 
 ## How It Works
 
-It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area alike. It recomputes the diff from history for each entry, resolves the why by precedence, and maps both to per-concept deltas. An entry absent from the trunk is gated on its recorded range head reaching the trunk or resolving to a merged pull request, never on a file's presence. A lost entry is rebuilt on explicit request from its close comment. Its reciprocity step never drops, demotes, or compresses an interaction to fit a page. When an interaction is too large for one bounded bullet, it is declared as two edges. The distiller splits a page only when the page's own content overflows. It writes the store only through the merge consuming each entry. Every page it creates or updates, and the pull-request body, are translated and verified before the validator reads them. It is the one stage handed grounding sources: the epic and the decision record. A page's phrasing can therefore be lifted from them rather than left abstract.
+It runs after merges, scanning unconsumed entries in the committed queue and the ephemeral area. It recomputes the diff from history for each entry, determines the reason using precedence rules, and maps both to per-concept deltas. An entry not yet in the trunk requires that its recorded range head reaches the trunk or that it resolves to a merged pull request; it never requires the file to be present. A lost entry is rebuilt on explicit request from its close comment. The reciprocity step never drops, demotes, or compresses an interaction to fit a page. When an interaction is too large for one bounded bullet, it is declared as two edges. The distiller splits a page only when that page's own content overflows. It writes the store only when each entry's merge is applied. Every page it creates or updates, along with the pull-request body, are translated and verified before the validator reads them. The distiller is the only stage given grounding sources: the epic and the decision record. A page's wording can therefore be borrowed from them rather than left abstract.
 
 ## Key Invariants
 
@@ -48,6 +48,8 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [verb-reachability](verb-reachability.md) — its atlas, validator, entry-diff, drift-advisory and registry-seeding steps are now also reachable as verbs on the shared executable, alongside their standalone forms through the duplication window.
 - [prose-translation](prose-translation.md) — translates every page and pull-request body it writes, and takes grounding sources here alone.
 - [prose-verification](prose-verification.md) — proves each translated page kept its regions and tracked items before the validator runs.
+- [fix-lane](fix-lane.md) — the other producer of drainable entries, whose entries it drains beside the epic ones.
+- [fix-razor](fix-razor.md) — the bound it enforces on a fix entry's page writes before opening its reviewed write.
 
 ## Decision Log
 
@@ -130,3 +132,7 @@ The deterministic steps stopped choosing their runner from the checkout's role: 
 ### 2026-09-02 — #414 — Concept pages are translated, and grounded from the records
 
 Concept pages are the one surface no reviewer reads closely before it merges, so the plain-language rules had to reach them without a human proofreading step. Each page and the pull-request body are now translated and verified before the validator sees them, and this is the only stage handed source material, so an abstraction can be replaced by a clause the epic or the record already states. The fetched record body is written to a file for that reason: the grounding pointer had named a path no phase ever wrote, leaving half the source material unreachable. Refuted alternative: re-fetch the record when the translator runs, which needs no new file — it lost because it is a second read of a body already hashed at preflight, and a second chance for the two copies to disagree.
+
+### 2026-09-05 — #263 — Reciprocal links from fix-lane and fix-razor
+
+The drain discovered a second kind of entry and a limit on what that kind may write. Both are described here; the rules themselves live on the two pages, and nothing this page already asserted has changed. Applying, validating and committing one entry at a time was already how the drain worked, and is now essential rather than incidental: the limit compares a page against that entry's own starting point, so batching several entries into one staging pass would compare against the wrong one.
