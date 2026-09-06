@@ -72,6 +72,7 @@ import { migrateComponents, REPO_COMPONENT_DIRNAME, type MigrationResult } from 
 import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-guard.js";
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
+import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import {
@@ -287,6 +288,18 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         run: (argv) => Promise.resolve(runDeriveEntryDiff(argv)),
     },
+    "excluded-stores": {
+        summary: "Print the pipeline stores every stage withholds from a derived diff.",
+        usage: [
+            "  nexus excluded-stores [--form pathspec|paths|reasons]",
+            "      Print the one definition of the stores analyze, close and distill withhold from",
+            "      the behavioural diff. --form pathspec (default) emits the git pathspec exclusions",
+            "      to append to a `git diff -- .` invocation; --form paths emits one store path per",
+            "      line; --form reasons adds why each store is a member. Ask for the set here rather",
+            "      than writing the paths out, so no second statement of it can drift.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runExcludedStores(argv, io)),
+    },
     "drift-advisory": {
         summary: "Report concept pages whose domain filing looks stale.",
         usage: [
@@ -361,6 +374,36 @@ function composeUsage(): string {
 }
 
 const USAGE: string = composeUsage();
+
+/**
+ * `nexus excluded-stores` — the readable face of the one excluded-store definition (record #450,
+ * invariant 4). Command bodies call this instead of listing store paths, so prose and code cannot
+ * state the set differently.
+ */
+function runExcludedStores(argv: string[], io: CliIo): number {
+    let form: string = "pathspec";
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--form") form = argv[++i] ?? "";
+        else {
+            io.stderr(`unknown argument for excluded-stores: ${argv[i]}\n${USAGE}`);
+            return 2;
+        }
+    }
+    if (form === "pathspec") {
+        io.stdout(excludePathspecs().join(" "));
+        return 0;
+    }
+    if (form === "paths") {
+        for (const store of EXCLUDED_STORES) io.stdout(store.path);
+        return 0;
+    }
+    if (form === "reasons") {
+        for (const store of EXCLUDED_STORES) io.stdout(`${store.path} — ${store.why}`);
+        return 0;
+    }
+    io.stderr(`unknown form '${form}' for excluded-stores (expected pathspec, paths or reasons)\n${USAGE}`);
+    return 2;
+}
 
 /** Where the vendored payload lives when running as a distributed artifact. */
 export function defaultPayloadDir(): string {

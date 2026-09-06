@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.5.0
+
+- The analyze, close and distill stages now withhold the same set of pipeline stores from the diff
+  they read — the queue, the discovery store, and the new workbook store. Analyze and close
+  withheld nothing before, so a lead running either against a branch that also touched a queue
+  entry or a discovery folder saw that prose presented as shipped behaviour; they no longer do.
+  Each stage asks the toolkit for the set (`nexus excluded-stores`) instead of carrying its own
+  list, so the three stages cannot drift apart.
+- A repository can now hold a workbook — a committed folder under the Nexus root that a learner
+  opens — and no stage reads its pages back as behaviour.
+
 ## 0.4.0
 
 - The epic, decision-record, discover and distill stages now write plain language as they draft,

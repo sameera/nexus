@@ -407,10 +407,17 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
 
     ```bash
     BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)"
-    git diff --stat "$BASE"...HEAD
-    git diff "$BASE"...HEAD
+    EXCLUDE="$(nexus excluded-stores)"
+    git diff --stat "$BASE"...HEAD -- . $EXCLUDE
+    git diff "$BASE"...HEAD -- . $EXCLUDE
     HEAD_SHA="$(git rev-parse HEAD)"   # full SHA; $BASE is already one (merge-base emits full SHAs)
     ```
+
+    **`$EXCLUDE` withholds the pipeline stores, and this body never lists them.** They are surfaces
+    Nexus writes and teaches from, never behaviour it reads back, so no deviation may be derived
+    from one. `nexus excluded-stores --form reasons` prints the set with each member's reason. The
+    set has exactly one definition (record #450, invariant 4) — restating it here would give the
+    build two statements that can silently disagree. Each store is withheld entire.
 
     Keep `$BASE` and `$HEAD_SHA` — Phase 4 stamps them into the close record's `range:` block,
     and the stamped range MUST be the exact range this diff used.
@@ -418,7 +425,7 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
     **In `--pr` mode, do NOT use `merge-base HEAD origin/main`** — the distill branch was cut from
     `origin/main`, so that diff is empty and would detect **zero** deviations (a false-clean close).
     Instead take `$BASE` = the Phase 0.5 `range.base` and `$HEAD_SHA` = `range.head`, and compute the
-    diff inside the worktree — `git -C <wtPath> diff "$BASE"..."$HEAD_SHA"` — using this one diff for
+    diff inside the worktree — `git -C <wtPath> diff "$BASE"..."$HEAD_SHA" -- . $EXCLUDE` — using this one diff for
     **both** the deviation detection below and the Phase 4 range stamp.
 
 2. **Auto-derive the *what*** from the diff — the behavioral changes, the files touched. This is

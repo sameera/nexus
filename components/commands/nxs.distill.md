@@ -386,7 +386,7 @@ argument its own quoted token — never a shell-interpolated string:
     full SHAs), resolves each named repo to its sibling member checkout through the workspace
     resolver (the hub's own entries resolve to the hub checkout), verifies both SHAs are
     reachable, and emits **one diff per repo** — each computed as `git diff <base>...<head>`
-    inside that repo's own checkout with `.nexus/queue/**` and `.nexus/discovery/**` excluded, so
+    inside that repo's own checkout with every pipeline store withheld, so
     no path is ever attributed to the wrong repo. It reads only: it never clones, fetches, or
     mutates a member checkout.
 
@@ -428,13 +428,18 @@ a fallback for legacy entries with no usable range. For an entry the Phase 0.4 g
 3. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
    user for a base/head range via `AskUserQuestion` free text; do not guess.
 
-In both modes, exclude `.nexus/queue/**` paths from the behavioral analysis — the entry's own
-artifacts are input, not the *what*.
+In both modes, withhold every **pipeline store** from the behavioral analysis. Do not write the
+paths out here — ask the toolkit for the one definition of the set and pass it straight to git:
 
-**Exclude `.nexus/discovery/**` in both modes too.** A discovery folder holds ungated, in-flight
-reasoning that no human gate has passed. It is never a queue entry and is never drained, so a
-branch that carries both discovery prose and code must not feed that prose into concept-delta
-synthesis. This exclusion is load-bearing (record #235, invariant 2), not a tidiness rule.
+```bash
+nexus excluded-stores --form reasons          # the set, and why each store is in it
+git diff "$BASE"..."$HEAD" -- . $(nexus excluded-stores)
+```
+
+The set is closed and reviewed, and it is stated in exactly one place (record #450, invariant 4).
+A second statement of it in this body could drift from the code's, and the drift would be silent —
+a stage would quietly read the pipeline's own working surface as shipped behaviour. Each store is
+withheld **entire**; never exclude a slice of one.
 
 # Phase 2 — Survey the concept store
 
@@ -1160,7 +1165,7 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
 - **§8.3 is a hard boundary** for pages: no code, no file paths, no type names, no API specs, no
   speculative claims. Paths live only in `.nexus/anchors/` (R1).
 - **The per-user scratch dirs inside a queue entry are never a distill input** — never read,
-  never mapped to a `ConceptDelta`. The `.nexus/queue/**` diff exclusion keeps them out of the
+  never mapped to a `ConceptDelta`. The pipeline-store diff exclusion keeps them out of the
   *what*; this keeps them out of the *why*. They are deleted with the entry when the PR merges.
 - **Reciprocity (C11), anchors (R1), and the validator are deterministic steps** — never skipped,
   never reinterpreted. A non-zero validator exit blocks the PR; a run whose findings are all
