@@ -208,9 +208,16 @@ export function renderMarkdown(
 
 export interface PageShellInput {
     title: string;
+    /**
+     * The provenance statement, written as the first content in the file so a reviewer meets it
+     * first in the diff and reads the lesson rather than the page.
+     */
+    provenance?: string;
+    /** The workbook's navigation. Chrome, so printing drops it. */
+    nav?: string;
     /** The lesson's own rendered prose. */
     content: string;
-    /** Extra elements placed before the content — the provenance banner, and nothing else yet. */
+    /** Extra elements placed before the content. */
     lead?: string;
     /** Extra elements placed after the content. */
     trail?: string;
@@ -224,6 +231,7 @@ export interface PageShellInput {
  */
 export function renderPageShell(input: PageShellInput): string {
     return [
+        input.provenance ?? "",
         "<!doctype html>",
         '<html lang="en">',
         "<head>",
@@ -233,6 +241,7 @@ export function renderPageShell(input: PageShellInput): string {
         `<link rel="stylesheet" href="./${STYLESHEET_NAME}">`,
         "</head>",
         "<body>",
+        input.nav ?? "",
         input.lead ?? "",
         '<main class="lesson">',
         `<h1 class="lesson-title">${escapeText(input.title)}</h1>`,
@@ -246,6 +255,42 @@ export function renderPageShell(input: PageShellInput): string {
     ]
         .filter((part) => part !== "")
         .join("\n");
+}
+
+/**
+ * The provenance statement (story #449, invariant 18). It is the first content in the file, so the
+ * reviewer of a change that regenerates a workbook meets it before any markup and knows to read
+ * the authored lesson rather than the page.
+ */
+export function renderProvenance(lesson: Lesson): string {
+    return [
+        "<!--",
+        "  This page is generated. Do not edit it.",
+        `  Authored lesson: ${lesson.file}`,
+        "  Rendered by the Nexus workbook renderer; re-render rather than patching this file.",
+        "-->",
+    ].join("\n");
+}
+
+/** The same statement where a reader of the page can see it, rather than only a reader of the diff. */
+export function renderProvenanceNote(lesson: Lesson): string {
+    return (
+        `<footer class="lesson-provenance">Generated from the authored lesson ` +
+        `<code>${escapeText(lesson.file)}</code>.</footer>`
+    );
+}
+
+/**
+ * The workbook's navigation: every lesson in plan order, reached by a relative path. It is chrome,
+ * so printing drops it.
+ */
+export function renderNav(pages: readonly { page: string; title: string }[], current: string): string {
+    const items: string[] = pages.map(({ page, title }) =>
+        page === current
+            ? `<li aria-current="page">${escapeText(title)}</li>`
+            : `<li><a href="./${page}">${escapeText(title)}</a></li>`,
+    );
+    return ['<nav class="workbook-nav" aria-label="Lessons">', "<ol>", ...items, "</ol>", "</nav>"].join("\n");
 }
 
 /**
@@ -293,6 +338,39 @@ export function renderStylesheet(): string {
         "    overflow-x: auto;",
         "}",
         ".lesson pre code { background: none; padding: 0; }",
+        ".lesson-provenance {",
+        "    max-width: 44rem;",
+        "    margin: 0 auto 3rem;",
+        "    padding: 0 1.5rem;",
+        "    color: var(--c-ink-faint);",
+        "    font-size: 0.85rem;",
+        "}",
+        ".workbook-nav {",
+        "    border-bottom: 1px solid var(--c-line);",
+        "    padding: 0.5rem 1.5rem;",
+        "}",
+        ".workbook-nav ol { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0; padding: 0; list-style: none; }",
+        ".workbook-nav a { color: var(--c-accent); }",
+        "",
+        "/* Print is ink on white whatever the screen theme is — a dark reading surface printed is",
+        " * unreadable, which fails the paper criterion outright — and navigation chrome does not go",
+        " * on the paper. The tokens are overridden rather than restated: the names stay the shared",
+        " * ones, so nothing here introduces a colour of the workbook's own. */",
+        "@media print {",
+        "    :root, [data-theme=\"dark\"], [data-theme=\"light\"] {",
+        "        --c-bg: #ffffff;",
+        "        --c-ink: #000000;",
+        "        --c-ink-dim: #000000;",
+        "        --c-ink-faint: #000000;",
+        "        --c-accent: #000000;",
+        "        --c-accent-soft: #000000;",
+        "        --c-line: #000000;",
+        "        --c-term: #ffffff;",
+        "        --c-term-line: #000000;",
+        "    }",
+        "    .workbook-nav { display: none; }",
+        "    .lesson { max-width: none; padding: 0; }",
+        "}",
         "",
     ].join("\n");
 }
@@ -324,15 +402,25 @@ export function pageNameFor(lessonFile: string): string {
  * bytes or it throws, and it touches no filesystem.
  */
 export function renderWorkbook(options: RenderOptions): RenderedFile[] {
+    // Parse every lesson before rendering any page: the navigation names them all, and a lesson
+    // that fails must fail the whole render rather than half of it.
+    const lessons: Lesson[] = options.lessons.map(parseLesson);
+    const plan: { page: string; title: string }[] = lessons.map((l) => ({
+        page: pageNameFor(l.file),
+        title: l.title,
+    }));
     const pages: RenderedFile[] = [];
-    for (const source of options.lessons) {
-        const lesson: Lesson = parseLesson(source);
+    for (const lesson of lessons) {
+        const page: string = pageNameFor(lesson.file);
         pages.push({
-            name: pageNameFor(lesson.file),
+            name: page,
             contents: renderPageShell({
                 title: lesson.title,
+                provenance: renderProvenance(lesson),
+                nav: renderNav(plan, page),
                 content: renderMarkdown(lesson.body, options.blockHook),
                 lead: options.lead?.(lesson),
+                trail: renderProvenanceNote(lesson),
                 scripts: options.scripts?.(lesson),
             }),
         });

@@ -56,7 +56,7 @@ describe("a lesson's markdown and front matter become a page", () => {
         const page = pageOf(files, "the-widget-seam.html");
 
         expect(source.source).not.toMatch(/<[a-z]/i);
-        expect(page.startsWith("<!doctype html>")).toBe(true);
+        expect(page).toContain("<!doctype html>");
         expect(page).toContain("<title>The widget seam</title>");
         expect(page).toContain("<strong>inert</strong>");
         expect(page).toContain("<h2>Why it is inert</h2>");
@@ -113,8 +113,16 @@ describe("two lessons authored months apart come out identical but for their pro
         const late = lesson("late.md", "Late", "The last lesson.");
 
         const files = renderWorkbook({ lessons: [early, late] });
+        // Strip everything that is this lesson's own — its name, its title and its prose — and what
+        // remains is the chrome. Two pages must be identical there.
         const strip = (page: string): string =>
-            page.replace(/<title>.*<\/title>/, "").replace(/<h1 class="lesson-title">.*<\/h1>/, "").replace(/<p>.*<\/p>/, "");
+            page
+                .replace(/<!--[\s\S]*?-->/, "")
+                .replace(/<nav class="workbook-nav"[\s\S]*?<\/nav>/, "")
+                .replace(/<footer class="lesson-provenance">[\s\S]*?<\/footer>/, "")
+                .replace(/<title>.*<\/title>/, "")
+                .replace(/<h1 class="lesson-title">.*<\/h1>/, "")
+                .replace(/<p>.*<\/p>/, "");
 
         expect(strip(pageOf(files, "early.html"))).toBe(strip(pageOf(files, "late.html")));
         expect(files.filter((f) => f.name === STYLESHEET_NAME)).toHaveLength(1);
@@ -144,11 +152,18 @@ describe("the workbook declares no colour or typography of its own", () => {
         const css = renderStylesheet();
 
         expect(css).toContain(renderReadingTokensCss());
-        const ownValues = css
-            .slice(renderReadingTokensCss().length)
-            .split("\n")
-            .filter((l) => /#[0-9a-f]{3,8}\b|rgba?\(|font-family: (?!var\()/i.test(l));
-        expect(ownValues).toEqual([]);
+        // Everything after the shared definition is layout. The only assignments of a literal value
+        // are inside @media print, and each of them assigns a shared token name (invariant 19).
+        const layout = css.slice(renderReadingTokensCss().length);
+        const printStart = layout.indexOf("@media print");
+        const screen = layout.slice(0, printStart);
+        const print = layout.slice(printStart);
+        const literal = /#[0-9a-f]{3,8}\b|rgba?\(|font-family: (?!var\()/i;
+
+        expect(screen.split("\n").filter((l) => literal.test(l))).toEqual([]);
+        for (const line of print.split("\n").filter((l) => literal.test(l))) {
+            expect(READING_TOKEN_NAMES.some((t) => line.trim().startsWith(`${t}:`))).toBe(true);
+        }
     });
 
     it("presents the same colours and typography as the application, from one definition", () => {

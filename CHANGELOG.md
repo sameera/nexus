@@ -31,6 +31,11 @@ behaviour says so.
   byte-identical pages.
 - Pages take their colours and typography from the same reading-surface definition the application
   reads, so a workbook and the product look alike by construction rather than by matching.
+- A page is opened by double-clicking it. Nothing is served, nothing is started, and every asset a
+  page needs is a file beside it, so a lesson reads on a machine with no network. Each page states
+  that it was generated and names the authored lesson, as the first thing in the file, so a
+  reviewer meets it before any markup. Printing a page gives ink on white whatever the screen
+  theme is, and leaves the navigation off the paper.
 
 ## 0.4.0
 
