@@ -20,6 +20,10 @@ behaviour says so.
   many workbooks the repository holds. Nothing writes a personal record until git confirms the
   path is ignored, so a repository set up before workbooks existed cannot quietly commit a
   person's stumbles.
+- A workbook session that pauses at a handoff comes back to it. Each handoff is its own record
+  naming the story that was handed off; starting a session lists every outstanding one and offers
+  the most recent. Resolving a handoff marks its record instead of deleting it, so what was handed
+  off and when stays readable.
 
 ## 0.4.0
 
