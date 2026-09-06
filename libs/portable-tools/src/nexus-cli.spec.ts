@@ -127,6 +127,7 @@ describe("verb dispatch", () => {
                 "workspace github-defaults",
                 "pr-worktree preflight",
                 "pr-worktree open",
+                "pr-worktree range",
                 "pr-worktree remove",
                 "close-migration preflight",
                 "close-migration migrate",
@@ -361,6 +362,18 @@ describe("nexus pr-worktree (registration only — git/gh effect path covered by
         const io: CapturedIo = makeIo(makeTmpDir("cli-pr-worktree-"));
         expect(await runNexusCli(["pr-worktree", "bogus"], io)).toBe(2);
         expect(io.err.join("\n")).toContain("usage");
+    });
+
+    it("exits 2 with a usage diagnostic when range has no --pr (story #264)", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-worktree-"));
+        expect(await runNexusCli(["pr-worktree", "range"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--pr");
+    });
+
+    it("--help names the range read (story #264)", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-worktree-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus pr-worktree range");
     });
 });
 

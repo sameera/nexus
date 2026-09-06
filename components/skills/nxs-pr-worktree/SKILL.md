@@ -78,6 +78,14 @@ Open the close worktree on a distill branch and derive the range. Prints
 nexus pr-worktree open --pr <N> --mode close --branch distill/<date>-<slug>
 ```
 
+Read a merged PR's range without creating a worktree. Prints `{ repo, base, head }` with full
+SHAs — the same derivation `open --mode close` uses, for a caller that wants the range and has no
+use for a checkout:
+
+```bash
+nexus pr-worktree range --pr <N>
+```
+
 Remove a worktree (force + prune; safe to call from inside the target or twice):
 
 ```bash
@@ -88,6 +96,9 @@ nexus pr-worktree remove <wtPath>
 
 -   Success prints exactly one JSON object on stdout; a failure prints a `pr-worktree <problem>:
     <message>` diagnostic on stderr. Exit codes: `0` success · `1` a named diagnostic · `2` usage.
+-   `range` requires a merged PR, exactly as `preflight --mode close` does, and refuses an open or
+    unmerged-closed PR with `pr-not-merged` rather than printing a range. It creates and removes no
+    worktree.
 -   **Member repos are rejected** (`member-unsupported`) — a member's close runs on its feature
     branch and migrates to the hub; the post-merge worktree flow does not apply.
 -   The range anchors on the **merge commit**, never the PR branch tip (which is garbage-collected
