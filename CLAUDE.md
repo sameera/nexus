@@ -18,6 +18,15 @@ empty of components. Read `CONTRIBUTING.md` before changing one: it describes th
 the maintainer's loop, which points the account's install location at this checkout instead of
 copying a release.
 
+**Bump the version for any substantive component change.** A change under `components/` that alters
+what a stage does — its instructions, its gates, its refusals, or an agent or skill it loads —
+increments `version` in the root `package.json` and adds the matching `CHANGELOG.md` entry, in the
+same commit as the change. That version is the only signal an adopter gets, because the components
+no longer appear in their own diff. Version against adopter-visible stage behaviour, not the size of
+the diff: a stage that now decides something differently is a minor release even if one line moved.
+A typo fix or a comment-only edit is not substantive and needs no bump. The full release loop is in
+`docs/delivery/release-procedure.md`.
+
 ## Code Conventions
 
 - **No barrel files.** Don't create `index.ts` (or `index.js`) files whose only job is
