@@ -66,17 +66,13 @@ The user can always pick "Other" for a custom answer.
 
 ## Prose convention — human-facing artifacts
 
-Write concrete, not abstract: "there are two copies of the record; one can go stale", never "state
-duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
-consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
-**translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
-`<file>`, naming `<file>.pre` as the pre-translation copy and **no** source files. The agent runs
-`nexus prose-verify` itself and repairs its own rewrite until it passes, so its receipt carries a
-`verified:` line. That line is the agent's report, not the gate. Run
-`nexus prose-verify --before <file>.pre --after <file>` yourself whatever it says. On a pass, delete
-`<file>.pre`. On a failure, restore `<file>` from it and translate once more; a second failure stops
-the run — file nothing, and keep `<file>.pre` for diagnosis. Resolve every density finding before the
-gate: rewrite the flagged line, or state why the wording stands. File the translated file verbatim.
+Before drafting any human-facing artifact, load the **`nxs-prose-style`** skill. It holds the six
+form rules, and where a restatement here disagrees with that file, that file governs. Two content
+rules are yours and are not in it. Write concrete, not abstract: "there are two copies of the
+record; one can go stale", never "state duplication risks divergence". Add nothing: every sentence
+carries a fact, a decision or a consequence. Draft plainly the first time. There is no translation
+pass, no pre-translation copy and no verify step on an artifact this command authored. File the
+drafted file verbatim.
 
 Run the phases in order.
 
@@ -467,9 +463,8 @@ not into a committed queue entry, not into the gitignored scratch path.
 
 Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 
-1. **Write the body to a scratch file** (`<scratch>/record-body.md`) — prose only, per Phase 3.6.
-   Then **translate `<scratch>/record-body.md`** (see *Prose convention*), before any step below
-   files or edits an issue.
+1. **Write the body to a scratch file** (`<scratch>/record-body.md`) — prose only, per Phase 3.6
+   and the *Prose convention*, before any step below files or edits an issue.
 
 2. **Existing record? Target it, never file a second one.** From Phase 0.2 you already know whether
    the epic has a record sub-issue.
@@ -610,8 +605,8 @@ Run these four acts **in order**, and do not skip one:
     </details>
     ````
 
-    **Translate `<scratch>/revision-comment.md`** (see *Prose convention*) before posting it. The
-    embedded superseded body sits in a fenced block, which the check holds byte-identical.
+    Draft `<scratch>/revision-comment.md` under the *Prose convention*, like any other body. The
+    embedded superseded body sits in a fenced block, which stays byte-identical.
 
     ```bash
     gh issue comment $RECORD $REPO_ARG --body-file "<scratch>/revision-comment.md"
