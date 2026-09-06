@@ -44,23 +44,14 @@ per forced-fit concept, exactly three rendered options, "Other" still available.
 
 # Prose convention — human-facing artifacts
 
-Write concrete, not abstract: "there are two copies; one can go stale", never "state duplication
-risks divergence". Add nothing: every sentence carries a fact, a decision or a consequence. These
-two rules are yours; the form rules belong to the translator. Where a phase says **translate
-`<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on `<file>`,
-naming `<file>.pre` as the pre-translation copy along with the grounding sources. The agent runs the
-check itself with those same `--source` flags and repairs its own rewrite until it passes, so its
-receipt carries a `verified:` line. That line is the agent's report, not the gate. Run
-`nexus prose-verify --before <file>.pre --after <file>` yourself whatever it says, with one
-`--source <path>` per grounding source you named the agent. The check proves the machine-read
-regions are byte-identical **and** that every number, modal, name-shaped token, heading, list item
-and table row survived; a grounded addition passes only because its `--source` carried it. On a
-pass, delete `<file>.pre`. On a failure, restore `<file>` from it and translate once more; a second
-failure stops the run — write nothing out, open no pull request, and keep `<file>.pre` for
-diagnosis. Resolve every density
-finding: rewrite the flagged line, or say why it stands. No approval gate reads this run, so the
-completion report names every standing finding with its reason, and every grounding substitution
-the receipts list.
+Before drafting any human-facing artifact, load the **`nxs-prose-style`** skill. It holds the six
+form rules, and where a restatement here disagrees with that file, that file governs. Two content
+rules are yours and are not in it. Write concrete, not abstract: "there are two copies; one can go
+stale", never "state duplication risks divergence". Add nothing: every sentence carries a fact, a
+decision or a consequence. An abstraction you cannot state concretely is grounded from the epic and
+the decision record this command already holds, or left as it stands. Draft plainly the first time.
+There is no translation pass, no pre-translation copy and no verify step on an artifact this
+command authored. Write the drafted file verbatim.
 
 # User Input
 
@@ -203,8 +194,8 @@ artifacts (a close just prepared it — the close record, backlog append, and le
        and **verify it against the hash stamped at close**, through the one digest program. Resolve
        the repo the record lives in once, through the shared publishing resolver (never by parsing
        `settings.yml`), exactly as `/nxs.close` Phase 1.0 does. **Write the fetched body to a file**,
-       `<scratch>/<entry-slug>/record-body.md` — Phase 4.6 hands the translator grounding sources as
-       readable paths, so a body captured only in context is grounding nothing:
+       `<scratch>/<entry-slug>/record-body.md` — Phase 4.6 grounds an abstraction in that file as a
+       readable path, so a body captured only in context is grounding nothing:
 
         ```bash
         ISSUES_REPO="$(nexus config resolve epic-repo --root .)"
@@ -246,8 +237,8 @@ artifacts (a close just prepared it — the close record, backlog append, and le
        and Deviation Rationale are then the sole *why* carrier, unchanged from today, and
        `close-record.md` is the entry's ***why* file**.
 
-    Whichever branch resolves, the entry now has exactly one ***why* file** on disk. Phase 4.6 names
-    it to the translator; nothing downstream re-fetches the record.
+    Whichever branch resolves, the entry now has exactly one ***why* file** on disk. Phase 4.6
+    grounds its drafting in that file; nothing downstream re-fetches the record.
 
     The drain stays **read-only** against the record issue: it fetches and hashes, never edits,
     closes, or comments.
@@ -662,9 +653,10 @@ manual curation, out of this drain's scope).
    code. This includes flipping a pre-existing `unverified` (bootstrap/manual) page that a delta
    touches: re-check its body against the current code while patching it (C13: bootstrap pages
    are low-trust; the first touching drain re-validates them).
-6. **Translate the pages.** **Translate** each created or updated concept page (see *Prose
-   convention*), one run per page, before Phase 5's validator reads them. Name the entry's `epic.md`
-   and its *why* file (Phase 0.1, on disk) as grounding sources; never the diff.
+6. **Draft the pages under the *Prose convention*.** Every page this drain creates or updates is
+   written plainly the first time, so Phase 5's validator reads the prose that will be filed.
+   Ground an abstraction in the entry's `epic.md` and its *why* file (Phase 0.1, on disk); never
+   the diff.
 
 # Phase 5 — Deterministic steps (not judgment)
 
@@ -993,8 +985,8 @@ Then ask via **`AskUserQuestion`**:
 
 # Phase 7 — Open the distillation-PR
 
-Draft the body below to a scratch file and **translate** it there (see *Prose convention*), then
-open the pull request from that file with `--body-file`. A failed check opens no pull request.
+Draft the body below to a scratch file under the *Prose convention*, then open the pull request
+from that file with `--body-file`.
 
 ```bash
 git push -u origin <distill-branch>

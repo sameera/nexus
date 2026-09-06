@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.4.0
+
+- The epic, decision-record, discover and distill stages now write plain language as they draft,
+  instead of handing a finished draft to a separate prose translator. A lead reads the same plain
+  prose at the approval gate. Each stage reaches that gate in a fraction of the time, because the
+  translator's repeated re-reading of the artifact and its sources is gone.
+- The setup stage no longer adds an ignore rule for the translator's scratch copies, because no
+  stage writes one any more.
+
 ## 0.3.0
 
 - The discover stage can now settle what a person will see, not just what the system will do. A

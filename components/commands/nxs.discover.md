@@ -62,18 +62,13 @@ effect in the option description. The user can always pick "Other" to give a cus
 
 ## Prose convention — human-facing artifacts
 
-Write concrete, not abstract: "there are two copies of the record; one can go stale", never "state
-duplication risks divergence". Add nothing: every sentence carries a fact, a decision or a
-consequence. These two rules are yours; the form rules belong to the translator. Where a phase says
-**translate `<file>`**: copy it to `<file>.pre`, invoke the **`nxs-prose`** agent (Task tool) on
-`<file>`, naming `<file>.pre` as the pre-translation copy and no source files. The agent runs
-`nexus prose-verify` itself and repairs its own rewrite until it passes, so its receipt carries a
-`verified:` line. That line is the agent's report, not the gate. Run
-`nexus prose-verify --before <file>.pre --after <file>` yourself whatever it says. On a pass, delete
-`<file>.pre`. On a failure, restore `<file>` from it and translate once more; a second failure stops
-the run — write nothing out, and keep `<file>.pre` for diagnosis. Resolve every density finding:
-rewrite the flagged line, or say why it stands. No approval gate reads this run, so the session
-report names every standing finding with its reason.
+Before drafting any human-facing artifact, load the **`nxs-prose-style`** skill. It holds the six
+form rules, and where a restatement here disagrees with that file, that file governs. Two content
+rules are yours and are not in it. Write concrete, not abstract: "there are two copies of the
+record; one can go stale", never "state duplication risks divergence". Add nothing: every sentence
+carries a fact, a decision or a consequence. Draft plainly the first time. There is no translation
+pass, no pre-translation copy and no verify step on an artifact this command authored. Write the
+drafted file verbatim.
 
 ## Vocabulary
 
@@ -225,8 +220,7 @@ doc never carries a second copy of the ticket set that could fall out of step wi
 **Write the folder under `.nexus/discovery/`, never under `.nexus/queue/`** — see "The store".
 Location is what keeps a discovery out of reach of the rest of the pipeline.
 
-Draft `discovery.md` to session scratch first, **translate** it there (see *Prose convention*), and
-write the translated file into the folder. The check runs on the translator's write, before you edit.
+Draft `discovery.md` under the *Prose convention* and write it into the folder.
 
 ## Phase 5 — Write the decision tickets
 
@@ -271,8 +265,7 @@ completely open.
 
 Prefer the fewest tickets that cover the fog. A ticket per paragraph of the intent is padding.
 
-Draft each ticket to session scratch and **translate** it there (see *Prose convention*) — one run
-per ticket — then write the translated files beside the discovery doc.
+Draft each ticket under the *Prose convention* and write it beside the discovery doc.
 
 ## Phase 6 — Commit
 
