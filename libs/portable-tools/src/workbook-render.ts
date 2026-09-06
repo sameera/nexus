@@ -25,7 +25,15 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
+import { escapeText } from "./html-escape.js";
 import { renderReadingTokensCss } from "./reading-tokens.js";
+import {
+    SCRIPT_NAME,
+    makeWidgetSeam,
+    renderScript,
+    renderWidgetStyles,
+    type WidgetRegistry,
+} from "./workbook-widgets.js";
 
 /** The stylesheet written once per workbook and referenced by every page. */
 export const STYLESHEET_NAME: string = "workbook.css";
@@ -56,17 +64,6 @@ export interface Lesson {
     title: string;
     frontMatter: Record<string, unknown>;
     body: string;
-}
-
-const HTML_ESCAPES: Readonly<Record<string, string>> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-};
-
-export function escapeText(text: string): string {
-    return text.replace(/[&<>"]/g, (c) => HTML_ESCAPES[c]);
 }
 
 /**
@@ -371,7 +368,7 @@ export function renderStylesheet(): string {
         "    .workbook-nav { display: none; }",
         "    .lesson { max-width: none; padding: 0; }",
         "}",
-        "",
+        renderWidgetStyles(),
     ].join("\n");
 }
 
@@ -382,11 +379,16 @@ export interface RenderedFile {
 
 export interface RenderOptions {
     lessons: readonly LessonSource[];
-    /** Hook for a fenced block a later stage claims; see `renderMarkdown`. */
+    /**
+     * The shared component library a widget declaration resolves against. Defaults to the library
+     * the runtime ships; a caller passes one only to render against a different manifest.
+     */
+    widgets?: WidgetRegistry;
+    /** Replaces the widget seam entirely. Only the seam's own tests need this. */
     blockHook?: (info: string, content: string) => string | null;
     /** Elements placed before a page's content — the provenance banner. */
     lead?: (lesson: Lesson) => string;
-    /** Elements loaded at the end of a page's body. */
+    /** Elements loaded at the end of a page's body, in addition to the workbook's own script. */
     scripts?: (lesson: Lesson) => string;
     /** Files written once per workbook beside the pages, in addition to the stylesheet. */
     sharedAssets?: readonly RenderedFile[];
@@ -418,15 +420,18 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
                 title: lesson.title,
                 provenance: renderProvenance(lesson),
                 nav: renderNav(plan, page),
-                content: renderMarkdown(lesson.body, options.blockHook),
+                content: renderMarkdown(lesson.body, options.blockHook ?? makeWidgetSeam(lesson.file, options.widgets)),
                 lead: options.lead?.(lesson),
                 trail: renderProvenanceNote(lesson),
-                scripts: options.scripts?.(lesson),
+                scripts: [`<script src="./${SCRIPT_NAME}"></script>`, options.scripts?.(lesson) ?? ""]
+                    .filter((part) => part !== "")
+                    .join("\n"),
             }),
         });
     }
     const assets: RenderedFile[] = [
         { name: STYLESHEET_NAME, contents: renderStylesheet() },
+        { name: SCRIPT_NAME, contents: renderScript() },
         ...(options.sharedAssets ?? []),
     ];
     return [...pages, ...assets].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
@@ -440,7 +445,7 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
 export function writeWorkbook(outDir: string, files: readonly RenderedFile[]): string[] {
     fs.mkdirSync(outDir, { recursive: true });
     for (const existing of fs.readdirSync(outDir)) {
-        if (existing.endsWith(".html") || existing === STYLESHEET_NAME) {
+        if (existing.endsWith(".html") || existing === STYLESHEET_NAME || existing === SCRIPT_NAME) {
             fs.rmSync(path.join(outDir, existing), { force: true });
         }
     }

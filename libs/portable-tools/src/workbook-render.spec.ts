@@ -11,6 +11,7 @@ import {
     type LessonSource,
     type RenderedFile,
 } from "./workbook-render";
+import { SCRIPT_NAME } from "./workbook-widgets";
 import { READING_TOKEN_NAMES, renderReadingTokensCss } from "./reading-tokens";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
@@ -187,8 +188,8 @@ describe("the render produces the whole workbook or nothing", () => {
 
         const written = writeWorkbook(out, renderWorkbook({ lessons: [lesson("a.md", "A", "prose")] }));
 
-        expect(written.sort()).toEqual(["a.html", STYLESHEET_NAME]);
-        expect(fs.readdirSync(out).sort()).toEqual(["a.html", STYLESHEET_NAME]);
+        expect(written.sort()).toEqual(["a.html", STYLESHEET_NAME, SCRIPT_NAME].sort());
+        expect(fs.readdirSync(out).sort()).toEqual(["a.html", STYLESHEET_NAME, SCRIPT_NAME].sort());
     });
 
     it("leaves an earlier render untouched when a later lesson fails", () => {
@@ -213,6 +214,6 @@ describe("the render produces the whole workbook or nothing", () => {
 
         writeWorkbook(out, renderWorkbook({ lessons: [lesson("a.md", "A", "prose")] }));
 
-        expect(fs.readdirSync(out).sort()).toEqual(["a.html", STYLESHEET_NAME]);
+        expect(fs.readdirSync(out).sort()).toEqual(["a.html", STYLESHEET_NAME, SCRIPT_NAME].sort());
     });
 });

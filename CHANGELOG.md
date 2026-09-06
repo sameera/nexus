@@ -36,6 +36,12 @@ behaviour says so.
   that it was generated and names the authored lesson, as the first thing in the file, so a
   reviewer meets it before any markup. Printing a page gives ink on white whatever the screen
   theme is, and leaves the navigation off the paper.
+- A lesson can declare an interactive widget where it belongs in the prose, as a fenced block that
+  stays ordinary markdown, and the renderer resolves it against a shared component library. A
+  declaration naming a component the library does not hold fails the whole render and names the
+  missing component, so a page with a hole in it is impossible rather than unlikely. A widget's
+  content is in the page at render time and interaction only reveals it, so an untouched widget
+  still prints. The library ships empty; the first component arrives with the stage that needs it.
 
 ## 0.4.0
 

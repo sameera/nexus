@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { STYLESHEET_NAME, renderStylesheet, renderWorkbook, writeWorkbook, type LessonSource } from "./workbook-render";
+import { SCRIPT_NAME } from "./workbook-widgets";
 
 let tmpDirs: string[] = [];
 function makeDir(): string {
@@ -70,7 +71,9 @@ describe("a rendered page opens on a machine with no network", () => {
 
         expect(page).toContain("The store sits beside the queue.");
         expect(page).toContain("</html>");
-        expect(fs.readdirSync(out).sort()).toEqual(["the-renderer.html", "the-store.html", STYLESHEET_NAME]);
+        expect(fs.readdirSync(out).sort()).toEqual(
+            ["the-renderer.html", "the-store.html", STYLESHEET_NAME, SCRIPT_NAME].sort(),
+        );
     });
 });
 
