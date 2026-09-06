@@ -140,10 +140,8 @@ export function checkReleaseEntry(entry: ReleaseEntry, context: EntryContext): s
 }
 
 export interface ReleaseIdentity {
-    /** The single declaration in the VERSION file. */
+    /** The single declaration: the `version` the published manifest carries. */
     declared: string;
-    /** The version the published manifest carries. */
-    manifest: string;
     /** The version the newest changelog entry names. */
     changelog: string;
     /** The git tag cut for the release, with any leading `v`. */
@@ -155,12 +153,11 @@ export function checkReleaseIdentity(identity: ReleaseIdentity): string[] {
     const tag: string = identity.tag.replace(/^v/, "");
     const findings: string[] = [];
     for (const [name, value] of [
-        ["the published manifest", identity.manifest],
         ["the changelog entry", identity.changelog],
         ["the git tag", tag],
     ] as const) {
         if (value !== identity.declared) {
-            findings.push(`${name} names ${value}, but VERSION declares ${identity.declared}`);
+            findings.push(`${name} names ${value}, but the manifest declares ${identity.declared}`);
         }
     }
     return findings;

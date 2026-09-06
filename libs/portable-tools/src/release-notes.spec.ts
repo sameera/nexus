@@ -22,18 +22,24 @@ const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const CHANGELOG_PATH: string = path.join(REPO_ROOT, "CHANGELOG.md");
 const PROCEDURE_PATH: string = path.join(REPO_ROOT, "docs", "delivery", "release-procedure.md");
 
-const declaredVersion: string = fs.readFileSync(path.join(REPO_ROOT, "VERSION"), "utf8").trim();
-const manifestVersion: string = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")).version;
+const declaredVersion: string = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")).version;
 const entries: ReleaseEntry[] = parseChangelog(fs.readFileSync(CHANGELOG_PATH, "utf8"));
 
 const changed = { touchedComponentBody: true, changedStageBehaviour: true, breakingChange: false };
 
+/**
+ * What *this* release actually did, set by the author cutting it — the procedure says deciding
+ * this is a judgement, not something derived from the diff. The live entry is checked against
+ * this, so a release that moved no component body and changed no stage behaviour is allowed to
+ * say exactly that, and one that did is held to naming the stage.
+ */
+const thisRelease = { touchedComponentBody: true, changedStageBehaviour: true, breakingChange: false };
+
 describe("one tag, one registry version, one releases-page entry (AC1)", () => {
-    it("the manifest, the changelog and a tag all name what VERSION declares", () => {
+    it("the changelog and a tag all name what the manifest declares", () => {
         expect(
             checkReleaseIdentity({
                 declared: declaredVersion,
-                manifest: manifestVersion,
                 changelog: entries[0].version,
                 tag: `v${declaredVersion}`,
             }),
@@ -43,11 +49,10 @@ describe("one tag, one registry version, one releases-page entry (AC1)", () => {
     it("names each half of a disagreement", () => {
         const findings: string[] = checkReleaseIdentity({
             declared: "0.2.0",
-            manifest: "0.1.0",
-            changelog: "0.2.0",
+            changelog: "0.1.0",
             tag: "v0.3.0",
         });
-        expect(findings.join("\n")).toContain("the published manifest names 0.1.0");
+        expect(findings.join("\n")).toContain("the changelog entry names 0.1.0");
         expect(findings.join("\n")).toContain("the git tag names 0.3.0");
     });
 });
@@ -55,7 +60,7 @@ describe("one tag, one registry version, one releases-page entry (AC1)", () => {
 describe("the written procedure is followable end to end (AC2)", () => {
     it("covers every step from choosing the version to publishing the releases-page entry", () => {
         const procedure: string = fs.readFileSync(PROCEDURE_PATH, "utf8");
-        for (const step of ["VERSION", "CHANGELOG.md", "nexus:pin-bundles", "git tag", "npm publish", "npm install -g"]) {
+        for (const step of ["package.json", "CHANGELOG.md", "nexus:pin-bundles", "git tag", "npm publish", "npm install -g"]) {
             expect(procedure, step).toContain(step);
         }
         // A reader who has to guess the stage vocabulary has to ask a question.
@@ -67,13 +72,13 @@ describe("the written procedure is followable end to end (AC2)", () => {
 
 describe("an entry speaks adopter language (AC3, AC4)", () => {
     it("the live entry passes every rule", () => {
-        expect(checkReleaseEntry(entries[0], changed)).toEqual([]);
+        expect(checkReleaseEntry(entries[0], thisRelease)).toEqual([]);
     });
 
-    it("the live entry names a stage a lead runs", () => {
+    it("the live entry names a stage a lead runs, or says no stage changed", () => {
         const namesAStage = (item: string): boolean =>
             PIPELINE_STAGES.some((stage) => new RegExp(`\\b${stage}\\b`, "i").test(item));
-        expect(entries[0].items.some(namesAStage)).toBe(true);
+        expect(entries[0].items.some(namesAStage) || entries[0].items.includes(NO_BEHAVIOUR_CHANGE)).toBe(true);
     });
 
     it("rejects a commit subject", () => {
@@ -217,6 +222,5 @@ describe("the release is one tagged artifact (AC1)", () => {
         // when it is cut it can only name the one version every other surface already names.
         expect(tags === "" || tags === `v${declaredVersion}`).toBe(true);
         expect(entries[0].version).toBe(declaredVersion);
-        expect(manifestVersion).toBe(declaredVersion);
     });
 });

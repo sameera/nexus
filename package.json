@@ -1,6 +1,6 @@
 {
   "name": "@sameeraperera/nexus",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "A System of Intentional Friction for the Age of AI Agents",
   "license": "ISC",
   "repository": {
@@ -16,14 +16,13 @@
   },
   "files": [
     "dist",
-    "VERSION",
     "README.md",
     "LICENSE"
   ],
   "publishConfig": {
     "access": "public"
   },
-  "packageManager": "pnpm@11.25.0",
+  "packageManager": "pnpm@12.3.4",
   "os": [
     "darwin",
     "linux"

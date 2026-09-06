@@ -5,9 +5,9 @@ semantic version. This procedure is the whole of it — follow it top to bottom.
 
 ## 1. Choose the version
 
-The version is declared once, in `VERSION` at the repository root. Edit that file and nothing
-else: the published manifest reads it, both toolkits resolve it by walking up from their own
-position, and the tag and the changelog entry are checked against it.
+The version is declared once, as the `version` of `package.json` at the repository root. Edit that
+field and nothing else: the executable resolves it by walking up from its own position to the
+manifest naming this package, and the tag and the changelog entry are checked against it.
 
 Use semantic versioning against **adopter-visible stage behaviour**, not against the size of the
 diff. A stage that now decides something differently is a minor release even if one line moved.
@@ -53,7 +53,7 @@ fingerprint pin and its payload manifest. It copies nothing into any repository.
 what enforces the changelog rules and the version agreement; a release cannot be cut past a red
 suite.
 
-Commit the result — `VERSION`, `CHANGELOG.md`, `libs/portable-tools/bundle-fingerprint.json` and
+Commit the result — `package.json`, `CHANGELOG.md`, `libs/portable-tools/bundle-fingerprint.json` and
 `libs/portable-tools/payload-manifest.json` — and merge it to `main`.
 
 ## 4. Check the invocation gate
@@ -83,7 +83,7 @@ From the merged commit on `main`:
     git tag v<version>
     git push origin v<version>
 
-The tag names the same version as `VERSION`, the manifest and the changelog entry. Nothing else
+The tag names the same version as the manifest and the changelog entry. Nothing else
 is tagged.
 
 ## 6. Publish
