@@ -42,6 +42,7 @@ import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
+import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -113,7 +114,7 @@ export interface VerbEntry {
 }
 
 const WORKSPACE_SUBVERBS: readonly string[] = ["init", "status", "docs-root", "add-repo", "github-defaults"];
-const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "remove"];
+const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "range", "remove"];
 const CLOSE_MIGRATION_SUBVERBS: readonly string[] = ["preflight", "migrate"];
 
 /**
@@ -244,6 +245,8 @@ const REGISTRY: Record<string, VerbEntry> = {
         usage: [
             "  nexus pr-worktree preflight --pr <N> --mode analyze|close [--root <dir>]",
             "  nexus pr-worktree open --pr <N> --mode analyze|close [--branch <distill/...>] [--root <dir>]",
+            "  nexus pr-worktree range --pr <N> [--root <dir>]",
+            "      Print { repo, base, head } for a merged PR without creating a worktree.",
             "  nexus pr-worktree remove <wtPath> [--root <dir>]",
         ].join("\n"),
         subverbs: PR_WORKTREE_SUBVERBS,
@@ -269,8 +272,10 @@ const REGISTRY: Record<string, VerbEntry> = {
     "validate-concepts": {
         summary: "Validate concept pages against the store's structural rules.",
         usage: [
-            "  nexus validate-concepts [--concepts-dir <dir>] [--base <sha>] [<page> ...]",
+            "  nexus validate-concepts [--concepts-dir <dir>] [--base <sha>] [--append-only-log] [<page> ...]",
             "      Validate concept pages, exiting non-zero on any blocking finding.",
+            "      With --append-only-log (which needs --base), additionally enforce the razor: a",
+            "      changed page must be byte-identical to its base ahead of the one log entry it gained.",
         ].join("\n"),
         run: (argv) => Promise.resolve(runValidateConcepts(argv)),
     },
@@ -1081,8 +1086,24 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
 
     // The subverb gate, read from the registry's own declaration (story #301).
     if (subcommand === undefined || !PR_WORKTREE_SUBVERBS.includes(subcommand)) {
-        io.stderr("usage: pr_worktree.ts <preflight|open --pr <N> --mode analyze|close [--branch <b>] | remove <wtPath>>");
+        io.stderr("usage: pr_worktree.ts <preflight|open --pr <N> --mode analyze|close [--branch <b>] | range --pr <N> | remove <wtPath>>");
         return 2;
+    }
+
+    // `range` needs no mode and creates no worktree: it is the read the fix lane wants, where a
+    // checkout would be built and torn down for one JSON object.
+    if (subcommand === "range") {
+        if (flags.pr === undefined || Number.isNaN(flags.pr)) {
+            io.stderr("usage: pr_worktree.ts range --pr <N>");
+            return 2;
+        }
+        const read = readRange(closeMigrationRunner, flags.root, flags.pr);
+        if (!read.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(read.error));
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "range", range: read.range }));
+        return 0;
     }
 
     if (subcommand === "preflight" || subcommand === "open") {
@@ -1157,9 +1178,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
         }
         // Fetch the PR head into the shared object store so the range can be verified
         // (disambiguates squash vs rebase). Best-effort — a deleted branch leaves it undefined.
-        const fetched = closeMigrationRunner("git", ["fetch", "origin", `pull/${flags.pr}/head`], { cwd: repoRoot });
-        const prHead: string | undefined =
-            fetched.status === 0 ? (git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "FETCH_HEAD") ?? undefined) : undefined;
+        const prHead: string | undefined = fetchPrHead(closeMigrationRunner, repoRoot, flags.pr);
         const range = deriveRange(closeMigrationRunner, wt.wtPath, pr.pr, { verifyAgainstPrHead: prHead });
         if (!range.ok) {
             io.stderr(renderPrWorktreeDiagnostic(range.error));

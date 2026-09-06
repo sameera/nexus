@@ -4,12 +4,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+    checkAppendOnlyLog,
     checkForbiddenContent,
     type Finding,
     isAnchorFile,
     isBlocking,
     parseArgs,
     parseFrontmatter,
+    gitStatusMap,
     registryPath,
     runCli,
     storeLevelFindings,
@@ -130,7 +132,7 @@ afterEach(() => {
 
 describe("parseArgs", () => {
     it("defaults to no base, .nexus/concepts, and no files", () => {
-        expect(parseArgs([])).toEqual({ base: null, conceptsDir: ".nexus/concepts", files: [] });
+        expect(parseArgs([])).toEqual({ base: null, conceptsDir: ".nexus/concepts", files: [], appendOnlyLog: false });
     });
 
     it("parses --base", () => {
@@ -1442,5 +1444,153 @@ describe("CLI (subprocess)", () => {
         const result = runViaTsx(["--concepts-dir", dir]);
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("1 blocking finding(s) and 0 advisory(ies) across");
+    });
+});
+
+describe("append-only-log mode (story #265)", () => {
+    const BASE_PAGE: string = page();
+
+    /** A page identical to `BASE_PAGE` except for one appended Decision Log entry. */
+    function withAppendedEntry(base: string = BASE_PAGE, heading = "### 2026-08-20 — #900 — Fixed the thing"): string {
+        return `${base}\n${heading}\nWhy it mattered.\n`;
+    }
+
+    /** Commit `alpha.md` at `content`, then overwrite it with `next`. Returns the repo and the base SHA. */
+    function stagedChange(content: string, next: string | null, name = "alpha.md"): { dir: string; base: string; file: string } {
+        const dir: string = makeGitRepo();
+        const file: string = writeFile(dir, path.join(".nexus", "concepts", name), content);
+        const base: string = commitAll(dir, "base");
+        if (next === null) {
+            fs.rmSync(file);
+        } else {
+            fs.writeFileSync(file, next);
+        }
+        return { dir, base, file };
+    }
+
+    function check(dir: string, base: string, file: string): Finding[] {
+        const findings: Finding[] = [];
+        checkAppendOnlyLog(file, base, dir, gitStatusMap(base, dir), findings);
+        return findings;
+    }
+
+    it("passes a page whose only change is one appended Decision Log entry", () => {
+        const { dir, base, file } = stagedChange(BASE_PAGE, withAppendedEntry());
+        expect(check(dir, base, file)).toEqual([]);
+    });
+
+    it("names the status when the path was added against the base", () => {
+        const dir: string = makeGitRepo();
+        writeFile(dir, path.join(".nexus", "concepts", "alpha.md"), BASE_PAGE);
+        const base: string = commitAll(dir, "base");
+        const file: string = writeFile(dir, path.join(".nexus", "concepts", "gamma.md"), withAppendedEntry());
+        const findings: Finding[] = check(dir, base, file);
+        expect(findings.length).toBeGreaterThan(0);
+        expect(findings.some((f: Finding) => f.message.includes("added"))).toBe(true);
+    });
+
+    it("names the status when the path was deleted against the base", () => {
+        const { dir, base, file } = stagedChange(BASE_PAGE, null);
+        const findings: Finding[] = check(dir, base, file);
+        expect(findings.some((f: Finding) => f.message.includes("deleted"))).toBe(true);
+    });
+
+    it("names the status when the path was renamed against the base", () => {
+        const dir: string = makeGitRepo();
+        writeFile(dir, path.join(".nexus", "concepts", "alpha.md"), BASE_PAGE);
+        const base: string = commitAll(dir, "base");
+        fs.rmSync(path.join(dir, ".nexus", "concepts", "alpha.md"));
+        const file: string = writeFile(dir, path.join(".nexus", "concepts", "renamed.md"), BASE_PAGE);
+        // A rename is only visible as one once both halves are staged, which is how the drain
+        // presents its page changes to the razor.
+        execFileSync("git", ["add", "-A"], { cwd: dir, stdio: "ignore" });
+        const findings: Finding[] = check(dir, base, file);
+        expect(findings.some((f: Finding) => f.message.includes("renamed"))).toBe(true);
+    });
+
+    it("fails a page that does not resolve at the base reference", () => {
+        const dir: string = makeGitRepo();
+        writeFile(dir, path.join(".nexus", "concepts", "alpha.md"), BASE_PAGE);
+        const base: string = commitAll(dir, "base");
+        const file: string = writeFile(dir, path.join(".nexus", "concepts", "gamma.md"), withAppendedEntry());
+        expect(check(dir, base, file).some((f: Finding) => f.message.includes("does not resolve"))).toBe(true);
+    });
+
+    it.each([
+        ["a Key Invariant", (p: string) => p.replace("1. Alpha never breaks.", "1. Alpha breaks under load.")],
+        ["a Summary sentence", (p: string) => p.replace("Alpha does the thing well.", "Alpha does the thing badly.")],
+        ["a touches value", (p: string) => p.replace(`touches: ["beta"]`, `touches: ["beta", "gamma"]`)],
+        ["an aliases value", (p: string) => p.replace("aliases: []", `aliases: ["A"]`)],
+        ["a status value", (p: string) => p.replace("status: active", "status: superseded")],
+        ["an Integration Points bullet", (p: string) => p.replace("interacts with beta.", "no longer interacts with beta.")],
+        ["an earlier log entry", (p: string) => p.replace("### 2026-07-04 — #1 — Seed", "### 2026-07-04 — #1 — Reworded seed")],
+    ])("fails a page that appends an entry and also changes %s", (_label: string, mutate: (p: string) => string) => {
+        const { dir, base, file } = stagedChange(BASE_PAGE, withAppendedEntry(mutate(BASE_PAGE)));
+        const findings: Finding[] = check(dir, base, file);
+        expect(findings.length).toBeGreaterThan(0);
+        expect(findings.some((f: Finding) => /asserts/.test(f.message) && /design change/.test(f.message))).toBe(true);
+    });
+
+    it("fails a page that adds a domain value alongside the appended entry", () => {
+        const withDomain: string = BASE_PAGE.replace("status: active", "domain: knowledge\nstatus: active");
+        const { dir, base, file } = stagedChange(BASE_PAGE, withAppendedEntry(withDomain));
+        expect(check(dir, base, file).some((f: Finding) => /asserts/.test(f.message))).toBe(true);
+    });
+
+    it("fails a page that gained no Decision Log entry", () => {
+        const { dir, base, file } = stagedChange(BASE_PAGE, `${BASE_PAGE}\nA trailing paragraph.\n`);
+        expect(check(dir, base, file).some((f: Finding) => f.message.includes("gained 0"))).toBe(true);
+    });
+
+    it("fails a page that gained more than one Decision Log entry", () => {
+        const two: string = withAppendedEntry(withAppendedEntry(), "### 2026-08-21 — #901 — And another");
+        const { dir, base, file } = stagedChange(BASE_PAGE, two);
+        expect(check(dir, base, file).some((f: Finding) => f.message.includes("gained 2"))).toBe(true);
+    });
+
+    it("exempts the last_updated_by line and trailing whitespace", () => {
+        const restamped: string = BASE_PAGE.replace(`last_updated_by: "bootstrap"`, `last_updated_by: "#900"`)
+            .replace("Alpha does the thing well.", "Alpha does the thing well.   ");
+        const { dir, base, file } = stagedChange(BASE_PAGE, `${withAppendedEntry(restamped)}\n\n`);
+        expect(check(dir, base, file)).toEqual([]);
+    });
+
+    it("runCli exits 0 for a clean append and non-zero for a page that asserts something new", () => {
+        const clean = stagedChange(BASE_PAGE, withAppendedEntry());
+        expect(
+            validateWithCwd(clean.dir, () =>
+                runCli(["--append-only-log", "--base", clean.base, "--concepts-dir", path.join(clean.dir, ".nexus", "concepts"), clean.file]),
+            ),
+        ).toBe(0);
+
+        const dirty = stagedChange(BASE_PAGE, withAppendedEntry(BASE_PAGE.replace("1. Alpha never breaks.", "1. Alpha breaks.")));
+        expect(
+            validateWithCwd(dirty.dir, () =>
+                runCli(["--append-only-log", "--base", dirty.base, "--concepts-dir", path.join(dirty.dir, ".nexus", "concepts"), dirty.file]),
+            ),
+        ).toBe(1);
+    });
+
+    it("runCli leaves the existing checks and their exit behaviour alone when the mode is not requested", () => {
+        const dirty = stagedChange(BASE_PAGE, withAppendedEntry(BASE_PAGE.replace("1. Alpha never breaks.", "1. Alpha breaks.")));
+        expect(
+            validateWithCwd(dirty.dir, () =>
+                runCli(["--base", dirty.base, "--concepts-dir", path.join(dirty.dir, ".nexus", "concepts"), dirty.file]),
+            ),
+        ).toBe(0);
+    });
+
+    it("runCli still runs the existing checks alongside the mode", () => {
+        const broken: string = BASE_PAGE.replace("## Key Invariants", "## Kee Invariants");
+        const { dir, base, file } = stagedChange(broken, withAppendedEntry(broken));
+        const code: number = validateWithCwd(dir, () =>
+            runCli(["--append-only-log", "--base", base, "--concepts-dir", path.join(dir, ".nexus", "concepts"), file]),
+        );
+        expect(code).toBe(1);
+    });
+
+    it("parseArgs reads the mode flag", () => {
+        expect(parseArgs(["--append-only-log", "--base", "HEAD"]).appendOnlyLog).toBe(true);
+        expect(parseArgs(["--base", "HEAD"]).appendOnlyLog).toBe(false);
     });
 });

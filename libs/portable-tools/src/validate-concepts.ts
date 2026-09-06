@@ -2,11 +2,16 @@
  * Deterministic concept-page validator (0003 §2, §5, §8.3 — mechanics as code).
  *
  * Usage:
- *   npx tsx libs/portable-tools/src/validate-concepts.ts [--base <git-ref>] [--concepts-dir <dir>] [files...]
+ *   npx tsx libs/portable-tools/src/validate-concepts.ts [--base <git-ref>] [--append-only-log]
+ *       [--concepts-dir <dir>] [files...]
  *
  * With no files, validates every active page under the concepts dir (README.md excluded).
  * With --base, additionally enforces that every changed page gained exactly one new
  * Decision Log entry and that prior entries are untouched (append-only).
+ *
+ * With --append-only-log (which needs --base), it additionally enforces the razor: a changed page
+ * must be byte-identical to its base content ahead of the single log entry it gained. That is the
+ * whole check — no field is enumerated, so none can be forgotten when the page schema grows.
  *
  * §8.3 checks are heuristics: fenced/indented code blocks, path-shaped tokens,
  * camelCase / snake_case / call-syntax identifiers. Deliberately not caught: bare
@@ -24,6 +29,8 @@ interface CliOptions {
     base: string | null;
     conceptsDir: string;
     files: string[];
+    /** The razor's mechanical half (story #265): a changed page may only have gained one log entry. */
+    appendOnlyLog: boolean;
 }
 
 interface Frontmatter {
@@ -67,11 +74,13 @@ const ANCHOR_BULLET = /^-\s+`([^`]+)`/;
 const REGISTRY_FILENAME = "domains.md";
 
 export function parseArgs(argv: string[]): CliOptions {
-    const options: CliOptions = { base: null, conceptsDir: ".nexus/concepts", files: [] };
+    const options: CliOptions = { base: null, conceptsDir: ".nexus/concepts", files: [], appendOnlyLog: false };
     for (let i = 0; i < argv.length; i++) {
         const arg: string = argv[i];
         if (arg === "--") {
             continue;
+        } else if (arg === "--append-only-log") {
+            options.appendOnlyLog = true;
         } else if (arg === "--base") {
             options.base = argv[++i] ?? null;
         } else if (arg === "--concepts-dir") {
@@ -588,6 +597,142 @@ export function validatePage(file: string, base: string | null, repoRoot: string
 }
 
 /**
+ * Read a file at a git reference from a known repository root. `gitShow` predates the append-only
+ * mode and relies on the process cwd; this mode is invoked by the drain against a repo root it
+ * already knows, so it says so rather than inheriting whatever directory the caller stood in.
+ */
+function gitShowAt(repoRoot: string, ref: string, relPath: string): string | null {
+    try {
+        return execFileSync("git", ["show", `${ref}:${relPath}`], {
+            cwd: repoRoot,
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "ignore"],
+        });
+    } catch {
+        return null;
+    }
+}
+
+/** Human name for git's status letter, so a finding says what happened rather than spelling a code. */
+const STATUS_NAMES: Record<string, string> = { A: "added", D: "deleted", R: "renamed", C: "copied", T: "type-changed", M: "modified" };
+
+/**
+ * Map every path that differs from `base` to its git status letter, rename detection on. Built once
+ * per run rather than per file: a rename is only visible when both of its paths are in view, so a
+ * per-path query would report the destination as merely added.
+ */
+export function gitStatusMap(base: string, repoRoot: string): Map<string, string> {
+    const statuses = new Map<string, string>();
+    const read = (args: string[]): string => {
+        try {
+            return execFileSync("git", args, { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+        } catch {
+            return "";
+        }
+    };
+    const absorb = (raw: string): void => {
+        for (const line of raw.split("\n")) {
+            if (line.trim() === "") continue;
+            const parts: string[] = line.split("\t");
+            const letter: string = (parts[0] ?? "").charAt(0);
+            const target: string | undefined = parts.length >= 3 ? parts[2] : parts[1];
+            if (target !== undefined) statuses.set(target, letter);
+        }
+    };
+
+    // A page the drain has written but not yet staged is untracked, so `git diff` cannot see it at
+    // all — it is read separately rather than silently passing as unchanged.
+    for (const line of read(["ls-files", "--others", "--exclude-standard"]).split("\n")) {
+        if (line.trim() !== "") statuses.set(line.trim(), "A");
+    }
+    absorb(read(["diff", "--name-status", "-M", base, "--"]));
+    // The index wins: a rename is only ever visible as one, rather than as an unrelated add and
+    // delete, once both of its halves are staged.
+    absorb(read(["diff", "--name-status", "-M", "--cached", base, "--"]));
+    return statuses;
+}
+
+/** Drop the `last_updated_by:` field from the opening frontmatter block; a body line is never touched. */
+function stripLastUpdatedByLine(content: string): string {
+    const kept: string[] = [];
+    let delimiters = 0;
+    for (const line of content.split("\n")) {
+        if (line.trim() === "---") {
+            delimiters++;
+            kept.push(line);
+            continue;
+        }
+        if (delimiters === 1 && /^last_updated_by:\s*/.test(line)) continue;
+        kept.push(line);
+    }
+    return kept.join("\n");
+}
+
+/** Trailing whitespace normalisation: per line, and at the end of the content. */
+function normalizeTrailing(content: string): string {
+    return content
+        .split("\n")
+        .map((line: string) => line.replace(/[ \t]+$/, ""))
+        .join("\n")
+        .replace(/\n+$/, "");
+}
+
+/**
+ * The razor, as code (story #265). A fix may append one decision log entry to a page that already
+ * exists; it may not create a page, retire one, or change what a page asserts.
+ *
+ * The check is stated as byte identity rather than as a list of forbidden fields, so every
+ * forbidden edit — a key invariant, a summary sentence, a neighbour, an alias, a domain, a status,
+ * an integration bullet, an earlier log entry — lands inside the compared region and fails on the
+ * same test. Nothing is enumerated, so nothing develops a silent hole when a page field is added.
+ */
+export function checkAppendOnlyLog(
+    file: string,
+    base: string,
+    repoRoot: string,
+    statuses: Map<string, string>,
+    findings: Finding[],
+): void {
+    const relPath: string = path.relative(repoRoot, path.resolve(file)).split(path.sep).join("/");
+    const letter: string | undefined = statuses.get(relPath);
+    if (letter !== undefined && letter !== "M") {
+        const name: string = STATUS_NAMES[letter] ?? letter;
+        findings.push({ file, message: `append-only-log: the page was ${name} against ${base} — a fix may only modify a page that already exists` });
+    }
+
+    const previous: string | null = gitShowAt(repoRoot, base, relPath);
+    if (previous === null) {
+        findings.push({ file, message: `append-only-log: the page does not resolve at ${base} — a fix may only append to a page that already exists` });
+        return;
+    }
+    if (!fs.existsSync(file)) {
+        return;
+    }
+    const content: string = fs.readFileSync(file, "utf8");
+
+    const oldHeadings: string[] = decisionLogHeadings(previous);
+    const newHeadings: string[] = decisionLogHeadings(content);
+    const gained: number = newHeadings.length - oldHeadings.length;
+    if (gained !== 1) {
+        findings.push({ file, message: `append-only-log: the page gained ${gained} Decision Log entries against ${base} (must be exactly 1)` });
+        return;
+    }
+
+    const heading: string = newHeadings[newHeadings.length - 1];
+    const lines: string[] = content.split("\n");
+    const start: number = lines.lastIndexOf(heading);
+    const ahead: string = lines.slice(0, start).join("\n");
+    if (normalizeTrailing(stripLastUpdatedByLine(ahead)) !== normalizeTrailing(stripLastUpdatedByLine(previous))) {
+        findings.push({
+            file,
+            message:
+                `append-only-log: the page changed outside the entry it gained, which alters what the page asserts rather than adding to its history. ` +
+                `That is a design change — plan it with /nxs.epic.`,
+        });
+    }
+}
+
+/**
  * The registry lives beside the atlas in the resolved docs root; resolve it the same way the atlas
  * generator does (decision record — both tools must agree on the registry's location). Returns a
  * docs-root-relative path, resolved against the process cwd exactly as the atlas's default out path.
@@ -713,19 +858,36 @@ export function runCli(argv: string[]): number {
         }
     }
 
+    // The razor's mode needs a base to compare against; without one there is nothing to be
+    // append-only *to*, and silently doing nothing would read as a pass.
+    if (options.appendOnlyLog && options.base === null) {
+        findings.push({ file: options.conceptsDir, message: "--append-only-log needs --base <ref> to compare against" });
+    }
+    const statuses: Map<string, string> =
+        options.appendOnlyLog && options.base !== null ? gitStatusMap(options.base, repoRoot) : new Map();
+
     for (const file of files) {
         // Invariant 6: the registry is validated by its own grammar, never as a concept page.
         if (hasRegistry && path.resolve(file) === path.resolve(regPath)) {
             continue;
         }
-        if (!fs.existsSync(file)) {
+        if (!fs.existsSync(file) && !options.appendOnlyLog) {
             findings.push({ file, message: "file not found" });
             continue;
         }
         if (isAnchorFile(file)) {
             validateAnchor(file, findings);
-        } else {
+            continue;
+        }
+        // The mode applies to concept pages only; a derived sidecar the drain regenerates is never
+        // passed to it, because a fix drain may legitimately rewrite one.
+        if (options.appendOnlyLog && options.base !== null) {
+            checkAppendOnlyLog(file, options.base, repoRoot, statuses, findings);
+        }
+        if (fs.existsSync(file)) {
             validatePage(file, options.base, repoRoot, findings, validDomainPaths);
+        } else {
+            findings.push({ file, message: "file not found" });
         }
     }
 

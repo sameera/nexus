@@ -24,6 +24,11 @@
       "import": "./src/range.ts",
       "default": "./src/range.ts"
     },
+    "./range-read": {
+      "types": "./src/range-read.ts",
+      "import": "./src/range-read.ts",
+      "default": "./src/range-read.ts"
+    },
     "./worktree": {
       "types": "./src/worktree.ts",
       "import": "./src/worktree.ts",

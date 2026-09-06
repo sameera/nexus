@@ -78,9 +78,21 @@ $ARGUMENTS
    `epic.md`). **Presence = unconsumed** — there is no state file to consult.
 
    **Also scan `.nexus/tmp/`** for **ephemeral entries** (#173) in the same run: a directory
-   `.nexus/tmp/epic-<n>/` is a drainable entry **only when it carries both `epic.md` and
-   `close-record.md`** (record #176, invariant 6). An epic-only materialization is resolver
-   scratch — never listed, never warned about, never aged. For an ephemeral candidate,
+   `.nexus/tmp/epic-<n>/` **or `.nexus/tmp/fix-<n>/`** is a drainable entry **only when it carries
+   both `epic.md` and `close-record.md`** (record #176, invariant 6). An epic-only materialization
+   is resolver scratch — never listed, never warned about, never aged; a fix directory missing
+   either file is skipped exactly as an epic directory missing either file is.
+
+   **A `fix-<n>` directory is a fix entry** (#263), written by `/nxs.fix` for a small change that
+   has already landed. It is drained by everything below exactly as an ephemeral epic entry is,
+   with the differences the razor imposes called out at each phase. **What an entry *is* comes from
+   `entry_kind:` in its `epic.md`, never from its location or its directory name.** When the two
+   disagree — `entry_kind: fix` under `epic-<n>/`, or an absent or non-`fix` kind under
+   `fix-<n>/` — stop that entry with the named per-entry hard block **`entry-kind-mismatch`**,
+   write nothing for it, and leave the directory in place. Every other resolution silently picks
+   one of two contradictory claims about what the entry is, and picking the directory name would
+   let an entry be drained as an epic while its own header says it is a fix — the exact case the
+   razor exists to catch. For an ephemeral candidate,
    **presence alone is not the consumption signal** — nothing ever commits a deletion of a tmp
    path, so derive consumption from the store (invariant 8): fetch the trunk
    (`git fetch origin main`), then check whether the concept store **at the trunk** carries this
@@ -477,6 +489,21 @@ at all — plus `close-record.md`. When the epic has no record, the close record
 Deviation Rationale are the sole *why* carrier. Do **not** read `<entry>/<username>/**`. Engineer
 scratch is not a distill input; the *why* comes only from the decision record and the close record.
 
+**For a fix entry, the razor bounds the deltas before any judgment starts** (#263). Every delta
+must be `action: update` against a page that **already exists**, carrying exactly one
+`## Decision Log Entry` section and nothing else — no `## Summary`, no `## How It Works`, no
+`## Invariants Added`, no `## Invariants Retired`, no `touches_added`, no `touches_removed`, no
+`domain`. The *why* is the close record's Key Decisions (a fix entry has no decision record, and the
+drain already accepts an entry whose reasoning comes solely from the close record); the delta's
+`source` is the reference recorded in the entry's `epic.md` `link`, which is what the appended log
+heading carries.
+
+**A rationale that maps to no existing page is a named per-entry hard block: `no-existing-page`.**
+Report it, write nothing for that entry, and leave the entry directory in place for a later run.
+This is the razor working, not a gap in it: a decision with no page is a decision that needs a page,
+and creating pages is epic work. A change that needs to alter what a page asserts is a **design
+change** — it keeps taking `/nxs.epic`.
+
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
 `touches_removed` (omit if none), `domain` (**create only**, and only when a registry exists —
@@ -654,6 +681,10 @@ Run these for each entry, in order, before its commit:
       400-word cap (0003 §2.2), so no page in the store can be too full to accept a reciprocal
       bullet. Never drop the edge, never demote the interaction to prose on one side, and never
       compress the target's existing content to make room — none of those is a legal move here.
+    - **For a fix entry the fan-out is empty by construction, not by a special case** (#263): a
+      fix delta may not add or remove a `touches` neighbour, so there is nothing to mirror. Run the
+      step anyway and expect no edit; the atlas regeneration is a no-op for the same reason and is
+      likewise still run, so neither check can drift.
     - **Its only bound is the 40-word ceiling on the bullet you are writing** — it binds the new
       bullet, never the target's existing prose. If the interaction genuinely cannot be stated in
       40 words, that is the signal the delta names **two distinct interactions**: declare two
@@ -751,6 +782,52 @@ Run these for each entry, in order, before its commit:
 
     On a hub the regenerated anchor sidecar paths are named alongside the pages, per Step 3.
 
+    **For a fix entry, add `--append-only-log`** (#263) — this is the razor's load-bearing half:
+
+    ```bash
+    nexus validate-concepts --append-only-log --base HEAD "<changed-page-path>" ...
+    ```
+
+    The flag is **added to** the invocation, never substituted for it: every existing check above
+    still runs against the same pages, and the mode runs alongside them. Name only the entry's
+    changed **concept pages** — never the regenerated anchor sidecars, which a fix drain may
+    legitimately rewrite.
+
+    **Apply the mode only to a fix entry's pages.** Entries are applied, validated and committed one
+    at a time (Step 2), so an epic entry drained in the same run is validated by its own invocation,
+    without the flag, exactly as before. That per-entry ordering is load-bearing here and must not be
+    batched as an optimisation: batching would make the razor compare against the wrong base.
+
+    **The refusal message matters as much as the exit code.** When the mode blocks, report it naming
+    the fix entry, naming the page, and saying what it means:
+
+    ```
+    <fix local-id> (<provenance ref>) — <slug> changed outside the entry it gained.
+    That alters what the page asserts rather than adding to its history, which makes it a design
+    change, not a fix. Plan it with /nxs.epic. No distillation-PR is opened.
+    ```
+
+    A developer who hits this needs to learn what kind of change they made, not just that a command
+    exited non-zero.
+
+    **Before draining a fix entry, establish that the validator you will run enforces the mode**
+    (record #271, invariant 13). One installed toolkit exists per account, reached by name, and it
+    lags when it is not updated; a flag has no declared surface of its own, so an older toolkit
+    accepts the invocation, reads the unrecognised mode as one more page to check, and exits
+    non-zero reporting that page as **missing**. The razor still fails closed, but the diagnostic
+    then misnames its own cause, and the obvious repair — dropping the offending argument — turns a
+    safe refusal into exactly the silent pass the razor exists to prevent. So confirm the mode is
+    declared before you rely on it:
+
+    ```bash
+    nexus --help | grep -q -- --append-only-log && echo mode-available || echo mode-unavailable
+    ```
+
+    **mode-unavailable → refuse the fix entry**, and attribute the failure to the install, never to
+    a missing file: report that the installed toolkit predates the append-only mode and that the
+    remedy is to update the install. An undrained fix can be recovered; a fix merged without the
+    razor cannot, because the log entry cannot be unwritten.
+
     The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
     page's own content, the per-bullet bound on Integration Points, `touches:` == Integration
     Points, exactly one new Decision Log entry per changed page, append-only log history, §8.3
@@ -760,7 +837,7 @@ Run these for each entry, in order, before its commit:
     repo↔path attribution consistency. The second checks the
     atlas is in sync with the active pages.
 
-    **A non-zero exit from either command blocks the PR** — fix the pages (or regenerate the
+    **A non-zero exit from any of these blocks the PR** — fix the pages (or regenerate the
     atlas) and re-run until both exit 0. Do not weaken, skip, or reinterpret a blocking finding;
     the validator is the contract's mechanical half. **Advisories are the named exception:** the
     validator prints every finding with a leading severity token and counts the two classes
@@ -795,6 +872,11 @@ Run these for each entry, in order, before its commit:
     git add .nexus/concepts .nexus/anchors <resolved-atlas-path>
     git commit
     ```
+
+   **A fix entry has no committed removal target at all** (#263). It was never an epic, so there is
+   no `.nexus/queue/epic-<n>/` scratch home, and its own directory is under `.nexus/tmp/`. Remove
+   nothing, and **report no missing removal target** — an absent target here is the expected shape,
+   not a warning.
 
    Never `git rm` (or stage) any path under `.nexus/tmp/`. The ephemeral directory itself is
    **not** deleted here — its consumption is derived from the trunk store after the PR merges
@@ -877,6 +959,9 @@ Drained entries:
 Concept deltas:
 - <slug> — <create|update|retire> — <sections changed> — log: "<entry title>"
   ↳ reciprocity fan-out: <slugs, or none>
+
+Fix entries — the page each one changes and the entry it appends:
+- <fix local-id> (<provenance ref>) → <slug> — log: "<the appended entry's heading>"
 
 Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new subdomain "<title>" | new domain "<title>">, ...
   (omit this line entirely when Phase 6.1 found no forced fits — "no gate fired")
@@ -1050,6 +1135,15 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   `range-unresolvable` (invariant 11); its committed removal targets the epic's scratch dir, never
   a `.nexus/tmp/` path (invariant 12); and the checkpoint digest names its source and what is
   actually deleted where (invariant 13).
+- **Fix entries (#263):** a `.nexus/tmp/fix-<n>/` directory is drainable on exactly the same terms
+  as an ephemeral epic entry — both files required, no drain-SLO accounting, never auto-deleted —
+  and what it *is* comes from `entry_kind:` in its header, never its directory name; a disagreement
+  is the named per-entry hard block `entry-kind-mismatch`. Its deltas are all updates to pages that
+  already exist, so the reciprocity fan-out and the atlas regeneration are vacuous by construction
+  rather than by a special case, and a rationale that maps to no existing page is the named
+  per-entry hard block `no-existing-page`. It has no committed removal target, so the removal step
+  removes nothing and reports no missing target. Draining an epic entry is unchanged by this,
+  including an epic entry discovered in the same run as a fix entry.
 - **GitHub recovery (#174) is explicit and per-entry** (invariant 14): invoked as
   `--recover <epic-issue>` for a named epic, never as a scan of closed epic issues on an ordinary
   run. It re-derives the epic through the resolver and takes rationale, record reference, hash,
