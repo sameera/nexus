@@ -141,3 +141,57 @@ describe("/nxs.fix creates the entry from a resolved range (story #267)", () => 
         expect(FIX).toMatch(/the number the developer gave, unchanged/);
     });
 });
+
+const DISTILL: string = body("nxs.distill.md");
+
+describe("/nxs.distill drains a fix entry (story #268)", () => {
+    it("discovers a fix directory as a drainable entry alongside an ephemeral epic entry", () => {
+        expect(DISTILL).toMatch(/`\.nexus\/tmp\/epic-<n>\/` \*\*or `\.nexus\/tmp\/fix-<n>\/`\*\*/);
+    });
+
+    it("skips a fix directory missing either file, the same way it skips an epic entry", () => {
+        expect(DISTILL).toMatch(/fix directory missing\s*\n?\s*either file is skipped exactly as an epic directory missing either file is/);
+    });
+
+    it("takes the entry kind from the header, never the directory name, and blocks a disagreement", () => {
+        expect(DISTILL).toContain("entry-kind-mismatch");
+        expect(DISTILL).toMatch(/never from its location or its directory name/);
+    });
+
+    it("bounds a fix entry's deltas to updates carrying one decision log entry and nothing else", () => {
+        expect(DISTILL).toMatch(/Every delta\s*\n?must be `action: update` against a page that \*\*already exists\*\*/);
+        expect(DISTILL).toMatch(/no `touches_added`, no `touches_removed`, no\s*\n?`domain`/);
+    });
+
+    it("sources the appended entry's heading from the reference recorded in the entry's link", () => {
+        expect(DISTILL).toMatch(/`source` is the reference recorded in the entry's `epic\.md` `link`/);
+    });
+
+    it("hard-blocks a rationale that maps to no existing page and leaves the directory in place", () => {
+        expect(DISTILL).toContain("no-existing-page");
+        expect(DISTILL).toMatch(/leave the entry directory in place for a later run/);
+    });
+
+    it("runs the reciprocity fan-out and the atlas regeneration, and expects no change from either", () => {
+        expect(DISTILL).toMatch(/empty by construction, not by a special case/);
+        expect(DISTILL).toMatch(/atlas regeneration is a no-op for the same reason and is\s*\n?\s*likewise still run/);
+    });
+
+    it("removes nothing for a fix entry and reports no missing removal target", () => {
+        expect(DISTILL).toMatch(/no committed removal target at all/);
+        expect(DISTILL).toMatch(/report no missing removal target/);
+    });
+
+    it("names, for each fix entry, the page it changes and the entry it appends, at the checkpoint", () => {
+        expect(DISTILL).toMatch(/Fix entries — the page each one changes and the entry it appends/);
+    });
+
+    it("leaves an epic entry's drain unchanged, including one discovered in the same run", () => {
+        expect(DISTILL).toMatch(/Draining an epic entry is unchanged by this,\s*\n?\s*including an epic entry discovered in the same run as a fix entry/);
+    });
+
+    it("keeps the two-test merge precondition as the gate on a recorded range head", () => {
+        expect(DISTILL).toContain("git merge-base --is-ancestor <range.head>");
+        expect(DISTILL).toMatch(/two-test form/);
+    });
+});

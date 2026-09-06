@@ -21,3 +21,9 @@
 - **Choice:** `fix-lane.spec.ts` reads the authored `/nxs.fix` body and asserts the refusals, the helper invocations and the entry shape it states.
 - **Why:** The lane's mechanism is a command definition, so the body *is* the artifact under test; without this the story's acceptance criteria have no failing test to write first.
 - **Refuted alternative:** Extract the resolution rules into TypeScript so they could be unit-tested directly — rejected because the epic's assumptions fix the only new code at the validator mode and the helper subcommand, and a third implementation would be a second place for the lane's rules to live.
+
+## 2026-09-05 — Fold the fix entry into the existing drain phases rather than a parallel path
+
+- **Choice:** Each drain phase gained a fix-entry clause in place, keyed on `entry_kind:`, instead of a separate fix-entry walk-through.
+- **Why:** The record ratifies reusing the epic lane's file names precisely so discovery changes one line and every downstream phase stays single-path; a parallel narrative would let the two paths drift even while the code did not.
+- **Refuted alternative:** A dedicated "Draining a fix entry" section collecting all the differences in one place — rejected because a reader following the ordinary phases would then miss the constraint that applies to the phase they are actually in.
