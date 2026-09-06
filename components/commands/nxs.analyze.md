@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Refuses to run against a fix entry, which has no acceptance criteria, no success metrics and no decision record to check against. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -87,6 +87,24 @@ issue number (invariant 14):
       come from the **live GitHub issue state at resolve time** — no stale committed copy is consulted.
 4. **File open in the editor** — infer the epic directory from it.
 5. Otherwise stop and ask for the epic path or the epic issue number.
+
+## Phase 0.1 — Refuse a fix entry
+
+Before loading anything, read the resolved entry's `epic.md` frontmatter. **If it carries
+`entry_kind: fix`, stop** (#263). Report:
+
+```
+/nxs.analyze does not run against a fix entry. It checks implemented code against an epic's
+acceptance criteria, its success metrics, and a decision record's invariants — a fix entry has
+none of the three, so the check is not optional here, it is undefined.
+```
+
+Stopping is the honest outcome; degrading into a pass would be misleading. **Write no
+`analyze-receipt.md` and modify no file in the entry.** The fix entry already records the state in
+words: its close record's `analyze:` value is the literal `n/a — fix entry (no acceptance
+criteria)`, which keeps the state greppable and means it can never be read as a waiver.
+
+An entry without `entry_kind: fix` is an epic entry, and everything below is unchanged for it.
 
 Load `epic.md` (stories, acceptance criteria, success metrics) from the resolved entry, and read its
 frontmatter `link` to get the epic issue number; it anchors the story issues.

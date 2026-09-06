@@ -227,3 +227,22 @@ describe("/nxs.distill blocks the PR when a fix entry breaks the razor (story #2
         expect(DISTILL).toMatch(/remedy is to update the install/);
     });
 });
+
+const ANALYZE: string = body("nxs.analyze.md");
+
+describe("/nxs.analyze refuses a fix entry (story #270)", () => {
+    it("stops on entry_kind: fix and says the check is undefined, not optional", () => {
+        expect(ANALYZE).toContain("entry_kind: fix");
+        expect(ANALYZE).toMatch(/does not run against a fix entry/);
+        expect(ANALYZE).toMatch(/acceptance criteria, its success metrics, and a decision record's invariants/);
+        expect(ANALYZE).toMatch(/none of the three/);
+    });
+
+    it("writes no receipt and modifies no file in the entry", () => {
+        expect(ANALYZE).toMatch(/Write no\s*\n?`analyze-receipt\.md` and modify no file in the entry/);
+    });
+
+    it("leaves an epic entry's behaviour unchanged", () => {
+        expect(ANALYZE).toMatch(/An entry without `entry_kind: fix` is an epic entry, and everything below is unchanged/);
+    });
+});
