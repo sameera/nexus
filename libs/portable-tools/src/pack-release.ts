@@ -5,8 +5,8 @@
  *
  * The parts are staged into one directory under the package root rather than published from
  * where they live in the checkout, because the package root is what the executable walks up to
- * when it resolves the single `VERSION` declaration. A layout where a part sat at a different
- * depth under a different root would give it a different answer.
+ * when it resolves the single version declaration in `package.json`. A layout where a part sat at
+ * a different depth under a different root would give it a different answer.
  *
  * Nothing here is fetched at install time: the payload travels inside the package, so an adopter
  * runs no network step after installing and the executable and its payload cannot reach

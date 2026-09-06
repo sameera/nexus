@@ -1,7 +1,7 @@
 /**
  * The publishable package (story #308). Nexus ships as one package carrying the bundled
  * TypeScript executable, the Python toolkit's files and the component payload under the single
- * version `VERSION` declares. These tests pin that shape from the outside — the manifest a
+ * version the package manifest declares. These tests pin that shape from the outside — the manifest a
  * registry would read, the tarball `npm pack` produces, and a real global install of that
  * tarball into an isolated prefix, invoked from a directory that is not a Nexus checkout.
  */
@@ -17,7 +17,6 @@ import { COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const MANIFEST_PATH: string = path.join(REPO_ROOT, "package.json");
-const VERSION_PATH: string = path.join(REPO_ROOT, "VERSION");
 
 interface Manifest {
     name: string;
@@ -32,15 +31,15 @@ interface Manifest {
 }
 
 const manifest: Manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
-const declaredVersion: string = fs.readFileSync(VERSION_PATH, "utf8").trim();
+const declaredVersion: string = manifest.version;
 
 describe("the manifest declares a publishable package (AC2, AC3)", () => {
     it("is no longer marked private", () => {
         expect(manifest.private).toBeUndefined();
     });
 
-    it("publishes under the single version VERSION declares, off its never-bumped initial value", () => {
-        expect(manifest.version).toBe(declaredVersion);
+    it("publishes under the single version it declares, off its never-bumped initial value", () => {
+        expect(manifest.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
         expect(manifest.version).not.toBe("1.0.0");
     });
 
@@ -50,7 +49,6 @@ describe("the manifest declares a publishable package (AC2, AC3)", () => {
 
     it("carries a published-files allowlist and public publish configuration", () => {
         expect(manifest.files ?? []).toContain(RELEASE_TREE_DIRNAME);
-        expect(manifest.files ?? []).toContain("VERSION");
         expect(manifest.publishConfig?.access).toBe("public");
     });
 
@@ -175,8 +173,9 @@ describe("the packed package carries all three parts (AC2)", () => {
         expect(payload.some((f) => f.includes("/agents/"))).toBe(true);
     });
 
-    it("carries the one version declaration both toolkits read", () => {
-        expect(packedFiles).toContain("VERSION");
+    it("carries the one version declaration every reader walks up to", () => {
+        expect(packedFiles).toContain("package.json");
+        expect(packedFiles).not.toContain("VERSION");
     });
 });
 

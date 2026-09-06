@@ -40,7 +40,7 @@ generated: 2026-08-28
 - `libs/portable-tools/src/component-composition.ts` — the structural payload-boundary check: no vendored component file may import a workspace package, unless waived.
 - `libs/portable-tools/src/component-composition-waivers.ts` — the shrink-only waiver register, reaching its recorded empty state once the invocation rewrite deleted the legacy component scripts it named.
 - `libs/pr-acceptance/src/cli.ts` — the acceptance harness, relocated beside its own library, outside every vendored component subtree; excluded from the payload by the composition check, not by name.
-- `VERSION` — the one declaration identifying this distributable, its second toolkit and its component payload together.
+- `package.json` — the one declaration identifying this distributable and its component payload together, carried as the published manifest's own `version`.
 - `libs/release-identity/src/release.ts` — resolves that declaration by walking up from the artifact's own position, so the source checkout and the distributable both find it with no build step; now a leaf both bundles depend on.
 - `libs/portable-tools/src/version-verb.spec.ts` — covers the reporting verb, including the payload selection that prefers the vendored copy over the live component tree.
 - `libs/portable-tools/src/pack-release.ts` — the staging step that carries this artifact into the published package's release tree, alongside the payload.

@@ -2,29 +2,29 @@
 title: "Release Identity"
 aliases: ["release version", "one version identity", "version verb", "single version declaration", "no per-repository version pin"]
 touches: ["portable-tooling", "verb-reachability", "toolkit-location", "writer-stamp", "environment-guard", "release-changelog", "published-package", "install-location", "inert-declaration-removal"]
-last_updated_by: "#354"
+last_updated_by: "manual"
 status: active
 verification: verified
 ---
 
 # Release Identity
 
-One semantic version identifies the whole release — the executable and the component payload together — because they ship as one artifact and cannot be at different versions. That version is declared exactly once at the release root, and one verb reports it alongside the payload fingerprint and the resolved install location.
+One semantic version identifies the whole release — the executable and the component payload together — because they ship as one artifact and cannot be at different versions. That version is declared exactly once, in the release's own package manifest, and one verb reports it alongside the payload fingerprint and the resolved install location.
 
 ## How It Works
 
-The declaration is a single file at the release root. No part carries a version literal, nor is generated at build time: every reader reaches it through one shared reader walking up from its own position until the declaration appears. That walk lets one declaration serve both postures without a build step — in a source checkout it lands on the repository root, in a distributable on the package root the release is installed under, with neither layout written down anywhere.
+The declaration is the `version` of the package manifest at the release root. No part carries a version literal, nor is generated at build time: one shared reader walks up from its own position until that manifest appears. Matching on the name passes the workspace members' manifests, pinned at a placeholder they never publish. The walk serves both postures without a build step — in a checkout it lands on the repository root, in a distributable on the installed package root, with neither layout written down.
 
 A verb reports the release as one object on standard output: the version, the payload's fingerprint, and the resolved install location. The departed runtime's key was dropped, not nulled. The payload it fingerprints is the one that would actually be installed, not a committed pin that does not travel with the release. Because this is the verb a user runs when something is already broken, an environment it cannot resolve is reported as unresolved and the verb still succeeds.
 
-A release-time check compares that declaration against the published manifest, the newest changelog entry and the tag, naming any divergence.
+A release-time check compares it against the newest changelog entry and the tag, naming any divergence.
 
 An unresolved declaration reads as absent, never a default: a reader knows how to treat an absent version, and a fabricated one asserts something untrue.
 
 ## Key Invariants
 
 1. One version covers the executable and the component payload together; no part carries a version of its own.
-2. The version is declared exactly once, at the release root; the published manifest, the newest changelog entry and the release tag must all name it.
+2. The version is declared exactly once, as the published manifest's `version`; the newest changelog entry and the release tag must both name it.
 3. One shared reader every part depends on walks up from its own position to that declaration, so they cannot disagree and no layout is recorded.
 4. An unresolved version is reported as absent, never as a guessed or default value.
 5. The version verb reports the payload that would actually be installed, not a committed fingerprint pin.
@@ -65,3 +65,7 @@ The version reader lived inside the part that also builds the release and runs t
 ### 2026-08-31 — #354 — One reporting verb survives untouched, and the departed runtime's key is dropped rather than nulled
 
 Two capabilities reported release identity, one on each of two names. The wider one — carrying the payload fingerprint and the install location beside the version — was carried across untouched and the narrower one was never folded, so exactly one name reports identity at the fold rather than only after the withdrawal. Folding the narrower capability under a distinct verb so both survived was the viable alternative, and it was refuted for creating a second surface with no reader at the moment the release was deleting surfaces for that reason. One behaviour was deliberately not retained: the narrower capability answered a help flag with its usage and exit zero, while the surviving verb treats any argument as a usage error — adding per-verb help here would be new surface, not preserved surface. The key naming the departed runtime was dropped rather than reported as an empty value, because a consumer reading it would go on treating its presence as meaningful.
+
+### 2026-09-05 — manual — The manifest is the declaration, and the walk matches on the package name
+
+The separate version file was deleted and the published manifest's own `version` became the one declaration, reversing #251. Two of that entry's grounds are gone: the second runtime that could not read a bundler define was deleted with the other half of the release, and nothing here is inlined at build time — the walk still resolves at run time, so the build-free property #251 was protecting is untouched. What remains is the cost that entry named: a walk for a manifest has to match on the package name, because a workspace member's own manifest sits between a reader and the root. That name is now written in the reader as well as in the manifest it looks for. The trade is one name against one file, and the file was the half that could drift — a maintainer who bumped the manifest, as a maintainer reasonably does, shipped an executable still reporting the old version, with nothing failing until someone read a stale writer stamp. **Refuted alternative:** keeping both and pinning them to each other with a conformance test, which is cheaper and catches the drift, but leaves two places to edit for one release and makes the manifest — the surface every adopter and tool already reads as authoritative — the copy rather than the source.

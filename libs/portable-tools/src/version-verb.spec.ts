@@ -9,7 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runNexusCli, type CliIo } from "./nexus-cli";
-import { RELEASE_VERSION_FILE, releaseVersion } from "@nexus/release-identity/release";
+import { RELEASE_MANIFEST_FILE, RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, AUTHORED_ROOT_DIRNAME, hashComponentTree } from "./vendor-components";
 
 let tmpDirs: string[] = [];
@@ -62,8 +62,9 @@ describe("nexus version", () => {
     });
 
     it("reports the release the one declaration states", () => {
-        const declared: string = fs.readFileSync(path.join(REPO_ROOT, RELEASE_VERSION_FILE), "utf8").trim();
-        expect(releaseVersion()).toBe(declared);
+        const manifest = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, RELEASE_MANIFEST_FILE), "utf8"));
+        expect(manifest.name).toBe(RELEASE_PACKAGE_NAME);
+        expect(releaseVersion()).toBe(manifest.version);
     });
 
     it("still reports every key, and exits zero, on a machine with no interpreter on PATH", async () => {
@@ -115,7 +116,6 @@ describe("no repository carries a Nexus version (AC4 — the refuted per-reposit
         walk(target);
         expect(written.length).toBeGreaterThan(0);
         for (const file of written) {
-            expect(path.basename(file)).not.toBe(RELEASE_VERSION_FILE);
             expect(fs.readFileSync(file, "utf8")).not.toContain(version);
         }
     });

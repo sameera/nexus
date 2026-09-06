@@ -9,12 +9,11 @@ generated: 2026-08-31
 
 # Code Anchors: Release Identity
 
-- `VERSION` — the single declaration at the release root that every reader walks up to find.
 - `libs/release-identity/src/release.ts` — the one shared reader: the walk up from its own position, and the absent-not-default rule for an unresolved declaration.
 - `libs/release-identity/src/release.spec.ts` — the walk landing on the repository root in a checkout and the package root in a distributable, and an unresolved declaration reported as absent.
 - `libs/portable-tools/src/nexus-cli.ts` — the one verb reporting release identity, as a single object on standard output carrying the version, the payload fingerprint and the resolved install location.
 - `libs/portable-tools/src/version-verb.spec.ts` — the reported object's shape, the departed runtime's key absent rather than null, and the verb still succeeding when part of the environment cannot be resolved.
 - `libs/portable-tools/src/vendor-components.ts` — fingerprints the payload that would actually be installed, not a committed pin.
-- `libs/portable-tools/src/release-gate.ts`, `libs/portable-tools/src/release-gate.spec.ts` — the release-time check comparing this declaration against the manifest, the newest changelog entry and the tag.
-- `package.json` — one of the four surfaces that must name this version.
+- `libs/portable-tools/src/release-gate.ts`, `libs/portable-tools/src/release-gate.spec.ts` — the release-time check comparing this declaration against the newest changelog entry and the tag.
+- `package.json` — the single declaration at the release root: its `version` is what every reader walks up to find, matching on the package name to pass the workspace members' own manifests.
 - `CHANGELOG.md` — the newest entry naming this version, carrying in words the breaking-change signal the number cannot.

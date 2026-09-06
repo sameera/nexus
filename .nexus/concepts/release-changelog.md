@@ -33,7 +33,7 @@ The entry is authored in the repository and its section is published on the proj
 
 ## Integration Points
 
-- [release-identity](release-identity.md) — the newest entry names the release's one version, and is one of the four declarations the identity check compares.
+- [release-identity](release-identity.md) — the newest entry names the release's one version, and is one of the three declarations the identity check compares.
 - [published-package](published-package.md) — every release of that package carries an entry here, which is what an adopter reviews instead of their own diff.
 
 ## Decision Log
