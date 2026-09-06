@@ -15,3 +15,9 @@
 - **Choice:** `gitStatusMap` merges untracked paths (as added), the base-versus-working-tree diff, and the base-versus-index diff, with the index winning.
 - **Why:** A page the drain wrote but has not staged is invisible to `git diff`, and a rename is only ever reported as one once both halves are staged; either gap alone would let a forbidden status pass as unchanged.
 - **Refuted alternative:** Read only the staged diff, since the drain stages before validating — rejected because the mode is then a silent no-op for anyone running it by hand against an unstaged tree.
+
+## 2026-09-05 — Hold the command body to its stated rules with a body-reading spec
+
+- **Choice:** `fix-lane.spec.ts` reads the authored `/nxs.fix` body and asserts the refusals, the helper invocations and the entry shape it states.
+- **Why:** The lane's mechanism is a command definition, so the body *is* the artifact under test; without this the story's acceptance criteria have no failing test to write first.
+- **Refuted alternative:** Extract the resolution rules into TypeScript so they could be unit-tested directly — rejected because the epic's assumptions fix the only new code at the validator mode and the helper subcommand, and a third implementation would be a second place for the lane's rules to live.

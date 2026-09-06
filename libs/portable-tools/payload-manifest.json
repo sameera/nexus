@@ -10,6 +10,7 @@
   "claude-components/commands/nxs.discover.md": "52a40a0d76567d9dac5101e8f6e2fc98882998ea5cdf3682e6518116ada21644",
   "claude-components/commands/nxs.distill.md": "790dae321ebf825f1ccc042532577b618641f673dcbc1e9bbcdad264564e934b",
   "claude-components/commands/nxs.epic.md": "fb96d1849b659673c77ed89b66219cf9f03b2f78319f5efcd2f9b2b0146e4396",
+  "claude-components/commands/nxs.fix.md": "99a9506d8265ac0331343c9a03f8232e490ed355131280690046c8eb0cd182de",
   "claude-components/commands/nxs.setup.md": "8c7123a04586e0e86a4107a002f8964f22379da29e3965873a121f7012152e72",
   "claude-components/skills/nxs-abs-doc-path/SKILL.md": "676abe2fc3fd44cd5bc7d896580431dbf38b3d5e8b83b053e82d7b27ab86a7b4",
   "claude-components/skills/nxs-close-migration/SKILL.md": "3a4e9cf9cc2434837d480d6d3b6409f62e7f1da8ea10f3fee6f38a4e21a6031c",
