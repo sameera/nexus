@@ -15,6 +15,11 @@ behaviour says so.
   list, so the three stages cannot drift apart.
 - A repository can now hold a workbook — a committed folder under the Nexus root that a learner
   opens — and no stage reads its pages back as behaviour.
+- Everything a workbook retains about one person — the concept ledger, progress, learning records
+  and the hint log — sits under a single learner folder, which one ignore rule excludes however
+  many workbooks the repository holds. Nothing writes a personal record until git confirms the
+  path is ignored, so a repository set up before workbooks existed cannot quietly commit a
+  person's stumbles.
 
 ## 0.4.0
 

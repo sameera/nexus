@@ -162,7 +162,11 @@ describe("a derived behavioural diff withholds the workbook and nothing else", (
 
         expect(result.ok).toBe(true);
         if (!result.ok) return;
-        expect(result.diffs[0].diff).not.toContain(WORKBOOK_STORE_PATH);
+        const changedFiles = result.diffs[0].diff
+            .split("\n")
+            .filter((l) => l.startsWith("+++ b/"))
+            .map((l) => l.slice("+++ b/".length));
+        expect(changedFiles.filter((f) => f.startsWith(`${WORKBOOK_STORE_PATH}/`))).toEqual([]);
         expect(result.diffs[0].diff).not.toContain("generated markup");
     });
 
