@@ -1,3 +1,5 @@
+@import "./reading-tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -22,29 +24,20 @@
  */
 
 :root {
-    /* mode-invariant tokens (identical in both mockups) */
-    --radius: 7px;
+    /* mode-invariant application-chrome tokens (identical in both mockups).
+     * The reading surface — background, ink, accent, rules, code surface, type
+     * stacks and radius — is NOT here: it is imported above from the one shared
+     * definition every workbook page reads too. */
     /* gate-pulse ring — the gate color at alpha; identical in both mockups */
     --c-gate-pulse: rgba(224, 160, 80, 0.55);
-    --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo,
-        Consolas, monospace;
-    --font-sans: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
 }
 
 /* ── dark value set (prime-ui-mockup.html) — also the :root fallback ──────── */
 :root,
 [data-theme="dark"] {
     /* base palette */
-    --c-bg: #16161a;
     --c-bg-glow: #20202a;
-    --c-term: #0e0e11;
     --c-chrome: #1c1c22;
-    --c-line: #2a2a33;
-    --c-ink: #e6e6ea;
-    --c-ink-dim: #8a8a96;
-    --c-ink-faint: #5a5a66;
-    --c-accent: #d59766;
-    --c-accent-soft: #c98a57;
     --c-green: #7fb685;
     --c-blue: #6fa8c7;
     --c-violet: #a88bd0;
@@ -65,7 +58,6 @@
     --c-row-line: #20202a;
     --c-seg-done-hover: #1f261f;
     --c-scrollbar: #2c2c36;
-    --c-term-line: #1a1a20;
 
     /* gate tray + validation surfaces */
     --c-gate-surface: #131318;
@@ -97,16 +89,8 @@
 /* ── light value set (prime-ui-mockup-light.html) ────────────────────────── */
 [data-theme="light"] {
     /* base palette */
-    --c-bg: #eceae6;
     --c-bg-glow: #ffffff;
-    --c-term: #fbfaf8;
     --c-chrome: #f4f3ef;
-    --c-line: #d9d7d0;
-    --c-ink: #23232a;
-    --c-ink-dim: #65656f;
-    --c-ink-faint: #9a9aa2;
-    --c-accent: #bf6a2e;
-    --c-accent-soft: #a85a26;
     --c-green: #3f8f4a;
     --c-blue: #2f7fa6;
     --c-violet: #7b54b5;
@@ -127,7 +111,6 @@
     --c-row-line: #e4e2db;
     --c-seg-done-hover: #e3f0e4;
     --c-scrollbar: #cfcdc6;
-    --c-term-line: #e7e5df;
 
     /* gate tray + validation surfaces */
     --c-gate-surface: #fbf7ef;
