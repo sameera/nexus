@@ -195,3 +195,35 @@ describe("/nxs.distill drains a fix entry (story #268)", () => {
         expect(DISTILL).toMatch(/two-test form/);
     });
 });
+
+describe("/nxs.distill blocks the PR when a fix entry breaks the razor (story #269)", () => {
+    it("runs the validator in append-only-log mode against a fix entry's pages", () => {
+        expect(DISTILL).toContain("nexus validate-concepts --append-only-log --base HEAD");
+    });
+
+    it("adds the mode to the existing checks rather than replacing them", () => {
+        expect(DISTILL).toMatch(/\*\*added to\*\* the invocation, never substituted for it/);
+        expect(DISTILL).toMatch(/every existing check above\s*\n?\s*still runs against the same pages/);
+    });
+
+    it("does not apply the mode to an epic entry drained in the same run", () => {
+        expect(DISTILL).toMatch(/Apply the mode only to a fix entry's pages/);
+        expect(DISTILL).toMatch(/validated by its own invocation,\s*\n?\s*without the flag/);
+    });
+
+    it("never passes a regenerated anchor sidecar to the mode", () => {
+        expect(DISTILL).toMatch(/never the regenerated anchor sidecars/);
+    });
+
+    it("blocks the PR with a message naming the entry, the page, and the design-change remedy", () => {
+        expect(DISTILL).toMatch(/A non-zero exit from any of these blocks the PR/);
+        expect(DISTILL).toMatch(/<fix local-id> \(<provenance ref>\) — <slug> changed outside the entry it gained/);
+        expect(DISTILL).toMatch(/design\s*\n?change, not a fix\. Plan it with \/nxs\.epic/);
+    });
+
+    it("establishes that the validator enforces the mode, blaming an old install rather than a missing file", () => {
+        expect(DISTILL).toContain("nexus --help | grep -q -- --append-only-log");
+        expect(DISTILL).toMatch(/mode-unavailable → refuse the fix entry/);
+        expect(DISTILL).toMatch(/remedy is to update the install/);
+    });
+});

@@ -782,6 +782,52 @@ Run these for each entry, in order, before its commit:
 
     On a hub the regenerated anchor sidecar paths are named alongside the pages, per Step 3.
 
+    **For a fix entry, add `--append-only-log`** (#263) — this is the razor's load-bearing half:
+
+    ```bash
+    nexus validate-concepts --append-only-log --base HEAD "<changed-page-path>" ...
+    ```
+
+    The flag is **added to** the invocation, never substituted for it: every existing check above
+    still runs against the same pages, and the mode runs alongside them. Name only the entry's
+    changed **concept pages** — never the regenerated anchor sidecars, which a fix drain may
+    legitimately rewrite.
+
+    **Apply the mode only to a fix entry's pages.** Entries are applied, validated and committed one
+    at a time (Step 2), so an epic entry drained in the same run is validated by its own invocation,
+    without the flag, exactly as before. That per-entry ordering is load-bearing here and must not be
+    batched as an optimisation: batching would make the razor compare against the wrong base.
+
+    **The refusal message matters as much as the exit code.** When the mode blocks, report it naming
+    the fix entry, naming the page, and saying what it means:
+
+    ```
+    <fix local-id> (<provenance ref>) — <slug> changed outside the entry it gained.
+    That alters what the page asserts rather than adding to its history, which makes it a design
+    change, not a fix. Plan it with /nxs.epic. No distillation-PR is opened.
+    ```
+
+    A developer who hits this needs to learn what kind of change they made, not just that a command
+    exited non-zero.
+
+    **Before draining a fix entry, establish that the validator you will run enforces the mode**
+    (record #271, invariant 13). One installed toolkit exists per account, reached by name, and it
+    lags when it is not updated; a flag has no declared surface of its own, so an older toolkit
+    accepts the invocation, reads the unrecognised mode as one more page to check, and exits
+    non-zero reporting that page as **missing**. The razor still fails closed, but the diagnostic
+    then misnames its own cause, and the obvious repair — dropping the offending argument — turns a
+    safe refusal into exactly the silent pass the razor exists to prevent. So confirm the mode is
+    declared before you rely on it:
+
+    ```bash
+    nexus --help | grep -q -- --append-only-log && echo mode-available || echo mode-unavailable
+    ```
+
+    **mode-unavailable → refuse the fix entry**, and attribute the failure to the install, never to
+    a missing file: report that the installed toolkit predates the append-only mode and that the
+    remedy is to update the install. An undrained fix can be recovered; a fix merged without the
+    razor cannot, because the log entry cannot be unwritten.
+
     The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
     page's own content, the per-bullet bound on Integration Points, `touches:` == Integration
     Points, exactly one new Decision Log entry per changed page, append-only log history, §8.3
@@ -791,7 +837,7 @@ Run these for each entry, in order, before its commit:
     repo↔path attribution consistency. The second checks the
     atlas is in sync with the active pages.
 
-    **A non-zero exit from either command blocks the PR** — fix the pages (or regenerate the
+    **A non-zero exit from any of these blocks the PR** — fix the pages (or regenerate the
     atlas) and re-run until both exit 0. Do not weaken, skip, or reinterpret a blocking finding;
     the validator is the contract's mechanical half. **Advisories are the named exception:** the
     validator prints every finding with a leading severity token and counts the two classes

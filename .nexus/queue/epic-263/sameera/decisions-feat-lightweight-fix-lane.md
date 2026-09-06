@@ -27,3 +27,9 @@
 - **Choice:** Each drain phase gained a fix-entry clause in place, keyed on `entry_kind:`, instead of a separate fix-entry walk-through.
 - **Why:** The record ratifies reusing the epic lane's file names precisely so discovery changes one line and every downstream phase stays single-path; a parallel narrative would let the two paths drift even while the code did not.
 - **Refuted alternative:** A dedicated "Draining a fix entry" section collecting all the differences in one place — rejected because a reader following the ordinary phases would then miss the constraint that applies to the phase they are actually in.
+
+## 2026-09-05 — Establish the append-only mode from the toolkit's declared help surface
+
+- **Choice:** Before draining a fix entry the drain greps `nexus --help` for `--append-only-log`, and a miss refuses the entry naming an outdated install.
+- **Why:** The record leaves invariant 13 silent on how the mode is established; the help text is the toolkit's own declaration of its surface, so the check reads the same source the flag was added to and needs no new capability.
+- **Refuted alternative:** Compare `nexus version` against the release that introduced the mode — rejected because it hard-codes a version constant that a maintainer running from a checkout has no meaningful value for.
