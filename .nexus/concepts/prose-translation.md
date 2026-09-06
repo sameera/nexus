@@ -2,7 +2,7 @@
 title: "Prose Translation"
 aliases: ["prose translator", "form rules", "content rules", "translator agent", "density finding", "resident prose convention", "grounding substitution", "plain-language rules"]
 touches: ["prose-verification", "forcing-function-razor", "distiller", "epic-approval-gate"]
-last_updated_by: "#414"
+last_updated_by: "#442"
 status: active
 verification: verified
 ---
@@ -41,3 +41,7 @@ Distillation is the single exception. Those runs are handed the epic and the dec
 ### 2026-09-02 — #414 — Rules split by who can execute them, not by topic
 
 The retired prose skill cost roughly a sixth of a run's tokens, because the rulebook loaded into the authoring context and stayed there for the whole run. Six rules only transform the sentence in front of them, so they moved into a cheap translator that never returns prose. Two rules need the analysis the author still holds, so they stayed resident as two sentences. Refuted alternative: hand the translator all eight rules and let it work from the text alone, which is one rulebook and one executor instead of two rule sets — it lost because the translator would either skip the two content rules silently or invent the grounding, and an invented grounding is worse than the abstraction it replaced.
+
+### 2026-09-06 — #442 — The form rules moved into the drafting context
+
+The six form rules left the translator and became a style guide the drafting stage loads before it writes. The epic, decision-record, discovery and distillation stages now draft plain prose the first time, so the translate-then-verify pass is gone, and with it the pre-translation copy, the check that gated a stage-authored artifact, and the ignore rule the setup stage added for those copies. The translator was retired because it re-read the artifact and its sources on every run. That exchange cost more tokens and more time than moving the six rules out of the drafting context saved. The deterministic check survives for the case this guide does not cover, which is rewriting text the pipeline did not author.
