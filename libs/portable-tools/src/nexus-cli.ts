@@ -272,8 +272,10 @@ const REGISTRY: Record<string, VerbEntry> = {
     "validate-concepts": {
         summary: "Validate concept pages against the store's structural rules.",
         usage: [
-            "  nexus validate-concepts [--concepts-dir <dir>] [--base <sha>] [<page> ...]",
+            "  nexus validate-concepts [--concepts-dir <dir>] [--base <sha>] [--append-only-log] [<page> ...]",
             "      Validate concept pages, exiting non-zero on any blocking finding.",
+            "      With --append-only-log (which needs --base), additionally enforce the razor: a",
+            "      changed page must be byte-identical to its base ahead of the one log entry it gained.",
         ].join("\n"),
         run: (argv) => Promise.resolve(runValidateConcepts(argv)),
     },
