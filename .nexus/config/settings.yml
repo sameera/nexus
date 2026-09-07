@@ -3,5 +3,6 @@ cross-ref:
 
 github:
   classification: labels
+  unplanned-label: needs-refinement
   project: none
   worktree-path: ~/projects/worktrees/nexus
