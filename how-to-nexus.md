@@ -80,7 +80,7 @@ Two things keep the epic honest:
 
 ### The backlog is one query
 
-A backlog stub is an open GitHub issue carrying the single `backlog` label — a functional goal identified but not yet planned. The whole cross-feature backlog is one search: `is:issue is:open label:backlog`. Promote a stub with `/nxs.epic <issue-number>`, which plans that same issue in place — the stub *becomes* the epic, keeping its number and history.
+A backlog stub is an open GitHub issue carrying the single `needs-refinement` label — a functional goal identified but not yet planned. The whole cross-feature backlog is one search: `is:issue is:open label:needs-refinement`. Promote a stub with `/nxs.epic <issue-number>`, which plans that same issue in place — the stub *becomes* the epic, keeping its number and history.
 
 ## Step 2: `/nxs.decision-record` — Decide the "Why"
 

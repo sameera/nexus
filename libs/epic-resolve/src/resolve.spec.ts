@@ -489,7 +489,7 @@ describe("resolveEpic — an unplanned epic is refused, not half-resolved (epic 
             number: 300,
             title: "Retire the sequencing table",
             body: "- **goal:** decide the fate of the wave ordering\n",
-            labels: ["epic", "backlog"],
+            labels: ["epic", "needs-refinement"],
         },
         stories: [],
     };
@@ -500,7 +500,7 @@ describe("resolveEpic — an unplanned epic is refused, not half-resolved (epic 
         if (r.ok) return;
         expect(r.error.problem).toBe("epic-not-planned");
         expect(r.error.message).toContain("#300");
-        expect(r.error.message).toContain("backlog");
+        expect(r.error.message).toContain("needs-refinement");
     });
 
     it("names the promotion path so the lead knows what to run next", () => {

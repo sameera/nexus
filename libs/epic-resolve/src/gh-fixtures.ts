@@ -46,7 +46,7 @@ export interface FixtureGraph {
     /** What it reports for `record-label` / `record-type` (defaults: the record contract's names). */
     recordLabel?: string;
     recordType?: string;
-    /** What it reports for `unplanned-label` (default: the built-in `backlog`). */
+    /** What it reports for `unplanned-label` (default: the built-in `needs-refinement`). */
     /** The sub-issue issue-type GraphQL query fails (a repo without the issue-types feature). */
     failSubIssueTypes?: boolean;
 }

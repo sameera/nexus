@@ -6,11 +6,11 @@ epic issues delivered under it, plus any durable feature-level notes.
 ## The backlog
 
 Deferred scope does not live here. A **backlog stub** — a functional goal identified but not yet
-planned — is an open GitHub issue carrying the single `backlog` label, so the whole cross-feature
+planned — is an open GitHub issue carrying the single `needs-refinement` label, so the whole cross-feature
 backlog is one query:
 
-**[Open backlog stubs](https://github.com/sameera/nexus/issues?q=is%3Aissue+is%3Aopen+label%3Abacklog)**
-— `is:issue is:open label:backlog`
+**[Open backlog stubs](https://github.com/sameera/nexus/issues?q=is%3Aissue+is%3Aopen+label%3Aneeds-refinement)**
+— `is:issue is:open label:needs-refinement`
 
 That link is the authoritative inventory of unplanned work across every feature; the feature a
 stub belongs to is recorded in its issue body, not as a label. Promote one with
@@ -18,7 +18,7 @@ stub belongs to is recorded in its issue body, not as a label. Promote one with
 
 Two consequences follow from the single label:
 
-- **Excluding stubs costs one negated filter** — `-label:backlog`. A default triage view carries
+- **Excluding stubs costs one negated filter** — `-label:needs-refinement`. A default triage view carries
   it once and sees no stub.
 - **A stub is an epic issue**, so *every* query enumerating epics for planned work carries that
   same negation. An epic query without it counts work nobody has planned yet.

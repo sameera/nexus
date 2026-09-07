@@ -31,15 +31,15 @@ describe("the backlog query", () => {
     it("prints a gh listing of open issues carrying the unplanned label", () => {
         const r = query(repoWith(plain), "--form", "list");
         expect(r.code).toBe(0);
-        expect(r.out).toBe("gh issue list --state open --label backlog");
+        expect(r.out).toBe("gh issue list --state open --label needs-refinement");
     });
 
     it("prints the issue-search fragment matching that label", () => {
-        expect(query(repoWith(plain), "--form", "search").out).toBe("is:issue is:open label:backlog");
+        expect(query(repoWith(plain), "--form", "search").out).toBe("is:issue is:open label:needs-refinement");
     });
 
     it("prints the negated filter that excludes that label", () => {
-        expect(query(repoWith(plain), "--form", "exclude").out).toBe("-label:backlog");
+        expect(query(repoWith(plain), "--form", "exclude").out).toBe("-label:needs-refinement");
     });
 
     it("prints the list form when no form is given", () => {
@@ -48,14 +48,14 @@ describe("the backlog query", () => {
 
     it("targets the repository epics are filed into", () => {
         const root: string = repoWith("  epic-repo: acme/epics\n");
-        expect(query(root, "--form", "list").out).toBe("gh issue list --repo acme/epics --state open --label backlog");
+        expect(query(root, "--form", "list").out).toBe("gh issue list --repo acme/epics --state open --label needs-refinement");
     });
 
     it("names a declared label in every form", () => {
         const root: string = repoWith("  unplanned-label: icebox\n");
         for (const form of ["list", "search", "exclude"]) {
             expect(query(root, "--form", form).out).toContain("icebox");
-            expect(query(root, "--form", form).out).not.toContain("backlog");
+            expect(query(root, "--form", form).out).not.toContain("needs-refinement");
         }
     });
 

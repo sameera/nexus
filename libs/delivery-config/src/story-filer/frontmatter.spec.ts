@@ -11,7 +11,7 @@ import { normalizeRef, parseFrontmatter, readWorkItem } from "./frontmatter";
 const FULL = `---
 ref: STORY-353.01
 title: "Work items are discovered and parsed"
-labels: [story, backlog]
+labels: [story, needs-refinement]
 blocked_by: [STORY-353.00]
 parent: "#353"
 project: "sameera/1"
@@ -27,7 +27,7 @@ describe("reading a work item's frontmatter", () => {
         const item = readWorkItem("STORY-353.01.md", FULL);
         expect(item.ref).toBe("353.01");
         expect(item.title).toBe("Work items are discovered and parsed");
-        expect(item.labels).toEqual(["story", "backlog"]);
+        expect(item.labels).toEqual(["story", "needs-refinement"]);
         expect(item.blockedBy).toEqual(["353.00"]);
         expect(item.parent).toBe("#353");
         expect(item.project).toBe("sameera/1");
@@ -41,8 +41,8 @@ describe("reading a work item's frontmatter", () => {
     });
 
     it("reads a labels value written as a bare string as a one-item list", () => {
-        const item = readWorkItem("STORY-1.md", `---\ntitle: One\nlabels: backlog\n---\n\nBody\n`);
-        expect(item.labels).toEqual(["backlog"]);
+        const item = readWorkItem("STORY-1.md", `---\ntitle: One\nlabels: needs-refinement\n---\n\nBody\n`);
+        expect(item.labels).toEqual(["needs-refinement"]);
     });
 
     it("reads an absent labels value as no labels", () => {

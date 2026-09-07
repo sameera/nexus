@@ -28,7 +28,7 @@ function promote(options: { labels?: string[]; missing?: boolean; complexity?: s
     if (options.unplanned !== undefined) github["unplanned-label"] = options.unplanned;
     const root: string = checkoutWith(github);
     const file: string = writeDraft(root, draft({ epic: '"The Promoted Epic"', complexity: options.complexity ?? "S" }));
-    const fake = fakeEnvironment({ answer: stub(options.labels ?? ["backlog"], options.missing) });
+    const fake = fakeEnvironment({ answer: stub(options.labels ?? ["needs-refinement"], options.missing) });
     const io = recordingIo(root);
     const code: number = runCreateEpic([file, "--promote", "42"], io, fake.env);
     return { code, io, calls: fake.calls.map((call) => call.join(" ")), read: () => fs.readFileSync(file, "utf8") };
@@ -44,7 +44,7 @@ describe("promotion populates the issue that already exists", () => {
     });
 
     it("removes the unplanned label", () => {
-        expect(promote().calls.some((call) => call.includes("--remove-label backlog"))).toBe(true);
+        expect(promote().calls.some((call) => call.includes("--remove-label needs-refinement"))).toBe(true);
     });
 
     it("removes the label the repository declared, when it declares its own", () => {
@@ -69,7 +69,7 @@ describe("promotion populates the issue that already exists", () => {
     it("reports an address built from the repository when the edit returns none", () => {
         const root: string = checkoutWith({ classification: "labels", project: "none", "epic-repo": "acme/epics" });
         const file: string = writeDraft(root, draft());
-        const answers = stub(["backlog"]);
+        const answers = stub(["needs-refinement"]);
         const fake = fakeEnvironment({
             answer: (args: string[]) =>
                 args[0] === "issue" && args[1] === "edit" ? OK("done\n") : answers(args),

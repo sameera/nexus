@@ -60,7 +60,7 @@ describe("which epics leave the run labelled", () => {
         const fake = fakeEnvironment({
             answer: (args: string[]) =>
                 args[0] === "issue" && args[1] === "view" && args.includes("number,title,labels")
-                    ? { status: 0, stdout: JSON.stringify({ number: 42, labels: [{ name: "backlog" }] }), stderr: "" }
+                    ? { status: 0, stdout: JSON.stringify({ number: 42, labels: [{ name: "needs-refinement" }] }), stderr: "" }
                     : undefined,
         });
         expect(runCreateEpic([path, "--promote", "42"], recordingIo(root), fake.env)).toBe(0);
