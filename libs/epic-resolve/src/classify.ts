@@ -123,7 +123,7 @@ export function resolveRecordClassification(targetRoot: string): Ok<{ classifica
 }
 
 /**
- * The label this repository uses to mark an epic that has been identified but not yet planned — a
+ * The label this repository uses to mark an epic that has been identified but not yet planned — an
  * epic stub (epic #185). Resolved through the same shared publishing resolver as every other
  * publishing key, so no call site carries a second source of the name (Invariant 18).
  *
