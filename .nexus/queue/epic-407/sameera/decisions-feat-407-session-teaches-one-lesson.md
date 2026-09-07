@@ -1,0 +1,5 @@
+## 2026-09-07 — Drift check takes an injected issue reader rather than calling `gh` itself
+
+- **Choice:** `checkPlanDrift`/`gateNextLesson` in `teaching-plan.ts` take a `read: IssueReader` function and stay pure; nothing in the module fetches from GitHub.
+- **Why:** Every checkable fact in this epic is decided in code and must be assertable in a test (decision record #469, "the session is a gated chain with exactly one generative step"). A pure comparison over injected state is deterministic and unit-testable; a function that shelled out to `gh` internally would need network/process mocking for every test and couldn't be asserted as "the same input always gives the same verdict" (invariant 22).
+- **Refuted alternative:** Have the drift check call `gh issue view` directly and cache the result. Simpler call site, but couples the pure comparison logic to process execution, makes the unreadable-vs-unchanged distinction (invariant 9) harder to test deterministically, and duplicates a live-issue-reading concern that the session's CLI wiring should own once, not per-check.
