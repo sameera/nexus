@@ -32,12 +32,18 @@ export type HintCounts = Readonly<Record<string, number>>;
  * enough to ask about — either nothing has been taught yet, or everything taught so far was taught
  * in the lesson the learner has just finished.
  *
- * Among concepts cold enough to ask about, the most overdue one wins — the one whose last mention
- * is furthest back. A tie (both last mentioned in the same lesson) is broken by whichever the
- * learner has taken more hints on, since that is the one worth checking on first; a further tie is
- * broken by name, so the choice is deterministic given the same history and the same hint counts
- * (invariant 22).
+ * Coldness decides eligibility; hints decide the pick. Among the concepts cold enough to ask about,
+ * the one the learner has taken most hints on wins, because that is the one they are struggling
+ * with and the one worth checking on first. Ties are broken by the most overdue concept — the one
+ * whose last mention is furthest back — and then by name, so the choice is deterministic given the
+ * same history and the same hint counts (invariant 22). With no hint log at all every count is
+ * zero, and the ranking falls through to the most overdue concept.
  */
+/** One deterministic order over concept names, so a tie never depends on iteration order. */
+function byName(a: string, b: string): number {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export function chooseDrill(history: readonly LessonConceptHistory[], hints: HintCounts = {}): string | null {
     if (history.length === 0) return null;
     const lastLessonIndex: number = history.length - 1;
@@ -56,11 +62,33 @@ export function chooseDrill(history: readonly LessonConceptHistory[], hints: Hin
     if (eligible.length === 0) return null;
 
     eligible.sort((a, b) => {
-        if (a.lastMentionIndex !== b.lastMentionIndex) return a.lastMentionIndex - b.lastMentionIndex;
         const hintDiff: number = (hints[b.concept] ?? 0) - (hints[a.concept] ?? 0);
         if (hintDiff !== 0) return hintDiff;
-        return a.concept < b.concept ? -1 : a.concept > b.concept ? 1 : 0;
+        if (a.lastMentionIndex !== b.lastMentionIndex) return a.lastMentionIndex - b.lastMentionIndex;
+        return byName(a.concept, b.concept);
     });
 
     return eligible[0].concept;
+}
+
+/**
+ * The concepts from the lesson the learner has just finished that they took a hint on — the ones
+ * the next lesson asks about again (story #463).
+ *
+ * This is the other half of what the hint log is for, and it is deliberately the complement of the
+ * drill: the drill is never on a concept from the lesson just finished (invariant 21), so a concept
+ * the learner struggled with yesterday can never be reached that way. Just-in-time writing exists
+ * so that the lesson written on arrival is shaped by how the last one went, and this is the signal
+ * that shapes it.
+ *
+ * The order is by hints taken and then by name, so the same history and the same counts produce the
+ * same list (invariant 22).
+ */
+export function conceptsToRevisit(history: readonly LessonConceptHistory[], hints: HintCounts = {}): string[] {
+    const last: LessonConceptHistory | undefined = history[history.length - 1];
+    if (last === undefined) return [];
+    const met: string[] = [...new Set([...last.introduces, ...last.drilled])];
+    return met
+        .filter((concept) => (hints[concept] ?? 0) > 0)
+        .sort((a, b) => (hints[b] ?? 0) - (hints[a] ?? 0) || byName(a, b));
 }

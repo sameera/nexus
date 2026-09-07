@@ -51,11 +51,58 @@ describe("the plan is one file describing slices", () => {
         expect(plan.slices[0].pinningTest.text).toContain("it('reports a closed story'");
     });
 
+    it("declares no probe control by default, and a plan without one is still a plan", () => {
+        expect(parsePlan(PLAN_TEXT).probeControl).toBeNull();
+    });
+
+    it("reads the control test a workbook declares to prove one test file can run alone", () => {
+        const withControl: string = PLAN_TEXT.replace(
+            "slices:",
+            ["probe_control:", "  file: probe-control.spec.ts", "  text: |", "    it('runs alone', () => {});", "slices:"].join("\n"),
+        );
+
+        const plan: WorkbookPlan = parsePlan(withControl);
+
+        expect(plan.probeControl).toEqual({ file: "probe-control.spec.ts", text: "it('runs alone', () => {});\n" });
+    });
+
+    it("refuses a probe control that names a file but no test text, which could prove nothing", () => {
+        const halfControl: string = PLAN_TEXT.replace(
+            "slices:",
+            ["probe_control:", "  file: probe-control.spec.ts", "slices:"].join("\n"),
+        );
+
+        expect(() => parsePlan(halfControl)).toThrow(/probe_control\.text/);
+    });
+
     it("declares the command that runs the suite, so nothing has to infer one", () => {
         const plan: WorkbookPlan = parsePlan(PLAN_TEXT);
 
         expect(plan.suite).toEqual(["npx", "nx", "test", "@nexus/portable-tools"]);
         expect(plan.grading).toEqual(["npx", "nx", "test", "@nexus/portable-tools"]);
+    });
+
+    it("reads the repository and the epic a handoff prompt names", () => {
+        const plan: WorkbookPlan = parsePlan(PLAN_TEXT);
+
+        expect(plan.repo).toBe("nexus");
+        expect(plan.epic).toBe(407);
+    });
+
+    it("refuses a plan that names no repository, which a handoff prompt has to state", () => {
+        const withoutRepo: string = PLAN_TEXT.replace("repo: nexus\n", "");
+
+        expect(() => parsePlan(withoutRepo)).toThrow(/repo/);
+    });
+
+    it("refuses a plan that names no epic, which a handoff prompt has to state", () => {
+        const withoutEpic: string = PLAN_TEXT.replace("epic: 407\n", "");
+
+        expect(() => parsePlan(withoutEpic)).toThrow(/epic/);
+    });
+
+    it("refuses a plan whose epic is not an issue number, rather than naming '#0' in a prompt", () => {
+        expect(() => parsePlan(PLAN_TEXT.replace("epic: 407", "epic: soon"))).toThrow(/epic/);
     });
 
     it("refuses a plan that declares no suite command, rather than guessing one", () => {

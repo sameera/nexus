@@ -23,8 +23,19 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
-import { chooseDrill, type HintCounts, type LessonConceptHistory } from "./drill-selection.js";
-import { interpretReturn, runProbe, runSuite, renderBreachReport, sweepProbe, type SuiteResult } from "./fence-probe.js";
+import { chooseDrill, conceptsToRevisit, type HintCounts, type LessonConceptHistory } from "./drill-selection.js";
+import {
+    interpretReturn,
+    proveProbe,
+    runProbe,
+    runSuite,
+    renderBreachReport,
+    renderUncheckedReport,
+    sweepProbe,
+    type FenceState,
+    type ProbeProof,
+    type SuiteResult,
+} from "./fence-probe.js";
 import { allHandoffs, resolveHandoff, type Handoff } from "./handoffs.js";
 import { pauseForHandoff, siblingSlices } from "./handoff-prompt.js";
 import { readLearnerRecord } from "./learner-store.js";
@@ -62,6 +73,7 @@ export type SessionOutcome =
     | { kind: "no-plan"; report: string }
     | { kind: "suite-red"; report: string; output: string }
     | { kind: "unintegrated"; story: number; report: string }
+    | { kind: "unchecked"; story: number; report: string }
     | { kind: "breach"; story: number; report: string }
     | { kind: "drift"; finding: DriftFinding; report: string }
     | { kind: "handoff"; story: number; promptPath: string; report: string }
@@ -76,6 +88,12 @@ export interface SessionResult {
     drift: DriftFinding[];
     /** What the session could not read under the learner folder. Reported and skipped, never fatal. */
     skipped: string[];
+    /**
+     * What the session checked and found in order. A clean check says so here rather than saying
+     * nothing at all: a learner who is told only when something is wrong cannot tell a check that
+     * passed from a check that never ran (story #460's third criterion).
+     */
+    notes: string[];
 }
 
 /** The concepts one written lesson contributes to the history the drill is chosen from. */
@@ -90,10 +108,12 @@ function conceptsOf(lesson: Lesson): LessonConceptHistory {
 }
 
 /**
- * How many hints the learner has taken, by concept. Every read of the learner folder is total
+ * How many hints the learner has taken, by concept — what ranks the drill, and what says which
+ * ideas the last lesson left them struggling with. Every read of the learner folder is total
  * (invariant 6): an absent log is an empty history, and a log that cannot be read is reported and
- * skipped rather than failing the session — the ranking then degrades to the tie-break, and the
- * learner is told it did rather than finding out from a worse drill.
+ * skipped rather than failing the session — the drill then falls back to the most overdue concept
+ * and nothing is asked about again, and the learner is told so rather than finding out from a
+ * worse lesson.
  */
 function readHints(repoRoot: string, skipped: string[]): HintCounts {
     let raw: string | null = null;
@@ -113,8 +133,9 @@ function readHints(repoRoot: string, skipped: string[]): HintCounts {
         return counts;
     } catch {
         skipped.push(
-            `the hint log could not be read, so the drill was ranked by name alone rather than by ` +
-            `the concepts you have asked for most help on.`,
+            `the hint log could not be read, so the drill fell back to the concept you met longest ` +
+            `ago rather than the ones you have asked for most help on, and nothing from your last ` +
+            `lesson is asked about again.`,
         );
         return {};
     }
@@ -125,9 +146,14 @@ function storyNumber(handoff: Handoff): number {
     return Number(handoff.story.replace(/^#/, ""));
 }
 
-/** What the learner folder says about this workbook's pauses. */
+/**
+ * What the learner folder says about this workbook's pauses. A record names the workbook it paused
+ * in, and only that workbook's own records are read here: "at most one handoff is outstanding" is a
+ * per-workbook rule (invariant 18), and claiming a record that names no workbook would let one
+ * workbook resume at another's pause.
+ */
 function handoffState(repoRoot: string, slug: string): { state: HandoffState; open: Handoff | null } {
-    const mine: Handoff[] = allHandoffs(repoRoot).filter((h) => h.workbook === "" || h.workbook === slug);
+    const mine: Handoff[] = allHandoffs(repoRoot).filter((h) => h.workbook === slug);
     const open: Handoff | null = mine.find((h) => h.resolvedAt === null) ?? null;
     return {
         state: {
@@ -174,13 +200,19 @@ function sliceAfter(plan: WorkbookPlan, story: number): PlanSliceRecord | null {
 }
 
 /** The brief the chain hands the agent: everything about the lesson that is not its prose. */
-function briefFor(plan: WorkbookPlan, slice: PlanSliceRecord, drill: string | null): LessonBrief {
+function briefFor(
+    plan: WorkbookPlan,
+    slice: PlanSliceRecord,
+    drill: string | null,
+    revisit: readonly string[] = [],
+): LessonBrief {
     return {
         story: slice.story,
         lesson: slice.lesson,
         title: slice.pinned.title,
         concepts: slice.concepts,
         drill,
+        revisit,
         exercise: {
             story: slice.story,
             branch: slice.branch,
@@ -198,6 +230,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     const run: Runner = inputs.run ?? defaultRunner;
     const now: () => string = inputs.now ?? (() => new Date().toISOString());
     const skipped: string[] = [];
+    const notes: string[] = [];
 
     // 1. Sweep whatever a previous probe left behind, before anything else runs (invariant 11).
     sweepProbe(repoRoot);
@@ -214,6 +247,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             },
             drift: [],
             skipped,
+            notes,
         };
     }
 
@@ -248,45 +282,81 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
                 },
                 drift: [],
                 skipped,
+                notes,
             };
         }
 
         // 4. The fence probe, on a green suite only. The handed-off slice's own test must pass —
-        // otherwise its work is not in this tree and integrating the branch is the learner's step.
+        // otherwise either its work is not in this tree, or this stack cannot run one test file on
+        // its own and no probe result here means anything. The control test tells the two apart.
         const handedOff: PlanSliceRecord | undefined = plan.slices.find((slice) => slice.story === paused);
+        let fence: FenceState | null = null;
+        let fenced: number = paused;
         if (handedOff !== undefined) {
             const landed: boolean = runProbe(repoRoot, handedOff.pinningTest.file, handedOff.pinningTest.text, plan.grading, run);
             if (!landed) {
-                return {
-                    outcome: {
-                        kind: "unintegrated",
-                        story: paused,
-                        report:
-                            `The work handed off for #${paused} is not in this tree, so the session ` +
-                            `stays paused. Integrating that branch is yours to do — the session ` +
-                            `moves no git state and will not merge it for you.`,
-                    },
-                    drift: [],
-                    skipped,
-                };
+                const proof: ProbeProof = proveProbe(repoRoot, plan.probeControl, plan.grading, run);
+                if (proof !== "unrunnable") {
+                    return {
+                        outcome: {
+                            kind: "unintegrated",
+                            story: paused,
+                            report:
+                                `The work handed off for #${paused} is not in this tree, so the session ` +
+                                `stays paused. Integrating that branch is yours to do — the session ` +
+                                `moves no git state and will not merge it for you.` +
+                                (proof === "proven"
+                                    ? ""
+                                    : ` Nothing here has shown that the grading command can run one ` +
+                                      `test file on its own, so this may instead be a probe that cannot ` +
+                                      `run at all — declare a 'probe_control' in the plan to tell the ` +
+                                      `two apart.`),
+                        },
+                        drift: [],
+                        skipped,
+                        notes,
+                    };
+                }
+                // The control test does not pass either, so the probe cannot run here at all and
+                // nothing it says about the fence can be believed.
+                fence = "unchecked";
             }
         }
 
-        const next: PlanSliceRecord | null = sliceAfter(plan, paused);
-        const fence: boolean | null =
-            next === null ? null : runProbe(repoRoot, next.pinningTest.file, next.pinningTest.text, plan.grading, run);
-        const verdict = interpretReturn(suite.passed, fence, next?.story ?? paused);
+        const next: PlanSliceRecord | null = handedOff === undefined ? null : sliceAfter(plan, paused);
+        if (fence === null && next !== null) {
+            // The handed-off slice's own test passed, which is itself proof that one test file can
+            // run alone here — so this probe's answer is a fact about the fence and not about the
+            // stack (record #469's fifth ADDRESS risk).
+            fenced = next.story;
+            fence = runProbe(repoRoot, next.pinningTest.file, next.pinningTest.text, plan.grading, run) ? "breached" : "intact";
+        }
+        const verdict = interpretReturn(suite.passed, fence, fenced);
         if (!verdict.canTeach && verdict.reason === "breach") {
             return {
                 outcome: { kind: "breach", story: verdict.story, report: renderBreachReport(verdict.story) },
                 drift: [],
                 skipped,
+                notes,
             };
         }
+        if (!verdict.canTeach && verdict.reason === "unchecked") {
+            return {
+                outcome: { kind: "unchecked", story: verdict.story, report: renderUncheckedReport(verdict.story) },
+                drift: [],
+                skipped,
+                notes,
+            };
+        }
+        notes.push(
+            next === null
+                ? `the handed-off work for #${paused} is in this tree, and there was no next slice to fence.`
+                : `the handed-off work for #${paused} is in this tree, and the fence around #${next.story} is intact.`,
+        );
 
         // A green suite and an intact fence are what resolve a handoff — never an assertion that it
         // is done (invariant 18).
-        resolveHandoff(repoRoot, open.id, now(), run);
+        resolveHandoff(repoRoot, open.id, now(), run, "verified");
         arrival = resolveArrival(teaching, staged, {
             resolved: [...state.resolved, paused],
             outstanding: null,
@@ -296,7 +366,12 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     }
 
     if (arrival.kind === "done") {
-        return { outcome: { kind: "done", report: `Every slice of ${slug} has been taught and finished.` }, drift: [], skipped };
+        return {
+            outcome: { kind: "done", report: `Every slice of ${slug} has been taught and finished.` },
+            drift: [],
+            skipped,
+            notes,
+        };
     }
 
     if (arrival.kind === "open") {
@@ -315,6 +390,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             },
             drift: [],
             skipped,
+            notes,
         };
     }
 
@@ -333,7 +409,13 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             },
             drift: gate.findings,
             skipped,
+            notes,
         };
+    }
+    if (gate.findings.length === 0) {
+        // A clean check that says nothing is indistinguishable from a check that never ran, and the
+        // learner is the one who has to trust it (story #460's third criterion).
+        notes.push("every story in the plan still matches the state it was pinned to, so nothing stops this lesson.");
     }
 
     // The handoff comes before the suite gate: that gate exists so no *lesson* is written on a red
@@ -351,6 +433,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
                 siblings: siblingSlices(teaching, slice.story),
             },
             run,
+            now,
         );
         return {
             outcome: {
@@ -363,6 +446,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             },
             drift: gate.findings,
             skipped,
+            notes,
         };
     }
 
@@ -377,13 +461,18 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             },
             drift: gate.findings,
             skipped,
+            notes,
         };
     }
 
     // 6. The drill: a concept the learner met at least one lesson earlier, ranked by the hints they
-    // have taken on it.
-    const drill: string | null = chooseDrill(history, readHints(repoRoot, skipped));
-    const brief: LessonBrief = briefFor(plan, slice, drill);
+    // have taken on it — and, from the same hints, the concepts the lesson just finished left them
+    // struggling with, which this lesson asks about again (story #463). The two are complements:
+    // the drill is only ever on a cold concept, and these are only ever from the last lesson.
+    const hints: HintCounts = readHints(repoRoot, skipped);
+    const drill: string | null = chooseDrill(history, hints);
+    const revisit: string[] = conceptsToRevisit(history, hints);
+    const brief: LessonBrief = briefFor(plan, slice, drill, revisit);
 
     // 7. The one generative step. Without the prose the chain hands out the brief and stops; with
     // it, the lesson is written, the workbook re-rendered, and the exercise handed over.
@@ -395,10 +484,15 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
                 report:
                     `Ready to write the lesson for #${slice.story} into ${slice.lesson}. Every fact it ` +
                     `states is decided; what it needs is the theory prose` +
-                    (drill === null ? "." : ` and the drill's question and answer on ${drill}.`),
+                    (drill === null ? "" : `, the drill's question and answer on ${drill}`) +
+                    (revisit.length === 0
+                        ? "."
+                        : `, and a question and answer on ${revisit.join(", ")} — asked about again ` +
+                          `because the last lesson took a hint on ${revisit.length === 1 ? "it" : "them"}.`),
             },
             drift: gate.findings,
             skipped,
+            notes,
         };
     }
 
@@ -417,5 +511,6 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
         },
         drift: gate.findings,
         skipped,
+        notes,
     };
 }

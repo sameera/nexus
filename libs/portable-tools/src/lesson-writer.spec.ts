@@ -3,6 +3,7 @@ import {
     composeLesson,
     renderDrillSection,
     renderExerciseSection,
+    renderRevisitSection,
     resolveArrival,
     type AuthoredProse,
     type ExerciseFacts,
@@ -128,6 +129,7 @@ describe("composeLesson assembles what the chain decided around the prose an age
         title: "A re-scoped story stops",
         concepts: ["pinned state"],
         drill: "cold retrieval",
+        revisit: [],
         exercise: {
             story: 460,
             branch: "feat/460-drift",
@@ -164,5 +166,51 @@ describe("composeLesson assembles what the chain decided around the prose an age
 
     it("refuses to write a lesson whose drill has no question and answer to reveal", () => {
         expect(() => composeLesson(brief, { theory: prose.theory })).toThrow(/cold retrieval/);
+    });
+});
+
+describe("a concept the learner took a hint on is asked about again in the next lesson", () => {
+    const brief: LessonBrief = {
+        story: 461,
+        lesson: "02-widget.md",
+        title: "Predict-then-reveal",
+        concepts: ["predict then reveal"],
+        drill: null,
+        revisit: ["closures"],
+        exercise: {
+            story: 461,
+            branch: "feat/461-widget",
+            pinningTest: "predict-then-reveal.spec.ts",
+            gradingCommand: "npx nx test @nexus/portable-tools",
+        },
+    };
+    const prose: AuthoredProse = {
+        theory: "A component hides its answer until it is asked for.\n",
+        revisit: [{ concept: "closures", question: "What does a closure capture?", answer: "Its enclosing scope." }],
+    };
+
+    it("asks about the concept again, with its answer withheld until the learner asks for it", () => {
+        const lesson = composeLesson(brief, prose);
+
+        expect(lesson).toContain("closures");
+        expect(lesson).toContain("What does a closure capture?");
+        expect(lesson).toContain("Its enclosing scope.");
+        expect(lesson).toContain("predict-then-reveal");
+    });
+
+    it("records what it revisited, so the lesson says on its face which concept came back", () => {
+        expect(composeLesson(brief, prose)).toContain("revisits: [closures]");
+    });
+
+    it("refuses to write a lesson that names a concept to revisit and asks nothing about it", () => {
+        expect(() => composeLesson(brief, { theory: prose.theory })).toThrow(/closures/);
+    });
+
+    it("carries no markup, and asks the revisited question after the theory it follows on from", () => {
+        const lesson = composeLesson(brief, prose);
+
+        expect(lesson.indexOf("A component hides its answer")).toBeLessThan(lesson.indexOf("What does a closure capture?"));
+        expect(lesson.indexOf("What does a closure capture?")).toBeLessThan(lesson.indexOf("## Exercise"));
+        expect(renderRevisitSection(prose.revisit ?? [])).not.toMatch(/<[a-zA-Z]/);
     });
 });

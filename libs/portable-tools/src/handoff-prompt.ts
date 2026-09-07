@@ -57,18 +57,18 @@ export function renderHandoffPrompt(ctx: HandoffContext): string {
  * Pause the session at a handoff slice: record the pause (`recordHandoff`) and write the prompt
  * beside it under the same learner-folder kind, so both live where everything the workbook retains
  * about a person lives, and neither is ever a page.
+ *
+ * The clock comes from the caller, like every other fact the session decides, so the pause it
+ * records is the one artifact of a session a test can pin rather than the one it cannot.
  */
 export function pauseForHandoff(
     repoRoot: string,
     workbook: string,
     ctx: HandoffContext,
     run: Runner = defaultRunner,
+    now: () => string = () => new Date().toISOString(),
 ): { handoff: Handoff; promptPath: string } {
-    const handoff: Handoff = recordHandoff(
-        repoRoot,
-        { story: String(ctx.story), workbook, recordedAt: new Date().toISOString() },
-        run,
-    );
+    const handoff: Handoff = recordHandoff(repoRoot, { story: String(ctx.story), workbook, recordedAt: now() }, run);
     const promptName: string = handoff.id.replace(/\.md$/, "-prompt.md");
     const promptPath: string = writeLearnerRecord(repoRoot, "handoffs", promptName, renderHandoffPrompt(ctx), run);
     return { handoff, promptPath };

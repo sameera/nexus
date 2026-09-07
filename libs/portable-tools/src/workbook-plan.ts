@@ -6,8 +6,10 @@
  * Two committed documents describing one plan can disagree with nothing in a position to notice,
  * so the pinned state lives beside the order rather than in a file of its own.
  *
- * The plan is also where the workbook declares the command that runs its test suite. Nothing infers
- * that command: a green light is worth exactly as much as the command behind it, and an inferred
+ * The plan is also where the workbook declares the commands that run its test suite and grade one
+ * exercise, and — optionally — the control test that proves the grading command can run a single
+ * file on its own, so that a probe which cannot run is never read as a fence that held. Nothing
+ * infers those commands: a green light is worth exactly as much as the command behind it, and an inferred
  * command that happens to run a subset makes the suite gate decorative while still looking like a
  * gate (record #469, "the workbook declares the command that runs the suite").
  *
@@ -51,14 +53,20 @@ export interface PlanSliceRecord {
 }
 
 export interface WorkbookPlan {
-    /** The repository the plan teaches, named in a handoff prompt. */
+    /** The repository the plan teaches, named in a handoff prompt. Required, as the prompt states it. */
     repo: string;
-    /** The epic the slices belong to, named in a handoff prompt. */
+    /** The epic the slices belong to, named in a handoff prompt. Required, for the same reason. */
     epic: number;
     /** The declared suite command, as an argument vector — never a shell string (invariant 14). */
     suite: string[];
     /** The declared command that grades one exercise, and that the fence probe runs. */
     grading: string[];
+    /**
+     * A test written to pass in this repository's stack, run to prove the grading command can run
+     * one file on its own. Null when the workbook declares none, which leaves the probe unproven
+     * rather than unrunnable (record #469's fifth ADDRESS risk).
+     */
+    probeControl: PinningTest | null;
     slices: PlanSliceRecord[];
 }
 
@@ -129,6 +137,20 @@ function readSlice(raw: unknown, index: number): PlanSliceRecord {
     };
 }
 
+/**
+ * Read the optional control test. A workbook that declares none leaves it null; one that declares
+ * half of it is refused, because a control missing its text would prove nothing while looking like
+ * a proof.
+ */
+function readProbeControl(raw: unknown): PinningTest | null {
+    if (raw === undefined || raw === null) return null;
+    const record: Record<string, unknown> = asRecord(raw);
+    return {
+        file: text(record["file"], "probe_control.file", "the plan"),
+        text: text(record["text"], "probe_control.text", "the plan"),
+    };
+}
+
 /** Read one workbook's plan from the text of its plan file. Pure: it parses or it throws. */
 export function parsePlan(source: string): WorkbookPlan {
     let doc: unknown;
@@ -157,11 +179,20 @@ export function parsePlan(source: string): WorkbookPlan {
         seen.set(slice.lesson, slice.story);
     }
 
+    const epic: number = Number(record["epic"]);
+    if (!Number.isInteger(epic) || epic <= 0) {
+        throw new PlanError(
+            `names no 'epic' issue number. A handoff prompt states the epic the slice belongs to, ` +
+            `so a plan without one would hand a coding agent a prompt reading 'Epic: #0'.`,
+        );
+    }
+
     return {
-        repo: typeof record["repo"] === "string" ? record["repo"] : "",
-        epic: Number.isInteger(Number(record["epic"])) ? Number(record["epic"]) : 0,
+        repo: text(record["repo"], "repo", "the plan"),
+        epic,
         suite: commandVector(record["suite"], "suite"),
         grading: commandVector(record["grading"], "grading"),
+        probeControl: readProbeControl(record["probe_control"]),
         slices: read,
     };
 }

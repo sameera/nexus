@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { defaultRunner } from "@nexus/close-migration/run";
 import { startWorkbookSession } from "./handoffs.js";
 import { learnerRecordDir, readLearnerRecord } from "./learner-store.js";
 import { createWorkbook } from "./workbook-store.js";
@@ -96,6 +97,14 @@ describe("pauseForHandoff", () => {
         expect(promptFile).toBeDefined();
         expect(readLearnerRecord(repo, "handoffs", promptFile as string)).toContain("sameera/nexus");
         expect(sh(repo, "git", "status", "--porcelain")).not.toContain(".learner");
+    });
+
+    it("records the pause at the clock the session gave it, so the record is reproducible", () => {
+        const repo = repoWithWorkbook();
+
+        const { handoff } = pauseForHandoff(repo, "rdl", CONTEXT, defaultRunner, () => "2026-09-07T12:00:00.000Z");
+
+        expect(handoff.recordedAt).toBe("2026-09-07T12:00:00.000Z");
     });
 
     it("a session opened later resumes at the story that was handed off", () => {

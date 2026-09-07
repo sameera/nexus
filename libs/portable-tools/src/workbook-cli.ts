@@ -24,7 +24,7 @@ import { outstandingHandoffs, recordHandoff, resolveHandoff, startWorkbookSessio
 import { LESSONS_DIRNAME, createWorkbook, lessonsDir, readLessons, workbookRoot, type CreatedWorkbook } from "./workbook-store.js";
 import { checkWorkbook, renderWorkbookInto, type LessonSource, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
-import { type AuthoredProse } from "./lesson-writer.js";
+import { type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
 
@@ -148,8 +148,9 @@ export function ghIssueReader(repoRoot: string, run: Runner): IssueReader {
 
 /**
  * Read the prose an agent wrote: the theory half, with the drill's question and answer in front
- * matter when the brief asked for a drill. The chain chose the concept; this file carries only what
- * an agent contributes.
+ * matter when the brief asked for a drill, and a `revisit` list carrying one question and answer
+ * per concept the brief asked to come back to. The chain chose the concepts; this file carries only
+ * what an agent contributes.
  */
 export function readProse(file: string): AuthoredProse {
     const source: string = fs.readFileSync(file, "utf8");
@@ -160,19 +161,44 @@ export function readProse(file: string): AuthoredProse {
     const front: Record<string, unknown> = (parse(lines.slice(1, end + 1).join("\n")) as Record<string, unknown> | null) ?? {};
     const question: unknown = front["question"];
     const answer: unknown = front["answer"];
+    const revisit: RevisitProse[] = readRevisits(front["revisit"]);
     const theory: string = lines.slice(end + 2).join("\n");
-    return typeof question === "string" && typeof answer === "string"
-        ? { theory, drill: { question, answer } }
-        : { theory };
+    return {
+        theory,
+        ...(typeof question === "string" && typeof answer === "string" ? { drill: { question, answer } } : {}),
+        ...(revisit.length === 0 ? {} : { revisit }),
+    };
+}
+
+/**
+ * The questions and answers for the concepts the brief asked to come back to (story #463). Each
+ * entry names its concept, because the brief names the concepts and the composer matches them up —
+ * an entry that is not a concept with both halves is dropped here, so the composer's refusal fires
+ * with the concept's name rather than the lesson being written with a question and nothing behind it.
+ */
+function readRevisits(raw: unknown): RevisitProse[] {
+    if (!Array.isArray(raw)) return [];
+    const written: RevisitProse[] = [];
+    for (const item of raw) {
+        const entry: Record<string, unknown> = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+        const concept: unknown = entry["concept"];
+        const question: unknown = entry["question"];
+        const answer: unknown = entry["answer"];
+        if (typeof concept === "string" && typeof question === "string" && typeof answer === "string") {
+            written.push({ concept, question, answer });
+        }
+    }
+    return written;
 }
 
 /** The outcomes that mean the session stopped rather than taught. They exit non-zero. */
-const STOPPED: readonly string[] = ["no-plan", "suite-red", "unintegrated", "breach", "drift"];
+const STOPPED: readonly string[] = ["no-plan", "suite-red", "unintegrated", "unchecked", "breach", "drift"];
 
 /** Report one session: what it did, what drift it saw on the way, and what it could not read. */
 function reportSession(result: SessionResult, io: WorkbookCliIo): number {
     const stopped: boolean = STOPPED.includes(result.outcome.kind);
     (stopped ? io.stderr : io.stdout)(result.outcome.report);
+    for (const note of result.notes) io.stdout(`checked: ${note}`);
     for (const note of result.skipped) io.stdout(note);
     for (const finding of result.drift) {
         if (result.outcome.kind === "drift" && finding.story === result.outcome.finding.story) continue;
@@ -282,9 +308,14 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
             io.stderr(`workbook resolve needs the handoff's id — 'nexus workbook session ${slug}' lists them\n${USAGE}`);
             return 2;
         }
-        const resolved: Handoff = resolveHandoff(repoRoot, id, new Date().toISOString(), run);
+        // Resolving by hand asserts what a session's return checks would have verified, so the
+        // record says it was an override rather than saying the same word for both (record #469).
+        const resolved: Handoff = resolveHandoff(repoRoot, id, new Date().toISOString(), run, "override");
         const left: Handoff[] = outstandingHandoffs(repoRoot).filter((h) => h.workbook === "" || h.workbook === slug);
-        io.stdout(`resolved ${resolved.id} (story ${resolved.story}); ${left.length} handoff${left.length === 1 ? "" : "s"} still outstanding.`);
+        io.stdout(
+            `resolved ${resolved.id} (story ${resolved.story}) as a manual override; ` +
+            `${left.length} handoff${left.length === 1 ? "" : "s"} still outstanding.`,
+        );
         return 0;
     } catch (error) {
         io.stderr(messageOf(error));

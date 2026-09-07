@@ -12,6 +12,11 @@
  * A slice's exercise is "finished" when its own pinning test passes (the same fact the fence probe
  * checks for a handoff, story #465), so the decision to advance past a written lesson is made from
  * that one fact rather than from a second, competing notion of "done".
+ *
+ * The other half of writing on arrival is what the arrival knows: a concept the learner took a hint
+ * on in the lesson they have just finished is asked about again in this one (`renderRevisitSection`).
+ * That is the epic's stated reason for writing late, and the drill cannot serve it, because a
+ * concept from the lesson just finished is never a cold recall.
  */
 
 import { PREDICT_THEN_REVEAL_COMPONENT } from "./predict-then-reveal.js";
@@ -106,13 +111,25 @@ export function renderExerciseSection(facts: ExerciseFacts): string {
 }
 
 /**
+ * One predict-then-reveal declaration. The concept is chosen in code; the question and the answer
+ * are prose an agent wrote, and they are quoted rather than interpolated raw so a colon or a
+ * quotation mark in either cannot reshape the declaration the renderer parses.
+ */
+function renderPredictBlock(question: string, answer: string): string[] {
+    return [
+        "```" + WIDGET_FENCE_INFO,
+        `component: ${PREDICT_THEN_REVEAL_COMPONENT}`,
+        "data:",
+        `  question: ${JSON.stringify(question)}`,
+        `  answer: ${JSON.stringify(answer)}`,
+        "```",
+    ];
+}
+
+/**
  * Render the drill that opens a lesson (story #462). It is a predict-then-reveal exercise on the
  * page rather than a question in the session's transcript: the page is the reading surface that
  * works offline and prints, and the transcript is neither readable later nor printable.
- *
- * The concept is chosen in code; the question and the answer are prose an agent wrote, and they are
- * quoted rather than interpolated raw so a colon or a quotation mark in either cannot reshape the
- * declaration the renderer parses.
  */
 export function renderDrillSection(concept: string, question: string, answer: string): string {
     return [
@@ -120,13 +137,30 @@ export function renderDrillSection(concept: string, question: string, answer: st
         "",
         `Before anything new, a question about ${concept}.`,
         "",
-        "```" + WIDGET_FENCE_INFO,
-        `component: ${PREDICT_THEN_REVEAL_COMPONENT}`,
-        "data:",
-        `  question: ${JSON.stringify(question)}`,
-        `  answer: ${JSON.stringify(answer)}`,
-        "```",
+        ...renderPredictBlock(question, answer),
     ].join("\n");
+}
+
+/**
+ * Render the concepts the previous lesson left the learner struggling with (story #463). It sits
+ * after the theory rather than at the top, because it follows on from what the learner has just
+ * read, and the warm-up drill is the section that opens a lesson.
+ *
+ * It is the same predict-then-reveal exercise the drill uses, for the same reason: the answer is
+ * withheld until the learner has committed to one, and both halves are still on the paper when the
+ * page is printed.
+ */
+export function renderRevisitSection(revisits: readonly RevisitProse[]): string {
+    const lines: string[] = ["## Once more, from last time", ""];
+    for (const item of revisits) {
+        lines.push(
+            `An idea you asked for help with last time: ${item.concept}.`,
+            "",
+            ...renderPredictBlock(item.question, item.answer),
+            "",
+        );
+    }
+    return lines.join("\n").trimEnd();
 }
 
 /** Everything the chain decided about the lesson it is about to write, handed to the agent. */
@@ -140,7 +174,21 @@ export interface LessonBrief {
     concepts: readonly string[];
     /** The concept to drill, chosen in code, or null when none was cold enough. */
     drill: string | null;
+    /**
+     * The concepts the learner took a hint on in the lesson they have just finished, which this
+     * lesson asks about again (story #463). Empty when they took none, and always empty in a first
+     * lesson. The drill can never carry these, because a concept from the lesson just finished is
+     * not a cold recall (invariant 21) — this is the other half of what the hint log is for.
+     */
+    revisit: readonly string[];
     exercise: ExerciseFacts;
+}
+
+/** One revisited concept's question and the answer it withholds, both the agent's to write. */
+export interface RevisitProse {
+    concept: string;
+    question: string;
+    answer: string;
 }
 
 /** The one generative step: the prose an agent contributes, and nothing else. */
@@ -149,6 +197,8 @@ export interface AuthoredProse {
     theory: string;
     /** The drill's question and the answer it withholds, required whenever a drill was chosen. */
     drill?: { question: string; answer: string };
+    /** One question and answer per concept the brief named to revisit, required when it named any. */
+    revisit?: readonly RevisitProse[];
 }
 
 /**
@@ -165,6 +215,17 @@ export function composeLesson(brief: LessonBrief, prose: AuthoredProse): string 
             `concept; the question and the answer are the agent's to write.`,
         );
     }
+    const revisits: RevisitProse[] = brief.revisit.map((concept) => {
+        const written: RevisitProse | undefined = (prose.revisit ?? []).find((r) => r.concept === concept);
+        if (written === undefined) {
+            throw new Error(
+                `the lesson for #${brief.story} names ${concept} as an idea to ask about again — the ` +
+                `learner took a hint on it last time — and nothing asks about it. The chain chooses ` +
+                `the concepts; the question and the answer are the agent's to write.`,
+            );
+        }
+        return written;
+    });
     const frontMatter: string[] = [
         "---",
         `title: ${brief.title}`,
@@ -174,6 +235,9 @@ export function composeLesson(brief: LessonBrief, prose: AuthoredProse): string 
         // The committed lessons are the session's memory, so what was drilled is recorded on the
         // page rather than in a personal record no teammate's checkout holds (record #469).
         ...(brief.drill === null ? [] : [`drill: ${brief.drill}`]),
+        // What this lesson came back to, on the page for the same reason: a teammate's checkout
+        // holds no hint log, and the lesson still says which ideas were asked about again.
+        ...(revisits.length === 0 ? [] : [`revisits: [${revisits.map((r) => r.concept).join(", ")}]`]),
         "---",
         "",
     ];
@@ -186,6 +250,7 @@ export function composeLesson(brief: LessonBrief, prose: AuthoredProse): string 
         ...drill,
         prose.theory.trim(),
         "",
+        ...(revisits.length === 0 ? [] : [renderRevisitSection(revisits), ""]),
         renderExerciseSection(brief.exercise),
         "",
     ].join("\n");

@@ -323,6 +323,55 @@ describe("a teaching session writes the one lesson the learner is up to", () => 
         });
     });
 
+    it("takes each revisited concept's question and answer from the prose file's front matter", () => {
+        const repo = initRepo();
+        const file = path.join(repo, "prose.md");
+        fs.writeFileSync(
+            file,
+            [
+                "---",
+                "question: What was that idea?",
+                "answer: This idea.",
+                "revisit:",
+                "  - concept: pinned state",
+                "    question: What does a pin hold?",
+                "    answer: The title and body as approved.",
+                "---",
+                "",
+                "The theory half.",
+                "",
+            ].join("\n"),
+        );
+
+        expect(readProse(file)).toEqual({
+            theory: "\nThe theory half.\n",
+            drill: { question: "What was that idea?", answer: "This idea." },
+            revisit: [{ concept: "pinned state", question: "What does a pin hold?", answer: "The title and body as approved." }],
+        });
+    });
+
+    it("carries a revisit with no drill, because a lesson can ask again without a cold drill", () => {
+        const repo = initRepo();
+        const file = path.join(repo, "prose.md");
+        fs.writeFileSync(
+            file,
+            ["---", "revisit:", "  - concept: drift", "    question: Q?", "    answer: A.", "---", "", "Theory.", ""].join("\n"),
+        );
+
+        expect(readProse(file)).toEqual({
+            theory: "\nTheory.\n",
+            revisit: [{ concept: "drift", question: "Q?", answer: "A." }],
+        });
+    });
+
+    it("drops a revisit entry that names no concept, question and answer, so nothing asks with nothing behind it", () => {
+        const repo = initRepo();
+        const file = path.join(repo, "prose.md");
+        fs.writeFileSync(file, ["---", "revisit:", "  - concept: drift", "    question: Q?", "---", "", "Theory.", ""].join("\n"));
+
+        expect(readProse(file)).toEqual({ theory: "\nTheory.\n" });
+    });
+
     it("takes a prose file with no front matter as the theory half alone", () => {
         const repo = initRepo();
         const file = path.join(repo, "prose.md");
@@ -350,5 +399,107 @@ describe("a teaching session writes the one lesson the learner is up to", () => 
 
         expect(io.err.join("\n")).toContain("suite");
         expect(fs.readdirSync(path.join(workbookRoot(repo, "rdl"), LESSONS_DIRNAME))).toEqual([]);
+    });
+});
+
+describe("a concept the learner took a hint on is asked about again in the lesson the session writes", () => {
+    const SUITE: string[] = ["fake-suite"];
+
+    /** Two learner slices, so the second lesson has a finished first lesson behind it. */
+    function planText(): string {
+        return [
+            "repo: nexus",
+            "epic: 407",
+            `suite: ${JSON.stringify(SUITE)}`,
+            'grading: ["fake-grade"]',
+            "slices:",
+            "  - story: 460",
+            "    lesson: 01-drift.md",
+            "    builds: learner",
+            "    branch: feat/460-drift",
+            "    concepts: [pinned state]",
+            "    pinning_test:",
+            "      file: tests/drift.spec.ts",
+            "      text: |",
+            '        it("pins", () => {});',
+            "    pinned:",
+            "      title: Story 460",
+            "      body: As a learner, I want slice 460.",
+            "  - story: 461",
+            "    lesson: 02-widget.md",
+            "    builds: learner",
+            "    branch: feat/461-widget",
+            "    concepts: [predict then reveal]",
+            "    pinning_test:",
+            "      file: tests/widget.spec.ts",
+            "      text: |",
+            '        it("pins", () => {});',
+            "    pinned:",
+            "      title: Story 461",
+            "      body: As a learner, I want slice 461.",
+            "",
+        ].join("\n");
+    }
+
+    /** Answers `gh` about whichever story it was asked about, and keeps the suite green. */
+    function runner(): Runner {
+        return (cmd, args, opts): RunResult => {
+            if (cmd === "gh") {
+                const story = args[2];
+                return {
+                    status: 0,
+                    stdout: JSON.stringify({ title: `Story ${story}`, body: `As a learner, I want slice ${story}.`, closedAt: null }),
+                    stderr: "",
+                };
+            }
+            if (cmd === SUITE[0]) return { status: 0, stdout: "", stderr: "" };
+            if (cmd === "fake-grade") return { status: 1, stdout: "", stderr: "" };
+            return defaultRunner(cmd, args, opts);
+        };
+    }
+
+    function writeProse(repo: string, name: string, lines: string[]): string {
+        const file = path.join(repo, name);
+        fs.writeFileSync(file, lines.join("\n"));
+        return file;
+    }
+
+    it("names the concept in the brief and writes it into the page once the prose comes back", () => {
+        const repo = initRepo();
+        const run = runner();
+        expect(runWorkbookCli(["create", "rdl"], makeIo(repo))).toBe(0);
+        fs.writeFileSync(path.join(workbookRoot(repo, "rdl"), "plan.yml"), planText());
+
+        // The first lesson is written and its exercise finished.
+        expect(runWorkbookCli(["teach", "rdl"], makeIo(repo), run)).toBe(0);
+        const first = writeProse(repo, "first.md", ["Pinned state is what was approved.", ""]);
+        expect(runWorkbookCli(["teach", "rdl", "--prose", first], makeIo(repo), run)).toBe(0);
+        fs.mkdirSync(path.join(repo, "tests"), { recursive: true });
+        fs.writeFileSync(path.join(repo, "tests", "drift.spec.ts"), "it('pins', () => {});\n");
+
+        // The learner took a hint on the concept that lesson taught.
+        const log = path.join(repo, ".nexus", "workbook", ".learner", "hint-log", "hints.json");
+        fs.mkdirSync(path.dirname(log), { recursive: true });
+        fs.writeFileSync(log, JSON.stringify({ "pinned state": 2 }));
+
+        const briefing = makeIo(repo);
+        expect(runWorkbookCli(["teach", "rdl"], briefing, run)).toBe(0);
+        expect(briefing.out.join("\n")).toContain("pinned state");
+
+        const second = writeProse(repo, "second.md", [
+            "---",
+            "revisit:",
+            "  - concept: pinned state",
+            "    question: What does a pin hold?",
+            "    answer: The title and body as approved.",
+            "---",
+            "",
+            "A widget reveals its answer.",
+            "",
+        ]);
+        expect(runWorkbookCli(["teach", "rdl", "--prose", second], makeIo(repo), run)).toBe(0);
+
+        const page = readPage(fs.readFileSync(path.join(workbookRoot(repo, "rdl"), "02-widget.html"), "utf8"));
+        expect(page.visibleText).toContain("What does a pin hold?");
     });
 });

@@ -29,6 +29,13 @@ import { openWorkbook, type OpenedWorkbook } from "./workbook-store.js";
 
 const KIND = "handoffs";
 
+/**
+ * How a handoff came to be resolved. The session resolves one only after a green suite and an
+ * intact fence; a learner can also resolve one by hand, and the record says which happened, because
+ * "resolved" alone would say the same word about something nobody checked (record #469).
+ */
+export type HandoffResolution = "verified" | "override";
+
 export interface Handoff {
     /** The record's file name — also its position in the deterministic order. */
     id: string;
@@ -42,6 +49,8 @@ export interface Handoff {
     note: string;
     /** Present once the handoff has been resolved; the record itself is never rewritten. */
     resolvedAt: string | null;
+    /** How it was resolved, or null while it is still outstanding. */
+    resolution: HandoffResolution | null;
 }
 
 export interface HandoffInput {
@@ -60,6 +69,7 @@ function fieldOf(body: string, name: string): string | null {
 function parseHandoff(id: string, body: string): Handoff | null {
     const story: string | null = fieldOf(body, "story");
     if (story === null || story === "") return null;
+    const resolution: string | null = fieldOf(body, "resolution");
     return {
         id,
         story,
@@ -67,6 +77,7 @@ function parseHandoff(id: string, body: string): Handoff | null {
         recordedAt: fieldOf(body, "recorded") ?? "",
         note: fieldOf(body, "note") ?? "",
         resolvedAt: fieldOf(body, "resolved"),
+        resolution: resolution === "verified" || resolution === "override" ? resolution : null,
     };
 }
 
@@ -114,15 +125,25 @@ export function outstandingHandoffs(repoRoot: string): Handoff[] {
  * The append goes through the learner store rather than straight to the file: resolving is a write
  * to a personal record, so it asks git the same question recording it asked (invariant 9). The
  * record existing already is not the answer — the rule that excluded it may have gone since.
+ *
+ * `how` says what resolved it. A session that has just seen a green suite and an intact fence
+ * passes "verified"; a learner resolving one by hand gets the default, "override", so the record
+ * distinguishes a checked resolution from an asserted one rather than writing one line for both.
  */
-export function resolveHandoff(repoRoot: string, id: string, resolvedAt: string, run: Runner = defaultRunner): Handoff {
+export function resolveHandoff(
+    repoRoot: string,
+    id: string,
+    resolvedAt: string,
+    run: Runner = defaultRunner,
+    how: HandoffResolution = "override",
+): Handoff {
     const file: string = path.join(learnerRecordDir(repoRoot, KIND), id);
     if (!fs.existsSync(file)) throw new Error(`no handoff record named ${id}`);
     const before: string | null = readLearnerRecord(repoRoot, KIND, id);
     if (before !== null && fieldOf(before, "resolved") !== null) {
         return parseHandoff(id, before) as Handoff;
     }
-    appendLearnerRecord(repoRoot, KIND, id, `- resolved: ${resolvedAt}\n`, run);
+    appendLearnerRecord(repoRoot, KIND, id, `- resolved: ${resolvedAt}\n- resolution: ${how}\n`, run);
     return parseHandoff(id, fs.readFileSync(file, "utf8")) as Handoff;
 }
 
