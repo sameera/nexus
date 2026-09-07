@@ -18,12 +18,13 @@
  *   widget's content on the paper for free, instead of making it something every future component
  *   must implement and every reviewer must check.
  *
- * The library ships empty. This story builds the seam and the library, not the components — the
- * first component arrives with the stage that asks for it.
+ * The library shipped empty at #405; this seam and this file are what a component built later
+ * resolves against. Its first component, predict-then-reveal, arrived with story #461.
  */
 
 import { parse } from "yaml";
 import { escapeText } from "./html-escape.js";
+import { PREDICT_THEN_REVEAL, PREDICT_THEN_REVEAL_COMPONENT } from "./predict-then-reveal.js";
 
 /** The fenced block's info string that marks a declaration. */
 export const WIDGET_FENCE_INFO: string = "widget";
@@ -42,6 +43,13 @@ export interface WidgetDeclaration {
  * it is called at render time and never at interaction time.
  */
 export interface WidgetComponent {
+    /**
+     * Content that is always visible and always printed, placed before the reveal control. A
+     * component that needs a region the reveal control cannot hide — predict-then-reveal's
+     * question is the first one — uses this rather than the summary label, which sits on a
+     * control that is itself omitted from print.
+     */
+    lead?: (data: Record<string, unknown>) => string;
     /** A short label the reveal control shows before the content is visible. */
     summary: (data: Record<string, unknown>) => string;
     /** The widget's content, as page markup. Complete at render time. */
@@ -52,10 +60,12 @@ export interface WidgetComponent {
 export type WidgetRegistry = Readonly<Record<string, WidgetComponent>>;
 
 /**
- * The shipped library. It is empty: the seam exists so a component can be added, and the first one
- * arrives with the stage that needs it.
+ * The shipped library. It held nothing until story #461, which builds the seam's first consumer,
+ * predict-then-reveal, alongside the drill it is built for.
  */
-export const WIDGET_MANIFEST: WidgetRegistry = {};
+export const WIDGET_MANIFEST: WidgetRegistry = {
+    [PREDICT_THEN_REVEAL_COMPONENT]: PREDICT_THEN_REVEAL,
+};
 
 export class WidgetError extends Error {
     readonly component: string | null;
@@ -91,16 +101,23 @@ export function parseDeclaration(lesson: string, content: string): WidgetDeclara
 /**
  * Wrap a component's content in the reveal container. The content is in the page; the control only
  * changes whether it is visible, and printing shows it whether or not the learner touched it.
+ *
+ * `lead`, when given, is a region before the control that is never hidden — a question a component
+ * needs on the page regardless of interaction, which a button's own label cannot provide because a
+ * `<button>` is itself excluded from print.
  */
-export function renderWidgetShell(component: string, summary: string, content: string): string {
+export function renderWidgetShell(component: string, lead: string | null, summary: string, content: string): string {
     return [
         `<div class="widget" data-widget="${escapeText(component)}">`,
+        lead === null || lead === "" ? "" : `<div class="widget-lead">${lead}</div>`,
         `<button class="widget-reveal" type="button" aria-expanded="false">${escapeText(summary)}</button>`,
         `<div class="widget-content" hidden>`,
         content,
         "</div>",
         "</div>",
-    ].join("\n");
+    ]
+        .filter((part) => part !== "")
+        .join("\n");
 }
 
 /**
@@ -127,6 +144,7 @@ export function makeWidgetSeam(
         }
         return renderWidgetShell(
             declaration.component,
+            component.lead?.(declaration.data) ?? null,
             component.summary(declaration.data),
             component.render(declaration.data),
         );
