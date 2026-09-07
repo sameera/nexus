@@ -5,12 +5,12 @@ epic issues delivered under it, plus any durable feature-level notes.
 
 ## The backlog
 
-Deferred scope does not live here. A **backlog stub** — a functional goal identified but not yet
-planned — is an open GitHub issue carrying the single `backlog` label, so the whole cross-feature
-backlog is one query:
+Deferred scope does not live here. An **epic stub** — a functional goal identified but not yet
+planned — is an open GitHub issue carrying the single `needs-refinement` label, so the whole
+cross-feature backlog is one query:
 
-**[Open backlog stubs](https://github.com/sameera/nexus/issues?q=is%3Aissue+is%3Aopen+label%3Abacklog)**
-— `is:issue is:open label:backlog`
+**[Open epic stubs](https://github.com/sameera/nexus/issues?q=is%3Aissue+is%3Aopen+label%3Aneeds-refinement)**
+— `is:issue is:open label:needs-refinement`
 
 That link is the authoritative inventory of unplanned work across every feature; the feature a
 stub belongs to is recorded in its issue body, not as a label. Promote one with
@@ -18,7 +18,7 @@ stub belongs to is recorded in its issue body, not as a label. Promote one with
 
 Two consequences follow from the single label:
 
-- **Excluding stubs costs one negated filter** — `-label:backlog`. A default triage view carries
+- **Excluding stubs costs one negated filter** — `-label:needs-refinement`. A default triage view carries
   it once and sees no stub.
 - **A stub is an epic issue**, so *every* query enumerating epics for planned work carries that
   same negation. An epic query without it counts work nobody has planned yet.
@@ -45,7 +45,7 @@ nexus config backlog-query --form exclude
 | [Multi-Repo Workspaces](multi-repo-workspaces/README.md)                   | The pipeline across code repos plus a hub docs repo.                              |
 | [Pipeline Command Surface](pipeline-command-surface/README.md)             | The names and surfaces of the Nexus slash commands.                              |
 | [PR-Driven Delivery](pr-driven-delivery/README.md)                         | Conformance, closure, and distillation against a merged pull request.            |
-| [Pre-Epic Discovery](pre-epic-discovery/README.md)                         | Discovery of foggy initiatives into resolved decisions and backlog stubs.        |
+| [Pre-Epic Discovery](pre-epic-discovery/README.md)                         | Discovery of foggy initiatives into resolved decisions and epic stubs.           |
 | [Queue Scratch Capture](queue-scratch-capture/README.md)                   | In-flight decision scratch as committed per-user subdirs in the queue entry.      |
 | [Roadmap-Driven Learning](roadmap-driven-learning/README.md)               | Turning a planned roadmap into hands-on lessons, theory placed just before each exercise. |
 | [Scope Discipline](scope-discipline/README.md)                             | Keeping planning artifacts to the scope someone actually asked for.              |

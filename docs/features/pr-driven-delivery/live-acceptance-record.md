@@ -24,7 +24,7 @@ surfaces is out of scope: divergences are filed and sized separately.
   run is still signed as a pass.
 - **Divergences** are the point. Where live behavior contradicts an injected-runner unit test, the
   **live** behavior is authoritative and the test is what is recorded as suspect. Each divergence
-  links to a filed issue or backlog stub.
+  links to a filed issue or epic stub.
 - **Zero divergences is a pass**, recorded explicitly as zero — not as an empty section.
 
 ---

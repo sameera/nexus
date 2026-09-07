@@ -99,7 +99,7 @@ describe("what the run reports", () => {
         const fake = fakeEnvironment({
             answer: (args: string[]) =>
                 args[0] === "issue" && args[1] === "view" && args.includes("number,title,labels")
-                    ? { status: 0, stdout: JSON.stringify({ number: 42, labels: [{ name: "backlog" }] }), stderr: "" }
+                    ? { status: 0, stdout: JSON.stringify({ number: 42, labels: [{ name: "needs-refinement" }] }), stderr: "" }
                     : undefined,
         });
         const io = recordingIo(root);

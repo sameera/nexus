@@ -56,7 +56,7 @@ close's all-stories-closed gate) would act on a phantom story.
 
 ## Unplanned epics
 
-A **backlog stub** is an epic issue that has been identified but not yet planned (epic #185) — it
+An **epic stub** is an epic issue that has been identified but not yet planned (epic #185) — it
 carries the repository's declared unplanned label, has no planning meta block, and has no story
 sub-issues. Resolving one would emit an epic whose story set is empty, which every downstream stage
 reads as "an epic that plans nothing" rather than "work nobody has planned".

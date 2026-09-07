@@ -44,7 +44,7 @@ An ordinary story, which is a sub-issue of its epic.
 const STUB = `---
 ref: STUB-1
 title: "Retire the sequencing table"
-labels: [backlog]
+labels: [needs-refinement]
 parent: "#353"
 blocked_by: none
 ---
@@ -116,7 +116,7 @@ describe("a work item carrying the unplanned label never asks for a parent", () 
 
     it("matches the value the repository declares for the unplanned label, not an assumed one", () => {
         const root: string = checkout("github:\n  classification: labels\n  unplanned-label: not-yet-planned\n");
-        writeItem(root, "STORY-stub.md", STUB.replace("[backlog]", "[not-yet-planned]"));
+        writeItem(root, "STORY-stub.md", STUB.replace("[needs-refinement]", "[not-yet-planned]"));
         const io = recordingIo(root);
         expect(runCreateStory([path.join(root, "scratch")], io)).not.toBe(0);
         expect(io.err.join("\n")).toContain("not-yet-planned");

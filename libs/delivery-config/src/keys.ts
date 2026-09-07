@@ -48,8 +48,8 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     { githubKey: "record-type", normalized: "recordType", builtin: "Decision Record" },
     { githubKey: "needs-design-label", normalized: "needsDesignLabel", builtin: "needs-design" },
     { githubKey: "in-progress-label", normalized: "inProgressLabel", builtin: "in-progress" },
-    // The unplanned-state marker on a backlog stub. One key, one label, no family.
-    { githubKey: "unplanned-label", normalized: "unplannedLabel", builtin: "backlog" },
+    // The unplanned-state marker on an epic stub. One key, one label, no family.
+    { githubKey: "unplanned-label", normalized: "unplannedLabel", builtin: "needs-refinement" },
 ];
 
 /** The catalogue row for a github-block key, or undefined when the catalogue declares none. */

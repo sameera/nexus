@@ -43,7 +43,7 @@ describe("the marker labels and types", () => {
     });
 
     it.each([
-        ["unplanned-label", "backlog"],
+        ["unplanned-label", "needs-refinement"],
         ["record-label", "decision-record"],
         ["record-type", "Decision Record"],
         ["needs-design-label", "needs-design"],

@@ -4,7 +4,7 @@ feature: "Pre-Epic Discovery"
 
 # Pre-Epic Discovery
 
-A pre-epic discovery stage: `/nxs.discover` turns a large, foggy initiative into resolved decisions and promotable backlog stubs before any epic is planned.
+A pre-epic discovery stage: `/nxs.discover` turns a large, foggy initiative into resolved decisions and promotable epic stubs before any epic is planned.
 
 ## Epics
 

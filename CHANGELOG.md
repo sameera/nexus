@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.6.0
+
+- The label that marks an epic nobody has planned yet is now `needs-refinement` instead of
+  `backlog`. A lead reading an epic issue's labels can no longer mistake the marker for "part of
+  the product backlog" in the everyday sense. Only the builtin default changed: a repository that
+  declares its own `unplanned-label` in `settings.yml` keeps whatever it declared, and a repository
+  taking the default renames its live label in place with `gh label edit backlog --name
+  needs-refinement`, which keeps every issue that already carried it.
+
 ## 0.5.0
 
 - The analyze, close and distill stages now withhold the same set of pipeline stores from the diff
