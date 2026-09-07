@@ -10,3 +10,4 @@ Planning surfaces live on GitHub issues rather than committed files — the back
 
 - **Backlog Stubs Become GitHub Issues** — [#185](https://github.com/sameera/nexus/issues/185)
 - **Retire the Sequencing Page Into Issue State** — [#218](https://github.com/sameera/nexus/issues/218)
+- **Rename the Unplanned-Epic Label to needs-refinement** — [#466](https://github.com/sameera/nexus/issues/466)
