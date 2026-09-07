@@ -103,6 +103,28 @@ describe("the channel through which markup could reach a page is closed", () => 
         expect(() => renderWorkbook({ lessons: [source] })).toThrow(/markup-in-lesson/);
     });
 
+    it("lets a fenced code block carry code that reads like markup, because the page escapes it", () => {
+        const source = lesson(
+            "code.md",
+            "Code",
+            ["Write this test first:", "", "```", 'const done: Array<string> = ["a"];', "```"].join("\n"),
+        );
+
+        const page = readPage(pageOf(renderWorkbook({ lessons: [source] }), "code.html"));
+
+        expect(page.code.join(" ")).toContain('const done: Array<string> = ["a"];');
+    });
+
+    it("still refuses markup a widget declaration carries, which no code fence escapes", () => {
+        const source = lesson(
+            "bad.md",
+            "Bad",
+            ["```widget", "component: predict-then-reveal", "data:", '  question: "<b>q</b>"', '  answer: "a"', "```"].join("\n"),
+        );
+
+        expect(() => renderWorkbook({ lessons: [source] })).toThrow(/markup-in-lesson/);
+    });
+
     it("names the lesson when its front matter is unusable", () => {
         expect(() => renderWorkbook({ lessons: [{ file: "no-fm.md", source: "just prose\n" }] })).toThrow(
             /no-fm\.md/,

@@ -73,6 +73,7 @@ export type SessionOutcome =
     | { kind: "no-plan"; report: string }
     | { kind: "suite-red"; report: string; output: string }
     | { kind: "unintegrated"; story: number; report: string }
+    | { kind: "unplanned-handoff"; story: number; report: string }
     | { kind: "unchecked"; story: number; report: string }
     | { kind: "breach"; story: number; report: string }
     | { kind: "drift"; finding: DriftFinding; report: string }
@@ -217,6 +218,7 @@ function briefFor(
             story: slice.story,
             branch: slice.branch,
             pinningTest: slice.pinningTest.file,
+            pinningTestText: slice.pinningTest.text,
             gradingCommand: plan.grading.join(" "),
         },
     };
@@ -290,40 +292,60 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
         // otherwise either its work is not in this tree, or this stack cannot run one test file on
         // its own and no probe result here means anything. The control test tells the two apart.
         const handedOff: PlanSliceRecord | undefined = plan.slices.find((slice) => slice.story === paused);
+        if (handedOff === undefined) {
+            // The plan teaches no slice for the story this pause names, so it names no pinning test
+            // and there is nothing to probe. A handoff resolves on a green suite and an intact fence
+            // (invariant 18), and a fence nobody could check is never an intact one — so the pause
+            // stays open and the session says why rather than stamping "verified" on nothing.
+            return {
+                outcome: {
+                    kind: "unplanned-handoff",
+                    story: paused,
+                    report:
+                        `The open pause names #${paused}, and this workbook's plan teaches no slice ` +
+                        `for it — so it names no pinning test, nothing can be probed, and nothing ` +
+                        `here can verify that the handed-off work landed. The pause stays open. ` +
+                        `Either the plan is the wrong one for this pause, or the pause was recorded ` +
+                        `at a story the plan does not build; resolving it by hand records that it ` +
+                        `was an override rather than something checked.`,
+                },
+                drift: [],
+                skipped,
+                notes,
+            };
+        }
         let fence: FenceState | null = null;
         let fenced: number = paused;
-        if (handedOff !== undefined) {
-            const landed: boolean = runProbe(repoRoot, handedOff.pinningTest.file, handedOff.pinningTest.text, plan.grading, run);
-            if (!landed) {
-                const proof: ProbeProof = proveProbe(repoRoot, plan.probeControl, plan.grading, run);
-                if (proof !== "unrunnable") {
-                    return {
-                        outcome: {
-                            kind: "unintegrated",
-                            story: paused,
-                            report:
-                                `The work handed off for #${paused} is not in this tree, so the session ` +
-                                `stays paused. Integrating that branch is yours to do — the session ` +
-                                `moves no git state and will not merge it for you.` +
-                                (proof === "proven"
-                                    ? ""
-                                    : ` Nothing here has shown that the grading command can run one ` +
-                                      `test file on its own, so this may instead be a probe that cannot ` +
-                                      `run at all — declare a 'probe_control' in the plan to tell the ` +
-                                      `two apart.`),
-                        },
-                        drift: [],
-                        skipped,
-                        notes,
-                    };
-                }
-                // The control test does not pass either, so the probe cannot run here at all and
-                // nothing it says about the fence can be believed.
-                fence = "unchecked";
+        const landed: boolean = runProbe(repoRoot, handedOff.pinningTest.file, handedOff.pinningTest.text, plan.grading, run);
+        if (!landed) {
+            const proof: ProbeProof = proveProbe(repoRoot, plan.probeControl, plan.grading, run);
+            if (proof !== "unrunnable") {
+                return {
+                    outcome: {
+                        kind: "unintegrated",
+                        story: paused,
+                        report:
+                            `The work handed off for #${paused} is not in this tree, so the session ` +
+                            `stays paused. Integrating that branch is yours to do — the session ` +
+                            `moves no git state and will not merge it for you.` +
+                            (proof === "proven"
+                                ? ""
+                                : ` Nothing here has shown that the grading command can run one ` +
+                                  `test file on its own, so this may instead be a probe that cannot ` +
+                                  `run at all — declare a 'probe_control' in the plan to tell the ` +
+                                  `two apart.`),
+                    },
+                    drift: [],
+                    skipped,
+                    notes,
+                };
             }
+            // The control test does not pass either, so the probe cannot run here at all and
+            // nothing it says about the fence can be believed.
+            fence = "unchecked";
         }
 
-        const next: PlanSliceRecord | null = handedOff === undefined ? null : sliceAfter(plan, paused);
+        const next: PlanSliceRecord | null = sliceAfter(plan, paused);
         if (fence === null && next !== null) {
             // The handed-off slice's own test passed, which is itself proof that one test file can
             // run alone here — so this probe's answer is a fact about the fence and not about the
@@ -431,6 +453,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
                 epic: plan.epic,
                 story: slice.story,
                 siblings: siblingSlices(teaching, slice.story),
+                issue: { title: slice.pinned.title, body: slice.pinned.body },
             },
             run,
             now,

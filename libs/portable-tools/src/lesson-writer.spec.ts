@@ -92,21 +92,32 @@ describe("renderExerciseSection", () => {
     const facts: ExerciseFacts = {
         story: 460,
         branch: "feat/407-session-teaches-one-lesson",
-        pinningTest: "a session with no lessons written offers no drill",
+        pinningTest: "libs/portable-tools/src/drill-selection.spec.ts",
+        pinningTestText: 'it("offers no drill in a first session", () => {\n    const met: Array<string> = [];\n});\n',
         gradingCommand: "npx nx test @nexus/portable-tools",
     };
+
+    /** The section's own words — everything outside the block that quotes the test. */
+    function scaffolding(section: string): string {
+        return section.split(/^```.*$/m).filter((_part, at) => at % 2 === 0).join("\n");
+    }
 
     it("names the story, the branch, the pinning test and the grading command", () => {
         const section = renderExerciseSection(facts);
         expect(section).toContain("#460");
         expect(section).toContain("feat/407-session-teaches-one-lesson");
-        expect(section).toContain("a session with no lessons written offers no drill");
+        expect(section).toContain("libs/portable-tools/src/drill-selection.spec.ts");
         expect(section).toContain("npx nx test @nexus/portable-tools");
     });
 
-    it("carries no markup — it is authored lesson prose, not a page", () => {
+    it("shows the pinning test's own text, so the learner reads what the probe will run", () => {
         const section = renderExerciseSection(facts);
-        expect(section).not.toMatch(/<[a-zA-Z]/);
+        expect(section).toContain('it("offers no drill in a first session", () => {');
+        expect(section).toContain("const met: Array<string> = [];");
+    });
+
+    it("carries no markup of its own — it is authored lesson prose, not a page", () => {
+        expect(scaffolding(renderExerciseSection(facts))).not.toMatch(/<[a-zA-Z]/);
     });
 });
 
@@ -134,6 +145,7 @@ describe("composeLesson assembles what the chain decided around the prose an age
             story: 460,
             branch: "feat/460-drift",
             pinningTest: "teaching-plan.spec.ts",
+            pinningTestText: 'it("pins the plan", () => {});\n',
             gradingCommand: "npx nx test @nexus/portable-tools",
         },
     };
@@ -181,6 +193,7 @@ describe("a concept the learner took a hint on is asked about again in the next 
             story: 461,
             branch: "feat/461-widget",
             pinningTest: "predict-then-reveal.spec.ts",
+            pinningTestText: 'it("reveals on demand", () => {});\n',
             gradingCommand: "npx nx test @nexus/portable-tools",
         },
     };

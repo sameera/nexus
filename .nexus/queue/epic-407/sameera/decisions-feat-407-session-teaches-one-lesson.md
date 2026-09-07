@@ -105,3 +105,18 @@
 - **Choice:** `SessionResult` gained `notes`, and the session pushes an affirmative line when the gate found no drift across the whole plan (and one naming the verified fence on a return). `nexus workbook teach` prints them prefixed "checked:".
 - **Why:** #460's third criterion is "the session reports no drift and continues". The session continued correctly but said nothing, so a learner could not tell a check that passed from a check that never ran — which is the whole value of the check to them.
 - **Refuted alternative:** Fold the sentence into each outcome's own report. It reaches the same reader, but every outcome would have to restate it, and the drift the check *did* find is already reported separately — one list of what was checked keeps the two together.
+
+## 2026-09-07 — An open pause naming a story the plan does not teach is its own refusal
+- **Choice:** A new blocking outcome, `unplanned-handoff`, when the outstanding handoff names a story with no slice in `plan.yml`; the CLI's `workbook handoff --story` refuses the same case up front, and only for a workbook that has a plan of slices.
+- **Why:** The plan is where a slice's pinning test lives, so such a pause has nothing to probe — the old path ran no probe at all, left `fence` null, and stamped "verified" on a handoff nothing verified (invariant 18).
+- **Refuted alternative:** Reuse the `unchecked` fence state. It blocks correctly, but its report is about a control test that could not run, which is a different fact and would send the learner to fix `probe_control`.
+
+## 2026-09-07 — The lesson quotes the pinning test's text, and a code fence stops being the markup channel
+- **Choice:** `ExerciseFacts` carries `pinningTestText`, the exercise renders it in a code fence, and the renderer's markup refusal skips the content of plain code fences (a widget declaration's content still counts). Fence closing now honours fence length.
+- **Why:** Record #469 keeps one text so the probe and the learner check the same thing *and* so the learner can see what is being checked; naming only the file served the first half only. A fence's content is escaped and shown as code, so it is text a reader sees rather than a channel through which markup reaches the page.
+- **Refuted alternative:** Leave the lesson naming only the file and let the learner open `plan.yml`. Cheaper and keeps the markup rule absolute, but it is the half of the decision the record states as its purpose.
+
+## 2026-09-07 — The handoff prompt quotes the pinned story text between markers it cannot forge
+- **Choice:** `HandoffContext` carries the pinned title and body, and the prompt quotes them between `<<<ISSUE #N BEGIN>>>` / `END` markers that grow until they do not occur in the quoted text, with every rule of the handoff stated outside the quotation.
+- **Why:** Invariant 16 had no mechanism because nothing was quoted, and a story number alone is not something a coding agent can build from. Quoting the *pinned* state rather than a live fetch keeps the prompt deterministic and network-free.
+- **Refuted alternative:** Leave the prompt naming only the story number and let the agent fetch the issue itself. It keeps the prompt free of issue text entirely, but it puts a network read inside the fenced session and leaves the prompt unusable offline.
