@@ -1,0 +1,35 @@
+/* Generated from libs/portable-tools/src/reading-tokens.ts — do not edit by hand.
+ * The one definition of the reading surface, shared by the application and every workbook
+ * page, so neither carries a colour or a type stack the other could drift from. */
+
+:root {
+    --font-sans: ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo,
+        Consolas, monospace;
+    --radius: 7px;
+}
+
+:root,
+[data-theme="dark"] {
+    --c-bg: #16161a;
+    --c-ink: #e6e6ea;
+    --c-ink-dim: #8a8a96;
+    --c-ink-faint: #5a5a66;
+    --c-accent: #d59766;
+    --c-accent-soft: #c98a57;
+    --c-line: #2a2a33;
+    --c-term: #0e0e11;
+    --c-term-line: #1a1a20;
+}
+
+[data-theme="light"] {
+    --c-bg: #eceae6;
+    --c-ink: #23232a;
+    --c-ink-dim: #65656f;
+    --c-ink-faint: #9a9aa2;
+    --c-accent: #bf6a2e;
+    --c-accent-soft: #a85a26;
+    --c-line: #d9d7d0;
+    --c-term: #fbfaf8;
+    --c-term-line: #e7e5df;
+}

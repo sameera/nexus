@@ -183,15 +183,23 @@ Determine what was actually built for this epic. Use, in order of availability:
 
     ```bash
     BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)"
-    git diff --stat "$BASE"...HEAD
-    git diff "$BASE"...HEAD
+    EXCLUDE="$(nexus excluded-stores)"
+    git diff --stat "$BASE"...HEAD -- . $EXCLUDE
+    git diff "$BASE"...HEAD -- . $EXCLUDE
     ```
 
     If the epic was implemented across several merges, this is the cumulative change set.
 
     **In `--pr` mode**, skip the `merge-base` line: run inside `wtPath`, set `BASE` to the
-    preflight `base`, and diff against the worktree head — `git -C <wtPath> diff "$BASE"...HEAD`
+    preflight `base`, and diff against the worktree head — `git -C <wtPath> diff "$BASE"...HEAD -- . $EXCLUDE`
     — which is exactly the PR's change set.
+
+    **The exclusion is not optional and its paths are not yours to write.** The pipeline stores are
+    surfaces Nexus writes and teaches from, never behaviour it reads back, so a conformance verdict
+    must never be drawn from one. Ask the toolkit for the set (`nexus excluded-stores --form reasons`
+    prints it with the reason each store is a member); it is stated in exactly one place, and this
+    body restating it could drift from the code (record #450, invariants 4-5). Each store is withheld
+    entire — never a slice of one.
 
 2. **The story issues.** For each story, read its issue state and any closing commits/PRs:
 

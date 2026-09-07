@@ -5,10 +5,9 @@
  * describes: the close record's `range:` stamp is the only recomputable ground truth, and the
  * recorded SHAs resolve only inside the named member's sibling checkout. This tool resolves each
  * range item to its checkout via the workspace resolver (never re-deriving workspace shape),
- * verifies both recorded SHAs are reachable, and emits one diff per repo with `.nexus/queue/**`
- * and `.nexus/discovery/**` excluded — the queue entry's own artifacts are input rather than the
- * *what*, and a discovery folder holds ungated in-flight reasoning no human gate has passed
- * (record #235, invariant 2). All items must resolve before any diff is emitted — a missing checkout, an
+ * verifies both recorded SHAs are reachable, and emits one diff per repo with every pipeline store
+ * withheld — the set is named once in `pipeline-stores.ts` and read from there, never restated
+ * here (record #450, invariants 4-5). All items must resolve before any diff is emitted — a missing checkout, an
  * unreachable SHA, or a missing/malformed stamp is a hard per-entry error. It never falls back
  * to the hub, never fabricates an empty or partial diff, and never clones, fetches, or
  * writes — it reads only.
@@ -22,6 +21,7 @@ import * as path from "node:path";
 import { parse } from "yaml";
 import { resolveWorkspace, type ResolvedWorkspace } from "@nexus/workspace/resolve";
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { excludePathspecs } from "./pipeline-stores.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 
@@ -157,10 +157,11 @@ export function deriveEntryDiff(entryDir: string, hubDir: string, run: Runner = 
     }
     if (errors.length > 0) return { ok: false, errors };
 
-    // Pass 2 — emit one diff per repo, queue + discovery folders excluded, read-only.
+    // Pass 2 — emit one diff per repo, every pipeline store excluded, read-only. The set comes
+    // from the one definition (pipeline-stores.ts); nothing here restates it.
     const diffs: RepoDiff[] = [];
     for (const item of plan) {
-        const r = run("git", ["diff", `${item.base}...${item.head}`, "--", ".", ":(exclude).nexus/queue", ":(exclude).nexus/discovery"], { cwd: item.checkout });
+        const r = run("git", ["diff", `${item.base}...${item.head}`, "--", ".", ...excludePathspecs()], { cwd: item.checkout });
         if (r.status !== 0) {
             errors.push({ entry, problem: "git-diff-failed",
                 message: `git diff ${item.base}...${item.head} failed in ${item.checkout}: ${r.stderr.trim()}` });
