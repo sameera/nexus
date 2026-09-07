@@ -161,6 +161,56 @@ describe("a paused workbook resumes at the handed-off story", () => {
     });
 });
 
+describe("a committed page that no longer matches its lesson fails the check", () => {
+    it("passes while every page is what its lesson renders to", () => {
+        const { io } = makeWorkbookWithLessons();
+        runWorkbookCli(["render", "rdl"], io);
+
+        expect(runWorkbookCli(["check", "rdl"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("matches");
+    });
+
+    it("fails and names the page someone edited instead of re-rendering", () => {
+        const { repo, io } = makeWorkbookWithLessons();
+        runWorkbookCli(["render", "rdl"], io);
+        fs.writeFileSync(path.join(workbookRoot(repo, "rdl"), "the-store.html"), "<p>edited by hand</p>\n");
+
+        expect(runWorkbookCli(["check", "rdl"], io)).toBe(1);
+
+        expect(io.err.join("\n")).toContain("the-store.html");
+        expect(io.err.join("\n")).toContain("render");
+    });
+
+    it("fails and leaves the drifted page in place rather than repairing it", () => {
+        const { repo, io } = makeWorkbookWithLessons();
+        runWorkbookCli(["render", "rdl"], io);
+        const page = path.join(workbookRoot(repo, "rdl"), "the-store.html");
+        fs.writeFileSync(page, "<p>edited by hand</p>\n");
+
+        runWorkbookCli(["check", "rdl"], io);
+
+        expect(fs.readFileSync(page, "utf8")).toBe("<p>edited by hand</p>\n");
+    });
+
+    it("fails when a lesson was authored but never rendered", () => {
+        const { repo, io } = makeWorkbookWithLessons();
+        runWorkbookCli(["render", "rdl"], io);
+        authorLesson(repo, "rdl", "the-widgets.md", "The widgets", "A widget resolves from the library.");
+
+        expect(runWorkbookCli(["check", "rdl"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("the-widgets.html");
+    });
+
+    it("says there is nothing to check when no lesson has been authored", () => {
+        const repo = initRepo();
+        const io = makeIo(repo);
+        runWorkbookCli(["create", "rdl"], io);
+
+        expect(runWorkbookCli(["check", "rdl"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("nothing to");
+    });
+});
+
 describe("the verb says what it needs", () => {
     it("rejects a subverb it does not have", () => {
         const io = makeIo(initRepo());

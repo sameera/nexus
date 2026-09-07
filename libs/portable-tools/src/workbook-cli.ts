@@ -10,7 +10,9 @@
  *
  * Rendering is deliberately all-or-nothing at this surface too: `render` reports the lesson that
  * failed and leaves no pages behind, so a learner never opens a workbook that is part new and part
- * stale.
+ * stale. `check` is the other half of committing generated output: it re-renders and compares, so a
+ * page edited by hand — or left behind by a lesson that changed — is caught in review rather than
+ * read as if it were current.
  */
 
 import * as path from "node:path";
@@ -18,11 +20,11 @@ import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
 import { outstandingHandoffs, recordHandoff, resolveHandoff, startWorkbookSession, type Handoff, type WorkbookSession } from "./handoffs.js";
 import { LESSONS_DIRNAME, createWorkbook, lessonsDir, readLessons, workbookRoot, type CreatedWorkbook } from "./workbook-store.js";
-import { renderWorkbookInto } from "./workbook-render.js";
+import { checkWorkbook, renderWorkbookInto, type LessonSource, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
 
 /** The subverbs `nexus workbook` dispatches. */
-export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "render", "session", "handoff", "resolve"];
+export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "render", "check", "session", "handoff", "resolve"];
 
 export interface WorkbookCliIo {
     cwd: string;
@@ -58,9 +60,10 @@ function parseFlags(argv: string[], cwd: string): Flags {
 }
 
 const USAGE: string = [
-    "usage: nexus workbook <create|render|session|handoff|resolve> <slug> [--root <dir>] [--repo <member>]",
+    "usage: nexus workbook <create|render|check|session|handoff|resolve> <slug> [--root <dir>] [--repo <member>]",
     "  create <slug>                       make the workbook and ensure the learner folder is ignored",
     "  render <slug>                       render every authored lesson to its page",
+    "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
     "  handoff <slug> --story <s> [--note] record a pause at a story",
     "  resolve <slug> <handoff-id>         mark a recorded handoff resolved",
@@ -82,6 +85,31 @@ function repoRootFor(flags: Flags, io: WorkbookCliIo): string | null {
         return null;
     }
     return home.home.repoRoot;
+}
+
+/** How a drifted file reads in the report — what is wrong with it, in the reader's terms. */
+const DRIFT_WORDING: Record<WorkbookDrift["state"], string> = {
+    changed: "does not match the lesson it was generated from",
+    missing: "was never rendered",
+    extra: "is left over from a lesson that is gone",
+};
+
+/**
+ * Report every committed file that is not what the lessons render to (record #450: pages are
+ * generated, committed and deterministic, and a check mode catches the drift that follows from
+ * committing generated output). It reports and repairs nothing — re-rendering is the fix, and it is
+ * the author's to run.
+ */
+function reportDrift(repoRoot: string, slug: string, lessons: readonly LessonSource[], io: WorkbookCliIo): number {
+    const drift: WorkbookDrift[] = checkWorkbook(workbookRoot(repoRoot, slug), { lessons });
+    if (drift.length === 0) {
+        io.stdout(`every page in ${slug} matches the lesson it was generated from.`);
+        return 0;
+    }
+    io.stderr(`${drift.length} file${drift.length === 1 ? "" : "s"} in ${slug} drifted from the lessons:`);
+    for (const { name, state } of drift) io.stderr(`  ${name} — ${DRIFT_WORDING[state]}`);
+    io.stderr(`Run 'nexus workbook render ${slug}' and commit the result; a page is never edited by hand.`);
+    return 1;
 }
 
 function describeHandoff(handoff: Handoff): string {
@@ -119,12 +147,13 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
             return 0;
         }
 
-        if (sub === "render") {
+        if (sub === "render" || sub === "check") {
             const lessons = readLessons(repoRoot, slug);
             if (lessons.length === 0) {
-                io.stderr(`${lessonsDir(repoRoot, slug)} holds no authored lesson, so there is nothing to render.`);
+                io.stderr(`${lessonsDir(repoRoot, slug)} holds no authored lesson, so there is nothing to ${sub}.`);
                 return 1;
             }
+            if (sub === "check") return reportDrift(repoRoot, slug, lessons, io);
             const written: string[] = renderWorkbookInto(workbookRoot(repoRoot, slug), { lessons });
             io.stdout(`rendered ${lessons.length} lesson${lessons.length === 1 ? "" : "s"} to ${workbookRoot(repoRoot, slug)}`);
             for (const name of written) io.stdout(`  ${name}`);
@@ -168,7 +197,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
             io.stderr(`workbook resolve needs the handoff's id — 'nexus workbook session ${slug}' lists them\n${USAGE}`);
             return 2;
         }
-        const resolved: Handoff = resolveHandoff(repoRoot, id, new Date().toISOString());
+        const resolved: Handoff = resolveHandoff(repoRoot, id, new Date().toISOString(), run);
         const left: Handoff[] = outstandingHandoffs(repoRoot).filter((h) => h.workbook === "" || h.workbook === slug);
         io.stdout(`resolved ${resolved.id} (story ${resolved.story}); ${left.length} handoff${left.length === 1 ? "" : "s"} still outstanding.`);
         return 0;

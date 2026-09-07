@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { allHandoffs, outstandingHandoffs, recordHandoff, resolveHandoff, startWorkbookSession } from "./handoffs";
-import { LEARNER_PATH, learnerRecordDir } from "./learner-store";
+import { LEARNER_PATH, UnignoredLearnerPathError, learnerRecordDir } from "./learner-store";
 import { createWorkbook } from "./workbook-store";
 
 let tmpDirs: string[] = [];
@@ -155,6 +155,18 @@ describe("a handoff record is appended to and marked, never rewritten", () => {
 
         expect(resolveHandoff(repo, handoff.id, "t3").resolvedAt).toBe("t2");
         expect(fs.readFileSync(file, "utf8")).toBe(once);
+    });
+
+    it("asks git before appending, so a rule removed after the pause stops the resolution", () => {
+        const repo = repoWithWorkbook();
+        const handoff = recordHandoff(repo, { story: "story-3", workbook: "rdl", recordedAt: "t1" });
+        const file = path.join(learnerRecordDir(repo, "handoffs"), handoff.id);
+        const before = fs.readFileSync(file, "utf8");
+
+        fs.writeFileSync(path.join(repo, ".gitignore"), ".nexus/tmp/\n");
+
+        expect(() => resolveHandoff(repo, handoff.id, "t2")).toThrow(UnignoredLearnerPathError);
+        expect(fs.readFileSync(file, "utf8")).toBe(before);
     });
 
     it("reports a handoff that was never recorded", () => {

@@ -40,7 +40,10 @@ behaviour says so.
   the one rule that excludes the learner folder, `render` turns the authored lessons under
   `lessons/` into pages beside them in the order `plan.yml` gives, and `session` is what opening a
   workbook means — it lists every outstanding handoff and resumes at the story that was handed off.
-  `handoff` records a pause and `resolve` marks one done.
+  `handoff` records a pause and `resolve` marks one done. `check` re-renders the lessons and
+  compares: a committed page edited by hand, or left behind by a lesson that has since changed,
+  fails the check and is named, instead of being read as if it were current. It reports the drift
+  and repairs nothing — re-rendering is the fix, and it stays the author's to run.
 - A render that fails leaves no page behind at all, not even the last render's. A page a learner
   could still open after a failed render would be one that no longer matches the lesson that
   produced it, and nothing on the page would say so.

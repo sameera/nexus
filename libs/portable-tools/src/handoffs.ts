@@ -18,7 +18,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
-import { learnerRecordDir, listLearnerRecords, readLearnerRecord, writeLearnerRecord } from "./learner-store.js";
+import {
+    appendLearnerRecord,
+    learnerRecordDir,
+    listLearnerRecords,
+    readLearnerRecord,
+    writeLearnerRecord,
+} from "./learner-store.js";
 import { openWorkbook, type OpenedWorkbook } from "./workbook-store.js";
 
 const KIND = "handoffs";
@@ -104,15 +110,19 @@ export function outstandingHandoffs(repoRoot: string): Handoff[] {
 /**
  * Mark a handoff resolved by appending to its record. Nothing is deleted and nothing already
  * written is changed, so what was handed off and when stays readable.
+ *
+ * The append goes through the learner store rather than straight to the file: resolving is a write
+ * to a personal record, so it asks git the same question recording it asked (invariant 9). The
+ * record existing already is not the answer — the rule that excluded it may have gone since.
  */
-export function resolveHandoff(repoRoot: string, id: string, resolvedAt: string): Handoff {
+export function resolveHandoff(repoRoot: string, id: string, resolvedAt: string, run: Runner = defaultRunner): Handoff {
     const file: string = path.join(learnerRecordDir(repoRoot, KIND), id);
     if (!fs.existsSync(file)) throw new Error(`no handoff record named ${id}`);
     const before: string | null = readLearnerRecord(repoRoot, KIND, id);
     if (before !== null && fieldOf(before, "resolved") !== null) {
         return parseHandoff(id, before) as Handoff;
     }
-    fs.appendFileSync(file, `- resolved: ${resolvedAt}\n`);
+    appendLearnerRecord(repoRoot, KIND, id, `- resolved: ${resolvedAt}\n`, run);
     return parseHandoff(id, fs.readFileSync(file, "utf8")) as Handoff;
 }
 

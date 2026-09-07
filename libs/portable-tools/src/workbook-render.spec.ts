@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
     LessonRenderError,
     STYLESHEET_NAME,
+    checkWorkbook,
     renderStylesheet,
     renderWorkbook,
     renderWorkbookInto,
@@ -224,5 +225,74 @@ describe("the render produces the whole workbook or nothing", () => {
         writeWorkbook(out, renderWorkbook({ lessons: [lesson("a.md", "A", "prose")] }));
 
         expect(fs.readdirSync(out).sort()).toEqual(["a.html", STYLESHEET_NAME, SCRIPT_NAME].sort());
+    });
+});
+
+describe("a committed page that has drifted from its lesson is reported", () => {
+    it("says nothing while every committed file is what the lessons render to", () => {
+        const out = makeDir();
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose"), lesson("b.md", "B", "more")] });
+
+        expect(checkWorkbook(out, { lessons: [lesson("a.md", "A", "prose"), lesson("b.md", "B", "more")] }))
+            .toEqual([]);
+    });
+
+    it("names a page someone edited by hand rather than re-rendering", () => {
+        const out = makeDir();
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose")] });
+        fs.writeFileSync(path.join(out, "a.html"), "<p>edited by hand</p>\n");
+
+        const drift = checkWorkbook(out, { lessons: [lesson("a.md", "A", "prose")] });
+
+        expect(drift).toEqual([{ name: "a.html", state: "changed" }]);
+    });
+
+    it("names a page whose lesson changed since it was rendered", () => {
+        const out = makeDir();
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose")] });
+
+        const drift = checkWorkbook(out, { lessons: [lesson("a.md", "A", "the lesson says something else")] });
+
+        expect(drift).toEqual([{ name: "a.html", state: "changed" }]);
+    });
+
+    it("names a lesson that was never rendered and a page whose lesson is gone", () => {
+        const out = makeDir();
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose"), lesson("gone.md", "Gone", "old")] });
+
+        const drift = checkWorkbook(out, { lessons: [lesson("a.md", "A", "prose"), lesson("new.md", "New", "b")] });
+
+        expect(drift).toContainEqual({ name: "gone.html", state: "extra" });
+        expect(drift).toContainEqual({ name: "new.html", state: "missing" });
+        // The surviving page names its neighbours, so replacing one lesson dates the other's page too.
+        expect(drift).toContainEqual({ name: "a.html", state: "changed" });
+    });
+
+    it("reports the drift and repairs nothing", () => {
+        const out = makeDir();
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose")] });
+        fs.writeFileSync(path.join(out, "a.html"), "<p>edited by hand</p>\n");
+
+        checkWorkbook(out, { lessons: [lesson("a.md", "A", "prose")] });
+
+        expect(fs.readFileSync(path.join(out, "a.html"), "utf8")).toBe("<p>edited by hand</p>\n");
+    });
+
+    it("reports a workbook that was never rendered as wholly missing", () => {
+        const out = makeDir();
+
+        expect(checkWorkbook(out, { lessons: [lesson("a.md", "A", "prose")] }).map((d) => d.name)).toEqual([
+            "a.html",
+            STYLESHEET_NAME,
+            SCRIPT_NAME,
+        ]);
+    });
+
+    it("fails the check for a lesson it cannot render, leaving the pages alone", () => {
+        const out = makeDir();
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose")] });
+
+        expect(() => checkWorkbook(out, { lessons: [lesson("a.md", "A", "<hr/>")] })).toThrow(LessonRenderError);
+        expect(fs.existsSync(path.join(out, "a.html"))).toBe(true);
     });
 });

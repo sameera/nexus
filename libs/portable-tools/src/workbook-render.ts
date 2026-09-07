@@ -438,6 +438,11 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
     return [...pages, ...assets].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
+/** True for a file this renderer produces — the pages and the shared assets, and nothing else. */
+function isRenderedOutput(name: string): boolean {
+    return name.endsWith(".html") || name === STYLESHEET_NAME || name === SCRIPT_NAME;
+}
+
 /**
  * Remove what a previous render left in the folder — the pages and the shared assets, and nothing
  * else, so an authored lesson kept beside its output is never touched.
@@ -445,9 +450,7 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
 export function clearWorkbookOutput(outDir: string): void {
     if (!fs.existsSync(outDir)) return;
     for (const existing of fs.readdirSync(outDir)) {
-        if (existing.endsWith(".html") || existing === STYLESHEET_NAME || existing === SCRIPT_NAME) {
-            fs.rmSync(path.join(outDir, existing), { force: true });
-        }
+        if (isRenderedOutput(existing)) fs.rmSync(path.join(outDir, existing), { force: true });
     }
 }
 
@@ -485,4 +488,41 @@ export function renderWorkbookInto(outDir: string, options: RenderOptions): stri
         throw error;
     }
     return writeWorkbook(outDir, files);
+}
+
+/** One committed file that is not what the lessons render to, and how it fails to match. */
+export interface WorkbookDrift {
+    /** The file's name inside the workbook folder. */
+    name: string;
+    /** `changed` — on disk but different; `missing` — never rendered; `extra` — no lesson renders it. */
+    state: "changed" | "missing" | "extra";
+}
+
+/**
+ * Check a rendered workbook against its lessons (decision record #450, the check half of "pages are
+ * generated, committed and deterministic").
+ *
+ * Committed generated output has one failure mode — drift from the source it was generated from —
+ * because the page in the diff looks authored and nothing in it says which lesson it is behind. The
+ * renderer being deterministic is what makes the check exact: rendering the lessons again and
+ * comparing bytes is the whole test.
+ *
+ * It reads and reports; it repairs nothing, so a caller decides whether to re-render. A lesson the
+ * renderer refuses throws, exactly as rendering it would — a workbook whose lessons do not render
+ * has drifted in a way no comparison describes.
+ */
+export function checkWorkbook(outDir: string, options: RenderOptions): WorkbookDrift[] {
+    const expected: RenderedFile[] = renderWorkbook(options);
+    const onDisk: string[] = fs.existsSync(outDir) ? fs.readdirSync(outDir).filter(isRenderedOutput) : [];
+    const drift: WorkbookDrift[] = [];
+    for (const file of expected) {
+        const target: string = path.join(outDir, file.name);
+        if (!fs.existsSync(target)) drift.push({ name: file.name, state: "missing" });
+        else if (fs.readFileSync(target, "utf8") !== file.contents) drift.push({ name: file.name, state: "changed" });
+    }
+    const rendered: Set<string> = new Set(expected.map((f) => f.name));
+    for (const name of onDisk) {
+        if (!rendered.has(name)) drift.push({ name, state: "extra" });
+    }
+    return drift.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }

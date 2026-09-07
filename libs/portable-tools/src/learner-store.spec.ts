@@ -8,6 +8,7 @@ import {
     LEARNER_PATH,
     LEARNER_RECORD_KINDS,
     UnignoredLearnerPathError,
+    appendLearnerRecord,
     ensureLearnerIgnored,
     isLearnerFolderIgnored,
     learnerFolder,
@@ -145,6 +146,29 @@ describe("nothing writes a personal record until git confirms the path is ignore
         expect(() => writeLearnerRecord(repo, "progress", "later.json", "{}\n")).toThrow(
             UnignoredLearnerPathError,
         );
+    });
+
+    it("asks git again before appending to a record it already wrote", () => {
+        const repo = initRepo();
+        createWorkbook(repo, "rdl");
+        writeLearnerRecord(repo, "hint-log", "2026-09-06.md", "asked for a hint\n");
+
+        fs.writeFileSync(path.join(repo, ".gitignore"), ".nexus/tmp/\n");
+
+        expect(() => appendLearnerRecord(repo, "hint-log", "2026-09-06.md", "asked again\n")).toThrow(
+            UnignoredLearnerPathError,
+        );
+        expect(readLearnerRecord(repo, "hint-log", "2026-09-06.md")).toBe("asked for a hint\n");
+    });
+
+    it("appends to a record while the rule is in place", () => {
+        const repo = initRepo();
+        createWorkbook(repo, "rdl");
+        writeLearnerRecord(repo, "hint-log", "2026-09-06.md", "asked for a hint\n");
+
+        appendLearnerRecord(repo, "hint-log", "2026-09-06.md", "asked again\n");
+
+        expect(readLearnerRecord(repo, "hint-log", "2026-09-06.md")).toBe("asked for a hint\nasked again\n");
     });
 
     it("honours a rule git reads from anywhere, not only the file this tool would write", () => {

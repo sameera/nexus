@@ -122,6 +122,25 @@ export function writeLearnerRecord(
     return target;
 }
 
+/**
+ * Add to one personal record, asking git the same question a first write asks. Appending is still
+ * writing: a record whose ignore rule was removed after it was created is exactly the second write
+ * the per-write check exists for, so it goes through the same guard rather than around it.
+ */
+export function appendLearnerRecord(
+    repoRoot: string,
+    kind: LearnerRecordKind,
+    name: string,
+    body: string,
+    run: Runner = defaultRunner,
+): string {
+    const target: string = path.join(learnerRecordDir(repoRoot, kind), name);
+    if (!isIgnoredByGit(repoRoot, target, run)) throw new UnignoredLearnerPathError(target);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.appendFileSync(target, body);
+    return target;
+}
+
 /** Read one personal record back, or null when the learner folder holds none. */
 export function readLearnerRecord(repoRoot: string, kind: LearnerRecordKind, name: string): string | null {
     const target: string = path.join(learnerRecordDir(repoRoot, kind), name);

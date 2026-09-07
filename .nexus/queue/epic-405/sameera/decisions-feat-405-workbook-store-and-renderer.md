@@ -21,3 +21,15 @@
 - **Choice:** Authored lessons sit under `<workbook>/lessons/`, pages render beside them at the workbook root, and `plan.yml` (`lessons:` list) gives teaching order; without it order is file name. A plan and a lessons folder that disagree fail the render.
 - **Why:** The record names two render inputs — the lesson files and the plan that orders them — and the CLI needed a concrete layout to read them from.
 - **Refuted alternative:** Order by file-name prefix only. Rejected because renaming a lesson to reorder it changes its page's URL.
+
+## 2026-09-07 — Resolving a handoff goes through a guarded append, not `fs.appendFileSync`
+
+- **Choice:** `appendLearnerRecord` in the learner store asks `isIgnoredByGit` exactly as `writeLearnerRecord` does, and `resolveHandoff` uses it (threading the runner from the CLI).
+- **Why:** Invariant 9 says nothing writes a personal record until git confirms the path is ignored, and the guard's contract is per write — the resolve append was the second write the contract exists for.
+- **Refuted alternative:** Treat the record already existing as the answer and leave the append unguarded. Rejected because the ignore rule can be removed between the pause and its resolution, which is exactly the case the per-write check was written for.
+
+## 2026-09-07 — Ship the record's check mode rather than revise the record
+
+- **Choice:** `nexus workbook check <slug>` (and `checkWorkbook`) re-renders the lessons in memory, compares bytes against the committed files, and reports changed/missing/extra without repairing anything.
+- **Why:** The record's key decision names four properties of a generated page and the fourth — a check mode that catches drift — had no implementing code; committed generated output has exactly that one failure mode, and the renderer being deterministic makes the comparison exact.
+- **Refuted alternative:** Revise the record to drop check mode. Rejected because the drift it names is real and unguarded: a page in a diff looks authored, and nothing on it says which lesson it is behind.
