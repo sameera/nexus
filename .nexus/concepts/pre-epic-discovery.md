@@ -1,8 +1,8 @@
 ---
 title: "Pre-Epic Discovery"
 aliases: ["discovery", "decision ticket", "discovery store", "foggy initiative", "underspecified initiative", "discovery loop"]
-touches: ["nexus-pipeline", "committed-queue", "distiller", "pr-driven-flow", "discovery-graduation", "fog-referral-gate", "scope-razor"]
-last_updated_by: "#284"
+touches: ["nexus-pipeline", "committed-queue", "distiller", "pr-driven-flow", "discovery-graduation", "fog-referral-gate", "scope-razor", "pipeline-store-exclusion"]
+last_updated_by: "#405"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ A discovery starts by fixing its destination and confirming its feature once, th
 - [discovery-graduation](discovery-graduation.md) — where a finished discovery becomes issues, since this stage files none itself.
 - [fog-referral-gate](fog-referral-gate.md) — the test in the epic stage that refers an underspecified intent here.
 - [scope-razor](scope-razor.md) — the rule set this stage's document and tickets are labelled under; a resolution is exempt, being a decision made in session.
+- [pipeline-store-exclusion](pipeline-store-exclusion.md) — the set this store belongs to, withheld from every diff a Nexus stage derives.
 
 ## Decision Log
 
@@ -44,3 +45,7 @@ Nexus answered an underspecified initiative the same way it answered an oversize
 ### 2026-09-04 — #284 — Discovery drafts under the same scope rules, and its resolutions are exempt
 
 Scope the epic stage refuses would otherwise enter through the stage that runs before it, so discovery now materializes the initiative as the lead described it, labels the document's not-yet-specified and out-of-scope entries and each ticket's question with the same two-valued vocabulary, and runs the same checker the epic gate runs. Loading a shared rule set is not the new machinery this stage forbids: the ban is on routing a ticket to anything that does not already exist, and the rules have one normative home this stage reads rather than restating. The behaviour is described on the rule set's own page rather than here, because this page is at its capacity and the store splits or links rather than growing a page. Resolutions carry no label at all — a resolution is a decision reached in session and is the model's own by construction, so labelling one would print a single uniform value on every resolution and tell a reviewer nothing. Refuted alternative: label resolutions too, for uniformity across the three drafting stages — it lost as exactly the decoration the two-valued rule exists to avoid.
+
+### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
+
+Mechanical reciprocity fan-out: the discovery store's exclusion moved from a path restated in two places into one named set carrying the reason it belongs. Analyze and close withheld nothing before and now withhold this store too, so ungated in-flight reasoning no longer reaches either gate as shipped behaviour.

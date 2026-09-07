@@ -1,8 +1,8 @@
 ---
 title: "Theme Tokens"
 aliases: ["theming", "dual theme", "light and dark mode", "semantic tokens"]
-touches: [application-shell]
-last_updated_by: "#15"
+touches: [application-shell, reading-surface-tokens]
+last_updated_by: "#405"
 status: active
 verification: verified
 ---
@@ -27,6 +27,7 @@ A semantic palette of surface tiers, chrome, ink tiers, accent, state, and gate-
 ## Integration Points
 
 - [application-shell](application-shell.md) — the shell root applies the active mode that every region inherits.
+- [reading-surface-tokens](reading-surface-tokens.md) — the reading subset of this vocabulary, lifted out so a second surface can share it.
 
 ## Decision Log
 
@@ -37,3 +38,7 @@ Theme is modelled as a semantic token vocabulary whose values are redefined unde
 ### 2026-07-04 — #15 — SSR-safe default theme with a one-frame flash
 
 The theme store's synchronous browser-storage and media-query read crashes under server rendering, so the server and the first client render both use a fixed default mode and reconcile the persisted or operating-system choice in a post-mount effect, accepting a one-frame flash on first load. Refuted alternative: a cookie-persisted mode read on the server for zero flash — legitimate on a public multi-user app, but it adds a server-read path and a new persistence surface for a purely cosmetic gain on a local single-user app, so the cost does not clear.
+
+### 2026-09-07 — #405 — Reciprocal link from reading-surface-tokens
+
+Mechanical reciprocity fan-out: the reading subset of this vocabulary — background, ink levels, accent, rules, code surfaces, type stacks and radius — was lifted into one definition the application now imports rather than declares. Application chrome values stay here. The single-source-of-truth invariant is unchanged in force; the source of truth for the reading subset moved out of the application so a library that cannot depend on it can read the same values.

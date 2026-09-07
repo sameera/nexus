@@ -1,8 +1,8 @@
 ---
 title: "Portable Tooling"
 aliases: ["portable distill tooling", "vendored tooling bundle", "hub tooling", "portable tools distributable", "bare-runtime validator and atlas generator"]
-touches: ["component-invocation-gate", "distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity", "published-package", "shipped-payload"]
-last_updated_by: "#351"
+touches: ["component-invocation-gate", "distiller", "workspace-resolution", "nexus-setup-cli", "verb-reachability", "release-identity", "published-package", "shipped-payload", "lesson-renderer"]
+last_updated_by: "#405"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ Distillation's validator and atlas steps were written to run through a code repo
 - [release-identity](release-identity.md) — the one version identifying this distributable and its payload together, declared at the release root the artifact's own walk-up finds.
 - [published-package](published-package.md) — the package this artifact ships inside as a declared binary, staged into its release tree rather than committed anywhere.
 - [shipped-payload](shipped-payload.md) — the other half of the two-entry fingerprint pin this artifact's parity gate compares against a fresh build.
+- [lesson-renderer](lesson-renderer.md) — ships on this same executable, which also carries the workbook's built script and stylesheet.
 
 ## Decision Log
 
@@ -89,3 +90,7 @@ Mechanical reciprocity fan-out: the component-invocation-gate page names this to
 ### 2026-08-28 — #351 — One artifact per declared toolkit name, not one executable
 
 The build stopped producing a single executable and now produces one self-contained artifact for each toolkit name the release declares, because the second toolkit's shell moved onto this runtime and had to ship the same way. Nothing downstream changed: the fingerprint pin already covered an arbitrary set of bundles by name, so gaining a second entry needed no new mechanism. The five standalone launchers stay deleted — the change is the number of *named toolkits* built, not a reversal of the collapse that removed per-capability launchers. **Refuted alternative:** one multi-call bundle serving both names and switching on the name it was invoked under, keeping the release to a single artifact and a single pin entry; refused because the invoked name is not reliably observable across package managers.
+
+### 2026-09-07 — #405 — Reciprocal link from lesson-renderer
+
+Mechanical reciprocity fan-out: the workbook's interactive runtime is compiled in this repository by the toolchain it already uses, and the built bytes travel inside this executable, which writes them out beside the pages. This keeps the distributable's shape — one self-contained program plus a text payload — and gains no new class of shipped file. Refuted alternative: bundle at render time, which would put a bundler and its dependency tree into the program and make every render a build.
