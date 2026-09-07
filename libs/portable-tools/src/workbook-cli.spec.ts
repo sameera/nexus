@@ -4,7 +4,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { runWorkbookCli, type WorkbookCliIo } from "./workbook-cli";
+import { type RunResult, type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { readProse, runWorkbookCli, type WorkbookCliIo } from "./workbook-cli";
 import { readPage } from "./workbook-page-fixtures";
 import { LESSONS_DIRNAME, workbookRoot } from "./workbook-store";
 
@@ -234,5 +235,120 @@ describe("the verb says what it needs", () => {
 
         expect(runWorkbookCli(["session", "rdl"], io)).toBe(1);
         expect(io.err.join("\n")).toContain("render");
+    });
+});
+
+
+describe("a teaching session writes the one lesson the learner is up to", () => {
+    const SUITE: string[] = ["fake-suite"];
+
+    function planText(): string {
+        return [
+            "repo: nexus",
+            "epic: 407",
+            `suite: ${JSON.stringify(SUITE)}`,
+            'grading: ["fake-grade"]',
+            "slices:",
+            "  - story: 460",
+            "    lesson: 01-drift.md",
+            "    builds: learner",
+            "    branch: feat/460-drift",
+            "    concepts: [pinned state]",
+            "    pinning_test:",
+            "      file: tests/drift.spec.ts",
+            "      text: |",
+            '        it("pins", () => {});',
+            "    pinned:",
+            "      title: A re-scoped story stops",
+            "      body: As a learner, I want the check.",
+            "",
+        ].join("\n");
+    }
+
+    /** A repository whose issue state, suite and probe are all decided by the fixture. */
+    function teachingRepo(options: { suite?: boolean; live?: string | null } = {}): { repo: string; run: Runner } {
+        const repo = initRepo();
+        const io = makeIo(repo);
+        expect(runWorkbookCli(["create", "rdl"], io)).toBe(0);
+        fs.writeFileSync(path.join(workbookRoot(repo, "rdl"), "plan.yml"), planText());
+        const live: string | null =
+            options.live === undefined
+                ? JSON.stringify({ title: "A re-scoped story stops", body: "As a learner, I want the check.", closedAt: null })
+                : options.live;
+        const run: Runner = (cmd, args, opts): RunResult => {
+            if (cmd === "gh") {
+                return live === null
+                    ? { status: 1, stdout: "", stderr: "no such issue" }
+                    : { status: 0, stdout: live, stderr: "" };
+            }
+            if (cmd === SUITE[0]) return { status: options.suite === false ? 1 : 0, stdout: "", stderr: "" };
+            if (cmd === "fake-grade") return { status: 1, stdout: "", stderr: "" };
+            return defaultRunner(cmd, args, opts);
+        };
+        return { repo, run };
+    }
+
+    it("hands out a brief naming the lesson to write, and writes nothing yet", () => {
+        const { repo, run } = teachingRepo();
+        const io = makeIo(repo);
+
+        expect(runWorkbookCli(["teach", "rdl"], io, run)).toBe(0);
+
+        expect(io.out.join("\n")).toContain("01-drift.md");
+        expect(fs.readdirSync(path.join(workbookRoot(repo, "rdl"), LESSONS_DIRNAME))).toEqual([]);
+    });
+
+    it("writes the lesson and its page once the prose comes back", () => {
+        const { repo, run } = teachingRepo();
+        const io = makeIo(repo);
+        const prose = path.join(repo, "theory.md");
+        fs.writeFileSync(prose, "A plan pins what was approved.\n");
+
+        expect(runWorkbookCli(["teach", "rdl", "--prose", prose], io, run)).toBe(0);
+
+        const page = readPage(fs.readFileSync(path.join(workbookRoot(repo, "rdl"), "01-drift.html"), "utf8"));
+        expect(page.title).toBe("A re-scoped story stops");
+        expect(page.visibleText).toContain("A plan pins what was approved.");
+        expect(page.visibleText).toContain("tests/drift.spec.ts");
+    });
+
+    it("takes the drill's question and answer from the prose file's front matter", () => {
+        const repo = initRepo();
+        const file = path.join(repo, "prose.md");
+        fs.writeFileSync(file, "---\nquestion: What was that idea?\nanswer: This idea.\n---\n\nThe theory half.\n");
+
+        expect(readProse(file)).toEqual({
+            theory: "\nThe theory half.\n",
+            drill: { question: "What was that idea?", answer: "This idea." },
+        });
+    });
+
+    it("takes a prose file with no front matter as the theory half alone", () => {
+        const repo = initRepo();
+        const file = path.join(repo, "prose.md");
+        fs.writeFileSync(file, "The theory half.\n");
+
+        expect(readProse(file)).toEqual({ theory: "The theory half.\n" });
+    });
+
+    it("stops and reports when the story could not be read, rather than teaching past it", () => {
+        const { repo, run } = teachingRepo({ live: null });
+        const io = makeIo(repo);
+
+        expect(runWorkbookCli(["teach", "rdl"], io, run)).toBe(1);
+
+        expect(io.err.join("\n")).toContain("could not be read");
+    });
+
+    it("stops while the declared suite is red, and writes no lesson", () => {
+        const { repo, run } = teachingRepo({ suite: false });
+        const io = makeIo(repo);
+        const prose = path.join(repo, "theory.md");
+        fs.writeFileSync(prose, "Prose.\n");
+
+        expect(runWorkbookCli(["teach", "rdl", "--prose", prose], io, run)).toBe(1);
+
+        expect(io.err.join("\n")).toContain("suite");
+        expect(fs.readdirSync(path.join(workbookRoot(repo, "rdl"), LESSONS_DIRNAME))).toEqual([]);
     });
 });

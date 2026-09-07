@@ -18,6 +18,7 @@ import { parse } from "yaml";
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
 import { ensureLearnerIgnored } from "./learner-store.js";
 import { assertWorkbookHome } from "./workbook-placement.js";
+import { PLAN_FILENAME, parsePlan, type WorkbookPlan } from "./workbook-plan.js";
 import { NEXUS_ROOT_DIRNAME, WORKBOOK_STORE_DIRNAME, WORKBOOK_STORE_PATH } from "./pipeline-stores.js";
 import { type LessonSource } from "./workbook-render.js";
 
@@ -33,9 +34,6 @@ export function workbookRoot(repoRoot: string, slug: string): string {
 
 /** The authored lessons' folder inside one workbook. Prose in, pages out beside it. */
 export const LESSONS_DIRNAME: string = "lessons";
-
-/** The optional file that orders the lessons; without it, order is the lessons' file names. */
-export const PLAN_FILENAME: string = "plan.yml";
 
 export interface CreatedWorkbook {
     /** Absolute path of the created workbook folder. */
@@ -103,30 +101,27 @@ export function lessonsDir(repoRoot: string, slug: string): string {
  * The plan is the second input the renderer takes (record #450): `plan.yml` names the lessons in
  * teaching order. Without one the order is the lessons' file names, which is deterministic but
  * says nothing about teaching — a workbook that cares about sequence writes the plan.
+ *
+ * A plan that describes *slices* (epic #407) is a teaching plan, and there an absent lesson is the
+ * normal state: lessons are written on arrival, so every slice past the frontier is a stub. The
+ * refusal that fires when the plan names a lesson the folder does not hold therefore narrows to
+ * slices marked as written (record #469). The other half of the agreement stands either way — a
+ * lesson the plan does not name still has no place in the workbook.
  */
 export function readLessons(repoRoot: string, slug: string): LessonSource[] {
     const dir: string = lessonsDir(repoRoot, slug);
     if (!fs.existsSync(dir)) return [];
-    const present: string[] = fs
-        .readdirSync(dir, { withFileTypes: true })
-        .filter((e) => e.isFile() && e.name.endsWith(".md"))
-        .map((e) => e.name)
-        .sort();
+    const present: string[] = writtenLessonFiles(repoRoot, slug);
     const read = (file: string): LessonSource => ({ file, source: fs.readFileSync(path.join(dir, file), "utf8") });
 
-    const planFile: string = path.join(workbookRoot(repoRoot, slug), PLAN_FILENAME);
-    if (!fs.existsSync(planFile)) return present.map(read);
+    const planText: string | null = readPlanText(repoRoot, slug);
+    if (planText === null) return present.map(read);
 
-    const plan: unknown = parse(fs.readFileSync(planFile, "utf8"));
-    const named: unknown = (plan as Record<string, unknown> | null)?.["lessons"];
-    if (!Array.isArray(named)) {
-        throw new Error(`${PLAN_FILENAME} declares no 'lessons' list, so the workbook has no order to render in`);
-    }
-    const order: string[] = named.map((entry) => String(entry));
-    const missing: string[] = order.filter((file) => !present.includes(file));
-    if (missing.length > 0) {
+    const order: string[] = plannedOrder(planText);
+    const stubs: string[] = order.filter((file) => !present.includes(file));
+    if (stubs.length > 0 && !hasSlices(planText)) {
         throw new Error(
-            `${PLAN_FILENAME} names ${missing.join(", ")}, which ${LESSONS_DIRNAME}/ does not hold. ` +
+            `${PLAN_FILENAME} names ${stubs.join(", ")}, which ${LESSONS_DIRNAME}/ does not hold. ` +
             `The plan and the lessons must agree before a workbook renders.`,
         );
     }
@@ -137,5 +132,52 @@ export function readLessons(repoRoot: string, slug: string): LessonSource[] {
             `A lesson with no place in the plan has no place in the workbook.`,
         );
     }
-    return order.map(read);
+    return order.filter((file) => present.includes(file)).map(read);
+}
+
+/** The lesson files this workbook actually holds, sorted, so reading them is deterministic. */
+export function writtenLessonFiles(repoRoot: string, slug: string): string[] {
+    const dir: string = lessonsDir(repoRoot, slug);
+    if (!fs.existsSync(dir)) return [];
+    return fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isFile() && e.name.endsWith(".md"))
+        .map((e) => e.name)
+        .sort();
+}
+
+/** The plan file's text, or null when the workbook declares no plan at all. */
+function readPlanText(repoRoot: string, slug: string): string | null {
+    const planFile: string = path.join(workbookRoot(repoRoot, slug), PLAN_FILENAME);
+    return fs.existsSync(planFile) ? fs.readFileSync(planFile, "utf8") : null;
+}
+
+/** True when the plan describes slices, which is what makes an absent lesson a stub. */
+function hasSlices(planText: string): boolean {
+    const doc: unknown = parse(planText);
+    return Array.isArray((doc as Record<string, unknown> | null)?.["slices"]);
+}
+
+/** The teaching order the plan gives, from its slices or from a plain list of lesson files. */
+function plannedOrder(planText: string): string[] {
+    if (hasSlices(planText)) {
+        // A handoff slice names no lesson: it is neither built nor taught by the learner, so it is
+        // no part of the workbook's reading order.
+        return parsePlan(planText).slices.map((slice) => slice.lesson).filter((lesson) => lesson !== "");
+    }
+    const named: unknown = (parse(planText) as Record<string, unknown> | null)?.["lessons"];
+    if (!Array.isArray(named)) {
+        throw new Error(`${PLAN_FILENAME} declares no 'lessons' list, so the workbook has no order to render in`);
+    }
+    return named.map((entry) => String(entry));
+}
+
+/**
+ * The workbook's plan, or null when it declares none. A workbook with no slices is one the earlier
+ * epic's renderer serves — it orders lessons and teaches nothing, so there is no plan to teach from.
+ */
+export function readWorkbookPlan(repoRoot: string, slug: string): WorkbookPlan | null {
+    const planText: string | null = readPlanText(repoRoot, slug);
+    if (planText === null || !hasSlices(planText)) return null;
+    return parsePlan(planText);
 }

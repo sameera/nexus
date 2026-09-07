@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+    composeLesson,
+    renderDrillSection,
     renderExerciseSection,
     resolveArrival,
+    type AuthoredProse,
     type ExerciseFacts,
+    type LessonBrief,
     type StagedLesson,
 } from "./lesson-writer.js";
 import { type TeachingPlan } from "./teaching-plan.js";
@@ -41,6 +45,33 @@ describe("resolveArrival", () => {
         expect(resolveArrival(PLAN, written)).toEqual({ kind: "handoff", slice: PLAN.slices[1] });
     });
 
+    it("resumes at the outstanding handoff rather than treating the next slice as fresh", () => {
+        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+
+        expect(resolveArrival(PLAN, written, { resolved: [], outstanding: 464 })).toEqual({
+            kind: "resume",
+            story: 464,
+        });
+    });
+
+    it("teaches past a handoff slice once its handoff has been resolved", () => {
+        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+
+        expect(resolveArrival(PLAN, written, { resolved: [464], outstanding: null })).toEqual({
+            kind: "write",
+            slice: PLAN.slices[2],
+        });
+    });
+
+    it("hands the same slice off again while its handoff is unresolved and unrecorded", () => {
+        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+
+        expect(resolveArrival(PLAN, written, { resolved: [], outstanding: null })).toEqual({
+            kind: "handoff",
+            slice: PLAN.slices[1],
+        });
+    });
+
     it("reports done once every slice has a finished lesson", () => {
         const allLearnerBuilt: TeachingPlan = {
             slices: [
@@ -72,13 +103,66 @@ describe("renderExerciseSection", () => {
         expect(section).toContain("npx nx test @nexus/portable-tools");
     });
 
-    it("asks about a concept the learner took a hint on, when a drill is chosen", () => {
-        const section = renderExerciseSection(facts, "cold retrieval");
+    it("carries no markup — it is authored lesson prose, not a page", () => {
+        const section = renderExerciseSection(facts);
+        expect(section).not.toMatch(/<[a-zA-Z]/);
+    });
+});
+
+describe("the drill opens the lesson as a predict-then-reveal exercise", () => {
+    it("asks the question and declares the component that withholds the answer", () => {
+        const section = renderDrillSection("cold retrieval", "What is cold retrieval?", "Recall without a cue.");
+
         expect(section).toContain("cold retrieval");
+        expect(section).toContain("predict-then-reveal");
+        expect(section).toContain("What is cold retrieval?");
+        expect(section).toContain("Recall without a cue.");
+        expect(section).not.toMatch(/<[a-zA-Z]/);
+    });
+});
+
+describe("composeLesson assembles what the chain decided around the prose an agent wrote", () => {
+    const brief: LessonBrief = {
+        story: 460,
+        lesson: "01-drift.md",
+        title: "A re-scoped story stops",
+        concepts: ["pinned state"],
+        drill: "cold retrieval",
+        exercise: {
+            story: 460,
+            branch: "feat/460-drift",
+            pinningTest: "teaching-plan.spec.ts",
+            gradingCommand: "npx nx test @nexus/portable-tools",
+        },
+    };
+    const prose: AuthoredProse = {
+        theory: "A plan pins what was approved.\n",
+        drill: { question: "What is cold retrieval?", answer: "Recall without a cue." },
+    };
+
+    it("puts the drill first, the theory next and the exercise last", () => {
+        const lesson = composeLesson(brief, prose);
+
+        expect(lesson.indexOf("cold retrieval")).toBeLessThan(lesson.indexOf("A plan pins what was approved."));
+        expect(lesson.indexOf("A plan pins what was approved.")).toBeLessThan(lesson.indexOf("## Exercise"));
     });
 
-    it("carries no markup — it is authored lesson prose, not a page", () => {
-        const section = renderExerciseSection(facts, "cold retrieval");
-        expect(section).not.toMatch(/<[a-zA-Z]/);
+    it("declares the lesson's title, so the page it renders to has one", () => {
+        expect(composeLesson(brief, prose)).toMatch(/^---\ntitle: A re-scoped story stops\n/);
+    });
+
+    it("records the concept it drilled, so a later session can see it was asked about", () => {
+        expect(composeLesson(brief, prose)).toContain("drill: cold retrieval");
+    });
+
+    it("goes straight to the theory when no concept was cold enough to drill", () => {
+        const lesson = composeLesson({ ...brief, drill: null }, { theory: prose.theory });
+
+        expect(lesson).not.toContain("Warm-up");
+        expect(lesson).toContain("A plan pins what was approved.");
+    });
+
+    it("refuses to write a lesson whose drill has no question and answer to reveal", () => {
+        expect(() => composeLesson(brief, { theory: prose.theory })).toThrow(/cold retrieval/);
     });
 });

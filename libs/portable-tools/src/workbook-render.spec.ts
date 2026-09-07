@@ -130,6 +130,17 @@ describe("two lessons authored months apart come out identical but for their pro
         expect(files.filter((f) => f.name === STYLESHEET_NAME)).toHaveLength(1);
     });
 
+    it("shows a slice with no lesson yet as not written rather than as a link", () => {
+        const files = renderWorkbook({
+            lessons: [lesson("01-drift.md", "Drift", "The first lesson.")],
+            stubs: ["Story #464", "Story #465"],
+        });
+
+        const page = readPage(pageOf(files, "01-drift.html"));
+        expect(page.navigation).toEqual(["Drift", "Story #464 — not yet written", "Story #465 — not yet written"]);
+        expect(page.links.map((l) => l.label)).not.toContain("Story #464 — not yet written");
+    });
+
     it("references the one stylesheet by relative path instead of carrying a copy", () => {
         const files = renderWorkbook({ lessons: [lesson("a.md", "A", "prose"), lesson("b.md", "B", "prose")] });
 
