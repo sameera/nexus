@@ -51,3 +51,57 @@
 - **Choice:** On resuming from a pause the session first probes the *handed-off* slice's pinning test — failing means its work is not in this tree, reported as unintegrated — and only then probes the *next learner* slice's test for the breach.
 - **Why:** Record #469 requires both behaviours: "when the handed-off work is not present in the tree, the session reports that and pauses", and the fence breach is "the exercise is already done". They are different questions about different slices, and one probe cannot answer both.
 - **Refuted alternative:** Infer integration from git — whether the handoff branch is merged. Rejected because the session moves and reads no git state by decision, and a branch can be merged without the work being present (or present without the branch, having been rebased or squashed elsewhere).
+
+## 2026-09-07 — The probe names the materialized test to the grading command, which is the command's contract
+
+- **Choice:** `runProbe` appends the materialized file's repo-relative path (`.nexus/tmp/workbook-probe/<file>`) to the declared `grading` vector, so the exit status it reads is a verdict over that one file. The workbook's grading command is therefore contracted to take the path of a single test file as its final argument.
+- **Why:** Without the path the command chose its own targets, so on a return — where the suite is green by the time the probe runs — it passed for reasons having nothing to do with the pinning test. Every return then read as a breach, and #465's "every test passes on the return → write the next lesson" was unreachable. The final-argument shape is what `vitest <file>`, `pytest <file>` and `jest <file>` already accept, so the contract costs adopters nothing.
+- **Refuted alternative:** Pass the path in an environment variable and let each repository's grading command pick it up. More flexible for a runner that cannot take a path, but it is invisible: a command that ignores the variable still exits zero and the fence silently reverts to the wrong question.
+
+## 2026-09-07 — Hints rank the drill, coldness only makes a concept eligible
+
+- **Choice:** `chooseDrill` sorts eligible concepts by hints taken first, then by how overdue they are, then by name. Coldness (last mentioned before the lesson just finished) stays a filter, not a rank.
+- **Why:** #462's second criterion states the rule for two eligible concepts: the one with more hints wins. Ranking by coldness first only honoured that in the narrow case where both were last mentioned in the same lesson, which is not the case the criterion describes. Record #469 backs the criterion — hints "rank a drill that is already eligible".
+- **Refuted alternative:** Keep coldness first and amend #462 and the record to match the code. Defensible as a spacing policy, but it is a scope edit to an approved story made from the build, which is the plan approver's act and not the implementer's.
+
+## 2026-09-07 — A hinted concept comes back as its own predict-then-reveal section, not through the drill
+
+- **Choice:** `conceptsToRevisit` names the concepts from the lesson just finished that carry a hint, the brief carries them as `revisit`, and `composeLesson` refuses to write a lesson that names one and asks nothing about it. They render as a predict-then-reveal section after the theory, and the front matter records `revisits: [...]`.
+- **Why:** #463's second criterion needs a mechanism and the drill can never be it: a concept from the lesson just finished is not a cold recall (invariant 21), so the drill excludes exactly the concepts this criterion is about. Making the brief carry them and the composer refuse without them keeps the fact in code, in the same shape the drill already uses, and puts it on the committed page where a teammate's checkout can read it without a hint log.
+- **Refuted alternative:** Fold the hinted concepts into the next slice's `concepts` list and let the theory prose deal with them. Cheaper, but `concepts` means "introduced here" — it feeds the drill's history — so a revisited concept would read as freshly taught and would go cold one lesson late. It also leaves the criterion unenforced, since nothing checks that the prose mentions it.
+
+## 2026-09-07 — A pause belongs to the workbook that recorded it, and a resolution says how it was reached
+
+- **Choice:** The session reads only handoff records whose `workbook` field equals this slug, rather than also claiming records that name none. `resolveHandoff` takes `how` and appends `- resolution: verified | override`, defaulting to `override`; the session passes `verified` after a green suite and an intact fence, and `nexus workbook resolve` passes `override` and says so.
+- **Why:** "At most one handoff is outstanding" is per-workbook (invariant 18), so a record naming no workbook belonged to any of them and one workbook could resume at another's pause. Record #469 requires a manual override to record that it was an override; one `- resolved:` line for both made a checked resolution indistinguishable from an asserted one.
+- **Refuted alternative:** Keep the empty-workbook fallback for records written by epic #405's `nexus workbook handoff` before the field was carried. Kinder to an old record, but the fallback is what breaks the invariant, and that path has always written the slug.
+
+## 2026-09-07 — The revisited concepts' prose travels in the prose file's front matter, as a `revisit` list
+
+- **Choice:** `readProse` in `workbook-cli.ts` reads a `revisit:` list of `{concept, question, answer}` entries from the prose file's front matter, beside the drill's `question`/`answer`, and hands them to `composeLesson` as `AuthoredProse.revisit`. An entry missing any of the three is dropped rather than half-carried.
+- **Why:** Without it #463's second criterion had no path through the shipped surface: `conceptsToRevisit`, the brief's `revisit` and `composeLesson`'s refusal were all implemented, but the only way prose reaches the composer is this file, and it parsed nothing but the drill — so any brief naming a concept to revisit made `nexus workbook teach <slug> --prose <file>` throw instead of writing the lesson. Dropping a half-written entry keeps the composer's refusal (which names the concept) as the one error the author sees, rather than a lesson that asks a question with nothing behind it.
+- **Refuted alternative:** A second `--revisit <file>` flag carrying those questions. It keeps the front matter minimal, but it splits one agent's single contribution across two files that can disagree about which concepts were answered, and the brief already names the concepts in one place.
+
+## 2026-09-07 — A probe that cannot run is reported as an unchecked fence, and a declared control test tells the two apart
+
+- **Choice:** `runProbe`'s false no longer flows into `interpretReturn` as a boolean. The plan may declare an optional `probe_control` (a `{file, text}` test written to pass in this repository's stack); `proveProbe` runs it and answers `proven | unrunnable | unproven`, `interpretReturn` takes a `FenceState` of `breached | intact | unchecked`, and an unchecked fence blocks the lesson with its own outcome and report. On a return, the handed-off slice's own probe passing is itself the proof that one test file can run alone, so the fence probe that follows it is trustworthy; when that probe fails, the control decides whether the diagnosis is "the branch is not in this tree" or "the probe cannot run here".
+- **Why:** Record #469's fifth ADDRESS risk requires exactly this: "Reporting that the fence could not be checked is acceptable, and silently reporting an intact fence is not." A bare boolean made a pinning test that cannot compile or cannot run in isolation indistinguishable from an intact fence, and the session taught on. It also fixes the wrong diagnosis the unintegrated outcome gave for an unrunnable probe.
+- **Refuted alternative:** Read the run's exit status or output to guess whether the test actually executed. No status or message is portable across test runners, so the guess would be wrong in exactly the stacks the risk is about, and being wrong there is invisible — which is the failure the record names.
+
+## 2026-09-07 — Measured: the full suite on this repository is ~25 seconds, so the record's latency risk does not reopen it
+
+- **Choice:** Accept the full-suite gate as built. `npx nx run-many -t test --skip-nx-cache` over all 14 projects runs 1063 tests in ~25 s wall (portable-tools alone: ~17 s, twice consecutively). No narrowing of the declared command, and no reopening of record #469.
+- **Why:** The record's third ADDRESS risk accepts the wait as the price of the guarantee but requires it measured before the epic closes, and requires the record reopened rather than the command narrowed if the wait proves unacceptable. Tens of seconds once per sitting is not the "minutes between the learner and each sitting" the risk warns about, so the accepted price stands as accepted.
+- **Refuted alternative:** Narrow the gate's command for large suites. Refused by the record itself — a check weaker than it appears is worse than a slow one — and, at 25 s, unnecessary.
+
+## 2026-09-07 — Proven: one test file runs in isolation here, but only under a grading command whose root reaches the scratch path
+
+- **Choice:** The probe is proven on this repository, with the stated fallback being the declared `probe_control`. Materializing a test at `.nexus/tmp/workbook-probe/tests/` and running `npx vitest run --root . --dir . <file>` exits 0 for a passing file and 1 for a failing one, in ~0.5 s — so the breach/intact discrimination is real here. Running the same file under `npx vitest run --root libs/portable-tools <file>` exits 1 with "No test files found", because that project's `include` is `src/**` and the scratch path is outside its root.
+- **Why:** Record #469's fifth ADDRESS risk requires the probe proven against this repository's own suite first, and a decided fallback where it cannot run. The second command is precisely the failure mode the risk describes, and it is silent: without a control it reads as an intact fence. So the fallback is not a stack-detection heuristic but the declared control — it fails in exactly that case, and the session reports the fence unchecked.
+- **Refuted alternative:** Make the probe write into each project's own `src/` so any project-scoped `include` reaches it. Rejected because it puts a generated test inside the learner's real source tree, which invariant 11 exists to prevent — a crashed probe would become a mystery failing test in a committed directory.
+
+## 2026-09-07 — A clean drift check says so, rather than being silent
+
+- **Choice:** `SessionResult` gained `notes`, and the session pushes an affirmative line when the gate found no drift across the whole plan (and one naming the verified fence on a return). `nexus workbook teach` prints them prefixed "checked:".
+- **Why:** #460's third criterion is "the session reports no drift and continues". The session continued correctly but said nothing, so a learner could not tell a check that passed from a check that never ran — which is the whole value of the check to them.
+- **Refuted alternative:** Fold the sentence into each outcome's own report. It reaches the same reader, but every outcome would have to restate it, and the drift the check *did* find is already reported separately — one list of what was checked keeps the two together.

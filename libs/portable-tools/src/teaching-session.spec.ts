@@ -6,10 +6,10 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type RunResult, type Runner, defaultRunner } from "@nexus/close-migration/run";
 import { PROBE_SCRATCH_PATH } from "./fence-probe";
-import { allHandoffs } from "./handoffs";
+import { allHandoffs, recordHandoff } from "./handoffs";
 import { type LiveStory } from "./teaching-plan";
 import { runTeachingSession, type SessionInputs, type SessionResult } from "./teaching-session";
-import { type AuthoredProse } from "./lesson-writer";
+import { type AuthoredProse, type LessonBrief } from "./lesson-writer";
 import { readPage } from "./workbook-page-fixtures";
 import { PLAN_FILENAME } from "./workbook-plan";
 import { createWorkbook, lessonsDir, workbookRoot } from "./workbook-store";
@@ -44,12 +44,18 @@ const SLICES: SliceSpec[] = [
     { story: 465, lesson: "04-fence.md", builds: "learner", test: "tests/fence.spec.ts", concepts: ["the probe"] },
 ];
 
-function planText(slices: readonly SliceSpec[] = SLICES): string {
+/** The control test a workbook may declare, which proves the grading command can run one file alone. */
+const CONTROL_TEST: string = "tests/probe-control.spec.ts";
+
+function planText(slices: readonly SliceSpec[] = SLICES, control: boolean = false): string {
     const lines: string[] = [
         "repo: nexus",
         "epic: 407",
         `suite: ${JSON.stringify(SUITE)}`,
         `grading: ${JSON.stringify(GRADING)}`,
+        ...(control
+            ? ["probe_control:", `  file: ${CONTROL_TEST}`, "  text: |", '    it("runs alone", () => {});']
+            : []),
         "slices:",
     ];
     for (const slice of slices) {
@@ -71,29 +77,13 @@ function planText(slices: readonly SliceSpec[] = SLICES): string {
     return lines.join("\n") + "\n";
 }
 
-function makeRepo(slices: readonly SliceSpec[] = SLICES): string {
+function makeRepo(slices: readonly SliceSpec[] = SLICES, control: boolean = false): string {
     const dir = makeDir();
     execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
     fs.writeFileSync(path.join(dir, ".gitignore"), "");
     createWorkbook(dir, "rdl");
-    fs.writeFileSync(path.join(workbookRoot(dir, "rdl"), PLAN_FILENAME), planText(slices));
+    fs.writeFileSync(path.join(workbookRoot(dir, "rdl"), PLAN_FILENAME), planText(slices, control));
     return dir;
-}
-
-/** Every test file the probe finds already passing — the fence's answer, decided by the fixture. */
-function materialized(repo: string): string[] {
-    const root = path.join(repo, PROBE_SCRATCH_PATH);
-    const found: string[] = [];
-    const walk = (dir: string, prefix: string): void => {
-        if (!fs.existsSync(dir)) return;
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-            const next = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-            if (entry.isDirectory()) walk(path.join(dir, entry.name), next);
-            else found.push(next);
-        }
-    };
-    walk(root, "");
-    return found;
 }
 
 interface Fixture {
@@ -110,9 +100,15 @@ function makeRunner(fixture: Fixture): Runner {
         fixture.invoked.push([cmd, ...args]);
         if (cmd === SUITE[0]) return { status: fixture.suite ? 0 : 1, stdout: "one test failed", stderr: "" };
         if (cmd === GRADING[0]) {
-            const probed: string[] = materialized(opts.cwd);
-            const passes: boolean = probed.some((file) => fixture.passing.includes(file));
-            return { status: passes ? 0 : 1, stdout: "", stderr: "" };
+            // A real test runner runs the file it was given, so the fixture answers about that one
+            // file and about nothing else in the tree.
+            const named: string = args[args.length - 1];
+            const materialized: string = path.join(opts.cwd, named);
+            if (!named.startsWith(`${PROBE_SCRATCH_PATH}/`) || !fs.existsSync(materialized)) {
+                return { status: 1, stdout: "", stderr: "no such test file" };
+            }
+            const test: string = named.slice(`${PROBE_SCRATCH_PATH}/`.length);
+            return { status: fixture.passing.includes(test) ? 0 : 1, stdout: "", stderr: "" };
         }
         return defaultRunner(cmd, args, opts);
     };
@@ -129,6 +125,22 @@ function prose(drill = true): AuthoredProse {
     return {
         theory: "The theory half, written for this learner at this moment.",
         ...(drill ? { drill: { question: "What was that idea?", answer: "This idea." } } : {}),
+    };
+}
+
+/** The prose an agent writes back for one brief: the drill and every revisit it asked for. */
+function proseFor(brief: LessonBrief | null): AuthoredProse {
+    return {
+        ...prose(brief?.drill != null),
+        ...(brief === undefined || brief === null || brief.revisit.length === 0
+            ? {}
+            : {
+                  revisit: brief.revisit.map((concept) => ({
+                      concept,
+                      question: `Again, what is ${concept}?`,
+                      answer: `${concept}, once more.`,
+                  })),
+              }),
     };
 }
 
@@ -174,8 +186,8 @@ function finish(repo: string, test: string): void {
 /** Teach one whole lesson: the brief, then the prose that answers it. */
 function teachOne(repo: string, options: RunOptions = {}): SessionResult {
     const briefed = teach(repo, options).result;
-    const drill: boolean = briefed.outcome.kind === "brief" && briefed.outcome.brief.drill !== null;
-    return teach(repo, { ...options, prose: prose(drill) }).result;
+    const brief: LessonBrief | null = briefed.outcome.kind === "brief" ? briefed.outcome.brief : null;
+    return teach(repo, { ...options, prose: proseFor(brief) }).result;
 }
 
 describe("a workbook opened at its first lesson holds exactly one written lesson", () => {
@@ -374,6 +386,47 @@ describe("a drill opens the session on a concept met at least one lesson earlier
     });
 });
 
+describe("a concept the learner took a hint on comes back in the next lesson", () => {
+    it("names it in the brief, even though the drill can never reach it", () => {
+        const repo = makeRepo();
+        teachOne(repo);
+        finish(repo, "tests/drift.spec.ts");
+        writeHintLog(repo, JSON.stringify({ drift: 2 }));
+
+        const briefed = teach(repo).result;
+
+        if (briefed.outcome.kind !== "brief") throw new Error(`expected a brief, got ${briefed.outcome.kind}`);
+        expect(briefed.outcome.brief.revisit).toEqual(["drift"]);
+        expect(briefed.outcome.brief.drill).not.toBe("drift");
+    });
+
+    it("asks about it again in the lesson it writes, with the answer withheld until asked for", () => {
+        const repo = makeRepo();
+        teachOne(repo);
+        finish(repo, "tests/drift.spec.ts");
+        writeHintLog(repo, JSON.stringify({ drift: 2 }));
+
+        teachOne(repo);
+
+        const page = readPage(fs.readFileSync(path.join(workbookRoot(repo, "rdl"), "02-widget.html"), "utf8"));
+        expect(page.visibleText).toContain("Again, what is drift?");
+        expect(page.visibleText).not.toContain("drift, once more.");
+        expect(page.controls.some((c) => c.content.includes("drift, once more."))).toBe(true);
+    });
+
+    it("asks about nothing again when the learner took no hint on the lesson they just finished", () => {
+        const repo = makeRepo();
+        teachOne(repo);
+        finish(repo, "tests/drift.spec.ts");
+        writeHintLog(repo, JSON.stringify({ "cold retrieval": 4 }));
+
+        const briefed = teach(repo).result;
+
+        if (briefed.outcome.kind !== "brief") throw new Error(`expected a brief, got ${briefed.outcome.kind}`);
+        expect(briefed.outcome.brief.revisit).toEqual([]);
+    });
+});
+
 describe("a handoff slice produces a prompt, and the session pauses", () => {
     /** Teach the three learner slices, so the plan's next slice is the handoff. */
     function upToTheHandoff(repo: string): void {
@@ -430,6 +483,59 @@ describe("a handoff slice produces a prompt, and the session pauses", () => {
 
         expect(resumed.outcome.kind).toBe("unintegrated");
         expect(resumed.outcome.report).toContain("#464");
+    });
+
+    it("says the branch may instead be a probe that cannot run, when nothing proved that it can", () => {
+        const repo = makeRepo();
+        upToTheHandoff(repo);
+        teach(repo, { prose: prose(false) });
+
+        const resumed = teach(repo, { passing: [], prose: prose(false) }).result;
+
+        expect(resumed.outcome.report).toContain("probe_control");
+    });
+
+    it("says only that the branch is not here once a control test has proved the probe can run", () => {
+        const repo = makeRepo(SLICES, true);
+        upToTheHandoff(repo);
+        teach(repo, { prose: prose(false) });
+
+        const resumed = teach(repo, { passing: [CONTROL_TEST], prose: prose(false) }).result;
+
+        expect(resumed.outcome.kind).toBe("unintegrated");
+        expect(resumed.outcome.report).not.toContain("probe_control");
+    });
+
+    it("reports that the fence could not be checked when a test known to pass cannot run alone here", () => {
+        const repo = makeRepo(SLICES, true);
+        upToTheHandoff(repo);
+        teach(repo, { prose: prose(false) });
+
+        const resumed = teach(repo, { passing: [], prose: prose(false) }).result;
+
+        expect(resumed.outcome.kind).toBe("unchecked");
+        expect(resumed.outcome.report).toContain("#464");
+        expect(fs.readdirSync(lessonsDir(repo, "rdl"))).not.toContain("04-fence.md");
+        expect(allHandoffs(repo)[0].resolvedAt).toBeNull();
+    });
+
+    it("records the pause at the clock the session was given, so the record is reproducible", () => {
+        const repo = makeRepo();
+        upToTheHandoff(repo);
+
+        teach(repo, { prose: prose(false) });
+
+        expect(allHandoffs(repo)[0].recordedAt).toBe("2026-09-07T12:00:00.000Z");
+    });
+
+    it("does not claim a pause that names no workbook, which belongs to no workbook here", () => {
+        const repo = makeRepo();
+        upToTheHandoff(repo);
+        recordHandoff(repo, { story: "999", workbook: "", recordedAt: "t1" });
+
+        const result = teach(repo, { prose: prose(false) }).result;
+
+        expect(result.outcome.kind).toBe("handoff");
     });
 
     it("records exactly one pause, and does not record a second while that one is open", () => {
@@ -502,6 +608,26 @@ describe("the suite runs on the return, and a pinning test that already passes i
         expect(allHandoffs(repo)[0].resolvedAt).not.toBeNull();
     });
 
+    it("runs the probe over the materialized test itself, naming it to the grading command", () => {
+        const repo = makeRepo();
+        pausedAtTheHandoff(repo);
+
+        const { fixture } = teach(repo, { passing: ["tests/handoff.spec.ts"] });
+
+        const graded: string[] = fixture.invoked.filter((v) => v[0] === GRADING[0]).map((v) => v[v.length - 1]);
+        expect(graded).toContain(`${PROBE_SCRATCH_PATH}/tests/handoff.spec.ts`);
+        expect(graded).toContain(`${PROBE_SCRATCH_PATH}/tests/fence.spec.ts`);
+    });
+
+    it("records that a green suite and an intact fence resolved the pause, not a hand override", () => {
+        const repo = makeRepo();
+        pausedAtTheHandoff(repo);
+
+        teachOne(repo, { passing: ["tests/handoff.spec.ts"] });
+
+        expect(allHandoffs(repo)[0].resolution).toBe("verified");
+    });
+
     it("sweeps the probe's scratch path at the start of every session, whatever a crash left there", () => {
         const repo = makeRepo();
         const litter = path.join(repo, PROBE_SCRATCH_PATH, "tests", "left-behind.spec.ts");
@@ -511,6 +637,27 @@ describe("the suite runs on the return, and a pinning test that already passes i
         teach(repo, { prose: prose(false) });
 
         expect(fs.existsSync(path.join(repo, PROBE_SCRATCH_PATH))).toBe(false);
+    });
+});
+
+describe("a plan whose stories all still match what they were pinned to", () => {
+    it("says so rather than being silent about the check having run", () => {
+        const repo = makeRepo();
+
+        const result = teach(repo).result;
+
+        expect(result.outcome.kind).toBe("brief");
+        expect(result.drift).toEqual([]);
+        expect(result.notes.join(" ")).toContain("pinned");
+    });
+
+    it("says nothing of the kind when a story has drifted", () => {
+        const repo = makeRepo();
+
+        const result = teach(repo, { live: { ...LIVE, 460: { ...LIVE[460], title: "Story 460 teaches something else" } } }).result;
+
+        expect(result.outcome.kind).toBe("drift");
+        expect(result.notes).toEqual([]);
     });
 });
 

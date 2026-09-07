@@ -7,7 +7,8 @@
  * something nobody is building any more, so every slice's pinned state is compared against the
  * story's live issue state before its lesson is written (decision record #469, invariants 9, 24).
  *
- * The comparison covers only the story's title and body, whitespace normalized — labels, assignees
+ * The comparison covers only the story's title and body, whitespace normalized, and a finding names
+ * which of the two moved and what it moved from and to (invariant 24) — labels, assignees
  * and comments do not trip it, because the reader of this signal is a learner in mid-flow, and a
  * check that fires on incidental churn is a check they learn to skip past. Drift on a slice other
  * than the one about to be taught is reported and the session teaches on regardless; only the next
@@ -57,6 +58,28 @@ function normalize(text: string): string {
     return text.trim().replace(/\s+/g, " ");
 }
 
+/** One field's value as a drift report shows it: quoted, and cut short if it is long. */
+function quote(value: string): string {
+    const single: string = normalize(value);
+    return JSON.stringify(single.length <= 160 ? single : `${single.slice(0, 159)}…`);
+}
+
+/**
+ * What changed about a story, field by field, quoted rather than executed or expanded (invariant
+ * 13). A learner who is told only that "the title or body has changed" still has to go and diff the
+ * issue by hand, which is the work the report exists to save them (invariant 24).
+ */
+function changes(pinned: PinnedStory, live: LiveStory): string[] {
+    const found: string[] = [];
+    if (normalize(live.title) !== normalize(pinned.title)) {
+        found.push(`its title was ${quote(pinned.title)} and is now ${quote(live.title)}`);
+    }
+    if (normalize(live.body) !== normalize(pinned.body)) {
+        found.push(`its description was ${quote(pinned.body)} and is now ${quote(live.body)}`);
+    }
+    return found;
+}
+
 function driftFor(slice: PlanSlice, live: LiveStory | null): DriftFinding | null {
     if (live === null) {
         return {
@@ -68,11 +91,12 @@ function driftFor(slice: PlanSlice, live: LiveStory | null): DriftFinding | null
     if (live.closed) {
         return { story: slice.story, state: "closed", detail: `#${slice.story} has been closed since the plan was pinned.` };
     }
-    if (normalize(live.title) !== normalize(slice.pinned.title) || normalize(live.body) !== normalize(slice.pinned.body)) {
+    const changed: string[] = changes(slice.pinned, live);
+    if (changed.length > 0) {
         return {
             story: slice.story,
             state: "changed",
-            detail: `#${slice.story}'s title or body has changed since the plan was pinned.`,
+            detail: `#${slice.story} has changed since the plan was pinned: ${changed.join("; and ")}.`,
         };
     }
     return null;

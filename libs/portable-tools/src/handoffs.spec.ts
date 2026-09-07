@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { defaultRunner } from "@nexus/close-migration/run";
 import { allHandoffs, outstandingHandoffs, recordHandoff, resolveHandoff, startWorkbookSession } from "./handoffs";
 import { LEARNER_PATH, UnignoredLearnerPathError, learnerRecordDir } from "./learner-store";
 import { createWorkbook } from "./workbook-store";
@@ -167,6 +168,36 @@ describe("a handoff record is appended to and marked, never rewritten", () => {
 
         expect(() => resolveHandoff(repo, handoff.id, "t2")).toThrow(UnignoredLearnerPathError);
         expect(fs.readFileSync(file, "utf8")).toBe(before);
+    });
+
+    it("records that a resolution was a manual override, so the two are not the same line", () => {
+        const repo = repoWithWorkbook();
+        const handoff = recordHandoff(repo, { story: "story-3", workbook: "rdl", recordedAt: "t1" });
+
+        const resolved = resolveHandoff(repo, handoff.id, "t2");
+
+        expect(resolved.resolution).toBe("override");
+        expect(fs.readFileSync(path.join(learnerRecordDir(repo, "handoffs"), handoff.id), "utf8")).toContain("override");
+    });
+
+    it("records a resolution the session verified as verified, distinguishably from an override", () => {
+        const repo = repoWithWorkbook();
+        const one = recordHandoff(repo, { story: "story-1", workbook: "rdl", recordedAt: "t1" });
+        const two = recordHandoff(repo, { story: "story-2", workbook: "rdl", recordedAt: "t2" });
+
+        const verified = resolveHandoff(repo, one.id, "t3", defaultRunner, "verified");
+        const overridden = resolveHandoff(repo, two.id, "t4", defaultRunner, "override");
+
+        expect(verified.resolution).toBe("verified");
+        expect(overridden.resolution).toBe("override");
+        expect(verified.resolution).not.toBe(overridden.resolution);
+    });
+
+    it("says nothing about how a handoff still outstanding was resolved", () => {
+        const repo = repoWithWorkbook();
+        const handoff = recordHandoff(repo, { story: "story-3", workbook: "rdl", recordedAt: "t1" });
+
+        expect(allHandoffs(repo).find((h) => h.id === handoff.id)?.resolution).toBeNull();
     });
 
     it("reports a handoff that was never recorded", () => {
