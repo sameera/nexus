@@ -16,7 +16,7 @@ import {
     writeLearnerRecord,
 } from "./learner-store";
 import { WORKBOOK_STORE_PATH } from "./pipeline-stores";
-import { createWorkbook, openWorkbook } from "./workbook-store";
+import { LESSONS_DIRNAME, createWorkbook, openWorkbook } from "./workbook-store";
 
 let tmpDirs: string[] = [];
 function makeDir(): string {
@@ -60,10 +60,11 @@ describe("everything the workbook retains about a person sits under one folder",
             expect(LEARNER_RECORD_KINDS).toContain(kind);
             expect(fs.existsSync(path.join(learnerFolder(repo), kind))).toBe(true);
         }
-        // Nothing personal sits anywhere else in the store: the workbook holds only the workbooks.
+        // Nothing personal sits anywhere else in the store: the workbook holds only the workbooks,
+        // and a workbook holds only the lessons an author writes and the pages they render to.
         const storeChildren = fs.readdirSync(path.join(repo, WORKBOOK_STORE_PATH)).sort();
         expect(storeChildren).toEqual([".learner", "rdl"]);
-        expect(fs.readdirSync(path.join(repo, WORKBOOK_STORE_PATH, "rdl"))).toEqual([]);
+        expect(fs.readdirSync(path.join(repo, WORKBOOK_STORE_PATH, "rdl"))).toEqual([LESSONS_DIRNAME]);
     });
 
     it("reads a record back and enumerates the records of one kind in a stable order", () => {

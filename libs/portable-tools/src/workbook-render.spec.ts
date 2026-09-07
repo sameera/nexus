@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -7,10 +8,12 @@ import {
     STYLESHEET_NAME,
     renderStylesheet,
     renderWorkbook,
+    renderWorkbookInto,
     writeWorkbook,
     type LessonSource,
     type RenderedFile,
 } from "./workbook-render";
+import { readPage } from "./workbook-page-fixtures";
 import { SCRIPT_NAME } from "./workbook-widgets";
 import { READING_TOKEN_NAMES, renderReadingTokensCss } from "./reading-tokens";
 
@@ -54,32 +57,33 @@ describe("a lesson's markdown and front matter become a page", () => {
         );
 
         const files = renderWorkbook({ lessons: [source] });
-        const page = pageOf(files, "the-widget-seam.html");
+        const page = readPage(pageOf(files, "the-widget-seam.html"));
 
         expect(source.source).not.toMatch(/<[a-z]/i);
-        expect(page).toContain("<!doctype html>");
-        expect(page).toContain("<title>The widget seam</title>");
-        expect(page).toContain("<strong>inert</strong>");
-        expect(page).toContain("<h2>Why it is inert</h2>");
-        expect(page).toContain("<li>it resolves at render time</li>");
-        expect(page).toContain('<a href="./record.html">record</a>');
+        expect(page.title).toBe("The widget seam");
+        expect(page.text).toContain("A widget is an inert declaration in the prose.");
+        expect(page.emphasised).toContain("inert");
+        expect(page.headings).toContain("Why it is inert");
+        expect(page.listItems).toContain("it resolves at render time");
+        expect(page.links).toContainEqual({ label: "record", href: "./record.html" });
     });
 
     it("renders a code block as code rather than as page structure", () => {
         const source = lesson("code.md", "Code", ["```bash", "nexus excluded-stores", "```"].join("\n"));
 
-        const page = pageOf(renderWorkbook({ lessons: [source] }), "code.html");
+        const page = readPage(pageOf(renderWorkbook({ lessons: [source] }), "code.html"));
 
-        expect(page).toContain("<pre><code>nexus excluded-stores\n</code></pre>");
+        expect(page.code).toContain("nexus excluded-stores");
+        expect(page.text).toContain("nexus excluded-stores");
     });
 
     it("shows a lesson's angle brackets to the reader instead of acting on them", () => {
         const source = lesson("escapes.md", "Escapes", "Compare `a > b` and `a & b`.");
 
-        const page = pageOf(renderWorkbook({ lessons: [source] }), "escapes.html");
+        const page = readPage(pageOf(renderWorkbook({ lessons: [source] }), "escapes.html"));
 
-        expect(page).toContain("<code>a &gt; b</code>");
-        expect(page).toContain("<code>a &amp; b</code>");
+        expect(page.code).toContain("a > b");
+        expect(page.code).toContain("a & b");
     });
 });
 
@@ -114,18 +118,14 @@ describe("two lessons authored months apart come out identical but for their pro
         const late = lesson("late.md", "Late", "The last lesson.");
 
         const files = renderWorkbook({ lessons: [early, late] });
-        // Strip everything that is this lesson's own — its name, its title and its prose — and what
-        // remains is the chrome. Two pages must be identical there.
-        const strip = (page: string): string =>
-            page
-                .replace(/<!--[\s\S]*?-->/, "")
-                .replace(/<nav class="workbook-nav"[\s\S]*?<\/nav>/, "")
-                .replace(/<footer class="lesson-provenance">[\s\S]*?<\/footer>/, "")
-                .replace(/<title>.*<\/title>/, "")
-                .replace(/<h1 class="lesson-title">.*<\/h1>/, "")
-                .replace(/<p>.*<\/p>/, "");
+        // The chrome is everything a reader meets that is not this lesson's own words: the
+        // navigation, the styling, the runtime, and the shape of the provenance sentence. Two
+        // pages authored months apart must present all of it identically.
+        const first = readPage(pageOf(files, "early.html"));
+        const second = readPage(pageOf(files, "late.html"));
 
-        expect(strip(pageOf(files, "early.html"))).toBe(strip(pageOf(files, "late.html")));
+        expect(first.chrome).toEqual(second.chrome);
+        expect(first.navigation).toEqual(["Early", "Late"]);
         expect(files.filter((f) => f.name === STYLESHEET_NAME)).toHaveLength(1);
     });
 
@@ -133,7 +133,7 @@ describe("two lessons authored months apart come out identical but for their pro
         const files = renderWorkbook({ lessons: [lesson("a.md", "A", "prose"), lesson("b.md", "B", "prose")] });
 
         for (const name of ["a.html", "b.html"]) {
-            expect(pageOf(files, name)).toContain(`<link rel="stylesheet" href="./${STYLESHEET_NAME}">`);
+            expect(readPage(pageOf(files, name)).stylesheets).toEqual([`./${STYLESHEET_NAME}`]);
             expect(pageOf(files, name)).not.toContain("--c-ink");
         }
     });
@@ -192,20 +192,29 @@ describe("the render produces the whole workbook or nothing", () => {
         expect(fs.readdirSync(out).sort()).toEqual(["a.html", STYLESHEET_NAME, SCRIPT_NAME].sort());
     });
 
-    it("leaves an earlier render untouched when a later lesson fails", () => {
+    it("leaves no page at all behind when a lesson fails — not even the last render's", () => {
         const out = makeDir();
-        writeWorkbook(out, renderWorkbook({ lessons: [lesson("a.md", "A", "prose")] }));
-        const before = fs.readFileSync(path.join(out, "a.html"), "utf8");
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose")] });
 
         expect(() =>
-            writeWorkbook(
-                out,
-                renderWorkbook({ lessons: [lesson("a.md", "A", "changed"), lesson("b.md", "B", "<hr/>")] }),
-            ),
+            renderWorkbookInto(out, {
+                lessons: [lesson("a.md", "A", "changed"), lesson("b.md", "B", "<hr/>")],
+            }),
         ).toThrow(LessonRenderError);
 
-        expect(fs.readFileSync(path.join(out, "a.html"), "utf8")).toBe(before);
-        expect(fs.existsSync(path.join(out, "b.html"))).toBe(false);
+        // A page a learner could still open after a failed render would be one that no longer
+        // matches the lesson that produced it, and nothing on the page would say so.
+        expect(fs.readdirSync(out)).toEqual([]);
+    });
+
+    it("renders again cleanly once the lesson that failed is fixed", () => {
+        const out = makeDir();
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose")] });
+        expect(() => renderWorkbookInto(out, { lessons: [lesson("b.md", "B", "<hr/>")] })).toThrow();
+
+        renderWorkbookInto(out, { lessons: [lesson("a.md", "A", "prose"), lesson("b.md", "B", "fixed")] });
+
+        expect(readPage(fs.readFileSync(path.join(out, "b.html"), "utf8")).text).toContain("fixed");
     });
 
     it("leaves no stale page behind when a lesson is removed", () => {

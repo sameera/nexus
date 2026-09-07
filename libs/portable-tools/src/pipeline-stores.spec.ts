@@ -132,25 +132,32 @@ describe("the command bodies derive their exclusions from that one definition", 
 });
 
 describe("a derived behavioural diff withholds the workbook and nothing else", () => {
+    // The workbook sits in the member repository whose roadmap it teaches, never in the hub
+    // (record #450, invariant 6), so the range the drain reads names that member.
     function workspaceWithWorkbookChange(): { hub: string; entry: string } {
         const parent = makeDir();
         const hub = path.join(parent, "hub");
         initRepo(hub, "git@github.com:acme/hub.git");
         write(hub, ".nexus/config/workspace.yml",
-            "hub:\n  name: hub\n  remote: git@github.com:acme/hub.git\nmembers: []\n");
-        write(hub, "libs/app/src/thing.ts", "export const before = 1;\n");
-        const base = commitAll(hub, "base");
+            "hub:\n  name: hub\n  remote: git@github.com:acme/hub.git\nmembers:\n  - name: web-app\n    remote: git@github.com:acme/web-app.git\n");
+        commitAll(hub, "declare the workspace");
 
-        const workbook = createWorkbook(hub, "rdl");
-        write(hub, `${workbook.relativePath}/lesson.html`, "<p>generated markup</p>\n");
-        write(hub, "libs/app/src/thing.ts", "export const before = 2;\n");
-        const head = commitAll(hub, "workbook page plus application source");
+        const member = path.join(parent, "web-app");
+        initRepo(member, "git@github.com:acme/web-app.git");
+        write(member, ".nexus/config/hub.yml", "hub:\n  name: hub\n  remote: git@github.com:acme/hub.git\n");
+        write(member, "libs/app/src/thing.ts", "export const before = 1;\n");
+        const base = commitAll(member, "base");
+
+        const workbook = createWorkbook(member, "rdl");
+        write(member, `${workbook.relativePath}/lesson.html`, "<p>generated markup</p>\n");
+        write(member, "libs/app/src/thing.ts", "export const before = 2;\n");
+        const head = commitAll(member, "workbook page plus application source");
 
         const entry = path.join(hub, ".nexus", "queue", "epic-1");
         fs.mkdirSync(entry, { recursive: true });
         fs.writeFileSync(
             path.join(entry, "close-record.md"),
-            `---\nrange:\n  - repo: github.com/acme/hub\n    base: ${base}\n    head: ${head}\n---\n`,
+            `---\nrange:\n  - repo: github.com/acme/web-app\n    base: ${base}\n    head: ${head}\n---\n`,
         );
         return { hub, entry };
     }

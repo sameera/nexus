@@ -1,8 +1,10 @@
+// @vitest-environment jsdom
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { renderStylesheet, renderWorkbook, writeWorkbook, type LessonSource } from "./workbook-render";
+import { renderStylesheet, renderWorkbook, renderWorkbookInto, type LessonSource } from "./workbook-render";
+import { printPage, readPage } from "./workbook-page-fixtures";
 import {
     SCRIPT_NAME,
     WIDGET_MANIFEST,
@@ -62,10 +64,13 @@ describe("a declaration resolves to a component from the shared library", () => 
             (f) => f.name === "the-store.html",
         )!.contents;
 
-        expect(page).toContain("beside the queue, under the Nexus root");
-        expect(page).toContain('data-widget="check-your-understanding"');
-        expect(page.indexOf("The store sits beside the queue.")).toBeLessThan(page.indexOf("data-widget"));
-        expect(page.indexOf("data-widget")).toBeLessThan(page.indexOf("And that is the whole rule."));
+        const read = readPage(page);
+        const [widget] = read.controls;
+        expect(widget.label).toContain("where does the store live?");
+        expect(widget.content).toContain("beside the queue, under the Nexus root");
+        // The widget sits where the lesson put it: after the prose above it, before the prose below.
+        expect(read.text.indexOf("The store sits beside the queue.")).toBeLessThan(read.text.indexOf(widget.label));
+        expect(read.text.indexOf(widget.label)).toBeLessThan(read.text.indexOf("And that is the whole rule."));
     });
 
     it("leaves the authored lesson ordinary markdown, carrying no markup", () => {
@@ -79,7 +84,8 @@ describe("a declaration resolves to a component from the shared library", () => 
         });
 
         for (const name of ["the-store.html", "other.html"]) {
-            expect(two.find((f) => f.name === name)!.contents).toContain("beside the queue, under the Nexus root");
+            const read = readPage(two.find((f) => f.name === name)!.contents);
+            expect(read.controls[0].content).toContain("beside the queue, under the Nexus root");
         }
         expect(Object.keys(WIDGET_MANIFEST)).toEqual([]);
     });
@@ -93,8 +99,9 @@ describe("a declaration resolves to a component from the shared library", () => 
         const page = renderWorkbook({ lessons: [source], widgets: LIBRARY }).find((f) => f.name === "code.html")!
             .contents;
 
-        expect(page).toContain("<pre><code>nexus excluded-stores");
-        expect(page).not.toContain("data-widget");
+        const read = readPage(page);
+        expect(read.code).toContain("nexus excluded-stores");
+        expect(read.controls).toEqual([]);
     });
 });
 
@@ -112,10 +119,10 @@ describe("a component the library does not hold fails the whole render", () => {
         const good: LessonSource = { file: "good.md", source: "---\ntitle: Good\n---\n\nprose\n" };
 
         expect(() =>
-            writeWorkbook(
-                out,
-                renderWorkbook({ lessons: [good, lessonWith("component: does-not-exist")], widgets: LIBRARY }),
-            ),
+            renderWorkbookInto(out, {
+                lessons: [good, lessonWith("component: does-not-exist")],
+                widgets: LIBRARY,
+            }),
         ).toThrow(WidgetError);
 
         expect(fs.readdirSync(out)).toEqual([]);
@@ -134,16 +141,22 @@ describe("a widget the learner has not touched still prints", () => {
             (f) => f.name === "the-store.html",
         )!.contents;
 
-        expect(page).toContain("beside the queue, under the Nexus root");
-        expect(page).toContain('<div class="widget-content" hidden>');
+        const read = readPage(page);
+        // The answer is in the page a learner has not touched; the reveal only stops it showing.
+        expect(read.text).toContain("beside the queue, under the Nexus root");
+        expect(read.visibleText).not.toContain("beside the queue, under the Nexus root");
+        expect(read.controls[0].showing).toBe(false);
     });
 
     it("puts that content on the paper and leaves the reveal control off it", () => {
-        const css = renderStylesheet();
-        const printBlock = css.slice(css.lastIndexOf("@media print"));
+        const page = renderWorkbook({ lessons: [lessonWith(DECLARATION)], widgets: LIBRARY }).find(
+            (f) => f.name === "the-store.html",
+        )!.contents;
 
-        expect(printBlock).toContain(".widget-content[hidden] { display: block !important; }");
-        expect(printBlock).toContain(".widget-reveal { display: none; }");
+        const printed = printPage(page, renderStylesheet());
+
+        expect(printed.shows("beside the queue, under the Nexus root")).toBe(true);
+        expect(printed.shows("Show the answer to: where does the store live?")).toBe(false);
     });
 
     it("changes only what is visible when the learner does interact", () => {
@@ -159,8 +172,7 @@ describe("the runtime travels inside the toolkit", () => {
         const files = renderWorkbook({ lessons: [lessonWith(DECLARATION)], widgets: LIBRARY });
 
         expect(files.filter((f) => f.name === SCRIPT_NAME)).toHaveLength(1);
-        const page = files.find((f) => f.name === "the-store.html")!.contents;
-        expect(page).toContain(`<script src="./${SCRIPT_NAME}"></script>`);
-        expect(page).not.toContain('type="module"');
+        const read = readPage(files.find((f) => f.name === "the-store.html")!.contents);
+        expect(read.scripts).toEqual([{ src: `./${SCRIPT_NAME}`, module: false }]);
     });
 });

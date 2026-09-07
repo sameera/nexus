@@ -14,8 +14,9 @@
  *   writes the markup" is only enforceable when there is no channel through which markup could
  *   arrive.
  * - **The render is all-or-nothing.** Pages are built in memory and written only once every lesson
- *   has rendered, and a failed render clears any output left from a previous one — so a workbook
- *   is never part new and part stale.
+ *   has rendered, and a failed render clears any output left from a previous one (invariant 15) —
+ *   so a workbook is never part new and part stale. `renderWorkbookInto` is the entry point that
+ *   holds that property; `renderWorkbook` and `writeWorkbook` are its two halves.
  *
  * Chrome comes from one place (`renderPageShell`), and every page references one stylesheet by
  * relative path rather than carrying a copy, so a change to the runtime rewrites two files instead
@@ -438,21 +439,50 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
 }
 
 /**
- * Write a rendered workbook into its folder. The whole render happens first, so a lesson that
- * fails leaves the folder untouched; and the previous render's pages are cleared, so no stale page
- * survives a lesson being removed or renamed.
+ * Remove what a previous render left in the folder — the pages and the shared assets, and nothing
+ * else, so an authored lesson kept beside its output is never touched.
  */
-export function writeWorkbook(outDir: string, files: readonly RenderedFile[]): string[] {
-    fs.mkdirSync(outDir, { recursive: true });
+export function clearWorkbookOutput(outDir: string): void {
+    if (!fs.existsSync(outDir)) return;
     for (const existing of fs.readdirSync(outDir)) {
         if (existing.endsWith(".html") || existing === STYLESHEET_NAME || existing === SCRIPT_NAME) {
             fs.rmSync(path.join(outDir, existing), { force: true });
         }
     }
+}
+
+/**
+ * Write a rendered workbook into its folder, clearing the previous render first so no stale page
+ * survives a lesson being removed or renamed.
+ */
+export function writeWorkbook(outDir: string, files: readonly RenderedFile[]): string[] {
+    fs.mkdirSync(outDir, { recursive: true });
+    clearWorkbookOutput(outDir);
     const written: string[] = [];
     for (const file of files) {
         fs.writeFileSync(path.join(outDir, file.name), file.contents);
         written.push(file.name);
     }
     return written;
+}
+
+/**
+ * Render a workbook into its folder: the one entry point a caller uses, and the one place the
+ * all-or-nothing property lives (invariant 15).
+ *
+ * A failed render — a lesson carrying markup, a widget declaration the library cannot resolve —
+ * leaves *no* output behind, not even the previous render's. A learner opening a page must never
+ * be reading pages that no longer match the lessons that produced them, and a half-current
+ * workbook is worse than an empty one because nothing about the page says which it is. The render
+ * that failed is reported, so the fix is to correct the lesson and render again.
+ */
+export function renderWorkbookInto(outDir: string, options: RenderOptions): string[] {
+    let files: RenderedFile[];
+    try {
+        files = renderWorkbook(options);
+    } catch (error) {
+        clearWorkbookOutput(outDir);
+        throw error;
+    }
+    return writeWorkbook(outDir, files);
 }

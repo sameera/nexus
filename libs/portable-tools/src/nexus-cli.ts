@@ -19,6 +19,7 @@
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
  *   nexus workspace add-repo           add one member to an existing workspace (STORY-60.04)
  *   nexus workspace github-defaults    print the hub's github-publishing defaults as JSON (STORY-121.05)
+ *   nexus workbook <sub>               make, render and read a learner's workbook (epic #405)
  */
 
 import * as fs from "node:fs";
@@ -84,6 +85,7 @@ import {
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
+import { WORKBOOK_SUBVERBS, runWorkbookCli } from "./workbook-cli.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -299,6 +301,24 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      than writing the paths out, so no second statement of it can drift.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runExcludedStores(argv, io)),
+    },
+    workbook: {
+        summary: "Make a learner's workbook, render its lessons, and start a session on it.",
+        usage: [
+            "  nexus workbook create <slug> [--root <dir>] [--repo <member>]",
+            "  nexus workbook render <slug> [--root <dir>] [--repo <member>]",
+            "  nexus workbook session <slug> [--root <dir>] [--repo <member>]",
+            "  nexus workbook handoff <slug> --story <story> [--note <why>] [--root <dir>]",
+            "  nexus workbook resolve <slug> <handoff-id> [--root <dir>]",
+            "      Create makes the committed workbook folder and ensures the one rule that",
+            "      excludes the learner folder. Render turns every authored lesson under",
+            "      lessons/ into a page beside it — the whole workbook or none of it. Session is",
+            "      what opening a workbook means: it lists every outstanding handoff and resumes",
+            "      at the story that was handed off. In a workspace a workbook lives in the",
+            "      member repository whose roadmap it teaches; --repo names it from the hub.",
+        ].join("\n"),
+        subverbs: WORKBOOK_SUBVERBS,
+        run: (argv, io) => Promise.resolve(runWorkbookCli(argv, io)),
     },
     "drift-advisory": {
         summary: "Report concept pages whose domain filing looks stale.",

@@ -36,6 +36,17 @@ behaviour says so.
   that it was generated and names the authored lesson, as the first thing in the file, so a
   reviewer meets it before any markup. Printing a page gives ink on white whatever the screen
   theme is, and leaves the navigation off the paper.
+- `nexus workbook` is how a workbook is reached: `create` makes the committed folder and ensures
+  the one rule that excludes the learner folder, `render` turns the authored lessons under
+  `lessons/` into pages beside them in the order `plan.yml` gives, and `session` is what opening a
+  workbook means — it lists every outstanding handoff and resumes at the story that was handed off.
+  `handoff` records a pause and `resolve` marks one done.
+- A render that fails leaves no page behind at all, not even the last render's. A page a learner
+  could still open after a failed render would be one that no longer matches the lesson that
+  produced it, and nothing on the page would say so.
+- In a workspace with a hub and members, a workbook belongs to the member repository whose roadmap
+  it teaches. Creating one in the hub is refused and names the members it could have meant; run
+  from the hub, `--repo <member>` says which one.
 - A lesson can declare an interactive widget where it belongs in the prose, as a fenced block that
   stays ordinary markdown, and the renderer resolves it against a shared component library. A
   declaration naming a component the library does not hold fails the whole render and names the
