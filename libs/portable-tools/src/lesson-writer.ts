@@ -89,25 +89,51 @@ export function resolveArrival(
 export interface ExerciseFacts {
     story: number;
     branch: string;
+    /** Where the learner writes the pinning test — also the name the probe materializes it under. */
     pinningTest: string;
+    /**
+     * The pinning test's own text. The lesson shows it and the fence probe runs it, and they are
+     * one text held once in the plan (record #469): a second copy could check something other than
+     * what the learner was asked for, with nothing comparing the two. Naming only the file would
+     * hold that single text and still leave the learner unable to see what is being checked without
+     * opening the plan, which is the other half of what the decision is for.
+     */
+    pinningTestText: string;
     gradingCommand: string;
 }
 
 /**
+ * A fence long enough to hold the test's text without the text closing it, so what the learner
+ * reads is the whole test rather than as much of it as the first backtick run allowed.
+ */
+function fenceFor(text: string): string {
+    let longest = 0;
+    for (const run of text.match(/`+/g) ?? []) longest = Math.max(longest, run.length);
+    return "`".repeat(Math.max(3, longest + 1));
+}
+
+/**
  * Render the exercise half of a lesson: plain markdown, because an authored lesson may carry no
- * markup (the renderer refuses it).
+ * markup (the renderer refuses it). The test's own text goes in a code fence, whose content the
+ * renderer escapes and shows as code — so a test that reads like markup is shown to the learner
+ * rather than acted on.
  */
 export function renderExerciseSection(facts: ExerciseFacts): string {
-    const lines: string[] = [];
-    lines.push(
+    const fence: string = fenceFor(facts.pinningTestText);
+    return [
         "## Exercise",
         "",
         `- **Story:** #${facts.story}`,
         `- **Branch:** \`${facts.branch}\``,
         `- **Pinning test to write first:** \`${facts.pinningTest}\``,
         `- **Grading command:** \`${facts.gradingCommand}\``,
-    );
-    return lines.join("\n");
+        "",
+        "Write this test, exactly as it reads here — it is the text the fence probe runs:",
+        "",
+        fence,
+        facts.pinningTestText.replace(/\n+$/, ""),
+        fence,
+    ].join("\n");
 }
 
 /**

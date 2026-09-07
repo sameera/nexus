@@ -21,12 +21,21 @@ import { parse } from "yaml";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
 import { outstandingHandoffs, recordHandoff, resolveHandoff, startWorkbookSession, type Handoff, type WorkbookSession } from "./handoffs.js";
-import { LESSONS_DIRNAME, createWorkbook, lessonsDir, readLessons, workbookRoot, type CreatedWorkbook } from "./workbook-store.js";
+import {
+    LESSONS_DIRNAME,
+    createWorkbook,
+    lessonsDir,
+    readLessons,
+    readWorkbookPlan,
+    workbookRoot,
+    type CreatedWorkbook,
+} from "./workbook-store.js";
 import { checkWorkbook, renderWorkbookInto, type LessonSource, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
 import { type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
+import { type WorkbookPlan } from "./workbook-plan.js";
 
 /** The subverbs `nexus workbook` dispatches. */
 export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "render", "check", "session", "teach", "handoff", "resolve"];
@@ -192,7 +201,15 @@ function readRevisits(raw: unknown): RevisitProse[] {
 }
 
 /** The outcomes that mean the session stopped rather than taught. They exit non-zero. */
-const STOPPED: readonly string[] = ["no-plan", "suite-red", "unintegrated", "unchecked", "breach", "drift"];
+const STOPPED: readonly string[] = [
+    "no-plan",
+    "suite-red",
+    "unintegrated",
+    "unplanned-handoff",
+    "unchecked",
+    "breach",
+    "drift",
+];
 
 /** Report one session: what it did, what drift it saw on the way, and what it could not read. */
 function reportSession(result: SessionResult, io: WorkbookCliIo): number {
@@ -291,6 +308,20 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         if (sub === "handoff") {
             if (flags.story === undefined || flags.story.trim() === "") {
                 io.stderr(`workbook handoff needs --story: a handoff that names no story is not a handoff\n${USAGE}`);
+                return 2;
+            }
+            // A pause at a story the plan does not teach can never be verified: the plan is where a
+            // slice's pinning test lives, so there would be nothing for the return probe to run and
+            // the pause could only ever be resolved by hand (invariant 18). A workbook with no plan
+            // of slices teaches nothing, and its pauses keep the earlier contract untouched.
+            const planned: WorkbookPlan | null = readWorkbookPlan(repoRoot, slug);
+            const named: number = Number(flags.story.replace(/^#/, ""));
+            if (planned !== null && !planned.slices.some((slice) => slice.story === named)) {
+                io.stderr(
+                    `${slug} teaches no slice for story ${flags.story}, so nothing here could ever ` +
+                    `verify a pause at it — the plan is where a slice's pinning test lives. The ` +
+                    `plan's stories are ${planned.slices.map((slice) => `#${slice.story}`).join(", ")}.`,
+                );
                 return 2;
             }
             const handoff: Handoff = recordHandoff(

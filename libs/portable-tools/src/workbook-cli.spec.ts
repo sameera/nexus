@@ -400,6 +400,25 @@ describe("a teaching session writes the one lesson the learner is up to", () => 
         expect(io.err.join("\n")).toContain("suite");
         expect(fs.readdirSync(path.join(workbookRoot(repo, "rdl"), LESSONS_DIRNAME))).toEqual([]);
     });
+
+    it("refuses to record a pause at a story this workbook's plan does not teach", () => {
+        const { repo, run } = teachingRepo();
+        const io = makeIo(repo);
+
+        expect(runWorkbookCli(["handoff", "rdl", "--story", "999"], io, run)).toBe(2);
+
+        expect(io.err.join("\n")).toContain("999");
+        expect(fs.existsSync(path.join(repo, ".nexus", "workbook", ".learner", "handoffs"))).toBe(false);
+    });
+
+    it("records a pause at a story the plan does teach", () => {
+        const { repo, run } = teachingRepo();
+        const io = makeIo(repo);
+
+        expect(runWorkbookCli(["handoff", "rdl", "--story", "460"], io, run)).toBe(0);
+
+        expect(io.out.join("\n")).toContain("460");
+    });
 });
 
 describe("a concept the learner took a hint on is asked about again in the lesson the session writes", () => {

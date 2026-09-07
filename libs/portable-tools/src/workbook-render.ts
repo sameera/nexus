@@ -30,6 +30,7 @@ import { escapeText } from "./html-escape.js";
 import { renderReadingTokensCss } from "./reading-tokens.js";
 import {
     SCRIPT_NAME,
+    WIDGET_FENCE_INFO,
     makeWidgetSeam,
     renderScript,
     renderWidgetStyles,
@@ -67,12 +68,43 @@ export interface Lesson {
     body: string;
 }
 
+/** True when the line closes a fence opened with `fence` — a run at least as long, and nothing else. */
+function closesFence(line: string, fence: string): boolean {
+    const run: RegExpMatchArray | null = line.match(/^(`{3,})\s*$/);
+    return run !== null && run[1].length >= fence.length;
+}
+
+/**
+ * The lesson's source with the content of every plain code fence taken out, and everything else —
+ * the fences themselves, the prose, and a widget declaration's content — left in.
+ *
+ * A code fence's content is escaped and shown as code, so it is text a reader sees rather than a
+ * channel through which markup reaches the page: a lesson quoting a test that reads like markup
+ * shows the learner that test. A widget declaration is the opposite — a component turns it into
+ * markup — so its content stays in what the check reads.
+ */
+function withoutCodeFences(source: string): string {
+    const lines: string[] = source.split("\n");
+    const kept: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+        kept.push(lines[i]);
+        const opening: RegExpMatchArray | null = lines[i].match(/^(`{3,})(.*)$/);
+        if (opening === null) continue;
+        const declaration: boolean = opening[2].trim() === WIDGET_FENCE_INFO;
+        for (i++; i < lines.length && !closesFence(lines[i], opening[1]); i++) {
+            if (declaration) kept.push(lines[i]);
+        }
+        if (i < lines.length) kept.push(lines[i]);
+    }
+    return kept.join("\n");
+}
+
 /**
  * A lesson that contains markup fails the render. The check runs on the authored source, before
  * any conversion, so no markup can reach a page even by an accident of ordering.
  */
 function refuseMarkup(lesson: LessonSource): void {
-    const match: RegExpMatchArray | null = lesson.source.match(/<\/?[a-zA-Z][^\n>]*>|<!--/);
+    const match: RegExpMatchArray | null = withoutCodeFences(lesson.source).match(/<\/?[a-zA-Z][^\n>]*>|<!--/);
     if (match === null) return;
     throw new LessonRenderError(
         "markup-in-lesson",
@@ -153,13 +185,15 @@ export function renderMarkdown(
 
     for (let i = 0; i < lines.length; i++) {
         const line: string = lines[i];
-        const fence: RegExpMatchArray | null = line.match(/^```(.*)$/);
+        // A fence is closed by a run at least as long as the one that opened it, so a block can
+        // quote text that itself contains a fence — a lesson showing a test is one such block.
+        const fence: RegExpMatchArray | null = line.match(/^(`{3,})(.*)$/);
         if (fence !== null) {
             flush();
-            const info: string = fence[1].trim();
+            const info: string = fence[2].trim();
             const content: string[] = [];
             i++;
-            while (i < lines.length && !lines[i].startsWith("```")) content.push(lines[i++]);
+            while (i < lines.length && !closesFence(lines[i], fence[1])) content.push(lines[i++]);
             const text: string = content.join("\n");
             const claimed: string | null = blockHook === undefined ? null : blockHook(info, text);
             out.push(claimed ?? `<pre><code>${escapeText(text)}\n</code></pre>`);

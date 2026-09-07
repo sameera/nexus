@@ -218,6 +218,18 @@ describe("a workbook opened at its first lesson holds exactly one written lesson
         expect(result.outcome.report).toContain("fake-grade");
     });
 
+    it("shows the pinning test itself, so the learner reads the very text the probe runs", () => {
+        const repo = makeRepo();
+
+        const result = teachOne(repo);
+
+        const written = fs.readFileSync(path.join(lessonsDir(repo, "rdl"), "01-drift.md"), "utf8");
+        expect(written).toContain('it("pins #460", () => {});');
+        const page = readPage(fs.readFileSync(path.join(workbookRoot(repo, "rdl"), "01-drift.html"), "utf8"));
+        expect(page.code.join(" ")).toContain('it("pins #460", () => {});');
+        expect(result.outcome.report).toContain('it("pins #460", () => {});');
+    });
+
     it("opens the lesson it wrote and hands the exercise over", () => {
         const repo = makeRepo();
 
@@ -451,6 +463,8 @@ describe("a handoff slice produces a prompt, and the session pauses", () => {
         expect(prompt).toContain("#465");
         expect(prompt).toContain("/nxs.analyze");
         expect(prompt).toContain("/nxs.close");
+        expect(prompt).toContain("Story 464 teaches something");
+        expect(prompt).toContain("As a learner, I want slice 464.");
         expect(fs.readdirSync(lessonsDir(repo, "rdl")).sort()).toEqual(["01-drift.md", "02-widget.md", "03-drill.md"]);
     });
 
@@ -536,6 +550,20 @@ describe("a handoff slice produces a prompt, and the session pauses", () => {
         const result = teach(repo, { prose: prose(false) }).result;
 
         expect(result.outcome.kind).toBe("handoff");
+    });
+
+    it("verifies nothing and resolves nothing when the open pause names a story the plan never teaches", () => {
+        const repo = makeRepo();
+        recordHandoff(repo, { story: "999", workbook: "rdl", recordedAt: "t1" });
+
+        const { result, fixture } = teach(repo, { prose: prose(false) });
+
+        expect(result.outcome.kind).toBe("unplanned-handoff");
+        expect(result.outcome.report).toContain("#999");
+        expect(allHandoffs(repo)[0].resolvedAt).toBeNull();
+        expect(fs.readdirSync(lessonsDir(repo, "rdl"))).toEqual([]);
+        expect(result.notes.join(" ")).not.toContain("in this tree");
+        expect(fixture.invoked.some((command) => command[0] === GRADING[0])).toBe(false);
     });
 
     it("records exactly one pause, and does not record a second while that one is open", () => {
