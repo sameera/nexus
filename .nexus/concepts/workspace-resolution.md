@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution"]
-last_updated_by: "#257"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store"]
+last_updated_by: "#405"
 status: active
 verification: verified
 ---
@@ -40,6 +40,7 @@ Resolution now walks upward from wherever it's given, bounded to the checkout's 
 - [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer this resolver reads, re-resolving for parity.
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
 - [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are that resolver's hub layer, inherited per key.
+- [workbook-store](workbook-store.md) — the resolver decides which member checkout a workbook belongs in; a hub checkout is refused.
 
 ## Decision Log
 
@@ -86,3 +87,7 @@ Resolution now walks upward from whatever directory it's given rather than requi
 ### 2026-08-27 — #257 — The resolved context stops reporting a tooling location
 
 The resolved workspace description no longer carries where a hub's toolkit lives, and the constant naming that in-repo directory went with it. The field existed to give one authoritative producer for a path that a rename would otherwise have to be hunted for across consumers; with no copy placed inside any repository there is no such path left to produce, so the field's whole reason went with the arrangement rather than the field being repointed at an install location. Resolution's remaining outputs are unchanged, and the tooling still consults this resolver in the other direction — to find member checkouts and the docs root — so the relationship survives with only its direction reversed. Refuted alternative: keep the field and point it at wherever the toolkit is installed, which reads as continuity but makes the resolver an authority on machine-level layout it has no artifact to read.
+
+### 2026-09-07 — #405 — Reciprocal link from workbook-store
+
+Mechanical reciprocity fan-out: a workbook belongs to the member repository whose roadmap it teaches, and that placement is decided by asking this one resolver rather than by re-deriving workspace shape. Creating a workbook in a hub checkout is refused, and the refusal names the members the workspace declares.

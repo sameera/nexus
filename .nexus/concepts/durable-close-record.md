@@ -1,8 +1,8 @@
 ---
 title: "Durable Close Record"
 aliases: ["close comment", "durable close rationale", "close machine block", "closing rationale"]
-touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding"]
-last_updated_by: "#258"
+touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding", "pipeline-store-exclusion"]
+last_updated_by: "#405"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ The close stage always posted its rationale onto the epic issue; that side effec
 - [backlog-stub](backlog-stub.md) — the deferred-scope issues filed before this comment is composed, whose numbers and backlog query it then carries.
 - [writer-stamp](writer-stamp.md) — the record of which release wrote this comment's block and the mirrored file, placed beside the record hash rather than inside it.
 - [template-seeding](template-seeding.md) — places the close-record template this stage fills; the stage now stops on its absence rather than falling back.
+- [pipeline-store-exclusion](pipeline-store-exclusion.md) — close derives its deviation rationale from a diff withholding every member.
 
 ## Decision Log
 
@@ -53,3 +54,7 @@ The close comment's machine block and the mirrored close-record file now record 
 ### 2026-08-28 — #258 — Reciprocal link from template-seeding
 
 Mechanical reciprocity fan-out: the template the close stage fills now has a way to arrive in any repository, so the stage's old fallback to a copy living only in a Nexus source checkout was removed. An absent template is reported by name with the seeding step as the remedy. This narrows failure rather than widening it — the fallback only ever resolved for someone running inside that checkout, which is why close appeared to work elsewhere and did not. The durable copy of the rationale is unchanged.
+
+### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
+
+Mechanical reciprocity fan-out: the close-from-diff pass that produces the deviation rationale now withholds the same named set analyze and distill withhold. Close read an unfiltered diff before, so a deviation could be reported against planning prose the pipeline had written itself.

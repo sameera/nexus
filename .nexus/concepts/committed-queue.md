@@ -1,8 +1,8 @@
 ---
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
-touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry", "pre-epic-discovery"]
-last_updated_by: "#228"
+touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry", "pre-epic-discovery", "pipeline-store-exclusion"]
+last_updated_by: "#405"
 status: active
 verification: verified
 ---
@@ -38,6 +38,7 @@ The folder is the directory scratch capture already created during implementatio
 - [durable-close-record](durable-close-record.md) — the close comment carrying this entry's rationale durably.
 - [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored counterpart a local close uses.
 - [pre-epic-discovery](pre-epic-discovery.md) — the discovery store, a deliberate sibling of this queue rather than an entry inside it.
+- [pipeline-store-exclusion](pipeline-store-exclusion.md) — the set this queue belongs to, withheld from every diff a Nexus stage derives.
 
 ## Decision Log
 
@@ -84,3 +85,7 @@ A local close no longer writes here at all: its epic, receipt, and close record 
 ### 2026-08-11 — #228 — Reciprocal link from pre-epic-discovery
 
 Mechanical reciprocity fan-out: the pre-epic-discovery page names this queue as the surface its store deliberately sits outside, because the queue holds only closed, drainable entries and a discovery is never closed and never drained.
+
+### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
+
+Mechanical reciprocity fan-out: the queue was already withheld from the distiller's diff, and that exclusion is now one named set every stage reads from a single definition. The queue's own membership is unchanged; what changed is that the reason is recorded beside it and no command body restates the path.

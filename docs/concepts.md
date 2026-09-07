@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 87 active concepts. Each links to its full page
+Orientation map of the concept store — 95 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -12,36 +12,39 @@ Orientation map of the concept store — 87 active concepts. Each links to its f
 
 - [Distiller](../.nexus/concepts/distiller.md) — The distiller drains queue entries into the concept store.
 - [Verb Reachability](../.nexus/concepts/verb-reachability.md) — A capability becomes reachable by name, a verb on one named executable, exactly when a Nexus component body invokes it.
+- [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
 - [Approvable Decision Record](../.nexus/concepts/decision-record.md) — An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form.
 - [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
 - [Publishing Config Resolution](../.nexus/concepts/publishing-config-resolution.md) — Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, resolved by a single shared resolver every publishing consumer goes through.
-- [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
 - [Nexus Pipeline](../.nexus/concepts/nexus-pipeline.md) — Nexus is a lean, spec-driven delivery pipeline assisting product and project management — turning intent into validated, decision-grade specs.
 - [Published Package](../.nexus/concepts/published-package.md) — Nexus reaches an adopter as one package on the public registry, carrying the executable and the component payload together under a single version.
 - [Issue-Sourced Planning](../.nexus/concepts/issue-sourced-planning.md) — Issue-Sourced Planning makes GitHub issues the single source of truth for epic and story planning: nothing is committed at planning, and one deterministic resolver reconstructs the epic from its issue number.
 - [Concept Store](../.nexus/concepts/concept-store.md) — The concept store is Nexus's machine knowledge surface: one distilled concept per file, keyed by a readable slug, holding current behavior, hard invariants, blast radius, and the durable why.
+- [Conformance Gate](../.nexus/concepts/conformance-gate.md) — Analyze checks the implemented code against the epic's acceptance criteria and the decision record's invariants, then proves it ran by leaving a receipt.
+- [Durable Close Record](../.nexus/concepts/durable-close-record.md) — The durable copy of a close's rationale is the comment the close stage posts on the epic issue, in every mode; the close-record file is a hand-off copy carrying no durability obligation.
+- [Portable Tooling](../.nexus/concepts/portable-tooling.md) — Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime.
 - [Release Identity](../.nexus/concepts/release-identity.md) — One semantic version identifies the whole release — the executable and the component payload together — because they ship as one artifact and cannot be at different versions.
 - [Toolkit Location](../.nexus/concepts/toolkit-location.md) — Nexus ships one executable, and every invocation names it and a dispatch name rather than encoding where it lives.
 - [Backlog Stub](../.nexus/concepts/backlog-stub.md) — A backlog stub is an epic identified but not yet planned — an epic issue carrying the repository's declared epic classification plus exactly one label denoting that unplanned state.
 - [Component Invocation Gate](../.nexus/concepts/component-invocation-gate.md) — Every invocation written in a shipped component body must name the executable and a dispatch name it declares, checked by the source repository's own gate.
-- [Conformance Gate](../.nexus/concepts/conformance-gate.md) — Analyze checks the implemented code against the epic's acceptance criteria and the decision record's invariants, then proves it ran by leaving a receipt.
-- [Durable Close Record](../.nexus/concepts/durable-close-record.md) — The durable copy of a close's rationale is the comment the close stage posts on the epic issue, in every mode; the close-record file is a hand-off copy carrying no durability obligation.
 - [Environment Guard](../.nexus/concepts/environment-guard.md) — An environment defect is named where a human will see it, without any verb's output contract being disturbed.
 - [Install Location](../.nexus/concepts/install-location.md) — Exactly one Nexus component set exists per user account, at the account's resolved configuration directory.
 - [Nexus Setup CLI](../.nexus/concepts/nexus-setup-cli.md) — The Nexus Setup CLI is the portable `nexus` command owning Nexus's *structural* half: placing a component set onto an account, declaring or growing a multi-repo workspace, and seeding one repository's templates.
-- [Portable Tooling](../.nexus/concepts/portable-tooling.md) — Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime.
+- [Pre-Epic Discovery](../.nexus/concepts/pre-epic-discovery.md) — Pre-epic discovery is the stage that runs before an epic is planned, and only when the initiative is underspecified, meaning the split itself hangs on decisions nobody has made.
 - [Shipped Payload](../.nexus/concepts/shipped-payload.md) — The payload is a stated set of files rather than whatever happens to be on disk, so its fingerprint means something and nothing incidental reaches an adopter.
+- [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub.
+- [Application Shell](../.nexus/concepts/application-shell.md) — The application shell is the persistent full-height frame that wraps the Claude Code session in Nexus Prime: a fixed-height top strip over a dominant terminal region, with ephemeral surfaces overlaid on top.
 - [Close-Entry Migration](../.nexus/concepts/close-entry-migration.md) — Close-entry migration is the cross-repo tail of the close stage: it puts a closed epic where its concepts are distilled.
 - [Delegating Port](../.nexus/concepts/delegating-port.md) — A delegating port moves a toolkit's implementation onto another runtime one capability at a time, with no flag day and no second name.
 - [Ephemeral Hand-Off Entry](../.nexus/concepts/ephemeral-handoff-entry.md) — An ephemeral hand-off entry is the version-ignored directory a local close leaves for the very next drain: the materialized epic, the conformance receipt, and the close record, none of them committed.
 - [Fix Lane](../.nexus/concepts/fix-lane.md) — The fix lane records why a small change that has already landed mattered, taking one GitHub reference as input.
 - [PR-Driven Post-Merge Flow](../.nexus/concepts/pr-driven-flow.md) — The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch.
-- [Pre-Epic Discovery](../.nexus/concepts/pre-epic-discovery.md) — Pre-epic discovery is the stage that runs before an epic is planned, and only when the initiative is underspecified, meaning the split itself hangs on decisions nobody has made.
 - [Canonical Record Digest](../.nexus/concepts/record-digest.md) — One digest implementation computes the canonical hash of a decision-record body, and every stage that stamps or verifies the value invokes it.
 - [The Scope Razor](../.nexus/concepts/scope-razor.md) — The scope razor is the axis every other planning gate was missing: not how big the work is or whether a criterion can be tested, but whether anyone asked for the scope in the first place.
-- [Workspace Resolution](../.nexus/concepts/workspace-resolution.md) — Workspace resolution makes a multi-repo product declared and discoverable: one manifest in the hub names the hub and its members, and a thin pointer in each member names only the hub.
 - [Taxonomy Drift Advisory](../.nexus/concepts/drift-advisory.md) — The drift advisory is a deterministic, non-blocking step of the drain that reads the concept link graph and each page's filing and reports taxonomy decay as text in the distillation-PR body.
 - [Inert Declaration Removal](../.nexus/concepts/inert-declaration-removal.md) — When a dependency leaves a release, every declaration that described it is deleted rather than emptied, nulled, or softened to an advisory.
+- [Lesson Renderer](../.nexus/concepts/lesson-renderer.md) — An authored lesson is prose and front matter, and the toolkit turns it into a page.
+- [Pipeline Store Exclusion](../.nexus/concepts/pipeline-store-exclusion.md) — Some folders under the Nexus root are surfaces the pipeline writes or teaches from, never behaviour it reads back, so every stage that derives a diff withholds all of them.
 - [Resumable Batch Filing](../.nexus/concepts/resumable-batch-filing.md) — Filing a folder of work items into issues is a batch that is always safe to re-run.
 - [Additive Surface Fold](../.nexus/concepts/additive-surface-fold.md) — Moving a capability from one published name to another lands additively: the new name is declared first, both names resolve one shared set of handlers, callers are rewritten under that overlap, and the old name is withdrawn once nothing points at it.
 - [Forcing-Function Razor](../.nexus/concepts/forcing-function-razor.md) — Every artifact must exist to force a decision a human must make, or it is cut scaffolding.
@@ -50,55 +53,57 @@ Orientation map of the concept store — 87 active concepts. Each links to its f
 - [Target Root Convention](../.nexus/concepts/target-root-convention.md) — Every repository-bound capability accepts the project it operates against as an explicit target root, defaulting to the invoking directory only when the caller supplies none.
 - [Taxonomy Filing Gate](../.nexus/concepts/taxonomy-filing-gate.md) — When the drain creates a concept and a domain registry exists, it files the concept under a best-fit domain by matching it against the registry's rubrics.
 - [Template Seeding](../.nexus/concepts/template-seeding.md) — Three pipeline stages read a tool-agnostic template out of the project's own configuration, and template seeding is how those templates get there: a repo-bound step placing a first copy from masters that travel inside the release.
+- [Workbook Store](../.nexus/concepts/workbook-store.md) — A workbook is a committed folder a learner opens, holding the authored lessons and the pages rendered from them.
 - [Concept Page Capacity](../.nexus/concepts/concept-page-capacity.md) — The 400-word cap on a concept page measures the page's own content — its summary, its behavior section and its invariants — and never its neighbour list.
 - [Cut Gate](../.nexus/concepts/cut-gate.md) — A gate that shows a reviewer what the model added must also let them delete it in one action, or the labelling is decoration.
 - [Derived Filing Body](../.nexus/concepts/derived-filing-body.md) — A stage never files the draft it wrote.
 - [Discovery Graduation](../.nexus/concepts/discovery-graduation.md) — A finished discovery becomes issues only through the epic stage, which reads the discovery document as its intent and files through the emission path it already owns.
 - [Distillation PR](../.nexus/concepts/distillation-pr.md) — The distiller does not write the concept store directly; it opens a reviewed pull request against the store.
 - [The Fix Razor](../.nexus/concepts/fix-razor.md) — The fix razor is the bound that lets the fix lane be cheap without letting the store lie: a fix may append one decision log entry to a page that already exists, and nothing else.
+- [Overlay Coordination](../.nexus/concepts/overlay-coordination.md) — Overlay coordination is the single shell-owned state that tracks which ephemeral surfaces are open and derives the terminal's recede from it.
 - [PR Flow Worktree](../.nexus/concepts/pr-worktree.md) — The pull-request post-merge flow runs its stages in an isolated worktree, not the lead's own checkout.
 - [Prose Translation](../.nexus/concepts/prose-translation.md) — Nexus's plain-language rules are split by who can execute each rule.
 - [Release Gate](../.nexus/concepts/release-gate.md) — The tag and the public publish are blocked while any shipped component body reaches a toolkit capability by an in-repository path the payload does not carry.
 - [Writer Stamp](../.nexus/concepts/writer-stamp.md) — Every artifact the toolkit writes that a later stage reads back records which release wrote it.
 - [Append-Only Decision Log](../.nexus/concepts/append-only-decision-log.md) — Every concept page carries a Decision Log — the append-only, immutable record of why the concept is the way it is.
+- [Artifact Peek Drawer](../.nexus/concepts/artifact-peek-drawer.md) — The artifact peek drawer is a dismissible slide-over that renders an artifact file so the user can peek at what Claude wrote without leaving the terminal.
 - [Authored Component Root](../.nexus/concepts/authored-component-root.md) — The directory a repository authors its components in is not the directory the harness loads.
 - [Checkout-Only Path Gate](../.nexus/concepts/checkout-only-path-gate.md) — No shipped component body may send a stage to a location that resolves only inside the Nexus source checkout.
 - [Code Anchors](../.nexus/concepts/code-anchors.md) — Code anchors are derived sidecar files that map a concept to the source that implements it.
+- [Command Input](../.nexus/concepts/command-input.md) — The terminal region's prompt line is a real, multi-line, plain-text command input, replacing the earlier static glyph and fake caret.
 - [Component Migration](../.nexus/concepts/component-migration.md) — A repository that still carries a committed component set is emptied of it by a gated verb — never automatically, and never as a side effect of another command.
 - [Component Mirror](../.nexus/concepts/component-mirror.md) — One convergent operation places a component payload at a component root and drops the Nexus-owned files that payload no longer carries; it is the only thing in Nexus that writes or deletes a component.
 - [Epic Issue Filing](../.nexus/concepts/epic-issue-filing.md) — Filing a single epic is a create-or-promote operation, never inferred from remote state: creation makes a new issue and promotion edits an existing one in place, clearing its unplanned marker.
 - [Finding Severity](../.nexus/concepts/finding-severity.md) — Concept validation reports two classes of finding: blocking ones that fail the run, and advisories that never do.
 - [Fog Referral Gate](../.nexus/concepts/fog-referral-gate.md) — The epic stage tests whether an intent's functional goals can be stated at all, before it measures how big they are.
+- [Gate Tray](../.nexus/concepts/gate-tray.md) — The gate tray is the ephemeral surface that rises from the bottom of the terminal region when a pipeline decision is required, letting the user act on a pending judgment without the terminal scrollback being replaced.
 - [Gold-plating](../.nexus/concepts/gold-plating.md) — Gold-plating is the production of heavy, elaborate artifacts ahead of validated need — volume manufactured on speculation about what might matter rather than distilled from what has been decided.
+- [Learner Folder](../.nexus/concepts/learner-folder.md) — Everything a workbook retains about one person lives under a single folder inside the workbook store: the concept ledger, progress, learning records, the hint log and the handoffs.
+- [Offline Page](../.nexus/concepts/offline-page.md) — A workbook page is opened by double-clicking it.
+- [Pipeline Rail](../.nexus/concepts/pipeline-rail.md) — The pipeline rail is a passive segmented read-out of the pipeline stages shown in the top strip, so the user sees at a glance where the current run stands without the rail acting like a wizard.
 - [Pointing Install](../.nexus/concepts/pointing-install.md) — The second of the two contents an account's install location can hold: one pointer per payload file at a maintainer's authored checkout, rather than a copy of a release.
 - [Prose Verification](../.nexus/concepts/prose-verification.md) — A translated artifact is proven faithful by comparing the pre- and post-translation copies, never by asking a person to read it.
 - [Provenance Reference](../.nexus/concepts/provenance-reference.md) — A provenance reference links a concept page or a log entry back to the issue that originated it, so an agent can hop from a compressed page to the full context it distilled away.
+- [Reading Surface Tokens](../.nexus/concepts/reading-surface-tokens.md) — The colour and typography values a reading surface needs are defined in one place that both the application and the workbook read.
 - [Scope Provenance](../.nexus/concepts/scope-provenance.md) — Every acceptance criterion, assumption and out-of-scope item in a draft says where it came from: either the lead asked for it, carrying a verbatim fragment quoted from what they actually said, or the drafting model added it.
 - [Story as Unit](../.nexus/concepts/story-as-unit.md) — The user story is Nexus's terminal planning unit and its issue granularity.
 - [Story Identity](../.nexus/concepts/story-identity.md) — A filed story is identified by its issue number alone, and nothing else — the pipeline's pre-filing sequence ref never survives filing, so a re-scope that withdraws stories never renames a survivor.
 - [Two-Store Split](../.nexus/concepts/two-store-split.md) — Nexus keeps two knowledge surfaces that never share an artifact: a lean human-judgment surface for what a person must read and decide, and a machine knowledge surface where distilled volume is legitimate.
 - [Config Write-Back](../.nexus/concepts/config-write-back.md) — Config write-back is how the declared publishing block comes to exist without anyone hand-authoring it: setup seeds it at bootstrap while a human can resolve ambiguity, and the first unattended fallback run persists what it just reached.
 - [Domain Taxonomy](../.nexus/concepts/domain-taxonomy.md) — Domain taxonomy is a curated, two-level grouping for concept pages — domains and optional subdomains — authored in a registry that lives beside the atlas.
+- [Prime Server Runtime](../.nexus/concepts/prime-server-runtime.md) — Prime runs as a server-rendered app fronted by a custom Node server that owns its underlying HTTP server outright, rather than a fully-managed serve binary.
+- [PTY Bridge](../.nexus/concepts/pty-bridge.md) — The PTY bridge is the server-side half of Prime's in-browser terminal: a WebSocket endpoint on the Prime server's own origin that spawns one login shell in a pseudo-terminal per connection and streams its input and output.
 - [Registry Seeding](../.nexus/concepts/registry-seeding.md) — Registry seeding is a one-time adoption tool for a store that has no domain registry yet.
 - [Release Changelog](../.nexus/concepts/release-changelog.md) — Once the components leave every repository, an adopter no longer sees a component change in their own diff, and the changelog is what replaces that review surface.
 - [Remote Identity Normalization](../.nexus/concepts/remote-identity-normalization.md) — A single git remote can be written many equivalent ways — as a secure-shell address or a web address, with or without a trailing suffix, with an upper- or lower-cased host.
 - [Report-Free Shared Layer](../.nexus/concepts/report-free-shared-layer.md) — A mechanism shared by more than one capability — a platform call, a lookup — never prints; it returns what happened, success value or failure detail included, so each caller renders its own line in its own vocabulary and its own stream.
 - [Settings Key Catalogue](../.nexus/concepts/settings-key-catalogue.md) — One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to.
+- [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root.
+- [Widget Seam](../.nexus/concepts/widget-seam.md) — A lesson declares an interactive widget where it belongs in the prose, as a fenced block that stays ordinary markdown.
+- [Workbook Handoff](../.nexus/concepts/workbook-handoff.md) — A workbook session that pauses at a handoff comes back to it.
 - [Bare-Name Guard](../.nexus/concepts/bare-name-guard.md) — The bare-name guard is the security boundary of workspace resolution: a name declared in a workspace artifact may only be a bare directory segment, and the hub's optional docs-root override may only be a non-escaping repo-relative path.
-
-## Application Shell
-
-- [Application Shell](../.nexus/concepts/application-shell.md) — The application shell is the persistent full-height frame that wraps the Claude Code session in Nexus Prime: a fixed-height top strip over a dominant terminal region, with ephemeral surfaces overlaid on top.
-- [Overlay Coordination](../.nexus/concepts/overlay-coordination.md) — Overlay coordination is the single shell-owned state that tracks which ephemeral surfaces are open and derives the terminal's recede from it.
-- [Artifact Peek Drawer](../.nexus/concepts/artifact-peek-drawer.md) — The artifact peek drawer is a dismissible slide-over that renders an artifact file so the user can peek at what Claude wrote without leaving the terminal.
-- [Command Input](../.nexus/concepts/command-input.md) — The terminal region's prompt line is a real, multi-line, plain-text command input, replacing the earlier static glyph and fake caret.
-- [Gate Tray](../.nexus/concepts/gate-tray.md) — The gate tray is the ephemeral surface that rises from the bottom of the terminal region when a pipeline decision is required, letting the user act on a pending judgment without the terminal scrollback being replaced.
-- [Pipeline Rail](../.nexus/concepts/pipeline-rail.md) — The pipeline rail is a passive segmented read-out of the pipeline stages shown in the top strip, so the user sees at a glance where the current run stands without the rail acting like a wizard.
-- [Prime Server Runtime](../.nexus/concepts/prime-server-runtime.md) — Prime runs as a server-rendered app fronted by a custom Node server that owns its underlying HTTP server outright, rather than a fully-managed serve binary.
-- [PTY Bridge](../.nexus/concepts/pty-bridge.md) — The PTY bridge is the server-side half of Prime's in-browser terminal: a WebSocket endpoint on the Prime server's own origin that spawns one login shell in a pseudo-terminal per connection and streams its input and output.
 - [Markdown Editor](../.nexus/concepts/markdown-editor.md) — The Markdown Editor is Prime's shared in-repo editing library: a rich Markdown-editing surface plus a distinct plain-text, submit-capable mode built for command entry.
 - [Same-Origin Shell Guard](../.nexus/concepts/same-origin-shell-guard.md) — The same-origin shell guard is the sole security boundary of the PTY bridge's unauthenticated shell: it rejects any WebSocket handshake whose stated origin does not match the host the request itself was addressed to, before any shell is spawned.
-- [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root.
 
 ## Standalone
 

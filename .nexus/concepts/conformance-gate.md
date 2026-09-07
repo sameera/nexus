@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane"]
-last_updated_by: "#263"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion"]
+last_updated_by: "#405"
 status: active
 verification: verified
 ---
@@ -59,6 +59,7 @@ as a literal value no reader can mistake for a waiver.
   durably.
 - [writer-stamp](writer-stamp.md) — the record of which release wrote the receipt, carried in
   both its local and published-review forms.
+- [pipeline-store-exclusion](pipeline-store-exclusion.md) — analyze draws its verdict from a diff withholding every member; it withheld none before.
 
 ## Decision Log
 
@@ -88,3 +89,7 @@ The local receipt and its published-review block both now carry the writing rele
 ### 2026-09-05 — #263 — Refusing an entry the check is undefined for, rather than passing it
 
 The gate now stops outright against an entry that carries no acceptance criteria, no success metrics and no decision record, because checking code against three things that do not exist is undefined rather than optional. Stopping is the honest outcome; degrading into a pass would report a conformance judgement nobody made. Such an entry states the state in words instead — a literal value, never a blank — so it stays greppable and can never be read as a waiver of a check that was never available. The considered alternative — let the gate run and emit an empty or trivially-passing receipt — was rejected because a receipt is precisely the artifact the closing stage treats as proof the check ran, and one that means "nothing was checkable" is indistinguishable downstream from one that means "everything passed".
+
+### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
+
+Mechanical reciprocity fan-out: analyze withheld nothing from the diff it judged, so a branch that also touched a queue entry or a discovery folder presented planning prose to the gate as shipped behaviour. It now derives its diff from the same named set close and distill use, so a conformance verdict cannot be drawn from a surface the pipeline wrote itself.
