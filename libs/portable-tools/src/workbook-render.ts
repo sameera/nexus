@@ -279,16 +279,26 @@ export function renderProvenanceNote(lesson: Lesson): string {
 }
 
 /**
- * The workbook's navigation: every lesson in plan order, reached by a relative path. It is chrome,
- * so printing drops it.
+ * The workbook's navigation: every lesson in plan order, reached by a relative path, followed by
+ * the slices whose lesson has not been written yet. A stub is shown as not yet written rather than
+ * as a link to a page (epic #407, invariant 2) — under just-in-time writing every slice past the
+ * frontier is a stub, and a link to a page that does not exist is a dead end. It is chrome, so
+ * printing drops it.
  */
-export function renderNav(pages: readonly { page: string; title: string }[], current: string): string {
+export function renderNav(
+    pages: readonly { page: string; title: string }[],
+    current: string,
+    stubs: readonly string[] = [],
+): string {
     const items: string[] = pages.map(({ page, title }) =>
         page === current
             ? `<li aria-current="page">${escapeText(title)}</li>`
             : `<li><a href="./${page}">${escapeText(title)}</a></li>`,
     );
-    return ['<nav class="workbook-nav" aria-label="Lessons">', "<ol>", ...items, "</ol>", "</nav>"].join("\n");
+    const notYet: string[] = stubs.map(
+        (label) => `<li class="lesson-stub">${escapeText(label)} — not yet written</li>`,
+    );
+    return ['<nav class="workbook-nav" aria-label="Lessons">', "<ol>", ...items, ...notYet, "</ol>", "</nav>"].join("\n");
 }
 
 /**
@@ -393,6 +403,11 @@ export interface RenderOptions {
     scripts?: (lesson: Lesson) => string;
     /** Files written once per workbook beside the pages, in addition to the stylesheet. */
     sharedAssets?: readonly RenderedFile[];
+    /**
+     * The slices the plan holds no lesson for yet, in plan order, as the navigation names them.
+     * They follow the written lessons, because a lesson is written when the learner arrives at it.
+     */
+    stubs?: readonly string[];
 }
 
 /** The page name a lesson renders to: its own name with the markdown suffix replaced. */
@@ -420,7 +435,7 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
             contents: renderPageShell({
                 title: lesson.title,
                 provenance: renderProvenance(lesson),
-                nav: renderNav(plan, page),
+                nav: renderNav(plan, page, options.stubs ?? []),
                 content: renderMarkdown(lesson.body, options.blockHook ?? makeWidgetSeam(lesson.file, options.widgets)),
                 lead: options.lead?.(lesson),
                 trail: renderProvenanceNote(lesson),

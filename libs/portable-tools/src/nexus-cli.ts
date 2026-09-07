@@ -19,7 +19,7 @@
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
  *   nexus workspace add-repo           add one member to an existing workspace (STORY-60.04)
  *   nexus workspace github-defaults    print the hub's github-publishing defaults as JSON (STORY-121.05)
- *   nexus workbook <sub>               make, render and read a learner's workbook (epic #405)
+ *   nexus workbook <sub>               make, render, read and teach a learner's workbook (epics #405, #407)
  */
 
 import * as fs from "node:fs";
@@ -303,12 +303,13 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: (argv, io) => Promise.resolve(runExcludedStores(argv, io)),
     },
     workbook: {
-        summary: "Make a learner's workbook, render its lessons, and start a session on it.",
+        summary: "Make a learner's workbook, render its lessons, and teach one lesson per sitting.",
         usage: [
             "  nexus workbook create <slug> [--root <dir>] [--repo <member>]",
             "  nexus workbook render <slug> [--root <dir>] [--repo <member>]",
             "  nexus workbook check <slug> [--root <dir>] [--repo <member>]",
             "  nexus workbook session <slug> [--root <dir>] [--repo <member>]",
+            "  nexus workbook teach <slug> [--prose <file>] [--root <dir>] [--repo <member>]",
             "  nexus workbook handoff <slug> --story <story> [--note <why>] [--root <dir>]",
             "  nexus workbook resolve <slug> <handoff-id> [--root <dir>]",
             "      Create makes the committed workbook folder and ensures the one rule that",
@@ -317,7 +318,11 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      re-renders and compares, so a committed page that was edited by hand or left",
             "      behind by a changed lesson fails rather than being read as current. Session is",
             "      what opening a workbook means: it lists every outstanding handoff and resumes",
-            "      at the story that was handed off. In a workspace a workbook lives in the",
+            "      at the story that was handed off. Teach runs the teaching session: it sweeps",
+            "      the probe's scratch path, runs the declared suite, verifies the fence on a",
+            "      return, checks the next slice against the state it was pinned to, chooses the",
+            "      drill, and then hands out a brief — re-run it with --prose <file> and it writes",
+            "      that one lesson and opens it. In a workspace a workbook lives in the",
             "      member repository whose roadmap it teaches; --repo names it from the hub.",
         ].join("\n"),
         subverbs: WORKBOOK_SUBVERBS,

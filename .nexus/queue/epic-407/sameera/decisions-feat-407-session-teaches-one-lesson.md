@@ -27,3 +27,27 @@
 - **Choice:** `runSuite` and `runProbe` in `fence-probe.ts` take a `Runner = (cmd, args, opts) => RunResult` exactly as `learner-store.ts` and `handoffs.ts` already do for git, rather than defining a second execution seam local to this module.
 - **Why:** The codebase already has one process-execution seam built for this purpose — args passed as a vector, never a shell string, and swappable in a spec — and invariant 14 (argument vector, never a shell string) is exactly the property `Runner`'s signature already enforces by construction. A second, parallel type would duplicate that guarantee and could drift from it.
 - **Refuted alternative:** Use Node's `child_process.execFileSync` directly in this module, as some existing spec helpers do. Rejected because it is not injectable — every fence-probe test would have to spawn a real process, when the interesting behaviour under test (suite-then-probe ordering, red-suite-never-a-breach) is a pure function of two pass/fail facts and does not need one.
+
+## 2026-09-07 — The teaching plan grows inside `plan.yml`, and a handoff slice names no lesson
+
+- **Choice:** `plan.yml` gained a `slices:` list (story, lesson file, learner-or-handoff mark, pinned title/body, concepts, branch, verbatim pinning test) plus workbook-level `suite:` and `grading:` command vectors, read by a new `workbook-plan.ts`. A handoff slice declares no `lesson`, so it never enters the workbook's reading order. `readLessons` keeps serving the older `lessons:` list unchanged.
+- **Why:** Decision record #469 states the plan is one file and that two committed documents describing one plan can disagree with nothing in a position to notice. Reusing the file the renderer already orders by means the pinned state cannot be separated from the order. A handoff slice is neither built nor taught by the learner, so a lesson file for it would be a stub that never becomes a page — the navigation would advertise a lesson that will never exist.
+- **Refuted alternative:** A separate `teaching-plan.yml` beside `plan.yml`. Cleaner separation between "what the renderer orders" and "what the session teaches", and it would leave epic #405's contract untouched — but it is exactly the two-documents-one-plan failure the record refuses.
+
+## 2026-09-07 — "Finished" is the pinning test present in the tree, and the suite gate is separate
+
+- **Choice:** `isFinished` in `teaching-session.ts` treats a written slice as finished when the file named by its `pinning_test.file` exists in the learner's tree, and nothing else. The suite result is not part of it; the suite has its own gate on writing a lesson, and the handoff branch sits ahead of that gate because a handoff writes no lesson.
+- **Why:** Position is then derived from committed lessons plus files in the tree, so it is the same on every run (invariant 22), and a red suite reports itself as the blocker instead of the session claiming a finished exercise is unfinished. The guarantee is unchanged: writing the next lesson still needs a green suite, so a session that writes one is still a session in which the current exercise is finished. Grading is another epic's, so "done" cannot be read from a graded outcome.
+- **Refuted alternative:** Fold the suite result into finished-ness (the first cut here). It made every written slice read as unfinished on a red suite, so a learner who had finished their exercise was told the exercise was not done, and a handoff slice that might have been what fixed the suite could never be reached — the workbook deadlocked on a suite the learner was not the one to fix.
+
+## 2026-09-07 — The generative step is two calls, not an in-process callback
+
+- **Choice:** `runTeachingSession` returns a `brief` outcome when it is clear to write and no prose was supplied, and writes the lesson on a second call carrying `prose`. The CLI surfaces this as `nexus workbook teach <slug>` then `… --prose <file>`.
+- **Why:** Every gate before the write must produce the same verdict on both calls, which is invariant 22 exercised for free — the second call re-runs the whole chain rather than trusting state carried across it. It also keeps the toolkit free of any notion of an agent: the prose arrives as a file, so the chain is testable with no model in the loop.
+- **Refuted alternative:** Take an `authorTheory(brief) => string` callback and write the lesson in one call. Fewer steps for the caller, but it puts the generative step inside the chain, so a test either injects a fake author (proving nothing about the real path) or the toolkit gains a dependency on how prose is produced.
+
+## 2026-09-07 — The return runs two probes: the handed-off slice's own test, then the fence
+
+- **Choice:** On resuming from a pause the session first probes the *handed-off* slice's pinning test — failing means its work is not in this tree, reported as unintegrated — and only then probes the *next learner* slice's test for the breach.
+- **Why:** Record #469 requires both behaviours: "when the handed-off work is not present in the tree, the session reports that and pauses", and the fence breach is "the exercise is already done". They are different questions about different slices, and one probe cannot answer both.
+- **Refuted alternative:** Infer integration from git — whether the handoff branch is merged. Rejected because the session moves and reads no git state by decision, and a branch can be merged without the work being present (or present without the branch, having been rebased or squashed elsewhere).

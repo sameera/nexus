@@ -15,16 +15,21 @@
  * read as if it were current.
  */
 
+import * as fs from "node:fs";
 import * as path from "node:path";
+import { parse } from "yaml";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
 import { outstandingHandoffs, recordHandoff, resolveHandoff, startWorkbookSession, type Handoff, type WorkbookSession } from "./handoffs.js";
 import { LESSONS_DIRNAME, createWorkbook, lessonsDir, readLessons, workbookRoot, type CreatedWorkbook } from "./workbook-store.js";
 import { checkWorkbook, renderWorkbookInto, type LessonSource, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
+import { type AuthoredProse } from "./lesson-writer.js";
+import { type IssueReader, type LiveStory } from "./teaching-plan.js";
+import { runTeachingSession, type SessionResult } from "./teaching-session.js";
 
 /** The subverbs `nexus workbook` dispatches. */
-export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "render", "check", "session", "handoff", "resolve"];
+export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "render", "check", "session", "teach", "handoff", "resolve"];
 
 export interface WorkbookCliIo {
     cwd: string;
@@ -38,6 +43,8 @@ interface Flags {
     repo?: string;
     story?: string;
     note?: string;
+    /** The file holding the prose an agent wrote for the lesson a previous run briefed. */
+    prose?: string;
     positional: string[];
     unknown?: string;
 }
@@ -51,6 +58,7 @@ function parseFlags(argv: string[], cwd: string): Flags {
         if (token === "--repo") flags.repo = rest[++i];
         else if (token === "--story") flags.story = rest[++i];
         else if (token === "--note") flags.note = rest[++i];
+        else if (token === "--prose") flags.prose = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -65,6 +73,7 @@ const USAGE: string = [
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
+    "  teach <slug> [--prose <file>]       run the teaching session: check, drill, and write one lesson",
     "  handoff <slug> --story <s> [--note] record a pause at a story",
     "  resolve <slug> <handoff-id>         mark a recorded handoff resolved",
 ].join("\n");
@@ -110,6 +119,69 @@ function reportDrift(repoRoot: string, slug: string, lessons: readonly LessonSou
     for (const { name, state } of drift) io.stderr(`  ${name} — ${DRIFT_WORDING[state]}`);
     io.stderr(`Run 'nexus workbook render ${slug}' and commit the result; a page is never edited by hand.`);
     return 1;
+}
+
+/**
+ * Read one story's live state through `gh`. The session compares pinned state against live state
+ * and never fetches it itself, so the fetch lives here, in the wiring, and goes through the same
+ * argument-vector seam as everything else the session runs (invariants 13, 14).
+ *
+ * A story that cannot be read is null, never a story that looks unchanged: the whole point of the
+ * check is that no lesson is written against a plan nobody confirmed.
+ */
+export function ghIssueReader(repoRoot: string, run: Runner): IssueReader {
+    return (story: number): LiveStory | null => {
+        const result = run("gh", ["issue", "view", String(story), "--json", "title,body,closedAt"], { cwd: repoRoot });
+        if (result.status !== 0) return null;
+        try {
+            const parsed: Record<string, unknown> = JSON.parse(result.stdout) as Record<string, unknown>;
+            return {
+                title: String(parsed["title"] ?? ""),
+                body: String(parsed["body"] ?? ""),
+                closed: parsed["closedAt"] !== null && parsed["closedAt"] !== undefined,
+            };
+        } catch {
+            return null;
+        }
+    };
+}
+
+/**
+ * Read the prose an agent wrote: the theory half, with the drill's question and answer in front
+ * matter when the brief asked for a drill. The chain chose the concept; this file carries only what
+ * an agent contributes.
+ */
+export function readProse(file: string): AuthoredProse {
+    const source: string = fs.readFileSync(file, "utf8");
+    const lines: string[] = source.split("\n");
+    if (lines[0]?.trim() !== "---") return { theory: source };
+    const end: number = lines.slice(1).findIndex((l) => l.trim() === "---");
+    if (end === -1) return { theory: source };
+    const front: Record<string, unknown> = (parse(lines.slice(1, end + 1).join("\n")) as Record<string, unknown> | null) ?? {};
+    const question: unknown = front["question"];
+    const answer: unknown = front["answer"];
+    const theory: string = lines.slice(end + 2).join("\n");
+    return typeof question === "string" && typeof answer === "string"
+        ? { theory, drill: { question, answer } }
+        : { theory };
+}
+
+/** The outcomes that mean the session stopped rather than taught. They exit non-zero. */
+const STOPPED: readonly string[] = ["no-plan", "suite-red", "unintegrated", "breach", "drift"];
+
+/** Report one session: what it did, what drift it saw on the way, and what it could not read. */
+function reportSession(result: SessionResult, io: WorkbookCliIo): number {
+    const stopped: boolean = STOPPED.includes(result.outcome.kind);
+    (stopped ? io.stderr : io.stdout)(result.outcome.report);
+    for (const note of result.skipped) io.stdout(note);
+    for (const finding of result.drift) {
+        if (result.outcome.kind === "drift" && finding.story === result.outcome.finding.story) continue;
+        io.stdout(`also drifted, which does not stop this lesson: ${finding.detail}`);
+    }
+    if (result.outcome.kind === "brief") {
+        io.stdout(`Write the theory into a file and re-run with --prose <file>. The lesson goes to ${result.outcome.brief.lesson}.`);
+    }
+    return stopped ? 1 : 0;
 }
 
 function describeHandoff(handoff: Handoff): string {
@@ -175,6 +247,19 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
             io.stdout(`every outstanding handoff (${session.outstanding.length}):`);
             for (const handoff of session.outstanding) io.stdout(describeHandoff(handoff));
             return 0;
+        }
+
+        if (sub === "teach") {
+            return reportSession(
+                runTeachingSession({
+                    repoRoot,
+                    slug,
+                    read: ghIssueReader(repoRoot, run),
+                    prose: flags.prose === undefined ? undefined : readProse(flags.prose),
+                    run,
+                }),
+                io,
+            );
         }
 
         if (sub === "handoff") {
