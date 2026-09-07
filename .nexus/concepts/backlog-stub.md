@@ -1,15 +1,15 @@
 ---
-title: "Backlog Stub"
-aliases: ["backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "cross-feature backlog", "deferred scope filing"]
+title: "Epic Stub"
+aliases: ["epic stub", "backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "needs-refinement label", "cross-feature backlog", "deferred scope filing"]
 touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing"]
-last_updated_by: "#352"
+last_updated_by: "#466"
 status: active
 verification: verified
 ---
 
-# Backlog Stub
+# Epic Stub
 
-A backlog stub is an epic identified but not yet planned — an epic issue carrying the repository's declared epic classification plus exactly one label denoting that unplanned state. Planning populates that same issue in place, so the number scope is deferred under is the number it ships under. The whole cross-feature backlog is therefore one query, and excluding unplanned work one negated filter.
+An epic stub is an epic identified but not yet planned — an epic issue carrying the repository's declared epic classification plus exactly one label denoting that unplanned state. Planning populates that same issue in place, so the number scope is deferred under is the number it ships under. The whole cross-feature backlog is therefore one query, and excluding unplanned work one negated filter.
 
 ## How It Works
 
@@ -57,3 +57,7 @@ Mechanical reciprocity fan-out: the resumable-batch-filing page names this page'
 ### 2026-08-30 — #352 — Reciprocal link from epic-issue-filing
 
 Mechanical reciprocity fan-out: the epic-issue-filing page names this page's unplanned marker as the one it checks before writing and clears on promotion, refusing the operation before any write when the marker is already gone.
+
+### 2026-09-07 — #466 — Renamed "backlog stub" to "epic stub", and its label to needs-refinement
+
+The term "backlog stub" collided with "the product backlog" — the general list of everything not yet done — so a reader could not tell from the label alone whether an issue meant this specific unplanned-epic marker or the everyday sense. Renamed to "epic stub", and the live label from backlog to needs-refinement, the standard term for the ceremony that turns a raw item into a sized one — exactly what promotion does. The label was renamed in place, not deleted and recreated, so every issue that already carried it keeps it under the new name with no per-issue relabeling. Refuted alternative: not-planned or unplanned — both were considered and set aside, since these epics are genuinely on the roadmap; they have simply not been refined yet.
