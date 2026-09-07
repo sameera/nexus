@@ -93,7 +93,7 @@ export function resolveEpic(
         }
     }
 
-    // An unplanned epic — a backlog stub — is a real epic issue with no planning meta block and no
+    // An unplanned epic — an epic stub — is a real epic issue with no planning meta block and no
     // story sub-issues yet (epic #185). Materializing one would emit an epic whose story set is
     // empty, which every downstream stage reads as "an epic that plans nothing" rather than "work
     // nobody has planned". Refuse it by name instead (Invariant 14).

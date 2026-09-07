@@ -51,7 +51,7 @@ Skip this stage unless you need it. Most intent goes straight to `/nxs.epic`.
 
 You need it when the initiative is **underspecified**, which is not the same as **oversized**:
 
-- **Oversized** — big but clear. You could list the goals today; there are just too many for one epic. `/nxs.epic` handles this: it cuts the scope into backlog stubs.
+- **Oversized** — big but clear. You could list the goals today; there are just too many for one epic. `/nxs.epic` handles this: it cuts the scope into epic stubs.
 - **Underspecified** — foggy. The split itself hangs on decisions nobody has made. Slicing it into work-shaped stubs now would be a guess dressed up as a plan.
 
 Discovery is a **multi-session loop**, and its unit is the **decision ticket** — a question whose resolution is a decision, never a slice of build work. Each session claims one open ticket, resolves it through the machinery Nexus already has (research agents, a PM interview, a council on a contested trade-off), records the resolution, and stops. One decision per session, one commit per decision, so the commit history reads as the decision history.
@@ -74,13 +74,13 @@ The output is a right-sized epic with user stories and acceptance criteria. Appr
 
 Two things keep the epic honest:
 
-- **Oversized scope gets cut, not carried.** Anything that doesn't belong in this epic becomes a backlog stub issue instead of inflating the scope.
+- **Oversized scope gets cut, not carried.** Anything that doesn't belong in this epic becomes an epic stub issue instead of inflating the scope.
 - **Underspecified scope gets referred, not sliced.** Before it sizes anything, `/nxs.epic` checks whether each functional goal can actually be stated. If they can't, it stops, recommends `/nxs.discover`, and files nothing — with an override, because that call is yours.
 - **Nothing is committed to the repo at planning.** The issues are the source of truth. Any stage that later needs the epic as a file reconstructs it deterministically from the issue number.
 
 ### The backlog is one query
 
-A backlog stub is an open GitHub issue carrying the single `needs-refinement` label — a functional goal identified but not yet planned. The whole cross-feature backlog is one search: `is:issue is:open label:needs-refinement`. Promote a stub with `/nxs.epic <issue-number>`, which plans that same issue in place — the stub *becomes* the epic, keeping its number and history.
+An epic stub is an open GitHub issue carrying the single `needs-refinement` label — a functional goal identified but not yet planned. The whole cross-feature backlog is one search: `is:issue is:open label:needs-refinement`. Promote a stub with `/nxs.epic <issue-number>`, which plans that same issue in place — the stub *becomes* the epic, keeping its number and history.
 
 ## Step 2: `/nxs.decision-record` — Decide the "Why"
 
@@ -110,7 +110,7 @@ It reports findings inline and leaves a small **receipt** proving it ran — whi
 `/nxs.close` requires every sub-issue of the epic closed and a current analyze receipt. It then:
 
 - writes a human-prose close record: key decisions, deviations from the plan and why, and what was deferred;
-- files deferred scope as backlog stub issues — a query away, not a forgotten section in a document;
+- files deferred scope as epic stub issues — a query away, not a forgotten section in a document;
 - posts a durable close comment on the epic issue and closes it. The comment is the permanent record; the local files are just a hand-off to the distiller.
 
 ## Step 6: `/nxs.distill` — Keep Only What Earned Its Place

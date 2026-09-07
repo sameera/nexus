@@ -4,7 +4,7 @@
  * Every value here is read through the shared publishing resolver rather than from settings
  * directly, so this filer, the epic filer, `/nxs.epic` and `/nxs.close` cannot disagree about what
  * a repository declared (Invariant 10). The caller's own `--classification-*` outranks the resolved
- * defaults, which is how a batch of backlog stubs is filed through the same capability as a batch
+ * defaults, which is how a batch of epic stubs is filed through the same capability as a batch
  * of stories.
  */
 

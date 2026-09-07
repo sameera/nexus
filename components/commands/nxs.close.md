@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as backlog stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -902,7 +902,7 @@ Close record:      ${QDIR}/close-record.md
                    | (old-contract: committed; distiller consumes it post-merge)
 Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
                    (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
-Deferred scope:    filed as <N> backlog stub issue(s): #<n>, #<n>, …
+Deferred scope:    filed as <N> epic stub issue(s): #<n>, #<n>, …
                    whole backlog: <backlog-query>
 Process lesson:    <docs-root>/delivery/lessons/<date>-<slug>.md
 Scratch mined:     ${SDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the

@@ -52,7 +52,7 @@ export function epicUsage(): string {
         "  --project <target>  GitHub project to add the issue to (e.g. 'my-org/1' or a title).",
         "                      If omitted, the declared target decides.",
         "  --no-project        Skip adding the issue to any project.",
-        "  --promote <issue>   Promote an unplanned epic (a backlog stub): populate THIS issue in",
+        "  --promote <issue>   Promote an unplanned epic (an epic stub): populate THIS issue in",
         "                      place instead of creating a new one, and remove the unplanned label.",
         "                      Legal only while the target still carries that label.",
     ].join("\n");

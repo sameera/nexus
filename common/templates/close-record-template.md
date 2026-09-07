@@ -27,7 +27,7 @@ RANGE STAMPING (unconditional — every mode)
 
 FILLING RULES
     - Replace every {{PLACEHOLDER}}. Delete guidance comments before committing.
-    - Deferred scope is FILED as backlog stub issues after the close checkpoint
+    - Deferred scope is FILED as epic stub issues after the close checkpoint
       (C2); this record carries only their issue numbers, not the scope itself.
     - The process lesson is written as its own file under docs/delivery/lessons/
       (C3); this record does not restate it.
@@ -76,7 +76,7 @@ range:                          # exact diff range of the landed change — one 
      filed in Phase 7.4 — after the checkpoint, before this record is committed.
      Write "none" when nothing was deferred. -->
 
-Deferred items filed as backlog stub issues:
+Deferred items filed as epic stub issues:
 
 - #{{STUB_ISSUE}} — {{DEFERRED_GOAL}}
 

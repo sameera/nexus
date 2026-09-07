@@ -124,7 +124,7 @@ export function resolveRecordClassification(targetRoot: string): Ok<{ classifica
 
 /**
  * The label this repository uses to mark an epic that has been identified but not yet planned — a
- * backlog stub (epic #185). Resolved through the same shared publishing resolver as every other
+ * epic stub (epic #185). Resolved through the same shared publishing resolver as every other
  * publishing key, so no call site carries a second source of the name (Invariant 18).
  *
  * A resolver that answers nothing predates the stub contract; that is reported rather than
@@ -135,7 +135,7 @@ export function resolveUnplannedLabel(targetRoot: string): Ok<{ label: string }>
     if (label.length === 0) {
         return unresolved(
             "the shared publishing resolver returned no unplanned label; the installed " +
-                "resolver predates the backlog-stub contract — update Nexus",
+                "resolver predates the epic-stub contract — update Nexus",
         );
     }
     return { ok: true, label };

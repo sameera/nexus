@@ -89,7 +89,7 @@ export function preflight(args: FilerArgs, io: ToolkitIo): PreflightOutcome {
         for (const item of parentedStubs) {
             io.stderr(
                 `Error: ${item.fileName} carries the '${unplannedLabel}' label and asks to be a ` +
-                    `sub-issue of ${item.parent}. A backlog stub is never a sub-issue — its link to ` +
+                    `sub-issue of ${item.parent}. An epic stub is never a sub-issue — its link to ` +
                     "the epic that spawned it is a body mention. Remove the `parent:` key and re-run.",
             );
         }

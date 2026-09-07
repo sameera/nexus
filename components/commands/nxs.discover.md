@@ -10,7 +10,7 @@ model: inherit
 
 Act as a delivery lead running discovery. Turn an underspecified initiative into a set of open
 decisions, resolve them one at a time, and stop when every functional goal is sharp enough to be
-filed as a backlog stub. You resolve decisions; you do not plan work, size epics, or file issues.
+filed as an epic stub. You resolve decisions; you do not plan work, size epics, or file issues.
 Issues appear later, when `/nxs.epic` consumes the finished discovery.
 
 # User Input
@@ -35,7 +35,7 @@ discovery folder, and stop.
   (foggy — the split itself hangs on decisions nobody has made). Pre-slicing a foggy initiative into
   work-shaped stubs is speculative over-generation. This command answers the foggy case instead.
 - **The destination is fixed and it is Nexus's own contract.** A discovery is done when every
-  functional goal is sharp enough to be stated as a backlog stub of size M or smaller. Nothing else
+  functional goal is sharp enough to be stated as an epic stub of size M or smaller. Nothing else
   ends it. The destination is immutable for the life of a discovery — if it changes, close the
   discovery and start another.
 - **The unit is the decision ticket.** A ticket is a question whose resolution is a decision. It is
@@ -74,7 +74,7 @@ drafted file verbatim.
 
 Every artifact this command writes — discovery docs, ticket files, prompts, reports — uses Nexus
 vocabulary only. The nouns are **discovery**, **destination**, **decision ticket**, **resolution**,
-**functional goal**, and **backlog stub**. Do not write "map", "frontier", "charting", or
+**functional goal**, and **epic stub**. Do not write "map", "frontier", "charting", or
 "wayfinding" anywhere. The fog sharpness test may be described as fog in prose — a suspicion is
 foggy until it can be stated precisely — but fog is a description, not a named artifact.
 
@@ -654,7 +654,7 @@ claimed_at:            # ISO-8601, set with claimed_by
 
 ## Why it blocks
 
-<what cannot be stated as a backlog stub until this is decided>
+<what cannot be stated as an epic stub until this is decided>
 
 ## Evidence            <!-- appended by a resume session; agent output, attributed. Never a resolution. -->
 

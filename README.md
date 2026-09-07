@@ -88,7 +88,7 @@ Implementation sits between the decision record and analyze; engineers own it.
     - Five questions, not fifty. Judgment applied once, up front.
 
 2. **Discover** (`/nxs.discover`) — only when the initiative is foggy
-    - **Oversized is not underspecified.** Big but clear is `/nxs.epic`'s job: it decomposes the scope into backlog stubs. Foggy is different — the split itself hangs on decisions nobody has made, so slicing it into work-shaped stubs would be a guess.
+    - **Oversized is not underspecified.** Big but clear is `/nxs.epic`'s job: it decomposes the scope into epic stubs. Foggy is different — the split itself hangs on decisions nobody has made, so slicing it into work-shaped stubs would be a guess.
     - A **multi-session loop**. Its unit is the **decision ticket**: a question whose resolution is a decision, never a slice of build work. One decision is resolved per session.
     - Its output is **functional goals sharp enough for `/nxs.epic` to file** — a one-line goal, a small estimate, candidate story titles. That is the whole destination; nothing else ends a discovery.
     - A discovery can be **shared by ordinary git operations**. Push it to a fork, hand it to the domain expert who can answer a question, pull their resolution back. No review gate, no approval command, no rule about who may work it.
@@ -98,7 +98,7 @@ Implementation sits between the decision record and analyze; engineers own it.
 3. **Epic** (`/nxs.epic`)
     - Natural-language intent in; a right-sized epic with user stories and acceptance criteria out.
     - Approval happens at a decision-grade digest — you approve the decisions, not a wall of prose.
-    - On approval, the epic and one issue per story are filed together. Oversized scope is cut into backlog stubs instead of inflating the epic.
+    - On approval, the epic and one issue per story are filed together. Oversized scope is cut into epic stubs instead of inflating the epic.
     - If the intent turns out to be underspecified rather than oversized, `/nxs.epic` stops and refers you to `/nxs.discover` instead of filing work-shaped stubs.
 
 4. **Decision record** (`/nxs.decision-record`)

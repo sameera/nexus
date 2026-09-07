@@ -480,7 +480,7 @@ describe("resolveEpic — AC4: dependency edges exact", () => {
 });
 
 describe("resolveEpic — an unplanned epic is refused, not half-resolved (epic #185)", () => {
-    // A backlog stub IS an epic issue — it just has no planning meta block and no story sub-issues
+    // An epic stub IS an epic issue — it just has no planning meta block and no story sub-issues
     // yet. Resolving one would emit an epic with an empty story set, which every downstream stage
     // would read as "an epic whose scope is nothing" rather than "work nobody has planned".
     // Invariant 14 makes that state say its own name.

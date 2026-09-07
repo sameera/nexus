@@ -1,5 +1,5 @@
 /**
- * Story #382 — a backlog stub is promoted in place, keeping its number.
+ * Story #382 — an epic stub is promoted in place, keeping its number.
  *
  * These are `test_stub_promotion`'s cases, carried across one for one and driven through the
  * handler with the platform client faked, asserting on the argument vectors it was handed. A stub

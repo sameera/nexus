@@ -324,7 +324,7 @@ Paste the rendered markdown into a **new dated run section** in
 the comparison between runs is what makes a re-run worth doing.
 
 Then fill in the record's prose by hand: the verdict per stage, and every divergence from the
-injected-runner tests linked to a filed issue or backlog stub. **Zero divergences is a pass** — record
+injected-runner tests linked to a filed issue or epic stub. **Zero divergences is a pass** — record
 it explicitly as zero, not as an empty section. Where live behavior contradicts a unit test, the
 live behavior is authoritative and the test is what gets recorded as suspect.
 
@@ -417,7 +417,7 @@ absolute path while keeping the working directory inside the clone.
 ## Out of scope
 
 - Hub / multi-repo workspace runs — this is a single scratch repo. Member-repo `--pr` support is the
-  separate `member-pr-post-merge-flow` backlog stub.
+  separate `member-pr-post-merge-flow` epic stub.
 - Fork-originated PR heads: proving the `pull/<N>/head` fetch path from a fork needs a second GitHub
   account.
 - Member-repo rejection of `--pr` — a pure role gate, already covered by unit tests.

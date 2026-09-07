@@ -1,6 +1,6 @@
 ---
 name: nxs.epic
-description: Turn a natural-language capability description into a right-sized epic with user stories and acceptance criteria, then — on approval at a decision-grade digest — file the epic and one GitHub issue per story together. Takes intent directly — no feature brief required. Oversized scope decomposes to backlog stub issues, each promoted later by its own issue number.
+description: Turn a natural-language capability description into a right-sized epic with user stories and acceptance criteria, then — on approval at a decision-grade digest — file the epic and one GitHub issue per story together. Takes intent directly — no feature brief required. Oversized scope decomposes to epic stub issues, each promoted later by its own issue number.
 category: planning
 tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill, AskUserQuestion
 model: inherit
@@ -20,7 +20,7 @@ The text after the slash command is either:
 
 - a **capability description** (natural language) — the normal case, or
 - a **bare issue number** (`<n>` or `#<n>`) — **plan this epic**. Legal only while that epic still
-  carries the unplanned label, i.e. while it is a backlog stub, or
+  carries the unplanned label, i.e. while it is an epic stub, or
 - **`--from #<issue>`** — pull an epic that is **already filed** as GitHub issues (by Nexus or by
   hand) into a materialized `epic.md`, so downstream stages can run against an epic not planned in
   this session. This is a read-only wrapper over the resolver — it plans nothing and commits nothing
