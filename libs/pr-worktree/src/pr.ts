@@ -27,6 +27,9 @@ export interface PrInfo {
     url: string;
     crossRepo: boolean;
     authorLogin: string;
+    body: string;
+    /** Issue numbers the PR closes via GitHub's closing-keyword linkage (same-repo only). */
+    closingIssues: number[];
 }
 
 export type ResolvePrResult =
@@ -34,7 +37,7 @@ export type ResolvePrResult =
     | { ok: false; error: PrWorktreeDiagnostic };
 
 const GH_FIELDS =
-    "state,mergedAt,baseRefOid,headRefOid,mergeCommit,commits,headRefName,url,isCrossRepository,author";
+    "state,mergedAt,baseRefOid,headRefOid,mergeCommit,commits,headRefName,url,isCrossRepository,author,body,closingIssuesReferences";
 
 function asString(v: unknown, fallback = ""): string {
     return typeof v === "string" ? v : fallback;
@@ -85,6 +88,12 @@ export function resolvePr(
     const mergedAt = doc["mergedAt"];
     const merged = typeof mergedAt === "string" && mergedAt.length > 0;
     const commits = doc["commits"];
+    const closingIssuesRaw = doc["closingIssuesReferences"];
+    const closingIssues: number[] = Array.isArray(closingIssuesRaw)
+        ? closingIssuesRaw
+              .map((entry) => (entry !== null && typeof entry === "object" ? (entry as Record<string, unknown>)["number"] : undefined))
+              .filter((n): n is number => typeof n === "number")
+        : [];
     const pr: PrInfo = {
         number: prNumber,
         state: asString(doc["state"], "UNKNOWN"),
@@ -97,6 +106,8 @@ export function resolvePr(
         url: asString(doc["url"]),
         crossRepo: doc["isCrossRepository"] === true,
         authorLogin: nestedString(doc["author"], "login") ?? "",
+        body: asString(doc["body"]),
+        closingIssues,
     };
 
     if (opts.requireMerged && !merged) {

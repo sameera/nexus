@@ -42,6 +42,7 @@ import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
 import { parsePrReference, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
+import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
@@ -118,7 +119,7 @@ export interface VerbEntry {
 }
 
 const WORKSPACE_SUBVERBS: readonly string[] = ["init", "status", "docs-root", "add-repo", "github-defaults"];
-const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "range", "remove"];
+const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "range", "remove", "stories"];
 const CLOSE_MIGRATION_SUBVERBS: readonly string[] = ["preflight", "migrate"];
 
 /**
@@ -254,6 +255,9 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      keeps refusing a member outright.",
             "  nexus pr-worktree range --pr <N> [--root <dir>]",
             "      Print { repo, base, head } for a merged PR without creating a worktree.",
+            "  nexus pr-worktree stories --pr <ref> --issues-repo <owner/repo> [--story <n>] [--root <dir>]",
+            "      Print { epic, stories } — the validated candidate ladder that resolves a PR to the",
+            "      story issue(s) it implements, without depending on same-repository closing-issue links.",
             "  nexus pr-worktree remove <wtPath> [--root <dir>]",
         ].join("\n"),
         subverbs: PR_WORKTREE_SUBVERBS,
@@ -1134,6 +1138,10 @@ interface PrWorktreeFlags {
     prRef?: string;
     mode?: string;
     branch?: string;
+    /** `stories`: an explicit story issue number, the top of the candidate ladder. */
+    story?: number;
+    /** `stories`: the issues repo ("owner/repo") to validate candidates against. */
+    issuesRepo?: string;
     root: string;
     positional: string[];
 }
@@ -1146,6 +1154,8 @@ function parsePrWorktreeFlags(argv: string[], cwd: string): PrWorktreeFlags {
         if (a === "--pr") flags.prRef = rest[++i];
         else if (a === "--mode") flags.mode = rest[++i];
         else if (a === "--branch") flags.branch = rest[++i];
+        else if (a === "--story") flags.story = Number(rest[++i]);
+        else if (a === "--issues-repo") flags.issuesRepo = rest[++i];
         else flags.positional.push(a);
     }
     return flags;
@@ -1300,6 +1310,46 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
                 range: { repo: repoIdentity, base: range.range.base, head: range.range.head },
             }),
         );
+        return 0;
+    }
+
+    // `stories`: the validated candidate ladder (decision record #495) that resolves a PR to the
+    // story issue(s) it implements, without depending on GitHub's same-repository closing-issue
+    // linkage. Analyze-only — close does not yet run against a member PR.
+    if (subcommand === "stories") {
+        if (flags.prRef === undefined || !flags.issuesRepo) {
+            io.stderr("usage: pr_worktree.ts stories --pr <N|owner/repo#N|url> --issues-repo <owner/repo> [--story <n>]");
+            return 2;
+        }
+        const slash = flags.issuesRepo.indexOf("/");
+        if (slash <= 0) {
+            io.stderr(`usage: pr_worktree.ts stories: --issues-repo must be 'owner/repo', got '${flags.issuesRepo}'`);
+            return 2;
+        }
+        const slug = { owner: flags.issuesRepo.slice(0, slash), repo: flags.issuesRepo.slice(slash + 1) };
+
+        const target = resolveAnalyzeTarget(flags.root, closeMigrationRunner, flags.prRef);
+        if (!target.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(target.error));
+            return 1;
+        }
+        const parsedRef = parsePrReference(flags.prRef) as { number: number };
+        const pr = resolvePr(closeMigrationRunner, target.target.repoRoot, parsedRef.number, { requireMerged: false });
+        if (!pr.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(pr.error));
+            return 1;
+        }
+        const resolved = resolveStories(closeMigrationRunner, target.target.repoRoot, slug, {
+            explicitStory: flags.story,
+            closingIssues: pr.pr.closingIssues,
+            branchName: pr.pr.headRef,
+            prBody: pr.pr.body,
+        });
+        if (!resolved.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(resolved.error));
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "stories", epic: resolved.epic, stories: resolved.stories }));
         return 0;
     }
 
