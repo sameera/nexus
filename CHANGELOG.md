@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.19.0
+
+- analyze: aggregate mode now judges the epic's success metrics and any decision-record invariant
+  spanning two stories against the **combined** code of every story pull request — the one
+  judgment no single story's own PR can carry. The new `nexus epic-verdicts combined` read prints
+  the union of each story pull request's own changed-file set (each pull request's own diff, never
+  a range spanning two of them, and no worktree created); a finding only the combined set shows is
+  attributed to the epic rather than to a single story, and a cross-story check the combined set
+  cannot yet decide is reported as unverifiable rather than passed silently.
+
 ## 0.18.0
 
 - close: the choice gate now recognizes the aggregate epic receipt (a `stories:` list instead of a

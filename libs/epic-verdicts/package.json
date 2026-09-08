@@ -34,6 +34,11 @@
       "import": "./src/currency.ts",
       "default": "./src/currency.ts"
     },
+    "./combined": {
+      "types": "./src/combined.ts",
+      "import": "./src/combined.ts",
+      "default": "./src/combined.ts"
+    },
     "./receipt": {
       "types": "./src/receipt.ts",
       "import": "./src/receipt.ts",
@@ -50,6 +55,7 @@
     "@nexus/close-migration": "workspace:*",
     "@nexus/epic-resolve": "workspace:*",
     "@nexus/pr-acceptance": "workspace:*",
+    "@nexus/pr-worktree": "workspace:*",
     "@nexus/record-digest": "workspace:*"
   }
 }

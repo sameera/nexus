@@ -6,4 +6,4 @@
  * a closed-unmerged candidate) without touching the network.
  */
 
-export { type RunResult, type Runner, defaultRunner } from "@nexus/close-migration/run";
+export { type RunResult, type Runner, defaultRunner, git } from "@nexus/close-migration/run";

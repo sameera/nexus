@@ -22,6 +22,9 @@
     },
     {
       "path": "../pr-acceptance/tsconfig.lib.json"
+    },
+    {
+      "path": "../pr-worktree/tsconfig.lib.json"
     }
   ]
 }

@@ -230,10 +230,28 @@ returns one of two states on stdout as JSON:
 
 -   **`"aggregate"`** — every story carries a trusted verdict. The command already wrote the epic
     receipt (`analyze-receipt.md` beside the resolved `epic.md`, per the #171 placement contract) and
-    printed it back as `receipt`. **Skip Phase 1 and Phase 2 entirely** — there is nothing left to
-    read or judge story-by-story; go straight to Phase 3 and report what the receipt already states:
-    the findings summed per distinct verdict (never per story — a verdict covering two stories counts
-    once) and the pull requests it was derived from.
+    printed it back as `receipt`. **Skip Phase 1 and Phase 2's per-story work entirely** — there is
+    nothing left to read or judge story-by-story.
+
+    One judgment still has to run: the epic's **success metrics** and any **decision-record
+    invariant that spans two stories** are properties of the finished capability, so no single
+    story's pull request can be scored against them. Get the code that judgment reads with:
+
+    ```bash
+    nexus epic-verdicts combined --epic <epic-issue>
+    ```
+
+    This prints the **union** of every story pull request's own changed-file set — each pull
+    request's own diff, never a range spanning two of them — read from each pull request's own
+    repository checkout, no worktree created. Judge the epic's success metrics and every
+    cross-story invariant against this combined set the same way Phase 2 judges a single-PR run
+    against its diff. A finding that only the combined set shows is attributed to **the epic**, never
+    to one story; a cross-story check the combined set cannot decide (it depends on code that only
+    exists once the stories are integrated, and they have not all merged) is reported as
+    **unverifiable**, naming what would decide it — never passed silently. Then go to Phase 3 and
+    report both: the findings summed per distinct verdict (never per story — a verdict covering two
+    stories counts once) plus this cross-story judgment, and the pull requests the receipt was
+    derived from.
 -   **`"missing"`** — at least one story carries no verdict on any of its candidate pull requests.
     The command wrote no receipt. Report the gap by story name — `missing` lists the stories with no
     verdict, `present` the ones that do — and recommend running `/nxs.analyze --pr <N>` on each

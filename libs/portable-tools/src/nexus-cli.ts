@@ -39,6 +39,7 @@ import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-res
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
 import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
+import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
@@ -229,8 +230,11 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus epic-verdicts currency --epic <N> [--record <N>] [--root <startDir>]",
             "      Re-check each story's verdict against its pull request's current head and, when",
             "      --record is given, the record's current digest. Prints { epic, stories, allCurrent }.",
+            "  nexus epic-verdicts combined --epic <N> [--root <startDir>]",
+            "      Print the union of every story pull request's own changed-file set, for judging",
+            "      the epic's success metrics and cross-story invariants against the combined code.",
         ].join("\n"),
-        subverbs: ["derive", "currency"],
+        subverbs: ["derive", "currency", "combined"],
         run: runEpicVerdicts,
     },
     "record-digest": {
@@ -1001,8 +1005,10 @@ interface EpicVerdictsFlags {
     record?: number;
 }
 
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined"];
+
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
-    const args = argv[0] === "derive" || argv[0] === "currency" ? argv.slice(1) : argv;
+    const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
     const flags: EpicVerdictsFlags = { root: cwd };
     for (let i = 0; i < args.length; i++) {
         const a = args[i];
@@ -1046,7 +1052,7 @@ function resolveEpicVerdictsForCli(
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive|currency --epic <N> [--record <N>] [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|currency|combined --epic <N> [--record <N>] [--root <startDir>]");
         return 2;
     }
 
@@ -1081,6 +1087,16 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         }
         const currency = checkEpicCurrency(closeMigrationRunner, root, result.verdicts, { currentRecordDigest });
         io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...currency }));
+        return 0;
+    }
+
+    if (argv[0] === "combined") {
+        const combined = combinedChangeSet(closeMigrationRunner, root, result.verdicts);
+        if (!combined.ok) {
+            io.stderr(`epic-verdicts ${combined.error.problem}: ${combined.error.message}`);
+            return 1;
+        }
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...combined.combined }));
         return 0;
     }
 
