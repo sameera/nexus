@@ -207,8 +207,12 @@ Determine what was actually built for this epic. Use, in order of availability:
     gh issue view <story-issue> --json number,title,state,closedAt,body
     ```
 
-    Treat an **open** story issue as *not yet implemented* — its ACs are unverifiable, which is itself
-    a finding (the epic is not ready to close).
+    An **open** story issue is **not** a conformance finding. A story closes when the pull request
+    carrying it merges, and this gate runs *before* that merge (`analyze → merge → close`), so open
+    is the expected state here. The acceptance criteria are checked against the change set either
+    way — the issue state decides no verdict. Note which stories are still open and carry them into
+    the report as a **note** (Phase 3): `/nxs.close` hard-blocks on any open sub-issue, so they have
+    to be closed before it runs.
 
 3. **Targeted code reads.** Where the diff is large or a story's AC names a behavior, grep/read the
    touched files to confirm the behavior exists, rather than trusting the diff stat alone.
@@ -236,7 +240,8 @@ satisfies it in the change set. Classify the AC:
 
 - **met** — the diff/code plainly implements the Given/When/Then or the measurable contract.
 - **partial** — some of the AC is implemented; part is missing or weaker than stated.
-- **unmet** — no implementing code found, or the story issue is still open. **(high)**
+- **unmet** — no implementing code found in the change set. **(high)** An open story issue is never
+  the reason — the diff decides.
 - **contradicted** — the code implements the opposite of, or breaks, the stated criterion. **(critical)**
 
 For `system` stories, the AC states a measurable threshold — confirm the code path that would meet it
@@ -282,9 +287,17 @@ Per-story AC conformance:
 Invariant violations:   <decision-record invariant → file:line that breaks it, ...>  (full mode)
 Success metrics:         <metric → measurable? plausibly-moved?>
 Scope drift:             <unplanned behavior, ...>
+Notes:                   <stories still open → close before /nxs.close, ...>   (omit when none)
 
 Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
 ```
+
+**Open story issues are a note, never a finding.** They carry no severity, count nothing towards the
+receipt's `findings:` tally, and never block. State them on the `Notes:` line — "stories #a, #b are
+still open; close them before `/nxs.close`" — and omit the line entirely when every story is closed.
+An open sub-issue is `/nxs.close`'s hard block (its §1.1), not this gate's: here the question is
+whether the code does what the planning said, and the code is readable from the diff whether or not
+the issue has been closed yet.
 
 **Severity gate:** critical or high findings should **block close** — the code does not yet satisfy
 the epic. Fix the implementation (or, if the epic's intent changed during build, amend `epic.md` and
@@ -417,6 +430,9 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
   else.
 - **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
+- **An open story is a note, not a blocker.** Story issues close on merge and this gate runs before
+  the merge, so open stories are ordinary here: report them on the `Notes:` line as work to close
+  before `/nxs.close`, never as a finding under a severity and never in the `findings:` tally.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`
   agent (`/nxs.epic`); story↔design coverage is verified in `/nxs.decision-record`. Not here.
 - **Engineer scratch is soft.** The per-user stubs are read-only context that can explain a
