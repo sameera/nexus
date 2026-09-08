@@ -31,35 +31,51 @@ $ARGUMENTS
 
 # Phase 0 — Resolve the epic context
 
-## PR mode (`--pr <N>`)
+## PR mode (`--pr <ref>`)
 
-If `$ARGUMENTS` contains `--pr <N>` (recognized by string match, like `/nxs.epic --resume`), run
+If `$ARGUMENTS` contains `--pr <ref>` (recognized by string match, like `/nxs.epic --resume`), run
 against a PR **in an isolated worktree** instead of the current checkout. The PR may still be
 **open** — conformance runs *before* merge in the new pipeline (`analyze → merge → close`).
-Supported in single-repo and hub mode only; a member repo is rejected by the helper.
 
-1. **Open the worktree** (also preflights the role and PR):
+`<ref>` is a bare PR number, a member-qualified `owner/repo#N`, or a full pull-request URL
+(decision record #495). A bare number keeps today's meaning: this checkout's own repository,
+whether that is single-repo, a hub, or a member analyzing its own PR. A qualified reference or a
+URL may instead name any member the hub's `.nexus/config/workspace.yml` declares — the lead stands
+in the hub and gates a member's PR from there. A reference naming a repository the workspace does
+not declare stops the run and says so; a declared member whose checkout is not present at its
+expected sibling path stops the run and names that path. Every read for the run — the diff, the
+code, the engineer's scratch — comes from **that resolved target's checkout**, never the hub's, and
+every `gh` call names that target's repository explicitly. Configuration, the epic, the story
+issues, the acceptance criteria and the decision record are still resolved from a **main
+checkout** (never the worktree) exactly as below; only the diff/code/scratch reads move to the
+target repository.
+
+1. **Open the worktree** (also preflights the role/target and the PR, in the target's own repo):
 
     ```bash
-    nexus pr-worktree open --pr <N> --mode analyze
+    nexus pr-worktree open --pr <ref> --mode analyze
     ```
 
-    It prints `{ wtPath, analyzedHead, base }`: `wtPath` is a detached worktree checked out at the
-    PR head (`analyzedHead` — the commit actually analyzed, fetched via `pull/<N>/head` so forks
-    work), and `base` is the PR base SHA. **Every path operation below — epic resolution, the diff,
-    the code reads — happens inside `wtPath`.** Resolve the epic **inside `wtPath`** with the same
-    dual-read as the local flow: if a committed queue entry is present in the worktree (an
-    old-contract epic whose entry rode the PR), use it; otherwise resolve from the issue number —
-    derive the epic issue number from the **PR's linked issue** (`gh pr view <N> --json ...` → the
-    issue it closes → its parent epic; invariant 12), then materialize it:
+    It prints `{ wtPath, analyzedHead, base, repoIdentity }`: `wtPath` is a detached worktree of
+    the **target repository** checked out at the PR head (`analyzedHead` — the commit actually
+    analyzed, fetched via `pull/<N>/head` so forks work), `base` is the PR base SHA, and
+    `repoIdentity` names the repository that was actually read (the member, not the hub, when
+    `<ref>` is qualified). **Every path operation below — the diff, the code reads — happens
+    inside `wtPath`.** Resolve the epic from a **main checkout** (the hub when `<ref>` names a
+    member, this checkout otherwise) with the same dual-read as the local flow: if a committed
+    queue entry is present there (an old-contract epic whose entry rode the PR), use it; otherwise
+    resolve from the issue number — derive the epic issue number from the **PR's linked issue**
+    (`gh pr view <N> --json ...` → the issue it closes → its parent epic; invariant 12), then
+    materialize it:
 
     ```bash
-    nexus epic-resolve --epic <n> --root <wtPath>
+    nexus epic-resolve --epic <n> --root <mainCheckoutRoot>
     ```
 
-    Use the directory of the printed `outPath` (under `wtPath/.nexus/tmp/`) as the entry. Under #114
-    nothing is committed at planning, so the feature PR carries **no** queue entry — the resolver path
-    is the norm here; the committed-entry branch is the transitional case (invariant 14).
+    Use the directory of the printed `outPath` (under `<mainCheckoutRoot>/.nexus/tmp/`) as the
+    entry. Under #114 nothing is committed at planning, so the feature PR carries **no** queue
+    entry — the resolver path is the norm here; the committed-entry branch is the transitional case
+    (invariant 14).
 2. **Always remove the worktree** at the end of the run and on any error:
 
     ```bash
@@ -410,6 +426,7 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 /nxs.analyze 118                  # resolve epic issue #118 via the resolver (no committed entry needed)
 /nxs.analyze path/to/epic-entry   # explicit queue entry / epic directory
 /nxs.analyze --pr 123             # conformance against PR #123 in a worktree; epic from the PR's linked issue
+/nxs.analyze --pr acme/widget#7   # from the hub, conformance against PR #7 in declared member acme/widget
 ```
 
 # Constraints
@@ -446,8 +463,12 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
   nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch. Its
   home is `.nexus/queue/epic-<epic-issue>/` — resolved from the epic issue number, never from `QDIR`,
   which under issue-sourced planning is a gitignored `.nexus/tmp/` materialization.
-- **`--pr` mode runs in a worktree and publishes a review, not a file.** Single-repo and hub only
-  (the helper rejects member repos). Every read happens inside the worktree; the worktree is always
-  removed at the end and on error. The conformance result is a PR review (comment fallback when the
-  lead authored the PR) carrying the machine block — `analyze-receipt.md` is **not** written in this
-  mode. The PR may be open (analyze precedes merge).
+- **`--pr` mode runs in a worktree and publishes a review, not a file.** A bare PR number targets
+  this checkout's own repository (single-repo, hub, or a member analyzing its own PR); a
+  member-qualified reference or a PR URL may target any member the hub's workspace manifest
+  declares — an undeclared repository or a declared member not checked out where expected stops
+  the run and says so. Every read happens inside the target repository's worktree; the worktree is
+  always removed at the end and on error. The conformance result is a PR review (comment fallback
+  when the lead authored the PR) carrying the machine block — `analyze-receipt.md` is **not**
+  written in this mode. The PR may be open (analyze precedes merge). `/nxs.close --pr` still
+  refuses a member outright until #215.

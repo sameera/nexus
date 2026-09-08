@@ -41,6 +41,7 @@ import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
+import { parsePrReference, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
@@ -246,8 +247,11 @@ const REGISTRY: Record<string, VerbEntry> = {
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
         usage: [
-            "  nexus pr-worktree preflight --pr <N> --mode analyze|close [--root <dir>]",
-            "  nexus pr-worktree open --pr <N> --mode analyze|close [--branch <distill/...>] [--root <dir>]",
+            "  nexus pr-worktree preflight --pr <N|owner/repo#N|url> --mode analyze|close [--root <dir>]",
+            "  nexus pr-worktree open --pr <N|owner/repo#N|url> --mode analyze|close [--branch <distill/...>] [--root <dir>]",
+            "      In analyze mode, a bare N targets this checkout's own repository; 'owner/repo#N' or a",
+            "      pull-request URL may target any member the hub's workspace manifest declares. Close",
+            "      keeps refusing a member outright.",
             "  nexus pr-worktree range --pr <N> [--root <dir>]",
             "      Print { repo, base, head } for a merged PR without creating a worktree.",
             "  nexus pr-worktree remove <wtPath> [--root <dir>]",
@@ -1126,7 +1130,8 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
 }
 
 interface PrWorktreeFlags {
-    pr?: number;
+    /** The raw `--pr` argument: a bare number, an 'owner/repo#N' reference, or a PR URL. */
+    prRef?: string;
     mode?: string;
     branch?: string;
     root: string;
@@ -1138,7 +1143,7 @@ function parsePrWorktreeFlags(argv: string[], cwd: string): PrWorktreeFlags {
     const flags: PrWorktreeFlags = { root, positional: [] };
     for (let i = 0; i < rest.length; i++) {
         const a = rest[i];
-        if (a === "--pr") flags.pr = Number(rest[++i]);
+        if (a === "--pr") flags.prRef = rest[++i];
         else if (a === "--mode") flags.mode = rest[++i];
         else if (a === "--branch") flags.branch = rest[++i];
         else flags.positional.push(a);
@@ -1162,13 +1167,15 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
     }
 
     // `range` needs no mode and creates no worktree: it is the read the fix lane wants, where a
-    // checkout would be built and torn down for one JSON object.
+    // checkout would be built and torn down for one JSON object. Close's post-merge range is
+    // never cross-repo (epic #211 opens analyze only), so `--pr` here stays a bare number.
     if (subcommand === "range") {
-        if (flags.pr === undefined || Number.isNaN(flags.pr)) {
+        const prNumber = flags.prRef !== undefined ? Number(flags.prRef) : NaN;
+        if (Number.isNaN(prNumber)) {
             io.stderr("usage: pr_worktree.ts range --pr <N>");
             return 2;
         }
-        const read = readRange(closeMigrationRunner, flags.root, flags.pr);
+        const read = readRange(closeMigrationRunner, flags.root, prNumber);
         if (!read.ok) {
             io.stderr(renderPrWorktreeDiagnostic(read.error));
             return 1;
@@ -1178,7 +1185,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (subcommand === "preflight" || subcommand === "open") {
-        if (flags.pr === undefined || Number.isNaN(flags.pr)) {
+        if (flags.prRef === undefined) {
             io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
             return 2;
         }
@@ -1187,14 +1194,37 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             return 2;
         }
 
-        const role = resolveRole(flags.root);
-        if (!role.ok) {
-            io.stderr(renderPrWorktreeDiagnostic(role.error));
-            return 1;
+        // Analyze accepts a member (a bare number self-selects this checkout; a repo-qualified
+        // reference or a PR URL may name any declared member) — the role-per-mode split decision
+        // record #495 calls for. Close keeps refusing a member outright until #215.
+        let repoRoot: string;
+        let repoIdentity: string;
+        let roleName: string;
+        let prNumber: number;
+        if (flags.mode === "analyze") {
+            const target = resolveAnalyzeTarget(flags.root, closeMigrationRunner, flags.prRef);
+            if (!target.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(target.error));
+                return 1;
+            }
+            const parsedRef = parsePrReference(flags.prRef);
+            ({ repoRoot, repoIdentity, role: roleName } = target.target);
+            prNumber = (parsedRef as { number: number }).number;
+        } else {
+            const role = resolveRole(flags.root, closeMigrationRunner, "close");
+            if (!role.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(role.error));
+                return 1;
+            }
+            ({ repoRoot, repoIdentity, role: roleName } = role.resolved);
+            prNumber = Number(flags.prRef);
+            if (Number.isNaN(prNumber)) {
+                io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode close`);
+                return 2;
+            }
         }
-        const { repoRoot, repoIdentity, role: roleName } = role.resolved;
         const requireMerged: boolean = flags.mode === "close";
-        const pr = resolvePr(closeMigrationRunner, repoRoot, flags.pr, { requireMerged });
+        const pr = resolvePr(closeMigrationRunner, repoRoot, prNumber, { requireMerged });
         if (!pr.ok) {
             io.stderr(renderPrWorktreeDiagnostic(pr.error));
             return 1;
@@ -1226,13 +1256,20 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
 
         // subcommand === "open"
         if (flags.mode === "analyze") {
-            const wt = openAnalyzeWorktree(closeMigrationRunner, repoRoot, flags.pr);
+            const wt = openAnalyzeWorktree(closeMigrationRunner, repoRoot, prNumber);
             if (!wt.ok) {
                 io.stderr(renderPrWorktreeDiagnostic(wt.error));
                 return 1;
             }
             io.stdout(
-                JSON.stringify({ command: "open", mode: "analyze", wtPath: wt.wtPath, analyzedHead: wt.head, base: pr.pr.base, repoIdentity }),
+                JSON.stringify({
+                    command: "open",
+                    mode: "analyze",
+                    wtPath: wt.wtPath,
+                    analyzedHead: wt.head,
+                    base: pr.pr.base,
+                    repoIdentity,
+                }),
             );
             return 0;
         }
@@ -1249,7 +1286,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
         }
         // Fetch the PR head into the shared object store so the range can be verified
         // (disambiguates squash vs rebase). Best-effort — a deleted branch leaves it undefined.
-        const prHead: string | undefined = fetchPrHead(closeMigrationRunner, repoRoot, flags.pr);
+        const prHead: string | undefined = fetchPrHead(closeMigrationRunner, repoRoot, prNumber);
         const range = deriveRange(closeMigrationRunner, wt.wtPath, pr.pr, { verifyAgainstPrHead: prHead });
         if (!range.ok) {
             io.stderr(renderPrWorktreeDiagnostic(range.error));

@@ -1,13 +1,16 @@
 /**
- * Role gate for the --pr post-merge flow.
+ * Role gate for /nxs.close's --pr post-merge flow.
  *
  * Single-repo and hub may run the post-merge worktree flow; a member repo may not
  * (its close runs on the feature branch and migrates the entry to the hub, which
- * is incompatible with a post-merge worktree cut from the trunk). Role comes from
- * the same committed artifacts close's preflight keys on — a member pointer
- * (`.nexus/config/hub.yml`) is rejected up front, before any hub resolution, so a
- * member is refused even when its hub is not checked out. Identity for the
- * single-repo/hub path comes from close's preflight. Read-only.
+ * is incompatible with a post-merge worktree cut from the trunk — that path is retired only by
+ * #215). Role comes from the same committed artifacts close's preflight keys on — a member
+ * pointer (`.nexus/config/hub.yml`) is rejected up front, before any hub resolution, so a
+ * member is refused even when its hub is not checked out. Identity for the single-repo/hub
+ * path comes from close's preflight. Read-only.
+ *
+ * The analyze mode opened by epic #211 does not use this gate — see `./member-target.js`'s
+ * `resolveAnalyzeTarget`, which accepts a member.
  */
 
 import * as fs from "node:fs";
@@ -46,8 +49,8 @@ export function resolveRole(startDir: string, run: Runner = defaultRunner): Reso
             error: {
                 problem: "member-unsupported",
                 message:
-                    `the --pr post-merge flow is not supported in a member repo; a member's /nxs.close runs on its ` +
-                    `feature branch and migrates the entry to the hub. Run /nxs.close without --pr, or drain from the hub.`,
+                    `/nxs.close --pr is not supported in a member repo; a member's close runs on its feature ` +
+                    `branch and migrates the entry to the hub. Run /nxs.close without --pr, or drain from the hub.`,
             },
         };
     }
@@ -62,7 +65,7 @@ export function resolveRole(startDir: string, run: Runner = defaultRunner): Reso
         // Belt-and-suspenders: should have been caught above.
         return {
             ok: false,
-            error: { problem: "member-unsupported", message: `member repos do not support the --pr post-merge flow.` },
+            error: { problem: "member-unsupported", message: `/nxs.close --pr does not support a member repo.` },
         };
     }
     return { ok: true, resolved: { role, repoRoot: root, repoIdentity: repo.identity } };

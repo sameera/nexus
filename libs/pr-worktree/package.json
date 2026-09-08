@@ -39,6 +39,11 @@
       "import": "./src/identity.ts",
       "default": "./src/identity.ts"
     },
+    "./member-target": {
+      "types": "./src/member-target.ts",
+      "import": "./src/member-target.ts",
+      "default": "./src/member-target.ts"
+    },
     "./render": {
       "types": "./src/render.ts",
       "import": "./src/render.ts",

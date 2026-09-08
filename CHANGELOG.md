@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.14.0
+
+- analyze: `--pr` now accepts a member-qualified reference (`owner/repo#N`) or a full pull-request
+  URL, not only a bare number. From a hub checkout, this opens the `--pr` role gate to a declared
+  member: the run reads that member's own checkout and code, and reports the member repository
+  (not the hub) as what it read. Naming a repository the workspace does not declare, or a declared
+  member not checked out where the workspace expects it, stops the run and says so. A bare number
+  keeps its existing meaning — this checkout's own repository — and `/nxs.close --pr` is unchanged:
+  it still refuses a member outright, with its refusal message now naming close specifically.
+
 ## 0.13.0
 
 - analyze: the gate now runs only for an epic entry. Instead of naming each non-epic kind in its
