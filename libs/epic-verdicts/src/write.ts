@@ -44,6 +44,7 @@ export function writeEpicReceipt(dir: string, receipt: EpicReceipt, meta: WriteE
         renderStoriesTable(receipt.stories),
         "prs:",
         renderPrsList(receipt.prs),
+        `excluded: [${receipt.excluded.join(", ")}]`,
         "---",
         "",
     ];
@@ -111,5 +112,8 @@ export function readEpicReceipt(filePath: string): EpicReceipt | null {
         pr: Number(r["pr"]),
     }));
 
-    return { epic: epicMatch[1], findings, stories, prs };
+    const excludedMatch = /^excluded:\s*\[([^\]]*)\]/m.exec(raw);
+    const excluded = excludedMatch ? [...excludedMatch[1].matchAll(/\d+/g)].map((m) => Number(m[0])) : [];
+
+    return { epic: epicMatch[1], findings, stories, prs, excluded };
 }

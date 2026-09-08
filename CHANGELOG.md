@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.20.0
+
+- analyze: aggregate mode now falls back to today's ordinary full-epic conformance run whenever not
+  a single required story carries a verdict — previously this was reported the same as a genuine
+  partial gap. Only a mix of some-verdict/some-not stories now stops and names the gap. A story
+  marked with the new `no-pr-label` (resolved through the shared publishing resolver, default
+  `no-pull-request`) ships without its own pull request by design: it is excluded from the coverage
+  requirement and named as excluded on the epic receipt, and never counts toward either the
+  fallback or the partial-gap state.
+
 ## 0.19.0
 
 - analyze: aggregate mode now judges the epic's success metrics and any decision-record invariant

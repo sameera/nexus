@@ -41,9 +41,11 @@ import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write
 import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
+import { isExcludedStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
+import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
@@ -1035,12 +1037,30 @@ function resolveEpicVerdictsForCli(
     if (!slugResult.ok) return { ok: false, message: `epic-verdicts ${slugResult.error.problem}: ${slugResult.error.message}` };
 
     const stories = resolved.resolved.stories.map((s) => s.number);
+    const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+    const excludedStories: number[] = [];
     const candidatesByStory: Record<number, number[]> = {};
     for (const story of stories) {
+        if (noPrLabel.length > 0) {
+            const labelsResult = closeMigrationRunner("gh", ["issue", "view", String(story), "--json", "labels", "--jq", ".labels[].name"], {
+                cwd: root,
+            });
+            const labels = labelsResult.status === 0 ? labelsResult.stdout.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+            if (isExcludedStory(labels, noPrLabel)) {
+                excludedStories.push(story);
+                continue;
+            }
+        }
         candidatesByStory[story] = discoverCandidatePrs(closeMigrationRunner, root, slugResult.slug, story).map((c) => c.pr);
     }
 
-    const result = resolveEpicVerdicts(closeMigrationRunner, root, { slug: slugResult.slug, epic, stories, candidatesByStory });
+    const result = resolveEpicVerdicts(closeMigrationRunner, root, {
+        slug: slugResult.slug,
+        epic,
+        stories,
+        candidatesByStory,
+        excludedStories,
+    });
     return { ok: true, result };
 }
 
@@ -1070,8 +1090,13 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
 
-    if (result.state === "missing") {
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "missing", missing: result.missing, present: result.present }));
+    if (result.state === "none") {
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "none" }));
+        return 0;
+    }
+
+    if (result.state === "partial") {
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "partial", missing: result.missing, present: result.present }));
         return 0;
     }
 

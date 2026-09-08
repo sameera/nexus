@@ -60,7 +60,7 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         expect(r.receipt.stories.map((s) => s.story)).toEqual([496, 497]);
     });
 
-    it("stops and names the story with no verdict, without deriving a receipt", () => {
+    it("stops as partial and names the story with no verdict, without deriving a receipt, when some stories do carry one", () => {
         const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
         const r = resolveEpicVerdicts(run, "/repo", {
             slug: SLUG,
@@ -70,13 +70,13 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.state).toBe("missing");
-        if (r.state !== "missing") return;
+        expect(r.state).toBe("partial");
+        if (r.state !== "partial") return;
         expect(r.missing).toEqual([497]);
         expect(r.present).toEqual([496]);
     });
 
-    it("names every story missing a verdict, not just the first", () => {
+    it("falls back to 'none' — today's full-epic conformance — when not a single story carries a verdict", () => {
         const run = ghRunner({});
         const r = resolveEpicVerdicts(run, "/repo", {
             slug: SLUG,
@@ -86,8 +86,37 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.state).toBe("missing");
-        if (r.state !== "missing") return;
-        expect(r.missing).toEqual([496, 497]);
+        expect(r.state).toBe("none");
+    });
+
+    it("excludes a story marked as shipping without its own pull request from the coverage requirement", () => {
+        const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
+        const r = resolveEpicVerdicts(run, "/repo", {
+            slug: SLUG,
+            epic: 212,
+            stories: [496, 497],
+            candidatesByStory: { 496: [501], 497: [] },
+            excludedStories: [497],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.state).toBe("aggregate");
+        if (r.state !== "aggregate") return;
+        expect(r.receipt.excluded).toEqual([497]);
+        expect(r.receipt.stories.map((s) => s.story)).toEqual([496]);
+    });
+
+    it("falls back to 'none' when every non-excluded story carries no verdict", () => {
+        const run = ghRunner({});
+        const r = resolveEpicVerdicts(run, "/repo", {
+            slug: SLUG,
+            epic: 212,
+            stories: [496, 497],
+            candidatesByStory: { 496: [], 497: [] },
+            excludedStories: [497],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.state).toBe("none");
     });
 });

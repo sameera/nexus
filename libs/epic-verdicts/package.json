@@ -39,6 +39,11 @@
       "import": "./src/combined.ts",
       "default": "./src/combined.ts"
     },
+    "./exclusion": {
+      "types": "./src/exclusion.ts",
+      "import": "./src/exclusion.ts",
+      "default": "./src/exclusion.ts"
+    },
     "./receipt": {
       "types": "./src/receipt.ts",
       "import": "./src/receipt.ts",

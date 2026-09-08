@@ -295,6 +295,12 @@ if the user opts to analyze first, nothing later in this command should have run
    the aggregate's **clean** state; any story reported not current is this receipt's **stale** state,
    on whichever axis(es) that story failed.
 
+   **No aggregate receipt at all** reads exactly like the existing **missing** state below — an epic
+   that never shipped story by story, or one with a genuine partial gap, produced no receipt for
+   `/nxs.analyze` to have written, so there is nothing this stage need tell apart from an ordinary
+   missing analysis. `/nxs.analyze` is what names a partial gap by story, at derivation time; this
+   gate only ever sees "a receipt exists" or "it doesn't".
+
    The receipt also carries `record` / `record_hash` in full mode (#139) — the decision record the
    analysis checked against. **Staleness has two independent axes, and neither is inferred from the
    other:** the code may have moved after the analysis, the design may have moved after it, or both.

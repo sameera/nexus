@@ -29,6 +29,8 @@ export interface EpicReceipt {
     findings: FindingCounts;
     stories: EpicReceiptStory[];
     prs: EpicReceiptPr[];
+    /** Stories marked as shipping without their own pull request — excluded from coverage. */
+    excluded: number[];
 }
 
 function verdictKey(v: StoryVerdict): string {
@@ -38,7 +40,7 @@ function verdictKey(v: StoryVerdict): string {
 const ZERO: FindingCounts = { critical: 0, high: 0, medium: 0, low: 0 };
 
 /** Build the epic receipt from the epic's resolved per-story verdicts. */
-export function buildEpicReceipt(epic: number, verdicts: StoryVerdict[]): EpicReceipt {
+export function buildEpicReceipt(epic: number, verdicts: StoryVerdict[], excluded: number[] = []): EpicReceipt {
     const distinctByKey = new Map<string, StoryVerdict>();
     for (const v of verdicts) distinctByKey.set(verdictKey(v), v);
 
@@ -63,5 +65,5 @@ export function buildEpicReceipt(epic: number, verdicts: StoryVerdict[]): EpicRe
         .map((v) => ({ story: v.story, repo: v.repo, pr: v.pr, head: v.head }))
         .sort((a, b) => a.story - b.story);
 
-    return { epic: `#${epic}`, findings, stories, prs };
+    return { epic: `#${epic}`, findings, stories, prs, excluded: [...excluded].sort((a, b) => a - b) };
 }

@@ -26,6 +26,7 @@ const RECEIPT: EpicReceipt = {
         { repo: "acme/widget", pr: 501 },
         { repo: "acme/widget", pr: 502 },
     ],
+    excluded: [498],
 };
 
 describe("writeEpicReceipt / readEpicReceipt — the per-story receipt, at the #171 placement contract", () => {
@@ -40,6 +41,7 @@ describe("writeEpicReceipt / readEpicReceipt — the per-story receipt, at the #
         expect(read?.findings).toEqual(RECEIPT.findings);
         expect(read?.stories).toEqual(RECEIPT.stories);
         expect(read?.prs).toEqual(RECEIPT.prs);
+        expect(read?.excluded).toEqual(RECEIPT.excluded);
     });
 
     it("returns null for a file with no per-story stories list — a single-PR receipt from #171, not this shape", () => {

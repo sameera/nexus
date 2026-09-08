@@ -252,12 +252,16 @@ returns one of two states on stdout as JSON:
     report both: the findings summed per distinct verdict (never per story — a verdict covering two
     stories counts once) plus this cross-story judgment, and the pull requests the receipt was
     derived from.
--   **`"missing"`** — at least one story carries no verdict on any of its candidate pull requests.
-    The command wrote no receipt. Report the gap by story name — `missing` lists the stories with no
-    verdict, `present` the ones that do — and recommend running `/nxs.analyze --pr <N>` on each
-    missing story's pull request, or a plain `/nxs.analyze` run over the whole epic if none of the
-    stories shipped independently. **Do not fall through to Phase 1** on this state; a partial
-    aggregate would silently under-report the epic.
+-   **`"none"`** — not a single required story carries a verdict: this epic never shipped story by
+    story. The command wrote no receipt. **Fall through to Phase 1 and run exactly as today** — this
+    is the ordinary full-epic path, not a gap. A story marked as shipping without its own pull
+    request (`no-pr-label`) never counts against this: an epic every one of whose *other* stories is
+    unmarked and unverdicted still reads as `"none"`, not `"partial"`.
+-   **`"partial"`** — some required stories carry a verdict and some do not. The command wrote no
+    receipt. Report the gap by story name — `missing` lists the stories with no verdict, `present`
+    the ones that do — and recommend running `/nxs.analyze --pr <N>` on each missing story's pull
+    request. **Do not fall through to Phase 1** on this state; deriving a receipt from only the
+    present stories would silently under-report the epic.
 
 Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
 verdict — report it and stop, the same as any other unreadable-record failure in this command.

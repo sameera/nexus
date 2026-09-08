@@ -5,6 +5,15 @@
  * a verdict, one epic receipt is derived and no conformance run repeats; when any story carries no
  * verdict on any of its candidate pull requests, the derivation stops and names that story — never
  * a receipt with a hole silently papered over.
+ *
+ * Story #499 refines the "some story has no verdict" case into two: when **not a single** required
+ * story carries a verdict, this is an epic that never shipped story by story, and the caller should
+ * fall back to today's full-epic conformance run (`"none"`) — never a stop, because there is nothing
+ * partial to report. When **some but not all** required stories carry one, that is a genuine gap
+ * (`"partial"`), and the derivation stops and names it. `excludedStories` — a story marked as
+ * shipping without its own pull request — is removed from the coverage requirement entirely before
+ * this classification runs, and is named on the receipt as excluded rather than as present or
+ * missing.
  */
 
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
@@ -19,20 +28,29 @@ export interface ResolveEpicVerdictsInput {
     stories: number[];
     /** Pre-discovered candidate pull requests per story (see discover.ts). */
     candidatesByStory: Record<number, number[]>;
+    /** Stories marked as shipping without their own pull request — excluded from coverage. */
+    excludedStories?: number[];
 }
 
 export type ResolveEpicVerdictsResult =
     | { ok: true; state: "aggregate"; receipt: EpicReceipt; verdicts: StoryVerdict[] }
-    | { ok: true; state: "missing"; missing: number[]; present: number[] }
+    | { ok: true; state: "none" }
+    | { ok: true; state: "partial"; missing: number[]; present: number[] }
     | { ok: false; error: EpicVerdictsDiagnostic };
 
-/** Resolve every story's verdict and derive the epic receipt, or stop and name the missing ones. */
+/**
+ * Resolve every non-excluded story's verdict and derive the epic receipt; fall back to `"none"`
+ * when no required story has one, or stop as `"partial"` and name the gap when only some do.
+ */
 export function resolveEpicVerdicts(run: Runner, cwd: string, input: ResolveEpicVerdictsInput): ResolveEpicVerdictsResult {
+    const excluded = input.excludedStories ?? [];
+    const required = input.stories.filter((s) => !excluded.includes(s));
+
     const verdicts: StoryVerdict[] = [];
     const missing: number[] = [];
     const present: number[] = [];
 
-    for (const story of input.stories) {
+    for (const story of required) {
         const candidates = input.candidatesByStory[story] ?? [];
         const r = resolveStoryVerdict(run, cwd, { slug: input.slug, epic: input.epic, story, candidates });
         if (!r.ok) return r;
@@ -44,6 +62,7 @@ export function resolveEpicVerdicts(run: Runner, cwd: string, input: ResolveEpic
         }
     }
 
-    if (missing.length > 0) return { ok: true, state: "missing", missing, present };
-    return { ok: true, state: "aggregate", receipt: buildEpicReceipt(input.epic, verdicts), verdicts };
+    if (present.length === 0) return { ok: true, state: "none" };
+    if (missing.length > 0) return { ok: true, state: "partial", missing, present };
+    return { ok: true, state: "aggregate", receipt: buildEpicReceipt(input.epic, verdicts, excluded), verdicts };
 }
