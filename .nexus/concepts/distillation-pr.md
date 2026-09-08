@@ -1,8 +1,8 @@
 ---
 title: "Distillation PR"
 aliases: ["distillation pull request", "reviewed concept write", "gated apply", "curated apply"]
-touches: ["distiller", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow"]
-last_updated_by: "#101"
+touches: ["distiller", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -20,7 +20,8 @@ On its post-merge drain, the distiller builds the deltas and lands them on a bra
 1. The distiller never writes the concept store directly; every write is a reviewed pull request.
 2. The pull request merge is the authoritative write.
 3. Consumed queue entries are deleted only when that merge lands.
-4. Review targets the what-abstraction and the page mapping; the why was already reviewed earlier — at feature merge, or on the pull request in the post-merge flow.
+4. For an epic entry, review targets the what-abstraction and the page mapping; the why was already reviewed earlier — at feature merge, or on the pull request in the post-merge flow.
+5. A fix or an intake entry carries no earlier why-review, so this pull request is its only one; an intake-sourced write is flagged in the body for that reason, so the reviewer can give it a closer look.
 
 ## Integration Points
 
@@ -28,6 +29,7 @@ On its post-merge drain, the distiller builds the deltas and lands them on a bra
 - [taxonomy-filing-gate](taxonomy-filing-gate.md) — an approved domain or subdomain is authored onto this same pull request, beside its motivating page.
 - [drift-advisory](drift-advisory.md) — its findings are written into this pull request's body for the reviewer.
 - [pr-driven-flow](pr-driven-flow.md) — the post-merge flow whose closure prepares this branch for distillation to continue on and open.
+- [intake-lane](intake-lane.md) — its writes are flagged in this pull request's body, since their why was reviewed only here, never earlier.
 
 ## Decision Log
 
@@ -42,3 +44,7 @@ The distillation-PR gained two riders that need no new machinery: a domain or su
 ### 2026-07-20 — #101 — The pull-request flow reviews the why on the PR and rides the close artifacts on this branch
 
 When the closure and distillation run post-merge against a pull request there is no feature pull request for the close record to ride, and the conformance why is reviewed on the pull request itself rather than at feature merge. Closure prepares the distillation branch and pushes the close artifacts onto it; distillation continues on that same branch and opens this reviewed write, so the distillation pull request can carry the close artifacts alongside the page patches while staying a single reviewed write. Refuted alternative: open a separate small closure pull request for the close artifacts — rejected as process weight for a few prose files, splitting one epic's closure across two reviews.
+
+### 2026-09-08 — #483 — A write with no earlier why-review is flagged in the body
+
+Review here already targeted the what-abstraction and the page mapping on the claim that the why was reviewed earlier, at a feature merge or a decision record. An intake entry has neither: its reasoning is approved for the first time at this very pull request, bought with one review instead of an epic's two. The invariant is corrected to say so, and an intake-sourced write is now flagged in the body — the compensating control, since the person who recorded the entry may also be its sole reviewer here. A fix entry shares the same gap and was already left unstated; naming it now rather than leaving the correction half made.
