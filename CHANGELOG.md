@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.8.0
+
+- No change to how any pipeline stage behaves.
+- Internal only: the fix lane's reference resolution, range resolution and qualification rules
+  move into a shared skill that a second landed-work lane will also use, so the two cannot
+  silently drift apart. `/nxs.fix` itself still writes the same entry from the same input.
+
 ## 0.7.0
 
 - A planned roadmap can now be taught, and the teaching stage arrives as two commands rather than
