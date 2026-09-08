@@ -167,11 +167,11 @@ const DISTILL: string = body("nxs.distill.md");
 
 describe("/nxs.distill drains a fix entry (story #268)", () => {
     it("discovers a fix directory as a drainable entry alongside an ephemeral epic entry", () => {
-        expect(DISTILL).toMatch(/`\.nexus\/tmp\/epic-<n>\/` \*\*or `\.nexus\/tmp\/fix-<n>\/`\*\*/);
+        expect(DISTILL).toMatch(/`\.nexus\/tmp\/epic-<n>\/`, \*\*`\.nexus\/tmp\/fix-<n>\/`, or `\.nexus\/tmp\/intake-<n>\/`\*\*/);
     });
 
     it("skips a fix directory missing either file, the same way it skips an epic entry", () => {
-        expect(DISTILL).toMatch(/fix directory missing\s*\n?\s*either file is skipped exactly as an epic directory missing either file is/);
+        expect(DISTILL).toMatch(/a fix or intake directory missing either file is skipped exactly as an epic directory\s*\n?\s*missing/);
     });
 
     it("takes the entry kind from the header, never the directory name, and blocks a disagreement", () => {

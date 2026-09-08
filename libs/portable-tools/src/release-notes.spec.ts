@@ -33,7 +33,7 @@ const changed = { touchedComponentBody: true, changedStageBehaviour: true, break
  * this, so a release that moved no component body and changed no stage behaviour is allowed to
  * say exactly that, and one that did is held to naming the stage.
  */
-const thisRelease = { touchedComponentBody: true, changedStageBehaviour: false, breakingChange: false };
+const thisRelease = { touchedComponentBody: true, changedStageBehaviour: true, breakingChange: false };
 
 describe("one tag, one registry version, one releases-page entry (AC1)", () => {
     it("the changelog and a tag all name what the manifest declares", () => {

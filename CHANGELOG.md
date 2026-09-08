@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.11.0
+
+- distill: the drain now accepts a third recorded entry kind, `intake`, written by `/nxs.intake`.
+  An intake entry drains with the full epic vocabulary — it may create a page, change what an
+  existing page asserts, or add or retire an invariant — unlike a fix entry, which stays bounded to
+  one appended decision-log line. The checkpoint before the distillation pull request names, per
+  intake entry, every page it creates, every page whose assertions change, and every invariant it
+  retires. Draining an epic entry or a fix entry is unchanged, including one discovered in the same
+  run as an intake entry.
+
 ## 0.10.0
 
 - No change to how any pipeline stage behaves.

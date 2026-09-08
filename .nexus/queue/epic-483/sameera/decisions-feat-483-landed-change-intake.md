@@ -59,3 +59,16 @@
 - **Refuted alternative:** mirror `/nxs.close`'s literal phase order — write the record with a
   pending placeholder, file the stubs, then patch the written file. It would match the precedent
   exactly but adds a write-then-rewrite step this lane's ordering does not need.
+
+## 2026-09-08 — Intake's no-bound stated as an explicit sentence, not left implicit (#487)
+
+- **Choice:** added an explicit paragraph in `/nxs.distill` Phase 3 stating that an intake entry
+  gets the full epic vocabulary, rather than relying on "an intake entry has no special-cased bound,
+  so the default (epic) behaviour already applies to it".
+- **Why:** the fix razor's bound is itself a special case layered onto an otherwise-unbounded
+  synthesis phase. A reader who does not already know that would reasonably ask whether intake is
+  bounded too; stating it removes the question instead of relying on the reader inferring it from
+  absence.
+- **Refuted alternative:** say nothing and let the unbounded default speak for itself, symmetrical
+  with how epic entries need no such sentence. Rejected because intake is new in this release and
+  sits directly beside the fix razor prose in the same phase; silence there reads as an omission.

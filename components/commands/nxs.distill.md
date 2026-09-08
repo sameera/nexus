@@ -69,21 +69,26 @@ $ARGUMENTS
    `epic.md`). **Presence = unconsumed** — there is no state file to consult.
 
    **Also scan `.nexus/tmp/`** for **ephemeral entries** (#173) in the same run: a directory
-   `.nexus/tmp/epic-<n>/` **or `.nexus/tmp/fix-<n>/`** is a drainable entry **only when it carries
-   both `epic.md` and `close-record.md`** (record #176, invariant 6). An epic-only materialization
-   is resolver scratch — never listed, never warned about, never aged; a fix directory missing
-   either file is skipped exactly as an epic directory missing either file is.
+   `.nexus/tmp/epic-<n>/`, **`.nexus/tmp/fix-<n>/`, or `.nexus/tmp/intake-<n>/`** is a drainable
+   entry **only when it carries both `epic.md` and `close-record.md`** (record #176, invariant 6).
+   An epic-only materialization is resolver scratch — never listed, never warned about, never aged;
+   a fix or intake directory missing either file is skipped exactly as an epic directory missing
+   either file is.
 
-   **A `fix-<n>` directory is a fix entry** (#263), written by `/nxs.fix` for a small change that
-   has already landed. It is drained by everything below exactly as an ephemeral epic entry is,
-   with the differences the razor imposes called out at each phase. **What an entry *is* comes from
-   `entry_kind:` in its `epic.md`, never from its location or its directory name.** When the two
-   disagree — `entry_kind: fix` under `epic-<n>/`, or an absent or non-`fix` kind under
-   `fix-<n>/` — stop that entry with the named per-entry hard block **`entry-kind-mismatch`**,
-   write nothing for it, and leave the directory in place. Every other resolution silently picks
-   one of two contradictory claims about what the entry is, and picking the directory name would
-   let an entry be drained as an epic while its own header says it is a fix — the exact case the
-   razor exists to catch. For an ephemeral candidate,
+   **The kind set is closed: `epic`, `fix`, and `intake`, and nothing else** (record #504,
+   invariant 6). **A `fix-<n>` directory is a fix entry** (#263), written by `/nxs.fix` for a small
+   change that has already landed. **An `intake-<n>` directory is an intake entry** (#483), written
+   by `/nxs.intake` for a design change that has already landed, whose reasoning was never approved
+   by a decision record. Each is drained by everything below exactly as an ephemeral epic entry is,
+   with the differences its own razor imposes called out at each phase. **What an entry *is* comes
+   from `entry_kind:` in its `epic.md`, never from its location or its directory name.** When the
+   directory prefix disagrees with the recorded kind — `entry_kind: fix` or `entry_kind: intake`
+   under `epic-<n>/`, an absent or non-`fix` kind under `fix-<n>/`, an absent or non-`intake` kind
+   under `intake-<n>/`, or any kind this list does not name — stop that entry with the named
+   per-entry hard block **`entry-kind-mismatch`**, write nothing for it, and leave the directory in
+   place. Every other resolution silently picks one of two contradictory claims about what the
+   entry is, and picking the directory name would let an entry be drained under the wrong razor —
+   the exact case this check exists to catch. For an ephemeral candidate,
    **presence alone is not the consumption signal** — nothing ever commits a deletion of a tmp
    path, so derive consumption from the store (invariant 8): fetch the trunk
    (`git fetch origin main`), then check whether the concept store **at the trunk** carries this
@@ -498,7 +503,14 @@ heading carries.
 Report it, write nothing for that entry, and leave the entry directory in place for a later run.
 This is the razor working, not a gap in it: a decision with no page is a decision that needs a page,
 and creating pages is epic work. A change that needs to alter what a page asserts is a **design
-change** — it keeps taking `/nxs.epic`.
+change** — it keeps taking `/nxs.epic`. **This bound applies to a fix entry only.**
+
+**An intake entry (#483) gets the full epic vocabulary, exactly as an epic entry does** (record
+#504, invariant 15): a delta may create a page, change what an existing page asserts, and add or
+retire an invariant — none of the fix razor's bounds apply. Its *why* comes solely from its close
+record, on the same terms an epic with no decision record already reads its *why* solely from
+there; its `source` is the reference recorded in the entry's `epic.md` `link`, exactly as a fix
+entry's is.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
@@ -792,8 +804,10 @@ Run these for each entry, in order, before its commit:
 
     **Apply the mode only to a fix entry's pages.** Entries are applied, validated and committed one
     at a time (Step 2), so an epic entry drained in the same run is validated by its own invocation,
-    without the flag, exactly as before. That per-entry ordering is load-bearing here and must not be
-    batched as an optimisation: batching would make the razor compare against the wrong base.
+    without the flag, exactly as before. **An intake entry is validated the same unbounded way** —
+    the append-only mode is a fix-only rule, and an intake entry's pages carry no such bound (record
+    #504, invariant 15). That per-entry ordering is load-bearing here and must not be batched as an
+    optimisation: batching would make the razor compare against the wrong base.
 
     **The refusal message matters as much as the exit code.** When the mode blocks, report it naming
     the fix entry, naming the page, and saying what it means:
@@ -959,6 +973,12 @@ Concept deltas:
 
 Fix entries — the page each one changes and the entry it appends:
 - <fix local-id> (<provenance ref>) → <slug> — log: "<the appended entry's heading>"
+
+Intake entries — every page created, every page whose assertions change, and every invariant
+retired:
+- <intake local-id> (<provenance ref>) — created: <slugs, or none> — assertions changed: <slugs,
+  or none> — invariants retired: <slugs, or none>
+(omit this block entirely when no intake entry drained this run)
 
 Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new subdomain "<title>" | new domain "<title>">, ...
   (omit this line entirely when Phase 6.1 found no forced fits — "no gate fired")
@@ -1141,6 +1161,16 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   per-entry hard block `no-existing-page`. It has no committed removal target, so the removal step
   removes nothing and reports no missing target. Draining an epic entry is unchanged by this,
   including an epic entry discovered in the same run as a fix entry.
+- **Intake entries (#483, record #504):** a `.nexus/tmp/intake-<n>/` directory is drainable on
+  exactly the same terms as an ephemeral epic entry — both files required, no drain-SLO accounting,
+  never auto-deleted — and what it *is* comes from `entry_kind:` in its header, never its directory
+  name; a disagreement is the same named per-entry hard block `entry-kind-mismatch` a fix entry's
+  disagreement is. Unlike a fix entry, its deltas carry the full epic vocabulary — a delta may
+  create a page, change what an existing page asserts, or add or retire an invariant (invariant
+  15) — so neither the append-only validator mode nor the `no-existing-page` block ever applies to
+  it. The checkpoint names, per intake entry, every page it creates, every page whose assertions it
+  changes, and every invariant it retires (invariant 16). Draining an epic entry or a fix entry is
+  unchanged by this, including either discovered in the same run as an intake entry.
 - **GitHub recovery (#174) is explicit and per-entry** (invariant 14): invoked as
   `--recover <epic-issue>` for a named epic, never as a scan of closed epic issues on an ordinary
   run. It re-derives the epic through the resolver and takes rationale, record reference, hash,

@@ -127,3 +127,42 @@ describe("/nxs.intake's follow-ups become open epic stubs on approval (story #48
         expect(INTAKE).toMatch(/stop before Phase 7\*\*: report the failure and write no entry at all/);
     });
 });
+
+const DISTILL: string = body("nxs.distill.md");
+
+describe("/nxs.distill accepts an intake entry with the epic vocabulary (story #487)", () => {
+    it("discovers an intake directory as a drainable entry alongside epic and fix entries", () => {
+        expect(DISTILL).toMatch(/`\.nexus\/tmp\/fix-<n>\/`, or `\.nexus\/tmp\/intake-<n>\/`/);
+        expect(DISTILL).toMatch(/The kind set is closed: `epic`, `fix`, and `intake`, and nothing else/);
+    });
+
+    it("skips an intake directory missing either file, the same way it skips a fix or epic entry", () => {
+        expect(DISTILL).toMatch(/a fix or intake directory missing either file is skipped exactly as an epic directory\s*\n?\s*missing/);
+    });
+
+    it("takes the entry kind from the header for an intake directory too, and blocks a disagreement", () => {
+        expect(DISTILL).toMatch(/an absent or non-`intake` kind\s*\n?\s*under `intake-<n>\/`/);
+        expect(DISTILL).toContain("entry-kind-mismatch");
+    });
+
+    it("lets an intake entry's deltas create a page, change an assertion, or retire an invariant", () => {
+        expect(DISTILL).toMatch(/An intake entry \(#483\) gets the full epic vocabulary/);
+        expect(DISTILL).toMatch(/This bound applies to a fix entry only\./);
+    });
+
+    it("does not apply the append-only mode to an intake entry's pages", () => {
+        expect(DISTILL).toMatch(/An intake entry is validated the same unbounded way/);
+    });
+
+    it("never blocks an intake entry with the fix-only no-existing-page rule", () => {
+        expect(DISTILL).toMatch(/neither the append-only validator mode nor the `no-existing-page` block ever applies to\s*\n?\s*it/);
+    });
+
+    it("names, per intake entry, every page created, changed and every invariant retired at the checkpoint", () => {
+        expect(DISTILL).toMatch(/Intake entries — every page created, every page whose assertions change, and every invariant\s*\n?retired:/);
+    });
+
+    it("leaves epic and fix entries unchanged when drained in the same run as an intake entry", () => {
+        expect(DISTILL).toMatch(/Draining an epic entry or a fix entry is\s*\n?\s*unchanged by this, including either discovered in the same run as an intake entry/);
+    });
+});
