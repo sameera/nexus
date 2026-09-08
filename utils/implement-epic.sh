@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 #
 # implement-epic.sh — run the /goal epic-implementation loop headlessly, push
-# the branch, open a draft PR, run /nxs.analyze in a fresh context, then drive
-# fix → re-analyze rounds until the conformance gate is clean. Once clean, the
-# receipt is posted to the PR, the PR is taken out of draft, and its body is
-# refreshed to say so.
+# the branch, open a draft PR, run /nxs.analyze --pr against it in a fresh
+# context, then drive fix → re-analyze rounds until the conformance gate is
+# clean. Once clean, the PR's body is refreshed and it is taken out of draft.
 #
 # Usage:
 #   utils/implement-epic.sh <epic-issue-number> [extra claude args...]
@@ -17,7 +16,7 @@
 #   ANALYZE          set to 0 to skip the /nxs.analyze stage (default 1)
 #   CONFORM          set to 0 to stop after the first analyze instead of
 #                    running fix → re-analyze rounds (default 1; needs
-#                    ANALYZE=1). A blocking receipt still exits nonzero.
+#                    ANALYZE=1). A blocking result still exits nonzero.
 #   CONFORM_ROUNDS   maximum fix → re-analyze rounds (default 5)
 #   FIX_TURNS        turn cap inside one fix round (default 30)
 #   TEST_CMD         suite the fix round must leave green
@@ -27,12 +26,20 @@
 # Streams each assistant message, tool call, and tool result to the console
 # as the run progresses, then prints a result summary per stage.
 #
+# --pr mode, not a local receipt file: analyze runs as `/nxs.analyze --pr <PR>`
+# throughout, so every round's verdict is a published PR review (or, when the
+# lead authored the PR and GitHub refuses a self-review, a fallback comment —
+# either way carrying the `<!-- nexus:analyze-receipt -->` machine block) —
+# exactly what /nxs.close --pr reads later. There is no analyze-receipt.md to
+# go stale on disk between rounds.
+#
 # Context discipline: every stage — and every half of every conformance round —
-# is its own `claude -p` invocation, so no context is carried between them. The
-# only state that crosses a boundary is on disk: the branch, and the receipt
-# `/nxs.analyze` writes. A round therefore costs a fresh, short context instead
-# of appending to one that has already read the whole epic, which is what makes
-# a five-round run behave like the first round rather than degrading into it.
+# is its own `claude -p` invocation, so no context is carried between them; a
+# late round reads as little as the first one did. `--pr` mode compounds this:
+# each analyze half also runs in its own throwaway git worktree (opened and
+# removed by the pr-worktree helper), so nothing analyze reads leaks into a
+# later round either. The only state that crosses a round boundary is on
+# GitHub — the branch's commits and the latest analyze review.
 
 set -euo pipefail
 
@@ -178,13 +185,13 @@ Each commit body carries its own \`Closes #<story>\` line, so merging this PR
 into \`${BASE}\` closes the stories it implements. The epic itself closes through
 \`/nxs.close\`, not by merge.
 
-Draft opened by \`utils/implement-epic.sh\`; \`/nxs.analyze\` runs against it next.
+Draft opened by \`utils/implement-epic.sh\`; \`/nxs.analyze --pr\` runs against it next.
 EOF
 )"
 fi
 
-# Resolved once, used by both the receipt-posting stage below and (were
-# ANALYZE=0) by nothing — the PR exists either way by this point.
+# Resolved once — every stage from here on analyzes and updates this PR by
+# number, in --pr mode, whether or not it was just created.
 PR_NUM="$(gh pr view "$BRANCH" --json number --jq .number)"
 
 if [[ "$ANALYZE" != "1" ]]; then
@@ -192,60 +199,73 @@ if [[ "$ANALYZE" != "1" ]]; then
 fi
 
 echo "" >&2
-echo ">>> stage 2: /nxs.analyze #${N} (fresh context)" >&2
-run_claude "/nxs.analyze ${N}" "$@"
+echo ">>> stage 2: /nxs.analyze --pr ${PR_NUM} (fresh context)" >&2
+run_claude "/nxs.analyze --pr ${PR_NUM}" "$@"
 
 # --- stage 3: conformance rounds --------------------------------------------
 #
-# /nxs.analyze writes analyze-receipt.md and gates on its tally: a critical or
-# high finding means the code does not yet do what the planning said. One round
-# is two fresh contexts — a fix context that works only from the receipt, then
-# an analyze context that rewrites it — repeated until the tally is clean, the
-# round cap is reached, or a round changes nothing. Open story issues are a note
-# in the receipt, not a finding, so they never keep this loop spinning.
+# /nxs.analyze --pr publishes a review (or fallback comment) carrying the
+# `<!-- nexus:analyze-receipt -->` machine block, and gates on its `findings:`
+# tally: a critical or high finding means the code does not yet do what the
+# planning said. One round is two fresh contexts — a fix context that works
+# only from the latest review, then an analyze context that publishes the
+# next one — repeated until the tally is clean, the round cap is reached, or a
+# round changes nothing. Open story issues are a note in the review, not a
+# finding, so they never keep this loop spinning.
 
-# The receipt sits beside the resolved epic.md: under .nexus/tmp/ for an
-# issue-sourced epic (the norm), inside the committed entry for an old-contract
-# one, which need not be named for the epic — hence the front-matter search.
-receipt_path() {
-    local p
-    for p in ".nexus/tmp/epic-${N}/analyze-receipt.md" \
-             ".nexus/queue/epic-${N}/analyze-receipt.md"; do
-        if [[ -f "$p" ]]; then
-            echo "$p"
-            return 0
-        fi
-    done
-    # `|| true`: no match must leave the caller's assignment succeeding, or
-    # `set -e` would kill the run before the missing-receipt message below.
-    grep -l "^epic: \"#${N}\"" .nexus/queue/*/analyze-receipt.md 2>/dev/null | head -1 || true
+# Pull the latest trusted analyze machine block off the PR — a review body,
+# or (self-authored-PR fallback) a comment body, either way carrying
+# `<!-- nexus:analyze-receipt -->` — the same read /nxs.close --pr does
+# (components/commands/nxs.close.md §1.2): newest first, restricted to
+# OWNER/MEMBER/COLLABORATOR authorship, and the marker anchored at start-of-
+# line so a quoted copy inside a reply can't be mistaken for a fresh block.
+# Sets CRIT / HIGH / RHEAD (the analyzed head) and REVIEW_BODY (the whole
+# matched body, findings and all — what the fix round reads).
+read_pr_receipt() {
+    local block
+    REVIEW_BODY="$(gh pr view "$PR_NUM" --json reviews,comments --jq '
+        ( [.reviews[]  | {body, at: .submittedAt, assoc: .authorAssociation}]
+        + [.comments[] | {body, at: .createdAt,   assoc: .authorAssociation}] )
+        | map(select(.assoc == "OWNER" or .assoc == "MEMBER" or .assoc == "COLLABORATOR"))
+        | map(select(.body | test("(?m)^<!-- nexus:analyze-receipt -->$")))
+        | sort_by(.at)
+        | last
+        | .body // empty
+    ')"
+    [[ -n "$REVIEW_BODY" ]] || return 1
+
+    block="$(awk '/^```yaml$/{f=1;next} /^```$/{f=0} f' <<<"$REVIEW_BODY")"
+    [[ -n "$block" ]] || return 1
+    # The block names the PR it was published for — reject a stale block that
+    # only survived as a quote of a different PR's review.
+    grep -q "^pr: ${PR_NUM}\$" <<<"$block" || return 1
+
+    CRIT="$(sed -n 's/.*critical: *\([0-9][0-9]*\).*/\1/p' <<<"$block")"
+    HIGH="$(sed -n 's/.*high: *\([0-9][0-9]*\).*/\1/p' <<<"$block")"
+    RHEAD="$(sed -n 's/^head: *\([^ ]*\).*/\1/p' <<<"$block" | head -1)"
+    [[ -n "$CRIT" && -n "$HIGH" && -n "$RHEAD" ]]
 }
 
-# Front matter → CRIT / HIGH (the gating tally) and RHEAD (the commit analyzed).
-read_receipt() {
-    local f="$1" line
-    line="$(grep -m1 '^findings:' "$f" || true)"
-    CRIT="$(sed -n 's/.*critical: *\([0-9][0-9]*\).*/\1/p' <<<"$line")"
-    HIGH="$(sed -n 's/.*high: *\([0-9][0-9]*\).*/\1/p' <<<"$line")"
-    RHEAD="$(sed -n 's/^head: *\([^ ]*\).*/\1/p' "$f" | head -1)"
-    [[ -n "$CRIT" && -n "$HIGH" ]]
-}
-
-# The fix half of a round. Everything it needs is in the text: the receipt path,
-# the round, the suite. Nothing is inherited from an earlier context, which is
-# the whole point — a late round reads as little as the first one did.
+# The fix half of a round. The latest analyze verdict is quoted inline —
+# already fetched by the script, nothing to re-fetch — so the round's whole
+# context is this prompt. Nothing is inherited from an earlier context, which
+# is the whole point: a late round reads as little as the first one did.
 fix_prompt() {
-    local receipt="$1" round="$2"
+    local review="$1" round="$2"
     cat <<EOF
-/goal Every critical and high finding listed in ${receipt} is fixed in the code on this branch, the fixes are committed, and \`${TEST_CMD}\` exits 0. This is round ${round} of ${CONFORM_ROUNDS} on epic #${N}.
+/goal Every critical and high finding in the analyze review quoted below is fixed in the code on this branch, the fixes are committed, and \`${TEST_CMD}\` exits 0. This is round ${round} of ${CONFORM_ROUNDS} on epic #${N}, PR #${PR_NUM}.
 
-Work from the receipt, not from the epic. \`${receipt}\` is the whole work list: read it first and restate each critical and high finding as one line — the file, what is wrong, and what the planning asked for. Then read only what a finding names: the acceptance criterion or the record invariant it cites, and the files it points at. Do not re-derive the analysis, do not read the epic or the decision record end to end, and do not run /nxs.analyze — the calling script re-runs it in a fresh context the moment you stop.
+The review below is the latest \`/nxs.analyze --pr ${PR_NUM}\` verdict, already fetched — it is the whole work list. Do not re-run /nxs.analyze, do not fetch the PR's reviews or comments yourself, and do not re-derive the analysis. Restate each critical and high finding as one line — the file, what is wrong, and what the planning asked for — then read only what a finding names: the acceptance criterion or the record invariant it cites, and the files it points at. Do not read the epic or the decision record end to end.
+
+--- analyze review, PR #${PR_NUM} ---
+${review}
+--- end analyze review ---
 
 Fix critical findings first, then high, then any medium or low finding whose fix stays inside a file you have already touched. Each fix is the smallest change that satisfies the criterion the finding cites. Test first: write or amend the test that pins the behaviour before the code that satisfies it.
 
-Never make a finding disappear instead of fixing it. Do not edit ${receipt}, do not weaken, skip or delete a test, and do not edit epic.md or the decision record so that the code matches. If a finding is wrong, or the only honest fix is a planning change — a revised invariant, a re-filed acceptance criterion — leave the code as it is, name the finding in your final message, and stop. That is the lead's decision, taken through /nxs.decision-record --revise.
+Never make a finding disappear instead of fixing it. Do not weaken, skip or delete a test, and do not edit epic.md or the decision record so that the code matches. If a finding is wrong, or the only honest fix is a planning change — a revised invariant, a re-filed acceptance criterion — leave the code as it is, name the finding in your final message, and stop. That is the lead's decision, taken through /nxs.decision-record --revise.
 
-Story issues that are still open are a note in the receipt, not a finding. Leave them open and do not act on them; the lead closes them before /nxs.close.
+Story issues that are still open are a note in the review, not a finding. Leave them open and do not act on them; the lead closes them before /nxs.close.
 
 Before committing, run the tests your change touches, then \`${TEST_CMD}\` once. Commit on this branch with a subject naming what now holds. Leave the per-story commits and their \`Closes #<n>\` lines alone — this is a follow-up commit, never an amend and never a rebase. Append a decision stub per CLAUDE.md for any non-obvious choice. Do not push and do not touch the pull request; the calling script does both.
 
@@ -253,15 +273,12 @@ Finish with one line per finding: fixed, or left alone with the reason. Stop aft
 EOF
 }
 
-# Stage 4, on a clean receipt: post it to the PR, refresh the body off its
-# stale "draft opened / analyze runs next" wording, and take the PR out of
-# draft. Runs once, from whichever round actually reached clean.
+# Stage 4, on a clean review: refresh the PR body off its stale "draft opened
+# / analyze runs next" wording and take the PR out of draft. No comment to
+# post — the clean (approve) review from this round already carries the
+# receipt; that publish happened inside stage 3's last /nxs.analyze --pr run.
 publish_clean_pr() {
-    local receipt="$1" rhead="$2" epic_title
-
-    echo "" >&2
-    echo ">>> stage 4: posting the analyze receipt to PR #${PR_NUM}" >&2
-    gh pr comment "$PR_NUM" --body-file "$receipt"
+    local rhead="$1" epic_title
 
     epic_title="$(gh issue view "$N" --json title --jq .title)"
     gh pr edit "$PR_NUM" \
@@ -273,8 +290,8 @@ Each commit body carries its own \`Closes #<story>\` line, so merging this PR
 into \`${BASE}\` closes the stories it implements. The epic itself closes through
 \`/nxs.close\`, not by merge.
 
-Conformance is clean at \`${rhead}\` — 0 critical, 0 high; see the analyze
-receipt comment below for the full report. Ready for review.
+Conformance is clean at \`${rhead}\` — 0 critical, 0 high; see the latest
+analyze review above for the full report. Ready for review.
 EOF
 )"
 
@@ -287,25 +304,21 @@ EOF
 ROUND=1
 LAST_STATE=""
 while :; do
-    RECEIPT="$(receipt_path)"
-    if [[ -z "$RECEIPT" ]]; then
-        echo "!!! no analyze-receipt.md for epic #${N} — analyze blocked, or never wrote one" >&2
-        exit 1
-    fi
-    if ! read_receipt "$RECEIPT"; then
-        echo "!!! cannot read the findings tally from ${RECEIPT}" >&2
+    if ! read_pr_receipt; then
+        echo "!!! no trusted analyze machine block on PR #${PR_NUM} — analyze blocked, or never ran" >&2
         exit 1
     fi
 
     if (( CRIT == 0 && HIGH == 0 )); then
         echo "" >&2
-        echo ">>> conformance clean at ${RHEAD} — 0 critical, 0 high (${RECEIPT})" >&2
-        publish_clean_pr "$RECEIPT" "$RHEAD"
+        echo ">>> conformance clean at ${RHEAD} — 0 critical, 0 high (PR #${PR_NUM})" >&2
+        echo ">>> stage 4: refreshing PR #${PR_NUM} and taking it off draft" >&2
+        publish_clean_pr "$RHEAD"
         break
     fi
 
     if [[ "$CONFORM" != "1" ]]; then
-        echo "!!! conformance blocked: ${CRIT} critical, ${HIGH} high (${RECEIPT})" >&2
+        echo "!!! conformance blocked: ${CRIT} critical, ${HIGH} high (PR #${PR_NUM})" >&2
         exit 1
     fi
 
@@ -322,15 +335,15 @@ while :; do
 
     echo "" >&2
     echo ">>> stage 3.${ROUND}a: fix ${CRIT} critical / ${HIGH} high (fresh context)" >&2
-    run_claude "$(fix_prompt "$RECEIPT" "$ROUND")" "$@"
+    run_claude "$(fix_prompt "$REVIEW_BODY" "$ROUND")" "$@"
 
     echo "" >&2
     echo ">>> pushing ${BRANCH} to origin" >&2
     git push
 
     echo "" >&2
-    echo ">>> stage 3.${ROUND}b: /nxs.analyze #${N} (fresh context)" >&2
-    run_claude "/nxs.analyze ${N}" "$@"
+    echo ">>> stage 3.${ROUND}b: /nxs.analyze --pr ${PR_NUM} (fresh context)" >&2
+    run_claude "/nxs.analyze --pr ${PR_NUM}" "$@"
 
     ROUND=$(( ROUND + 1 ))
 done
