@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.7.0
+
+- The analyze stage no longer counts a story issue that is still open as a conformance finding. A
+  story closes when the pull request carrying it merges, and analyze runs before that merge, so open
+  stories are the ordinary state at this gate. Analyze now reports them as a note asking the lead to
+  close them before running close, and its severity tally counts nothing for them — a lead whose only
+  blocking finding was "the stories are still open" now gets a clean gate and can fix what actually
+  diverged. Close is unchanged: an open sub-issue still blocks it.
+
 ## 0.6.0
 
 - The label that marks an epic nobody has planned yet is now `needs-refinement` instead of
