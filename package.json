@@ -1,6 +1,6 @@
 {
   "name": "@sameeraperera/nexus",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "A System of Intentional Friction for the Age of AI Agents",
   "license": "ISC",
   "repository": {
@@ -46,6 +46,7 @@
     "@nexus/abs-doc-path": "workspace:*",
     "@nexus/close-migration": "workspace:*",
     "@nexus/epic-resolve": "workspace:*",
+    "@nexus/epic-verdicts": "workspace:*",
     "@nexus/pr-acceptance": "workspace:*",
     "@nexus/pr-worktree": "workspace:*",
     "@nexus/prose-verify": "workspace:*",

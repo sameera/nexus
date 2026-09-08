@@ -34,9 +34,13 @@ import {
     renderPreflight,
 } from "@nexus/close-migration/render";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migration/run";
+import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
-import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { resolveEpicVerdicts } from "@nexus/epic-verdicts/aggregate";
+import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
+import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
@@ -214,6 +218,16 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Resolve epic issue #N and write the materialized epic.md.",
         ].join("\n"),
         run: runEpicResolve,
+    },
+    "epic-verdicts": {
+        summary: "Derive one epic receipt from the story verdicts already published on their pull requests.",
+        usage: [
+            "  nexus epic-verdicts derive --epic <N> [--root <startDir>]",
+            "      Print { epic, state: aggregate|missing, receipt|missing/present, outPath } and, on",
+            "      aggregate, write the per-story analyze-receipt.md beside the resolved epic.md.",
+        ].join("\n"),
+        subverbs: ["derive"],
+        run: runEpicVerdicts,
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -974,6 +988,77 @@ async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
 
     const outPath: string = writeMaterializedEpic(root, flags.epic, resolved.markdown, flags.out);
     io.stdout(JSON.stringify({ epic: flags.epic, targetRoot: root, outPath, record: resolved.record }));
+    return 0;
+}
+
+interface EpicVerdictsFlags {
+    epic?: number;
+    root: string;
+}
+
+function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
+    const args = argv[0] === "derive" ? argv.slice(1) : argv;
+    const flags: EpicVerdictsFlags = { root: cwd };
+    for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a === "--epic") flags.epic = Number(args[++i]);
+        else if (a === "--root") flags.root = args[++i];
+    }
+    return flags;
+}
+
+/**
+ * `nexus epic-verdicts derive` — the shared helper decision record #505 calls for: collection,
+ * trust, recency and coverage as one program, called by both `/nxs.analyze` (which writes the
+ * receipt this prints) and `/nxs.close` (which re-checks currency against the same story set).
+ */
+async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
+    const flags = parseEpicVerdictsFlags(argv, io.cwd);
+    if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
+        io.stderr("usage: nexus epic-verdicts derive --epic <N> [--root <startDir>]");
+        return 2;
+    }
+
+    const root = epicResolveTargetRoot(flags.root, io);
+    if (root === null) return 1;
+
+    const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: true });
+    if (!resolved.ok) {
+        io.stderr(renderEpicResolveDiagnostic(resolved.error));
+        return 1;
+    }
+
+    const slugResult = resolveRepoSlug(closeMigrationRunner, root);
+    if (!slugResult.ok) {
+        io.stderr(`epic-verdicts ${slugResult.error.problem}: ${slugResult.error.message}`);
+        return 1;
+    }
+
+    const stories = resolved.resolved.stories.map((s) => s.number);
+    const candidatesByStory: Record<number, number[]> = {};
+    for (const story of stories) {
+        candidatesByStory[story] = discoverCandidatePrs(closeMigrationRunner, root, slugResult.slug, story).map((c) => c.pr);
+    }
+
+    const result = resolveEpicVerdicts(closeMigrationRunner, root, {
+        slug: slugResult.slug,
+        epic: flags.epic,
+        stories,
+        candidatesByStory,
+    });
+    if (!result.ok) {
+        io.stderr(`epic-verdicts ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+
+    if (result.state === "missing") {
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "missing", missing: result.missing, present: result.present }));
+        return 0;
+    }
+
+    const dir = path.dirname(defaultOutPath(root, flags.epic));
+    const outPath = writeEpicReceipt(dir, result.receipt, { date: new Date().toISOString().slice(0, 10) });
+    io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", outPath, receipt: result.receipt }));
     return 0;
 }
 

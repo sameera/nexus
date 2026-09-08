@@ -210,6 +210,40 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
     the result in Phase 3. Read the invariants from the **record issue body** (the same fetch), not
     from any local copy.
 
+## Phase 0.6 — Aggregate mode: an epic whose stories already shipped their own verdicts
+
+**Local mode only** (not `--pr` — a `--pr` run always analyzes the one PR it was pointed at) and
+**full mode only** (Phase 0.5 resolved a record). Some epics ship story by story, each on its own
+pull request analyzed with `/nxs.analyze --pr`; when that has already happened, deriving a fresh
+epic-wide verdict from scratch would re-run conformance a second time over code that was already
+judged (decision record #505). Detect this before Phase 1 does any of its own diff-reading:
+
+```bash
+nexus epic-verdicts derive --epic <epic-issue>
+```
+
+This is the one shared program `/nxs.close` also calls (never a second copy of the collection,
+trust and recency rules) — it resolves each story's candidate pull requests, validates each
+candidate's `<!-- nexus:analyze-receipt -->` block against the trust rules record #495 fixed
+(repository-scoped, newest-wins by GitHub's own submission timestamp, open-or-merged only), and
+returns one of two states on stdout as JSON:
+
+-   **`"aggregate"`** — every story carries a trusted verdict. The command already wrote the epic
+    receipt (`analyze-receipt.md` beside the resolved `epic.md`, per the #171 placement contract) and
+    printed it back as `receipt`. **Skip Phase 1 and Phase 2 entirely** — there is nothing left to
+    read or judge story-by-story; go straight to Phase 3 and report what the receipt already states:
+    the findings summed per distinct verdict (never per story — a verdict covering two stories counts
+    once) and the pull requests it was derived from.
+-   **`"missing"`** — at least one story carries no verdict on any of its candidate pull requests.
+    The command wrote no receipt. Report the gap by story name — `missing` lists the stories with no
+    verdict, `present` the ones that do — and recommend running `/nxs.analyze --pr <N>` on each
+    missing story's pull request, or a plain `/nxs.analyze` run over the whole epic if none of the
+    stories shipped independently. **Do not fall through to Phase 1** on this state; a partial
+    aggregate would silently under-report the epic.
+
+Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
+verdict — report it and stop, the same as any other unreadable-record failure in this command.
+
 # Phase 1 — Gather the implementation surface
 
 Determine what was actually built for this epic. Use, in order of availability:

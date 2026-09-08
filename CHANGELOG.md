@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.17.0
+
+- analyze: when an epic's stories were each analyzed on their own pull request, `/nxs.analyze` run
+  against the epic now detects their published verdicts and derives one epic receipt from them
+  instead of re-running conformance from scratch. A story carrying no verdict on any of its
+  candidate pull requests stops the derivation and names that story, rather than deriving a receipt
+  with a silent hole in it. Findings are summed once per distinct verdict, never per story, so a
+  verdict covering two stories is not double-counted. The new `nexus epic-verdicts derive` helper
+  is the one program both `/nxs.analyze` and (soon) `/nxs.close` call for this, sharing the
+  collection, trust and recency rules record #495 already fixed for a single pull request's
+  verdict.
+
 ## 0.16.0
 
 - analyze: the `--pr` mode machine block now stamps `repo` (the target repository actually read —
