@@ -25,6 +25,7 @@ hub docs repo holds the concept store and drains the queue.
 - **One Epic Receipt, Aggregated From the Story Verdicts** — [#212](https://github.com/sameera/nexus/issues/212)
 - **Close an Epic Over Several Merged Pull Requests** — [#213](https://github.com/sameera/nexus/issues/213)
 - **Drain an Entry Whose Range Is a List** — [#214](https://github.com/sameera/nexus/issues/214)
+- **Retire the Member Close-and-Migrate Path** — [#215](https://github.com/sameera/nexus/issues/215)
 
 ## Tooling
 
