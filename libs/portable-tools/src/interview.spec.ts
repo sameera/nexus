@@ -4,6 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+    FOCUS_SLOT,
     INTERVIEW_SLOT_CAP,
     InterviewAlreadyRecorded,
     UnknownInterviewSlot,
@@ -177,5 +178,45 @@ describe("the interview at the command line", () => {
         const captured = io(repo);
         expect(runWorkbookCli(["interview", "nothing-here"], captured)).toBe(1);
         expect(captured.err.join("\n")).toContain("roadmap");
+    });
+});
+
+describe("the same interview establishes what the learner came to learn", () => {
+    it("puts focus in the same slate, so the learner answers one interview rather than two", () => {
+        expect(interviewSlate().map((s) => s.id)).toContain(FOCUS_SLOT);
+        expect(interviewSlate().length).toBeLessThanOrEqual(INTERVIEW_SLOT_CAP);
+    });
+
+    it("records what the learner came to learn, and leaves the rest of the roadmap outside it", () => {
+        const repo: string = initRepo();
+        const record: InterviewRecord = recordInterview(repo, ROADMAP, [
+            { slot: FOCUS_SLOT, question: "What did you come here to learn?", answer: "The resolver, not the renderer." },
+        ]);
+        expect(record.focus.stated).toBe("The resolver, not the renderer.");
+        expect(record.focus.whole).toBe(false);
+        expect(record.focus.stories).toBeNull();
+    });
+
+    it("records the whole roadmap as in focus when the learner names none, explicitly", () => {
+        const repo: string = initRepo();
+        const record: InterviewRecord = recordInterview(repo, ROADMAP, [
+            { slot: interviewSlate()[0].id, question: "q", answer: "a" },
+        ]);
+        expect(record.focus.whole).toBe(true);
+        expect(record.focus.stated).toBe("");
+        expect(record.focus.stories).toEqual([11, 12]);
+    });
+
+    it("treats a focus slot the learner skipped as naming no focus", () => {
+        const repo: string = initRepo();
+        const record: InterviewRecord = recordInterview(repo, ROADMAP, [{ slot: FOCUS_SLOT, question: "q", answer: "   " }]);
+        expect(record.focus.whole).toBe(true);
+        expect(record.slots.find((s) => s.slot === FOCUS_SLOT)?.answered).toBe(false);
+    });
+
+    it("reads the recorded focus back with the rest of the interview, so nobody asks again", () => {
+        const repo: string = initRepo();
+        recordInterview(repo, ROADMAP, [{ slot: FOCUS_SLOT, question: "q", answer: "The resolver." }]);
+        expect(readInterview(repo, "alpha")?.focus.stated).toBe("The resolver.");
     });
 });

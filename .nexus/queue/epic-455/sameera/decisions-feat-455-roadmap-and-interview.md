@@ -27,3 +27,9 @@
 - **Choice:** `nexus workbook interview <name>` prints the slate; `--answers <file>` records what came back, mirroring `teach --prose <file>`.
 - **Why:** Free-text answers are multi-line and the surface already has this shape for the one other place an agent contributes prose.
 - **Refuted alternative:** Repeated `--answer slot=text` flags, which cannot carry a paragraph and would put a learner's words in a shell history.
+
+## 2026-09-07 — A named focus records `stories: null`, not an empty list
+
+- **Choice:** `focus.stories` holds every story number when the whole roadmap is in focus and `null` when the learner named one.
+- **Why:** Which slices fall inside a named focus is #457's judgement; an empty list here would read as "nothing is in focus", which is the exact misreading invariant 19 exists to prevent.
+- **Refuted alternative:** Omitting the field when a focus is named — smaller record, but it makes absence mean two different things.

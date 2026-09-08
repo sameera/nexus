@@ -19,11 +19,22 @@
  * exist yet, and inventing one here would give one idea two namespaces. And "did not say" is not
  * "knows nothing" — reading it that way would make the plan teach from scratch material the learner
  * knows well, silently, from a record that looks complete.
+ *
+ * The second thing the stage has to ask — what the learner came here to learn — is a slot in this
+ * same slate (story #473). Both questions go to the same person, and every later phase reads both
+ * answers, so splitting the interview in two would buy nothing and would make the learner answer
+ * twice. Making focus a slot is also what makes it structurally impossible to ask twice. A learner
+ * who names no focus has the whole roadmap written into the record as in focus, explicitly: an
+ * absent field forces every later reader to re-derive the default, and the first one that forgets
+ * reads "no focus" as "nothing in focus" and hands off the entire roadmap.
  */
 
 import { type Runner, defaultRunner } from "@nexus/close-migration/run";
 import { readLearnerRecord, writeLearnerRecord } from "./learner-store.js";
 import { type Roadmap } from "./roadmap.js";
+
+/** The slot that establishes what the learner came to learn. One of the five, never a second pass. */
+export const FOCUS_SLOT: string = "focus";
 
 /** The ceiling this epic sets on the interview. The slate never grows past it. */
 export const INTERVIEW_SLOT_CAP: number = 5;
@@ -60,6 +71,10 @@ const SLATE: readonly InterviewSlot[] = [
         id: "recent-difficulty",
         asks: "what the learner most recently found hard or had to look up, which says more than a self-rating does",
     },
+    {
+        id: FOCUS_SLOT,
+        asks: "what the learner came here to learn, when the roadmap also carries work they did not come to build",
+    },
 ];
 
 /**
@@ -81,10 +96,26 @@ export interface SlotAnswer {
     answered: boolean;
 }
 
-/** One roadmap's interview: every slot of the slate, answered or not. */
+/** What the learner came to learn, and what that leaves in scope. */
+export interface InterviewFocus {
+    /** The learner's own words, or "" when they named no focus. */
+    stated: string;
+    /** True when no focus was named, which puts the whole roadmap in focus. */
+    whole: boolean;
+    /**
+     * Every story the roadmap holds, written out when the focus is the whole roadmap so that no
+     * later reader re-derives the default. Null — never empty — when the learner named a focus:
+     * which slices fall inside it is a judgement this epic does not make, and an empty list here
+     * would read as "nothing is in focus".
+     */
+    stories: number[] | null;
+}
+
+/** One roadmap's interview: every slot of the slate, answered or not, and the focus it established. */
 export interface InterviewRecord {
     roadmap: string;
     slots: SlotAnswer[];
+    focus: InterviewFocus;
 }
 
 /** What an agent hands back after asking: one entry per slot it got an answer for. */
@@ -149,18 +180,26 @@ export function recordInterview(repoRoot: string, roadmap: Roadmap, given: reado
         bySlot.set(entry.slot, entry);
     }
 
+    const slots: SlotAnswer[] = SLATE.map((slot): SlotAnswer => {
+        const entry: GivenAnswer | undefined = bySlot.get(slot.id);
+        const answer: string = (entry?.answer ?? "").trim();
+        return {
+            slot: slot.id,
+            question: entry?.question ?? "",
+            answer,
+            answered: entry !== undefined && answer !== "",
+        };
+    });
+
+    const stated: string = slots.find((slot) => slot.slot === FOCUS_SLOT)?.answer ?? "";
     const record: InterviewRecord = {
         roadmap: roadmap.name,
-        slots: SLATE.map((slot): SlotAnswer => {
-            const entry: GivenAnswer | undefined = bySlot.get(slot.id);
-            const answer: string = (entry?.answer ?? "").trim();
-            return {
-                slot: slot.id,
-                question: entry?.question ?? "",
-                answer,
-                answered: entry !== undefined && answer !== "",
-            };
-        }),
+        slots,
+        focus: {
+            stated,
+            whole: stated === "",
+            stories: stated === "" ? roadmap.stories.map((story) => story.number) : null,
+        },
     };
     writeLearnerRecord(repoRoot, KIND, recordName(roadmap.name), `${JSON.stringify(record, null, 4)}\n`, run);
     return record;
