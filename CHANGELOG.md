@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.9.0
+
+- No change to how any pipeline stage behaves.
+- New: `/nxs.intake` records a design change that already landed as a merged pull request whose
+  reasoning was never approved by a decision record. Give one pull request reference; the lane
+  derives what changed from the diff, reads why from the pull request body, its review threads and
+  its commit messages, asks only about a decision none of those explain, and renders one approval
+  gate before writing anything. Draining the entry it writes is later scope.
+
 ## 0.8.0
 
 - No change to how any pipeline stage behaves.
