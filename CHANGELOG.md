@@ -5,6 +5,62 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.13.0
+
+- analyze: the gate now runs only for an epic entry. Instead of naming each non-epic kind in its
+  own refusal clause, the check inverts: any entry whose recorded kind is not epic — a fix entry, an
+  intake entry, or a kind added later — stops the gate with a stated reason and writes no receipt,
+  so a future kind can never fall through this check unnoticed.
+- distill: the two razor refusals that used to name only `/nxs.epic` as the remedy for a landed
+  change that needs a new page or a changed assertion now also name `/nxs.intake`, since the change
+  behind the refusal has usually already shipped. The completion report and the distillation
+  pull request body both state the count of drained entries by kind — epic, fix, intake — whenever
+  more than an epic drained this run.
+- The fix lane's advisory warning, printed when a fix's behaviours map to no existing page or would
+  change what a page asserts, now names `/nxs.intake` for a change that has already landed,
+  alongside `/nxs.epic` for one that has not been built yet.
+
+## 0.12.0
+
+- distill: an intake entry's pull request body is now re-verified at drain time against the
+  fingerprint `/nxs.intake` stamped when it recorded the change. A body edited since, or one that
+  can no longer be fetched, blocks that entry with no waiver and writes nothing for it — the
+  remedy is re-running `/nxs.intake` and re-approving its gate, then re-running the drain. An
+  unchanged pull request drains normally.
+
+## 0.11.0
+
+- distill: the drain now accepts a third recorded entry kind, `intake`, written by `/nxs.intake`.
+  An intake entry drains with the full epic vocabulary — it may create a page, change what an
+  existing page asserts, or add or retire an invariant — unlike a fix entry, which stays bounded to
+  one appended decision-log line. The checkpoint before the distillation pull request names, per
+  intake entry, every page it creates, every page whose assertions change, and every invariant it
+  retires. Draining an epic entry or a fix entry is unchanged, including one discovered in the same
+  run as an intake entry.
+
+## 0.10.0
+
+- No change to how any pipeline stage behaves.
+- `/nxs.intake` now lists every follow-up its pull request names as a keep-or-drop item at its
+  approval gate. A kept follow-up becomes an open epic stub issue on the same terms a deferred-scope
+  stub filed at `close` already does; a dropped one is filed nowhere and named in no record.
+
+## 0.9.0
+
+- No change to how any pipeline stage behaves.
+- New: `/nxs.intake` records a design change that already landed as a merged pull request whose
+  reasoning was never approved by a decision record. Give one pull request reference; the lane
+  derives what changed from the diff, reads why from the pull request body, its review threads and
+  its commit messages, asks only about a decision none of those explain, and renders one approval
+  gate before writing anything. Draining the entry it writes is later scope.
+
+## 0.8.0
+
+- No change to how any pipeline stage behaves.
+- Internal only: the fix lane's reference resolution, range resolution and qualification rules
+  move into a shared skill that a second landed-work lane will also use, so the two cannot
+  silently drift apart. `/nxs.fix` itself still writes the same entry from the same input.
+
 ## 0.7.0
 
 - A planned roadmap can now be taught, and the teaching stage arrives as two commands rather than
