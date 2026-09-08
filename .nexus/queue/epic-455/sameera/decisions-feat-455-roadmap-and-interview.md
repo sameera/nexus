@@ -15,3 +15,15 @@
 - **Choice:** `nexus workbook roadmap [<name>] --epic <n> | --query <expr>`.
 - **Why:** The record has resolution create the workbook before anything is asked, so resolution and the workbook share one surface and one placement rule.
 - **Refuted alternative:** A top-level `nexus roadmap` verb, which would have to re-resolve the workbook home itself.
+
+## 2026-09-07 — The interview slate is a module constant, not a slate derived per roadmap
+
+- **Choice:** `interviewSlate()` takes no argument and returns the same four slots for every roadmap.
+- **Why:** It makes "no question asks for anything the roadmap already holds" a property of what the stage is able to ask, which a test can assert, rather than a hope about generated wording.
+- **Refuted alternative:** A slate selected from the roadmap's material (skip the testing slot when no slice is test-first), which fits better but reintroduces the untestable generation the record refused.
+
+## 2026-09-07 — The agent's contribution arrives as an answers file, not as CLI arguments
+
+- **Choice:** `nexus workbook interview <name>` prints the slate; `--answers <file>` records what came back, mirroring `teach --prose <file>`.
+- **Why:** Free-text answers are multi-line and the surface already has this shape for the one other place an agent contributes prose.
+- **Refuted alternative:** Repeated `--answer slot=text` flags, which cannot carry a paragraph and would put a learner's words in a shell history.
