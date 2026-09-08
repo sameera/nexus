@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.16.0
+
+- analyze: the `--pr` mode machine block now stamps `repo` (the target repository actually read —
+  the member, not the hub) and `stories` (the story issue number(s) the verdict covers), full and
+  untruncated. `/nxs.close --pr`'s trusted-block selection is now scoped to the repository the PR
+  lives in: the author-association check, the `pr:` match, and a new `repo:` match (when present)
+  are all checked against that repository, so a block copied from a different PR — possibly in a
+  different member — can never be read as this PR's verdict. A block predating epic #211 carries no
+  `repo:` key and is always accepted, unchanged from before.
+
 ## 0.15.0
 
 - analyze: in `--pr` mode, the epic and the story it checks now come from a validated candidate

@@ -408,6 +408,8 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     ```yaml
     epic: "<link>"
     nexus_version: <VERSION>             # the toolkit that wrote this block; omit if unresolved
+    repo: <repoIdentity>                 # the target repo actually read — the member, not the hub
+    stories: [<n>, ...]                  # the story issue number(s) this verdict covers
     pr: <N>
     date: <YYYY-MM-DD>
     head: <full 40-hex analyzedHead>     # the commit actually analyzed
@@ -417,6 +419,13 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
     ```
     `````
+
+    `repo` is the `repoIdentity` the `open` step printed (epic #211): it names what was actually
+    read, so a reader never has to assume "this repository" when the PR could belong to any
+    declared member. `stories` is the sorted list `nexus pr-worktree stories` resolved — never
+    re-derived by a reader, and never re-derived across runs: a story pull request analyzed more
+    than once still carries only its own story numbers. Stamp the **full**, un-abbreviated repo
+    identity and every covered story number; never truncate either.
 
 2. Publish it as a **PR review**, so the verdict lands in the merge box:
 
