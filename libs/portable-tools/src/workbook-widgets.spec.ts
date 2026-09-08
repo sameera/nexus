@@ -77,7 +77,7 @@ describe("a declaration resolves to a component from the shared library", () => 
         expect(lessonWith(DECLARATION).source).not.toMatch(/<[a-z]/i);
     });
 
-    it("draws from a library shared by every lesson, and ships that library empty", () => {
+    it("draws from a library shared by every lesson", () => {
         const two = renderWorkbook({
             lessons: [lessonWith(DECLARATION), { ...lessonWith(DECLARATION), file: "other.md" }],
             widgets: LIBRARY,
@@ -87,7 +87,10 @@ describe("a declaration resolves to a component from the shared library", () => 
             const read = readPage(two.find((f) => f.name === name)!.contents);
             expect(read.controls[0].content).toContain("beside the queue, under the Nexus root");
         }
-        expect(Object.keys(WIDGET_MANIFEST)).toEqual([]);
+    });
+
+    it("ships with predict-then-reveal, its first component", () => {
+        expect(Object.keys(WIDGET_MANIFEST)).toEqual(["predict-then-reveal"]);
     });
 
     it("leaves an ordinary code block alone", () => {
