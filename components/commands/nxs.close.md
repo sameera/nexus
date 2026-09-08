@@ -279,6 +279,22 @@ if the user opts to analyze first, nothing later in this command should have run
       `stories:` (epic #211) names which story issue(s) the block covers — read it, never re-derive
       it from the PR.
 
+   **Aggregate receipt (epic #212).** A local-mode `analyze-receipt.md` carrying a `stories:` list
+   instead of a single `head:` is the epic-wide receipt `/nxs.analyze` derived from the story
+   verdicts. Re-check its currency with the same shared helper that derived it — never re-derive it
+   yourself:
+
+    ```bash
+    nexus epic-verdicts currency --epic <epic-issue> ${record:+--record $record}
+    ```
+
+   It re-checks every story's verdict against that story's pull request's **current** head and, when
+   a record is given, the record's **current** digest, and prints `{ stories, allCurrent }`. Report
+   **each** stale story **by name** — never a single "the epic is stale" statement — using the same
+   stale-(code)/stale-(record) language below, one clause per story per axis. `allCurrent: true` is
+   the aggregate's **clean** state; any story reported not current is this receipt's **stale** state,
+   on whichever axis(es) that story failed.
+
    The receipt also carries `record` / `record_hash` in full mode (#139) — the decision record the
    analysis checked against. **Staleness has two independent axes, and neither is inferred from the
    other:** the code may have moved after the analysis, the design may have moved after it, or both.

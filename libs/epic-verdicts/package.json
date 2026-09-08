@@ -29,6 +29,11 @@
       "import": "./src/aggregate.ts",
       "default": "./src/aggregate.ts"
     },
+    "./currency": {
+      "types": "./src/currency.ts",
+      "import": "./src/currency.ts",
+      "default": "./src/currency.ts"
+    },
     "./receipt": {
       "types": "./src/receipt.ts",
       "import": "./src/receipt.ts",

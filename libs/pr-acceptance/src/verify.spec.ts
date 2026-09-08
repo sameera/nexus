@@ -354,6 +354,31 @@ describe("parseReceiptBlock", () => {
         expect(r?.repo).toBeNull();
         expect(r?.stories).toEqual([]);
     });
+
+    it("reads the record reference and its full digest, for the per-story record-currency check (decision record #505)", () => {
+        const withRecord = [
+            RECEIPT_MARKER,
+            "```yaml",
+            'epic: "#212"',
+            "pr: 501",
+            "date: 2026-09-08",
+            `head: ${"a".repeat(40)}`,
+            "mode: full",
+            'record: "#505"',
+            "record_hash: " + "e".repeat(64),
+            "findings: { critical: 0, high: 0, medium: 0, low: 0 }",
+            "```",
+        ].join("\n");
+        const r = parseReceiptBlock(withRecord);
+        expect(r?.record).toBe("#505");
+        expect(r?.recordHash).toBe("e".repeat(64));
+    });
+
+    it("reads record and recordHash as null for a degraded-mode receipt with no record", () => {
+        const r = parseReceiptBlock(block("d".repeat(40)));
+        expect(r?.record).toBeNull();
+        expect(r?.recordHash).toBeNull();
+    });
 });
 
 describe("verifyReceipt", () => {

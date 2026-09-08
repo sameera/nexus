@@ -38,7 +38,8 @@ import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
-import { resolveEpicVerdicts } from "@nexus/epic-verdicts/aggregate";
+import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
+import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
@@ -225,8 +226,11 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus epic-verdicts derive --epic <N> [--root <startDir>]",
             "      Print { epic, state: aggregate|missing, receipt|missing/present, outPath } and, on",
             "      aggregate, write the per-story analyze-receipt.md beside the resolved epic.md.",
+            "  nexus epic-verdicts currency --epic <N> [--record <N>] [--root <startDir>]",
+            "      Re-check each story's verdict against its pull request's current head and, when",
+            "      --record is given, the record's current digest. Prints { epic, stories, allCurrent }.",
         ].join("\n"),
-        subverbs: ["derive"],
+        subverbs: ["derive", "currency"],
         run: runEpicVerdicts,
     },
     "record-digest": {
@@ -994,17 +998,44 @@ async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
 interface EpicVerdictsFlags {
     epic?: number;
     root: string;
+    record?: number;
 }
 
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
-    const args = argv[0] === "derive" ? argv.slice(1) : argv;
+    const args = argv[0] === "derive" || argv[0] === "currency" ? argv.slice(1) : argv;
     const flags: EpicVerdictsFlags = { root: cwd };
     for (let i = 0; i < args.length; i++) {
         const a = args[i];
         if (a === "--epic") flags.epic = Number(args[++i]);
         else if (a === "--root") flags.root = args[++i];
+        else if (a === "--record") flags.record = Number(args[++i]);
     }
     return flags;
+}
+
+/**
+ * Resolve the epic's story verdicts — the collection/trust/recency step shared by both
+ * `epic-verdicts derive` and `epic-verdicts currency` (decision record #505, key decision
+ * "Collection, trust, recency and currency are one program").
+ */
+function resolveEpicVerdictsForCli(
+    root: string,
+    epic: number,
+): { ok: true; result: ResolveEpicVerdictsResult } | { ok: false; message: string } {
+    const resolved = resolveEpic(closeMigrationRunner, root, epic, { requireEpic: true });
+    if (!resolved.ok) return { ok: false, message: renderEpicResolveDiagnostic(resolved.error) };
+
+    const slugResult = resolveRepoSlug(closeMigrationRunner, root);
+    if (!slugResult.ok) return { ok: false, message: `epic-verdicts ${slugResult.error.problem}: ${slugResult.error.message}` };
+
+    const stories = resolved.resolved.stories.map((s) => s.number);
+    const candidatesByStory: Record<number, number[]> = {};
+    for (const story of stories) {
+        candidatesByStory[story] = discoverCandidatePrs(closeMigrationRunner, root, slugResult.slug, story).map((c) => c.pr);
+    }
+
+    const result = resolveEpicVerdicts(closeMigrationRunner, root, { slug: slugResult.slug, epic, stories, candidatesByStory });
+    return { ok: true, result };
 }
 
 /**
@@ -1015,37 +1046,19 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive --epic <N> [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|currency --epic <N> [--record <N>] [--root <startDir>]");
         return 2;
     }
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
 
-    const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: true });
+    const resolved = resolveEpicVerdictsForCli(root, flags.epic);
     if (!resolved.ok) {
-        io.stderr(renderEpicResolveDiagnostic(resolved.error));
+        io.stderr(resolved.message);
         return 1;
     }
-
-    const slugResult = resolveRepoSlug(closeMigrationRunner, root);
-    if (!slugResult.ok) {
-        io.stderr(`epic-verdicts ${slugResult.error.problem}: ${slugResult.error.message}`);
-        return 1;
-    }
-
-    const stories = resolved.resolved.stories.map((s) => s.number);
-    const candidatesByStory: Record<number, number[]> = {};
-    for (const story of stories) {
-        candidatesByStory[story] = discoverCandidatePrs(closeMigrationRunner, root, slugResult.slug, story).map((c) => c.pr);
-    }
-
-    const result = resolveEpicVerdicts(closeMigrationRunner, root, {
-        slug: slugResult.slug,
-        epic: flags.epic,
-        stories,
-        candidatesByStory,
-    });
+    const result = resolved.result;
     if (!result.ok) {
         io.stderr(`epic-verdicts ${result.error.problem}: ${result.error.message}`);
         return 1;
@@ -1053,6 +1066,21 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
 
     if (result.state === "missing") {
         io.stdout(JSON.stringify({ epic: flags.epic, state: "missing", missing: result.missing, present: result.present }));
+        return 0;
+    }
+
+    if (argv[0] === "currency") {
+        let currentRecordDigest: string | null = null;
+        if (flags.record !== undefined && !Number.isNaN(flags.record)) {
+            const record = fetchRecord(closeMigrationRunner, root, flags.record);
+            if (!record.ok) {
+                io.stderr(`epic-verdicts ${record.error.problem}: ${record.error.message}`);
+                return 1;
+            }
+            currentRecordDigest = record.record.digest;
+        }
+        const currency = checkEpicCurrency(closeMigrationRunner, root, result.verdicts, { currentRecordDigest });
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...currency }));
         return 0;
     }
 

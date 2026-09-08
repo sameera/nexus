@@ -18,6 +18,8 @@ function verdict(over: Partial<StoryVerdict> & { story: number; pr: number }): S
             findings: { critical: 0, high: 0, medium: 1, low: 0 },
             repo: "acme/widget",
             stories: [over.story],
+            record: "#505",
+            recordHash: "e".repeat(64),
         },
         ...over,
     };

@@ -22,7 +22,7 @@ export interface ResolveEpicVerdictsInput {
 }
 
 export type ResolveEpicVerdictsResult =
-    | { ok: true; state: "aggregate"; receipt: EpicReceipt }
+    | { ok: true; state: "aggregate"; receipt: EpicReceipt; verdicts: StoryVerdict[] }
     | { ok: true; state: "missing"; missing: number[]; present: number[] }
     | { ok: false; error: EpicVerdictsDiagnostic };
 
@@ -45,5 +45,5 @@ export function resolveEpicVerdicts(run: Runner, cwd: string, input: ResolveEpic
     }
 
     if (missing.length > 0) return { ok: true, state: "missing", missing, present };
-    return { ok: true, state: "aggregate", receipt: buildEpicReceipt(input.epic, verdicts) };
+    return { ok: true, state: "aggregate", receipt: buildEpicReceipt(input.epic, verdicts), verdicts };
 }

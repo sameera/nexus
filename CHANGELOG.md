@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.18.0
+
+- close: the choice gate now recognizes the aggregate epic receipt (a `stories:` list instead of a
+  single `head:`) and re-checks it with the same `nexus epic-verdicts` helper that derived it,
+  rather than reading it as a stale single-head receipt. A stale story is reported by name, on
+  whichever axis — code or decision-record — it failed, never collapsed into one epic-wide "stale"
+  statement. `nexus epic-verdicts currency` is the new read: it re-checks each story's verdict
+  against that story's pull request's current head and, when a record is named, the record's
+  current digest, and reuses `pr-acceptance`'s receipt parser (now also surfacing the stamped
+  `record` / `record_hash` fields) instead of a second parser.
+
 ## 0.17.0
 
 - analyze: when an epic's stories were each analyzed on their own pull request, `/nxs.analyze` run
