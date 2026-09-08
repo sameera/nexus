@@ -5,6 +5,24 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.7.0
+
+- A planned roadmap can now be taught, and the teaching stage arrives as two commands rather than
+  one. `/nxs.teach-plan` resolves the roadmap — from one epic issue or from a backlog query — and
+  runs a single bounded interview that establishes what the learner already knows and what they
+  came to learn, in one pass, once per roadmap. `/nxs.teach` writes one lesson per sitting. They are
+  separate entry points because a session's references only accumulate: each names its own set and
+  neither names the other's, so a session ordering a roadmap is never also holding the material a
+  lesson is written from.
+- Roadmap resolution refuses anything that is not a planned epic *before* the learner is asked
+  anything, and refuses a query returning more than ten epics, or epics in more than one repository,
+  before it fetches at all. The resolved roadmap is derived and gitignored, and it carries every
+  story's body and every dependency edge, so nothing later goes back to the issue graph.
+- A teaching session will now teach a story that was already closed when the plan pinned it.
+  Previously any closure read as drift, which blocked every slice of a roadmap resolved from
+  already-delivered work — learning from what the team has shipped was impossible. Closure still
+  blocks when it happens *after* the pin.
+
 ## 0.6.0
 
 - The label that marks an epic nobody has planned yet is now `needs-refinement` instead of

@@ -33,3 +33,15 @@
 - **Choice:** `focus.stories` holds every story number when the whole roadmap is in focus and `null` when the learner named one.
 - **Why:** Which slices fall inside a named focus is #457's judgement; an empty list here would read as "nothing is in focus", which is the exact misreading invariant 19 exists to prevent.
 - **Refuted alternative:** Omitting the field when a focus is named — smaller record, but it makes absence mean two different things.
+
+## 2026-09-07 — The shared reference set is declared, not inferred from the overlap
+
+- **Choice:** `SHARED_REFERENCES` names what both phases load; the check compares each body against that constant.
+- **Why:** Inferring "shared" from the two sets overlapping makes a planning body that wrongly declares a lesson-writing reference look like a body sharing one — the exact failure the check exists to catch.
+- **Refuted alternative:** Treating any reference in both sets as shared, which needs no constant but is silently self-defeating.
+
+## 2026-09-07 — The reference set is frontmatter, not prose the check greps for
+
+- **Choice:** Each command declares `phase:` and a `references:` list in its YAML frontmatter.
+- **Why:** The record asks that the phase boundary be verified by inspecting each entry point's declared set; a declared list is readable without guessing at prose.
+- **Refuted alternative:** Deriving the set from the skills each body mentions, which needs no new field but cannot tell a reference the body loads from one it merely names in passing.
