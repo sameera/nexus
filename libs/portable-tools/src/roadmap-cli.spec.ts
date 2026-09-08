@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type RunResult, type Runner } from "@nexus/close-migration/run";
 import { runWorkbookCli, type WorkbookCliIo } from "./workbook-cli.js";
-import { epicsFromQuery, readRoadmap, type Roadmap } from "./roadmap.js";
+import { ROADMAP_EPIC_CAP, epicsFromQuery, readRoadmap, type Roadmap } from "./roadmap.js";
 import { workbookRoot } from "./workbook-store.js";
 
 let tmpDirs: string[] = [];
@@ -104,6 +104,31 @@ describe("a learner resolves a roadmap from an epic issue", () => {
         expect(tracked.trim()).toBe("");
     });
 
+    it("carries a story's whole body, sub-headings and all, so no later phase re-reads the issue", () => {
+        const repo: string = initRepo();
+        const io: Captured = makeIo(repo);
+        const whole: string = [
+            "- **story_type:** system",
+            "- **size:** M",
+            "",
+            "**As a** learner, **I want** the roadmap to hold what the story says.",
+            "",
+            "## Acceptance Criteria",
+            "",
+            "- [ ] **Given** a resolved roadmap, **when** a later phase reads it, **then** it finds the criteria there.",
+            "",
+            "## Notes",
+            "",
+            "A real story body carries H2 sub-headings under its H3 heading.",
+        ].join("\n");
+        runWorkbookCli(
+            ["roadmap", "--epic", "100"],
+            io,
+            ghRunner({ number: 100, title: "Alpha" }, [{ number: 11, title: "First", body: whole }]),
+        );
+        expect(readRoadmap(repo, "alpha")?.stories[0].body).toBe(whole);
+    });
+
     it("takes the name the learner gave it when they gave one", () => {
         const repo: string = initRepo();
         const io: Captured = makeIo(repo);
@@ -169,6 +194,22 @@ describe("a backlog query naming several epics", () => {
         const result = epicsFromQuery(searchRunner(rows, []), repo, "label:teaching");
         expect(result.ok).toBe(false);
         if (!result.ok) expect(result.error.problem).toBe("roadmap-too-many-epics");
+    });
+
+    it("says the query returned more than the cap, never a count the fetch limit invented", () => {
+        const repo: string = initRepo();
+        const calls: string[][] = [];
+        const rows = Array.from({ length: ROADMAP_EPIC_CAP + 1 }, (_, i) => ({ number: 100 + i, repo: "acme/app" }));
+        const result = epicsFromQuery(searchRunner(rows, calls), repo, "label:teaching");
+        // The search is asked for one row past the cap, so the row count is a floor, not a total —
+        // a query matching fifty epics comes back the same length as one matching eleven.
+        const limit: string = calls[0][calls[0].indexOf("--limit") + 1];
+        expect(Number(limit)).toBe(ROADMAP_EPIC_CAP + 1);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+            expect(result.error.message).toContain(`more than ${ROADMAP_EPIC_CAP}`);
+            expect(result.error.message).not.toContain(String(ROADMAP_EPIC_CAP + 1));
+        }
     });
 
     it("refuses a query whose epics span more than one repository, by name", () => {

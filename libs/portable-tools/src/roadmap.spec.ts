@@ -3,10 +3,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { serializeEpic } from "@nexus/epic-resolve/serialize";
-import { type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
+import { type ResolveEpicResult, type ResolvedEpic } from "@nexus/epic-resolve/resolve";
 import {
     ROADMAP_EPIC_CAP,
-    parseResolvedEpic,
     readRoadmap,
     resolveRoadmap,
     roadmapPath,
@@ -22,30 +21,43 @@ interface StorySeed {
     blockedBy?: number[];
 }
 
-/** One epic as the shared resolver would materialize it — built by the real serializer. */
-function materialized(epic: number, title: string, stories: StorySeed[]): string {
-    return serializeEpic({
-        epic: { number: epic, title, body: "## Description\n\nAn epic.\n" },
+/** One epic as the shared resolver reports it: the structured resolution, not the rendered document. */
+function resolvedEpic(epic: number, title: string, stories: StorySeed[]): ResolvedEpic {
+    return {
+        number: epic,
+        title,
         stories: stories.map((s) => ({ number: s.number, title: s.title, body: s.body })),
         blockedBy: new Map(stories.map((s) => [s.number, s.blockedBy ?? []])),
-    });
-}
-
-function resolverOver(epics: Record<number, string>): (epic: number) => ResolveEpicResult {
-    return (epic: number): ResolveEpicResult => {
-        const markdown: string | undefined = epics[epic];
-        if (markdown === undefined) {
-            return { ok: false, error: { problem: "epic-not-found", message: `#${epic} could not be read` } };
-        }
-        return { ok: true, markdown, record: null };
     };
 }
 
-const ALPHA: string = materialized(100, "Alpha", [
+function resolverOver(epics: Record<number, ResolvedEpic>): (epic: number) => ResolveEpicResult {
+    return (epic: number): ResolveEpicResult => {
+        const resolved: ResolvedEpic | undefined = epics[epic];
+        if (resolved === undefined) {
+            return { ok: false, error: { problem: "epic-not-found", message: `#${epic} could not be read` } };
+        }
+        // The markdown the resolver also returns is rendered here by the real serializer, so a test
+        // that reached for it would get the genuine document — and still find no acceptance criteria
+        // in it. Nothing in this module may read it.
+        return {
+            ok: true,
+            record: null,
+            resolved,
+            markdown: serializeEpic({
+                epic: { number: epic, title: resolved.title, body: "## Description\n\nAn epic.\n" },
+                stories: resolved.stories,
+                blockedBy: resolved.blockedBy,
+            }),
+        };
+    };
+}
+
+const ALPHA: ResolvedEpic = resolvedEpic(100, "Alpha", [
     { number: 11, title: "First", body: "Do the first thing.", blockedBy: [] },
-    { number: 12, title: "Second", body: "Do the second thing.", blockedBy: [11] },
+    { number: 12, title: "Second", body: "Do the second thing.\n\n## Acceptance Criteria\n\n- [ ] It is done.", blockedBy: [11] },
 ]);
-const BETA: string = materialized(200, "Beta", [
+const BETA: ResolvedEpic = resolvedEpic(200, "Beta", [
     { number: 21, title: "Third", body: "Do the third thing.", blockedBy: [12] },
     { number: 22, title: "Fourth", body: "Do the fourth thing.", blockedBy: [] },
 ]);
@@ -55,16 +67,19 @@ function ok(result: RoadmapResult): Roadmap {
     return result.roadmap;
 }
 
-describe("parsing what the shared resolver produced", () => {
-    it("reads back every story's title, body and dependency edges", () => {
-        const parsed = parseResolvedEpic(ALPHA);
-        expect(parsed.epic).toBe(100);
-        expect(parsed.title).toBe("Alpha");
-        expect(parsed.stories.map((s) => s.number)).toEqual([11, 12]);
-        expect(parsed.stories[0].title).toBe("First");
-        expect(parsed.stories[1].body).toContain("Do the second thing.");
-        expect(parsed.blockedBy.get(12)).toEqual([11]);
-        expect(parsed.blockedBy.get(11)).toEqual([]);
+describe("what the roadmap takes from the shared resolver", () => {
+    it("takes every story's title, body and dependency edges", () => {
+        const roadmap: Roadmap = ok(resolveRoadmap(resolverOver({ 100: ALPHA }), [100]));
+        expect(roadmap.stories.map((s) => s.number)).toEqual([11, 12]);
+        expect(roadmap.stories[0].title).toBe("First");
+        expect(roadmap.stories[1].blockedBy).toEqual([11]);
+        expect(roadmap.stories[0].blockedBy).toEqual([]);
+    });
+
+    it("keeps a story body whole, including the sub-headings a rendered epic.md cannot give back", () => {
+        const roadmap: Roadmap = ok(resolveRoadmap(resolverOver({ 100: ALPHA }), [100]));
+        expect(roadmap.stories[1].body).toBe(ALPHA.stories[1].body);
+        expect(roadmap.stories[1].body).toContain("## Acceptance Criteria");
     });
 });
 
@@ -102,7 +117,7 @@ describe("a roadmap resolved from several epics", () => {
 });
 
 describe("edges onto work that is not on the roadmap", () => {
-    const WITH_OUTSIDE: string = materialized(300, "Gamma", [
+    const WITH_OUTSIDE: ResolvedEpic = resolvedEpic(300, "Gamma", [
         { number: 31, title: "Needs elsewhere", body: "Depends on work nobody here builds.", blockedBy: [999] },
     ]);
 
@@ -122,7 +137,7 @@ describe("a resolution that cannot produce a roadmap", () => {
     });
 
     it("fails by name on a dependency cycle and names the stories in it", () => {
-        const cyclic: string = materialized(400, "Delta", [
+        const cyclic: ResolvedEpic = resolvedEpic(400, "Delta", [
             { number: 41, title: "One", body: "b", blockedBy: [42] },
             { number: 42, title: "Two", body: "b", blockedBy: [41] },
         ]);

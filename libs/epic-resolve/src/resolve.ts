@@ -43,8 +43,28 @@ import { extractMeta } from "./meta.js";
 import { type Runner } from "./run.js";
 import { type EpicRecord, type EpicStory, serializeEpic } from "./serialize.js";
 
+/**
+ * The epic as the resolver read it, before the serializer rendered it.
+ *
+ * The markdown is a *presentation* of this, and it is lossy for one thing in particular: a story
+ * body is a whole GitHub issue body, and a real one carries its own `## Acceptance Criteria` and
+ * `## Notes` headings under the `### Story #<n>` heading the serializer writes. Nothing can read
+ * those back out of the rendered document, because at that point a story's own H2 is indistinguishable
+ * from the epic's next H2 section. So a consumer that needs what a story *says* — rather than a
+ * document to show a human — takes it from here and never parses `markdown` for it.
+ */
+export interface ResolvedEpic {
+    /** The epic issue number. */
+    number: number;
+    title: string;
+    /** The story sub-issues, records and withdrawals already removed, by ascending number. */
+    stories: EpicStory[];
+    /** story issue number → the issue numbers it is blocked_by, withdrawn blockers already dropped. */
+    blockedBy: Map<number, number[]>;
+}
+
 export type ResolveEpicResult =
-    | { ok: true; markdown: string; record: EpicRecord | null }
+    | { ok: true; markdown: string; record: EpicRecord | null; resolved: ResolvedEpic }
     | { ok: false; error: EpicResolveDiagnostic };
 
 export interface ResolveEpicOptions {
@@ -197,9 +217,13 @@ export function resolveEpic(
     }
 
     const { rawFrontmatter, body } = extractMeta(epic.issue.body);
+    // Ascending issue number, matching the order the serializer renders in, so the structured
+    // result and the markdown never disagree about which story comes first.
+    stories.sort((a, b) => a.number - b.number);
     return {
         ok: true,
         record,
+        resolved: { number: epic.issue.number, title: epic.issue.title, stories, blockedBy },
         markdown: serializeEpic({
             epic: { number: epic.issue.number, title: epic.issue.title, body, rawFrontmatter },
             stories,

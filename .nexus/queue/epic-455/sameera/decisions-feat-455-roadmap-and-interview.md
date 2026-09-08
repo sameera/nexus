@@ -45,3 +45,15 @@
 - **Choice:** Each command declares `phase:` and a `references:` list in its YAML frontmatter.
 - **Why:** The record asks that the phase boundary be verified by inspecting each entry point's declared set; a declared list is readable without guessing at prose.
 - **Refuted alternative:** Deriving the set from the skills each body mentions, which needs no new field but cannot tell a reference the body loads from one it merely names in passing.
+
+## 2026-09-08 — The roadmap takes the resolver's structured result, not its rendered markdown
+
+- **Choice:** `resolveEpic` now returns the epic it read — number, title, stories, edges — beside the `epic.md` markdown, and the roadmap builds from that; the markdown parser it used to carry is gone.
+- **Why:** A story body is a whole issue body and a real one carries its own `## Acceptance Criteria` heading, which in the rendered document is indistinguishable from the epic's next H2 section, so every real story body was silently truncated at its first sub-heading and invariant 5 held in name only.
+- **Refuted alternative:** Teaching the parser where the stories region ends — track the `## User Stories` block and treat every H2 inside it as story content. It keeps the resolver's return type untouched, but it is a second reader of the serializer's layout that drifts the moment the layout moves, which is the drift invariant 4 exists to prevent.
+
+## 2026-09-08 — A too-wide query is refused by bound, not by count
+
+- **Choice:** The refusal says the query returned "more than ten" epics instead of naming a number.
+- **Why:** The search is asked for one row past the cap, so the row count is a floor: fifty matches and eleven matches come back the same length, and naming a count reports the fetch limit back to the learner as their result.
+- **Refuted alternative:** Fetching without a limit so the count is true, which costs a full result set on exactly the query already known to be too wide.

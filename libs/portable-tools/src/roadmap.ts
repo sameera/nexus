@@ -27,7 +27,7 @@ import * as path from "node:path";
 import { type RunResult, type Runner } from "@nexus/close-migration/run";
 import { backlogQuery } from "@nexus/delivery-config/backlog";
 import { layersAt } from "@nexus/delivery-config/resolve";
-import { type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
+import { type ResolveEpicResult, type ResolvedEpic } from "@nexus/epic-resolve/resolve";
 import { MATERIALIZED_DIR } from "@nexus/epic-resolve/write";
 
 /** The most epics one roadmap may hold, refused before any fetch begins (invariant 13). */
@@ -63,89 +63,16 @@ export interface RoadmapProblem {
 
 export type RoadmapResult = { ok: true; roadmap: Roadmap } | { ok: false; error: RoadmapProblem };
 
-/** Resolves one epic issue into materialized `epic.md` markdown. The shared resolver, injected. */
-export type EpicResolver = (epic: number) => ResolveEpicResult;
-
-/** One epic as the shared resolver materialized it, read back into its parts. */
-export interface ParsedEpic {
-    epic: number;
-    title: string;
-    stories: { number: number; title: string; body: string }[];
-    blockedBy: Map<number, number[]>;
-}
-
-const STORY_HEADING_RE = /^### Story #(\d+):[ \t]*(.*)$/;
-const SEQUENCE_ROW_RE = /^\|[ \t]*#(\d+)[ \t]*\|[ \t]*(.*?)[ \t]*\|$/;
-
 /**
- * Read a materialized epic back into its parts.
+ * The shared resolver, injected.
  *
- * The serializer's output is the contract here, not the epic issue's prose: stories are `### Story
- * #<n>: <title>` headings under `## User Stories`, and the sequence table is rebuilt from the live
- * edges. Parsing that rather than re-querying the graph is what keeps this module a composition of
- * the shared resolver instead of a second reader of GitHub.
+ * What this module takes from it is the **structured** resolution, never the `epic.md` markdown it
+ * also returns. A story body is a whole issue body and a real one carries its own `## Acceptance
+ * Criteria` heading, which in the rendered document is indistinguishable from the epic's next H2
+ * section — so a roadmap parsed back out of that markdown would silently drop everything a story
+ * says past its first sub-heading, and invariant 5 would hold in name only.
  */
-export function parseResolvedEpic(markdown: string): ParsedEpic {
-    const lines: string[] = markdown.split("\n");
-    const title: string = readEpicTitle(lines);
-    const link: RegExpMatchArray | null = markdown.match(/^link:[ \t]*"#(\d+)"/m);
-
-    const stories: { number: number; title: string; body: string }[] = [];
-    const blockedBy: Map<number, number[]> = new Map();
-    let current: { number: number; title: string; body: string[] } | null = null;
-    let inSequence = false;
-
-    const closeStory = (): void => {
-        if (current === null) return;
-        stories.push({ number: current.number, title: current.title, body: current.body.join("\n").trim() });
-        current = null;
-    };
-
-    for (const line of lines) {
-        const heading: RegExpMatchArray | null = line.match(STORY_HEADING_RE);
-        if (heading !== null) {
-            closeStory();
-            current = { number: Number(heading[1]), title: heading[2], body: [] };
-            continue;
-        }
-        if (/^## /.test(line)) {
-            closeStory();
-            inSequence = line.trim() === "## Implementation Sequence";
-            continue;
-        }
-        if (current !== null) {
-            current.body.push(line);
-            continue;
-        }
-        if (!inSequence) continue;
-        const row: RegExpMatchArray | null = line.match(SEQUENCE_ROW_RE);
-        if (row !== null) blockedBy.set(Number(row[1]), readBlockers(row[2]));
-    }
-    closeStory();
-
-    return { epic: link === null ? 0 : Number(link[1]), title, stories, blockedBy };
-}
-
-/** The epic's title, from the frontmatter field the serializer always emits. */
-function readEpicTitle(lines: readonly string[]): string {
-    for (const line of lines) {
-        const match: RegExpMatchArray | null = line.match(/^epic:[ \t]*(.*)$/);
-        if (match === null) continue;
-        const raw: string = match[1].trim();
-        try {
-            return raw.startsWith('"') ? (JSON.parse(raw) as string) : raw;
-        } catch {
-            return raw;
-        }
-    }
-    return "";
-}
-
-/** The `blocked_by` cell of one sequence row: `none`, or a list of `#<n>` references. */
-function readBlockers(cell: string): number[] {
-    if (cell.trim() === "" || cell.trim() === "none") return [];
-    return [...cell.matchAll(/#(\d+)/g)].map((m) => Number(m[1]));
-}
+export type EpicResolver = (epic: number) => ResolveEpicResult;
 
 /** A roadmap name derived from an epic's title — lower case, hyphenated, a plain directory name. */
 export function nameFromTitle(title: string, epic: number): string {
@@ -194,20 +121,20 @@ export function resolveRoadmap(resolve: EpicResolver, epics: readonly number[], 
         };
     }
 
-    const parsed: ParsedEpic[] = [];
+    const resolved: ResolvedEpic[] = [];
     for (const epic of wanted) {
         const result: ResolveEpicResult = resolve(epic);
         if (!result.ok) return { ok: false, error: result.error };
-        parsed.push(parseResolvedEpic(result.markdown));
+        resolved.push(result.resolved);
     }
 
-    const ordered = orderStories(parsed);
+    const ordered = orderStories(resolved);
     if (!ordered.ok) return ordered;
 
     return {
         ok: true,
         roadmap: {
-            name: opts.name ?? nameFromTitle(parsed[0].title, wanted[0]),
+            name: opts.name ?? nameFromTitle(resolved[0].title, wanted[0]),
             epics: wanted,
             stories: ordered.stories,
         },
@@ -224,7 +151,7 @@ type OrderResult = { ok: true; stories: RoadmapStory[] } | { ok: false; error: R
  * order total and deterministic, so a roadmap re-resolved from an unchanged graph is the same
  * roadmap and every artifact derived from it is repeatable.
  */
-function orderStories(epics: readonly ParsedEpic[]): OrderResult {
+function orderStories(epics: readonly ResolvedEpic[]): OrderResult {
     const stories: Map<number, RoadmapStory> = new Map();
     for (const epic of epics) {
         for (const story of epic.stories) {
@@ -232,7 +159,7 @@ function orderStories(epics: readonly ParsedEpic[]): OrderResult {
                 number: story.number,
                 title: story.title,
                 body: story.body,
-                epic: epic.epic,
+                epic: epic.number,
                 blockedBy: [],
                 external: [],
             });
@@ -348,13 +275,17 @@ export function epicsFromQuery(run: Runner, repoRoot: string, expression: string
 
     const epics: number[] = [...new Set(rows.map((row) => row.number))].sort((a, b) => a - b);
     if (epics.length > ROADMAP_EPIC_CAP) {
+        // The search is asked for one row past the cap and no more, so what came back is a floor
+        // rather than a total: a query matching fifty epics is indistinguishable here from one
+        // matching eleven. Saying "more than ten" is the whole of what was established; naming a
+        // count would be reporting the fetch limit back to the learner as if it were their result.
         return {
             ok: false,
             error: {
                 problem: "roadmap-too-many-epics",
                 message:
-                    `the query returned ${epics.length} epics, and a roadmap holds at most ${ROADMAP_EPIC_CAP}. ` +
-                    `Narrow it before re-running — nothing was fetched.`,
+                    `the query returned more than ${ROADMAP_EPIC_CAP} epics, which is the most a roadmap holds. ` +
+                    `Narrow it before re-running — no epic was fetched.`,
             },
         };
     }

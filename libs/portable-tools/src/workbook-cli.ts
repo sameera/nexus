@@ -90,7 +90,7 @@ function parseFlags(argv: string[], cwd: string): Flags {
 }
 
 const USAGE: string = [
-    "usage: nexus workbook <create|render|check|session|handoff|resolve> <slug> [--root <dir>] [--repo <member>]",
+    "usage: nexus workbook <create|roadmap|interview|render|check|session|teach|handoff|resolve> <name> [--root <dir>] [--repo <member>]",
     "  create <slug>                       make the workbook and ensure the learner folder is ignored",
     "  roadmap [<name>] --epic <n>         resolve a roadmap from one epic issue",
     "  roadmap <name> --query <expr>       resolve a roadmap from a backlog query",
