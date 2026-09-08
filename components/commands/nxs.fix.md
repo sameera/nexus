@@ -94,12 +94,15 @@ prompt:
    drain reads it, so requiring it would only force you to invent a value you cannot verify.
 
 **The advisory razor check.** Before you prompt, map the behaviours you found in the diff onto the
-pages that already exist in the concept store. If some map to no existing page, **print a warning
-naming how many**, and say that a decision with no page is a decision that needs a page, which is
-epic work. Then **write the entry anyway.** This check is **best-effort and fails soft**: failing to
-warn is never a defect and never blocks anything. It cannot be load-bearing, because this command
-writes no pages and can only guess at what the drain will later synthesise. The load-bearing gate
-runs at the drain, against the page writes themselves.
+pages that already exist in the concept store. If some map to no existing page, or would change
+what an existing page asserts rather than merely append to its history, **print a warning naming
+how many**, and say that a decision with no page, or one that changes what a page asserts, is
+design work — **already landed** design work, which belongs to `/nxs.intake`, not `/nxs.epic`
+(a design change not yet built still belongs to `/nxs.epic`). Then **write the entry anyway.** This
+check is **best-effort and fails soft**: failing to warn is never a defect and never blocks
+anything. It cannot be load-bearing, because this command writes no pages and can only guess at
+what the drain will later synthesise. The load-bearing gate runs at the drain, against the page
+writes themselves.
 
 # Phase 6 — Write the entry
 

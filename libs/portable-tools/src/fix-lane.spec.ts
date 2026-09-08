@@ -152,7 +152,7 @@ describe("/nxs.fix creates the entry from a resolved range (story #267)", () => 
     });
 
     it("warns about behaviours with no existing page but still writes the entry, failing soft", () => {
-        expect(FIX).toMatch(/naming how many/);
+        expect(FIX).toMatch(/naming\s*\n?how many/);
         expect(FIX).toMatch(/write the entry anyway/i);
         expect(FIX).toMatch(/best-effort and fails soft/);
     });
@@ -251,10 +251,10 @@ describe("/nxs.distill blocks the PR when a fix entry breaks the razor (story #2
 
 const ANALYZE: string = body("nxs.analyze.md");
 
-describe("/nxs.analyze refuses a fix entry (story #270)", () => {
-    it("stops on entry_kind: fix and says the check is undefined, not optional", () => {
-        expect(ANALYZE).toContain("entry_kind: fix");
-        expect(ANALYZE).toMatch(/does not run against a fix entry/);
+describe("/nxs.analyze refuses a fix entry (story #270, inverted to run only for an epic entry by story #489)", () => {
+    it("stops on any non-epic entry_kind and says the check is undefined, not optional", () => {
+        expect(ANALYZE).toMatch(/The kind set is closed \(`epic`, `fix`, `intake`, record #504\)/);
+        expect(ANALYZE).toMatch(/does not run against a <kind> entry/);
         expect(ANALYZE).toMatch(/acceptance criteria, its success metrics, and a decision record's invariants/);
         expect(ANALYZE).toMatch(/none of the three/);
     });
@@ -264,6 +264,6 @@ describe("/nxs.analyze refuses a fix entry (story #270)", () => {
     });
 
     it("leaves an epic entry's behaviour unchanged", () => {
-        expect(ANALYZE).toMatch(/An entry without `entry_kind: fix` is an epic entry, and everything below is unchanged/);
+        expect(ANALYZE).toMatch(/An epic entry is unchanged: everything below runs exactly as it always has/);
     });
 });

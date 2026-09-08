@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.13.0
+
+- analyze: the gate now runs only for an epic entry. Instead of naming each non-epic kind in its
+  own refusal clause, the check inverts: any entry whose recorded kind is not epic — a fix entry, an
+  intake entry, or a kind added later — stops the gate with a stated reason and writes no receipt,
+  so a future kind can never fall through this check unnoticed.
+- distill: the two razor refusals that used to name only `/nxs.epic` as the remedy for a landed
+  change that needs a new page or a changed assertion now also name `/nxs.intake`, since the change
+  behind the refusal has usually already shipped. The completion report and the distillation
+  pull request body both state the count of drained entries by kind — epic, fix, intake — whenever
+  more than an epic drained this run.
+- The fix lane's advisory warning, printed when a fix's behaviours map to no existing page or would
+  change what a page asserts, now names `/nxs.intake` for a change that has already landed,
+  alongside `/nxs.epic` for one that has not been built yet.
+
 ## 0.12.0
 
 - distill: an intake entry's pull request body is now re-verified at drain time against the

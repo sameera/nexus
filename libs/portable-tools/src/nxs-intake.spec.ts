@@ -147,7 +147,7 @@ describe("/nxs.distill accepts an intake entry with the epic vocabulary (story #
 
     it("lets an intake entry's deltas create a page, change an assertion, or retire an invariant", () => {
         expect(DISTILL).toMatch(/An intake entry \(#483\) gets the full epic vocabulary/);
-        expect(DISTILL).toMatch(/This bound applies to a fix entry only\./);
+        expect(DISTILL).toMatch(/This bound applies to a fix entry\s*\n?\s*only\./);
     });
 
     it("does not apply the append-only mode to an intake entry's pages", () => {
@@ -186,5 +186,32 @@ describe("/nxs.distill catches an edited pull request for an intake entry (story
     it("drains an unchanged pull request normally, using the close record as its why file", () => {
         expect(DISTILL).toMatch(/Digest matches the entry's stamped `pr_digest`/);
         expect(DISTILL).toMatch(/Use the entry's `close-record\.md` as its \*\*\*why\* file\*\*/);
+    });
+});
+
+const FIX_ADVISORY: string = body("nxs.fix.md");
+const ANALYZE_LANE: string = body("nxs.analyze.md");
+
+describe("the other stages point at the landed-change lane (story #489)", () => {
+    it("/nxs.fix's advisory warning names /nxs.intake for a landed behaviour with no page or a changed assertion", () => {
+        expect(FIX_ADVISORY).toMatch(/would change\s*\n?what an existing page asserts/);
+        expect(FIX_ADVISORY).toMatch(/belongs to `\/nxs\.intake`, not `\/nxs\.epic`/);
+    });
+
+    it("/nxs.analyze's gate inverts to run only for an epic entry, so no kind is ever forgotten", () => {
+        expect(ANALYZE_LANE).toMatch(/The gate runs only for\s*\n?an epic entry/);
+        expect(ANALYZE_LANE).toMatch(/kind added later and never\s*\n?given its own clause would otherwise fall through silently/);
+    });
+
+    it("/nxs.distill's razor refusals name /nxs.intake as the remedy for landed design work", () => {
+        expect(DISTILL).toMatch(/no-existing-page[\s\S]{0,600}\/nxs\.intake/);
+    });
+
+    it("the completion report states the intake count separately from epics and fixes", () => {
+        expect(DISTILL).toMatch(/Entries drained:\s*<n>\s*\(<local-ids>\) — <n> epic, <n> fix, <n> intake/);
+    });
+
+    it("the distillation-PR body states the intake count separately from epics and fixes", () => {
+        expect(DISTILL).toMatch(/Drained queue entries:.*<n> epic, <n> fix, <n> intake/);
     });
 });

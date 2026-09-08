@@ -528,9 +528,11 @@ heading carries.
 
 **A rationale that maps to no existing page is a named per-entry hard block: `no-existing-page`.**
 Report it, write nothing for that entry, and leave the entry directory in place for a later run.
-This is the razor working, not a gap in it: a decision with no page is a decision that needs a page,
-and creating pages is epic work. A change that needs to alter what a page asserts is a **design
-change** — it keeps taking `/nxs.epic`. **This bound applies to a fix entry only.**
+This is the razor working, not a gap in it: a decision with no page is a decision that needs a page.
+Name the remedy by whether the change is still to be built or has already shipped: work not yet
+built is design work for **`/nxs.epic`**; a change that has already landed and needs to alter what a
+page asserts is landed design work for **`/nxs.intake`**. **This bound applies to a fix entry
+only.**
 
 **An intake entry (#483) gets the full epic vocabulary, exactly as an epic entry does** (record
 #504, invariant 15): a delta may create a page, change what an existing page asserts, and add or
@@ -842,7 +844,8 @@ Run these for each entry, in order, before its commit:
     ```
     <fix local-id> (<provenance ref>) — <slug> changed outside the entry it gained.
     That alters what the page asserts rather than adding to its history, which makes it a design
-    change, not a fix. Plan it with /nxs.epic. No distillation-PR is opened.
+    change, not a fix. Plan it with /nxs.epic if it is not yet built, or record it with
+    /nxs.intake since this change has already shipped. No distillation-PR is opened.
     ```
 
     A developer who hits this needs to learn what kind of change they made, not just that a command
@@ -1057,7 +1060,10 @@ page-patch mapping (0007), so give them, per concept:
 ```markdown
 ## Distillation: <epic title(s)>
 
-Drained queue entries: `<entry paths>` (provenance: <ref(s)>)
+Drained queue entries: `<entry paths>` (provenance: <ref(s)>) — <n> epic, <n> fix, <n> intake
+(omit the by-kind tally when every drained entry is an epic — today's behaviour, unchanged; state
+it whenever a fix or an intake entry drained this run, so a reviewer sees an intake entry's writes
+are not an epic's)
 
 ### <slug> — <create | update | retire>
 - **What changed:** <one-paragraph summary of the page change>
@@ -1097,7 +1103,8 @@ comment in the PR body so the reviewer can see the *why* without a dangling queu
 ```
 DISTILLATION-PR OPENED: <url>
 
-Entries drained:   <n>  (<local-ids>)
+Entries drained:   <n>  (<local-ids>) — <n> epic, <n> fix, <n> intake
+                   (omit the by-kind tally when every drained entry is an epic)
 Pages created:     <n>  (<slugs>)
 Pages updated:     <n>  (<slugs>)
 Pages retired:     <n>  (<slugs>)

@@ -87,3 +87,29 @@
   are explicitly the *decision-record* resolution list; folding a structurally different check
   (pull request vs. issue, `pr_digest` vs. `record_hash`) into that same enumeration understates how
   different the check is.
+
+## 2026-09-08 — analyze's fix refusal rewritten as an inversion, not a second clause (#489)
+
+- **Choice:** `/nxs.analyze` Phase 0.1 changed from "stop if `entry_kind: fix`" to "run only for an
+  epic entry (absent or `entry_kind: epic`); stop for anything else", rather than adding a parallel
+  "stop if `entry_kind: intake`" clause beside the existing fix clause.
+- **Why:** the decision record's own refuted-alternative language for the *drain's* kind-selected
+  razor applies identically here — a second clause is the smallest diff, but it is also exactly the
+  shape that silently under-covers a fourth kind added later. Both the drain's razor selection and
+  analyze's refusal face the same closed-kind-set problem, so both get the same fix.
+- **Refuted alternative:** add `entry_kind: intake` as a second named clause, matching the drain's
+  literal precedent of one clause per kind before this story. Rejected for the same reason the
+  decision record gives for the drain: it is the forgotten-clause failure waiting for a fourth kind.
+
+## 2026-09-08 — fix's advisory and distill's razor refusals both point at /nxs.intake, not just one (#489)
+
+- **Choice:** updated both the fix lane's own advisory warning (authoring time) and the drain's two
+  razor refusal messages (no-existing-page, append-only mismatch) to name `/nxs.intake`, rather than
+  updating only one of the two surfaces.
+- **Why:** the decision record explicitly scopes story #489 to both surfaces — "an advisory warning
+  at authoring time and a mechanical refusal at drain time that disagree about which lane to use is
+  worse than either alone, and the drain's refusal is the one an engineer actually hits."
+- **Refuted alternative:** update only the drain's refusals, since they are the ones "actually hit".
+  Rejected because the epic's own AC1 is specifically about the fix lane's advisory warning, so
+  leaving it unchanged would fail that acceptance criterion even though the drain-side fix covers
+  the case an engineer is more likely to hit.
