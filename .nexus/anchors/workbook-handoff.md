@@ -1,6 +1,6 @@
 ---
 concept: workbook-handoff
-source_sha: b5f1ce09e01dbb853ccd6e1d6fa63dd3582bf50d
+source_sha: c087eab2b79dafb46fe7f2dfb39819e085ea3a79
 generated: 2026-09-07
 ---
 
@@ -9,6 +9,7 @@ generated: 2026-09-07
 
 # Code Anchors: Workbook Handoff
 
-- `libs/portable-tools/src/handoffs.ts` — the handoff record: recording with the order carried in the name, parsing, enumeration of outstanding records, resolution by append, and the session that resumes at the most recent one.
+- `libs/portable-tools/src/handoffs.ts` — the handoff record: recording with the order carried in the name, the workbook each record names, parsing, enumeration of outstanding records, and resolution by append that says whether a check verified it or a person asserted it.
 - `libs/portable-tools/src/handoffs.spec.ts` — covers resumption after the recording session ended, listing several outstanding handoffs, and resolution leaving the earlier content readable.
 - `libs/portable-tools/src/workbook-cli.ts` — the `session`, `handoff` and `resolve` subverbs, which thread the guard's runner through from the command surface.
+- `libs/portable-tools/src/teaching-session.ts` — reads only this workbook's pauses on arrival, and marks one verified only after a green suite and an intact fence.

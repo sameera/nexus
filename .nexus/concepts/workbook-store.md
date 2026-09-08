@@ -1,8 +1,8 @@
 ---
 title: "Workbook Store"
 aliases: ["workbook", "workbook folder", "lessons folder", "teaching plan", "workbook placement"]
-touches: ["pipeline-store-exclusion", "learner-folder", "lesson-renderer", "workspace-resolution"]
-last_updated_by: "#405"
+touches: ["pipeline-store-exclusion", "learner-folder", "lesson-renderer", "workspace-resolution", "teaching-plan"]
+last_updated_by: "#407"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ A workbook is a committed folder a learner opens, holding the authored lessons a
 
 ## How It Works
 
-The store is created on first use and holds one folder per workbook. Inside a workbook the authored lessons sit in their own folder, and the pages render beside them at the workbook's root. An optional plan names the lessons in teaching order. Without a plan the order is the lessons' file names, which is deterministic but says nothing about teaching. A plan and a lessons folder that disagree fail the render in either direction: a plan naming a lesson that is absent, and a lesson the plan does not name. Ordering by a file-name prefix alone was refuted, because renaming a lesson to move it would change its page's address. Placement is enforced in code rather than documented. Creating a workbook refuses a hub checkout and names the members it could have meant, and it resolves the member from the checkout it ran in, or from an explicit name when run from the hub. Creating a workbook also ensures the ignore rule that covers the learner folder, because the store is created on first use while ignore rules are seeded at setup.
+The store is created on first use and holds one folder per workbook. Inside a workbook the authored lessons sit in their own folder, and the pages render beside them at the workbook's root. An optional plan names the lessons in teaching order. Without a plan the order is the lessons' file names, which is deterministic but says nothing about teaching. A lesson the plan does not name fails the render. A plan naming a lesson the folder lacks fails too, unless the plan describes slices, where an unwritten lesson is a stub. Ordering by a file-name prefix alone was refuted, because renaming a lesson to move it would change its page's address. Placement is enforced in code rather than documented. Creating a workbook refuses a hub checkout and names the members it could have meant, and it resolves the member from the checkout it ran in, or from an explicit name when run from the hub. Creating a workbook also ensures the ignore rule that covers the learner folder, because the store is created on first use while ignore rules are seeded at setup.
 
 ## Key Invariants
 
@@ -21,7 +21,7 @@ The store is created on first use and holds one folder per workbook. Inside a wo
 2. No workbook path appears in any diff a Nexus stage derives.
 3. A workbook lives in the member repository whose roadmap it teaches; creating one in a hub checkout is refused, and the refusal names the members it could have meant.
 4. The store holds many workbooks, because a repository may teach more than one roadmap.
-5. A plan and the lessons folder must name the same lessons, or the workbook does not render.
+5. ~~A plan and the lessons folder must name the same lessons, or the workbook does not render.~~ A lesson the plan does not name never renders; a plan of slices tolerates one not yet written.
 6. Without a plan the teaching order is the lessons' file names.
 7. Creating a workbook ensures the ignore rule covering the learner folder rather than assuming setup did.
 
@@ -31,9 +31,14 @@ The store is created on first use and holds one folder per workbook. Inside a wo
 - [learner-folder](learner-folder.md) — the one folder inside this store holding everything the workbook retains about a person.
 - [lesson-renderer](lesson-renderer.md) — reads the lessons and the plan this store lays out, and writes the pages back into it.
 - [workspace-resolution](workspace-resolution.md) — the one resolver that says which member checkout a workbook belongs in.
+- [teaching-plan](teaching-plan.md) — the plan of slices this store holds, which makes an unwritten lesson a stub rather than a mismatch.
 
 ## Decision Log
 
 ### 2026-09-07 — #405 — The workbook joins the existing family of pipeline stores
 
 The store is committed and sits beside the queue and the discovery store, under the hidden root those two already occupy, so the exclusion is one coherent family rather than three unrelated special cases. The member placement follows from what a workbook is. The queue lives in the hub because the distiller reads it, but a workbook is a reading surface for one repository's roadmap, so it belongs with that roadmap. Refuted alternative: a visible folder at the top of the repository, which a learner browsing in a file manager would find, since a hidden directory is invisible by default in most file browsers. It loses because it puts a Nexus-managed store outside the one root every other Nexus store lives in, and it splits the exclusion family into two shapes. The discoverability cost is bounded, because a learner reaches a page from a session or a link rather than by browsing.
+
+### 2026-09-07 — #407 — A plan of slices makes an unwritten lesson a stub, not a mismatch
+
+The refusal that fired when the plan named a lesson the folder did not hold assumed every lesson exists before anyone reads them. Under a plan of slices a lesson is written when the learner arrives at it, so an absent lesson is the normal state and the old refusal would block every workbook that teaches. The refusal therefore narrows to plans that list lessons, while the other half stands for both kinds: a lesson the plan does not name still has no place in the workbook. This entry also records the reciprocal link to the teaching plan, which the store now reads and hands to a session. Refuted alternative: keep the refusal absolute and have the planning stage write an empty lesson for every slice up front. It keeps one rule for both kinds of plan, but the workbook would then ship stub pages the navigation links to, which is the dead end the stub marking exists to avoid.

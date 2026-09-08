@@ -1,6 +1,6 @@
 ---
 concept: learner-folder
-source_sha: b5f1ce09e01dbb853ccd6e1d6fa63dd3582bf50d
+source_sha: c087eab2b79dafb46fe7f2dfb39819e085ea3a79
 generated: 2026-09-07
 ---
 
@@ -11,3 +11,5 @@ generated: 2026-09-07
 
 - `libs/portable-tools/src/learner-store.ts` — the learner folder: the record kinds, the one ignore rule, the git-asked ignore question, the per-write guard on both writing and appending, and the refusal that names the missing rule.
 - `libs/portable-tools/src/learner-store.spec.ts` — covers the guard on a first write and on an append, the rule being ensured at creation, and the refusal's reason.
+- `libs/portable-tools/src/teaching-session.ts` — the total reads of this folder: an absent hint log is an empty history, and an unreadable one is reported and skipped.
+- `libs/portable-tools/src/handoff-prompt.ts` — writes the handoff prompt here, through the same guard as every other personal record.

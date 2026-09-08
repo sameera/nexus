@@ -1,8 +1,8 @@
 ---
 title: "Learner Folder"
 aliases: ["learner store", "personal records", "one ignore rule", "learner ignore guard", "per-learner state"]
-touches: ["workbook-store", "workbook-handoff", "lesson-renderer"]
-last_updated_by: "#405"
+touches: ["workbook-store", "workbook-handoff", "lesson-renderer", "cold-drill", "just-in-time-lesson", "handoff-prompt"]
+last_updated_by: "#407"
 status: active
 verification: verified
 ---
@@ -29,9 +29,16 @@ The folder is a direct child of the store rather than of each workbook, so a sec
 - [workbook-store](workbook-store.md) — the store this folder is a direct child of, so one rule covers every workbook in it.
 - [workbook-handoff](workbook-handoff.md) — handoff records are kept here, under the same rule as everything else personal.
 - [lesson-renderer](lesson-renderer.md) — reads nothing from here, which is what lets an empty folder read normally.
+- [cold-drill](cold-drill.md) — the hint counts kept here are the one personal signal that ranks an already-eligible concept.
+- [just-in-time-lesson](just-in-time-lesson.md) — reads the same hint counts to decide which concepts the next lesson comes back to.
+- [handoff-prompt](handoff-prompt.md) — the prompt is kept here, so it is never a page and can never appear as drift.
 
 ## Decision Log
 
 ### 2026-09-07 — #405 — One learner folder, and a per-write question put to git
 
 The folder sits directly under the store rather than inside each workbook, because the story promises one line rather than an audit, and that promise only holds if the line's coverage does not depend on how many workbooks exist. The write guard asks git instead of reading an ignore file, and it asks per write, because the rule can be removed between two writes and the second one has to stop. During implementation the resolve path was found to append outside that guard and was routed through it. Refuted alternative: a learner folder inside each workbook, matched by a wildcard ignore pattern. It keeps a workbook self-contained and movable as a unit, but wildcard patterns are the kind of rule people get subtly wrong, and one mistake commits a person's records.
+
+### 2026-09-07 — #407 — Reciprocal links from the cold drill, the just-in-time lesson and the handoff prompt
+
+The teaching session's stages read and write here, so the edges are recorded on both sides. The drill and the lesson both read the hint counts: the drill uses them to rank a concept already cold enough to ask about, and the lesson uses them to decide which concepts to come back to. The handoff prompt is written here rather than into the workbook, which is what keeps it from ever appearing as drift against the rendered lessons.
