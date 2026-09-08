@@ -40,6 +40,19 @@ describe("a planning session holds no lesson-writing reference", () => {
     });
 });
 
+describe("a lesson-writing session holds no planning reference", () => {
+    it("declares none of them, because the finished phase's references do not come along", () => {
+        const planningOnly: string[] = planning.references.filter((r) => !SHARED_REFERENCES.includes(r));
+        expect(planningOnly.length).toBeGreaterThan(0);
+        for (const reference of planningOnly) expect(lesson.references).not.toContain(reference);
+    });
+
+    it("names none of them anywhere in its body, because naming one is loading it", () => {
+        const planningOnly: string[] = planning.references.filter((r) => !SHARED_REFERENCES.includes(r));
+        for (const reference of planningOnly) expect(lesson.body).not.toContain(reference);
+    });
+});
+
 describe("what both phases need", () => {
     it("is reached through a shared skill both declare, never duplicated into both bodies", () => {
         expect(SHARED_REFERENCES.length).toBeGreaterThan(0);
@@ -63,6 +76,22 @@ describe("the whole declaration, checked in one pass", () => {
             lesson,
         });
         expect(problems.join("\n")).toContain("nxs-prose-style");
+    });
+
+    it("reports a lesson-writing body that names a planning reference, because naming one is loading it", () => {
+        const problems: string[] = phaseReferenceProblems(ROOT, {
+            planning,
+            lesson: { ...lesson, body: `${lesson.body}\n\nLoad the nxs-epic-resolve skill for the roadmap.` },
+        });
+        expect(problems.join("\n")).toContain("nxs-epic-resolve");
+    });
+
+    it("reports a reference both phases declare without its being a shared one", () => {
+        const problems: string[] = phaseReferenceProblems(ROOT, {
+            planning,
+            lesson: { ...lesson, references: [...lesson.references, "nxs-epic-resolve"] },
+        });
+        expect(problems.join("\n")).toContain("nxs-epic-resolve");
     });
 
     it("reports a phase that declares no reference set of its own", () => {

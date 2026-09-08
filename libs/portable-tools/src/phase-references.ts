@@ -9,11 +9,12 @@
  * naming its own reference set and neither naming the other's, and anything both need is reached
  * through a shared skill both declare rather than duplicated into both bodies.
  *
- * Story #474's third acceptance criterion is read on those terms: a phase change is a new
- * invocation whose reference set excludes the finished phase's references, verified by inspecting
- * each entry point's declared set. As filed it asked that references already loaded stop being
- * loaded mid-session, which no mechanism can do. What this module checks is the version that is
- * checkable — the planning body either contains a lesson-writing reference or it does not.
+ * Story #474's third acceptance criterion stands on those terms: a phase change is a new invocation
+ * whose declared reference set excludes the references only the finished phase needed. It was
+ * originally filed asking that references already loaded stop being loaded mid-session, which no
+ * mechanism can do, and was re-filed once the record settled the invocation boundary. What is left
+ * is checkable by reading the two entry points: each body either holds the other phase's material or
+ * it does not.
  */
 
 import * as fs from "node:fs";
@@ -73,9 +74,11 @@ export interface TeachingPhases {
 }
 
 /**
- * Every way the declared reference sets fail the phase boundary. Empty means each phase declares
- * its own set, the planning set holds nothing exclusive to lesson writing, and the planning body
- * does not so much as name one — because in a body, naming a reference is loading it.
+ * Every way the declared reference sets fail the phase boundary. Empty means each phase declares its
+ * own set, neither set holds a reference exclusive to the other, and neither body so much as names
+ * one — because in a body, naming a reference is loading it. The check runs in both directions: a
+ * planning session holding lesson material is the failure the epic names, and a lesson session still
+ * holding planning material is the same failure one phase later.
  */
 export function phaseReferenceProblems(componentRoot: string, phases?: TeachingPhases): string[] {
     const { planning, lesson }: TeachingPhases = phases ?? {
@@ -99,15 +102,30 @@ export function phaseReferenceProblems(componentRoot: string, phases?: TeachingP
         }
     }
 
-    const lessonOnly: string[] = lesson.references.filter((reference) => !SHARED_REFERENCES.includes(reference));
-    for (const reference of planning.references) {
-        if (!lessonOnly.includes(reference)) continue;
-        problems.push(`${planning.command} declares ${reference}, which belongs to ${lesson.command}.`);
+    // Both directions, because either one is a phase holding material the other's phase needs. The
+    // planning body holding a lesson reference is the failure the epic names, but the reverse is the
+    // one the ordinary flow would hit first: planning finishes, lesson writing begins, and a lesson
+    // body naming a planning reference is that reference still loaded a phase after it was needed.
+    const planningOwn: string[] = planning.references.filter((reference) => !SHARED_REFERENCES.includes(reference));
+    const lessonOwn: string[] = lesson.references.filter((reference) => !SHARED_REFERENCES.includes(reference));
+
+    for (const reference of planningOwn) {
+        if (!lessonOwn.includes(reference)) continue;
+        problems.push(
+            `${planning.command} and ${lesson.command} both declare ${reference}, which is not a shared reference. ` +
+            `What both phases need is reached through a skill both load, and is declared as shared.`,
+        );
     }
-    for (const reference of lessonOnly) {
-        if (planning.body.includes(reference)) {
+
+    const namedByTheOther: [PhaseEntryPoint, PhaseEntryPoint, string[]][] = [
+        [planning, lesson, lessonOwn.filter((reference) => !planningOwn.includes(reference))],
+        [lesson, planning, planningOwn.filter((reference) => !lessonOwn.includes(reference))],
+    ];
+    for (const [holder, owner, exclusive] of namedByTheOther) {
+        for (const reference of exclusive) {
+            if (!holder.body.includes(reference)) continue;
             problems.push(
-                `${planning.command} names ${reference}, which is a ${lesson.command} reference. ` +
+                `${holder.command} names ${reference}, which is a ${owner.command} reference. ` +
                 `A body that names a reference loads it, and a loaded reference cannot be unloaded.`,
             );
         }

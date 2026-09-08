@@ -57,3 +57,9 @@
 - **Choice:** The refusal says the query returned "more than ten" epics instead of naming a number.
 - **Why:** The search is asked for one row past the cap, so the row count is a floor: fifty matches and eleven matches come back the same length, and naming a count reports the fetch limit back to the learner as their result.
 - **Refuted alternative:** Fetching without a limit so the count is true, which costs a full result set on exactly the query already known to be too wide.
+
+## 2026-09-08 — The phase-boundary check runs in both directions
+
+- **Choice:** Each phase's body is checked against the other's exclusive references, and a reference both phases declare without being a shared one is its own problem.
+- **Why:** Only the planning-holds-lesson-material direction was checked, and that is the reverse of the ordinary flow — planning finishes and lesson writing begins, so a lesson body naming a planning reference is the case story #474's re-filed criterion actually describes.
+- **Refuted alternative:** Leaving the check one-directional because the authored tree happens to satisfy the other direction, which pins nothing and lets the next edit break it silently.
