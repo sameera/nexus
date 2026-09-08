@@ -2,7 +2,9 @@
 #
 # implement-epic.sh — run the /goal epic-implementation loop headlessly, push
 # the branch, open a draft PR, run /nxs.analyze in a fresh context, then drive
-# fix → re-analyze rounds until the conformance gate is clean.
+# fix → re-analyze rounds until the conformance gate is clean. Once clean, the
+# receipt is posted to the PR, the PR is taken out of draft, and its body is
+# refreshed to say so.
 #
 # Usage:
 #   utils/implement-epic.sh <epic-issue-number> [extra claude args...]
@@ -181,6 +183,10 @@ EOF
 )"
 fi
 
+# Resolved once, used by both the receipt-posting stage below and (were
+# ANALYZE=0) by nothing — the PR exists either way by this point.
+PR_NUM="$(gh pr view "$BRANCH" --json number --jq .number)"
+
 if [[ "$ANALYZE" != "1" ]]; then
     exit 0
 fi
@@ -247,6 +253,37 @@ Finish with one line per finding: fixed, or left alone with the reason. Stop aft
 EOF
 }
 
+# Stage 4, on a clean receipt: post it to the PR, refresh the body off its
+# stale "draft opened / analyze runs next" wording, and take the PR out of
+# draft. Runs once, from whichever round actually reached clean.
+publish_clean_pr() {
+    local receipt="$1" rhead="$2" epic_title
+
+    echo "" >&2
+    echo ">>> stage 4: posting the analyze receipt to PR #${PR_NUM}" >&2
+    gh pr comment "$PR_NUM" --body-file "$receipt"
+
+    epic_title="$(gh issue view "$N" --json title --jq .title)"
+    gh pr edit "$PR_NUM" \
+        --title "epic #${N}: ${epic_title}" \
+        --body "$(cat <<EOF
+Implements the story sub-issues of #${N}, one commit per story in blocked_by order.
+
+Each commit body carries its own \`Closes #<story>\` line, so merging this PR
+into \`${BASE}\` closes the stories it implements. The epic itself closes through
+\`/nxs.close\`, not by merge.
+
+Conformance is clean at \`${rhead}\` — 0 critical, 0 high; see the analyze
+receipt comment below for the full report. Ready for review.
+EOF
+)"
+
+    if [[ "$(gh pr view "$PR_NUM" --json isDraft --jq .isDraft)" == "true" ]]; then
+        echo ">>> stage 4: marking PR #${PR_NUM} ready for review" >&2
+        gh pr ready "$PR_NUM"
+    fi
+}
+
 ROUND=1
 LAST_STATE=""
 while :; do
@@ -263,6 +300,7 @@ while :; do
     if (( CRIT == 0 && HIGH == 0 )); then
         echo "" >&2
         echo ">>> conformance clean at ${RHEAD} — 0 critical, 0 high (${RECEIPT})" >&2
+        publish_clean_pr "$RECEIPT" "$RHEAD"
         break
     fi
 
