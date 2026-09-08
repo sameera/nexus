@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.12.0
+
+- distill: an intake entry's pull request body is now re-verified at drain time against the
+  fingerprint `/nxs.intake` stamped when it recorded the change. A body edited since, or one that
+  can no longer be fetched, blocks that entry with no waiver and writes nothing for it — the
+  remedy is re-running `/nxs.intake` and re-approving its gate, then re-running the drain. An
+  unchanged pull request drains normally.
+
 ## 0.11.0
 
 - distill: the drain now accepts a third recorded entry kind, `intake`, written by `/nxs.intake`.

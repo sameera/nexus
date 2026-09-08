@@ -72,3 +72,18 @@
 - **Refuted alternative:** say nothing and let the unbounded default speak for itself, symmetrical
   with how epic entries need no such sentence. Rejected because intake is new in this release and
   sits directly beside the fix razor prose in the same phase; silence there reads as an omission.
+
+## 2026-09-08 — Fingerprint check replaces the record-hash branch, not adds to it (#488)
+
+- **Choice:** the intake fingerprint check in `/nxs.distill` Phase 0 is worded as replacing the
+  decision-record-hash branch for an intake entry ("this replaces the branch above rather than
+  adding to it"), rather than as a fourth *why*-source branch alongside the three existing ones.
+- **Why:** an intake entry structurally has no decision record, so the three existing branches
+  (record sub-issue, committed `decision-record.md`, close-record-only) can never apply to it. Two
+  independent verification paths that happen to be mutually exclusive by entry kind would read as
+  a coincidence rather than the guaranteed disjunction it actually is.
+- **Refuted alternative:** add a fourth numbered branch to the same list ("4. an intake entry
+  verifies its pull request instead"). It would read more uniformly, but the existing three branches
+  are explicitly the *decision-record* resolution list; folding a structurally different check
+  (pull request vs. issue, `pr_digest` vs. `record_hash`) into that same enumeration understates how
+  different the check is.

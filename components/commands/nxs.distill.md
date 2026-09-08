@@ -247,6 +247,33 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 
     The drain stays **read-only** against the record issue: it fetches and hashes, never edits,
     closes, or comments.
+
+    **For an intake entry (#483), verify the pull request body instead** (record #504, invariant
+    14) — an intake entry has no decision record, so this replaces the branch above rather than
+    adding to it. Re-fetch the pull request body and re-hash it, through the same digest program,
+    over the reference recorded in the entry's `epic.md` `link`:
+
+    ```bash
+    nexus record-digest --issue <n> ${REPO:+--repo $REPO}
+    ```
+
+    - **Digest matches the entry's stamped `pr_digest`** → the pull request still says what was
+      recorded. Use the entry's `close-record.md` as its ***why* file**, exactly as an epic with no
+      decision record already reads its *why* solely from there.
+    - **Digest differs, or the pull request cannot be fetched** → **hard-error this entry and write
+      nothing for it.** There is no drain-side waiver, on the same terms the record-hash mismatch
+      above admits none: the drain writes permanently into the store, so a waived mismatch would
+      file reasoning the pull request no longer states. Never substitute a local copy of the body.
+      Report:
+
+        ```
+        Drain blocked for <entry>: <qualified reference> no longer matches the body recorded at intake.
+          stamped at intake: <hash from epic.md pr_digest>
+          current body:      <recomputed hash, or "unfetchable">
+        Nothing was written for this entry.
+        Recover by re-running /nxs.intake <qualified reference> and re-approving its gate, then
+        re-run /nxs.distill.
+        ```
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: the drain creates a branch and must not entangle unrelated work.
    (In continuation mode the tree is clean because the close committed its artifacts, and you are
@@ -1170,7 +1197,11 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   15) — so neither the append-only validator mode nor the `no-existing-page` block ever applies to
   it. The checkpoint names, per intake entry, every page it creates, every page whose assertions it
   changes, and every invariant it retires (invariant 16). Draining an epic entry or a fix entry is
-  unchanged by this, including either discovered in the same run as an intake entry.
+  unchanged by this, including either discovered in the same run as an intake entry. **Its pull
+  request body is re-verified at Phase 0** against the `pr_digest` stamped at intake, through the
+  same digest program the decision-record hash check already uses; a mismatch or an unfetchable
+  body is a hard error with no waiver, naming a re-run of `/nxs.intake` as the remedy (invariant
+  14) — never a substituted local copy.
 - **GitHub recovery (#174) is explicit and per-entry** (invariant 14): invoked as
   `--recover <epic-issue>` for a named epic, never as a scan of closed epic issues on an ordinary
   run. It re-derives the epic through the resolver and takes rationale, record reference, hash,

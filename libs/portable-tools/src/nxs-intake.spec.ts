@@ -166,3 +166,25 @@ describe("/nxs.distill accepts an intake entry with the epic vocabulary (story #
         expect(DISTILL).toMatch(/Draining an epic entry or a fix entry is\s*\n?\s*unchanged by this, including either discovered in the same run as an intake entry/);
     });
 });
+
+describe("/nxs.distill catches an edited pull request for an intake entry (story #488)", () => {
+    it("re-fetches and re-hashes the pull request body through the one digest program", () => {
+        expect(DISTILL).toMatch(/verify the pull request body instead/);
+        expect(DISTILL).toContain("nexus record-digest --issue <n>");
+    });
+
+    it("refuses a mismatch with no waiver and no local-copy substitution, naming a re-run as the remedy", () => {
+        expect(DISTILL).toMatch(/There is no drain-side waiver/);
+        expect(DISTILL).toMatch(/Never substitute a local copy of the body/);
+        expect(DISTILL).toMatch(/Recover by re-running \/nxs\.intake/);
+    });
+
+    it("refuses an unfetchable pull request body the same way as a mismatch", () => {
+        expect(DISTILL).toMatch(/or the pull request cannot be fetched\*\* → \*\*hard-error this entry and write\s*\n?\s*nothing for it/);
+    });
+
+    it("drains an unchanged pull request normally, using the close record as its why file", () => {
+        expect(DISTILL).toMatch(/Digest matches the entry's stamped `pr_digest`/);
+        expect(DISTILL).toMatch(/Use the entry's `close-record\.md` as its \*\*\*why\* file\*\*/);
+    });
+});
