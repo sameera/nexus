@@ -47,3 +47,15 @@
 - **Refuted alternative:** stub the follow-ups section now with a "none yet" placeholder so the
   Phase 6 render shape does not change between #485 and #486. Rejected because a placeholder that
   gets replaced wholesale next commit is exactly the speculative structure the razor cuts.
+
+## 2026-09-08 — Deferred Scope filled before Phase 7's only disk write, not after (#486)
+
+- **Choice:** Phase 6.5 files the kept follow-ups and fills the close record's Deferred Scope
+  section entirely in memory, before Phase 7 writes `close-record.md` to disk for the first time.
+- **Why:** unlike `/nxs.close`, which must fill the section into a file already committed to the
+  queue, an intake entry's close record has no on-disk existence before Phase 7. There is nothing to
+  edit-after-write, so filing before the single write is strictly simpler and needs no follow-up
+  patch step.
+- **Refuted alternative:** mirror `/nxs.close`'s literal phase order — write the record with a
+  pending placeholder, file the stubs, then patch the written file. It would match the precedent
+  exactly but adds a write-then-rewrite step this lane's ordering does not need.

@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.10.0
+
+- No change to how any pipeline stage behaves.
+- `/nxs.intake` now lists every follow-up its pull request names as a keep-or-drop item at its
+  approval gate. A kept follow-up becomes an open epic stub issue on the same terms a deferred-scope
+  stub filed at `close` already does; a dropped one is filed nowhere and named in no record.
+
 ## 0.9.0
 
 - No change to how any pipeline stage behaves.

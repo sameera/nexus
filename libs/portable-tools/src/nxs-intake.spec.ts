@@ -100,3 +100,30 @@ describe("/nxs.intake writes a two-file entry stamped with the pull request's fi
         expect(INTAKE).toMatch(/no issue, no comment, no branch, no pull request, no commit/);
     });
 });
+
+describe("/nxs.intake's follow-ups become open epic stubs on approval (story #486)", () => {
+    it("lists each pull-request follow-up as a keep-or-drop item at the checkpoint", () => {
+        expect(INTAKE).toMatch(/multi-select, nothing pre-selected/);
+        expect(INTAKE).toMatch(/An\s*\n?option left unselected is \*\*dropped\*\*/);
+    });
+
+    it("files kept items as open epic stubs through the existing batch path, after approval", () => {
+        expect(INTAKE).toContain("nexus create-story");
+        expect(INTAKE).toContain("--classification-label");
+        expect(INTAKE).toMatch(/Skip this phase when nothing was kept/);
+        expect(INTAKE).toMatch(/There is no `parent:` key: a stub is never a sub-issue of/);
+    });
+
+    it("never files a dropped item, and it appears in no issue and no record", () => {
+        expect(INTAKE).toMatch(/dropped.*It is filed nowhere and appears in no issue and no record\.|is\s*\n?\s*\*\*dropped\*\*: it is filed nowhere and appears in no issue and no record/);
+    });
+
+    it("lists the filed stub issue numbers in the close record and carries none of their scope", () => {
+        expect(INTAKE).toMatch(/## Deferred Scope/);
+        expect(INTAKE).toMatch(/Fill the close record's Deferred Scope section\*\* with the filed issue numbers/);
+    });
+
+    it("stops before writing any entry when filing the kept follow-ups fails", () => {
+        expect(INTAKE).toMatch(/stop before Phase 7\*\*: report the failure and write no entry at all/);
+    });
+});

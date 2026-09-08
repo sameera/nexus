@@ -116,6 +116,10 @@ already write, adapted for this lane:
 ## Deviation Rationale
 - An intake entry has no decision record to deviate from.
 
+## Deferred Scope
+<pending — filed in Phase 6.5, or "none" when the pull request named no follow-up, or when the
+lead dropped every one that was named>
+
 <!-- nexus:close-record -->
 ```yaml
 entry_kind: intake
@@ -131,11 +135,26 @@ range:
 Omit **Refuted Alternatives** entirely when the pull request named none, rather than writing an
 empty heading.
 
+# Phase 5.5 — Gather the pull request's follow-ups
+
+**Nothing is filed yet.** A follow-up is deferred work the pull request explicitly calls out as not
+done here — a "Follow-ups" or "Later" section in the body, an unchecked checklist item, a review
+thread or commit message that says the change leaves something for later. Read the same three
+sources Phase 4 already read; do not look further.
+
+List each one found, in one line: `<one-line goal, derived from where it was named>`. If none are
+named, record that and skip straight to Phase 6 with an empty list — the checkpoint then shows no
+follow-up section at all.
+
 # Phase 6 — Checkpoint (before any file or issue is written)
 
-**STOP AND WAIT.** Nothing above has been written yet. Render the drafted record in full, together
-with the qualified reference and the resolved range, and ask via **`AskUserQuestion`** — never free
-text:
+**STOP AND WAIT.** Nothing above has been written yet. When Phase 5.5 found any follow-ups, ask
+first, via **`AskUserQuestion`** (multi-select, nothing pre-selected): which of the following does
+the lead want filed as an open epic stub? List each follow-up's one-line goal as an option. An
+option left unselected is **dropped**: it is filed nowhere and appears in no issue and no record.
+
+Then render the drafted record in full, together with the qualified reference, the resolved range,
+and the kept follow-ups, and ask via **`AskUserQuestion`** — never free text:
 
 ```
 CHECKPOINT: Landed-Change Intake
@@ -146,11 +165,68 @@ Recording <qualified reference> ("<title>") as an intake entry.
 
 Decisions attributed to: <pull request body> · <review thread(s), named> · <commit message(s),
 named> · <the lead, for decisions no source explained>
+
+Follow-ups to file as open epic stubs: <each kept item's one-line goal, or "none">
 ```
 
-- **approve** — write the entry (Phase 7).
-- **decline** — stop; **write nothing at all.**
+- **approve** — file the kept follow-ups (Phase 6.5), then write the entry (Phase 7).
+- **decline** — stop; **write nothing at all.** No follow-up is filed, kept or dropped.
 - **review** — re-render the draft, then ask again.
+
+# Phase 6.5 — File the kept follow-ups
+
+**Skip this phase when nothing was kept.** Filing an issue is irreversible, so it happens only after
+approval and only for what the lead kept, on the same terms `/nxs.close` already files its own
+deferred-scope stubs.
+
+1. **Resolve the classification and the unplanned label** (never hard-code either):
+
+    ```bash
+    nexus config resolve epic-label
+    nexus config resolve epic-type
+    nexus config resolve unplanned-label
+    ```
+
+2. **Write one transient work-item per kept follow-up** to a session scratch folder — never
+   committed — named `STORY-STUB-<NN>.md`. There is no `parent:` key: a stub is never a sub-issue of
+   anything.
+
+    ```markdown
+    ---
+    ref: "STUB-<NN>"
+    title: "<the kept follow-up's one-line goal, as an epic title>"
+    blocked_by: none
+    labels: [<unplanned-label>]
+    ---
+
+    <the one-line goal>
+
+    ## Meta
+
+    - **source:** deferred from intake of <the Phase 2 qualified reference> (<YYYY-MM-DD>)
+    ```
+
+   The `source` line is the item's only link back to the pull request, on the same terms a
+   close-filed stub's `source` line points at its epic — the qualified pull request reference, not
+   the epic this feature itself belongs to.
+
+3. **File the batch**, classified as an epic rather than a story, exactly as `/nxs.close` already
+   does:
+
+    ```bash
+    nexus create-story "<scratch-folder>" \
+        --classification-label "<epic-label>" \
+        --classification-type "<epic-type>"
+    ```
+
+    On `⚠️ INCOMPLETE`, re-run the exact same command. Discard the transient work-items only after a
+    `✅ Complete` run.
+4. **Fill the close record's Deferred Scope section** with the filed issue numbers — one line per
+   item, `#<issue> — <one-line goal>` — replacing the `<pending — …>` placeholder. When nothing was
+   kept, write "none" instead.
+5. **If filing fails outright, stop before Phase 7**: report the failure and write no entry at all.
+   An intake entry whose close record promises deferred scope no issue carries is worse than a
+   re-run of this command.
 
 # Phase 7 — Write the entry
 
@@ -176,7 +252,8 @@ feature: "<the feature the pull request names, if any>"   # omit this key entire
 value `/nxs.distill` re-fetches and compares at drain time (a later story wires that check). Never
 compute it over a locally held copy of the body; the digest program always fetches fresh.
 
-**`.nexus/tmp/intake-<n>/close-record.md`** — the Phase 5 draft, unchanged by the checkpoint.
+**`.nexus/tmp/intake-<n>/close-record.md`** — the Phase 5 draft, with its Deferred Scope section
+filled by Phase 6.5.
 
 Neither file carries a `record` key, a `record_hash` key, an `analyze-receipt.md`, or a process
 lesson: an intake entry has no decision record, no conformance check, and no process to distil a
