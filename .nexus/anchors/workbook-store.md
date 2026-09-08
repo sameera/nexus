@@ -1,6 +1,6 @@
 ---
 concept: workbook-store
-source_sha: b5f1ce09e01dbb853ccd6e1d6fa63dd3582bf50d
+source_sha: c087eab2b79dafb46fe7f2dfb39819e085ea3a79
 generated: 2026-09-07
 ---
 
@@ -9,8 +9,9 @@ generated: 2026-09-07
 
 # Code Anchors: Workbook Store
 
-- `libs/portable-tools/src/workbook-store.ts` — the store's layout: the store and workbook roots, creation with slug validation, the lessons folder, the optional ordering plan, and the two disagreement failures between plan and lessons.
+- `libs/portable-tools/src/workbook-store.ts` — the store's layout: the store and workbook roots, creation with slug validation, the lessons folder, reading either kind of plan, and the disagreement failure that now narrows to a plan listing lessons.
 - `libs/portable-tools/src/workbook-placement.ts` — where a workbook belongs: the hub refusal naming the declared members, and the member resolution from the running checkout or an explicit name.
 - `libs/portable-tools/src/workbook-placement.spec.ts` — covers the hub refusal, the member resolution from either direction, and the single-repo case.
 - `libs/portable-tools/src/pipeline-stores.spec.ts` — pins that the store is committed, sits outside the queue, holds more than one workbook, and never reaches a derived behavioural diff.
 - `libs/portable-tools/src/workbook-cli.ts` — the `workbook create` subverb, the one caller that makes a workbook and ensures the learner-folder rule.
+- `libs/portable-tools/src/workbook-store.spec.ts` — covers the stub tolerated under a plan of slices, the lesson the plan does not name still failing, and the written-lesson listing.

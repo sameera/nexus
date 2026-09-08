@@ -1,6 +1,6 @@
 ---
 concept: lesson-renderer
-source_sha: b5f1ce09e01dbb853ccd6e1d6fa63dd3582bf50d
+source_sha: c087eab2b79dafb46fe7f2dfb39819e085ea3a79
 generated: 2026-09-07
 ---
 
@@ -9,8 +9,8 @@ generated: 2026-09-07
 
 # Code Anchors: Lesson Renderer
 
-- `libs/portable-tools/src/workbook-render.ts` — the renderer: the markup refusal on the authored source, front-matter parsing, the fixed markdown subset, the one page shell, the provenance statement, the all-or-nothing entry point that clears a failed render's output, and the byte-comparison check.
-- `libs/portable-tools/src/workbook-render.spec.ts` — asserts the rendered page as a reader meets it, including the markup refusal, chrome identity across lessons, and the print confinement.
+- `libs/portable-tools/src/workbook-render.ts` — the renderer: the markup refusal that exempts plain code-fence content, run-length fence closing, front-matter parsing, the fixed markdown subset, the one page shell, the navigation with its unwritten stubs, the provenance statement, and the all-or-nothing entry point that clears a failed render's output.
+- `libs/portable-tools/src/workbook-render.spec.ts` — asserts the rendered page as a reader meets it, including the markup refusal, a lesson quoting a test that contains a fence, a stub shown as not yet written, chrome identity across lessons, and the print confinement.
 - `libs/portable-tools/src/workbook-page-fixtures.ts` — the one module that knows the emitted markup, parsing a page and returning what a reader perceives so no spec names a tag.
-- `libs/portable-tools/src/workbook-cli.ts` — the `render` and `check` subverbs, reporting the lesson that failed and the drift found without repairing it.
-- `libs/portable-tools/src/workbook-cli.spec.ts` — covers a failed render leaving nothing behind and the check reporting changed, missing and extra pages.
+- `libs/portable-tools/src/workbook-cli.ts` — the `render` subverb, reporting the lesson that failed.
+- `libs/portable-tools/src/workbook-cli.spec.ts` — covers a failed render leaving nothing behind.

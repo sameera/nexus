@@ -1,6 +1,6 @@
 ---
 concept: widget-seam
-source_sha: b5f1ce09e01dbb853ccd6e1d6fa63dd3582bf50d
+source_sha: c087eab2b79dafb46fe7f2dfb39819e085ea3a79
 generated: 2026-09-07
 ---
 
@@ -9,6 +9,8 @@ generated: 2026-09-07
 
 # Code Anchors: Widget Seam
 
-- `libs/portable-tools/src/workbook-widgets.ts` — the seam: the fenced declaration's info string, the declaration parser, the shared component library (shipped empty), the render-time lookup, and the reveal control whose content is already present.
+- `libs/portable-tools/src/workbook-widgets.ts` — the seam: the fenced declaration's info string, the declaration parser, the shared component library holding its first component, the optional always-visible lead region, the render-time lookup, and the reveal control whose content is already present.
 - `libs/portable-tools/src/workbook-widgets.spec.ts` — covers resolution against the library, the whole-render failure naming a missing component, and the untouched widget's content reaching the paper.
 - `libs/portable-tools/src/html-escape.ts` — the shared escaping the seam and the renderer both use for declared data.
+- `libs/portable-tools/src/predict-then-reveal.ts` — the library's first component: the question in the lead region, the reveal label, and the answer, with nothing stored about the learner.
+- `libs/portable-tools/src/predict-then-reveal.spec.ts` — covers the question visible and the answer hidden, the answer reachable with no network, and both halves on the paper when the page is printed untouched.
