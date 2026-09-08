@@ -113,3 +113,17 @@
   Rejected because the epic's own AC1 is specifically about the fix lane's advisory warning, so
   leaving it unchanged would fail that acceptance criterion even though the drain-side fix covers
   the case an engineer is more likely to hit.
+
+## 2026-09-08 — Invariant 17 fix adds one omittable bullet to the per-concept block, not a new section
+
+- **Choice:** the distillation-PR body's Phase 7 per-concept template gets one new bullet,
+  `**From an intake entry:** <ref> — ...`, following the existing `**Provenance:**` bullet, present
+  only when that concept delta came from an intake entry — rather than a separate summary section
+  listing intake-sourced concepts apart from the per-concept list.
+- **Why:** invariant 17 requires the flag to live beside the write itself, "per concept," and the
+  file's own convention already carries other conditionally-omitted bullets (e.g. **Split**) at this
+  same level; a separate section would duplicate the slug list findable in the per-concept block
+  above it.
+- **Refuted alternative:** a single top-of-body sentence naming which of the listed slugs came from
+  an intake entry. Rejected because a reviewer scanning one concept's block would have to jump back
+  to the top and cross-reference by slug instead of seeing the flag where the write is described.

@@ -162,6 +162,10 @@ describe("/nxs.distill accepts an intake entry with the epic vocabulary (story #
         expect(DISTILL).toMatch(/Intake entries — every page created, every page whose assertions change, and every invariant\s*\n?retired:/);
     });
 
+    it("flags a per-concept write in the distillation-PR body as coming from an intake entry", () => {
+        expect(DISTILL).toMatch(/From an intake entry:.*apart from an epic's/);
+    });
+
     it("leaves epic and fix entries unchanged when drained in the same run as an intake entry", () => {
         expect(DISTILL).toMatch(/Draining an epic entry or a fix entry is\s*\n?\s*unchanged by this, including either discovered in the same run as an intake entry/);
     });

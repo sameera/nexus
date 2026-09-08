@@ -1069,6 +1069,8 @@ are not an epic's)
 - **What changed:** <one-paragraph summary of the page change>
 - **Why (Decision Log entry):** <the entry's short title + one-line why>
 - **Provenance:** <ref> (<link to the issue>)
+- **From an intake entry:** <ref> — flagged so a reviewer can see it apart from an epic's write
+  (omit this line entirely unless the entry that produced this delta is an intake entry)
 - **Reciprocal edits:** <slugs, or none>
 - **Split:** <only when Phase 4 step 4 fired: `<parent-slug> → <new-slug>` + one line on the
   seam, on both halves' sections — or, for a last-resort eviction, what was dropped and why no
