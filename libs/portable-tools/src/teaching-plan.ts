@@ -23,6 +23,13 @@
 export interface PinnedStory {
     title: string;
     body: string;
+    /**
+     * Whether the story was already closed when the plan pinned it (record #478). Learning from
+     * work the team has already shipped is an ordinary use of a roadmap, and under a gate that
+     * reads any closure as drift every slice of such a roadmap is blocked before it can be taught.
+     * Closure before the pin is not movement, so only closure *after* it counts.
+     */
+    closed?: boolean;
 }
 
 /** One slice of the plan: the story it teaches, and the state that story was pinned to. */
@@ -88,7 +95,7 @@ function driftFor(slice: PlanSlice, live: LiveStory | null): DriftFinding | null
             detail: `#${slice.story} could not be read, so its plan state could not be verified.`,
         };
     }
-    if (live.closed) {
+    if (live.closed && slice.pinned.closed !== true) {
         return { story: slice.story, state: "closed", detail: `#${slice.story} has been closed since the plan was pinned.` };
     }
     const changed: string[] = changes(slice.pinned, live);

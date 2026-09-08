@@ -36,9 +36,12 @@ import { type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
 import { type WorkbookPlan } from "./workbook-plan.js";
+import { epicsFromQuery, resolveRoadmap, writeRoadmap, type Roadmap, type RoadmapProblem, type RoadmapResult } from "./roadmap.js";
+import { resolveEpic } from "@nexus/epic-resolve/resolve";
+import { resolveWorkspace } from "@nexus/workspace/resolve";
 
 /** The subverbs `nexus workbook` dispatches. */
-export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "render", "check", "session", "teach", "handoff", "resolve"];
+export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "roadmap", "render", "check", "session", "teach", "handoff", "resolve"];
 
 export interface WorkbookCliIo {
     cwd: string;
@@ -54,6 +57,10 @@ interface Flags {
     note?: string;
     /** The file holding the prose an agent wrote for the lesson a previous run briefed. */
     prose?: string;
+    /** The epic issue a roadmap resolves from. */
+    epic?: string;
+    /** The backlog query a roadmap resolves from. */
+    query?: string;
     positional: string[];
     unknown?: string;
 }
@@ -68,6 +75,8 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--story") flags.story = rest[++i];
         else if (token === "--note") flags.note = rest[++i];
         else if (token === "--prose") flags.prose = rest[++i];
+        else if (token === "--epic") flags.epic = rest[++i];
+        else if (token === "--query") flags.query = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -79,6 +88,8 @@ function parseFlags(argv: string[], cwd: string): Flags {
 const USAGE: string = [
     "usage: nexus workbook <create|render|check|session|handoff|resolve> <slug> [--root <dir>] [--repo <member>]",
     "  create <slug>                       make the workbook and ensure the learner folder is ignored",
+    "  roadmap [<name>] --epic <n>         resolve a roadmap from one epic issue",
+    "  roadmap <name> --query <expr>       resolve a roadmap from a backlog query",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -232,6 +243,73 @@ function describeHandoff(handoff: Handoff): string {
     return `  ${handoff.id}  story ${handoff.story}${note}`;
 }
 
+/** The repo whose issues a roadmap is resolved from: the workspace hub, or the single-repo checkout. */
+function issuesRoot(startDir: string): string {
+    const resolved = resolveWorkspace(startDir);
+    if (!resolved.ok) return startDir;
+    return resolved.workspace.mode === "workspace" ? resolved.workspace.hubRoot : resolved.workspace.root;
+}
+
+/** How a named refusal reads: the diagnostic's own name, then what to do about it. */
+function reportRoadmapProblem(error: RoadmapProblem, io: WorkbookCliIo): number {
+    io.stderr(`${error.problem}: ${error.message}`);
+    return 1;
+}
+
+/**
+ * `nexus workbook roadmap` — resolve the roadmap, then make the workbook it will be taught in.
+ *
+ * Every epic is validated as a planned epic before anything else happens (invariant 3): the learner
+ * types this number, so it is untrusted input, and a run against something that is not an epic has
+ * to stop before the interview exists to be asked. The workbook is created only once resolution has
+ * succeeded, because the workbook slug is the identity one interview per roadmap is keyed on and
+ * creating it is also what guarantees the learner folder is ignored.
+ */
+function runRoadmap(repoRoot: string, name: string | undefined, flags: Flags, io: WorkbookCliIo, run: Runner): number {
+    const named: boolean = flags.epic !== undefined;
+    const queried: boolean = flags.query !== undefined;
+    if (named === queried) {
+        io.stderr(`workbook roadmap resolves from exactly one of --epic <n> and --query <expr>\n${USAGE}`);
+        return 2;
+    }
+    if (queried && (name === undefined || name.trim() === "")) {
+        io.stderr(`a query-resolved roadmap has no epic to take its name from, so name it: nexus workbook roadmap <name> --query <expr>`);
+        return 2;
+    }
+
+    const root: string = issuesRoot(repoRoot);
+    let epics: number[];
+    if (named) {
+        const epic: number = Number(String(flags.epic).replace(/^#/, ""));
+        if (!Number.isInteger(epic) || epic <= 0) {
+            io.stderr(`workbook roadmap --epic takes an issue number, not ${JSON.stringify(flags.epic)}`);
+            return 2;
+        }
+        epics = [epic];
+    } else {
+        const found = epicsFromQuery(run, root, flags.query as string);
+        if (!found.ok) return reportRoadmapProblem(found.error, io);
+        epics = found.epics;
+    }
+
+    const result: RoadmapResult = resolveRoadmap(
+        (epic: number) => resolveEpic(run, root, epic, { requireEpic: true }),
+        epics,
+        name === undefined ? {} : { name },
+    );
+    if (!result.ok) return reportRoadmapProblem(result.error, io);
+
+    const roadmap: Roadmap = result.roadmap;
+    createWorkbook(repoRoot, roadmap.name, run);
+    const written: string = writeRoadmap(repoRoot, roadmap);
+    io.stdout(
+        `resolved the roadmap ${roadmap.name}: ${roadmap.stories.length} stor${roadmap.stories.length === 1 ? "y" : "ies"} ` +
+        `across ${roadmap.epics.map((n) => `#${n}`).join(", ")}.`,
+    );
+    io.stdout(`  ${written}`);
+    return 0;
+}
+
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
     const [sub, ...rest] = argv;
     if (sub === undefined || !WORKBOOK_SUBVERBS.includes(sub)) {
@@ -244,7 +322,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         return 2;
     }
     const slug: string | undefined = flags.positional[0];
-    if (slug === undefined) {
+    if (slug === undefined && sub !== "roadmap") {
         io.stderr(`workbook ${sub} needs the workbook's name\n${USAGE}`);
         return 2;
     }
@@ -252,8 +330,10 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
     if (repoRoot === null) return 1;
 
     try {
+        if (sub === "roadmap") return runRoadmap(repoRoot, slug, flags, io, run);
+
         if (sub === "create") {
-            const made: CreatedWorkbook = createWorkbook(repoRoot, slug, run);
+            const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);
             io.stdout(
                 made.created
                     ? `made the workbook ${made.relativePath}. Author lessons in ${LESSONS_DIRNAME}/ and run 'nexus workbook render ${slug}'.`

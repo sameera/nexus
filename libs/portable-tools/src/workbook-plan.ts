@@ -43,8 +43,8 @@ export interface PlanSliceRecord {
     lesson: string;
     /** True when the learner builds this slice; false when it is handed to a coding agent. */
     learnerBuilds: boolean;
-    /** The state the story was pinned to when the plan was approved. */
-    pinned: { title: string; body: string };
+    /** The state the story was pinned to when the plan was approved, closure included. */
+    pinned: { title: string; body: string; closed: boolean };
     /** The concepts this slice teaches, in the identifiers the drill and the hint log share. */
     concepts: string[];
     /** The branch the learner builds this slice on. The session names it and never switches to it. */
@@ -127,6 +127,9 @@ function readSlice(raw: unknown, index: number): PlanSliceRecord {
         pinned: {
             title: text(pinned["title"], "pinned.title", `${where} (story #${story})`),
             body: text(pinned["body"], "pinned.body", `${where} (story #${story})`),
+            // Absent means the story was open at pinning time, which is the ordinary case. A plan
+            // that pins an already-shipped story says so, and the drift gate lets it be taught.
+            closed: pinned["closed"] === true,
         },
         concepts: Array.isArray(concepts) ? concepts.map((c) => String(c)) : [],
         branch: text(record["branch"], "branch", `${where} (story #${story})`),
@@ -203,7 +206,7 @@ export function toTeachingPlan(plan: WorkbookPlan): TeachingPlan {
         slices: plan.slices.map((slice) => ({
             story: slice.story,
             learnerBuilds: slice.learnerBuilds,
-            pinned: { title: slice.pinned.title, body: slice.pinned.body },
+            pinned: { title: slice.pinned.title, body: slice.pinned.body, closed: slice.pinned.closed },
         })),
     };
 }

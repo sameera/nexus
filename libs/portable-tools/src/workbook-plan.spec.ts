@@ -140,8 +140,8 @@ describe("the plan is one file describing slices", () => {
         const teaching = toTeachingPlan(parsePlan(PLAN_TEXT));
 
         expect(teaching.slices).toEqual([
-            { story: 460, learnerBuilds: true, pinned: { title: "A re-scoped story stops", body: "As a learner, I want the check." } },
-            { story: 464, learnerBuilds: false, pinned: { title: "A handoff slice pauses", body: "As a learner, I want the pause." } },
+            { story: 460, learnerBuilds: true, pinned: { title: "A re-scoped story stops", body: "As a learner, I want the check.", closed: false } },
+            { story: 464, learnerBuilds: false, pinned: { title: "A handoff slice pauses", body: "As a learner, I want the pause.", closed: false } },
         ]);
     });
 
