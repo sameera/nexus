@@ -1,8 +1,8 @@
 ---
 title: "Provenance Reference"
 aliases: ["provenance hop", "issue reference form", "cross-repo reference", "page blame", "reference substitution"]
-touches: ["concept-store", "append-only-decision-log", "fix-lane"]
-last_updated_by: "#263"
+touches: ["concept-store", "append-only-decision-log", "fix-lane", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ A reference may name an issue or a pull request. The two share one number namesp
 - [concept-store](concept-store.md) — every page carries a provenance reference to its originating issue.
 - [append-only-decision-log](append-only-decision-log.md) — each log entry is attributed by a provenance reference.
 - [fix-lane](fix-lane.md) — reads its single input in this grammar, so what resolves at the input is what reaches the page.
+- [intake-lane](intake-lane.md) — reads its one input in this same grammar, through a skill shared with the fix lane.
 
 ## Decision Log
 
@@ -51,3 +52,7 @@ Draining from a workspace hub, the distiller now defaults every reference to the
 ### 2026-09-05 — #263 — A reference names an issue or a pull request, and neither is ever swapped for the other
 
 A lane taking a single reference as its whole input made explicit what had been left unsaid: the number may identify an issue or a pull request, the two share one namespace, and distinguishing them costs effort while buying nothing. What the author named is what gets written — a pull request is never replaced by the issue it closes, nor an issue by the pull request that closed it, even when the commit range was taken from that pull request. Qualifying a bare reference with the owner and repository resolved from the recorded range is not a substitution, because the artifact referenced does not change; that is why the hub rule and this one do not conflict. The considered alternative — invent a new literal marker to sit beside the bootstrap and manual ones — reads tidily, but a bare word cannot be followed back to any context, which defeats the only job a provenance marker has, and one shared marker would match every such entry ever drained wherever whole tokens are compared.
+
+### 2026-09-08 — #483 — Reciprocal link from intake-lane
+
+Mechanical reciprocity fan-out: a second lane now reads its one input in this grammar, through a skill shared with the fix lane so the two cannot resolve a reference differently.

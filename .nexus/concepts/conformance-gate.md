@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion"]
-last_updated_by: "#405"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -60,6 +60,7 @@ as a literal value no reader can mistake for a waiver.
 - [writer-stamp](writer-stamp.md) — the record of which release wrote the receipt, carried in
   both its local and published-review forms.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — analyze draws its verdict from a diff withholding every member; it withheld none before.
+- [intake-lane](intake-lane.md) — the other lane this gate refuses to run against, having no criteria to check.
 
 ## Decision Log
 
@@ -93,3 +94,7 @@ The gate now stops outright against an entry that carries no acceptance criteria
 ### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
 
 Mechanical reciprocity fan-out: analyze withheld nothing from the diff it judged, so a branch that also touched a queue entry or a discovery folder presented planning prose to the gate as shipped behaviour. It now derives its diff from the same named set close and distill use, so a conformance verdict cannot be drawn from a surface the pipeline wrote itself.
+
+### 2026-09-08 — #483 — Reciprocal link from intake-lane
+
+Mechanical reciprocity fan-out: the gate's epic-only rule now also names the intake lane as a kind it stops against, beside the fix lane it already refused.

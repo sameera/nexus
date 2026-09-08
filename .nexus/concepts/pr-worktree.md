@@ -1,8 +1,8 @@
 ---
 title: "PR Flow Worktree"
 aliases: ["worktree base", "worktree location", "pr worktree", "worktree isolation", "configurable worktree path"]
-touches: ["pr-driven-flow", "publishing-config-resolution", "verb-reachability", "fix-lane"]
-last_updated_by: "#263"
+touches: ["pr-driven-flow", "publishing-config-resolution", "verb-reachability", "fix-lane", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ A per-checkout segment is appended underneath. Reuse is path-based. Removal is f
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the base as one more declared key.
 - [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, held to byte-identical output and matching spawned-process arguments against its script form.
 - [fix-lane](fix-lane.md) — takes the merge-safe range through a read that resolves it without creating a worktree.
+- [intake-lane](intake-lane.md) — takes the merge-safe range through the same worktree-free read the fix lane uses.
 
 ## Decision Log
 
@@ -53,3 +54,7 @@ This capability now accepts its checkout root the same way every other repositor
 ### 2026-09-05 — #263 — Reciprocal link from fix-lane
 
 A caller appeared that needs the merge-safe range and nothing else, so the range is now reachable without the worktree the other callers open. The derivation is the same one, reached through a read rather than as a side effect of a checkout; where worktrees are created, and the gate on it, are untouched.
+
+### 2026-09-08 — #483 — Reciprocal link from intake-lane
+
+Mechanical reciprocity fan-out: a second caller reads the merge-safe range through the same worktree-free path the fix lane already uses; nothing here changed to serve it.

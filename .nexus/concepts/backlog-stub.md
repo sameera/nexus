@@ -1,8 +1,8 @@
 ---
 title: "Epic Stub"
 aliases: ["epic stub", "backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "needs-refinement label", "cross-feature backlog", "deferred scope filing"]
-touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing"]
-last_updated_by: "#466"
+touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ Two writers create stubs: the epic stage when scope exceeds one epic, and the cl
 - [fog-referral-gate](fog-referral-gate.md) — separates fog from oversized scope, so only scope that is big but clear reaches this decomposition path.
 - [resumable-batch-filing](resumable-batch-filing.md) — the one batch path both stub writers file through, whose preflight refuses a parented stub before anything is created.
 - [epic-issue-filing](epic-issue-filing.md) — the single-issue path a promotion runs through, checking and clearing the unplanned marker this page names.
+- [intake-lane](intake-lane.md) — files a landed change's kept follow-ups here, through the same batch path a close already uses.
 
 ## Decision Log
 
@@ -61,3 +62,7 @@ Mechanical reciprocity fan-out: the epic-issue-filing page names this page's unp
 ### 2026-09-07 — #466 — Renamed "backlog stub" to "epic stub", and its label to needs-refinement
 
 The term "backlog stub" collided with "the product backlog" — the general list of everything not yet done — so a reader could not tell from the label alone whether an issue meant this specific unplanned-epic marker or the everyday sense. Renamed to "epic stub", and the live label from backlog to needs-refinement, the standard term for the ceremony that turns a raw item into a sized one — exactly what promotion does. The label was renamed in place, not deleted and recreated, so every issue that already carried it keeps it under the new name with no per-issue relabeling. Refuted alternative: not-planned or unplanned — both were considered and set aside, since these epics are genuinely on the roadmap; they have simply not been refined yet.
+
+### 2026-09-08 — #483 — Reciprocal link from intake-lane
+
+Mechanical reciprocity fan-out: the intake lane files a landed change's kept follow-ups through this same batch contract, unchanged, after its own approval gate.

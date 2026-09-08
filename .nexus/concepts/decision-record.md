@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body"]
-last_updated_by: "#284"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -39,6 +39,7 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [scope-razor](scope-razor.md) — the rule set this stage drafts under, invoking the shared checker directly since it has no gate agent.
 - [cut-gate](cut-gate.md) — the convention behind the pre-filing checkpoint, whose cuttable list is the refuted alternatives.
 - [derived-filing-body](derived-filing-body.md) — what is filed and hashed, derived after the checkpoint so it matches what was approved.
+- [intake-lane](intake-lane.md) — never files one; a landed change's why is read from its pull request instead, hash-verified against that body rather than a record.
 
 ## Decision Log
 
@@ -63,3 +64,7 @@ An epic promoted from a discovery-filed stub carries the decisions that discover
 ### 2026-09-04 — #284 — A checkpoint before filing, and a refuted alternative that is offered rather than required
 
 The stage had no point at which a body could be reduced: its approval gate ran after the sub-issue was already filed and offered only approve-now or leave-open, so the only ways to remove a decision after drafting were an edit to a published body or a reopen. A pre-filing checkpoint now sits ahead of every path that creates or updates the record, including revision, and the body is derived from what the reviewer approved rather than from the labelled draft — which matters more here than anywhere, since the body is the artifact the record hash is taken over and a surviving label would report a design that did not change as changed. The template's standing refuted-alternative slot was removed rather than re-worded, because a fixed line with permission-to-omit in an adjacent comment is the same shape as a personas heading with a deviations-only rule beside it, and it produces the same outcome: the slot gets filled. Viability is judged by the stage formatting the record rather than the architect who wrote it, since a model asked to judge its own additions answers in its own favour. Refuted alternative: label refuted alternatives with the same two-valued provenance vocabulary the invariants carry — it lost because an alternative is the model's own by construction, so the label would discriminate nothing.
+
+### 2026-09-08 — #483 — Reciprocal link from intake-lane
+
+Mechanical reciprocity fan-out: the intake-lane page names this record as the approval an epic entry files that its own entries never do, reading the why from a merged pull request's body instead and hash-verifying against that body rather than a record.
