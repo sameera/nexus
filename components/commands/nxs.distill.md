@@ -69,21 +69,26 @@ $ARGUMENTS
    `epic.md`). **Presence = unconsumed** — there is no state file to consult.
 
    **Also scan `.nexus/tmp/`** for **ephemeral entries** (#173) in the same run: a directory
-   `.nexus/tmp/epic-<n>/` **or `.nexus/tmp/fix-<n>/`** is a drainable entry **only when it carries
-   both `epic.md` and `close-record.md`** (record #176, invariant 6). An epic-only materialization
-   is resolver scratch — never listed, never warned about, never aged; a fix directory missing
-   either file is skipped exactly as an epic directory missing either file is.
+   `.nexus/tmp/epic-<n>/`, **`.nexus/tmp/fix-<n>/`, or `.nexus/tmp/intake-<n>/`** is a drainable
+   entry **only when it carries both `epic.md` and `close-record.md`** (record #176, invariant 6).
+   An epic-only materialization is resolver scratch — never listed, never warned about, never aged;
+   a fix or intake directory missing either file is skipped exactly as an epic directory missing
+   either file is.
 
-   **A `fix-<n>` directory is a fix entry** (#263), written by `/nxs.fix` for a small change that
-   has already landed. It is drained by everything below exactly as an ephemeral epic entry is,
-   with the differences the razor imposes called out at each phase. **What an entry *is* comes from
-   `entry_kind:` in its `epic.md`, never from its location or its directory name.** When the two
-   disagree — `entry_kind: fix` under `epic-<n>/`, or an absent or non-`fix` kind under
-   `fix-<n>/` — stop that entry with the named per-entry hard block **`entry-kind-mismatch`**,
-   write nothing for it, and leave the directory in place. Every other resolution silently picks
-   one of two contradictory claims about what the entry is, and picking the directory name would
-   let an entry be drained as an epic while its own header says it is a fix — the exact case the
-   razor exists to catch. For an ephemeral candidate,
+   **The kind set is closed: `epic`, `fix`, and `intake`, and nothing else** (record #504,
+   invariant 6). **A `fix-<n>` directory is a fix entry** (#263), written by `/nxs.fix` for a small
+   change that has already landed. **An `intake-<n>` directory is an intake entry** (#483), written
+   by `/nxs.intake` for a design change that has already landed, whose reasoning was never approved
+   by a decision record. Each is drained by everything below exactly as an ephemeral epic entry is,
+   with the differences its own razor imposes called out at each phase. **What an entry *is* comes
+   from `entry_kind:` in its `epic.md`, never from its location or its directory name.** When the
+   directory prefix disagrees with the recorded kind — `entry_kind: fix` or `entry_kind: intake`
+   under `epic-<n>/`, an absent or non-`fix` kind under `fix-<n>/`, an absent or non-`intake` kind
+   under `intake-<n>/`, or any kind this list does not name — stop that entry with the named
+   per-entry hard block **`entry-kind-mismatch`**, write nothing for it, and leave the directory in
+   place. Every other resolution silently picks one of two contradictory claims about what the
+   entry is, and picking the directory name would let an entry be drained under the wrong razor —
+   the exact case this check exists to catch. For an ephemeral candidate,
    **presence alone is not the consumption signal** — nothing ever commits a deletion of a tmp
    path, so derive consumption from the store (invariant 8): fetch the trunk
    (`git fetch origin main`), then check whether the concept store **at the trunk** carries this
@@ -242,6 +247,33 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 
     The drain stays **read-only** against the record issue: it fetches and hashes, never edits,
     closes, or comments.
+
+    **For an intake entry (#483), verify the pull request body instead** (record #504, invariant
+    14) — an intake entry has no decision record, so this replaces the branch above rather than
+    adding to it. Re-fetch the pull request body and re-hash it, through the same digest program,
+    over the reference recorded in the entry's `epic.md` `link`:
+
+    ```bash
+    nexus record-digest --issue <n> ${REPO:+--repo $REPO}
+    ```
+
+    - **Digest matches the entry's stamped `pr_digest`** → the pull request still says what was
+      recorded. Use the entry's `close-record.md` as its ***why* file**, exactly as an epic with no
+      decision record already reads its *why* solely from there.
+    - **Digest differs, or the pull request cannot be fetched** → **hard-error this entry and write
+      nothing for it.** There is no drain-side waiver, on the same terms the record-hash mismatch
+      above admits none: the drain writes permanently into the store, so a waived mismatch would
+      file reasoning the pull request no longer states. Never substitute a local copy of the body.
+      Report:
+
+        ```
+        Drain blocked for <entry>: <qualified reference> no longer matches the body recorded at intake.
+          stamped at intake: <hash from epic.md pr_digest>
+          current body:      <recomputed hash, or "unfetchable">
+        Nothing was written for this entry.
+        Recover by re-running /nxs.intake <qualified reference> and re-approving its gate, then
+        re-run /nxs.distill.
+        ```
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: the drain creates a branch and must not entangle unrelated work.
    (In continuation mode the tree is clean because the close committed its artifacts, and you are
@@ -496,9 +528,18 @@ heading carries.
 
 **A rationale that maps to no existing page is a named per-entry hard block: `no-existing-page`.**
 Report it, write nothing for that entry, and leave the entry directory in place for a later run.
-This is the razor working, not a gap in it: a decision with no page is a decision that needs a page,
-and creating pages is epic work. A change that needs to alter what a page asserts is a **design
-change** — it keeps taking `/nxs.epic`.
+This is the razor working, not a gap in it: a decision with no page is a decision that needs a page.
+Name the remedy by whether the change is still to be built or has already shipped: work not yet
+built is design work for **`/nxs.epic`**; a change that has already landed and needs to alter what a
+page asserts is landed design work for **`/nxs.intake`**. **This bound applies to a fix entry
+only.**
+
+**An intake entry (#483) gets the full epic vocabulary, exactly as an epic entry does** (record
+#504, invariant 15): a delta may create a page, change what an existing page asserts, and add or
+retire an invariant — none of the fix razor's bounds apply. Its *why* comes solely from its close
+record, on the same terms an epic with no decision record already reads its *why* solely from
+there; its `source` is the reference recorded in the entry's `epic.md` `link`, exactly as a fix
+entry's is.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
@@ -792,8 +833,10 @@ Run these for each entry, in order, before its commit:
 
     **Apply the mode only to a fix entry's pages.** Entries are applied, validated and committed one
     at a time (Step 2), so an epic entry drained in the same run is validated by its own invocation,
-    without the flag, exactly as before. That per-entry ordering is load-bearing here and must not be
-    batched as an optimisation: batching would make the razor compare against the wrong base.
+    without the flag, exactly as before. **An intake entry is validated the same unbounded way** —
+    the append-only mode is a fix-only rule, and an intake entry's pages carry no such bound (record
+    #504, invariant 15). That per-entry ordering is load-bearing here and must not be batched as an
+    optimisation: batching would make the razor compare against the wrong base.
 
     **The refusal message matters as much as the exit code.** When the mode blocks, report it naming
     the fix entry, naming the page, and saying what it means:
@@ -801,7 +844,8 @@ Run these for each entry, in order, before its commit:
     ```
     <fix local-id> (<provenance ref>) — <slug> changed outside the entry it gained.
     That alters what the page asserts rather than adding to its history, which makes it a design
-    change, not a fix. Plan it with /nxs.epic. No distillation-PR is opened.
+    change, not a fix. Plan it with /nxs.epic if it is not yet built, or record it with
+    /nxs.intake since this change has already shipped. No distillation-PR is opened.
     ```
 
     A developer who hits this needs to learn what kind of change they made, not just that a command
@@ -960,6 +1004,12 @@ Concept deltas:
 Fix entries — the page each one changes and the entry it appends:
 - <fix local-id> (<provenance ref>) → <slug> — log: "<the appended entry's heading>"
 
+Intake entries — every page created, every page whose assertions change, and every invariant
+retired:
+- <intake local-id> (<provenance ref>) — created: <slugs, or none> — assertions changed: <slugs,
+  or none> — invariants retired: <slugs, or none>
+(omit this block entirely when no intake entry drained this run)
+
 Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new subdomain "<title>" | new domain "<title>">, ...
   (omit this line entirely when Phase 6.1 found no forced fits — "no gate fired")
 
@@ -1010,12 +1060,17 @@ page-patch mapping (0007), so give them, per concept:
 ```markdown
 ## Distillation: <epic title(s)>
 
-Drained queue entries: `<entry paths>` (provenance: <ref(s)>)
+Drained queue entries: `<entry paths>` (provenance: <ref(s)>) — <n> epic, <n> fix, <n> intake
+(omit the by-kind tally when every drained entry is an epic — today's behaviour, unchanged; state
+it whenever a fix or an intake entry drained this run, so a reviewer sees an intake entry's writes
+are not an epic's)
 
 ### <slug> — <create | update | retire>
 - **What changed:** <one-paragraph summary of the page change>
 - **Why (Decision Log entry):** <the entry's short title + one-line why>
 - **Provenance:** <ref> (<link to the issue>)
+- **From an intake entry:** <ref> — flagged so a reviewer can see it apart from an epic's write
+  (omit this line entirely unless the entry that produced this delta is an intake entry)
 - **Reciprocal edits:** <slugs, or none>
 - **Split:** <only when Phase 4 step 4 fired: `<parent-slug> → <new-slug>` + one line on the
   seam, on both halves' sections — or, for a last-resort eviction, what was dropped and why no
@@ -1050,7 +1105,8 @@ comment in the PR body so the reviewer can see the *why* without a dangling queu
 ```
 DISTILLATION-PR OPENED: <url>
 
-Entries drained:   <n>  (<local-ids>)
+Entries drained:   <n>  (<local-ids>) — <n> epic, <n> fix, <n> intake
+                   (omit the by-kind tally when every drained entry is an epic)
 Pages created:     <n>  (<slugs>)
 Pages updated:     <n>  (<slugs>)
 Pages retired:     <n>  (<slugs>)
@@ -1141,6 +1197,20 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   per-entry hard block `no-existing-page`. It has no committed removal target, so the removal step
   removes nothing and reports no missing target. Draining an epic entry is unchanged by this,
   including an epic entry discovered in the same run as a fix entry.
+- **Intake entries (#483, record #504):** a `.nexus/tmp/intake-<n>/` directory is drainable on
+  exactly the same terms as an ephemeral epic entry — both files required, no drain-SLO accounting,
+  never auto-deleted — and what it *is* comes from `entry_kind:` in its header, never its directory
+  name; a disagreement is the same named per-entry hard block `entry-kind-mismatch` a fix entry's
+  disagreement is. Unlike a fix entry, its deltas carry the full epic vocabulary — a delta may
+  create a page, change what an existing page asserts, or add or retire an invariant (invariant
+  15) — so neither the append-only validator mode nor the `no-existing-page` block ever applies to
+  it. The checkpoint names, per intake entry, every page it creates, every page whose assertions it
+  changes, and every invariant it retires (invariant 16). Draining an epic entry or a fix entry is
+  unchanged by this, including either discovered in the same run as an intake entry. **Its pull
+  request body is re-verified at Phase 0** against the `pr_digest` stamped at intake, through the
+  same digest program the decision-record hash check already uses; a mismatch or an unfetchable
+  body is a hard error with no waiver, naming a re-run of `/nxs.intake` as the remedy (invariant
+  14) — never a substituted local copy.
 - **GitHub recovery (#174) is explicit and per-entry** (invariant 14): invoked as
   `--recover <epic-issue>` for a named epic, never as a scan of closed epic issues on an ordinary
   run. It re-derives the epic through the resolver and takes rationale, record reference, hash,

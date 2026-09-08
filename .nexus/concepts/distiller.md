@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion"]
-last_updated_by: "#405"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -51,6 +51,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [fix-lane](fix-lane.md) — the other producer of drainable entries, whose entries it drains beside the epic ones.
 - [fix-razor](fix-razor.md) — the bound it enforces on a fix entry's page writes before opening its reviewed write.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — the one definition its behavioural diff reads, rather than restating the store paths.
+- [intake-lane](intake-lane.md) — the third producer of drainable entries; the drain verifies its pull-request fingerprint before reading its why.
 
 ## Decision Log
 
@@ -145,3 +146,7 @@ The drain no longer translates each page and the pull-request body before the va
 ### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
 
 Mechanical reciprocity fan-out: the drain's behavioural diff now withholds a named set read from one definition, rather than two hand-written paths in the command body and a matching pair in the cross-repo derivation code. A third store, the workbook, joined the set in the same change, and the drain excludes it without the command prose naming it.
+
+### 2026-09-08 — #483 — Reciprocal link from intake-lane
+
+Mechanical reciprocity fan-out: a third entry kind joins the two this page already names, drained with the full epic vocabulary and verified by a pull-request fingerprint check standing in for the record-hash check. Nothing this page already asserted has changed.

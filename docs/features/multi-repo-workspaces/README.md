@@ -21,6 +21,11 @@ hub docs repo holds the concept store and drains the queue.
 - **GitHub Publishing Config** — [#121](https://github.com/sameera/nexus/issues/121)
 - **The Decision Record Becomes an Approvable Sub-Issue** — [#139](https://github.com/sameera/nexus/issues/139)
 - **The Engineer's PR Command: Rationale Rides the PR Body** — [#157](https://github.com/sameera/nexus/issues/157)
+- **Analyze a Member Story Pull Request From the Hub** — [#211](https://github.com/sameera/nexus/issues/211)
+- **One Epic Receipt, Aggregated From the Story Verdicts** — [#212](https://github.com/sameera/nexus/issues/212)
+- **Close an Epic Over Several Merged Pull Requests** — [#213](https://github.com/sameera/nexus/issues/213)
+- **Drain an Entry Whose Range Is a List** — [#214](https://github.com/sameera/nexus/issues/214)
+- **Retire the Member Close-and-Migrate Path** — [#215](https://github.com/sameera/nexus/issues/215)
 
 ## Tooling
 

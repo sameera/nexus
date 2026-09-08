@@ -18,64 +18,90 @@ function body(name: string): string {
 }
 
 const FIX: string = body("nxs.fix.md");
+const LANDED_REFERENCE: string = fs.readFileSync(
+    path.join(authoredComponentRoot(SRC_DIR), "skills", "nxs-landed-reference", "SKILL.md"),
+    "utf8",
+);
 
-describe("/nxs.fix resolves a reference before it writes (story #266)", () => {
-    it("accepts the three provenance reference forms and says what each resolves against", () => {
-        expect(FIX).toContain("acme/web-app#123");
-        expect(FIX).toMatch(/bare number/);
-        expect(FIX).toMatch(/the home repository/);
-        expect(FIX).toMatch(/the named repository/);
+describe("/nxs.fix delegates reference and range resolution to the shared skill (story #266, revised by story #484)", () => {
+    it("loads the nxs-landed-reference skill instead of restating its rules", () => {
+        expect(FIX).toContain("nxs-landed-reference");
+        expect(FIX).toMatch(/load the \*\*`nxs-landed-reference`\*\* skill/i);
+        expect(FIX).toContain("Skill");
     });
 
-    it("determines whether the number is an issue or a pull request", () => {
-        expect(FIX).toContain("gh pr view");
-        expect(FIX).toContain("gh issue view");
+    it("no longer restates the reference forms, the range order or the qualification rule itself", () => {
+        expect(FIX).not.toContain("acme/web-app#123");
+        expect(FIX).not.toMatch(/--range <base>\.\.<head>` was given[\s\S]{0,200}verbatim/);
     });
 
-    it("refuses an epic and names /nxs.epic as the lane to use", () => {
+    it("still refuses an epic and names /nxs.epic as the lane to use (fix-specific, not shared)", () => {
         expect(FIX).toContain("nexus config resolve epic-label");
         expect(FIX).toMatch(/is an epic[\s\S]{0,400}\/nxs\.epic/);
     });
 
-    it("refuses a colliding materialization directory for the same number", () => {
+    it("still refuses a colliding materialization directory for the same number (fix-specific, not shared)", () => {
         expect(FIX).toMatch(/`\.nexus\/tmp\/epic-<n>\/` already exists/);
     });
 
-    it("refuses a member repository and names the qualified form to run from the hub", () => {
-        expect(FIX).toContain("nexus close-migration preflight");
-        expect(FIX).toMatch(/member repository[\s\S]{0,600}\/nxs\.fix <owner>\/<repo>#<n>/);
-    });
-
-    it("takes the range from the worktree-free helper read, never a second derivation", () => {
-        expect(FIX).toContain("nexus pr-worktree range --pr <n>");
-        expect(FIX).not.toContain("pr-worktree open");
-    });
-
-    it("refuses a pull request that has not been merged", () => {
-        expect(FIX).toMatch(/closed\s*\n?\s*without merging is a \*\*hard block\*\*|without merging, is a \*\*hard block\*\*/);
-    });
-
-    it("uses an explicit --range verbatim and does not prompt for one", () => {
-        expect(FIX).toMatch(/--range <base>\.\.<head>` was given[\s\S]{0,200}verbatim/);
-    });
-
-    it("asks for the range rather than guessing a default when it cannot resolve one", () => {
-        expect(FIX).toMatch(/Never fall back to a guessed default/);
-        expect(FIX).toContain("HEAD~1");
-    });
-
-    it("records full commit SHAs, never a branch name and never a symbolic HEAD", () => {
-        expect(FIX).toContain("git rev-parse --verify <ref>^{commit}");
-        expect(FIX).toMatch(/branch name and a symbolic `HEAD` are never recorded/);
-    });
-
-    it("verifies the range head reached the trunk before anything is written", () => {
-        expect(FIX).toContain("git merge-base --is-ancestor <head>");
-        expect(FIX).toMatch(/not-landed\s*\n?\s*→ stop and write nothing/);
+    it("substitutes its own command name into the shared member-checkout refusal", () => {
+        expect(FIX).toMatch(/substituting `\/nxs\.fix` for `<lane-command>`/);
     });
 
     it("keeps the provenance the developer named rather than substituting the other artifact", () => {
         expect(FIX).toMatch(/pull request is never substituted for\s*\n?the issue it closes/);
+    });
+});
+
+describe("nxs-landed-reference holds the rules shared by every landed-work lane (story #484)", () => {
+    it("accepts the three provenance reference forms and says what each resolves against", () => {
+        expect(LANDED_REFERENCE).toContain("acme/web-app#123");
+        expect(LANDED_REFERENCE).toMatch(/bare number/);
+        expect(LANDED_REFERENCE).toMatch(/the home repository/);
+        expect(LANDED_REFERENCE).toMatch(/the named repository/);
+    });
+
+    it("determines whether the number is an issue or a pull request", () => {
+        expect(LANDED_REFERENCE).toContain("gh pr view");
+        expect(LANDED_REFERENCE).toContain("gh issue view");
+    });
+
+    it("refuses a member repository before any lookup, naming the calling lane's own command", () => {
+        expect(LANDED_REFERENCE).toContain("nexus close-migration preflight");
+        expect(LANDED_REFERENCE).toMatch(/member repository[\s\S]{0,600}<lane-command> <owner>\/<repo>#<n>/);
+    });
+
+    it("takes the range from the worktree-free helper read, never a second derivation", () => {
+        expect(LANDED_REFERENCE).toContain("nexus pr-worktree range --pr <n>");
+        expect(LANDED_REFERENCE).not.toContain("pr-worktree open");
+    });
+
+    it("refuses a pull request that has not been merged", () => {
+        expect(LANDED_REFERENCE).toMatch(/closed\s*\n?\s*without merging is a \*\*hard block\*\*|without merging, is a \*\*hard block\*\*/);
+    });
+
+    it("uses an explicit --range verbatim and does not prompt for one", () => {
+        expect(LANDED_REFERENCE).toMatch(/--range <base>\.\.<head>` was given[\s\S]{0,200}verbatim/);
+    });
+
+    it("asks for the range rather than guessing a default when it cannot resolve one", () => {
+        expect(LANDED_REFERENCE).toMatch(/Never fall back to a guessed default/);
+        expect(LANDED_REFERENCE).toContain("HEAD~1");
+    });
+
+    it("records full commit SHAs, never a branch name and never a symbolic HEAD", () => {
+        expect(LANDED_REFERENCE).toContain("git rev-parse --verify <ref>^{commit}");
+        expect(LANDED_REFERENCE).toMatch(/branch name and a symbolic `HEAD` are never recorded/);
+    });
+
+    it("verifies the range head reached the trunk before anything is written", () => {
+        expect(LANDED_REFERENCE).toContain("git merge-base --is-ancestor <head>");
+        expect(LANDED_REFERENCE).toMatch(/not-landed\s*\n?\s*→ stop and write nothing/);
+    });
+
+    it("qualifies a bare reference from a hub from the recorded range, keeping the number", () => {
+        expect(LANDED_REFERENCE).toMatch(/hub, bare reference given\*\* → write `<owner>\/<repo>#<n>`/);
+        expect(LANDED_REFERENCE).toMatch(/the number the developer gave, unchanged/);
     });
 });
 
@@ -126,7 +152,7 @@ describe("/nxs.fix creates the entry from a resolved range (story #267)", () => 
     });
 
     it("warns about behaviours with no existing page but still writes the entry, failing soft", () => {
-        expect(FIX).toMatch(/naming how many/);
+        expect(FIX).toMatch(/naming\s*\n?how many/);
         expect(FIX).toMatch(/write the entry anyway/i);
         expect(FIX).toMatch(/best-effort and fails soft/);
     });
@@ -135,22 +161,17 @@ describe("/nxs.fix creates the entry from a resolved range (story #267)", () => 
         expect(FIX).toMatch(/no approval checkpoint/i);
         expect(FIX).toMatch(/Write \*\*no\*\*\s*\n?`analyze-receipt\.md`/);
     });
-
-    it("qualifies a bare reference from a hub from the recorded range, keeping the number", () => {
-        expect(FIX).toMatch(/hub, bare reference given\*\* → write `<owner>\/<repo>#<n>`/);
-        expect(FIX).toMatch(/the number the developer gave, unchanged/);
-    });
 });
 
 const DISTILL: string = body("nxs.distill.md");
 
 describe("/nxs.distill drains a fix entry (story #268)", () => {
     it("discovers a fix directory as a drainable entry alongside an ephemeral epic entry", () => {
-        expect(DISTILL).toMatch(/`\.nexus\/tmp\/epic-<n>\/` \*\*or `\.nexus\/tmp\/fix-<n>\/`\*\*/);
+        expect(DISTILL).toMatch(/`\.nexus\/tmp\/epic-<n>\/`, \*\*`\.nexus\/tmp\/fix-<n>\/`, or `\.nexus\/tmp\/intake-<n>\/`\*\*/);
     });
 
     it("skips a fix directory missing either file, the same way it skips an epic entry", () => {
-        expect(DISTILL).toMatch(/fix directory missing\s*\n?\s*either file is skipped exactly as an epic directory missing either file is/);
+        expect(DISTILL).toMatch(/a fix or intake directory missing either file is skipped exactly as an epic directory\s*\n?\s*missing/);
     });
 
     it("takes the entry kind from the header, never the directory name, and blocks a disagreement", () => {
@@ -230,10 +251,10 @@ describe("/nxs.distill blocks the PR when a fix entry breaks the razor (story #2
 
 const ANALYZE: string = body("nxs.analyze.md");
 
-describe("/nxs.analyze refuses a fix entry (story #270)", () => {
-    it("stops on entry_kind: fix and says the check is undefined, not optional", () => {
-        expect(ANALYZE).toContain("entry_kind: fix");
-        expect(ANALYZE).toMatch(/does not run against a fix entry/);
+describe("/nxs.analyze refuses a fix entry (story #270, inverted to run only for an epic entry by story #489)", () => {
+    it("stops on any non-epic entry_kind and says the check is undefined, not optional", () => {
+        expect(ANALYZE).toMatch(/The kind set is closed \(`epic`, `fix`, `intake`, record #504\)/);
+        expect(ANALYZE).toMatch(/does not run against a <kind> entry/);
         expect(ANALYZE).toMatch(/acceptance criteria, its success metrics, and a decision record's invariants/);
         expect(ANALYZE).toMatch(/none of the three/);
     });
@@ -243,6 +264,6 @@ describe("/nxs.analyze refuses a fix entry (story #270)", () => {
     });
 
     it("leaves an epic entry's behaviour unchanged", () => {
-        expect(ANALYZE).toMatch(/An entry without `entry_kind: fix` is an epic entry, and everything below is unchanged/);
+        expect(ANALYZE).toMatch(/An epic entry is unchanged: everything below runs exactly as it always has/);
     });
 });

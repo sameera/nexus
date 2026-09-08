@@ -1,8 +1,8 @@
 ---
 title: "Fix Lane"
 aliases: ["lightweight fix lane", "fix entry", "small-fix lane", "fifth entry point", "recording a small fix"]
-touches: ["fix-razor", "ephemeral-handoff-entry", "distiller", "provenance-reference", "pr-worktree", "nexus-pipeline", "conformance-gate"]
-last_updated_by: "#263"
+touches: ["fix-razor", "ephemeral-handoff-entry", "distiller", "provenance-reference", "pr-worktree", "nexus-pipeline", "conformance-gate", "intake-lane"]
+last_updated_by: "#483"
 status: active
 verification: verified
 ---
@@ -34,9 +34,14 @@ The system was gated on epics at two points: the file heading an entry had one p
 - [pr-worktree](pr-worktree.md) — supplies the merge-safe range through a read that creates no worktree.
 - [nexus-pipeline](nexus-pipeline.md) — the epic-shaped path this lane is the alternative to, for a change too small to justify it.
 - [conformance-gate](conformance-gate.md) — refuses to run against this lane's entries, which carry none of the three things it checks.
+- [intake-lane](intake-lane.md) — the sibling lane for a landed change that would alter what a page asserts, sharing this lane's reference and range resolution rules through one skill.
 
 ## Decision Log
 
 ### 2026-09-05 — #263 — A fifth entry point, bought with a structural bound
 
 Recording the reason behind a two-line fix cost four durable artifacts and two review cycles, so it was not being recorded at all: a developer facing that price either skipped the rationale or dressed the fix as an epic, and the second buries the decisions that matter under ceremony. The lane creates the two files the drain already requires and reuses their existing names, so discovery changes one line rather than doubling the drain's surface. The considered alternative — give the fix entry honestly named files and its own discovery and drain path — reads correctly and avoids a permanent naming wart, but it doubles the surface area of the phase most expensive to keep correct, for a lane whose entire value is being cheap. The wart is accepted as the price, and is worth revisiting when a second kind of non-epic entry appears, because at that point the shape the two kinds share deserves a name of its own.
+
+### 2026-09-08 — #483 — Reciprocal link from intake-lane
+
+Mechanical reciprocity fan-out: the intake-lane page names this lane as its sibling for work that has already landed, sharing the checkout-role gate, reference resolution, range resolution and qualification rule through one extracted skill so a fix to either cannot silently diverge from the other. Nothing this page already asserted has changed.

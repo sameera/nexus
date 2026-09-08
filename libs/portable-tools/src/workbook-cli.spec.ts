@@ -5,7 +5,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type RunResult, type Runner, defaultRunner } from "@nexus/close-migration/run";
-import { readProse, runWorkbookCli, type WorkbookCliIo } from "./workbook-cli";
+import { WORKBOOK_SUBVERBS, readProse, runWorkbookCli, type WorkbookCliIo } from "./workbook-cli";
 import { readPage } from "./workbook-page-fixtures";
 import { LESSONS_DIRNAME, workbookRoot } from "./workbook-store";
 
@@ -218,6 +218,14 @@ describe("the verb says what it needs", () => {
 
         expect(runWorkbookCli(["renders", "rdl"], io)).toBe(2);
         expect(io.err.join("\n")).toContain("renders");
+    });
+
+    it("offers every subverb it dispatches, so the usage line cannot go stale as verbs are added", () => {
+        const io = makeIo(initRepo());
+        runWorkbookCli(["renders", "rdl"], io);
+        const offered: string = io.err.join("\n").split("\n").find((line) => line.startsWith("usage:")) ?? "";
+
+        for (const subverb of WORKBOOK_SUBVERBS) expect(offered).toContain(subverb);
     });
 
     it("rejects an unknown flag and a missing workbook name", () => {

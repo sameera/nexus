@@ -129,6 +129,25 @@ For teams that deliver through pull requests, the tail of the pipeline runs agai
 2. The PR merges.
 3. Post-merge, the lead runs `/nxs.close --pr <N>` and `/nxs.distill` in one shared worktree. Close commits its artifacts and hands off; distill opens the distillation-PR.
 
+## Learning from a Roadmap
+
+A roadmap that has already been planned can also be *taught*. This runs as two commands, not one,
+and the split is deliberate.
+
+`/nxs.teach-plan <name> --epic <n>` — or `--query "<expression>"` for a programme of epics — works
+out which stories the learner will work through. It resolves them from the issue graph through the
+same resolver every other stage uses, refuses anything that is not a planned epic before it asks
+anything, and then runs **one bounded interview**: at most five questions, established once per
+roadmap, covering both what the learner already knows and what they came here to learn. The answers
+are personal records and stay out of the commit.
+
+`/nxs.teach <name>` writes one lesson per sitting, for the slice the learner has arrived at.
+
+They are separate commands because a session's references only ever accumulate. A session that
+planned a roadmap while holding the material a lesson is written from would keep holding it, so the
+phase boundary is the invocation boundary: each command names its own references and neither names
+the other's.
+
 ## Multi-Repo Workspaces
 
 Nexus scales past one repo. A workspace is a set of code **member** repos plus a **hub** docs repo. Members plan and close locally; the hub holds the concept store and drains the queue — close migrates each finished epic's entry to the hub, and one distillation-PR there updates the shared knowledge.

@@ -109,6 +109,35 @@ describe("resolveEpic — Story 3: --from epic-vs-story validation (requireEpic)
     });
 });
 
+describe("resolveEpic — the structured resolution beside the rendered document", () => {
+    it("reports the epic, its stories and its edges without anyone parsing the markdown", () => {
+        const r = resolveEpic(makeGhRunner(graph()), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.resolved.number).toBe(115);
+        expect(r.resolved.title).toBe("Planning");
+        expect(r.resolved.stories.map((s) => s.number)).toEqual([116, 117, 118]);
+        expect(r.resolved.blockedBy.get(117)).toEqual([116]);
+    });
+
+    it("carries a story body whole, sub-headings and all, which the rendered document cannot give back", () => {
+        const whole = "**As a** stage **I want** X.\n\n## Acceptance Criteria\n\n- [ ] **Given** a thing, **then** it works.";
+        const g = graph();
+        g.stories[0].body = whole;
+        const r = resolveEpic(makeGhRunner(g), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.resolved.stories[0].body).toBe(whole);
+    });
+
+    it("orders the stories the same way the markdown renders them", () => {
+        const r = resolveEpic(makeGhRunner({ ...graph(), subIssueOrder: [118, 116, 117] }), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.resolved.stories.map((s) => s.number)).toEqual([116, 117, 118]);
+    });
+});
+
 describe("resolveEpic — AC2: byte-identical idempotency", () => {
     it("produces identical markdown on two runs over the same graph", () => {
         const a = resolveEpic(makeGhRunner(graph()), "/repo", 115);

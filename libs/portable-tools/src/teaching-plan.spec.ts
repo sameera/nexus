@@ -131,3 +131,31 @@ describe("gateNextLesson", () => {
         expect(gate.findings[0].story).toBe(461);
     });
 });
+
+describe("a story that was already closed when the plan was pinned", () => {
+    const SHIPPED: TeachingPlan = {
+        slices: [
+            { story: 460, learnerBuilds: true, pinned: { title: "Already shipped", body: "Original body.", closed: true } },
+            { story: 461, learnerBuilds: true, pinned: { title: "Still open", body: "Original body." } },
+        ],
+    };
+
+    it("is teachable, because closure before the pin is not movement", () => {
+        const findings = checkPlanDrift(SHIPPED, (story) => ({
+            title: SHIPPED.slices.find((s) => s.story === story)?.pinned.title ?? "",
+            body: "Original body.",
+            closed: story === 460,
+        }));
+        expect(findings).toEqual([]);
+    });
+
+    it("still blocks a story that closed after the plan pinned it open", () => {
+        const findings = checkPlanDrift(SHIPPED, (story) => ({
+            title: SHIPPED.slices.find((s) => s.story === story)?.pinned.title ?? "",
+            body: "Original body.",
+            closed: true,
+        }));
+        expect(findings.map((f) => f.story)).toEqual([461]);
+        expect(findings[0].state).toBe("closed");
+    });
+});

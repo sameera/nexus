@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Refuses to run against a fix entry, which has no acceptance criteria, no success metrics and no decision record to check against. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -88,23 +88,29 @@ issue number (invariant 14):
 4. **File open in the editor** — infer the epic directory from it.
 5. Otherwise stop and ask for the epic path or the epic issue number.
 
-## Phase 0.1 — Refuse a fix entry
+## Phase 0.1 — Run only for an epic entry
 
-Before loading anything, read the resolved entry's `epic.md` frontmatter. **If it carries
-`entry_kind: fix`, stop** (#263). Report:
+Before loading anything, read the resolved entry's `epic.md` frontmatter. **The gate runs only for
+an epic entry.** The kind set is closed (`epic`, `fix`, `intake`, record #504); an absent
+`entry_kind` and `entry_kind: epic` both mean epic. **Any other recorded kind — `fix`, `intake`, or
+one this list does not yet name — stops the gate here.** Inverting the check this way, instead of
+naming each non-epic kind in its own refusal clause, is deliberate: a kind added later and never
+given its own clause would otherwise fall through silently and read as a pass. Report, naming the
+entry's actual kind:
 
 ```
-/nxs.analyze does not run against a fix entry. It checks implemented code against an epic's
-acceptance criteria, its success metrics, and a decision record's invariants — a fix entry has
+/nxs.analyze does not run against a <kind> entry. It checks implemented code against an epic's
+acceptance criteria, its success metrics, and a decision record's invariants — a <kind> entry has
 none of the three, so the check is not optional here, it is undefined.
 ```
 
 Stopping is the honest outcome; degrading into a pass would be misleading. **Write no
-`analyze-receipt.md` and modify no file in the entry.** The fix entry already records the state in
+`analyze-receipt.md` and modify no file in the entry.** A fix entry already records the state in
 words: its close record's `analyze:` value is the literal `n/a — fix entry (no acceptance
-criteria)`, which keeps the state greppable and means it can never be read as a waiver.
+criteria)`. An intake entry does the same with `n/a — intake entry (no acceptance criteria)`. Either
+way the state stays greppable and can never be read as a waiver.
 
-An entry without `entry_kind: fix` is an epic entry, and everything below is unchanged for it.
+An epic entry is unchanged: everything below runs exactly as it always has.
 
 Load `epic.md` (stories, acceptance criteria, success metrics) from the resolved entry, and read its
 frontmatter `link` to get the epic issue number; it anchors the story issues.
@@ -207,8 +213,12 @@ Determine what was actually built for this epic. Use, in order of availability:
     gh issue view <story-issue> --json number,title,state,closedAt,body
     ```
 
-    Treat an **open** story issue as *not yet implemented* — its ACs are unverifiable, which is itself
-    a finding (the epic is not ready to close).
+    An **open** story issue is **not** a conformance finding. A story closes when the pull request
+    carrying it merges, and this gate runs *before* that merge (`analyze → merge → close`), so open
+    is the expected state here. The acceptance criteria are checked against the change set either
+    way — the issue state decides no verdict. Note which stories are still open and carry them into
+    the report as a **note** (Phase 3): `/nxs.close` hard-blocks on any open sub-issue, so they have
+    to be closed before it runs.
 
 3. **Targeted code reads.** Where the diff is large or a story's AC names a behavior, grep/read the
    touched files to confirm the behavior exists, rather than trusting the diff stat alone.
@@ -236,7 +246,8 @@ satisfies it in the change set. Classify the AC:
 
 - **met** — the diff/code plainly implements the Given/When/Then or the measurable contract.
 - **partial** — some of the AC is implemented; part is missing or weaker than stated.
-- **unmet** — no implementing code found, or the story issue is still open. **(high)**
+- **unmet** — no implementing code found in the change set. **(high)** An open story issue is never
+  the reason — the diff decides.
 - **contradicted** — the code implements the opposite of, or breaks, the stated criterion. **(critical)**
 
 For `system` stories, the AC states a measurable threshold — confirm the code path that would meet it
@@ -282,9 +293,17 @@ Per-story AC conformance:
 Invariant violations:   <decision-record invariant → file:line that breaks it, ...>  (full mode)
 Success metrics:         <metric → measurable? plausibly-moved?>
 Scope drift:             <unplanned behavior, ...>
+Notes:                   <stories still open → close before /nxs.close, ...>   (omit when none)
 
 Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
 ```
+
+**Open story issues are a note, never a finding.** They carry no severity, count nothing towards the
+receipt's `findings:` tally, and never block. State them on the `Notes:` line — "stories #a, #b are
+still open; close them before `/nxs.close`" — and omit the line entirely when every story is closed.
+An open sub-issue is `/nxs.close`'s hard block (its §1.1), not this gate's: here the question is
+whether the code does what the planning said, and the code is readable from the diff whether or not
+the issue has been closed yet.
 
 **Severity gate:** critical or high findings should **block close** — the code does not yet satisfy
 the epic. Fix the implementation (or, if the epic's intent changed during build, amend `epic.md` and
@@ -417,6 +436,9 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
   else.
 - **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
+- **An open story is a note, not a blocker.** Story issues close on merge and this gate runs before
+  the merge, so open stories are ordinary here: report them on the `Notes:` line as work to close
+  before `/nxs.close`, never as a finding under a severity and never in the `findings:` tally.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`
   agent (`/nxs.epic`); story↔design coverage is verified in `/nxs.decision-record`. Not here.
 - **Engineer scratch is soft.** The per-user stubs are read-only context that can explain a
