@@ -80,9 +80,11 @@ function buildHubFixture(parent: string): HubFixture {
 }
 
 /** Writes a hub-queue entry whose close record stamps the given range items. */
-function writeEntry(hubRoot: string, items: Array<{ repo: string; base: string; head: string }>): string {
+function writeEntry(hubRoot: string, items: Array<{ repo: string; base: string; head: string; pr?: number }>): string {
     const entryDir = path.join(hubRoot, ".nexus", "queue", "demo-epic-ab12cd34");
-    const range = items.map((i) => `  - repo: ${i.repo}\n    base: ${i.base}\n    head: ${i.head}`).join("\n");
+    const range = items.map((i) =>
+        `  - repo: ${i.repo}\n    base: ${i.base}\n    head: ${i.head}` + (i.pr === undefined ? "" : `\n    pr: ${i.pr}`),
+    ).join("\n");
     write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/epic.md", "---\nlink: \"#3\"\n---\n# epic\n");
     write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/close-record.md",
         `---\ntitle: "Close Record: Demo"\nepic: #3\nfeature: "Demo"\ndate: 2026-07-01\nrange:\n${range}\n---\n\n# Close Record: Demo\n`);
@@ -155,6 +157,68 @@ describe("deriveEntryDiff — happy paths", () => {
         expect(result.diffs).toHaveLength(1);
         expect(result.diffs[0].checkout).toBe(hubRoot);
         expect(result.diffs[0].diff).toContain("README.md");
+    });
+});
+
+describe("deriveEntryDiff — pull request attribution (epic #214, story #507)", () => {
+    it("carries a stamped 'pr' through to the diff and its rendered header", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head, pr: 512 }]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs[0].pr).toBe(512);
+        expect(renderRepoDiffs(result.entryName, result.diffs)).toContain(
+            `=== repo github.com/acme/web-app checkout ${web.root} range ${web.base}...${web.head} pr 512 ===`,
+        );
+    });
+
+    it("an entry with no stamped 'pr' carries none, and the header is unchanged", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs[0].pr).toBeUndefined();
+        expect(renderRepoDiffs(result.entryName, result.diffs)).toContain(
+            `=== repo github.com/acme/web-app checkout ${web.root} range ${web.base}...${web.head} ===`,
+        );
+    });
+
+    it("each of a repo's several range entries carries its own 'pr'", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        write(web.root, "src/app.ts", "export const v = 3;\n");
+        const secondHead = commitAll(web.root, "second change");
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head, pr: 100 },
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead, pr: 101 },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs.map((d) => d.pr)).toEqual([100, 101]);
+    });
+
+    it("a non-integer 'pr' is malformed-range", () => {
+        const parent = makeParent();
+        const { hubRoot } = buildHubFixture(parent);
+        const entryDir = path.join(hubRoot, ".nexus", "queue", "demo-epic-ab12cd34");
+        write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/epic.md", "---\nlink: \"#3\"\n---\n# epic\n");
+        write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/close-record.md",
+            "---\nrange:\n  - repo: github.com/acme/web-app\n    base: " + "a".repeat(40) +
+            "\n    head: " + "b".repeat(40) + "\n    pr: not-a-number\n---\n");
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors[0].problem).toBe("malformed-range");
+        expect(result.errors[0].message).toContain("'pr'");
     });
 });
 

@@ -342,7 +342,7 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Derive the merged diff a closed queue entry's decision record covers.",
         usage: [
             "  nexus derive-entry-diff --entry <queue-entry-dir> [--hub <hub-root>]",
-            "      Print the per-repo diff the queue entry's recorded range covers.",
+            "      Print the diff for every range entry the queue entry's recorded range covers.",
         ].join("\n"),
         run: (argv) => Promise.resolve(runDeriveEntryDiff(argv)),
     },

@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.27.0
+
+- distill: `nexus derive-entry-diff` now carries the pull request each range entry stamped
+  (`pr:`, when present) through to the derived diff and its header line, so the drain can trace
+  a behavioral claim back to the change that justified it. Code anchors written by a multi-entry
+  drain now append which pull request last changed each path to the anchor's role text, and a
+  path a later entry renamed or deleted away is no longer anchored. A repository's stored anchor
+  identifier is now its newest drained head rather than the head of whichever entry happened to
+  be recorded. The structured provenance token in a concept page's frontmatter and Decision Log
+  heading is unchanged; the pull requests involved are named in the Decision Log entry's body.
+  An entry stamped before this pull-request field existed degrades attribution to the repository
+  and short head, named as a degradation in the drain's report — never silently.
+
 ## 0.26.0
 
 - distill: the range reader no longer refuses a repository named by more than one range

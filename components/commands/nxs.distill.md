@@ -735,14 +735,31 @@ Run these for each entry, in order, before its commit:
    tree; in hub mode over the member checkouts of every repo in the entry's recorded range plus
    every repo already named in the concept's existing sidecar (a checkout missing during the
    grep: carry that repo's existing entries and SHA forward unchanged — never drop paths because
-   a checkout is absent, and never fetch to find one).
+   a checkout is absent, and never fetch to find one). **Only anchor a path that still exists at
+   its repo's newest drained head** (epic #214, story #507) — a path a later range entry renamed
+   or deleted away is not anchored; existence is a read-only check at that head.
 
-   **Single-repo format (unchanged):**
+   **Per-path attribution (epic #214, story #507).** When a repo's range names more than one
+   entry, append to each path's role text which pull request last changed it — the repo-qualified
+   form, `<owner/repo>#<pr>` in hub mode, `#<pr>` in single-repo mode — e.g. `- \`src/x.ts\` —
+   validates the request shape (acme/web-app#512)`. A path that entered only via alias-grep or
+   name matching, never through a drained range entry, carries no attribution — that correctly
+   reads as this drain not having put it there. Read each entry's pull request from the diff
+   tool's header (`nexus derive-entry-diff`'s `pr <n>` suffix, present when the range entry
+   stamped one); for an older entry with none, resolve it from its recorded head — same
+   commit-to-pull-request resolution the Phase 0.4 merge-precondition already performs
+   (`gh api "repos/{owner}/{repo}/commits/<head>/pulls"`) — and when that too fails, degrade to
+   naming the repository and the short head instead of a pull request, and say in the completion
+   report that this path's attribution degraded. This attribution is **asserted, never validated**
+   — the validator's anchor rules are unchanged; the drain's own report of what it attributed and
+   what it could not is the check (decision record #513, accepted risk).
+
+   **Single-repo format (unchanged shape):**
 
     ```markdown
     ---
     concept: <slug>
-    source_sha: <head SHA of the drained range>
+    source_sha: <newest drained head for this repo>
     generated: <YYYY-MM-DD>
     ---
 
@@ -751,24 +768,26 @@ Run these for each entry, in order, before its commit:
 
     # Code Anchors: <Title>
 
-    - `<path>` — <one-line role in the concept>
+    - `<path>` — <one-line role in the concept>[ (#<pr>)]
     ```
 
    **Hub format** — `source_sha` is a per-repo mapping (one `<repo>@<sha>` item per repo) and
    every path is qualified by its repo. `<repo>` is the normalized `host/owner/repo` identity —
    the exact string the close record's `range:` uses. The SHA for a repo in the entry's range is
-   that repo's recorded **head** (full 40-hex); the SHA for a repo whose paths entered only via
-   alias-grep is that member checkout's current `HEAD` (`git -C <checkout> rev-parse HEAD` —
-   read-only). Every listed path is attributed to exactly one repo and every mapped repo has at
-   least one path; a pre-existing scalar-form anchor a hub drain touches is regenerated whole
-   into this shape:
+   the **newest** of that repo's drained heads — the last entry in the ancestry order the reader
+   already resolved, not merely "the" recorded head now that a repo can carry several — full
+   40-hex; the SHA for a repo whose paths entered only via alias-grep is that member checkout's
+   current `HEAD` (`git -C <checkout> rev-parse HEAD` — read-only). Every listed path is
+   attributed to exactly one repo — **its own, never another repo in the same range list** — and
+   every mapped repo has at least one path; a pre-existing scalar-form anchor a hub drain touches
+   is regenerated whole into this shape:
 
     ```markdown
     ---
     concept: <slug>
     source_sha:
-      - <host/owner/repo>@<full head SHA for that repo>
-      - <host/owner/repo>@<full head SHA for that repo>
+      - <host/owner/repo>@<newest drained head for that repo>
+      - <host/owner/repo>@<newest drained head for that repo>
     generated: <YYYY-MM-DD>
     ---
 
@@ -777,7 +796,7 @@ Run these for each entry, in order, before its commit:
 
     # Code Anchors: <Title>
 
-    - `<host/owner/repo>:<path>` — <one-line role in the concept>
+    - `<host/owner/repo>:<path>` — <one-line role in the concept>[ (<host/owner/repo>#<pr>)]
     ```
 
 3. **Mode-conditional rules for the deterministic steps.** Steps 4 and 5 run the same commands
