@@ -28,7 +28,7 @@ export interface StoryVerdict {
 }
 
 export type ResolveStoryVerdictResult =
-    | { ok: true; found: true; verdict: StoryVerdict }
+    | { ok: true; found: true; verdict: StoryVerdict; survivors: StoryVerdict[] }
     | { ok: true; found: false; candidates: number[] }
     | { ok: false; error: EpicVerdictsDiagnostic };
 
@@ -72,11 +72,21 @@ export interface ResolveStoryVerdictInput {
     candidates: StoryPrCandidate[];
 }
 
-/** Resolve `story`'s chosen verdict from `input.candidates`, applying trust and recency. */
+/**
+ * Resolve `story`'s chosen verdict from `input.candidates`, applying trust and recency.
+ *
+ * `survivors` carries every candidate that passed the trust checks and is open-or-merged —
+ * not just the newest one — so a caller building the epic's combined change set can still reach
+ * a superseded pull request's shipped diff (invariant 3 of decision record #505: the combined set
+ * is the union of every open-or-merged trusted verdict, including one superseded by a later
+ * verdict for the same story after its code already shipped).
+ */
 export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput): ResolveStoryVerdictResult {
     const epicRef = `#${input.epic}`;
 
-    let best: { at: string; verdict: StoryVerdict } | null = null;
+    // Newest matching receipt per candidate pull request — a PR may carry more than one matching
+    // review/comment over time (repeated analyze runs), so only its own latest represents it.
+    const perCandidate = new Map<string, { at: string; verdict: StoryVerdict }>();
 
     for (const candidate of input.candidates) {
         const expectedRepo = `${candidate.repo.owner}/${candidate.repo.repo}`.toLowerCase();
@@ -97,6 +107,7 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
         const state = String(doc["state"] ?? "").toUpperCase();
         if (state !== "OPEN" && state !== "MERGED") continue; // closed-unmerged never survives
 
+        const key = `${expectedRepo}#${candidate.pr}`;
         for (const found of collect(doc)) {
             const receipt = parseReceiptBlock(found.body);
             if (receipt === null) continue;
@@ -104,8 +115,9 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
             if (!receipt.stories.includes(input.story)) continue;
             if (receipt.repo !== null && receipt.repo.toLowerCase() !== expectedRepo) continue;
 
-            if (best === null || found.at.localeCompare(best.at) > 0) {
-                best = {
+            const existing = perCandidate.get(key);
+            if (existing === undefined || found.at.localeCompare(existing.at) > 0) {
+                perCandidate.set(key, {
                     at: found.at,
                     verdict: {
                         story: input.story,
@@ -116,11 +128,17 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
                         base: typeof doc["baseRefOid"] === "string" ? doc["baseRefOid"] : "",
                         receipt,
                     },
-                };
+                });
             }
         }
     }
 
-    if (best === null) return { ok: true, found: false, candidates: input.candidates.map((c) => c.pr) };
-    return { ok: true, found: true, verdict: best.verdict };
+    if (perCandidate.size === 0) return { ok: true, found: false, candidates: input.candidates.map((c) => c.pr) };
+
+    let best: { at: string; verdict: StoryVerdict } | null = null;
+    for (const entry of perCandidate.values()) {
+        if (best === null || entry.at.localeCompare(best.at) > 0) best = entry;
+    }
+
+    return { ok: true, found: true, verdict: best!.verdict, survivors: [...perCandidate.values()].map((e) => e.verdict) };
 }

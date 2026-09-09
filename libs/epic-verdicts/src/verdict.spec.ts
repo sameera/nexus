@@ -134,6 +134,25 @@ describe("resolveStoryVerdict — trust and recency across a story's candidate p
         expect(r.found).toBe(false);
     });
 
+    it("keeps every merged candidate as a survivor even when a newer one is chosen as the story's verdict (invariant 3)", () => {
+        const run = ghRunner({
+            501: { state: "MERGED", head: "a".repeat(40), base: "b".repeat(40), reviews: [{ body: block({ head: "a".repeat(40) }), submittedAt: "2026-09-01T00:00:00Z" }] },
+            502: { state: "MERGED", head: "c".repeat(40), base: "b".repeat(40), reviews: [{ body: block({ head: "c".repeat(40) }), submittedAt: "2026-09-05T00:00:00Z" }] },
+        });
+        const r = resolveStoryVerdict(run, {
+            epic: 212,
+            story: 496,
+            candidates: [
+                { pr: 501, repo: SLUG, cwd: "/repo" },
+                { pr: 502, repo: SLUG, cwd: "/repo" },
+            ],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || !r.found) return;
+        expect(r.verdict.pr).toBe(502);
+        expect(r.survivors.map((v) => v.pr).sort()).toEqual([501, 502]);
+    });
+
     it("resolves a story's verdict from a candidate in a second declared repository, queried at its own checkout (invariants 6, 9, 11)", () => {
         const MEMBER_SLUG = { owner: "acme", repo: "member-app" };
         const run: Runner = (cmd, args, opts) => {

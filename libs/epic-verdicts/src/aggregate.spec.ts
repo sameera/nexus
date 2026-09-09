@@ -119,6 +119,24 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         expect(r.state).toBe("none");
     });
 
+    it("carries every merged candidate into changeSetVerdicts, not just the story's chosen verdict (invariant 3)", () => {
+        const run = ghRunner({
+            501: { state: "MERGED", head: "a".repeat(40), story: 496 },
+            502: { state: "MERGED", head: "c".repeat(40), story: 496 },
+        });
+        const r = resolveEpicVerdicts(run, {
+            epic: 212,
+            stories: [496],
+            candidatesByStory: { 496: [candidate(501), candidate(502)] },
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.state).toBe("aggregate");
+        if (r.state !== "aggregate") return;
+        expect(r.verdicts).toHaveLength(1);
+        expect(r.changeSetVerdicts.map((v) => v.pr).sort()).toEqual([501, 502]);
+    });
+
     it("derives a verdict from a story whose only candidate lives in a second declared repository (invariant 11)", () => {
         const MEMBER_SLUG = { owner: "acme", repo: "member-app" };
         const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });

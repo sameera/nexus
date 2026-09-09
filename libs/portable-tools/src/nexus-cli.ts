@@ -1157,7 +1157,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (argv[0] === "combined") {
-        const combined = combinedChangeSet(closeMigrationRunner, root, result.verdicts, excludePathspecs());
+        const combined = combinedChangeSet(closeMigrationRunner, root, result.changeSetVerdicts, excludePathspecs());
         if (!combined.ok) {
             io.stderr(`epic-verdicts ${combined.error.problem}: ${combined.error.message}`);
             return 1;

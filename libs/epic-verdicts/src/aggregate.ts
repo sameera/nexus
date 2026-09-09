@@ -31,7 +31,7 @@ export interface ResolveEpicVerdictsInput {
 }
 
 export type ResolveEpicVerdictsResult =
-    | { ok: true; state: "aggregate"; receipt: EpicReceipt; verdicts: StoryVerdict[] }
+    | { ok: true; state: "aggregate"; receipt: EpicReceipt; verdicts: StoryVerdict[]; changeSetVerdicts: StoryVerdict[] }
     | { ok: true; state: "none" }
     | { ok: true; state: "partial"; missing: number[]; present: number[] }
     | { ok: false; error: EpicVerdictsDiagnostic };
@@ -39,12 +39,18 @@ export type ResolveEpicVerdictsResult =
 /**
  * Resolve every non-excluded story's verdict and derive the epic receipt; fall back to `"none"`
  * when no required story has one, or stop as `"partial"` and name the gap when only some do.
+ *
+ * `changeSetVerdicts` carries every story's surviving candidates, not just the one chosen as its
+ * verdict (`verdicts`) — the combined change set is the union of every open-or-merged trusted
+ * verdict's diff (invariant 3 of decision record #505), including a superseded pull request whose
+ * code already shipped, so it must not be built from `verdicts` alone.
  */
 export function resolveEpicVerdicts(run: Runner, input: ResolveEpicVerdictsInput): ResolveEpicVerdictsResult {
     const excluded = input.excludedStories ?? [];
     const required = input.stories.filter((s) => !excluded.includes(s));
 
     const verdicts: StoryVerdict[] = [];
+    const changeSetVerdicts: StoryVerdict[] = [];
     const missing: number[] = [];
     const present: number[] = [];
 
@@ -54,6 +60,7 @@ export function resolveEpicVerdicts(run: Runner, input: ResolveEpicVerdictsInput
         if (!r.ok) return r;
         if (r.found) {
             verdicts.push(r.verdict);
+            changeSetVerdicts.push(...r.survivors);
             present.push(story);
         } else {
             missing.push(story);
@@ -62,5 +69,5 @@ export function resolveEpicVerdicts(run: Runner, input: ResolveEpicVerdictsInput
 
     if (present.length === 0) return { ok: true, state: "none" };
     if (missing.length > 0) return { ok: true, state: "partial", missing, present };
-    return { ok: true, state: "aggregate", receipt: buildEpicReceipt(input.epic, verdicts, excluded), verdicts };
+    return { ok: true, state: "aggregate", receipt: buildEpicReceipt(input.epic, verdicts, excluded), verdicts, changeSetVerdicts };
 }
