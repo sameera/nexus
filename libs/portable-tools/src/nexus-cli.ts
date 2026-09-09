@@ -26,14 +26,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
-import { migrateEntry } from "@nexus/close-migration/migrate";
-import { closePreflight } from "@nexus/close-migration/preflight";
-import {
-    renderMigrateOutcome,
-    renderMigrationFailure,
-    renderPreflight,
-} from "@nexus/close-migration/render";
-import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migration/run";
+import { defaultRunner as closeMigrationRunner } from "@nexus/workspace/run";
+import { closePreflight } from "@nexus/workspace/close-role";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
@@ -119,7 +113,6 @@ export interface VerbEntry {
 
 const WORKSPACE_SUBVERBS: readonly string[] = ["init", "status", "docs-root", "add-repo", "github-defaults"];
 const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "range", "remove"];
-const CLOSE_MIGRATION_SUBVERBS: readonly string[] = ["preflight", "migrate"];
 
 /**
  * The configuration resolver's own commands, read from the table that dispatches them (story #396)
@@ -257,13 +250,24 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runPrWorktree,
     },
     "close-migration": {
-        summary: "Migrate a closed queue entry from a member repo into the workspace hub.",
+        summary: "Retired (epic #215) — a member epic now closes from the hub over its merged pull requests.",
         usage: [
-            "  nexus close-migration preflight [dir]",
-            "  nexus close-migration migrate <entry-dir>",
+            "  nexus close-migration ...   RETIRED — every subcommand refuses and exits 1.",
+            "      A member repository no longer closes its own epic and migrates the entry to the",
+            "      hub. It closes from the hub, the same way a single repository does, over its",
+            "      merged pull requests. This verb name and its former subcommands (preflight,",
+            "      migrate) are kept only so a lead who still types them is told what replaced them.",
         ].join("\n"),
-        subverbs: CLOSE_MIGRATION_SUBVERBS,
         run: runCloseMigration,
+    },
+    "close-role": {
+        summary: "Report the checkout's close role (single-repo, hub, or member) and its repo identity.",
+        usage: [
+            "  nexus close-role [dir]",
+            "      Print the role close would run in from the given checkout (default: the",
+            "      current directory) and its normalized repo identity. Read-only.",
+        ].join("\n"),
+        run: runCloseRole,
     },
     "queue-relocate": {
         summary: "One-shot: relocate every stranded member-queue entry into the hub queue.",
@@ -1294,40 +1298,33 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
 }
 
 /**
- * `nexus close-migration` — the in-repo vehicle is `close_migration.ts`, kept byte-identical
- * (including the preflight-failure message going to stdout, matching the script's own choice) so
- * the migration-axis parity gate reports no divergence.
+ * `nexus close-migration` — retired (epic #215). The close-and-migrate path it fronted is gone:
+ * a member repository closes from the hub over its merged pull requests, the same way a single
+ * repository closes, with no member-specific step. Every subcommand — and no subcommand at all —
+ * hits this same refusal; nothing here dispatches any more.
  */
-async function runCloseMigration(argv: string[], io: CliIo): Promise<number> {
-    const [subcommand, arg] = argv;
+async function runCloseMigration(_argv: string[], io: CliIo): Promise<number> {
+    io.stderr(
+        "close-migration is retired: a member epic no longer closes on its feature branch and " +
+            "migrates the entry to the hub. It closes from the hub, over its merged pull requests, " +
+            "the same way a single repository closes. Run /nxs.close from the hub instead.",
+    );
+    return 1;
+}
 
-    // The subverb gate, read from the registry's own declaration (story #301).
-    if (subcommand === undefined || !CLOSE_MIGRATION_SUBVERBS.includes(subcommand)) {
-        io.stderr("usage: close_migration.ts <preflight [dir] | migrate <entry-dir>>");
-        return 2;
-    }
-
-    if (subcommand === "preflight") {
-        const result = closePreflight(arg ?? io.cwd);
-        if (!result.ok) {
-            io.stdout(renderMigrationFailure(result.error));
-            return 1;
-        }
-        io.stdout(renderPreflight(result.preflight));
-        return 0;
-    }
-
-    // subcommand === "migrate", the last declared subverb.
-    if (!arg) {
-        io.stderr("usage: close_migration.ts migrate <entry-dir>");
-        return 2;
-    }
-    const result = migrateEntry(arg);
+/**
+ * `nexus close-role` — the role-gate half of the retired `close-migration preflight` (epic #215):
+ * every caller that only ever wanted the role and repo identity (never the migration arming)
+ * keeps a CLI seam to it.
+ */
+async function runCloseRole(argv: string[], io: CliIo): Promise<number> {
+    const result = closePreflight(argv[0] ?? io.cwd);
     if (!result.ok) {
-        io.stdout(renderMigrationFailure(result.error));
+        io.stderr(`close-role ${result.error.problem}: ${result.error.message}`);
         return 1;
     }
-    io.stdout(renderMigrateOutcome(result.outcome));
+    const { role, repo } = result.preflight;
+    io.stdout(`role: ${role}\nrepo: ${repo.identity} (from ${repo.source})`);
     return 0;
 }
 

@@ -29,7 +29,7 @@
  * reads "no focus" as "nothing in focus" and hands off the entire roadmap.
  */
 
-import { type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { readLearnerRecord, writeLearnerRecord } from "./learner-store.js";
 import { type Roadmap } from "./roadmap.js";
 

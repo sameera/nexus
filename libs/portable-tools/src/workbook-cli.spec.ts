@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { type RunResult, type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type RunResult, type Runner, defaultRunner } from "@nexus/workspace/run";
 import { WORKBOOK_SUBVERBS, readProse, runWorkbookCli, type WorkbookCliIo } from "./workbook-cli";
 import { readPage } from "./workbook-page-fixtures";
 import { LESSONS_DIRNAME, workbookRoot } from "./workbook-store";

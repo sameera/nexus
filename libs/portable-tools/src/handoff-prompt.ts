@@ -22,7 +22,7 @@
  * (invariant 22).
  */
 
-import { type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { type Handoff, recordHandoff } from "./handoffs.js";
 import { writeLearnerRecord } from "./learner-store.js";
 import { type TeachingPlan } from "./teaching-plan.js";

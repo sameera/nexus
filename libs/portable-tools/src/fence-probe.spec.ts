@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { type RunResult, type Runner } from "@nexus/close-migration/run";
+import { type RunResult, type Runner } from "@nexus/workspace/run";
 import {
     PROBE_SCRATCH_PATH,
     interpretReturn,

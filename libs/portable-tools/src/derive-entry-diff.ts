@@ -20,7 +20,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
 import { resolveWorkspace, type ResolvedWorkspace } from "@nexus/workspace/resolve";
-import { type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { excludePathspecs } from "./pipeline-stores.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;

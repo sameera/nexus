@@ -67,7 +67,7 @@ describe("nxs-landed-reference holds the rules shared by every landed-work lane 
     });
 
     it("refuses a member repository before any lookup, naming the calling lane's own command", () => {
-        expect(LANDED_REFERENCE).toContain("nexus close-migration preflight");
+        expect(LANDED_REFERENCE).toContain("nexus close-role");
         expect(LANDED_REFERENCE).toMatch(/member repository[\s\S]{0,600}<lane-command> <owner>\/<repo>#<n>/);
     });
 

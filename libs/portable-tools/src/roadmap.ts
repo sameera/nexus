@@ -24,7 +24,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type RunResult, type Runner } from "@nexus/close-migration/run";
+import { type RunResult, type Runner } from "@nexus/workspace/run";
 import { backlogQuery } from "@nexus/delivery-config/backlog";
 import { layersAt } from "@nexus/delivery-config/resolve";
 import { type ResolveEpicResult, type ResolvedEpic } from "@nexus/epic-resolve/resolve";

@@ -12,7 +12,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { closePreflight } from "@nexus/close-migration/preflight";
+import { closePreflight } from "@nexus/workspace/close-role";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { type Runner, defaultRunner, git } from "./run.js";
 

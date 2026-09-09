@@ -17,7 +17,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type Runner, defaultRunner, git } from "@nexus/close-migration/run";
+import { type Runner, defaultRunner, git } from "@nexus/workspace/run";
 import { type ResolvedWorkspace, resolveWorkspace } from "@nexus/workspace/resolve";
 import { type ParseRangeResult, parseRange } from "./derive-entry-diff.js";
 

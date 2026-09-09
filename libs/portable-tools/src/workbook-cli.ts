@@ -19,7 +19,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { parse } from "yaml";
 import { takeTargetRoot } from "@nexus/workspace/target-root";
-import { type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { outstandingHandoffs, recordHandoff, resolveHandoff, startWorkbookSession, type Handoff, type WorkbookSession } from "./handoffs.js";
 import {
     LESSONS_DIRNAME,

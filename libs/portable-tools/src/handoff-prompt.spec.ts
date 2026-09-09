@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { defaultRunner } from "@nexus/close-migration/run";
+import { defaultRunner } from "@nexus/workspace/run";
 import { startWorkbookSession } from "./handoffs.js";
 import { learnerRecordDir, readLearnerRecord } from "./learner-store.js";
 import { createWorkbook } from "./workbook-store.js";

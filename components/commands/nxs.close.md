@@ -122,9 +122,10 @@ single-repo and hub mode only.
     nexus pr-worktree preflight --pr <N> --mode close
     ```
 
-    Exit 1 blocks the close — the printed diagnostic names why. **A member repo is a hard block:**
-    its close runs on the feature branch and migrates to the hub (the local, non-`--pr` flow), never
-    this worktree flow. **The PR must be merged** — close, unlike analyze, may not run pre-merge.
+    Exit 1 blocks the close — the printed diagnostic names why. **A member repo is a hard block**
+    on every path, `--pr` or not (epic #215) — a member epic closes only from the hub, over its
+    merged pull requests, once that flow exists. **The PR must be merged** — close, unlike
+    analyze, may not run pre-merge.
 
 2. **Determine the epic issue number** `<epic-issue>`:
     - If an `epic.md` path was given (Phase 0), take its `link`.
@@ -179,7 +180,7 @@ single-repo and hub mode only.
    Then run **Phase 0's frontmatter parsing** against `${QDIR}/epic.md` (title, `link`, `feature`,
    `feature_path`, `complexity`). `<feature-path>`, `<docs-root>`, and the lesson all
    resolve **inside `wtPath`**. The role from step 1 **replaces the Phase 1.3 preflight** — do not run
-   the close-migration preflight in `--pr` mode (single-repo/hub only; no migration ever happens here).
+   `nexus close-role` again in `--pr` mode (single-repo/hub only; a member is already rejected above).
 
 5. `--pr` is **mutually exclusive** with the local on-branch flow. If the preflight rejects the
    mode, **stop** — never silently fall back to the local path.
@@ -336,17 +337,21 @@ Close behaves differently in a multi-repo workspace. Resolve the role once, thro
 resolver's helper — never a heuristic of your own:
 
 ```bash
-nexus close-migration preflight
+nexus close-role
 ```
 
-- **single-repo** or **hub** → note the mode and continue. Every migration step below (the
-  member-mode checkpoint items, Phase 7.5, the member-mode report lines) is **skipped**; behavior
-  is identical to today. The hub drains its own queue, so a hub close keeps its entry too.
-- **member** → record the reported `repo` identity, hub root, and hub branch. They feed the range
-  stamp (Phase 4), the checkpoint summary (Phase 7), and the migration (Phase 7.5).
+- **single-repo** or **hub** → note the mode and continue. The hub drains its own queue, so a hub
+  close keeps its entry too.
+- **member** → **hard block** (epic #215 retired the close-and-migrate path). Report, naming the
+  hub and the epic-addressed close, and stop:
+
+    ```
+    /nxs.close does not run inside a member repository. A member epic closes from the hub now,
+    over its merged pull requests — run /nxs.close --pr <N> from the hub instead.
+    ```
+
 - **exit 1** (a named diagnostic was printed) → **hard block.** Report the diagnostic verbatim —
-  it names which checkout is missing and how to supply it — and stop. Never attempt a partial
-  migration and never guess the hub's location.
+  it names which checkout is missing and how to supply it — and stop.
 
 In every mode, keep the preflight's `repo` identity: it is the `range:` block's `repo` value.
 
@@ -616,10 +621,6 @@ workspace: <the Phase 1.3 role or the Phase 0.5 role in --pr mode>.
 About to:
 3b. File <N> deferred-scope stub issue(s) — one open '<unplanned-label>' issue per deferred item
     (irreversible), then fill their numbers into the close record's Deferred Scope section
-4. [member mode only] Migrate the queue entry → <hub-root>/.nexus/queue/<entry-dir-name>/
-   — committed on the hub's current branch '<hub-branch>' (local git, recoverable)
-5. [member mode only] Remove the queue entry from this repo — committed on branch '<branch>'
-   (local git, recoverable)
 5b. [--pr mode only] Commit the born-at-close epic.md (if born here) + close record + lesson on
     branch 'distill/<date>-<slug>' and push it — durability; these artifacts have no feature PR
     to ride
@@ -627,22 +628,21 @@ About to:
 7. Close epic issue #<epic-issue>  (irreversible)
 ```
 
-In single-repo and hub mode without `--pr`, omit items 4–5b (and renumber) — the list reads exactly
-as today. In `--pr` mode, omit items 4–5 (never migrated) but keep 5b. When `QDIR` is a `.nexus/tmp/`
-materialization, the summary describes the entry's artifacts as **ephemeral hand-off content** —
-never as "committed" (#172; record #176 invariant 1).
+In single-repo and hub mode without `--pr`, omit item 5b (and renumber) — the list reads exactly
+as today. When `QDIR` is a `.nexus/tmp/` materialization, the summary describes the entry's
+artifacts as **ephemeral hand-off content** — never as "committed" (#172; record #176 invariant 1).
 
 Then ask via **`AskUserQuestion`** (not free text). Three options:
 
-- **close** — proceed to Phase 7.4 (file the deferred-scope stubs), then Phase 7.5 (member mode) /
-  Phase 7.6 (`--pr` mode) and then Phase 8 (post the comment, close the epic issue).
+- **close** — proceed to Phase 7.4 (file the deferred-scope stubs), then Phase 7.6 (`--pr` mode)
+  and then Phase 8 (post the comment, close the epic issue).
 - **abort** — stop; leave the epic issue open. The local artifacts stay written and **no stub issue
   is created**.
 - **review** — display the generated `close-record.md`, then ask again.
 
 **Handle the selection** (treat an "Other" answer by intent):
 
-- **close** → Phase 7.4, then Phase 7.5 in member mode, Phase 7.6 in `--pr` mode, otherwise Phase 8.
+- **close** → Phase 7.4, then Phase 7.6 in `--pr` mode, otherwise Phase 8.
 - **abort** → stop with:
 
     ```
@@ -658,10 +658,10 @@ Then ask via **`AskUserQuestion`** (not free text). Three options:
 # Phase 7.4 — File the deferred-scope stubs
 
 **Skip this phase when nothing was deferred.** Otherwise it is the **first** step after the
-checkpoint — ahead of the migration, ahead of the `--pr` commit, ahead of the close comment. That
-position is forced from both sides: creating an issue cannot be undone, so it must come after
-consent; and the close record must name the resulting issue numbers, so it must come before the
-record is committed anywhere (in `--pr` mode Phase 7.6 commits and pushes it).
+checkpoint — ahead of the `--pr` commit, ahead of the close comment. That position is forced from
+both sides: creating an issue cannot be undone, so it must come after consent; and the close
+record must name the resulting issue numbers, so it must come before the record is committed
+anywhere (in `--pr` mode Phase 7.6 commits and pushes it).
 
 1. **File the batch** authored in Phase 5, classified as an **epic** rather than a story:
 
@@ -688,44 +688,11 @@ record is committed anywhere (in `--pr` mode Phase 7.6 commits and pushes it).
 3. If filing fails outright, **stop before Phase 8**: report the failure and leave the epic issue
    open. A close comment that promises deferred scope no issue carries is worse than a re-run.
 
-# Phase 7.5 — Migrate the entry to the hub queue (member mode only)
-
-**Skip this phase entirely in single-repo and hub mode.**
-
-On an approved **close**, run the migration helper. It performs the full ordered sequence —
-copy the working-tree entry (the just-written `close-record.md` and `analyze-receipt.md`
-included), commit it in the hub (path-scoped, so unrelated hub work is untouched), **verify**
-the hub commit contains the entry byte-for-byte, and only on that confirmation remove the entry
-here and commit the deletion on the current branch. **Never reproduce these steps as inline
-git** — the ordering is the no-data-loss invariant, and it lives in the helper.
-
-```bash
-nexus close-migration migrate "${QDIR}"
-```
-
-**A member close is always non-`--pr`, and its end state stays durable** (#175): "ephemeral"
-describes where a member close *writes*, never where it *ends*. When `QDIR` is the
-`.nexus/tmp/epic-<n>/` materialization (#172), pass that path — the helper's **migration unit is
-the epic**: it commits the **union** of the ephemeral artifacts and the epic's committed per-user
-scratch (`.nexus/queue/epic-<n>/`) into exactly one hub entry, verifies it byte-for-byte (the
-gitignored source changes nothing — the helper walks the filesystem and hashes content directly),
-and then removes **both** local copies, so no tmp copy is left behind for a later `/nxs.distill`
-in this checkout to discover as a second, separately drainable entry. Drain-SLO attribution in
-the hub is unchanged: the first `range:` entry's `repo` in `close-record.md`, aged from the
-migration commit. In single-repo and hub mode no migration happens and #172's tmp-only behavior
-applies unchanged.
-
-- **exit 0** → the entry now exists in exactly one place: the hub queue. Record the printed hub
-  commit SHA and hub branch for the Phase 9 report, then continue to Phase 8.
-- **exit non-zero** → **stop before any GitHub write.** Print the helper's diagnostic verbatim.
-  The helper has already cleaned any partial hub copy; the entry is intact in this repo. Tell the
-  user to fix the named problem and re-run `/nxs.close` — the re-run is idempotent (an entry
-  already verified in the hub proceeds straight to removal).
-
 # Phase 7.6 — Commit & push the distill branch (`--pr` mode only)
 
-**Skip this phase entirely without `--pr`** (and it never coexists with Phase 7.5 — member mode is
-rejected in Phase 0.5). On an approved **close**, the close record (with Phase 7.4's stub issue
+**Skip this phase entirely without `--pr`.** A member checkout never reaches here — Phase 1.3
+(and Phase 0.5 in `--pr` mode) already refused it. On an approved **close**, the close record
+(with Phase 7.4's stub issue
 numbers already filled in) and the lesson were written inside the worktree; they have **no feature PR to ride to main**, so commit them on the
 distill branch and push it — pushing is the durability guarantee (until then the only copy is one
 worktree on one machine).
@@ -751,7 +718,7 @@ git -C <wtPath> push -u origin "distill/<date>-<slug>"
 
 # Phase 8 — Post the comments and close the epic issue
 
-In member mode this phase runs only after Phase 7.5 succeeded; in `--pr` mode, only after Phase 7.6.
+In `--pr` mode, this phase runs only after Phase 7.6 succeeded; otherwise it follows Phase 7.4 directly.
 
 ## 8.1 Amend the decision record (advisory; only when the record was superseded)
 
@@ -900,8 +867,6 @@ Close record:      ${QDIR}/close-record.md
                    (issue-sourced local: ephemeral hand-off under .nexus/tmp/ — /nxs.distill
                     consumes it; the durable copy is the epic issue's close comment)
                    | (old-contract: committed; distiller consumes it post-merge)
-Queue entry:       [member mode] migrated → <hub-root>/.nexus/queue/<entry-dir-name>/
-                   (hub commit <sha> on '<hub-branch>'); removed here (commit <sha> on '<branch>')
 Deferred scope:    filed as <N> epic stub issue(s): #<n>, #<n>, …
                    whole backlog: <backlog-query>
 Process lesson:    <docs-root>/delivery/lessons/<date>-<slug>.md
@@ -926,11 +891,6 @@ found nothing that superseded the record. **Omit the line entirely when the epic
 record**: 8.1 attempted nothing, and an absent record is not a missing amendment. Never report a
 `none` for an epic that has no record — that would claim a conformance check that never ran.
 
-In member mode, end the report with the durability instruction — closure is not durable until
-the hub commit is pushed:
-
-    ACTION REQUIRED — push the hub commit:
-        git -C <hub-root> push
 
 In single-repo and hub mode without `--pr`, omit the Queue entry line and the push instruction; the
 close record's line already says the entry stays and is consumed post-merge.
@@ -1058,18 +1018,16 @@ state, but a closed epic with an open issue misreports the pipeline.
   but are never read into a `ConceptDelta`; the close record's prose is the only carrier of
   rationale onward. The entry (scratch included) is deleted when the distillation-PR merges.
 - **Role comes from the workspace preflight** (Phase 1.3 — the shared resolver's committed
-  artifacts: manifest → hub, pointer → member, neither → single-repo), never a new heuristic.
-  Migration fires only in member mode; in single-repo and hub mode no hub write is ever attempted
-  and the entry is never removed — it must reach that checkout's `main` for its own distiller.
+  artifacts: manifest → hub, pointer → member, neither → single-repo), never a new heuristic. A
+  member checkout is refused outright (epic #215 retired the close-and-migrate path): no hub write
+  is ever attempted from a member, and its close runs from the hub instead, over its merged pull
+  requests.
 - **Range stamping is unconditional** — every close record carries the full-SHA `range:` list, in
   every mode, taken from the same base/head Phase 3 diffed.
-- **Never bypass the migration helper** — the migrate → verify → gated-remove order is encoded in
-  `close_migration.ts migrate`; never copy, commit, or remove the entry with inline git, and
-  never remove the entry unless the helper confirmed the hub commit.
+- **No committed queue entry is ever removed here** — the drain's own staged deletion, on its own
+  branch, is the only code path anywhere in the toolkit that removes one (epic #215).
 - **Cross-repo mutations run only between the Phase 7 checkpoint and the Phase 8 GitHub writes**,
   and the checkpoint summary names them with the target hub root and branch.
-- **A member close ends with the push instruction** — until the hub commit is pushed, the migrated
-  entry has no copy off this machine.
 - **`--pr` mode is post-merge, single-repo/hub, in a worktree.** Phase 0.5 gates on a merged PR and
   rejects member repos; every phase runs inside the worktree; the role and range come from the helper
   (Phase 1.3 preflight is skipped). The conformance gate reads the PR review's machine block, not the

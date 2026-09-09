@@ -120,7 +120,7 @@ describe("checkComponentComposition", () => {
         const claudeDir: string = makeClaudeFixture({
             "skills/nxs-example/scripts/example.ts": [
                 'import { a } from "@nexus/workspace/resolve";',
-                'import { b } from "@nexus/close-migration/run";',
+                'import { b } from "@nexus/workspace/run";',
                 "",
             ].join("\n"),
         });
@@ -128,6 +128,6 @@ describe("checkComponentComposition", () => {
         const violations: CompositionViolation[] = checkComponentComposition(claudeDir, []);
 
         expect(violations).toHaveLength(1);
-        expect(violations[0].imports).toEqual(["@nexus/workspace/resolve", "@nexus/close-migration/run"]);
+        expect(violations[0].imports).toEqual(["@nexus/workspace/resolve", "@nexus/workspace/run"]);
     });
 });

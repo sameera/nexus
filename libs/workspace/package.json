@@ -9,6 +9,21 @@
       "import": "./src/manifest.ts",
       "default": "./src/manifest.ts"
     },
+    "./run": {
+      "types": "./src/run.ts",
+      "import": "./src/run.ts",
+      "default": "./src/run.ts"
+    },
+    "./identity": {
+      "types": "./src/identity.ts",
+      "import": "./src/identity.ts",
+      "default": "./src/identity.ts"
+    },
+    "./close-role": {
+      "types": "./src/close-role.ts",
+      "import": "./src/close-role.ts",
+      "default": "./src/close-role.ts"
+    },
     "./remote": {
       "types": "./src/remote.ts",
       "import": "./src/remote.ts",
