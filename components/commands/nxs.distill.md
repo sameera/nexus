@@ -119,14 +119,21 @@ $ARGUMENTS
 
    **Hub mode (Phase 0.3):** the drain-SLO report spans the **whole hub queue** — every
    undrained entry (skipped-not-closed and blocked-underivable alike) is listed, none omitted,
-   and each is **attributed to its originating repo**: the first `range:` entry's `repo` in its
-   `close-record.md` when present (host-stripped, e.g. `acme/web-app`), otherwise the hub repo
-   itself (an unclosed hub-queue entry is necessarily the hub's own — migration happens only at
-   close, after the close record is written). The introducing-commit age stays correct in the
-   hub: for a migrated entry that commit *is* the migration commit, so age measures exactly how
-   long the entry has been drainable in the hub queue. Drain-SLO is measured against the hub
-   queue only — never scan member checkouts for closed-but-unmigrated entries (that is
-   migration-lag, owned by close-entry-migration / workspace-status, not this report).
+   and each is **attributed to every distinct repo its `range:` list names** (epic #214, story
+   #508 — never only the first entry's repo, which attributes an entry that shipped over several
+   pull requests to whichever repo happened to be stamped first): every distinct, host-stripped
+   `repo` (e.g. `acme/web-app`) across the entry's `close-record.md` `range:` list, in the order
+   they first appear, or the hub repo itself when the entry carries no close record yet (an
+   unclosed hub-queue entry is necessarily the hub's own — migration happens only at close, after
+   the close record is written). **Age is one figure per entry, never one per repo or per range
+   entry** — measured exactly as today, from the introducing commit (for a migrated entry that
+   commit *is* the migration commit, so age measures exactly how long the entry has been
+   drainable in the hub queue). Drain-SLO is measured against the hub queue only — never scan
+   member checkouts for closed-but-unmigrated entries (that is migration-lag, owned by
+   close-entry-migration / workspace-status, not this report). A **blocked** entry (Phase 1 Exit
+   1, or the reader's `unorderable-range`/`unreachable-sha`/`missing-checkout` diagnostics) names
+   the specific range entry — its repo, base and head — that could not be resolved, not merely
+   the entry as a whole.
 4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → **GitHub recovery mode** (#174): rebuild
    that one entry from durable GitHub state when the local copy is gone — a different machine, a
    cleared `.nexus/tmp/`, a drain days after the close. Recovery is an **explicit per-entry path,
@@ -379,14 +386,18 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 6. **Resolve each entry's provenance repo** — branch on the Phase 0.3 mode:
 
     - **Hub mode:** every provenance reference is the **qualified `<owner>/<repo>#n` form**,
-      resolved deterministically from the entry's recorded originating repo — the **first**
-      `range:` entry's `repo` in `close-record.md` frontmatter (the repo the close ran in).
-      Strip the leading host segment from the normalized identity and append the epic's `link`
-      number: `github.com/acme/web-app` + `#3` → `acme/web-app#3`. The terse `#n` form is
-      **never emitted** in hub mode — in a hub the issue never lives in the drain's own repo, so
-      a terse reference would resolve against the wrong repo. Do **not** probe issue titles with
-      `gh issue view` for this: the recorded repo is ground truth and needs no network
-      round-trip. Use the qualified form everywhere a reference is written — page frontmatter
+      resolved deterministically from the entry's recorded originating repo (epic #214, story
+      #508 — this is no longer positional). When the entry's `range:` list names exactly **one**
+      distinct repo, that is the originating repo — strip the leading host segment and append the
+      epic's `link` number: `github.com/acme/web-app` + `#3` → `acme/web-app#3`, no network
+      round-trip needed, the recorded repo is ground truth. When the list names **more than one**
+      distinct repo, probe each named repo for the epic's issue number
+      (`gh issue view <link> -R <owner>/<repo> --json title`) and require **exactly one** title
+      match; when that is not decisive (zero matches, or more than one), ask the lead via
+      `AskUserQuestion` which repo the epic issue lives in — never guess, and never default to the
+      first-named repo. The terse `#n` form is **never emitted** in hub mode — in a hub the issue
+      never lives in the drain's own repo, so a terse reference would resolve against the wrong
+      repo. Use the resolved qualified form everywhere a reference is written — page frontmatter
       `last_updated_by`, Decision Log headings, and the PR body.
     - **Single-repo mode (unchanged):** the epic's `link` (e.g. `"#3"`) is only meaningful in
       the repo where that issue lives. Check `gh issue view <n> --json title` in the home repo:

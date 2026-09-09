@@ -160,6 +160,40 @@ describe("deriveEntryDiff — happy paths", () => {
     });
 });
 
+describe("deriveEntryDiff — reporting a repository-level failure once (epic #214, story #508)", () => {
+    it("a missing checkout named by two range entries is reported once, not once per entry", () => {
+        const parent = makeParent();
+        const { hubRoot, api } = buildHubFixture(parent);
+        const fabricatedSha = "c".repeat(40);
+        fs.rmSync(api.root, { recursive: true, force: true });
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/api", base: api.base, head: api.head },
+            { repo: "github.com/acme/api", base: api.head, head: fabricatedSha },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0].problem).toBe("missing-checkout");
+    });
+
+    it("an unknown repo named by two range entries is reported once", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/ghost", base: web.base, head: web.head },
+            { repo: "github.com/acme/ghost", base: web.head, head: web.head },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0].problem).toBe("unknown-repo");
+    });
+});
+
 describe("deriveEntryDiff — pull request attribution (epic #214, story #507)", () => {
     it("carries a stamped 'pr' through to the diff and its rendered header", () => {
         const parent = makeParent();

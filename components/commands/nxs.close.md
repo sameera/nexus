@@ -884,9 +884,9 @@ scratch (`.nexus/queue/epic-<n>/`) into exactly one hub entry, verifies it byte-
 gitignored source changes nothing — the helper walks the filesystem and hashes content directly),
 and then removes **both** local copies, so no tmp copy is left behind for a later `/nxs.distill`
 in this checkout to discover as a second, separately drainable entry. Drain-SLO attribution in
-the hub is unchanged: the first `range:` entry's `repo` in `close-record.md`, aged from the
-migration commit. In single-repo and hub mode no migration happens and #172's tmp-only behavior
-applies unchanged.
+the hub names **every distinct repo** the migrated entry's `range:` list names (epic #214, story
+#508 — never only the first entry's repo), aged from the migration commit. In single-repo and
+hub mode no migration happens and #172's tmp-only behavior applies unchanged.
 
 - **exit 0** → the entry now exists in exactly one place: the hub queue. Record the printed hub
   commit SHA and hub branch for the Phase 9 report, then continue to Phase 8.
