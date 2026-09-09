@@ -398,63 +398,50 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 
 # Phase 1 — Derive the diff (never stored)
 
-The diff is recomputed from git on every run (0006) — it is never written anywhere. How it is
-recomputed branches on the Phase 0.3 mode.
-
-**Hub mode.** The recorded range is the only diff source — after migration the entry no longer
-shares history with the code, and the entry's introducing commit here is the *migration* commit
-(its diff would be the migration's file moves: confidently wrong). Never use the
-introducing-commit path in hub mode. Per entry, run the derivation tool with each
-argument its own quoted token — never a shell-interpolated string:
+The diff is recomputed from git on every run (0006) — it is never written anywhere. Both modes
+share **one reader** (decision record #513) — the range list the close record stamped is the only
+diff source in either mode, after migration the entry no longer shares history with the code
+(hub), and its introducing commit is the *migration* commit (its diff would be the migration's
+file moves: confidently wrong). Never use the introducing-commit path against a stamped range in
+either mode. Per entry, run the derivation tool with each argument its own quoted token — never a
+shell-interpolated string:
 
     ```bash
-    nexus derive-entry-diff --entry "<entry-dir>"
+    nexus derive-entry-diff --entry "<entry-dir>" [--hub <hub-root>]
     ```
 
-    If the toolkit reports no such verb, the installed toolkit predates this capability — stop and
-    tell the operator to update their Nexus install; do not derive the diff another way.
+    Omit `--hub` in single-repo mode (it defaults to the current directory). If the toolkit
+    reports no such verb, the installed toolkit predates this capability — stop and tell the
+    operator to update their Nexus install; do not derive the diff another way.
 
     The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
-    full SHAs), resolves each named repo to its sibling member checkout through the workspace
-    resolver (the hub's own entries resolve to the hub checkout), verifies both SHAs are
-    reachable, and emits **one diff per repo** — each computed as `git diff <base>...<head>`
-    inside that repo's own checkout with every pipeline store withheld, so
-    no path is ever attributed to the wrong repo. It reads only: it never clones, fetches, or
-    mutates a member checkout.
+    full SHAs — **a repo may appear in more than one entry**: an epic closed over several story
+    pull requests stamps one entry per pull request, and this reader reads every one of them,
+    never at most one per repo). In hub mode each named repo resolves to its sibling member
+    checkout through the workspace resolver (the hub's own entries resolve to the hub checkout);
+    in single-repo mode each entry resolves against this checkout's own identity, and an entry
+    naming another repo is the same unknown-repo error hub mode already gives — never read
+    silently in the wrong checkout. It verifies both SHAs of every entry are reachable, orders a
+    repo's entries by ancestry of their recorded heads (a repeated repo is read in the order its
+    changes actually landed, never the order the range list happened to stamp them in), and emits
+    **one diff per range entry** — each computed as `git diff <base>...<head>` inside that
+    entry's own checkout with every pipeline store withheld, so no path is ever attributed to the
+    wrong repo and no span is ever computed from one entry's start to another entry's end. It
+    reads only: it never clones, fetches, or mutates a checkout.
 
     - **Exit 0:** stdout carries a `=== repo <identity> checkout <path> range <base>...<head> ===`
-      header per repo followed by that repo's diff. Analyze each repo's diff against its own
-      repo.
-    - **Exit 1** (missing checkout, unreachable SHA, missing/malformed `range:` stamp,
-      unknown repo): report the tool's diagnostic **verbatim**, mark the entry **blocked** — it
-      is not drained this run and its queue files are untouched — and continue with the
-      remaining entries. Never fall back to the hub repo, never treat the failure as an empty
-      diff, never derive a partial diff, and never ask the user for a replacement range.
+      header per range entry followed by that entry's diff, in ancestry order within each repo.
+      Analyze each entry's diff against its own repo.
+    - **Exit 1** (missing checkout, unreachable SHA, unorderable heads, missing/malformed
+      `range:` stamp, unknown repo): report the tool's diagnostic **verbatim**, mark the entry
+      **blocked** — it is not drained this run and its queue files are untouched — and continue
+      with the remaining entries. Never fall back to the hub repo, never treat the failure as an
+      empty diff, never derive a partial diff, and never ask the user for a replacement range.
 
-**Single-repo mode — range-first.** Per entry, resolve the SHA range in priority order. The
-recorded `range:` is the primary source (it is exact — `/nxs.close` stamps it from the merged PR,
-and it converges single-repo onto how hub mode already derives). The introducing-commit path is only
-a fallback for legacy entries with no usable range. For an entry the Phase 0.4 gate waived as
-**not-merged**, use priority 1 (the recorded `range:`) directly:
+**Single-repo mode also keeps one legacy fallback**, for an entry with no usable range at all —
+never for a range the tool above already read successfully:
 
-1. **Recorded range in the entry** — the `range:` list in `close-record.md` frontmatter
-   (entries of `{repo, base, head}`, full SHAs — use this repo's entry), or legacy top-level
-   `base`/`head` fields in `epic.md` or `close-record.md`, if present:
-   `git diff <base>...<head>`. In continuation mode this is always the source (the close just
-   stamped it).
-
-   **More than one entry names this repo (epic #213, story #501 — until #214 ships):** an epic
-   closed over several story pull requests stamps one `range:` entry per pull request, and several
-   of them can name the same repo. This single-repo drain path cannot yet read that shape — reading
-   several entries per repository (union, latest-wins, or anything else) is issue #214's job, not
-   this one's. Do not guess which entry is authoritative or combine them. Instead, name the entry,
-   mark it **blocked** exactly like the Exit 1 handling above (not drained this run, queue files
-   untouched), and continue with the remaining entries rather than stopping the whole distill run:
-   `range-list-unsupported: close-record.md in <entry> stamps <N> range entries for repo <repo>;
-   this single-repo drain reads one entry per repository until #214 ships — drain this epic once
-   #214 lands, or drain it manually`.
-
-2. **The commit that introduced the queue entry (fallback — only when the range SHAs are
+1. **The commit that introduced the queue entry (fallback — only when the range SHAs are
    unreachable):**
 
     ```bash
@@ -468,7 +455,7 @@ a fallback for legacy entries with no usable range. For an entry the Phase 0.4 g
     multi-PR pipeline no single introducing commit holds the feature code). It exists for legacy
     single-repo entries whose recorded head was squashed away and is no longer reachable.
 
-3. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
+2. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
    user for a base/head range via `AskUserQuestion` free text; do not guess.
 
 In both modes, withhold every **pipeline store** from the behavioral analysis. Do not write the

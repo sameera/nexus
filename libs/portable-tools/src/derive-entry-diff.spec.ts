@@ -158,6 +158,105 @@ describe("deriveEntryDiff — happy paths", () => {
     });
 });
 
+describe("deriveEntryDiff — single-repo mode (epic #214, story #506)", () => {
+    it("resolves an entry against this checkout's own identity, with no workspace manifest or pointer", () => {
+        const parent = makeParent();
+        const { web } = buildHubFixture(parent);
+        const entryDir = writeEntry(web.root, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, web.root);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(1);
+        expect(result.diffs[0].checkout).toBe(web.root);
+        expect(result.diffs[0].diff).toContain("src/app.ts");
+    });
+
+    it("reads several range entries for the same repo, same as hub mode (the interim single-repo refusal is gone)", () => {
+        const parent = makeParent();
+        const { web } = buildHubFixture(parent);
+        write(web.root, "src/app.ts", "export const v = 3;\n");
+        const secondHead = commitAll(web.root, "second change");
+        const entryDir = writeEntry(web.root, [
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head },
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, web.root);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(2);
+        expect(result.diffs.every((d) => d.repo === "github.com/acme/web-app")).toBe(true);
+    });
+});
+
+describe("deriveEntryDiff — a repo named by several range entries (epic #214, story #506)", () => {
+    it("reads all of them rather than refusing the entry, in ancestry order regardless of stamp order", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        write(web.root, "src/app.ts", "export const v = 3;\n");
+        const secondHead = commitAll(web.root, "second change");
+        // Stamped out of order — the later change first, the earlier change second.
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead },
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(2);
+        // Ancestry order, not stamp order: the entry whose head is an ancestor of the other's comes first.
+        expect(result.diffs[0].head).toBe(web.head);
+        expect(result.diffs[1].head).toBe(secondHead);
+        expect(result.diffs[0].diff).toContain("v = 2");
+        expect(result.diffs[1].diff).toContain("v = 3");
+    });
+
+    it("never computes one span from the first entry's start to the last entry's end", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        write(web.root, "src/other.ts", "export const w = 1;\n");
+        const secondHead = commitAll(web.root, "unrelated second change");
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head },
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(2);
+        // Each range entry's own diff, never a base..end span that would also show src/other.ts in the first block.
+        expect(result.diffs[0].diff).not.toContain("src/other.ts");
+        expect(result.diffs[1].diff).toContain("src/other.ts");
+    });
+
+    it("two heads that cannot be ordered by ancestry stop the entry, naming both heads (no order guessed)", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        // Two divergent branches from the same base — neither head is an ancestor of the other.
+        sh(web.root, "git", "checkout", "-q", "-b", "branch-a", web.base);
+        write(web.root, "src/a.ts", "export const a = 1;\n");
+        const headA = commitAll(web.root, "branch a");
+        sh(web.root, "git", "checkout", "-q", "-b", "branch-b", web.base);
+        write(web.root, "src/b.ts", "export const b = 1;\n");
+        const headB = commitAll(web.root, "branch b");
+
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.base, head: headA },
+            { repo: "github.com/acme/web-app", base: web.base, head: headB },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors[0].problem).toBe("unorderable-range");
+        expect(result.errors[0].message).toContain(headA);
+        expect(result.errors[0].message).toContain(headB);
+    });
+});
+
 describe("deriveEntryDiff — hard errors (invariant 5)", () => {
     it("AC3: missing checkout", () => {
         const parent = makeParent();
@@ -274,17 +373,16 @@ describe("deriveEntryDiff — hard errors (invariant 5)", () => {
         expect(result.errors[0].message).toContain("github.com/acme/ghost");
     });
 
-    it("not a hub: hubDir has no manifest", () => {
+    it("single-repo mode: range naming another repo is unknown-repo, not silently read", () => {
         const parent = makeParent();
         const { web } = buildHubFixture(parent);
-        const entryDir = path.join(parent, "nowhere");
-        write(parent, "nowhere/close-record.md",
-            `---\ntitle: x\nrange:\n  - repo: github.com/acme/web-app\n    base: ${web.base}\n    head: ${web.head}\n---\n`);
+        const entryDir = writeEntry(web.root, [{ repo: "github.com/acme/ghost", base: web.base, head: web.head }]);
 
         const result = deriveEntryDiff(entryDir, web.root);
         expect(result.ok).toBe(false);
         if (result.ok) return;
-        expect(result.errors[0].problem).toBe("not-a-workspace-hub");
+        expect(result.errors[0].problem).toBe("unknown-repo");
+        expect(result.errors[0].message).toContain("github.com/acme/ghost");
     });
 
     it("git diff failure surfaces via an injected Runner", () => {

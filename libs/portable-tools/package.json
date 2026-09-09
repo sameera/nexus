@@ -15,6 +15,7 @@
     "@nexus/epic-verdicts": "workspace:*",
     "@nexus/release-identity": "workspace:*",
     "@nexus/record-digest": "workspace:*",
+    "@nexus/pr-worktree": "workspace:*",
     "yaml": "^2.9.0"
   }
 }

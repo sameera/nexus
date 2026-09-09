@@ -416,6 +416,9 @@ importers:
       '@nexus/epic-verdicts':
         specifier: workspace:*
         version: link:../epic-verdicts
+      '@nexus/pr-worktree':
+        specifier: workspace:*
+        version: link:../pr-worktree
       '@nexus/record-digest':
         specifier: workspace:*
         version: link:../record-digest

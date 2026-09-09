@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.26.0
+
+- distill: the range reader no longer refuses a repository named by more than one range
+  entry — an epic closed over several pull requests in one repository now drains, where it was
+  previously blocked. It reads every stamped range entry, orders a repository's entries by
+  ancestry of their recorded heads (never the order they happened to be stamped in), and emits
+  one diff per range entry rather than one per repository; two heads that cannot be ordered by
+  ancestry stop that entry by name rather than guessing an order. `nexus derive-entry-diff` is now
+  the single reader for both hub and single-repo mode — single-repo mode resolves each entry
+  against its own identity instead of running separate range-reading prose, and the interim
+  `range-list-unsupported` refusal single-repo mode carried is deleted.
+
 ## 0.25.0
 
 - close: closing an epic that shipped as several story pull requests now writes every close
