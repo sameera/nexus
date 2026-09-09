@@ -56,6 +56,7 @@ import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
+import { deriveRangeList } from "@nexus/pr-worktree/range-list";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -285,6 +286,11 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      keeps refusing a member outright.",
             "  nexus pr-worktree range --pr <N> [--root <dir>]",
             "      Print { repo, base, head } for a merged PR without creating a worktree.",
+            "  nexus pr-worktree range --pr <N1,N2,...> [--root <dir>]",
+            "      A comma-separated list of two or more PR numbers prints { ranges: [{ repo, base,",
+            "      head, pr }, ...] } instead — one entry per PR, in the given order, never merged or",
+            "      deduplicated per repository. The first PR whose range cannot be verified stops the",
+            "      whole call before any output is printed; a single --pr <N> keeps today's output shape.",
             "  nexus pr-worktree stories --pr <ref> --issues-repo <owner/repo> [--story <n>] [--root <dir>]",
             "      Print { epic, stories } — the validated candidate ladder that resolves a PR to the",
             "      story issue(s) it implements, without depending on same-repository closing-issue links.",
@@ -1392,14 +1398,33 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
 
     // `range` needs no mode and creates no worktree: it is the read the fix lane wants, where a
     // checkout would be built and torn down for one JSON object. Close's post-merge range is
-    // never cross-repo (epic #211 opens analyze only), so `--pr` here stays a bare number.
+    // never cross-repo (epic #211 opens analyze only), so `--pr` here is a bare number, or (story
+    // #501) a comma-separated list of them — never an owner/repo#N or URL reference.
     if (subcommand === "range") {
-        const prNumber = flags.prRef !== undefined ? Number(flags.prRef) : NaN;
-        if (Number.isNaN(prNumber)) {
-            io.stderr("usage: pr_worktree.ts range --pr <N>");
+        // A comma-separated `--pr` list (story #501) requests one range entry per PR, never a
+        // repository collapse; a single bare number keeps the existing singular shape byte-identical.
+        const prRefParts = flags.prRef !== undefined ? flags.prRef.split(",").map((s) => s.trim()) : [];
+        if (prRefParts.length === 0 || prRefParts.some((p) => p.length === 0)) {
+            io.stderr("usage: pr_worktree.ts range --pr <N>|<N1,N2,...>");
             return 2;
         }
-        const read = readRange(closeMigrationRunner, flags.root, prNumber);
+        const prNumbers = prRefParts.map(Number);
+        if (prNumbers.some((n) => Number.isNaN(n))) {
+            io.stderr("usage: pr_worktree.ts range --pr <N>|<N1,N2,...>");
+            return 2;
+        }
+
+        if (prNumbers.length > 1) {
+            const list = deriveRangeList(closeMigrationRunner, flags.root, prNumbers);
+            if (!list.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(list.error));
+                return 1;
+            }
+            io.stdout(JSON.stringify({ command: "range", ranges: list.ranges }));
+            return 0;
+        }
+
+        const read = readRange(closeMigrationRunner, flags.root, prNumbers[0]);
         if (!read.ok) {
             io.stderr(renderPrWorktreeDiagnostic(read.error));
             return 1;

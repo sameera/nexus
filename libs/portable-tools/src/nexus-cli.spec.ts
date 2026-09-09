@@ -389,6 +389,154 @@ describe("nexus pr-worktree (registration only — git/gh effect path covered by
     });
 });
 
+// Story #501: a comma-separated `--pr` list derives one range entry per pull request. This one
+// effect path is not "registration only" like its siblings above — it needs the hermetic `gh`
+// stand-in (decision record #277) the migration-axis parity corpus uses, so it is exercised here
+// with real git and a canned `gh` answer rather than only asserting a usage diagnostic.
+describe("nexus pr-worktree range --pr <list> (story #501)", () => {
+    const GH_STANDIN_DIR: string = path.join(__dirname, "..", "corpus", "bin");
+
+    async function withGhStandIn<T>(fixtureAbsPath: string, fn: () => Promise<T>): Promise<T> {
+        const prevPath = process.env.PATH;
+        const prevFixture = process.env.NEXUS_PARITY_GH_FIXTURE;
+        process.env.PATH = [GH_STANDIN_DIR, prevPath].join(path.delimiter);
+        process.env.NEXUS_PARITY_GH_FIXTURE = fixtureAbsPath;
+        try {
+            return await fn();
+        } finally {
+            process.env.PATH = prevPath;
+            if (prevFixture === undefined) delete process.env.NEXUS_PARITY_GH_FIXTURE;
+            else process.env.NEXUS_PARITY_GH_FIXTURE = prevFixture;
+        }
+    }
+
+    function shq(cwd: string, cmd: string, ...args: string[]): string {
+        return execFileSync(cmd, args, { cwd, encoding: "utf8" }).trim();
+    }
+
+    function writeFixtureCommit(dir: string, file: string, content: string, msg: string): string {
+        fs.writeFileSync(path.join(dir, file), content);
+        execFileSync("git", ["add", "-A"], { cwd: dir, stdio: "ignore" });
+        execFileSync("git", ["commit", "-q", "-m", msg], { cwd: dir, stdio: "ignore" });
+        return shq(dir, "git", "rev-parse", "HEAD");
+    }
+
+    interface SquashPrFixture {
+        number: number;
+        baseRefOid: string;
+        prHead: string;
+        mergeCommit: string;
+    }
+
+    /** A repo with a bare origin and `n` sequential squash-merged PRs, each pushed to its own pull ref. */
+    function buildSequentialSquashPrs(n: number): { repo: string; fixtures: SquashPrFixture[] } {
+        const parent: string = makeTmpDir("cli-pr-worktree-range-list-");
+        const origin: string = path.join(parent, "origin.git");
+        fs.mkdirSync(origin, { recursive: true });
+        execFileSync("git", ["init", "-q", "--bare", "-b", "main"], { cwd: origin, stdio: "ignore" });
+        const repo: string = path.join(parent, "repo");
+        fs.mkdirSync(repo, { recursive: true });
+        execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo, stdio: "ignore" });
+        execFileSync("git", ["config", "user.email", "spec@example.com"], { cwd: repo, stdio: "ignore" });
+        execFileSync("git", ["config", "user.name", "spec"], { cwd: repo, stdio: "ignore" });
+        execFileSync("git", ["remote", "add", "origin", origin], { cwd: repo, stdio: "ignore" });
+
+        let trunk: string = writeFixtureCommit(repo, "base.txt", "base\n", "C0");
+        execFileSync("git", ["push", "-q", "-u", "origin", "main"], { cwd: repo, stdio: "ignore" });
+
+        const fixtures: SquashPrFixture[] = [];
+        for (let i = 1; i <= n; i++) {
+            const baseRefOid = trunk;
+            execFileSync("git", ["checkout", "-q", "-b", `feature-${i}`, trunk], { cwd: repo, stdio: "ignore" });
+            writeFixtureCommit(repo, `f${i}a.txt`, `${i}a\n`, `F${i}A`);
+            const prHead = writeFixtureCommit(repo, `f${i}b.txt`, `${i}b\n`, `F${i}B`);
+            execFileSync("git", ["push", "-q", "origin", `feature-${i}:refs/pull/${i}/head`], { cwd: repo, stdio: "ignore" });
+            execFileSync("git", ["checkout", "-q", "main"], { cwd: repo, stdio: "ignore" });
+            execFileSync("git", ["merge", "-q", "--squash", `feature-${i}`], { cwd: repo, stdio: "ignore" });
+            execFileSync("git", ["commit", "-q", "-m", `Squash feature ${i} (#${i})`], { cwd: repo, stdio: "ignore" });
+            const mergeCommit = shq(repo, "git", "rev-parse", "HEAD");
+            trunk = mergeCommit;
+            fixtures.push({ number: i, baseRefOid, prHead, mergeCommit });
+        }
+        return { repo, fixtures };
+    }
+
+    function mergedPrViewDoc(f: SquashPrFixture): Record<string, unknown> {
+        return {
+            status: 0,
+            stdout:
+                JSON.stringify({
+                    state: "MERGED",
+                    mergedAt: "2026-09-08T00:00:00Z",
+                    baseRefOid: f.baseRefOid,
+                    headRefOid: f.prHead,
+                    mergeCommit: { oid: f.mergeCommit },
+                    commits: [{}, {}],
+                    headRefName: `feature-${f.number}`,
+                    url: `https://example.com/pr/${f.number}`,
+                    isCrossRepository: false,
+                    author: { login: "dev" },
+                }) + "\n",
+        };
+    }
+
+    function writeGhFixture(prView: Record<string, { status: number; stdout: string }>): string {
+        const dir: string = makeTmpDir("cli-pr-worktree-gh-fixture-");
+        const fixturePath: string = path.join(dir, "fixture.json");
+        fs.writeFileSync(fixturePath, JSON.stringify({ prView }));
+        return fixturePath;
+    }
+
+    it("prints one range entry per pull request, each naming the pull request it came from", async () => {
+        const { repo, fixtures } = buildSequentialSquashPrs(3);
+        const fixturePath = writeGhFixture(Object.fromEntries(fixtures.map((f) => [String(f.number), mergedPrViewDoc(f)])));
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await withGhStandIn(fixturePath, () => runNexusCli(["pr-worktree", "range", "--pr", "1,2,3"], io));
+
+        expect(code).toBe(0);
+        const printed = JSON.parse(io.out.join("")) as { command: string; ranges: Array<{ repo: string; base: string; head: string; pr: number }> };
+        expect(printed.command).toBe("range");
+        expect(printed.ranges).toHaveLength(3);
+        expect(printed.ranges.map((r) => r.pr)).toEqual([1, 2, 3]);
+        for (const [i, r] of printed.ranges.entries()) {
+            expect(r.head).toBe(fixtures[i].mergeCommit);
+            expect(r.repo.length).toBeGreaterThan(0);
+        }
+    });
+
+    it("stops before printing anything when one of several pull requests is not merged", async () => {
+        const { repo, fixtures } = buildSequentialSquashPrs(1);
+        const fixturePath = writeGhFixture({
+            "1": mergedPrViewDoc(fixtures[0]),
+            "2": {
+                status: 0,
+                stdout:
+                    JSON.stringify({
+                        state: "OPEN",
+                        mergedAt: null,
+                        baseRefOid: fixtures[0].mergeCommit,
+                        headRefOid: "0".repeat(40),
+                        mergeCommit: null,
+                        commits: [{}],
+                        headRefName: "feature-2",
+                        url: "https://example.com/pr/2",
+                        isCrossRepository: false,
+                        author: { login: "dev" },
+                    }) + "\n",
+            },
+        });
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await withGhStandIn(fixturePath, () => runNexusCli(["pr-worktree", "range", "--pr", "1,2,3"], io));
+
+        expect(code).toBe(1);
+        expect(io.out).toEqual([]);
+        expect(io.err.join("\n")).toContain("pr-not-merged");
+        expect(io.err.join("\n")).toContain("#2");
+    });
+});
+
 describe("nexus close-migration (registration only — full effect covered by the migration-axis parity corpus)", () => {
     it("preflight resolves single-repo mode from a plain git repo", async () => {
         const repo: string = makeTmpDir("cli-close-migration-");

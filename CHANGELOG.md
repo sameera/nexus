@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.23.0
+
+- close: closing an epic that shipped as several story pull requests now stamps the close
+  record's `range:` with one entry per pull request — each naming the pull request it came from —
+  instead of one entry standing in for the repository. `nexus pr-worktree range --pr
+  <N1,N2,...>` derives the whole list from the one existing merge-anchored derivation, called once
+  per pull request; a range that cannot be verified for any single pull request stops the whole
+  close before anything is written, with no partial list.
+- distill: a single-repo drain that encounters a close record stamping several `range:` entries
+  for its own repository now names the entry and blocks it (continuing with the rest of the
+  queue) instead of draining one entry and silently dropping the others — that shape needs #214's
+  reader.
+
 ## 0.22.0
 
 - close: closing an epic that shipped as several pull requests now gates on every story pull

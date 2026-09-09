@@ -548,6 +548,23 @@ Fill the seeded template and write it into the queue entry.
       epic appends entries; this epic always writes exactly one (the home repo). **In `--pr` mode**,
       `repo`/`base`/`head` are exactly the Phase 0.5 `range` output (the helper already resolved the
       identity and the merge-commit-anchored SHAs).
+
+      **Aggregate receipt, several story pull requests (epic #213, story #501).** When Phase 1.2's
+      aggregate epic receipt drove this close — the epic shipped as more than one story pull
+      request — the single-entry shape above does not apply. Write **one `range:` entry per story
+      pull request** instead, never one entry per repository: even two story pull requests landed
+      in the same repo each keep their own entry. Resolve every entry in one call, from the merge
+      gate's already-fetched story list:
+
+        ```bash
+        nexus pr-worktree range --pr <story-pr-1>,<story-pr-2>,...
+        ```
+
+      It prints `{ ranges: [{ repo, base, head, pr }, ...] }` — one item per PR, in the given
+      order, each carrying the pull request it came from. Stamp the list exactly as returned. A
+      failure (any single PR's range cannot be verified) is the **same hard stop** as an unmerged
+      PR in the merge gate above: stop **before** the close record or anything else is written —
+      never a partial `range:` list, and never a substitute range supplied by the lead.
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
     - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human
       supplied, naming the record issue it deviated from).
