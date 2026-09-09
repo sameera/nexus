@@ -48,3 +48,17 @@
   replacement flow present), not about merge timing alone — shipping the code change on this
   branch would misrepresent the acceptance criteria as met when the prerequisite behavior they
   depend on isn't buildable here yet.
+
+## 2026-09-08 — identity.ts's member-unsupported wording now echoes nxs.close.md's hard-block text verbatim
+
+- **Choice:** analyze-receipt's high finding said `libs/pr-worktree/src/identity.ts`'s comment and
+  `member-unsupported` diagnostic still describe the retired close-and-migrate flow. Fixed by
+  reusing the exact phrasing `components/commands/nxs.close.md` already gives the lead
+  ("`/nxs.close` does not run inside a member repository. A member epic closes from the hub
+  now, over its merged pull requests...") rather than writing new prose for the same refusal.
+- **Why:** two differently-worded refusals for the same retired flow is exactly the problem the
+  finding named (a lead bounced between two messages that disagree). Quoting the one
+  `nxs.close.md` already settled on removes the second wording instead of adding a third.
+- **Refuted alternative:** write a shorter, `identity.ts`-local message that just says the flow is
+  gone without repeating the hub-close instruction. Rejected because the diagnostic is the only
+  thing a `--pr` caller sees; it needs the actionable next step, not just the negative fact.

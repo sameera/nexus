@@ -2,8 +2,9 @@
  * Role gate for the --pr post-merge flow.
  *
  * Single-repo and hub may run the post-merge worktree flow; a member repo may not
- * (its close runs on the feature branch and migrates the entry to the hub, which
- * is incompatible with a post-merge worktree cut from the trunk). Role comes from
+ * (epic #215 retired the close-and-migrate path — a member epic closes from the hub
+ * instead, over its merged pull requests, which is incompatible with a post-merge
+ * worktree cut from the trunk of the member itself). Role comes from
  * the same committed artifacts close's preflight keys on — a member pointer
  * (`.nexus/config/hub.yml`) is rejected up front, before any hub resolution, so a
  * member is refused even when its hub is not checked out. Identity for the
@@ -46,8 +47,9 @@ export function resolveRole(startDir: string, run: Runner = defaultRunner): Reso
             error: {
                 problem: "member-unsupported",
                 message:
-                    `the --pr post-merge flow is not supported in a member repo; a member's /nxs.close runs on its ` +
-                    `feature branch and migrates the entry to the hub. Run /nxs.close without --pr, or drain from the hub.`,
+                    `the --pr post-merge flow is not supported in a member repo; /nxs.close does not run inside a ` +
+                    `member repository. A member epic closes from the hub now, over its merged pull requests — run ` +
+                    `/nxs.close --pr <N> from the hub instead.`,
             },
         };
     }
@@ -62,7 +64,10 @@ export function resolveRole(startDir: string, run: Runner = defaultRunner): Reso
         // Belt-and-suspenders: should have been caught above.
         return {
             ok: false,
-            error: { problem: "member-unsupported", message: `member repos do not support the --pr post-merge flow.` },
+            error: {
+                problem: "member-unsupported",
+                message: `member repos do not support the --pr post-merge flow; a member epic closes from the hub now.`,
+            },
         };
     }
     return { ok: true, resolved: { role, repoRoot: root, repoIdentity: repo.identity } };
