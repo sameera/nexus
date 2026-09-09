@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.24.0
+
+- close: closing an epic that shipped as several story pull requests, and hits a story with no
+  discoverable pull request of its own, now stops and names that story instead of reading it as an
+  ordinary missing analysis — the lead is offered a choice, per story, to waive it ("shipped inside
+  a sibling's pull request") or stop the close. Declining on any missing story leaves the epic open.
+  A waived story is written to GitHub only after the closure checkpoint, via a new `nexus
+  epic-verdicts waive-story --story <N>` command, which stamps the resolved no-pull-request marker
+  label the analyze-time aggregation already knows how to skip. The close record now names every
+  waived story and its waiver date in a `Waived Stories` section.
+
 ## 0.23.0
 
 - close: closing an epic that shipped as several story pull requests now stamps the close

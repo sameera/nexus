@@ -20,3 +20,16 @@
 - **Refuted alternative:** A repeatable `--pr <N>` flag (argv-order-dependent parsing for no
   benefit here); a separate `range-list` subcommand (splits one read-only derivation across two
   entry points for a single caller).
+
+## 2026-09-08 — The storyless-story marker write is its own `waive-story` subcommand, not a flag on `derive`
+- **Choice:** Added `nexus epic-verdicts waive-story --story <N>` as a standalone subcommand (backed
+  by `waiveStory` in `libs/epic-verdicts/src/exclusion.ts`), rather than teaching `derive` or
+  `merge-gate` an option that writes the label as a side effect of deriving/checking a verdict.
+- **Why:** Every other `epic-verdicts` subcommand is read-only — collection, trust, currency, merge
+  state — and this is the one place in the whole helper that writes to GitHub, gated on the lead's
+  explicit consent at the close checkpoint. Folding the write into a read command would make an
+  otherwise-inspectable `derive`/`merge-gate` call mutate GitHub depending on a flag, and would force
+  every caller of those commands to reason about accidental writes; a separate subcommand keeps the
+  read/write boundary at the process level, not just in the prose calling it.
+- **Refuted alternative:** A `--waive <story>` flag on `derive` that writes the label before
+  re-deriving, so one call both records consent and refreshes the verdict state.

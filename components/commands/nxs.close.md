@@ -320,10 +320,38 @@ if the user opts to analyze first, nothing later in this command should have run
    on whichever axis(es) that story failed.
 
    **No aggregate receipt at all** reads exactly like the existing **missing** state below — an epic
-   that never shipped story by story, or one with a genuine partial gap, produced no receipt for
-   `/nxs.analyze` to have written, so there is nothing this stage need tell apart from an ordinary
-   missing analysis. `/nxs.analyze` is what names a partial gap by story, at derivation time; this
-   gate only ever sees "a receipt exists" or "it doesn't".
+   that never shipped story by story produced no receipt for `/nxs.analyze` to have written, so there
+   is nothing this stage need tell apart from an ordinary missing analysis.
+
+   **Storyless-story waiver (epic #213, story #502) — checked before a missing receipt reads as plain
+   "missing."** A story that shipped inside a sibling's pull request never gets a verdict of its own,
+   so `/nxs.analyze`'s derivation reports it as a gap and recommends re-running analysis on a pull
+   request that will never exist — a loop with no exit until the lead says so. `/nxs.close` runs the
+   same shared derivation itself, once, before falling through to the generic missing-receipt handling
+   below:
+
+    ```bash
+    nexus epic-verdicts derive --epic <epic-issue>
+    ```
+
+    - `{state: "none"}` — not a single story carries a verdict. This **is** the ordinary missing state
+      below; continue there unchanged.
+    - `{state: "aggregate", receipt, ...}` — every story has a verdict after all (the local receipt file
+      was simply absent, e.g. a fresh checkout) — the command has already written it. Re-read it and
+      continue as though Phase 1.2 step 1 had found it there.
+    - `{state: "partial", missing, present}` — some stories carry a verdict and some do not. For
+      **each** story number in `missing`, render a short note naming the story, then ask via
+      `AskUserQuestion`:
+        - **"Waive — this story shipped inside a sibling's pull request"**
+        - "Stop — this story needs its own pull request or existing verdict"
+
+      Waiving writes nothing yet: collect the story number and today's date into an in-memory waived-
+      stories list, carried to Phase 4 (the close record names it) and Phase 7.4b (the marker write,
+      after the checkpoint, alongside the epic's other GitHub writes) — never before the lead has
+      committed to closing. **If any story in `missing` is left un-waived, stop: the epic does not
+      close.** This is a stop-and-ask like the conformance choice gate below, not the merge gate's hard
+      block above — the lead has a real choice, but an outstanding undecided story blocks the close the
+      same as a "no" would.
 
    The receipt also carries `record` / `record_hash` in full mode (#139) — the decision record the
    analysis checked against. **Staleness has two independent axes, and neither is inferred from the
@@ -565,6 +593,10 @@ Fill the seeded template and write it into the queue entry.
       failure (any single PR's range cannot be verified) is the **same hard stop** as an unmerged
       PR in the merge gate above: stop **before** the close record or anything else is written —
       never a partial `range:` list, and never a substitute range supplied by the lead.
+    - **Waived Stories (epic #213, story #502)** — an additional field, not part of the seeded
+      template's placeholder set (the note above): add a `## Waived Stories` body section, one line
+      per story waived in Phase 1.2's storyless-story gate — `#<story> — waived <YYYY-MM-DD>`, the
+      date collected at the moment the lead waived it. Write "none" when the close carried no waiver.
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).
     - **Deviation Rationale** — from Phase 3 (one bullet per deviation; the *why* the human
       supplied, naming the record issue it deviated from).
@@ -682,6 +714,8 @@ workspace: <the Phase 1.3 role or the Phase 0.5 role in --pr mode>.
 About to:
 3b. File <N> deferred-scope stub issue(s) — one open '<unplanned-label>' issue per deferred item
     (irreversible), then fill their numbers into the close record's Deferred Scope section
+3c. [only when Phase 1.2 waived a story] Write the no-pull-request marker on <N> waived story
+    issue(s) — the close record's Waived Stories section already names them
 4. [member mode only] Migrate the queue entry → <hub-root>/.nexus/queue/<entry-dir-name>/
    — committed on the hub's current branch '<hub-branch>' (local git, recoverable)
 5. [member mode only] Remove the queue entry from this repo — committed on branch '<branch>'
@@ -694,21 +728,24 @@ About to:
 ```
 
 In single-repo and hub mode without `--pr`, omit items 4–5b (and renumber) — the list reads exactly
-as today. In `--pr` mode, omit items 4–5 (never migrated) but keep 5b. When `QDIR` is a `.nexus/tmp/`
-materialization, the summary describes the entry's artifacts as **ephemeral hand-off content** —
-never as "committed" (#172; record #176 invariant 1).
+as today. In `--pr` mode, omit items 4–5 (never migrated) but keep 5b. Omit item 3c whenever Phase
+1.2 waived no story. When `QDIR` is a `.nexus/tmp/` materialization, the summary describes the
+entry's artifacts as **ephemeral hand-off content** — never as "committed" (#172; record #176
+invariant 1).
 
 Then ask via **`AskUserQuestion`** (not free text). Three options:
 
-- **close** — proceed to Phase 7.4 (file the deferred-scope stubs), then Phase 7.5 (member mode) /
-  Phase 7.6 (`--pr` mode) and then Phase 8 (post the comment, close the epic issue).
+- **close** — proceed to Phase 7.4 (file the deferred-scope stubs), Phase 7.4b (write any storyless
+  waiver markers), then Phase 7.5 (member mode) / Phase 7.6 (`--pr` mode) and then Phase 8 (post the
+  comment, close the epic issue).
 - **abort** — stop; leave the epic issue open. The local artifacts stay written and **no stub issue
   is created**.
 - **review** — display the generated `close-record.md`, then ask again.
 
 **Handle the selection** (treat an "Other" answer by intent):
 
-- **close** → Phase 7.4, then Phase 7.5 in member mode, Phase 7.6 in `--pr` mode, otherwise Phase 8.
+- **close** → Phase 7.4, then Phase 7.4b, then Phase 7.5 in member mode, Phase 7.6 in `--pr` mode,
+  otherwise Phase 8.
 - **abort** → stop with:
 
     ```
@@ -753,6 +790,29 @@ record is committed anywhere (in `--pr` mode Phase 7.6 commits and pushes it).
 
 3. If filing fails outright, **stop before Phase 8**: report the failure and leave the epic issue
    open. A close comment that promises deferred scope no issue carries is worse than a re-run.
+
+# Phase 7.4b — Write storyless waiver markers
+
+**Skip this phase when Phase 1.2's storyless-story gate waived nothing.** Otherwise it runs here —
+after the checkpoint, alongside Phase 7.4's other GitHub writes, ahead of the migration/`--pr` commit
+and the close comment. The marker is a durable property of the story issue (decision record #509),
+never a per-run flag, so writing it is one of *this* stage's GitHub effects, gated on the same consent
+as the stub filing above — never at Phase 1.2 detection time, before the lead had committed to
+closing.
+
+1. For **each** story collected in Phase 1.2's waived-stories list, run:
+
+    ```bash
+    nexus epic-verdicts waive-story --story <story>
+    ```
+
+    It prints `{ command: "waive-story", story, label }` on success. The close record's Waived
+    Stories section (Phase 4) already names the story and the waiver date — this step's only job is
+    to make that fact true on GitHub, not to edit the record again.
+
+2. If any call exits 1 (a named `epic-verdicts <problem>: …` diagnostic on stderr), **stop before
+   Phase 8**: report the diagnostic and leave the epic issue open. A close comment that reports a
+   story as waived while its issue still lacks the marker is worse than a re-run.
 
 # Phase 7.5 — Migrate the entry to the hub queue (member mode only)
 

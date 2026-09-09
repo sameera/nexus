@@ -41,7 +41,7 @@ import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write
 import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
-import { isExcludedStory } from "@nexus/epic-verdicts/exclusion";
+import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
@@ -242,8 +242,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Read the local aggregate analyze-receipt.md and check every story pull request's",
             "      merge state via `gh pr view`. Prints { command: \"merge-gate\", stories, allMerged,",
             "      unmerged }. Exits 1 only when the local receipt itself cannot be found/read.",
+            "  nexus epic-verdicts waive-story --story <N> [--root <startDir>]",
+            "      Write the resolved no-pull-request marker label onto a story issue via `gh issue",
+            "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
+            "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "currency", "combined", "merge-gate"],
+        subverbs: ["derive", "currency", "combined", "merge-gate", "waive-story"],
         run: runEpicVerdicts,
     },
     "record-digest": {
@@ -1017,9 +1021,10 @@ interface EpicVerdictsFlags {
     epic?: number;
     root: string;
     record?: number;
+    story?: number;
 }
 
-const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate"];
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "waive-story"];
 
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
     const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
@@ -1029,6 +1034,7 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
         if (a === "--epic") flags.epic = Number(args[++i]);
         else if (a === "--root") flags.root = args[++i];
         else if (a === "--record") flags.record = Number(args[++i]);
+        else if (a === "--story") flags.story = Number(args[++i]);
     }
     return flags;
 }
@@ -1123,6 +1129,27 @@ function resolveEpicVerdictsForCli(
  */
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
+
+    // waive-story takes --story, not --epic (it names one story issue directly, never an epic) —
+    // dispatched before the --epic check every other subverb below still enforces unconditionally.
+    if (argv[0] === "waive-story") {
+        if (flags.story === undefined || Number.isNaN(flags.story) || flags.story <= 0) {
+            io.stderr("usage: nexus epic-verdicts waive-story --story <N> [--root <startDir>]");
+            return 2;
+        }
+        const root = epicResolveTargetRoot(flags.root, io);
+        if (root === null) return 1;
+
+        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+        const result = waiveStory(closeMigrationRunner, root, flags.story, noPrLabel);
+        if (!result.ok) {
+            io.stderr(`epic-verdicts ${result.error.problem}: ${result.error.message}`);
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "waive-story", story: flags.story, label: noPrLabel }));
+        return 0;
+    }
+
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
         io.stderr("usage: nexus epic-verdicts derive|currency|combined|merge-gate --epic <N> [--record <N>] [--root <startDir>]");
         return 2;

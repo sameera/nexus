@@ -537,6 +537,64 @@ describe("nexus pr-worktree range --pr <list> (story #501)", () => {
     });
 });
 
+// Story #502: the close-time waiver's one write — `gh issue edit --add-label`. Like story #501's
+// range list above, this effect path is exercised with the hermetic `gh` stand-in rather than only
+// a registration-only usage check, since the happy and failure paths both turn on what `gh` answers.
+describe("nexus epic-verdicts waive-story (story #502)", () => {
+    const GH_STANDIN_DIR: string = path.join(__dirname, "..", "corpus", "bin");
+
+    async function withGhStandIn<T>(fixtureAbsPath: string, fn: () => Promise<T>): Promise<T> {
+        const prevPath = process.env.PATH;
+        const prevFixture = process.env.NEXUS_PARITY_GH_FIXTURE;
+        process.env.PATH = [GH_STANDIN_DIR, prevPath].join(path.delimiter);
+        process.env.NEXUS_PARITY_GH_FIXTURE = fixtureAbsPath;
+        try {
+            return await fn();
+        } finally {
+            process.env.PATH = prevPath;
+            if (prevFixture === undefined) delete process.env.NEXUS_PARITY_GH_FIXTURE;
+            else process.env.NEXUS_PARITY_GH_FIXTURE = prevFixture;
+        }
+    }
+
+    function writeGhFixture(issueEdit: Record<string, { status: number; stdout?: string; stderr?: string }>): string {
+        const dir: string = makeTmpDir("cli-epic-verdicts-gh-fixture-");
+        const fixturePath: string = path.join(dir, "fixture.json");
+        fs.writeFileSync(fixturePath, JSON.stringify({ issueEdit }));
+        return fixturePath;
+    }
+
+    it("exits 2 with a usage diagnostic when --story is missing", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-epic-verdicts-"));
+        expect(await runNexusCli(["epic-verdicts", "waive-story"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--story");
+    });
+
+    it("adds the resolved no-pull-request label and prints the command, story, and label", async () => {
+        const repo: string = makeTmpDir("cli-epic-verdicts-waive-");
+        const fixturePath = writeGhFixture({ "502": { status: 0, stdout: "" } });
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await withGhStandIn(fixturePath, () => runNexusCli(["epic-verdicts", "waive-story", "--story", "502", "--root", repo], io));
+
+        expect(code).toBe(0);
+        expect(JSON.parse(io.out.join(""))).toEqual({ command: "waive-story", story: 502, label: "no-pull-request" });
+    });
+
+    it("exits 1 with a named diagnostic when gh fails, naming the story and the label", async () => {
+        const repo: string = makeTmpDir("cli-epic-verdicts-waive-");
+        const fixturePath = writeGhFixture({ "502": { status: 1, stderr: "gh: issue #502 not found\n" } });
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await withGhStandIn(fixturePath, () => runNexusCli(["epic-verdicts", "waive-story", "--story", "502", "--root", repo], io));
+
+        expect(code).toBe(1);
+        expect(io.out).toEqual([]);
+        expect(io.err.join("\n")).toContain("502");
+        expect(io.err.join("\n")).toContain("no-pull-request");
+    });
+});
+
 describe("nexus close-migration (registration only — full effect covered by the migration-axis parity corpus)", () => {
     it("preflight resolves single-repo mode from a plain git repo", async () => {
         const repo: string = makeTmpDir("cli-close-migration-");
