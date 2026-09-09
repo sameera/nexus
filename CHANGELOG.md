@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.25.0
+
+- close: closing an epic that shipped as several story pull requests now writes every close
+  artifact on ONE branch for the whole epic, cut only after every story pull request's merge state
+  is gated and its stamped head is verified as an ancestor of the trunk the branch is about to be
+  cut from — never a branch per pull request, and never a worktree opened before those checks pass.
+  `nexus pr-worktree open --pr <N1,N2,...> --mode close --branch <b>` derives every range, verifies
+  the trunk, and opens the worktree in one all-or-nothing call, printing `{ wtPath, ranges: [...] }`
+  instead of a singular `range`; a failed trunk check names the pull request and tells the lead to
+  `git fetch origin main` and retry. A single `--pr <N>` keeps today's singular output unchanged.
+  Because every story branch commits its per-user scratch into the same epic-keyed queue path, and
+  every story pull request merges before this branch is cut and trunk-verified, every engineer's
+  notes are present on that one branch by construction — nothing separately gathers them.
+
 ## 0.24.0
 
 - close: closing an epic that shipped as several story pull requests, and hits a story with no

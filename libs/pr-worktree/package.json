@@ -39,6 +39,11 @@
       "import": "./src/worktree.ts",
       "default": "./src/worktree.ts"
     },
+    "./trunk-check": {
+      "types": "./src/trunk-check.ts",
+      "import": "./src/trunk-check.ts",
+      "default": "./src/trunk-check.ts"
+    },
     "./identity": {
       "types": "./src/identity.ts",
       "import": "./src/identity.ts",

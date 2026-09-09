@@ -26,6 +26,7 @@ export type PrWorktreeProblem =
     | "range-empty-diff"
     | "range-ambiguous"
     | "range-unrecognized"
+    | "trunk-missing-head"
     | "git-failed"
     | "worktree-base-unresolved"
     | "worktree-base-in-repo"

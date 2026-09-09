@@ -56,7 +56,8 @@ import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
-import { deriveRangeList } from "@nexus/pr-worktree/range-list";
+import { deriveRangeList, type RangeListItem } from "@nexus/pr-worktree/range-list";
+import { verifyTrunkContainsHeads } from "@nexus/pr-worktree/trunk-check";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -288,6 +289,13 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      In analyze mode, a bare N targets this checkout's own repository; 'owner/repo#N' or a",
             "      pull-request URL may target any member the hub's workspace manifest declares. Close",
             "      keeps refusing a member outright.",
+            "  nexus pr-worktree open --pr <N1,N2,...> --mode close --branch <distill/...> [--root <dir>]",
+            "      A comma-separated list of two or more PR numbers opens ONE worktree/branch for the",
+            "      whole epic (never one per PR) and prints { wtPath, ranges: [{ repo, base, head, pr },",
+            "      ...] } instead of a singular range. Every range is derived and every stamped head is",
+            "      verified as an ancestor of the trunk BEFORE the worktree is created — a failure of",
+            "      either check exits 1 with no worktree ever opened; a single --pr <N> keeps today's",
+            "      singular output shape unchanged.",
             "  nexus pr-worktree range --pr <N> [--root <dir>]",
             "      Print { repo, base, head } for a merged PR without creating a worktree.",
             "  nexus pr-worktree range --pr <N1,N2,...> [--root <dir>]",
@@ -1468,6 +1476,82 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
         if (flags.mode !== "analyze" && flags.mode !== "close") {
             io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
             return 2;
+        }
+
+        // A comma-separated `--pr` list (story #503, decision record #509) opens ONE worktree/branch
+        // for the whole epic, never one per PR. Order-inversion is the whole point: every range is
+        // derived and every stamped head is verified as an ancestor of the trunk BEFORE any worktree
+        // exists — never cut a branch, then discover a later PR's range or trunk membership fails.
+        // Only `open --mode close` grows this path; preflight and a member analyze target stay
+        // single-PR (a member PR isn't part of this epic-wide close flow at all).
+        if (subcommand === "open" && flags.mode === "close" && flags.prRef.includes(",")) {
+            const prRefParts = flags.prRef.split(",").map((s) => s.trim());
+            if (prRefParts.some((p) => p.length === 0)) {
+                io.stderr("usage: pr_worktree.ts open --pr <N1,N2,...> --mode close --branch <b>");
+                return 2;
+            }
+            const prNumbers = prRefParts.map(Number);
+            if (prNumbers.some((n) => Number.isNaN(n))) {
+                io.stderr("usage: pr_worktree.ts open --pr <N1,N2,...> --mode close --branch <b>");
+                return 2;
+            }
+            if (!flags.branch) {
+                io.stderr("usage: pr_worktree.ts open --pr <N1,N2,...> --mode close --branch <distill/...>");
+                return 2;
+            }
+
+            const role = resolveRole(flags.root, closeMigrationRunner);
+            if (!role.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(role.error));
+                return 1;
+            }
+            const { repoRoot } = role.resolved;
+
+            const list = deriveRangeList(closeMigrationRunner, repoRoot, prNumbers);
+            if (!list.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(list.error));
+                return 1;
+            }
+
+            // Resolve the trunk exactly the way `openCloseWorktree` is about to (best-effort refresh,
+            // falling back to the local ref offline) — duplicated rather than exported from
+            // worktree.ts, because this resolution must happen and be verified BEFORE the worktree is
+            // opened, while `openCloseWorktree` only ever resolves it internally, after it has already
+            // decided to create or reuse one.
+            closeMigrationRunner("git", ["fetch", "origin", "main"], { cwd: repoRoot });
+            const trunk =
+                git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "origin/main") ??
+                git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "main");
+            if (trunk === null) {
+                io.stderr(renderPrWorktreeDiagnostic({ problem: "git-failed", message: `neither origin/main nor main resolves in ${repoRoot}.` }));
+                return 1;
+            }
+
+            const verified = verifyTrunkContainsHeads(
+                closeMigrationRunner,
+                repoRoot,
+                trunk,
+                list.ranges.map((r: RangeListItem) => ({ pr: r.pr, head: r.head })),
+            );
+            if (!verified.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(verified.error));
+                return 1;
+            }
+
+            const wt = openCloseWorktree(closeMigrationRunner, repoRoot, flags.branch);
+            if (!wt.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(wt.error));
+                return 1;
+            }
+            io.stdout(
+                JSON.stringify({
+                    command: "open",
+                    mode: "close",
+                    wtPath: wt.wtPath,
+                    ranges: list.ranges.map((r: RangeListItem) => ({ repo: r.repo, base: r.base, head: r.head, pr: r.pr })),
+                }),
+            );
+            return 0;
         }
 
         // Analyze accepts a member (a bare number self-selects this checkout; a repo-qualified

@@ -33,3 +33,20 @@
   read/write boundary at the process level, not just in the prose calling it.
 - **Refuted alternative:** A `--waive <story>` flag on `derive` that writes the label before
   re-deriving, so one call both records consent and refreshes the verdict state.
+
+## 2026-09-08 — The trunk-SHA resolution for the multi-PR open path is duplicated, not exported from `worktree.ts`
+- **Choice:** The multi-PR `open --mode close` handler in `nexus-cli.ts` resolves the trunk itself
+  (`git fetch origin main` best-effort, then `rev-parse --verify origin/main` falling back to
+  `main`) before calling `verifyTrunkContainsHeads`, then calls `openCloseWorktree` afterward, which
+  resolves the same trunk internally a second time — rather than exporting `openCloseWorktree`'s
+  internal trunk resolution as a shared helper both call sites use.
+- **Why:** The order-inversion requirement (decision record #509) is that every stamped head is
+  verified against the trunk *before* any worktree exists. `openCloseWorktree` only ever resolves
+  the trunk internally, at the moment it has already decided to create or reuse a worktree — there
+  is no point in its contract where the trunk is resolved and handed back without also cutting
+  something. Exporting a shared resolver would mean either changing `openCloseWorktree`'s signature
+  to accept a pre-resolved trunk (churn on the single-PR call site, which the task explicitly says
+  is out of scope this story) or adding a new export whose only caller is this one multi-PR path —
+  two lines of duplication cost less than either.
+- **Refuted alternative:** Export a `resolveTrunk(run, repoRoot, trunkRef)` helper from `worktree.ts`
+  and have both `openCloseWorktree` and the multi-PR CLI path call it.

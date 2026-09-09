@@ -144,6 +144,53 @@ single-repo and hub mode only.
     merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for Phase 3 and the
     Phase 4 stamp.**
 
+    **Multi-PR case (epic #213, story #503) — when the epic shipped as several story pull requests,
+    step 3 above does not apply.** Determine this from the same merge-state check Phase 1.2 runs
+    below (cross-reference it there for what it checks and how it reports an unmerged pull request;
+    this step does not restate its mechanics):
+
+    ```bash
+    nexus epic-verdicts merge-gate --epic <epic-issue>
+    ```
+
+    `{ stories, allMerged, unmerged }` names every story's pull request — more than one distinct
+    pull request in `stories` is the multi-PR case. **`allMerged` must be `true` before you go
+    further**, with no waiver, exactly as Phase 1.2 blocks on it; report an unmerged one the same way
+    and stop. (Phase 1.2 re-reads the aggregate receipt and re-checks this later from inside the
+    worktree — running the check here first, before any worktree exists, is what makes the
+    order-inversion below real rather than assumed.)
+
+    Once every pull request is merged, open **ONE worktree/branch for the whole epic — never one per
+    pull request** — deriving every range and verifying the trunk **before** it is cut (decision
+    record #509's order-inversion requirement: never create a worktree, then discover a later pull
+    request's range or trunk membership fails):
+
+    ```bash
+    nexus pr-worktree open --pr <pr-1>,<pr-2>,... --mode close \
+      --branch "distill/$(date +%Y-%m-%d)-<epic-slug-or-epic-issue>"
+    ```
+
+    using the pull request numbers `merge-gate`'s `stories` list named. This single call derives
+    every range, verifies every stamped head is an ancestor of the trunk the branch is about to be
+    cut from, and only then opens the worktree — all-or-nothing, and no worktree is ever created if
+    either check fails.
+
+    On exit 1, the diagnostic names either an unresolvable range (the same hard stop as an unmerged
+    pull request above) or a trunk missing a stamped head. **For the trunk case specifically**, tell
+    the lead the local trunk is behind a recent merge: re-run after `git fetch origin main` catches
+    it up — never proceed on a stale one.
+
+    On success it prints `{ wtPath, ranges: [{ repo, base, head, pr }, ...] }` — plural, one entry per
+    pull request, in the given order. **Keep every one of these SHAs for Phase 3 and the Phase 4
+    stamp**, exactly as `range` is kept in the single-PR case above (Phase 4's multi-entry `range:`
+    stamp, story #501, already expects this shape).
+
+    Because every story branch commits its per-user scratch into this same epic-keyed path
+    (`.nexus/queue/epic-<epic-issue>/<user>/notes-*.md`, read unchanged in Phase 2) and every story
+    pull request merged before this branch was cut and trunk-verified above, the union of every
+    engineer's notes is present at that one path **by construction** — nothing here gathers notes
+    separately.
+
 4. **Resolve `QDIR` — dual: born-at-close, else a committed entry (invariant 14, 15).** Operate
    inside `wtPath` for every path operation below.
     - **Committed entry present** — a path was given, or a directory **containing `epic.md`** for this
