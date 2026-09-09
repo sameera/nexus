@@ -49,6 +49,11 @@
       "import": "./src/receipt.ts",
       "default": "./src/receipt.ts"
     },
+    "./merge-gate": {
+      "types": "./src/merge-gate.ts",
+      "import": "./src/merge-gate.ts",
+      "default": "./src/merge-gate.ts"
+    },
     "./write": {
       "types": "./src/write.ts",
       "import": "./src/write.ts",

@@ -43,8 +43,9 @@ import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { isExcludedStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
+import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
-import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
+import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
@@ -236,8 +237,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus epic-verdicts combined --epic <N> [--root <startDir>]",
             "      Print the union of every story pull request's own changed-file set, for judging",
             "      the epic's success metrics and cross-story invariants against the combined code.",
+            "  nexus epic-verdicts merge-gate --epic <N> [--root <startDir>]",
+            "      Read the local aggregate analyze-receipt.md and check every story pull request's",
+            "      merge state via `gh pr view`. Prints { command: \"merge-gate\", stories, allMerged,",
+            "      unmerged }. Exits 1 only when the local receipt itself cannot be found/read.",
         ].join("\n"),
-        subverbs: ["derive", "currency", "combined"],
+        subverbs: ["derive", "currency", "combined", "merge-gate"],
         run: runEpicVerdicts,
     },
     "record-digest": {
@@ -1008,7 +1013,7 @@ interface EpicVerdictsFlags {
     record?: number;
 }
 
-const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined"];
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate"];
 
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
     const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
@@ -1113,12 +1118,26 @@ function resolveEpicVerdictsForCli(
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive|currency|combined --epic <N> [--record <N>] [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|currency|combined|merge-gate --epic <N> [--record <N>] [--root <startDir>]");
         return 2;
     }
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
+
+    if (argv[0] === "merge-gate") {
+        // Merge state is a narrower, local-file read — the already-written aggregate receipt names
+        // every story's repo+pr, so this never re-runs collection/discovery the way derive/currency do.
+        const receiptPath = path.join(path.dirname(defaultOutPath(root, flags.epic)), EPIC_RECEIPT_FILENAME);
+        const receipt = readEpicReceipt(receiptPath);
+        if (receipt === null) {
+            io.stderr(`epic-verdicts receipt-missing: no aggregate epic receipt found at ${receiptPath}`);
+            return 1;
+        }
+        const gate = checkEpicMergeGate(closeMigrationRunner, root, receipt);
+        io.stdout(JSON.stringify({ command: "merge-gate", ...gate }));
+        return 0;
+    }
 
     const resolved = resolveEpicVerdictsForCli(root, flags.epic);
     if (!resolved.ok) {

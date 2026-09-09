@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.22.0
+
+- close: closing an epic that shipped as several pull requests now gates on every story pull
+  request being merged, checked before the existing currency choice gate. A story pull request
+  still open stops the close and names that pull request and its story — a hard block with no
+  waiver offered, distinct from the currency check's stop-or-waive choice.
+
 ## 0.21.0
 
 - analyze/close: `nexus epic-verdicts derive|currency|combined` no longer refuses to run against an

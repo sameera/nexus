@@ -281,8 +281,32 @@ if the user opts to analyze first, nothing later in this command should have run
 
    **Aggregate receipt (epic #212).** A local-mode `analyze-receipt.md` carrying a `stories:` list
    instead of a single `head:` is the epic-wide receipt `/nxs.analyze` derived from the story
-   verdicts. Re-check its currency with the same shared helper that derived it — never re-derive it
-   yourself:
+   verdicts.
+
+   **Merge gate (epic #213, story #500) — check this FIRST, before currency.** An epic that shipped
+   as several pull requests cannot close while any one of them is still open — sub-issue-closed
+   (Phase 1.1) is a separate precondition and does not imply the pull request merged. Run:
+
+    ```bash
+    nexus epic-verdicts merge-gate --epic <epic-issue>
+    ```
+
+   It prints `{ stories, allMerged, unmerged }` — the live merge state of every story's pull
+   request. **If `allMerged` is `false`, block and report every unmerged pull request by name, then
+   stop.** This is a hard block with **no waiver offered** — unlike the currency choice gate below,
+   there is no option to proceed past an unmerged pull request:
+
+    ```
+    Cannot close epic #<epic-issue>: <N> story pull request(s) not yet merged.
+
+      #<pr> (story #<story>, <repo>) — <state>
+      …
+
+    Merge each pull request before closing the epic. This command never merges a pull request itself.
+    ```
+
+   Only once `allMerged` is `true` do you re-check currency with the same shared helper that derived
+   it — never re-derive it yourself:
 
     ```bash
     nexus epic-verdicts currency --epic <epic-issue> ${record:+--record $record}
