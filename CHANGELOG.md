@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.14.0
+
+- A new `nexus queue-relocate` verb one-shot relocates every stranded entry sitting in a
+  member's committed queue into the hub queue, in preparation for retiring `close`'s
+  member-specific migration path: it gates every candidate entry across every present member
+  before copying any of them, copies bytes without editing them, commits each entry path-scoped
+  in the hub, and verifies the commit byte for byte against the source. It never removes the
+  member-side copy — it prints the removal command for the lead to run as an ordinary commit.
+  Re-running it against an already-relocated workspace copies nothing.
+- `nexus workspace status` now names any present member whose committed queue still holds an
+  entry, and says whether it has already been relocated to the hub or still needs
+  `nexus queue-relocate`; the line persists until the member-side copy is gone.
+
 ## 0.13.0
 
 - analyze: the gate now runs only for an epic entry. Instead of naming each non-epic kind in its

@@ -34,6 +34,7 @@ import {
     renderPreflight,
 } from "@nexus/close-migration/render";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migration/run";
+import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
@@ -263,6 +264,17 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         subverbs: CLOSE_MIGRATION_SUBVERBS,
         run: runCloseMigration,
+    },
+    "queue-relocate": {
+        summary: "One-shot: relocate every stranded member-queue entry into the hub queue.",
+        usage: [
+            "  nexus queue-relocate [hub-dir]",
+            "      Copy every present member's committed queue entries into the hub queue (default:",
+            "      the current directory, which must be the hub), commit each path-scoped, and",
+            "      verify byte for byte. Never removes the member-side copy; prints the removal",
+            "      command for the lead to run separately. Idempotent.",
+        ].join("\n"),
+        run: runQueueRelocate,
     },
     "generate-atlas": {
         summary: "Regenerate the concept atlas from the concept store.",
@@ -1316,6 +1328,18 @@ async function runCloseMigration(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
     io.stdout(renderMigrateOutcome(result.outcome));
+    return 0;
+}
+
+/** `nexus queue-relocate` — the one-shot relocation of stranded member-queue entries (story #510). */
+async function runQueueRelocate(argv: string[], io: CliIo): Promise<number> {
+    const root = argv[0] ? path.resolve(io.cwd, argv[0]) : io.cwd;
+    const result = relocateQueue(root);
+    if (!result.ok) {
+        io.stderr(renderRelocateFailure(result.errors));
+        return 1;
+    }
+    io.stdout(renderRelocateOutcome(result.outcome));
     return 0;
 }
 
