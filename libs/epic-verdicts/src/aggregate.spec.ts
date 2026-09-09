@@ -41,17 +41,20 @@ function ghRunner(prVerdicts: Record<number, { state: string; head: string; stor
     };
 }
 
+function candidate(pr: number, repo = SLUG, cwd = "/repo"): { pr: number; repo: typeof SLUG; cwd: string } {
+    return { pr, repo, cwd };
+}
+
 describe("resolveEpicVerdicts — derive the epic receipt from the story verdicts, or stop and name a gap (decision record #505)", () => {
     it("derives an epic receipt when every story carries a verdict", () => {
         const run = ghRunner({
             501: { state: "OPEN", head: "a".repeat(40), story: 496 },
             502: { state: "OPEN", head: "c".repeat(40), story: 497 },
         });
-        const r = resolveEpicVerdicts(run, "/repo", {
-            slug: SLUG,
+        const r = resolveEpicVerdicts(run, {
             epic: 212,
             stories: [496, 497],
-            candidatesByStory: { 496: [501], 497: [502] },
+            candidatesByStory: { 496: [candidate(501)], 497: [candidate(502)] },
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
@@ -62,11 +65,10 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
 
     it("stops as partial and names the story with no verdict, without deriving a receipt, when some stories do carry one", () => {
         const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
-        const r = resolveEpicVerdicts(run, "/repo", {
-            slug: SLUG,
+        const r = resolveEpicVerdicts(run, {
             epic: 212,
             stories: [496, 497],
-            candidatesByStory: { 496: [501], 497: [] },
+            candidatesByStory: { 496: [candidate(501)], 497: [] },
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
@@ -78,8 +80,7 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
 
     it("falls back to 'none' — today's full-epic conformance — when not a single story carries a verdict", () => {
         const run = ghRunner({});
-        const r = resolveEpicVerdicts(run, "/repo", {
-            slug: SLUG,
+        const r = resolveEpicVerdicts(run, {
             epic: 212,
             stories: [496, 497],
             candidatesByStory: { 496: [], 497: [] },
@@ -91,11 +92,10 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
 
     it("excludes a story marked as shipping without its own pull request from the coverage requirement", () => {
         const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
-        const r = resolveEpicVerdicts(run, "/repo", {
-            slug: SLUG,
+        const r = resolveEpicVerdicts(run, {
             epic: 212,
             stories: [496, 497],
-            candidatesByStory: { 496: [501], 497: [] },
+            candidatesByStory: { 496: [candidate(501)], 497: [] },
             excludedStories: [497],
         });
         expect(r.ok).toBe(true);
@@ -108,8 +108,7 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
 
     it("falls back to 'none' when every non-excluded story carries no verdict", () => {
         const run = ghRunner({});
-        const r = resolveEpicVerdicts(run, "/repo", {
-            slug: SLUG,
+        const r = resolveEpicVerdicts(run, {
             epic: 212,
             stories: [496, 497],
             candidatesByStory: { 496: [], 497: [] },
@@ -118,5 +117,20 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.state).toBe("none");
+    });
+
+    it("derives a verdict from a story whose only candidate lives in a second declared repository (invariant 11)", () => {
+        const MEMBER_SLUG = { owner: "acme", repo: "member-app" };
+        const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
+        const r = resolveEpicVerdicts(run, {
+            epic: 212,
+            stories: [496],
+            candidatesByStory: { 496: [candidate(501, MEMBER_SLUG, "/member")] },
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.state).toBe("aggregate");
+        if (r.state !== "aggregate") return;
+        expect(r.verdicts[0].repo).toBe("acme/member-app");
     });
 });

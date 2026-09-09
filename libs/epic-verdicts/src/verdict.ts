@@ -54,22 +54,35 @@ function collect(doc: Record<string, unknown>): Timestamped[] {
     return out;
 }
 
+/**
+ * One candidate pull request, self-describing its own repository and checkout — never a single
+ * repo/cwd shared across every candidate, so a story's pull request may live in any repository the
+ * workspace declares (decision record #505, invariants 6, 9, 11).
+ */
+export interface StoryPrCandidate {
+    pr: number;
+    repo: RepoSlug;
+    /** The checkout of `repo` to run `gh`/git against — never another repository's checkout. */
+    cwd: string;
+}
+
 export interface ResolveStoryVerdictInput {
-    slug: RepoSlug;
     epic: number;
     story: number;
-    candidates: number[];
+    candidates: StoryPrCandidate[];
 }
 
 /** Resolve `story`'s chosen verdict from `input.candidates`, applying trust and recency. */
-export function resolveStoryVerdict(run: Runner, cwd: string, input: ResolveStoryVerdictInput): ResolveStoryVerdictResult {
-    const expectedRepo = `${input.slug.owner}/${input.slug.repo}`.toLowerCase();
+export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput): ResolveStoryVerdictResult {
     const epicRef = `#${input.epic}`;
 
     let best: { at: string; verdict: StoryVerdict } | null = null;
 
-    for (const pr of input.candidates) {
-        const r = run("gh", ["pr", "view", String(pr), "--json", "state,headRefOid,baseRefOid,reviews,comments"], { cwd });
+    for (const candidate of input.candidates) {
+        const expectedRepo = `${candidate.repo.owner}/${candidate.repo.repo}`.toLowerCase();
+        const r = run("gh", ["pr", "view", String(candidate.pr), "--json", "state,headRefOid,baseRefOid,reviews,comments"], {
+            cwd: candidate.cwd,
+        });
         if (r.status !== 0) continue; // an unfetchable candidate is simply not a survivor
 
         let doc: Record<string, unknown>;
@@ -84,19 +97,19 @@ export function resolveStoryVerdict(run: Runner, cwd: string, input: ResolveStor
         const state = String(doc["state"] ?? "").toUpperCase();
         if (state !== "OPEN" && state !== "MERGED") continue; // closed-unmerged never survives
 
-        for (const candidate of collect(doc)) {
-            const receipt = parseReceiptBlock(candidate.body);
+        for (const found of collect(doc)) {
+            const receipt = parseReceiptBlock(found.body);
             if (receipt === null) continue;
             if (receipt.epic !== epicRef) continue;
             if (!receipt.stories.includes(input.story)) continue;
             if (receipt.repo !== null && receipt.repo.toLowerCase() !== expectedRepo) continue;
 
-            if (best === null || candidate.at.localeCompare(best.at) > 0) {
+            if (best === null || found.at.localeCompare(best.at) > 0) {
                 best = {
-                    at: candidate.at,
+                    at: found.at,
                     verdict: {
                         story: input.story,
-                        pr,
+                        pr: candidate.pr,
                         repo: expectedRepo,
                         state: state as "OPEN" | "MERGED",
                         head: receipt.head,
@@ -108,6 +121,6 @@ export function resolveStoryVerdict(run: Runner, cwd: string, input: ResolveStor
         }
     }
 
-    if (best === null) return { ok: true, found: false, candidates: input.candidates };
+    if (best === null) return { ok: true, found: false, candidates: input.candidates.map((c) => c.pr) };
     return { ok: true, found: true, verdict: best.verdict };
 }

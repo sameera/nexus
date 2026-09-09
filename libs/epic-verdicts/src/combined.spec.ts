@@ -85,7 +85,7 @@ describe("combinedChangeSet — the union of each story pull request's own chang
             verdict({ story: 496, pr: 501, base: trunk, head: head496 }),
             verdict({ story: 497, pr: 502, base: trunk, head: head497 }),
         ];
-        const r = combinedChangeSet(defaultRunner, clone, verdicts);
+        const r = combinedChangeSet(defaultRunner, clone, verdicts, []);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.combined.files).toEqual(["a.ts", "b.ts"]);
@@ -103,9 +103,40 @@ describe("combinedChangeSet — the union of each story pull request's own chang
         writeCommit(clone, "README.md", "root", "root");
 
         const verdicts = [verdict({ story: 496, pr: 999, base: "a".repeat(40), head: "b".repeat(40) })];
-        const r = combinedChangeSet(defaultRunner, clone, verdicts);
+        const r = combinedChangeSet(defaultRunner, clone, verdicts, []);
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.message).toContain("999");
+    });
+
+    it("withholds a pipeline store from a per-pull-request change set through the caller's own exclusion pathspecs (invariant 5)", () => {
+        const origin = makeParent();
+        sh(origin, "git", "init", "-q", "--bare");
+
+        const work = makeParent();
+        initRepo(work, origin);
+        const trunk = writeCommit(work, "README.md", "root", "root");
+        sh(work, "git", "push", "-q", "origin", "HEAD:main");
+
+        sh(work, "git", "checkout", "-qb", "story-496");
+        fs.mkdirSync(path.join(work, ".nexus", "queue"), { recursive: true });
+        fs.writeFileSync(path.join(work, ".nexus", "queue", "notes.md"), "scratch\n");
+        fs.writeFileSync(path.join(work, "a.ts"), "a");
+        sh(work, "git", "add", "-A");
+        sh(work, "git", "commit", "-qm", "story 496");
+        const head496 = sh(work, "git", "rev-parse", "HEAD");
+        sh(work, "git", "push", "-q", "origin", `${head496}:refs/pull/501/head`);
+
+        const clone = makeParent();
+        initRepo(clone, origin);
+        sh(clone, "git", "fetch", "-q", "origin", "main");
+        sh(clone, "git", "checkout", "-q", "main");
+
+        const verdicts = [verdict({ story: 496, pr: 501, base: trunk, head: head496 })];
+        const r = combinedChangeSet(defaultRunner, clone, verdicts, [":(exclude).nexus/queue"]);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.combined.files).toEqual(["a.ts"]);
+        expect(r.combined.perPr).toEqual([{ repo: "acme/widget", pr: 501, files: ["a.ts"] }]);
     });
 });

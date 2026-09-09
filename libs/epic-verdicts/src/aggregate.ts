@@ -16,18 +16,16 @@
  * missing.
  */
 
-import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { buildEpicReceipt, type EpicReceipt } from "./receipt.js";
 import { type Runner } from "./run.js";
-import { resolveStoryVerdict, type StoryVerdict } from "./verdict.js";
+import { resolveStoryVerdict, type StoryPrCandidate, type StoryVerdict } from "./verdict.js";
 
 export interface ResolveEpicVerdictsInput {
-    slug: RepoSlug;
     epic: number;
     stories: number[];
-    /** Pre-discovered candidate pull requests per story (see discover.ts). */
-    candidatesByStory: Record<number, number[]>;
+    /** Pre-discovered candidate pull requests per story, each self-describing its own repo/checkout (see discover.ts). */
+    candidatesByStory: Record<number, StoryPrCandidate[]>;
     /** Stories marked as shipping without their own pull request — excluded from coverage. */
     excludedStories?: number[];
 }
@@ -42,7 +40,7 @@ export type ResolveEpicVerdictsResult =
  * Resolve every non-excluded story's verdict and derive the epic receipt; fall back to `"none"`
  * when no required story has one, or stop as `"partial"` and name the gap when only some do.
  */
-export function resolveEpicVerdicts(run: Runner, cwd: string, input: ResolveEpicVerdictsInput): ResolveEpicVerdictsResult {
+export function resolveEpicVerdicts(run: Runner, input: ResolveEpicVerdictsInput): ResolveEpicVerdictsResult {
     const excluded = input.excludedStories ?? [];
     const required = input.stories.filter((s) => !excluded.includes(s));
 
@@ -52,7 +50,7 @@ export function resolveEpicVerdicts(run: Runner, cwd: string, input: ResolveEpic
 
     for (const story of required) {
         const candidates = input.candidatesByStory[story] ?? [];
-        const r = resolveStoryVerdict(run, cwd, { slug: input.slug, epic: input.epic, story, candidates });
+        const r = resolveStoryVerdict(run, { epic: input.epic, story, candidates });
         if (!r.ok) return r;
         if (r.found) {
             verdicts.push(r.verdict);

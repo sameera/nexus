@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.21.0
+
+- analyze/close: `nexus epic-verdicts derive|currency|combined` no longer refuses to run against an
+  epic that is itself a GitHub sub-issue (the promoted-child-of-an-initiative shape this
+  repository's own epics use) — the collection step now resolves the epic without demanding proof
+  it has no parent, a check meant only for the `--from` entry point.
+- analyze: `nexus epic-verdicts combined` now withholds the pipeline stores (`.nexus/queue`,
+  `.nexus/discovery`, the workbook) from every per-pull-request change set it unions, the same
+  exclusion every other derived diff already applies.
+- analyze/close: the story-verdict collection now searches every repository the workspace declares
+  — not only the invoking checkout's own — so a story whose pull request lives in a declared member
+  repository is found instead of silently missing.
+
 ## 0.20.0
 
 - analyze: aggregate mode now falls back to today's ordinary full-epic conformance run whenever not

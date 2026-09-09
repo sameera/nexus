@@ -34,7 +34,7 @@ import {
     renderPreflight,
 } from "@nexus/close-migration/render";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migration/run";
-import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
+import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
@@ -43,6 +43,7 @@ import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { isExcludedStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
+import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
@@ -1021,6 +1022,37 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
     return flags;
 }
 
+/** One declared repository to search for a story's pull request: its slug and its own checkout. */
+interface EpicVerdictsRepoTarget {
+    slug: RepoSlug;
+    cwd: string;
+}
+
+/**
+ * Every repository the collection must search: the single-repo root, or (in workspace mode) the
+ * hub plus every declared member that is actually checked out — an epic's story pull requests may
+ * live in any of them, and the collection must span them all (decision record #505, invariants 6,
+ * 9, 11). A member with no local checkout is silently skipped, the same as a candidate no rung of
+ * the discovery ladder turns up: its story simply has one fewer place searched.
+ */
+function epicVerdictsRepoTargets(root: string): { ok: true; targets: EpicVerdictsRepoTarget[] } | { ok: false; message: string } {
+    const workspaceResult = resolveWorkspace(root);
+    if (!workspaceResult.ok) return { ok: false, message: renderWorkspaceStatus(workspaceResult) };
+
+    const roots: string[] =
+        workspaceResult.workspace.mode === "workspace"
+            ? [workspaceResult.workspace.hubRoot, ...workspaceResult.workspace.members.filter((m) => m.checkout === "present").map((m) => m.expectedPath)]
+            : [workspaceResult.workspace.root];
+
+    const targets: EpicVerdictsRepoTarget[] = [];
+    for (const cwd of roots) {
+        const slugResult = resolveRepoSlug(closeMigrationRunner, cwd);
+        if (!slugResult.ok) return { ok: false, message: `epic-verdicts ${slugResult.error.problem}: ${slugResult.error.message}` };
+        targets.push({ slug: slugResult.slug, cwd });
+    }
+    return { ok: true, targets };
+}
+
 /**
  * Resolve the epic's story verdicts — the collection/trust/recency step shared by both
  * `epic-verdicts derive` and `epic-verdicts currency` (decision record #505, key decision
@@ -1030,16 +1062,20 @@ function resolveEpicVerdictsForCli(
     root: string,
     epic: number,
 ): { ok: true; result: ResolveEpicVerdictsResult } | { ok: false; message: string } {
-    const resolved = resolveEpic(closeMigrationRunner, root, epic, { requireEpic: true });
+    // Internal stage (derive/currency/combined already know `epic` is an epic): this repo's own
+    // epics are promoted children of a tracking issue, so requireEpic's parent-issue check would
+    // wrongly reject them (resolveEpic's own doc comment on ResolveEpicOptions.requireEpic).
+    const resolved = resolveEpic(closeMigrationRunner, root, epic, { requireEpic: false });
     if (!resolved.ok) return { ok: false, message: renderEpicResolveDiagnostic(resolved.error) };
 
-    const slugResult = resolveRepoSlug(closeMigrationRunner, root);
-    if (!slugResult.ok) return { ok: false, message: `epic-verdicts ${slugResult.error.problem}: ${slugResult.error.message}` };
+    const targetsResult = epicVerdictsRepoTargets(root);
+    if (!targetsResult.ok) return targetsResult;
+    const targets = targetsResult.targets;
 
     const stories = resolved.resolved.stories.map((s) => s.number);
     const noPrLabel = resolvePublishingKey(root, "no-pr-label");
     const excludedStories: number[] = [];
-    const candidatesByStory: Record<number, number[]> = {};
+    const candidatesByStory: Record<number, StoryPrCandidate[]> = {};
     for (const story of stories) {
         if (noPrLabel.length > 0) {
             const labelsResult = closeMigrationRunner("gh", ["issue", "view", String(story), "--json", "labels", "--jq", ".labels[].name"], {
@@ -1051,11 +1087,16 @@ function resolveEpicVerdictsForCli(
                 continue;
             }
         }
-        candidatesByStory[story] = discoverCandidatePrs(closeMigrationRunner, root, slugResult.slug, story).map((c) => c.pr);
+        const candidates: StoryPrCandidate[] = [];
+        for (const target of targets) {
+            for (const found of discoverCandidatePrs(closeMigrationRunner, target.cwd, target.slug, story)) {
+                candidates.push({ pr: found.pr, repo: target.slug, cwd: target.cwd });
+            }
+        }
+        candidatesByStory[story] = candidates;
     }
 
-    const result = resolveEpicVerdicts(closeMigrationRunner, root, {
-        slug: slugResult.slug,
+    const result = resolveEpicVerdicts(closeMigrationRunner, {
         epic,
         stories,
         candidatesByStory,
@@ -1116,7 +1157,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (argv[0] === "combined") {
-        const combined = combinedChangeSet(closeMigrationRunner, root, result.verdicts);
+        const combined = combinedChangeSet(closeMigrationRunner, root, result.verdicts, excludePathspecs());
         if (!combined.ok) {
             io.stderr(`epic-verdicts ${combined.error.problem}: ${combined.error.message}`);
             return 1;

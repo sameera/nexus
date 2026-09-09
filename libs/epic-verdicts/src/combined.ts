@@ -43,8 +43,19 @@ function distinctVerdicts(verdicts: StoryVerdict[]): StoryVerdict[] {
     return out;
 }
 
-/** Union every distinct verdict's own `base...head` diff, fetching each pull request's head first. */
-export function combinedChangeSet(run: Runner, cwd: string, verdicts: StoryVerdict[]): CombinedChangeSetResult {
+/**
+ * Union every distinct verdict's own `base...head` diff, fetching each pull request's head first.
+ *
+ * `excludePathspecs` withholds the pipeline stores (decision record #505, invariant 5): the caller
+ * passes the toolkit's one exclusion set (`@nexus/portable-tools` pipeline-stores.ts's
+ * `excludePathspecs()`) rather than this module stating its own copy of the store list.
+ */
+export function combinedChangeSet(
+    run: Runner,
+    cwd: string,
+    verdicts: StoryVerdict[],
+    excludePathspecs: string[],
+): CombinedChangeSetResult {
     const perPr: PrChangeSet[] = [];
     const union = new Set<string>();
 
@@ -56,7 +67,7 @@ export function combinedChangeSet(run: Runner, cwd: string, verdicts: StoryVerdi
                 error: { problem: "gh-failed", message: `could not fetch pull request #${v.pr}'s head into ${cwd}` },
             };
         }
-        const diffOutput = git(run, cwd, "diff", "--name-only", `${v.base}...${v.head}`);
+        const diffOutput = git(run, cwd, "diff", "--name-only", `${v.base}...${v.head}`, "--", ".", ...excludePathspecs);
         if (diffOutput === null) {
             return {
                 ok: false,
