@@ -782,7 +782,11 @@ describe("the neighbour list is bounded per entry (#223)", () => {
         }
         expect(findings.filter((f) => f.severity !== "advisory")).toEqual([]);
 
-        const hub: Finding | undefined = findings.find((f) => f.message.includes("high-degree"));
+        // distiller.md is the store's hub — by far the most cross-referenced page — so it must
+        // be named among the high-degree advisories. Other pages may cross the same advisory
+        // ceiling too (crossing it is never a reason to split a page or drop an edge), so this
+        // checks distiller.md is flagged, not that it is the sole or first such finding.
+        const hub: Finding | undefined = findings.find((f) => f.message.includes("high-degree") && f.file.includes("distiller.md"));
         expect(hub?.file).toContain("distiller.md");
     });
 });
