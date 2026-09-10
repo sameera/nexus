@@ -218,6 +218,62 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
     the result in Phase 3. Read the invariants from the **record issue body** (the same fetch), not
     from any local copy.
 
+## Phase 0.6 — Aggregate mode: an epic whose stories already shipped their own verdicts
+
+**Local mode only** (not `--pr` — a `--pr` run always analyzes the one PR it was pointed at) and
+**full mode only** (Phase 0.5 resolved a record). Some epics ship story by story, each on its own
+pull request analyzed with `/nxs.analyze --pr`; when that has already happened, deriving a fresh
+epic-wide verdict from scratch would re-run conformance a second time over code that was already
+judged (decision record #505). Detect this before Phase 1 does any of its own diff-reading:
+
+```bash
+nexus epic-verdicts derive --epic <epic-issue>
+```
+
+This is the one shared program `/nxs.close` also calls (never a second copy of the collection,
+trust and recency rules) — it resolves each story's candidate pull requests, validates each
+candidate's `<!-- nexus:analyze-receipt -->` block against the trust rules record #495 fixed
+(repository-scoped, newest-wins by GitHub's own submission timestamp, open-or-merged only), and
+returns one of two states on stdout as JSON:
+
+-   **`"aggregate"`** — every story carries a trusted verdict. The command already wrote the epic
+    receipt (`analyze-receipt.md` beside the resolved `epic.md`, per the #171 placement contract) and
+    printed it back as `receipt`. **Skip Phase 1 and Phase 2's per-story work entirely** — there is
+    nothing left to read or judge story-by-story.
+
+    One judgment still has to run: the epic's **success metrics** and any **decision-record
+    invariant that spans two stories** are properties of the finished capability, so no single
+    story's pull request can be scored against them. Get the code that judgment reads with:
+
+    ```bash
+    nexus epic-verdicts combined --epic <epic-issue>
+    ```
+
+    This prints the **union** of every story pull request's own changed-file set — each pull
+    request's own diff, never a range spanning two of them — read from each pull request's own
+    repository checkout, no worktree created. Judge the epic's success metrics and every
+    cross-story invariant against this combined set the same way Phase 2 judges a single-PR run
+    against its diff. A finding that only the combined set shows is attributed to **the epic**, never
+    to one story; a cross-story check the combined set cannot decide (it depends on code that only
+    exists once the stories are integrated, and they have not all merged) is reported as
+    **unverifiable**, naming what would decide it — never passed silently. Then go to Phase 3 and
+    report both: the findings summed per distinct verdict (never per story — a verdict covering two
+    stories counts once) plus this cross-story judgment, and the pull requests the receipt was
+    derived from.
+-   **`"none"`** — not a single required story carries a verdict: this epic never shipped story by
+    story. The command wrote no receipt. **Fall through to Phase 1 and run exactly as today** — this
+    is the ordinary full-epic path, not a gap. A story marked as shipping without its own pull
+    request (`no-pr-label`) never counts against this: an epic every one of whose *other* stories is
+    unmarked and unverdicted still reads as `"none"`, not `"partial"`.
+-   **`"partial"`** — some required stories carry a verdict and some do not. The command wrote no
+    receipt. Report the gap by story name — `missing` lists the stories with no verdict, `present`
+    the ones that do — and recommend running `/nxs.analyze --pr <N>` on each missing story's pull
+    request. **Do not fall through to Phase 1** on this state; deriving a receipt from only the
+    present stories would silently under-report the epic.
+
+Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
+verdict — report it and stop, the same as any other unreadable-record failure in this command.
+
 # Phase 1 — Gather the implementation surface
 
 Determine what was actually built for this epic. Use, in order of availability:

@@ -5,6 +5,62 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.21.0
+
+- analyze/close: `nexus epic-verdicts derive|currency|combined` no longer refuses to run against an
+  epic that is itself a GitHub sub-issue (the promoted-child-of-an-initiative shape this
+  repository's own epics use) — the collection step now resolves the epic without demanding proof
+  it has no parent, a check meant only for the `--from` entry point.
+- analyze: `nexus epic-verdicts combined` now withholds the pipeline stores (`.nexus/queue`,
+  `.nexus/discovery`, the workbook) from every per-pull-request change set it unions, the same
+  exclusion every other derived diff already applies.
+- analyze/close: the story-verdict collection now searches every repository the workspace declares
+  — not only the invoking checkout's own — so a story whose pull request lives in a declared member
+  repository is found instead of silently missing.
+
+## 0.20.0
+
+- analyze: aggregate mode now falls back to today's ordinary full-epic conformance run whenever not
+  a single required story carries a verdict — previously this was reported the same as a genuine
+  partial gap. Only a mix of some-verdict/some-not stories now stops and names the gap. A story
+  marked with the new `no-pr-label` (resolved through the shared publishing resolver, default
+  `no-pull-request`) ships without its own pull request by design: it is excluded from the coverage
+  requirement and named as excluded on the epic receipt, and never counts toward either the
+  fallback or the partial-gap state.
+
+## 0.19.0
+
+- analyze: aggregate mode now judges the epic's success metrics and any decision-record invariant
+  spanning two stories against the **combined** code of every story pull request — the one
+  judgment no single story's own PR can carry. The new `nexus epic-verdicts combined` read prints
+  the union of each story pull request's own changed-file set (each pull request's own diff, never
+  a range spanning two of them, and no worktree created); a finding only the combined set shows is
+  attributed to the epic rather than to a single story, and a cross-story check the combined set
+  cannot yet decide is reported as unverifiable rather than passed silently.
+
+## 0.18.0
+
+- close: the choice gate now recognizes the aggregate epic receipt (a `stories:` list instead of a
+  single `head:`) and re-checks it with the same `nexus epic-verdicts` helper that derived it,
+  rather than reading it as a stale single-head receipt. A stale story is reported by name, on
+  whichever axis — code or decision-record — it failed, never collapsed into one epic-wide "stale"
+  statement. `nexus epic-verdicts currency` is the new read: it re-checks each story's verdict
+  against that story's pull request's current head and, when a record is named, the record's
+  current digest, and reuses `pr-acceptance`'s receipt parser (now also surfacing the stamped
+  `record` / `record_hash` fields) instead of a second parser.
+
+## 0.17.0
+
+- analyze: when an epic's stories were each analyzed on their own pull request, `/nxs.analyze` run
+  against the epic now detects their published verdicts and derives one epic receipt from them
+  instead of re-running conformance from scratch. A story carrying no verdict on any of its
+  candidate pull requests stops the derivation and names that story, rather than deriving a receipt
+  with a silent hole in it. Findings are summed once per distinct verdict, never per story, so a
+  verdict covering two stories is not double-counted. The new `nexus epic-verdicts derive` helper
+  is the one program both `/nxs.analyze` and (soon) `/nxs.close` call for this, sharing the
+  collection, trust and recency rules record #495 already fixed for a single pull request's
+  verdict.
+
 ## 0.16.0
 
 - analyze: `--pr` now resolves the epic and stories correctly for two pull-request shapes that

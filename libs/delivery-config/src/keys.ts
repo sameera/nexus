@@ -50,6 +50,10 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     { githubKey: "in-progress-label", normalized: "inProgressLabel", builtin: "in-progress" },
     // The unplanned-state marker on an epic stub. One key, one label, no family.
     { githubKey: "unplanned-label", normalized: "unplannedLabel", builtin: "needs-refinement" },
+    // A story that legitimately ships with no pull request of its own (decision record #505,
+    // epic #212). One concept shared by the epic-receipt coverage check and #213's close waiver —
+    // never two labels for the same fact.
+    { githubKey: "no-pr-label", normalized: "noPrLabel", builtin: "no-pull-request" },
 ];
 
 /** The catalogue row for a github-block key, or undefined when the catalogue declares none. */

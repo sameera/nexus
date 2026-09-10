@@ -285,6 +285,10 @@ export interface AnalyzeReceipt {
     repo: string | null;
     /** The story issue number(s) this verdict covers. Empty when the receipt predates story scoping. */
     stories: number[];
+    /** The decision record this verdict checked against (full mode), or null in degraded mode. */
+    record: string | null;
+    /** The record's full digest at analysis time, or null in degraded mode. */
+    recordHash: string | null;
 }
 
 export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
@@ -315,6 +319,8 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
         findings,
         repo: fields.get("repo")?.trim() || null,
         stories,
+        record: fields.get("record")?.trim() || null,
+        recordHash: fields.get("record_hash")?.trim() || null,
     };
 }
 

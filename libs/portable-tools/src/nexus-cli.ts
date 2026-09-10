@@ -35,10 +35,19 @@ import {
 } from "@nexus/close-migration/render";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migration/run";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
+import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
-import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
+import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
+import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
+import { isExcludedStory } from "@nexus/epic-verdicts/exclusion";
+import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
+import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
+import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
+import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
@@ -215,6 +224,22 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Resolve epic issue #N and write the materialized epic.md.",
         ].join("\n"),
         run: runEpicResolve,
+    },
+    "epic-verdicts": {
+        summary: "Derive one epic receipt from the story verdicts already published on their pull requests.",
+        usage: [
+            "  nexus epic-verdicts derive --epic <N> [--root <startDir>]",
+            "      Print { epic, state: aggregate|missing, receipt|missing/present, outPath } and, on",
+            "      aggregate, write the per-story analyze-receipt.md beside the resolved epic.md.",
+            "  nexus epic-verdicts currency --epic <N> [--record <N>] [--root <startDir>]",
+            "      Re-check each story's verdict against its pull request's current head and, when",
+            "      --record is given, the record's current digest. Prints { epic, stories, allCurrent }.",
+            "  nexus epic-verdicts combined --epic <N> [--root <startDir>]",
+            "      Print the union of every story pull request's own changed-file set, for judging",
+            "      the epic's success metrics and cross-story invariants against the combined code.",
+        ].join("\n"),
+        subverbs: ["derive", "currency", "combined"],
+        run: runEpicVerdicts,
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -975,6 +1000,176 @@ async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
 
     const outPath: string = writeMaterializedEpic(root, flags.epic, resolved.markdown, flags.out);
     io.stdout(JSON.stringify({ epic: flags.epic, targetRoot: root, outPath, record: resolved.record }));
+    return 0;
+}
+
+interface EpicVerdictsFlags {
+    epic?: number;
+    root: string;
+    record?: number;
+}
+
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined"];
+
+function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
+    const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
+    const flags: EpicVerdictsFlags = { root: cwd };
+    for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a === "--epic") flags.epic = Number(args[++i]);
+        else if (a === "--root") flags.root = args[++i];
+        else if (a === "--record") flags.record = Number(args[++i]);
+    }
+    return flags;
+}
+
+/** One declared repository to search for a story's pull request: its slug and its own checkout. */
+interface EpicVerdictsRepoTarget {
+    slug: RepoSlug;
+    cwd: string;
+}
+
+/**
+ * Every repository the collection must search: the single-repo root, or (in workspace mode) the
+ * hub plus every declared member that is actually checked out — an epic's story pull requests may
+ * live in any of them, and the collection must span them all (decision record #505, invariants 6,
+ * 9, 11). A member with no local checkout is silently skipped, the same as a candidate no rung of
+ * the discovery ladder turns up: its story simply has one fewer place searched.
+ */
+function epicVerdictsRepoTargets(root: string): { ok: true; targets: EpicVerdictsRepoTarget[] } | { ok: false; message: string } {
+    const workspaceResult = resolveWorkspace(root);
+    if (!workspaceResult.ok) return { ok: false, message: renderWorkspaceStatus(workspaceResult) };
+
+    const roots: string[] =
+        workspaceResult.workspace.mode === "workspace"
+            ? [workspaceResult.workspace.hubRoot, ...workspaceResult.workspace.members.filter((m) => m.checkout === "present").map((m) => m.expectedPath)]
+            : [workspaceResult.workspace.root];
+
+    const targets: EpicVerdictsRepoTarget[] = [];
+    for (const cwd of roots) {
+        const slugResult = resolveRepoSlug(closeMigrationRunner, cwd);
+        if (!slugResult.ok) return { ok: false, message: `epic-verdicts ${slugResult.error.problem}: ${slugResult.error.message}` };
+        targets.push({ slug: slugResult.slug, cwd });
+    }
+    return { ok: true, targets };
+}
+
+/**
+ * Resolve the epic's story verdicts — the collection/trust/recency step shared by both
+ * `epic-verdicts derive` and `epic-verdicts currency` (decision record #505, key decision
+ * "Collection, trust, recency and currency are one program").
+ */
+function resolveEpicVerdictsForCli(
+    root: string,
+    epic: number,
+): { ok: true; result: ResolveEpicVerdictsResult } | { ok: false; message: string } {
+    // Internal stage (derive/currency/combined already know `epic` is an epic): this repo's own
+    // epics are promoted children of a tracking issue, so requireEpic's parent-issue check would
+    // wrongly reject them (resolveEpic's own doc comment on ResolveEpicOptions.requireEpic).
+    const resolved = resolveEpic(closeMigrationRunner, root, epic, { requireEpic: false });
+    if (!resolved.ok) return { ok: false, message: renderEpicResolveDiagnostic(resolved.error) };
+
+    const targetsResult = epicVerdictsRepoTargets(root);
+    if (!targetsResult.ok) return targetsResult;
+    const targets = targetsResult.targets;
+
+    const stories = resolved.resolved.stories.map((s) => s.number);
+    const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+    const excludedStories: number[] = [];
+    const candidatesByStory: Record<number, StoryPrCandidate[]> = {};
+    for (const story of stories) {
+        if (noPrLabel.length > 0) {
+            const labelsResult = closeMigrationRunner("gh", ["issue", "view", String(story), "--json", "labels", "--jq", ".labels[].name"], {
+                cwd: root,
+            });
+            const labels = labelsResult.status === 0 ? labelsResult.stdout.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+            if (isExcludedStory(labels, noPrLabel)) {
+                excludedStories.push(story);
+                continue;
+            }
+        }
+        const candidates: StoryPrCandidate[] = [];
+        for (const target of targets) {
+            for (const found of discoverCandidatePrs(closeMigrationRunner, target.cwd, target.slug, story)) {
+                candidates.push({ pr: found.pr, repo: target.slug, cwd: target.cwd });
+            }
+        }
+        candidatesByStory[story] = candidates;
+    }
+
+    const result = resolveEpicVerdicts(closeMigrationRunner, {
+        epic,
+        stories,
+        candidatesByStory,
+        excludedStories,
+    });
+    return { ok: true, result };
+}
+
+/**
+ * `nexus epic-verdicts derive` — the shared helper decision record #505 calls for: collection,
+ * trust, recency and coverage as one program, called by both `/nxs.analyze` (which writes the
+ * receipt this prints) and `/nxs.close` (which re-checks currency against the same story set).
+ */
+async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
+    const flags = parseEpicVerdictsFlags(argv, io.cwd);
+    if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
+        io.stderr("usage: nexus epic-verdicts derive|currency|combined --epic <N> [--record <N>] [--root <startDir>]");
+        return 2;
+    }
+
+    const root = epicResolveTargetRoot(flags.root, io);
+    if (root === null) return 1;
+
+    const resolved = resolveEpicVerdictsForCli(root, flags.epic);
+    if (!resolved.ok) {
+        io.stderr(resolved.message);
+        return 1;
+    }
+    const result = resolved.result;
+    if (!result.ok) {
+        io.stderr(`epic-verdicts ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+
+    if (result.state === "none") {
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "none" }));
+        return 0;
+    }
+
+    if (result.state === "partial") {
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "partial", missing: result.missing, present: result.present }));
+        return 0;
+    }
+
+    if (argv[0] === "currency") {
+        let currentRecordDigest: string | null = null;
+        if (flags.record !== undefined && !Number.isNaN(flags.record)) {
+            const record = fetchRecord(closeMigrationRunner, root, flags.record);
+            if (!record.ok) {
+                io.stderr(`epic-verdicts ${record.error.problem}: ${record.error.message}`);
+                return 1;
+            }
+            currentRecordDigest = record.record.digest;
+        }
+        const currency = checkEpicCurrency(closeMigrationRunner, root, result.verdicts, { currentRecordDigest });
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...currency }));
+        return 0;
+    }
+
+    if (argv[0] === "combined") {
+        const combined = combinedChangeSet(closeMigrationRunner, root, result.changeSetVerdicts, excludePathspecs());
+        if (!combined.ok) {
+            io.stderr(`epic-verdicts ${combined.error.problem}: ${combined.error.message}`);
+            return 1;
+        }
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...combined.combined }));
+        return 0;
+    }
+
+    const dir = path.dirname(defaultOutPath(root, flags.epic));
+    const outPath = writeEpicReceipt(dir, result.receipt, { date: new Date().toISOString().slice(0, 10) });
+    io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", outPath, receipt: result.receipt }));
     return 0;
 }
 
