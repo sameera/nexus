@@ -12,6 +12,12 @@ import { type MigrationDiagnostic } from "@nexus/close-migration/diagnostic";
 export type PrWorktreeProblem =
     | "not-a-git-repo"
     | "member-unsupported"
+    | "malformed-pr-reference"
+    | "member-checkout-missing"
+    | "no-story-candidates"
+    | "classification-mode-mismatch"
+    | "story-candidates-multiple-epics"
+    | "malformed-json"
     | "gh-failed"
     | "pr-not-found"
     | "pr-not-merged"

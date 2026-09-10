@@ -39,6 +39,16 @@
       "import": "./src/identity.ts",
       "default": "./src/identity.ts"
     },
+    "./member-target": {
+      "types": "./src/member-target.ts",
+      "import": "./src/member-target.ts",
+      "default": "./src/member-target.ts"
+    },
+    "./story-candidates": {
+      "types": "./src/story-candidates.ts",
+      "import": "./src/story-candidates.ts",
+      "default": "./src/story-candidates.ts"
+    },
     "./render": {
       "types": "./src/render.ts",
       "import": "./src/render.ts",
@@ -49,6 +59,7 @@
   "dependencies": {
     "@nexus/delivery-config": "workspace:*",
     "@nexus/close-migration": "workspace:*",
-    "@nexus/workspace": "workspace:*"
+    "@nexus/workspace": "workspace:*",
+    "@nexus/epic-resolve": "workspace:*"
   }
 }

@@ -166,3 +166,125 @@ export function classifySubIssue(classification: RecordClassification, markers: 
     if (classification.mode === "labels") return byLabel ? "record" : "story";
     return byLabel || byType ? "record" : "story";
 }
+
+/**
+ * What an issue is filed as. `other` is a real answer, not a failure: an initiative, a bug, a
+ * chore — anything the repository does not mark as epic, story or record. Naming it keeps every
+ * caller from inferring a kind from the issue graph's *shape*, which is what a walk up the
+ * parent link does, and which reads an epic as a story the moment a repo files epics under
+ * initiatives.
+ */
+export type IssueKind = "epic" | "story" | "record" | "other";
+
+/** How this repo marks each kind of issue, under the one declared classification mode. */
+export interface KindClassification {
+    mode: ClassificationMode;
+    epicLabel: string;
+    epicType: string;
+    storyLabel: string;
+    storyType: string;
+    recordLabel: string;
+    recordType: string;
+}
+
+/** The classification-relevant markers carried by one issue, with the number to name it by. */
+export interface IssueMarkers extends SubIssueMarkers {
+    number: number;
+}
+
+function matches(value: string | null, wanted: string): boolean {
+    return value !== null && wanted.length > 0 && value.toLowerCase() === wanted.toLowerCase();
+}
+
+function kindFrom(c: KindClassification, by: (label: string, type: string) => boolean): IssueKind {
+    if (by(c.epicLabel, c.epicType)) return "epic";
+    if (by(c.storyLabel, c.storyType)) return "story";
+    if (by(c.recordLabel, c.recordType)) return "record";
+    return "other";
+}
+
+/**
+ * Resolve how this repo marks an epic, a story and a record, through the shared publishing
+ * resolver — the same single reader {@link resolveRecordClassification} goes through.
+ *
+ * `epic-label` and `story-label` carry built-ins, so label mode always resolves. `epic-type` and
+ * `story-type` deliberately carry none: under `classification: types` there would be nothing to
+ * classify against, and a guessed type name mis-files every candidate silently. That is reported.
+ */
+export function resolveKindClassification(targetRoot: string): Ok<{ classification: KindClassification }> | Err {
+    const record = resolveRecordClassification(targetRoot);
+    if (!record.ok) return record;
+
+    const epicLabel: string = resolveKey(targetRoot, "epic-label");
+    const epicType: string = resolveKey(targetRoot, "epic-type");
+    const storyLabel: string = resolveKey(targetRoot, "story-label");
+    const storyType: string = resolveKey(targetRoot, "story-type");
+    const mode: ClassificationMode = record.classification.mode;
+
+    if (mode === "types") {
+        const missing: string[] = [];
+        if (epicType.length === 0) missing.push("github.epic-type");
+        if (storyType.length === 0) missing.push("github.story-type");
+        if (missing.length > 0) {
+            return unresolved(
+                `settings declare 'classification: types' but ${missing.join(" and ")} resolve to nothing; ` +
+                    "declare the issue-type names, or set 'classification: labels'",
+            );
+        }
+    }
+    if (mode !== "types" && (epicLabel.length === 0 || storyLabel.length === 0)) {
+        return unresolved(
+            "the shared publishing resolver returned no epic/story label; the installed " +
+                "resolver predates the epic-label contract — update Nexus",
+        );
+    }
+
+    return {
+        ok: true,
+        classification: {
+            mode,
+            epicLabel,
+            epicType,
+            storyLabel,
+            storyType,
+            recordLabel: record.classification.recordLabel,
+            recordType: record.classification.recordType,
+        },
+    };
+}
+
+/**
+ * What one issue is filed as, under the declared classification.
+ *
+ * The declared mode is the repository's own statement of how it files issues, so this reads only
+ * that mode's marker. When the mode's marker says nothing and the *other* mode's marker would
+ * have answered, the settings are inaccurate — reported by name rather than quietly worked
+ * around, because a stage that falls back here and a stage that trusts `classification:` would
+ * then disagree about the same issue. `legacy-auto` declares nothing, so it cannot be inaccurate:
+ * it reads whichever marker is present, label first.
+ */
+export function classifyIssueKind(c: KindClassification, markers: IssueMarkers): Ok<{ kind: IssueKind }> | Err {
+    const byLabel: IssueKind = kindFrom(c, (label) => markers.labels.some((name) => matches(name, label)));
+    const byType: IssueKind = kindFrom(c, (_label, type) => matches(markers.issueType, type));
+
+    if (c.mode === "legacy-auto") return { ok: true, kind: byLabel !== "other" ? byLabel : byType };
+
+    const declared: IssueKind = c.mode === "labels" ? byLabel : byType;
+    const other: IssueKind = c.mode === "labels" ? byType : byLabel;
+    if (declared !== "other") return { ok: true, kind: declared };
+    if (other !== "other") {
+        const found: string = c.mode === "labels" ? `issue type '${markers.issueType ?? ""}'` : `label '${other}'`;
+        return {
+            ok: false,
+            error: {
+                problem: "classification-mode-mismatch",
+                message:
+                    `settings declare 'classification: ${c.mode}', but #${markers.number} carries no ` +
+                    `${c.mode === "labels" ? "epic/story/record label" : "epic/story/record issue type"} and is ` +
+                    `classified by ${found} instead — the declared classification does not match how this ` +
+                    "repository files issues; fix github.classification in settings.yml",
+            },
+        };
+    }
+    return { ok: true, kind: "other" };
+}

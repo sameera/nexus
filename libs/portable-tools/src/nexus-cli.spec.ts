@@ -375,6 +375,18 @@ describe("nexus pr-worktree (registration only — git/gh effect path covered by
         expect(await runNexusCli(["--help"], io)).toBe(0);
         expect(io.out.join("\n")).toContain("nexus pr-worktree range");
     });
+
+    it("--help names the analyze-mode member reference and the stories ladder (epic #211)", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-worktree-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus pr-worktree stories");
+    });
+
+    it("exits 2 with a usage diagnostic when stories is missing --issues-repo", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-worktree-"));
+        expect(await runNexusCli(["pr-worktree", "stories", "--pr", "492"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--issues-repo");
+    });
 });
 
 describe("nexus close-migration (registration only — full effect covered by the migration-axis parity corpus)", () => {

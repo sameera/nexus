@@ -331,3 +331,138 @@ export function fetchBlockedBy(run: Runner, cwd: string, storyNumber: number): O
     }
     return { ok: true, numbers };
 }
+
+/**
+ * The GraphQL query that reads everything the kind classification needs about one issue —
+ * its parent, its issue type and its labels — in a single call.
+ */
+const ISSUE_FACTS_QUERY =
+    "query($owner:String!,$repo:String!,$num:Int!){" +
+    "repository(owner:$owner,name:$repo){" +
+    "issue(number:$num){parent{number} issueType{name} state stateReason labels(first:100){nodes{name}}}}}";
+
+/** The same three facts for every sub-issue of one epic, in a single call. */
+const SUB_ISSUE_FACTS_QUERY =
+    "query($owner:String!,$repo:String!,$num:Int!){" +
+    "repository(owner:$owner,name:$repo){" +
+    "issue(number:$num){subIssues(first:100){nodes{number issueType{name} state stateReason labels(first:100){nodes{name}}}}}}}";
+
+/** One issue's classification facts. `exists` is false for a number that names no issue. */
+export interface IssueFacts {
+    exists: boolean;
+    /** The parent issue number, or null when the issue is not itself a sub-issue. */
+    parent: number | null;
+    issueType: string | null;
+    labels: string[];
+    /** OPEN | CLOSED, as GitHub reports it. */
+    state: string;
+    /** GitHub's closure reason (COMPLETED / NOT_PLANNED / DUPLICATE), or "" when open/unset. */
+    stateReason: string;
+}
+
+function graphql(run: Runner, cwd: string, slug: RepoSlug, query: string, num: number, what: string): Ok<{ doc: unknown }> | Err {
+    const r = run(
+        "gh",
+        ["api", "graphql", "-f", `query=${query}`, "-F", `owner=${slug.owner}`, "-F", `repo=${slug.repo}`, "-F", `num=${num}`],
+        { cwd },
+    );
+    if (r.status !== 0) {
+        return {
+            ok: false,
+            error: { problem: "gh-failed", message: `reading ${what} of #${num} failed: ${r.stderr.trim() || "unknown gh error"}` },
+        };
+    }
+    try {
+        return { ok: true, doc: JSON.parse(r.stdout) as unknown };
+    } catch (e) {
+        return {
+            ok: false,
+            error: {
+                problem: "malformed-json",
+                message: `reading ${what} of #${num} returned unparseable JSON: ${e instanceof Error ? e.message : String(e)}`,
+            },
+        };
+    }
+}
+
+function at(value: unknown, ...keys: string[]): unknown {
+    let cursor: unknown = value;
+    for (const key of keys) {
+        if (cursor === null || typeof cursor !== "object") return null;
+        cursor = (cursor as Record<string, unknown>)[key];
+    }
+    return cursor ?? null;
+}
+
+/** Label names out of a GraphQL `labels(first:N){nodes{name}}` selection. */
+function graphqlLabelNames(node: unknown): string[] {
+    const nodes: unknown = at(node, "labels", "nodes");
+    if (!Array.isArray(nodes)) return [];
+    return nodes
+        .map((entry) => at(entry, "name"))
+        .filter((name): name is string => typeof name === "string");
+}
+
+function graphqlString(node: unknown, key: string): string {
+    const value: unknown = at(node, key);
+    return typeof value === "string" ? value : "";
+}
+
+function issueTypeName(node: unknown): string | null {
+    const name: unknown = at(node, "issueType", "name");
+    return typeof name === "string" && name.length > 0 ? name : null;
+}
+
+/**
+ * Read one issue's parent, issue type and labels together.
+ *
+ * A number naming no issue is not a failure — a candidate lifted out of a branch name may be
+ * anything — so it comes back as `exists: false` for the caller to drop.
+ */
+export function fetchIssueFacts(run: Runner, cwd: string, slug: RepoSlug, number: number): Ok<{ facts: IssueFacts }> | Err {
+    const r = graphql(run, cwd, slug, ISSUE_FACTS_QUERY, number, "issue facts");
+    if (!r.ok) return r;
+    const issue: unknown = at(r.doc, "data", "repository", "issue");
+    if (issue === null) {
+        return { ok: true, facts: { exists: false, parent: null, issueType: null, labels: [], state: "", stateReason: "" } };
+    }
+    const parent: unknown = at(issue, "parent", "number");
+    return {
+        ok: true,
+        facts: {
+            exists: true,
+            parent: typeof parent === "number" ? parent : null,
+            issueType: issueTypeName(issue),
+            labels: graphqlLabelNames(issue),
+            state: graphqlString(issue, "state"),
+            stateReason: graphqlString(issue, "stateReason"),
+        },
+    };
+}
+
+/** The same facts for every sub-issue of `epicNumber`, keyed by sub-issue number. */
+export function fetchSubIssueFacts(
+    run: Runner,
+    cwd: string,
+    slug: RepoSlug,
+    epicNumber: number,
+): Ok<{ facts: Map<number, IssueFacts> }> | Err {
+    const r = graphql(run, cwd, slug, SUB_ISSUE_FACTS_QUERY, epicNumber, "sub-issue facts");
+    if (!r.ok) return r;
+    const nodes: unknown = at(r.doc, "data", "repository", "issue", "subIssues", "nodes");
+    const facts = new Map<number, IssueFacts>();
+    if (!Array.isArray(nodes)) return { ok: true, facts };
+    for (const node of nodes) {
+        const number: unknown = at(node, "number");
+        if (typeof number !== "number") continue;
+        facts.set(number, {
+            exists: true,
+            parent: epicNumber,
+            issueType: issueTypeName(node),
+            labels: graphqlLabelNames(node),
+            state: graphqlString(node, "state"),
+            stateReason: graphqlString(node, "stateReason"),
+        });
+    }
+    return { ok: true, facts };
+}

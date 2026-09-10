@@ -16,6 +16,7 @@ export type EpicResolveProblem =
     | "not-an-epic"
     | "epic-not-planned"
     | "record-classification-unresolved"
+    | "classification-mode-mismatch"
     | "multiple-record-subissues"
     | "usage";
 

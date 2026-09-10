@@ -5,6 +5,60 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.16.0
+
+- analyze: `--pr` now resolves the epic and stories correctly for two pull-request shapes that
+  previously resolved to the wrong issues, or to none. A PR carrying its `Closes #<n>` lines one
+  per commit is now read from those commit messages — GitHub's own linked-issues field reads the
+  pull-request *body* alone, so such a PR looked to the ladder as though it named nothing and the
+  only signal left was its branch name. And a **pull request that ships a whole epic** — one
+  branch, all of that epic's stories, a branch named for the epic — now resolves to that epic and
+  its own live story set, instead of being mistaken for a story.
+- analyze, decision-record: what an issue *is* now comes from the repository's declared
+  `github.classification` — the `epic` / `story` / `decision-record` label under
+  `classification: labels`, the corresponding GitHub issue type under `classification: types`,
+  either one under the legacy default — and never from the issue graph's shape. The previous rule
+  ("it has a parent, and that parent lists it back, therefore it is a story") cannot tell a story
+  of an epic from an epic of an initiative: in a repository that files epics under initiatives it
+  resolved one level too high, so `/nxs.analyze --pr` checked the initiative's non-existent
+  acceptance criteria and decision record, and `/nxs.decision-record --from` refused every genuine
+  epic as `not-an-epic`. Both now read the declared marker. When the declared mode's marker is
+  absent and the other mode's marker would have answered, the run stops with
+  `classification-mode-mismatch` rather than working around settings that do not describe how this
+  repository files issues.
+- analyze: a `--pr` run that resolves no story now names every candidate it considered *and why
+  each was dropped*, rather than listing the numbers alone.
+- analyze: the `--pr` mode machine block now stamps `repo` (the target repository actually read —
+  the member, not the hub) and `stories` (the story issue number(s) the verdict covers), full and
+  untruncated. `/nxs.close --pr`'s trusted-block selection is now scoped to the repository the PR
+  lives in: the author-association check, the `pr:` match, and a new `repo:` match (when present)
+  are all checked against that repository, so a block copied from a different PR — possibly in a
+  different member — can never be read as this PR's verdict. A block predating epic #211 carries no
+  `repo:` key and is always accepted, unchanged from before.
+
+## 0.15.0
+
+- analyze: in `--pr` mode, the epic and the story it checks now come from a validated candidate
+  ladder (`nexus pr-worktree stories`) instead of GitHub's closing-keyword linkage alone — that
+  linkage is same-repository only and produced nothing for a member PR whose story lives in the
+  hub. The ladder tries an explicit story reference, the PR's own linked/closing issues, the
+  `Closes #<n>` trailers in its commit messages, the issue number in its branch name, and
+  repo-qualified issue references in its body, validating every
+  candidate against the live issue graph; a PR resolving to no story stops the run and names what
+  was considered, and one resolving to several is covered, not refused. Findings are now scoped to
+  only the story (or stories) a PR implements, never every story of the epic, and success-metric
+  coverage — a property of the whole epic — no longer runs in `--pr` mode at all.
+
+## 0.14.0
+
+- analyze: `--pr` now accepts a member-qualified reference (`owner/repo#N`) or a full pull-request
+  URL, not only a bare number. From a hub checkout, this opens the `--pr` role gate to a declared
+  member: the run reads that member's own checkout and code, and reports the member repository
+  (not the hub) as what it read. Naming a repository the workspace does not declare, or a declared
+  member not checked out where the workspace expects it, stops the run and says so. A bare number
+  keeps its existing meaning — this checkout's own repository — and `/nxs.close --pr` is unchanged:
+  it still refuses a member outright, with its refusal message now naming close specifically.
+
 ## 0.13.0
 
 - analyze: the gate now runs only for an epic entry. Instead of naming each non-epic kind in its
