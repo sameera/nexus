@@ -1,8 +1,8 @@
 ---
 title: "Story Identity"
 aliases: ["story naming", "story withdrawal", "withdrawn story", "issue-number identity", "one name per story"]
-touches: ["issue-sourced-planning", "story-as-unit", "resumable-batch-filing"]
-last_updated_by: "#353"
+touches: ["issue-sourced-planning", "story-as-unit", "resumable-batch-filing", "pr-story-resolution"]
+last_updated_by: "#211"
 status: active
 verification: verified
 ---
@@ -30,6 +30,7 @@ The materialized epic identifies every story by its issue number, in the story h
 - [issue-sourced-planning](issue-sourced-planning.md) — the resolver that renders this identity and drops a withdrawn story from the materialized epic.
 - [story-as-unit](story-as-unit.md) — the terminal planning unit this identity and lifecycle attach to.
 - [resumable-batch-filing](resumable-batch-filing.md) — the filing path whose later passes resolve every pre-filing ref, in the dependency graph and in prose alike, into the issue number.
+- [pr-story-resolution](pr-story-resolution.md) — applies this withdrawal rule when it takes an epic's live story set as a pull request's scope.
 
 ## Decision Log
 
@@ -44,3 +45,7 @@ The ref that lets a story name a sibling before any issue number exists was reso
 ### 2026-08-29 — #353 — Reciprocal link from resumable-batch-filing
 
 Mechanical reciprocity fan-out: the resumable-batch-filing page names the two passes that carry out this page's rule that no pre-filing ref survives filing — one wiring the dependency edges a ref declared, the other rewriting a ref written in prose to the issue number it named.
+
+### 2026-09-10 — #211 — Reciprocal link from pr-story-resolution
+
+Mechanical reciprocity fan-out: resolving a pull request that names only its epic now hands back that epic's live story set, and this page's withdrawal rule is what makes that set live. A story withdrawn by label or by a cancelling closure reason is dropped from the scope a pull-request verdict covers, exactly as it is dropped from a materialized epic.
