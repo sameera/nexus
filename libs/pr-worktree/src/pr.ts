@@ -30,6 +30,11 @@ export interface PrInfo {
     body: string;
     /** Issue numbers the PR closes via GitHub's closing-keyword linkage (same-repo only). */
     closingIssues: number[];
+    /**
+     * Every commit message on the PR, headline and body joined. GitHub's closing-keyword linkage
+     * reads the PR *body* alone, so a PR built one commit per story states its scope only here.
+     */
+    commitMessages: string[];
 }
 
 export type ResolvePrResult =
@@ -88,6 +93,15 @@ export function resolvePr(
     const mergedAt = doc["mergedAt"];
     const merged = typeof mergedAt === "string" && mergedAt.length > 0;
     const commits = doc["commits"];
+    const commitMessages: string[] = Array.isArray(commits)
+        ? commits
+              .map((entry) => {
+                  if (entry === null || typeof entry !== "object") return "";
+                  const node = entry as Record<string, unknown>;
+                  return [asString(node["messageHeadline"]), asString(node["messageBody"])].filter((part) => part.length > 0).join("\n\n");
+              })
+              .filter((message) => message.length > 0)
+        : [];
     const closingIssuesRaw = doc["closingIssuesReferences"];
     const closingIssues: number[] = Array.isArray(closingIssuesRaw)
         ? closingIssuesRaw
@@ -108,6 +122,7 @@ export function resolvePr(
         authorLogin: nestedString(doc["author"], "login") ?? "",
         body: asString(doc["body"]),
         closingIssues,
+        commitMessages,
     };
 
     if (opts.requireMerged && !merged) {

@@ -95,6 +95,33 @@ describe("resolveEpic — Story 3: --from epic-vs-story validation (requireEpic)
         expect(r.error.message).toContain("#115");
     });
 
+    it("accepts an epic that is itself a sub-issue of an initiative", () => {
+        // Three-level hierarchies (initiative → epic → story) are ordinary. Reading "has a
+        // parent" as "is a story" rejects every genuine epic in one.
+        const g = graph();
+        const r = resolveEpic(
+            makeGhRunner({ ...g, epic: { ...g.epic, labels: ["epic"] }, parents: { 115: 491 } }),
+            repoDeclaring("  classification: labels\n"),
+            115,
+            { requireEpic: true },
+        );
+        expect(r.ok).toBe(true);
+    });
+
+    it("rejects an issue filed as a story even when it is at the top of the graph", () => {
+        const g = graph();
+        const r = resolveEpic(
+            makeGhRunner({ ...g, epic: { ...g.epic, labels: ["story"] } }),
+            repoDeclaring("  classification: labels\n"),
+            115,
+            { requireEpic: true },
+        );
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("not-an-epic");
+        expect(r.error.message).toContain("a story");
+    });
+
     it("rejects a non-existent number with epic-not-found under requireEpic", () => {
         const r = resolveEpic(makeGhRunner({ ...graph(), failIssueView: new Set([900]) }), "/repo", 900, { requireEpic: true });
         expect(r.ok).toBe(false);
