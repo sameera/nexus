@@ -1,15 +1,15 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane"]
-last_updated_by: "#483"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution"]
+last_updated_by: "#211"
 status: active
 verification: verified
 ---
 
 # Conformance Gate
 
-Analyze checks the implemented code against the epic's acceptance criteria and the decision
+Analyze checks the implemented code against the acceptance criteria in scope and the decision
 record's invariants, then proves it ran by leaving a receipt. Close treats the receipt as a
 hard precondition, reading it back rather than regenerating it.
 
@@ -61,6 +61,7 @@ as a literal value no reader can mistake for a waiver.
   both its local and published-review forms.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — analyze draws its verdict from a diff withholding every member; it withheld none before.
 - [intake-lane](intake-lane.md) — the other lane this gate refuses to run against, having no criteria to check.
+- [pr-story-resolution](pr-story-resolution.md) — decides which criteria are in scope against a pull request: the resolved stories' criteria, never every story's.
 
 ## Decision Log
 
@@ -98,3 +99,9 @@ Mechanical reciprocity fan-out: analyze withheld nothing from the diff it judged
 ### 2026-09-08 — #483 — Reciprocal link from intake-lane
 
 Mechanical reciprocity fan-out: the gate's epic-only rule now also names the intake lane as a kind it stops against, beside the fix lane it already refused.
+
+### 2026-09-10 — #211 — Against a pull request, the criteria in scope are the ones that pull request implements
+
+The gate's summary said it checks the epic's acceptance criteria, and that stayed exactly true while a run covered a whole epic at once. A run against one story's pull request does not: the sibling stories of the same epic have not landed yet, so checking their criteria would mark every story pull request failing for work nobody claimed to have shipped. What is in scope is now decided next door, by pull-request story resolution, and this page's claim is narrowed to match. Locally that is still the epic's criteria; against a pull request it is the resolved stories' criteria, and a sibling's code in the diff reads as scope drift instead of an unmet criterion. Nothing else about the receipt moved. Its two forms, its placement, the blocked-run-emits-nothing rule, and the single meaning of a missing receipt are all unchanged.
+
+Mechanical reciprocity fan-out: the pull-request story resolution page names this gate as what it narrows, so a reader arriving at either page learns which criteria a given run answers for.

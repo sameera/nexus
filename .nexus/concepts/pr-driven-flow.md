@@ -1,27 +1,30 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery"]
-last_updated_by: "#228"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution"]
+last_updated_by: "#211"
 status: active
 verification: verified
 ---
 
 # PR-Driven Post-Merge Flow
 
-The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch. Conformance checks the pull request while it may still be open; after it merges, closure and distillation run against the merged pull request in one shared isolated worktree, so the diff the drain reads cannot drift. It runs in single-repo and hub checkouts, refuses a member repo, and leaves the local flow untouched.
+The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch. Conformance checks the pull request while it may still be open; after it merges, closure and distillation run against the merged pull request in one shared isolated worktree, so the diff the drain reads cannot drift. It runs in single-repo and hub checkouts; conformance also runs against a declared member's pull request, which closure and distillation still refuse. The local flow is untouched.
 
 ## How It Works
 
 One tested helper the stage specs call resolves a pull request's merge state and commit identifiers, and a merge-strategy-safe commit range. Conformance runs in a worktree at the pull-request head and publishes its verdict as a review carrying the machine-readable receipt closure reads back, falling back to a comment if the lead authored it. After the merge, closure runs in a worktree on a fresh distillation branch off the trunk, reads that verdict, commits and pushes the close artifacts, and hands off; distillation continues there and opens its pull request. The stamped range anchors on the merge commit, permanent on the trunk, and verified against the pull-request head, so it holds for any merge strategy.
 
+A conformance run takes one pull-request reference. A bare number means this checkout's own repository, and a repository-qualified reference names a member the hub's manifest declares. The manifest is the only source of that repository.
+
 ## Key Invariants
 
-1. A member repo never runs this flow; its close-and-migrate path is the mutually-exclusive alternative.
+1. Only conformance runs against a member repository; closure and distillation refuse one, its close-and-migrate path being the mutually-exclusive alternative.
 2. The stamped range anchors on commits permanent on the trunk, never the pull-request branch tip; an empty, non-ancestor, or unverifiable range is refused rather than guessed.
 3. The flow is additive and mutually exclusive with the local path.
-4. A conformance verdict is trusted only from a maintainer-authored review or comment; staleness is exact full-identifier equality against the pull-request head.
+4. A conformance verdict is trusted only from a maintainer-authored review or comment in the pull request's own repository, and only when its stamped repository and pull request match those read. Staleness is exact full-identifier equality against the pull-request head.
 5. Closure and distillation share one worktree on the distillation branch.
+6. A conformance run reads its diff, its code and the engineer's scratch from the target repository's checkout, and everything it is judged against from a main checkout. An undeclared repository, or a declared member absent from its expected checkout, stops the run.
 
 ## Integration Points
 
@@ -32,6 +35,7 @@ One tested helper the stage specs call resolves a pull request's merge state and
 - [conformance-gate](conformance-gate.md) — here the gate's receipt is a published review, not a local artifact, since the worktree holding one is already gone.
 - [pr-worktree](pr-worktree.md) — the worktree these stages run in: where it lands, its isolation, reuse, and removal.
 - [pre-epic-discovery](pre-epic-discovery.md) — excluded from the stamped range too, so that range matches the diff the drain later recomputes.
+- [pr-story-resolution](pr-story-resolution.md) — resolves which stories a conformance run covers, and narrows that run's findings to them.
 
 ## Decision Log
 
@@ -51,3 +55,13 @@ Where the flow's worktrees are created stopped being a hidden temp-derived const
 ### 2026-08-11 — #228 — The stamped range carries the drain's discovery exclusion
 
 The range this flow stamps must equal the diff the drain later recomputes from it, so widening the drain's exclusion without widening this one would let the two disagree. The range derivation now excludes the committed discovery store alongside the queue. A merged pull request whose only remaining content is discovery prose is therefore refused as an empty range rather than stamped, which is the existing refusal applied to a wider exclusion. The live-acceptance harness's cross-check against the platform's own list of changed files still excludes the queue only, because it filters names by prefix instead of sharing the exclusion the other two use; that gap is filed as deferred scope. Refuted alternative: widen the cross-check in the same change — rejected because the conformance finding this answered named only the diff exclusion as load-bearing, and the consequence of leaving the cross-check is bounded to it reporting a mismatch that is not real.
+
+### 2026-09-10 — #211 — The member refusal narrows by stage, and a conformance run names the repository it reads
+
+The refusal that kept every member repository out of this flow was protecting a real incompatibility that has not gone away: a member's close still runs on its feature branch and migrates its entry to the hub, and that path is retired by separate work. Deleting the refusal now would let a post-merge close cut a trunk worktree in a repository whose close contract is still the migration path, and it would do so silently. So the gate stopped being about role alone and became about role per stage. Conformance accepts a member; closure and distillation still refuse one, and the refusal now names closure specifically. A member checkout running conformance against its own pull request is the same path with the member selecting itself, and it is allowed.
+
+The reference the lead supplies is the only token that names the repository, so a pull-request address and a stale repository flag can never disagree. That reference may only select among the members the manifest declares: an externally supplied string may choose a locally declared member, and it may never supply a remote or a path. The worktree lands under the target's own base, so a hub run and a member run cannot collide. Matching a reference to a member lowercases both the host and the repository path, which is narrower than the normalization the resolver otherwise applies. That rule preserves path case because a self-hosted forge may be case-sensitive, while a lead pasting a pull-request address reproduces the platform's own casing rather than the manifest's spelling.
+
+Refuted alternative: fetch the member's pull-request head into the hub's own git directory, so no member checkout is needed. That removes the missing-checkout refusal entirely. It loses on writing foreign objects into the hub repository, on having no member configuration to resolve against, and on contradicting the sibling-checkout model the workspace resolver already guarantees. One piece of the approved design did not ship: configuration is still resolved with the worktree as its root in this mode, so a pull request can still redirect where the gate reads its own settings from. That residue is carried as deferred scope rather than reopening a merged pull request.
+
+Mechanical reciprocity fan-out: the pull-request story resolution page names this flow's conformance stage as what resolves its scope through the candidate ladder, and its findings as what that ladder narrows.
