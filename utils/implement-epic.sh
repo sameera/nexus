@@ -39,6 +39,11 @@
 # certifies that same commit to GitHub and the script reads that block back,
 # rather than trusting the local run to stand in for it.
 #
+# Unattended discipline: every analyze invocation carries a clause saying nobody can answer a
+# question, and a stage-4 failure annotates the pull request before exiting. A `-p` run that ends
+# by asking which option to take produces nothing, and a draft PR with an untouched body looks
+# exactly like a run that never reached stage 4 — both happened, five epics in a row.
+#
 # Context discipline: every stage — and every half of every conformance round
 # — is its own `claude -p` invocation, so no context is carried between them.
 # The state that crosses a round boundary is on disk (the branch, the local
@@ -147,6 +152,23 @@ run_claude() {
         | node --input-type=module -e "$FORMATTER"
 }
 
+# Every stage here runs headless: nobody can answer a question, and a run that ends by asking one
+# has produced nothing. Five consecutive runs of this script certified nothing because the
+# certifying stage stopped on an unresolvable scope and asked which option to take — a reasonable
+# thing to do interactively, and a dead end in `-p` mode.
+UNATTENDED="
+
+You are running unattended inside a headless script. Nobody can answer a question, so never end by \
+asking which option to take, and never wait for a decision. If the stage cannot proceed — scope \
+will not resolve, a precondition fails, anything else — state in your final message what blocked \
+it, what you would have needed, and stop. Otherwise carry the stage through to its documented \
+output."
+
+# One analyze invocation, always carrying the unattended clause.
+run_analyze() {
+    run_claude "$1${UNATTENDED}" ${ANALYZE_ARGS[@]+"${ANALYZE_ARGS[@]}"}
+}
+
 GOAL="/goal Every story sub-issue of epic #${N} is implemented on a new branch — \
 one commit per story, in blocked_by order, each commit body ending with a line \
 reading exactly 'Closes #<that story's issue number>' — and the full test suite \
@@ -155,6 +177,8 @@ test command exits 0. Start by running /nxs-epic-resolve ${N}; the \
 decision-record sub-issue's invariants are binding; re-read the story's epic.md \
 section before starting each story. Do not push and do not open a PR — the \
 calling script does both. Stop after ${TURNS} turns."
+
+ANALYZE_ARGS=("$@")
 
 echo ">>> stage 1: implement epic #${N} | permission mode: ${PERMISSION_MODE} | turn cap: ${TURNS}" >&2
 run_claude "$GOAL" "$@"
@@ -206,7 +230,7 @@ fi
 
 echo "" >&2
 echo ">>> stage 2: /nxs.analyze #${N} (fresh context)" >&2
-run_claude "/nxs.analyze ${N}" "$@"
+run_analyze "/nxs.analyze ${N}"
 
 # --- stage 3: conformance rounds (local mode) -------------------------------
 #
@@ -311,7 +335,7 @@ while :; do
 
     echo "" >&2
     echo ">>> stage 3.${ROUND}b: /nxs.analyze #${N} (fresh context)" >&2
-    run_claude "/nxs.analyze ${N}" "$@"
+    run_analyze "/nxs.analyze ${N}"
 
     ROUND=$(( ROUND + 1 ))
 done
@@ -328,9 +352,40 @@ done
 # difference between the two modes should fail loudly here, not get papered
 # over.
 
+# A stage-4 failure has to leave a trace on the PR itself. Until it does, a draft PR whose body
+# still reads "analyze runs against it next" is indistinguishable from a run that never got this
+# far — which is exactly how five consecutive runs of this script failed unnoticed.
+note_pr_uncertified() {
+    local reason="$1"
+    echo "!!! ${reason}" >&2
+    gh pr edit "$PR_NUM" --body "$(cat <<EOF
+Implements the story sub-issues of #${N}, one commit per story in blocked_by order.
+
+Each commit body carries its own \`Closes #<story>\` line, so merging this PR
+into \`${BASE}\` closes the stories it implements. The epic itself closes through
+\`/nxs.close\`, not by merge.
+
+> [!WARNING]
+> **Conformance is not certified.** \`utils/implement-epic.sh\` reached the certifying
+> \`/nxs.analyze --pr ${PR_NUM}\` stage and stopped:
+>
+> ${reason}
+>
+> Local analyze last read ${LAST_LOCAL:-no receipt}. This PR stays in draft until a
+> \`/nxs.analyze --pr ${PR_NUM}\` run publishes a clean machine block for its head commit.
+EOF
+)" >/dev/null || echo "!!! could not annotate PR #${PR_NUM} with the failure" >&2
+    exit 1
+}
+
+# What the local loop last saw, for the annotation above.
+LAST_LOCAL="${CRIT:-?} critical / ${HIGH:-?} high at ${RHEAD:-unknown} (${RECEIPT:-no receipt})"
+
 echo "" >&2
 echo ">>> stage 4: certifying via /nxs.analyze --pr ${PR_NUM} (fresh context)" >&2
-run_claude "/nxs.analyze --pr ${PR_NUM}" "$@"
+if ! run_analyze "/nxs.analyze --pr ${PR_NUM}"; then
+    note_pr_uncertified "the certifying run itself failed — see the stage 4 output above."
+fi
 
 # Pull the trusted analyze machine block off the PR that the certifying run
 # just published — a review body, or (self-authored-PR fallback) a comment
@@ -363,12 +418,14 @@ read_pr_receipt() {
 }
 
 if ! read_pr_receipt; then
-    echo "!!! /nxs.analyze --pr ${PR_NUM} published no trusted machine block — cannot certify" >&2
-    exit 1
+    note_pr_uncertified "\`/nxs.analyze --pr ${PR_NUM}\` published no trusted machine block. It \
+most often means the run could not resolve which epic and stories this PR implements, and stopped \
+rather than certify the wrong ones."
 fi
 if (( CRIT != 0 || HIGH != 0 )); then
-    echo "!!! /nxs.analyze --pr ${PR_NUM} disagreed with the local run: ${CRIT} critical / ${HIGH} high — stopping" >&2
-    exit 1
+    note_pr_uncertified "\`/nxs.analyze --pr ${PR_NUM}\` reported ${CRIT} critical / ${HIGH} high \
+at \`${RHEAD}\`, disagreeing with the local run, which was clean. The PR-mode verdict is the one \
+that counts: fix what it names, then re-run."
 fi
 
 echo "" >&2
