@@ -80,9 +80,11 @@ function buildHubFixture(parent: string): HubFixture {
 }
 
 /** Writes a hub-queue entry whose close record stamps the given range items. */
-function writeEntry(hubRoot: string, items: Array<{ repo: string; base: string; head: string }>): string {
+function writeEntry(hubRoot: string, items: Array<{ repo: string; base: string; head: string; pr?: number }>): string {
     const entryDir = path.join(hubRoot, ".nexus", "queue", "demo-epic-ab12cd34");
-    const range = items.map((i) => `  - repo: ${i.repo}\n    base: ${i.base}\n    head: ${i.head}`).join("\n");
+    const range = items.map((i) =>
+        `  - repo: ${i.repo}\n    base: ${i.base}\n    head: ${i.head}` + (i.pr === undefined ? "" : `\n    pr: ${i.pr}`),
+    ).join("\n");
     write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/epic.md", "---\nlink: \"#3\"\n---\n# epic\n");
     write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/close-record.md",
         `---\ntitle: "Close Record: Demo"\nepic: #3\nfeature: "Demo"\ndate: 2026-07-01\nrange:\n${range}\n---\n\n# Close Record: Demo\n`);
@@ -155,6 +157,201 @@ describe("deriveEntryDiff — happy paths", () => {
         expect(result.diffs).toHaveLength(1);
         expect(result.diffs[0].checkout).toBe(hubRoot);
         expect(result.diffs[0].diff).toContain("README.md");
+    });
+});
+
+describe("deriveEntryDiff — reporting a repository-level failure once (epic #214, story #508)", () => {
+    it("a missing checkout named by two range entries is reported once, not once per entry", () => {
+        const parent = makeParent();
+        const { hubRoot, api } = buildHubFixture(parent);
+        const fabricatedSha = "c".repeat(40);
+        fs.rmSync(api.root, { recursive: true, force: true });
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/api", base: api.base, head: api.head },
+            { repo: "github.com/acme/api", base: api.head, head: fabricatedSha },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0].problem).toBe("missing-checkout");
+    });
+
+    it("an unknown repo named by two range entries is reported once", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/ghost", base: web.base, head: web.head },
+            { repo: "github.com/acme/ghost", base: web.head, head: web.head },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0].problem).toBe("unknown-repo");
+    });
+});
+
+describe("deriveEntryDiff — pull request attribution (epic #214, story #507)", () => {
+    it("carries a stamped 'pr' through to the diff and its rendered header", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head, pr: 512 }]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs[0].pr).toBe(512);
+        expect(renderRepoDiffs(result.entryName, result.diffs)).toContain(
+            `=== repo github.com/acme/web-app checkout ${web.root} range ${web.base}...${web.head} pr 512 ===`,
+        );
+    });
+
+    it("an entry with no stamped 'pr' carries none, and the header is unchanged", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs[0].pr).toBeUndefined();
+        expect(renderRepoDiffs(result.entryName, result.diffs)).toContain(
+            `=== repo github.com/acme/web-app checkout ${web.root} range ${web.base}...${web.head} ===`,
+        );
+    });
+
+    it("each of a repo's several range entries carries its own 'pr'", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        write(web.root, "src/app.ts", "export const v = 3;\n");
+        const secondHead = commitAll(web.root, "second change");
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head, pr: 100 },
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead, pr: 101 },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs.map((d) => d.pr)).toEqual([100, 101]);
+    });
+
+    it("a non-integer 'pr' is malformed-range", () => {
+        const parent = makeParent();
+        const { hubRoot } = buildHubFixture(parent);
+        const entryDir = path.join(hubRoot, ".nexus", "queue", "demo-epic-ab12cd34");
+        write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/epic.md", "---\nlink: \"#3\"\n---\n# epic\n");
+        write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/close-record.md",
+            "---\nrange:\n  - repo: github.com/acme/web-app\n    base: " + "a".repeat(40) +
+            "\n    head: " + "b".repeat(40) + "\n    pr: not-a-number\n---\n");
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors[0].problem).toBe("malformed-range");
+        expect(result.errors[0].message).toContain("'pr'");
+    });
+});
+
+describe("deriveEntryDiff — single-repo mode (epic #214, story #506)", () => {
+    it("resolves an entry against this checkout's own identity, with no workspace manifest or pointer", () => {
+        const parent = makeParent();
+        const { web } = buildHubFixture(parent);
+        const entryDir = writeEntry(web.root, [{ repo: "github.com/acme/web-app", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, web.root);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(1);
+        expect(result.diffs[0].checkout).toBe(web.root);
+        expect(result.diffs[0].diff).toContain("src/app.ts");
+    });
+
+    it("reads several range entries for the same repo, same as hub mode (the interim single-repo refusal is gone)", () => {
+        const parent = makeParent();
+        const { web } = buildHubFixture(parent);
+        write(web.root, "src/app.ts", "export const v = 3;\n");
+        const secondHead = commitAll(web.root, "second change");
+        const entryDir = writeEntry(web.root, [
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head },
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, web.root);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(2);
+        expect(result.diffs.every((d) => d.repo === "github.com/acme/web-app")).toBe(true);
+    });
+});
+
+describe("deriveEntryDiff — a repo named by several range entries (epic #214, story #506)", () => {
+    it("reads all of them rather than refusing the entry, in ancestry order regardless of stamp order", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        write(web.root, "src/app.ts", "export const v = 3;\n");
+        const secondHead = commitAll(web.root, "second change");
+        // Stamped out of order — the later change first, the earlier change second.
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead },
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(2);
+        // Ancestry order, not stamp order: the entry whose head is an ancestor of the other's comes first.
+        expect(result.diffs[0].head).toBe(web.head);
+        expect(result.diffs[1].head).toBe(secondHead);
+        expect(result.diffs[0].diff).toContain("v = 2");
+        expect(result.diffs[1].diff).toContain("v = 3");
+    });
+
+    it("never computes one span from the first entry's start to the last entry's end", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        write(web.root, "src/other.ts", "export const w = 1;\n");
+        const secondHead = commitAll(web.root, "unrelated second change");
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head },
+            { repo: "github.com/acme/web-app", base: web.head, head: secondHead },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs).toHaveLength(2);
+        // Each range entry's own diff, never a base..end span that would also show src/other.ts in the first block.
+        expect(result.diffs[0].diff).not.toContain("src/other.ts");
+        expect(result.diffs[1].diff).toContain("src/other.ts");
+    });
+
+    it("two heads that cannot be ordered by ancestry stop the entry, naming both heads (no order guessed)", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        // Two divergent branches from the same base — neither head is an ancestor of the other.
+        sh(web.root, "git", "checkout", "-q", "-b", "branch-a", web.base);
+        write(web.root, "src/a.ts", "export const a = 1;\n");
+        const headA = commitAll(web.root, "branch a");
+        sh(web.root, "git", "checkout", "-q", "-b", "branch-b", web.base);
+        write(web.root, "src/b.ts", "export const b = 1;\n");
+        const headB = commitAll(web.root, "branch b");
+
+        const entryDir = writeEntry(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.base, head: headA },
+            { repo: "github.com/acme/web-app", base: web.base, head: headB },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors[0].problem).toBe("unorderable-range");
+        expect(result.errors[0].message).toContain(headA);
+        expect(result.errors[0].message).toContain(headB);
     });
 });
 
@@ -274,17 +471,16 @@ describe("deriveEntryDiff — hard errors (invariant 5)", () => {
         expect(result.errors[0].message).toContain("github.com/acme/ghost");
     });
 
-    it("not a hub: hubDir has no manifest", () => {
+    it("single-repo mode: range naming another repo is unknown-repo, not silently read", () => {
         const parent = makeParent();
         const { web } = buildHubFixture(parent);
-        const entryDir = path.join(parent, "nowhere");
-        write(parent, "nowhere/close-record.md",
-            `---\ntitle: x\nrange:\n  - repo: github.com/acme/web-app\n    base: ${web.base}\n    head: ${web.head}\n---\n`);
+        const entryDir = writeEntry(web.root, [{ repo: "github.com/acme/ghost", base: web.base, head: web.head }]);
 
         const result = deriveEntryDiff(entryDir, web.root);
         expect(result.ok).toBe(false);
         if (result.ok) return;
-        expect(result.errors[0].problem).toBe("not-a-workspace-hub");
+        expect(result.errors[0].problem).toBe("unknown-repo");
+        expect(result.errors[0].message).toContain("github.com/acme/ghost");
     });
 
     it("git diff failure surfaces via an injected Runner", () => {

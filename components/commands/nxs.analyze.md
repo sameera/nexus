@@ -31,36 +31,73 @@ $ARGUMENTS
 
 # Phase 0 — Resolve the epic context
 
-## PR mode (`--pr <N>`)
+## PR mode (`--pr <ref>`)
 
-If `$ARGUMENTS` contains `--pr <N>` (recognized by string match, like `/nxs.epic --resume`), run
+If `$ARGUMENTS` contains `--pr <ref>` (recognized by string match, like `/nxs.epic --resume`), run
 against a PR **in an isolated worktree** instead of the current checkout. The PR may still be
 **open** — conformance runs *before* merge in the new pipeline (`analyze → merge → close`).
-Supported in single-repo and hub mode only; a member repo is rejected by the helper.
 
-1. **Open the worktree** (also preflights the role and PR):
+`<ref>` is a bare PR number, a member-qualified `owner/repo#N`, or a full pull-request URL
+(decision record #495). A bare number keeps today's meaning: this checkout's own repository,
+whether that is single-repo, a hub, or a member analyzing its own PR. A qualified reference or a
+URL may instead name any member the hub's `.nexus/config/workspace.yml` declares — the lead stands
+in the hub and gates a member's PR from there. A reference naming a repository the workspace does
+not declare stops the run and says so; a declared member whose checkout is not present at its
+expected sibling path stops the run and names that path. Every read for the run — the diff, the
+code, the engineer's scratch — comes from **that resolved target's checkout**, never the hub's, and
+every `gh` call names that target's repository explicitly. Configuration, the epic, the story
+issues, the acceptance criteria and the decision record are still resolved from a **main
+checkout** (never the worktree) exactly as below; only the diff/code/scratch reads move to the
+target repository.
+
+1. **Open the worktree** (also preflights the role/target and the PR, in the target's own repo):
 
     ```bash
-    nexus pr-worktree open --pr <N> --mode analyze
+    nexus pr-worktree open --pr <ref> --mode analyze
     ```
 
-    It prints `{ wtPath, analyzedHead, base }`: `wtPath` is a detached worktree checked out at the
-    PR head (`analyzedHead` — the commit actually analyzed, fetched via `pull/<N>/head` so forks
-    work), and `base` is the PR base SHA. **Every path operation below — epic resolution, the diff,
-    the code reads — happens inside `wtPath`.** Resolve the epic **inside `wtPath`** with the same
-    dual-read as the local flow: if a committed queue entry is present in the worktree (an
-    old-contract epic whose entry rode the PR), use it; otherwise resolve from the issue number —
-    derive the epic issue number from the **PR's linked issue** (`gh pr view <N> --json ...` → the
-    issue it closes → its parent epic; invariant 12), then materialize it:
+    It prints `{ wtPath, analyzedHead, base, repoIdentity }`: `wtPath` is a detached worktree of
+    the **target repository** checked out at the PR head (`analyzedHead` — the commit actually
+    analyzed, fetched via `pull/<N>/head` so forks work), `base` is the PR base SHA, and
+    `repoIdentity` names the repository that was actually read (the member, not the hub, when
+    `<ref>` is qualified). **Every path operation below — the diff, the code reads — happens
+    inside `wtPath`.**
+2. **Resolve the story (or stories) the PR implements**, through the validated candidate ladder
+   (decision record #495) — never GitHub's closing-keyword linkage alone, which is same-repository
+   only and produces nothing for a member PR whose story lives in the hub:
 
     ```bash
-    nexus epic-resolve --epic <n> --root <wtPath>
+    nexus pr-worktree stories --pr <ref> --issues-repo "$ISSUES_REPO"
     ```
 
-    Use the directory of the printed `outPath` (under `wtPath/.nexus/tmp/`) as the entry. Under #114
-    nothing is committed at planning, so the feature PR carries **no** queue entry — the resolver path
-    is the norm here; the committed-entry branch is the transitional case (invariant 14).
-2. **Always remove the worktree** at the end of the run and on any error:
+    (`ISSUES_REPO` is the repo resolved in Phase 0.5 below — resolve that step first when `<ref>` is
+    qualified.) It gathers candidates in priority order — an explicit `--story <n>` when given, the
+    PR's own linked/closing issues, the `Closes #<n>` trailers in its **commit messages**, the issue
+    number in its branch name, repo-qualified issue references in its body — validates each against
+    the live issue graph, and prints `{ epic, stories }`.
+
+    A candidate survives by being an issue this repository *files as* a story or an epic, read from
+    the declared `github.classification` — never inferred from the issue graph's shape. Both PR
+    shapes resolve: a **story-level** PR names its stories and the epic is their common parent; an
+    **epic-level** PR names only the epic (a branch named for it, all of its stories on one branch)
+    and the story set is that epic's own live stories. When both are signalled, the stories the PR
+    names win. **Zero validated stories stops the run and names every candidate it considered and
+    why each was dropped; do not proceed.** Two or more stories is not an error: the run covers all
+    of them. Two or more *epics* is: the PR spans epics and the run stops.
+3. Resolve the epic from a **main checkout** (the hub when `<ref>` names a member, this checkout
+   otherwise) with the same dual-read as the local flow: if a committed queue entry is present
+   there (an old-contract epic whose entry rode the PR), use it; otherwise materialize the `epic`
+   number the previous step printed:
+
+    ```bash
+    nexus epic-resolve --epic <n> --root <mainCheckoutRoot>
+    ```
+
+    Use the directory of the printed `outPath` (under `<mainCheckoutRoot>/.nexus/tmp/`) as the
+    entry. Under #114 nothing is committed at planning, so the feature PR carries **no** queue
+    entry — the resolver path is the norm here; the committed-entry branch is the transitional case
+    (invariant 14).
+4. **Always remove the worktree** at the end of the run and on any error:
 
     ```bash
     nexus pr-worktree remove <wtPath>
@@ -181,6 +218,62 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
     the result in Phase 3. Read the invariants from the **record issue body** (the same fetch), not
     from any local copy.
 
+## Phase 0.6 — Aggregate mode: an epic whose stories already shipped their own verdicts
+
+**Local mode only** (not `--pr` — a `--pr` run always analyzes the one PR it was pointed at) and
+**full mode only** (Phase 0.5 resolved a record). Some epics ship story by story, each on its own
+pull request analyzed with `/nxs.analyze --pr`; when that has already happened, deriving a fresh
+epic-wide verdict from scratch would re-run conformance a second time over code that was already
+judged (decision record #505). Detect this before Phase 1 does any of its own diff-reading:
+
+```bash
+nexus epic-verdicts derive --epic <epic-issue>
+```
+
+This is the one shared program `/nxs.close` also calls (never a second copy of the collection,
+trust and recency rules) — it resolves each story's candidate pull requests, validates each
+candidate's `<!-- nexus:analyze-receipt -->` block against the trust rules record #495 fixed
+(repository-scoped, newest-wins by GitHub's own submission timestamp, open-or-merged only), and
+returns one of two states on stdout as JSON:
+
+-   **`"aggregate"`** — every story carries a trusted verdict. The command already wrote the epic
+    receipt (`analyze-receipt.md` beside the resolved `epic.md`, per the #171 placement contract) and
+    printed it back as `receipt`. **Skip Phase 1 and Phase 2's per-story work entirely** — there is
+    nothing left to read or judge story-by-story.
+
+    One judgment still has to run: the epic's **success metrics** and any **decision-record
+    invariant that spans two stories** are properties of the finished capability, so no single
+    story's pull request can be scored against them. Get the code that judgment reads with:
+
+    ```bash
+    nexus epic-verdicts combined --epic <epic-issue>
+    ```
+
+    This prints the **union** of every story pull request's own changed-file set — each pull
+    request's own diff, never a range spanning two of them — read from each pull request's own
+    repository checkout, no worktree created. Judge the epic's success metrics and every
+    cross-story invariant against this combined set the same way Phase 2 judges a single-PR run
+    against its diff. A finding that only the combined set shows is attributed to **the epic**, never
+    to one story; a cross-story check the combined set cannot decide (it depends on code that only
+    exists once the stories are integrated, and they have not all merged) is reported as
+    **unverifiable**, naming what would decide it — never passed silently. Then go to Phase 3 and
+    report both: the findings summed per distinct verdict (never per story — a verdict covering two
+    stories counts once) plus this cross-story judgment, and the pull requests the receipt was
+    derived from.
+-   **`"none"`** — not a single required story carries a verdict: this epic never shipped story by
+    story. The command wrote no receipt. **Fall through to Phase 1 and run exactly as today** — this
+    is the ordinary full-epic path, not a gap. A story marked as shipping without its own pull
+    request (`no-pr-label`) never counts against this: an epic every one of whose *other* stories is
+    unmarked and unverdicted still reads as `"none"`, not `"partial"`.
+-   **`"partial"`** — some required stories carry a verdict and some do not. The command wrote no
+    receipt. Report the gap by story name — `missing` lists the stories with no verdict, `present`
+    the ones that do — and recommend running `/nxs.analyze --pr <N>` on each missing story's pull
+    request. **Do not fall through to Phase 1** on this state; deriving a receipt from only the
+    present stories would silently under-report the epic.
+
+Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
+verdict — report it and stop, the same as any other unreadable-record failure in this command.
+
 # Phase 1 — Gather the implementation surface
 
 Determine what was actually built for this epic. Use, in order of availability:
@@ -242,7 +335,11 @@ Do not run the application or the test suite. You are reading the change, not ex
 ## 2.1 Acceptance-criteria conformance (per story)
 
 For each story in `## User Stories`, take each acceptance criterion and locate the code that
-satisfies it in the change set. Classify the AC:
+satisfies it in the change set. **In `--pr` mode, this is scoped to only the story (or stories) the
+`stories` step resolved** — never every story of the epic. A story pull request is not marked
+failing for a sibling story's work that has not landed yet; a sibling's code appearing in the diff
+as unplanned scope is Scope drift (§2.4), not an unmet AC for a story this run does not cover.
+Classify the AC:
 
 - **met** — the diff/code plainly implements the Given/When/Then or the measurable contract.
 - **partial** — some of the AC is implemented; part is missing or weaker than stated.
@@ -268,10 +365,14 @@ because the record had nowhere to live.
 
 ## 2.3 Success-metric coverage (epic level)
 
-For each item in the epic's `## Success Metrics`, state whether the implementation plausibly moves it
-and whether it is **measurable** from what shipped (is the metric instrumented / observable?). A
-success metric with no way to measure it post-ship is a **finding (medium)** — the epic claimed an
-outcome the build cannot demonstrate.
+**Skip this section in `--pr` mode.** A success metric is a property of the whole epic, unmeasurable
+by construction against one story's pull request — every story PR of the epic would otherwise carry
+the same manufactured finding. Cross-story assessment belongs to the epic-level aggregate (#212).
+
+Otherwise, for each item in the epic's `## Success Metrics`, state whether the implementation
+plausibly moves it and whether it is **measurable** from what shipped (is the metric instrumented /
+observable?). A success metric with no way to measure it post-ship is a **finding (medium)** — the
+epic claimed an outcome the build cannot demonstrate.
 
 ## 2.4 Scope drift (informational)
 
@@ -371,6 +472,8 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     ```yaml
     epic: "<link>"
     nexus_version: <VERSION>             # the toolkit that wrote this block; omit if unresolved
+    repo: <repoIdentity>                 # the target repo actually read — the member, not the hub
+    stories: [<n>, ...]                  # the story issue number(s) this verdict covers
     pr: <N>
     date: <YYYY-MM-DD>
     head: <full 40-hex analyzedHead>     # the commit actually analyzed
@@ -380,6 +483,13 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
     ```
     `````
+
+    `repo` is the `repoIdentity` the `open` step printed (epic #211): it names what was actually
+    read, so a reader never has to assume "this repository" when the PR could belong to any
+    declared member. `stories` is the sorted list `nexus pr-worktree stories` resolved — never
+    re-derived by a reader, and never re-derived across runs: a story pull request analyzed more
+    than once still carries only its own story numbers. Stamp the **full**, un-abbreviated repo
+    identity and every covered story number; never truncate either.
 
 2. Publish it as a **PR review**, so the verdict lands in the merge box:
 
@@ -410,6 +520,7 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 /nxs.analyze 118                  # resolve epic issue #118 via the resolver (no committed entry needed)
 /nxs.analyze path/to/epic-entry   # explicit queue entry / epic directory
 /nxs.analyze --pr 123             # conformance against PR #123 in a worktree; epic from the PR's linked issue
+/nxs.analyze --pr acme/widget#7   # from the hub, conformance against PR #7 in declared member acme/widget
 ```
 
 # Constraints
@@ -446,8 +557,30 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
   nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch. Its
   home is `.nexus/queue/epic-<epic-issue>/` — resolved from the epic issue number, never from `QDIR`,
   which under issue-sourced planning is a gitignored `.nexus/tmp/` materialization.
-- **`--pr` mode runs in a worktree and publishes a review, not a file.** Single-repo and hub only
-  (the helper rejects member repos). Every read happens inside the worktree; the worktree is always
-  removed at the end and on error. The conformance result is a PR review (comment fallback when the
-  lead authored the PR) carrying the machine block — `analyze-receipt.md` is **not** written in this
-  mode. The PR may be open (analyze precedes merge).
+- **`--pr` mode resolves stories through a validated candidate ladder, never GitHub's
+  closing-keyword linkage alone** (decision record #495) — that linkage is same-repository only,
+  and it reads the pull-request *body* alone, so it gives nothing for a member PR whose story lives
+  in the hub and nothing for a PR that carries its `Closes #<n>` lines one per commit.
+  `nexus pr-worktree stories` gathers candidates (explicit ref, linked/closing issues, commit
+  trailers, branch name, repo-qualified body references) and validates each against the issue graph.
+  Zero validated stories stops the run and names what was considered; findings in Phase 2.1 are
+  scoped to only the resolved story(ies); Phase 2.3 (success-metric coverage) does not run in this
+  mode at all.
+- **What an issue *is* comes from `github.classification`, never from the issue graph's shape.** A
+  candidate is an epic or a story because the repository marks it as one — by label under
+  `classification: labels`, by GitHub issue type under `classification: types`, by either under the
+  legacy default. Shape alone ("it has a parent, and that parent lists it back") cannot tell a story
+  of an epic from an epic of an initiative, so in a repository that files epics under initiatives it
+  resolves one level too high and the run checks the wrong acceptance criteria against the wrong
+  decision record. When the declared mode's marker is absent and the *other* mode's marker would
+  have answered, the run stops with `classification-mode-mismatch`: the settings do not describe how
+  this repository files issues, and no stage may quietly work around that.
+- **`--pr` mode runs in a worktree and publishes a review, not a file.** A bare PR number targets
+  this checkout's own repository (single-repo, hub, or a member analyzing its own PR); a
+  member-qualified reference or a PR URL may target any member the hub's workspace manifest
+  declares — an undeclared repository or a declared member not checked out where expected stops
+  the run and says so. Every read happens inside the target repository's worktree; the worktree is
+  always removed at the end and on error. The conformance result is a PR review (comment fallback
+  when the lead authored the PR) carrying the machine block — `analyze-receipt.md` is **not**
+  written in this mode. The PR may be open (analyze precedes merge). `/nxs.close --pr` still
+  refuses a member outright until #215.

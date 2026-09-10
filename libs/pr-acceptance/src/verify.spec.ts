@@ -327,6 +327,58 @@ describe("parseReceiptBlock", () => {
     it("rejects a block with no analyzed head, since currency could not be judged", () => {
         expect(parseReceiptBlock(`${RECEIPT_MARKER}\n\`\`\`yaml\nmode: full\n\`\`\``)).toBeNull();
     });
+
+    it("reads the repo and the covered stories (epic #211, decision record #495)", () => {
+        const withRepoAndStories = [
+            "Conformance summary…",
+            "",
+            RECEIPT_MARKER,
+            "```yaml",
+            'epic: "#211"',
+            "repo: github.com/acme/widget",
+            "stories: [492, 493]",
+            "pr: 7",
+            "date: 2026-09-08",
+            `head: ${"a".repeat(40)}`,
+            "mode: full",
+            "findings: { critical: 0, high: 0, medium: 0, low: 0 }",
+            "```",
+        ].join("\n");
+        const r = parseReceiptBlock(withRepoAndStories);
+        expect(r?.repo).toBe("github.com/acme/widget");
+        expect(r?.stories).toEqual([492, 493]);
+    });
+
+    it("reads repo as null and stories as empty for a receipt that predates epic #211", () => {
+        const r = parseReceiptBlock(block("d".repeat(40)));
+        expect(r?.repo).toBeNull();
+        expect(r?.stories).toEqual([]);
+    });
+
+    it("reads the record reference and its full digest, for the per-story record-currency check (decision record #505)", () => {
+        const withRecord = [
+            RECEIPT_MARKER,
+            "```yaml",
+            'epic: "#212"',
+            "pr: 501",
+            "date: 2026-09-08",
+            `head: ${"a".repeat(40)}`,
+            "mode: full",
+            'record: "#505"',
+            "record_hash: " + "e".repeat(64),
+            "findings: { critical: 0, high: 0, medium: 0, low: 0 }",
+            "```",
+        ].join("\n");
+        const r = parseReceiptBlock(withRecord);
+        expect(r?.record).toBe("#505");
+        expect(r?.recordHash).toBe("e".repeat(64));
+    });
+
+    it("reads record and recordHash as null for a degraded-mode receipt with no record", () => {
+        const r = parseReceiptBlock(block("d".repeat(40)));
+        expect(r?.record).toBeNull();
+        expect(r?.recordHash).toBeNull();
+    });
 });
 
 describe("verifyReceipt", () => {
@@ -395,6 +447,56 @@ describe("verifyReceipt", () => {
         if (!r.ok) return;
         expect(r.value.found).toBe(false);
         expect(r.value.current).toBe(false);
+    });
+
+    const bodyWithRepo = (h: string, repo: string) =>
+        `summary\n\n${RECEIPT_MARKER}\n\`\`\`yaml\nepic: "#211"\nrepo: ${repo}\nstories: [493]\npr: 7\ndate: 2026-09-08\nhead: ${h}\nmode: full\nfindings: { critical: 0, high: 0, medium: 0, low: 0 }\n\`\`\``;
+
+    it("trusts a receipt stamping the expected repo (epic #211, decision record #495)", () => {
+        const run = fakeRunner([
+            view({
+                reviews: [],
+                comments: [{ body: bodyWithRepo(head, "github.com/acme/widget"), createdAt: "2026-09-08T10:00:00Z" }],
+                headRefOid: head,
+            }),
+        ]);
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.receipt?.repo).toBe("github.com/acme/widget");
+    });
+
+    it("ignores a block stamping a different repository — never treats it as this PR's verdict", () => {
+        const run = fakeRunner([
+            view({
+                reviews: [],
+                comments: [{ body: bodyWithRepo(head, "github.com/acme/other"), createdAt: "2026-09-08T10:00:00Z" }],
+                headRefOid: head,
+            }),
+        ]);
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(false);
+    });
+
+    it("falls back to an older, trusted block when the newest one stamps the wrong repo", () => {
+        const run = fakeRunner([
+            view({
+                reviews: [],
+                comments: [
+                    { body: bodyWithRepo(head, "github.com/acme/widget"), createdAt: "2026-09-08T09:00:00Z" },
+                    { body: bodyWithRepo(head, "github.com/acme/other"), createdAt: "2026-09-08T11:00:00Z" },
+                ],
+                headRefOid: head,
+            }),
+        ]);
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.receipt?.repo).toBe("github.com/acme/widget");
     });
 
     it("errors on a receipt block the close-side reader could not parse", () => {

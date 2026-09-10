@@ -137,7 +137,14 @@ beforeAll(async () => {
         ["pack", "--ignore-scripts", "--pack-destination", packDir, "--json"],
         { cwd: REPO_ROOT, encoding: "utf8" },
     );
-    const packed = JSON.parse(packOut)[0] as { filename: string; files: { path: string }[] };
+    // npm's `pack --json` shape has changed across releases — an array of one entry on older
+    // npm, an object keyed by package spec on newer npm (verified against the installed npm here).
+    // Read the sole entry either way rather than assume one shape.
+    const parsedPack: unknown = JSON.parse(packOut);
+    const packed = (Array.isArray(parsedPack) ? parsedPack[0] : Object.values(parsedPack as Record<string, unknown>)[0]) as {
+        filename: string;
+        files: { path: string }[];
+    };
     tarball = path.join(packDir, packed.filename);
     packedFiles = packed.files.map((f) => f.path);
     prefix = path.join(scratch, "prefix");

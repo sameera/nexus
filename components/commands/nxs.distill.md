@@ -119,14 +119,21 @@ $ARGUMENTS
 
    **Hub mode (Phase 0.3):** the drain-SLO report spans the **whole hub queue** — every
    undrained entry (skipped-not-closed and blocked-underivable alike) is listed, none omitted,
-   and each is **attributed to its originating repo**: the first `range:` entry's `repo` in its
-   `close-record.md` when present (host-stripped, e.g. `acme/web-app`), otherwise the hub repo
-   itself (an unclosed hub-queue entry is necessarily the hub's own — migration happens only at
-   close, after the close record is written). The introducing-commit age stays correct in the
-   hub: for a migrated entry that commit *is* the migration commit, so age measures exactly how
-   long the entry has been drainable in the hub queue. Drain-SLO is measured against the hub
-   queue only — never scan member checkouts for closed-but-unmigrated entries (that is
-   migration-lag, owned by close-entry-migration / workspace-status, not this report).
+   and each is **attributed to every distinct repo its `range:` list names** (epic #214, story
+   #508 — never only the first entry's repo, which attributes an entry that shipped over several
+   pull requests to whichever repo happened to be stamped first): every distinct, host-stripped
+   `repo` (e.g. `acme/web-app`) across the entry's `close-record.md` `range:` list, in the order
+   they first appear, or the hub repo itself when the entry carries no close record yet (an
+   unclosed hub-queue entry is necessarily the hub's own — migration happens only at close, after
+   the close record is written). **Age is one figure per entry, never one per repo or per range
+   entry** — measured exactly as today, from the introducing commit (for a migrated entry that
+   commit *is* the migration commit, so age measures exactly how long the entry has been
+   drainable in the hub queue). Drain-SLO is measured against the hub queue only — never scan
+   member checkouts for closed-but-unmigrated entries (that is migration-lag, owned by
+   close-entry-migration / workspace-status, not this report). A **blocked** entry (Phase 1 Exit
+   1, or the reader's `unorderable-range`/`unreachable-sha`/`missing-checkout` diagnostics) names
+   the specific range entry — its repo, base and head — that could not be resolved, not merely
+   the entry as a whole.
 4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → **GitHub recovery mode** (#174): rebuild
    that one entry from durable GitHub state when the local copy is gone — a different machine, a
    cleared `.nexus/tmp/`, a drain days after the close. Recovery is an **explicit per-entry path,
@@ -379,14 +386,18 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 6. **Resolve each entry's provenance repo** — branch on the Phase 0.3 mode:
 
     - **Hub mode:** every provenance reference is the **qualified `<owner>/<repo>#n` form**,
-      resolved deterministically from the entry's recorded originating repo — the **first**
-      `range:` entry's `repo` in `close-record.md` frontmatter (the repo the close ran in).
-      Strip the leading host segment from the normalized identity and append the epic's `link`
-      number: `github.com/acme/web-app` + `#3` → `acme/web-app#3`. The terse `#n` form is
-      **never emitted** in hub mode — in a hub the issue never lives in the drain's own repo, so
-      a terse reference would resolve against the wrong repo. Do **not** probe issue titles with
-      `gh issue view` for this: the recorded repo is ground truth and needs no network
-      round-trip. Use the qualified form everywhere a reference is written — page frontmatter
+      resolved deterministically from the entry's recorded originating repo (epic #214, story
+      #508 — this is no longer positional). When the entry's `range:` list names exactly **one**
+      distinct repo, that is the originating repo — strip the leading host segment and append the
+      epic's `link` number: `github.com/acme/web-app` + `#3` → `acme/web-app#3`, no network
+      round-trip needed, the recorded repo is ground truth. When the list names **more than one**
+      distinct repo, probe each named repo for the epic's issue number
+      (`gh issue view <link> -R <owner>/<repo> --json title`) and require **exactly one** title
+      match; when that is not decisive (zero matches, or more than one), ask the lead via
+      `AskUserQuestion` which repo the epic issue lives in — never guess, and never default to the
+      first-named repo. The terse `#n` form is **never emitted** in hub mode — in a hub the issue
+      never lives in the drain's own repo, so a terse reference would resolve against the wrong
+      repo. Use the resolved qualified form everywhere a reference is written — page frontmatter
       `last_updated_by`, Decision Log headings, and the PR body.
     - **Single-repo mode (unchanged):** the epic's `link` (e.g. `"#3"`) is only meaningful in
       the repo where that issue lives. Check `gh issue view <n> --json title` in the home repo:
@@ -398,52 +409,50 @@ artifacts (a close just prepared it — the close record, backlog append, and le
 
 # Phase 1 — Derive the diff (never stored)
 
-The diff is recomputed from git on every run (0006) — it is never written anywhere. How it is
-recomputed branches on the Phase 0.3 mode.
-
-**Hub mode.** The recorded range is the only diff source — after migration the entry no longer
-shares history with the code, and the entry's introducing commit here is the *migration* commit
-(its diff would be the migration's file moves: confidently wrong). Never use the
-introducing-commit path in hub mode. Per entry, run the derivation tool with each
-argument its own quoted token — never a shell-interpolated string:
+The diff is recomputed from git on every run (0006) — it is never written anywhere. Both modes
+share **one reader** (decision record #513) — the range list the close record stamped is the only
+diff source in either mode, after migration the entry no longer shares history with the code
+(hub), and its introducing commit is the *migration* commit (its diff would be the migration's
+file moves: confidently wrong). Never use the introducing-commit path against a stamped range in
+either mode. Per entry, run the derivation tool with each argument its own quoted token — never a
+shell-interpolated string:
 
     ```bash
-    nexus derive-entry-diff --entry "<entry-dir>"
+    nexus derive-entry-diff --entry "<entry-dir>" [--hub <hub-root>]
     ```
 
-    If the toolkit reports no such verb, the installed toolkit predates this capability — stop and
-    tell the operator to update their Nexus install; do not derive the diff another way.
+    Omit `--hub` in single-repo mode (it defaults to the current directory). If the toolkit
+    reports no such verb, the installed toolkit predates this capability — stop and tell the
+    operator to update their Nexus install; do not derive the diff another way.
 
     The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
-    full SHAs), resolves each named repo to its sibling member checkout through the workspace
-    resolver (the hub's own entries resolve to the hub checkout), verifies both SHAs are
-    reachable, and emits **one diff per repo** — each computed as `git diff <base>...<head>`
-    inside that repo's own checkout with every pipeline store withheld, so
-    no path is ever attributed to the wrong repo. It reads only: it never clones, fetches, or
-    mutates a member checkout.
+    full SHAs — **a repo may appear in more than one entry**: an epic closed over several story
+    pull requests stamps one entry per pull request, and this reader reads every one of them,
+    never at most one per repo). In hub mode each named repo resolves to its sibling member
+    checkout through the workspace resolver (the hub's own entries resolve to the hub checkout);
+    in single-repo mode each entry resolves against this checkout's own identity, and an entry
+    naming another repo is the same unknown-repo error hub mode already gives — never read
+    silently in the wrong checkout. It verifies both SHAs of every entry are reachable, orders a
+    repo's entries by ancestry of their recorded heads (a repeated repo is read in the order its
+    changes actually landed, never the order the range list happened to stamp them in), and emits
+    **one diff per range entry** — each computed as `git diff <base>...<head>` inside that
+    entry's own checkout with every pipeline store withheld, so no path is ever attributed to the
+    wrong repo and no span is ever computed from one entry's start to another entry's end. It
+    reads only: it never clones, fetches, or mutates a checkout.
 
     - **Exit 0:** stdout carries a `=== repo <identity> checkout <path> range <base>...<head> ===`
-      header per repo followed by that repo's diff. Analyze each repo's diff against its own
-      repo.
-    - **Exit 1** (missing checkout, unreachable SHA, missing/malformed `range:` stamp,
-      unknown repo): report the tool's diagnostic **verbatim**, mark the entry **blocked** — it
-      is not drained this run and its queue files are untouched — and continue with the
-      remaining entries. Never fall back to the hub repo, never treat the failure as an empty
-      diff, never derive a partial diff, and never ask the user for a replacement range.
+      header per range entry followed by that entry's diff, in ancestry order within each repo.
+      Analyze each entry's diff against its own repo.
+    - **Exit 1** (missing checkout, unreachable SHA, unorderable heads, missing/malformed
+      `range:` stamp, unknown repo): report the tool's diagnostic **verbatim**, mark the entry
+      **blocked** — it is not drained this run and its queue files are untouched — and continue
+      with the remaining entries. Never fall back to the hub repo, never treat the failure as an
+      empty diff, never derive a partial diff, and never ask the user for a replacement range.
 
-**Single-repo mode — range-first.** Per entry, resolve the SHA range in priority order. The
-recorded `range:` is the primary source (it is exact — `/nxs.close` stamps it from the merged PR,
-and it converges single-repo onto how hub mode already derives). The introducing-commit path is only
-a fallback for legacy entries with no usable range. For an entry the Phase 0.4 gate waived as
-**not-merged**, use priority 1 (the recorded `range:`) directly:
+**Single-repo mode also keeps one legacy fallback**, for an entry with no usable range at all —
+never for a range the tool above already read successfully:
 
-1. **Recorded range in the entry** — the `range:` list in `close-record.md` frontmatter
-   (entries of `{repo, base, head}`, full SHAs — use this repo's entry), or legacy top-level
-   `base`/`head` fields in `epic.md` or `close-record.md`, if present:
-   `git diff <base>...<head>`. In continuation mode this is always the source (the close just
-   stamped it).
-
-2. **The commit that introduced the queue entry (fallback — only when the range SHAs are
+1. **The commit that introduced the queue entry (fallback — only when the range SHAs are
    unreachable):**
 
     ```bash
@@ -457,7 +466,7 @@ a fallback for legacy entries with no usable range. For an entry the Phase 0.4 g
     multi-PR pipeline no single introducing commit holds the feature code). It exists for legacy
     single-repo entries whose recorded head was squashed away and is no longer reachable.
 
-3. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
+2. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
    user for a base/head range via `AskUserQuestion` free text; do not guess.
 
 In both modes, withhold every **pipeline store** from the behavioral analysis. Do not write the
@@ -737,14 +746,31 @@ Run these for each entry, in order, before its commit:
    tree; in hub mode over the member checkouts of every repo in the entry's recorded range plus
    every repo already named in the concept's existing sidecar (a checkout missing during the
    grep: carry that repo's existing entries and SHA forward unchanged — never drop paths because
-   a checkout is absent, and never fetch to find one).
+   a checkout is absent, and never fetch to find one). **Only anchor a path that still exists at
+   its repo's newest drained head** (epic #214, story #507) — a path a later range entry renamed
+   or deleted away is not anchored; existence is a read-only check at that head.
 
-   **Single-repo format (unchanged):**
+   **Per-path attribution (epic #214, story #507).** When a repo's range names more than one
+   entry, append to each path's role text which pull request last changed it — the repo-qualified
+   form, `<owner/repo>#<pr>` in hub mode, `#<pr>` in single-repo mode — e.g. `- \`src/x.ts\` —
+   validates the request shape (acme/web-app#512)`. A path that entered only via alias-grep or
+   name matching, never through a drained range entry, carries no attribution — that correctly
+   reads as this drain not having put it there. Read each entry's pull request from the diff
+   tool's header (`nexus derive-entry-diff`'s `pr <n>` suffix, present when the range entry
+   stamped one); for an older entry with none, resolve it from its recorded head — same
+   commit-to-pull-request resolution the Phase 0.4 merge-precondition already performs
+   (`gh api "repos/{owner}/{repo}/commits/<head>/pulls"`) — and when that too fails, degrade to
+   naming the repository and the short head instead of a pull request, and say in the completion
+   report that this path's attribution degraded. This attribution is **asserted, never validated**
+   — the validator's anchor rules are unchanged; the drain's own report of what it attributed and
+   what it could not is the check (decision record #513, accepted risk).
+
+   **Single-repo format (unchanged shape):**
 
     ```markdown
     ---
     concept: <slug>
-    source_sha: <head SHA of the drained range>
+    source_sha: <newest drained head for this repo>
     generated: <YYYY-MM-DD>
     ---
 
@@ -753,24 +779,26 @@ Run these for each entry, in order, before its commit:
 
     # Code Anchors: <Title>
 
-    - `<path>` — <one-line role in the concept>
+    - `<path>` — <one-line role in the concept>[ (#<pr>)]
     ```
 
    **Hub format** — `source_sha` is a per-repo mapping (one `<repo>@<sha>` item per repo) and
    every path is qualified by its repo. `<repo>` is the normalized `host/owner/repo` identity —
    the exact string the close record's `range:` uses. The SHA for a repo in the entry's range is
-   that repo's recorded **head** (full 40-hex); the SHA for a repo whose paths entered only via
-   alias-grep is that member checkout's current `HEAD` (`git -C <checkout> rev-parse HEAD` —
-   read-only). Every listed path is attributed to exactly one repo and every mapped repo has at
-   least one path; a pre-existing scalar-form anchor a hub drain touches is regenerated whole
-   into this shape:
+   the **newest** of that repo's drained heads — the last entry in the ancestry order the reader
+   already resolved, not merely "the" recorded head now that a repo can carry several — full
+   40-hex; the SHA for a repo whose paths entered only via alias-grep is that member checkout's
+   current `HEAD` (`git -C <checkout> rev-parse HEAD` — read-only). Every listed path is
+   attributed to exactly one repo — **its own, never another repo in the same range list** — and
+   every mapped repo has at least one path; a pre-existing scalar-form anchor a hub drain touches
+   is regenerated whole into this shape:
 
     ```markdown
     ---
     concept: <slug>
     source_sha:
-      - <host/owner/repo>@<full head SHA for that repo>
-      - <host/owner/repo>@<full head SHA for that repo>
+      - <host/owner/repo>@<newest drained head for that repo>
+      - <host/owner/repo>@<newest drained head for that repo>
     generated: <YYYY-MM-DD>
     ---
 
@@ -779,7 +807,7 @@ Run these for each entry, in order, before its commit:
 
     # Code Anchors: <Title>
 
-    - `<host/owner/repo>:<path>` — <one-line role in the concept>
+    - `<host/owner/repo>:<path>` — <one-line role in the concept>[ (<host/owner/repo>#<pr>)]
     ```
 
 3. **Mode-conditional rules for the deterministic steps.** Steps 4 and 5 run the same commands

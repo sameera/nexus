@@ -29,15 +29,35 @@
       "import": "./src/range-read.ts",
       "default": "./src/range-read.ts"
     },
+    "./range-list": {
+      "types": "./src/range-list.ts",
+      "import": "./src/range-list.ts",
+      "default": "./src/range-list.ts"
+    },
     "./worktree": {
       "types": "./src/worktree.ts",
       "import": "./src/worktree.ts",
       "default": "./src/worktree.ts"
     },
+    "./trunk-check": {
+      "types": "./src/trunk-check.ts",
+      "import": "./src/trunk-check.ts",
+      "default": "./src/trunk-check.ts"
+    },
     "./identity": {
       "types": "./src/identity.ts",
       "import": "./src/identity.ts",
       "default": "./src/identity.ts"
+    },
+    "./member-target": {
+      "types": "./src/member-target.ts",
+      "import": "./src/member-target.ts",
+      "default": "./src/member-target.ts"
+    },
+    "./story-candidates": {
+      "types": "./src/story-candidates.ts",
+      "import": "./src/story-candidates.ts",
+      "default": "./src/story-candidates.ts"
     },
     "./render": {
       "types": "./src/render.ts",
@@ -48,6 +68,7 @@
   },
   "dependencies": {
     "@nexus/delivery-config": "workspace:*",
-    "@nexus/workspace": "workspace:*"
+    "@nexus/workspace": "workspace:*",
+    "@nexus/epic-resolve": "workspace:*"
   }
 }

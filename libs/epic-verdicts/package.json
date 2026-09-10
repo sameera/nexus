@@ -1,0 +1,71 @@
+{
+  "name": "@nexus/epic-verdicts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./run": {
+      "types": "./src/run.ts",
+      "import": "./src/run.ts",
+      "default": "./src/run.ts"
+    },
+    "./diagnostic": {
+      "types": "./src/diagnostic.ts",
+      "import": "./src/diagnostic.ts",
+      "default": "./src/diagnostic.ts"
+    },
+    "./discover": {
+      "types": "./src/discover.ts",
+      "import": "./src/discover.ts",
+      "default": "./src/discover.ts"
+    },
+    "./verdict": {
+      "types": "./src/verdict.ts",
+      "import": "./src/verdict.ts",
+      "default": "./src/verdict.ts"
+    },
+    "./aggregate": {
+      "types": "./src/aggregate.ts",
+      "import": "./src/aggregate.ts",
+      "default": "./src/aggregate.ts"
+    },
+    "./currency": {
+      "types": "./src/currency.ts",
+      "import": "./src/currency.ts",
+      "default": "./src/currency.ts"
+    },
+    "./combined": {
+      "types": "./src/combined.ts",
+      "import": "./src/combined.ts",
+      "default": "./src/combined.ts"
+    },
+    "./exclusion": {
+      "types": "./src/exclusion.ts",
+      "import": "./src/exclusion.ts",
+      "default": "./src/exclusion.ts"
+    },
+    "./receipt": {
+      "types": "./src/receipt.ts",
+      "import": "./src/receipt.ts",
+      "default": "./src/receipt.ts"
+    },
+    "./merge-gate": {
+      "types": "./src/merge-gate.ts",
+      "import": "./src/merge-gate.ts",
+      "default": "./src/merge-gate.ts"
+    },
+    "./write": {
+      "types": "./src/write.ts",
+      "import": "./src/write.ts",
+      "default": "./src/write.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@nexus/workspace": "workspace:*",
+    "@nexus/epic-resolve": "workspace:*",
+    "@nexus/pr-acceptance": "workspace:*",
+    "@nexus/pr-worktree": "workspace:*",
+    "@nexus/record-digest": "workspace:*"
+  }
+}

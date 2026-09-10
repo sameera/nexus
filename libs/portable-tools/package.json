@@ -10,6 +10,8 @@
     "@nexus/abs-doc-path": "workspace:*",
     "@nexus/delivery-config": "workspace:*",
     "@nexus/epic-resolve": "workspace:*",
+    "@nexus/epic-verdicts": "workspace:*",
+    "@nexus/pr-worktree": "workspace:*",
     "@nexus/record-digest": "workspace:*",
     "@nexus/release-identity": "workspace:*",
     "@nexus/workspace": "workspace:*",

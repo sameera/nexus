@@ -277,6 +277,18 @@ export interface AnalyzeReceipt {
     head: string;
     mode: string;
     findings: Record<string, number>;
+    /**
+     * The normalized repository the analyzed PR lives in (epic #211, decision record #495). Null
+     * for a receipt written before repo/stories were stamped — a pre-epic-#211 single-repo/hub
+     * receipt, which is always read as "this repository" by a same-repository reader.
+     */
+    repo: string | null;
+    /** The story issue number(s) this verdict covers. Empty when the receipt predates story scoping. */
+    stories: number[];
+    /** The decision record this verdict checked against (full mode), or null in degraded mode. */
+    record: string | null;
+    /** The record's full digest at analysis time, or null in degraded mode. */
+    recordHash: string | null;
 }
 
 export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
@@ -295,6 +307,8 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
     for (const [, k, v] of (fields.get("findings") ?? "").matchAll(/([a-z]+)\s*:\s*(\d+)/g)) {
         findings[k] = Number(v);
     }
+    const storiesRaw = fields.get("stories") ?? "";
+    const stories = [...storiesRaw.matchAll(/\d+/g)].map((m) => Number(m[0]));
     return {
         epic: fields.get("epic") ?? "",
         nexusVersion: fields.get("nexus_version")?.trim() || null,
@@ -303,6 +317,10 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
         head,
         mode: fields.get("mode") ?? "",
         findings,
+        repo: fields.get("repo")?.trim() || null,
+        stories,
+        record: fields.get("record")?.trim() || null,
+        recordHash: fields.get("record_hash")?.trim() || null,
     };
 }
 
@@ -344,7 +362,21 @@ function collectCandidates(doc: Record<string, unknown>): Candidate[] {
     return out;
 }
 
-export function verifyReceipt(run: Runner, cwd: string, prNumber: number): Result<ReceiptVerdict> {
+/**
+ * Trust is scoped to the repository the pull request lives in (decision record #495, invariant
+ * 13): a receipt stamping a `repo` that differs from the repository actually read is a block
+ * copied from a different PR (possibly in a different member) and must never be treated as this
+ * PR's verdict. A receipt with no `repo` stamp predates epic #211 and is always accepted — it
+ * could only ever have come from "this repository" in the first place. Filtered in *before*
+ * newest-wins selection, so an untrusted block can never shadow a trusted, older one.
+ */
+function repoTrusted(body: string, expectedRepo: string | null | undefined): boolean {
+    if (!expectedRepo) return true;
+    const parsed = parseReceiptBlock(body);
+    return parsed === null || parsed.repo === null || parsed.repo.toLowerCase() === expectedRepo.toLowerCase();
+}
+
+export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expectedRepo?: string | null): Result<ReceiptVerdict> {
     const r = run("gh", ["pr", "view", String(prNumber), "--json", "reviews,comments,headRefOid"], { cwd });
     if (r.status !== 0) return fail("gh-failed", `gh pr view ${prNumber} --json reviews,comments failed: ${r.stderr.trim()}`);
     let doc: Record<string, unknown>;
@@ -355,7 +387,9 @@ export function verifyReceipt(run: Runner, cwd: string, prNumber: number): Resul
     }
     const prHead = typeof doc["headRefOid"] === "string" ? doc["headRefOid"] : "";
 
-    const candidates = collectCandidates(doc).sort((a, b) => a.at.localeCompare(b.at));
+    const candidates = collectCandidates(doc)
+        .filter((c) => repoTrusted(c.body, expectedRepo))
+        .sort((a, b) => a.at.localeCompare(b.at));
     const newest = candidates[candidates.length - 1];
     if (newest === undefined) {
         return ok({

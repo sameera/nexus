@@ -30,7 +30,7 @@ export interface FixtureStory {
 export interface FixtureGraph {
     /** "owner/repo" reported by `gh repo view`. */
     slug?: string;
-    epic: { number: number; title: string; body: string; state?: string; labels?: string[] };
+    epic: { number: number; title: string; body: string; state?: string; labels?: string[]; issueType?: string };
     stories?: FixtureStory[];
     /** Order the sub-issues GraphQL query returns (default: the stories' declared order). */
     subIssueOrder?: number[];
@@ -107,6 +107,33 @@ export function makeGhRunner(graph: FixtureGraph): Runner {
 
         if (args[0] === "api" && args[1] === "graphql") {
             const query = queryArg(args);
+            // The combined facts query (parent + type + labels) — matched before the bare parent
+            // query it also contains, or every facts read would answer with a number stream.
+            if (query.includes("parent{number} issueType{name}")) {
+                if (graph.failParent) return fail("GraphQL error reading parent");
+                const target = Number((args.find((a) => a.startsWith("num=")) ?? "num=0").slice(4));
+                const isEpic = target === graph.epic.number;
+                const story = storyByNumber.get(target);
+                if (!isEpic && !story) return ok(JSON.stringify({ data: { repository: { issue: null } } }));
+                const labels = (isEpic ? graph.epic.labels : story?.labels) ?? [];
+                const issueType = isEpic ? graph.epic.issueType : story?.issueType;
+                const parent = graph.parents?.[target];
+                return ok(
+                    JSON.stringify({
+                        data: {
+                            repository: {
+                                issue: {
+                                    parent: parent === undefined ? null : { number: parent },
+                                    issueType: issueType === undefined ? null : { name: issueType },
+                                    state: (isEpic ? graph.epic.state : story?.state) ?? "OPEN",
+                                    stateReason: (isEpic ? "" : story?.stateReason) ?? "",
+                                    labels: { nodes: labels.map((name) => ({ name })) },
+                                },
+                            },
+                        },
+                    }),
+                );
+            }
             if (query.includes("parent{number}")) {
                 if (graph.failParent) return fail("GraphQL error reading parent");
                 const target = Number((args.find((a) => a.startsWith("num=")) ?? "num=0").slice(4));

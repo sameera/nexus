@@ -5,7 +5,7 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.15.0
+## 0.30.0
 
 - `close` no longer runs a member repository's own copy on any path: a member checkout is now a
   hard block at the workspace preflight, in both the plain and the `--pr` flow, naming the hub
@@ -20,7 +20,7 @@ behaviour says so.
   drain's own staged deletion, on its own branch; anything else that starts removing one fails
   the build until deliberately waived.
 
-## 0.14.0
+## 0.29.0
 
 - A new `nexus queue-relocate` verb one-shot relocates every stranded entry sitting in a
   member's committed queue into the hub queue, in preparation for retiring `close`'s
@@ -32,6 +32,198 @@ behaviour says so.
 - `nexus workspace status` now names any present member whose committed queue still holds an
   entry, and says whether it has already been relocated to the hub or still needs
   `nexus queue-relocate`; the line persists until the member-side copy is gone.
+
+## 0.28.0
+
+- distill/close: attributing a queue entry to a repository is no longer positional. The drain-SLO
+  report, and the hub's migrated-entry attribution, now name every distinct repository an entry's
+  range list names, in the order they first appear, rather than only the first range entry's
+  repository — an entry that shipped over several pull requests is chased at every repository it
+  touched, not just one. Resolving which repository a provenance reference belongs to is likewise
+  no longer positional: when a range list names more than one repository, the drain probes each
+  for the epic's own issue and requires exactly one title match, asking the lead when that is not
+  decisive. A resolution failure at the repository level (a missing checkout, an undeclared
+  repository) is now reported once per repository rather than once per range entry that named it.
+
+## 0.27.0
+
+- distill: `nexus derive-entry-diff` now carries the pull request each range entry stamped
+  (`pr:`, when present) through to the derived diff and its header line, so the drain can trace
+  a behavioral claim back to the change that justified it. Code anchors written by a multi-entry
+  drain now append which pull request last changed each path to the anchor's role text, and a
+  path a later entry renamed or deleted away is no longer anchored. A repository's stored anchor
+  identifier is now its newest drained head rather than the head of whichever entry happened to
+  be recorded. The structured provenance token in a concept page's frontmatter and Decision Log
+  heading is unchanged; the pull requests involved are named in the Decision Log entry's body.
+  An entry stamped before this pull-request field existed degrades attribution to the repository
+  and short head, named as a degradation in the drain's report — never silently.
+
+## 0.26.0
+
+- distill: the range reader no longer refuses a repository named by more than one range
+  entry — an epic closed over several pull requests in one repository now drains, where it was
+  previously blocked. It reads every stamped range entry, orders a repository's entries by
+  ancestry of their recorded heads (never the order they happened to be stamped in), and emits
+  one diff per range entry rather than one per repository; two heads that cannot be ordered by
+  ancestry stop that entry by name rather than guessing an order. `nexus derive-entry-diff` is now
+  the single reader for both hub and single-repo mode — single-repo mode resolves each entry
+  against its own identity instead of running separate range-reading prose, and the interim
+  `range-list-unsupported` refusal single-repo mode carried is deleted.
+
+## 0.25.0
+
+- close: closing an epic that shipped as several story pull requests now writes every close
+  artifact on ONE branch for the whole epic, cut only after every story pull request's merge state
+  is gated and its stamped head is verified as an ancestor of the trunk the branch is about to be
+  cut from — never a branch per pull request, and never a worktree opened before those checks pass.
+  `nexus pr-worktree open --pr <N1,N2,...> --mode close --branch <b>` derives every range, verifies
+  the trunk, and opens the worktree in one all-or-nothing call, printing `{ wtPath, ranges: [...] }`
+  instead of a singular `range`; a failed trunk check names the pull request and tells the lead to
+  `git fetch origin main` and retry. A single `--pr <N>` keeps today's singular output unchanged.
+  Because every story branch commits its per-user scratch into the same epic-keyed queue path, and
+  every story pull request merges before this branch is cut and trunk-verified, every engineer's
+  notes are present on that one branch by construction — nothing separately gathers them.
+
+## 0.24.0
+
+- close: closing an epic that shipped as several story pull requests, and hits a story with no
+  discoverable pull request of its own, now stops and names that story instead of reading it as an
+  ordinary missing analysis — the lead is offered a choice, per story, to waive it ("shipped inside
+  a sibling's pull request") or stop the close. Declining on any missing story leaves the epic open.
+  A waived story is written to GitHub only after the closure checkpoint, via a new `nexus
+  epic-verdicts waive-story --story <N>` command, which stamps the resolved no-pull-request marker
+  label the analyze-time aggregation already knows how to skip. The close record now names every
+  waived story and its waiver date in a `Waived Stories` section.
+
+## 0.23.0
+
+- close: closing an epic that shipped as several story pull requests now stamps the close
+  record's `range:` with one entry per pull request — each naming the pull request it came from —
+  instead of one entry standing in for the repository. `nexus pr-worktree range --pr
+  <N1,N2,...>` derives the whole list from the one existing merge-anchored derivation, called once
+  per pull request; a range that cannot be verified for any single pull request stops the whole
+  close before anything is written, with no partial list.
+- distill: a single-repo drain that encounters a close record stamping several `range:` entries
+  for its own repository now names the entry and blocks it (continuing with the rest of the
+  queue) instead of draining one entry and silently dropping the others — that shape needs #214's
+  reader.
+
+## 0.22.0
+
+- close: closing an epic that shipped as several pull requests now gates on every story pull
+  request being merged, checked before the existing currency choice gate. A story pull request
+  still open stops the close and names that pull request and its story — a hard block with no
+  waiver offered, distinct from the currency check's stop-or-waive choice.
+
+## 0.21.0
+
+- analyze/close: `nexus epic-verdicts derive|currency|combined` no longer refuses to run against an
+  epic that is itself a GitHub sub-issue (the promoted-child-of-an-initiative shape this
+  repository's own epics use) — the collection step now resolves the epic without demanding proof
+  it has no parent, a check meant only for the `--from` entry point.
+- analyze: `nexus epic-verdicts combined` now withholds the pipeline stores (`.nexus/queue`,
+  `.nexus/discovery`, the workbook) from every per-pull-request change set it unions, the same
+  exclusion every other derived diff already applies.
+- analyze/close: the story-verdict collection now searches every repository the workspace declares
+  — not only the invoking checkout's own — so a story whose pull request lives in a declared member
+  repository is found instead of silently missing.
+
+## 0.20.0
+
+- analyze: aggregate mode now falls back to today's ordinary full-epic conformance run whenever not
+  a single required story carries a verdict — previously this was reported the same as a genuine
+  partial gap. Only a mix of some-verdict/some-not stories now stops and names the gap. A story
+  marked with the new `no-pr-label` (resolved through the shared publishing resolver, default
+  `no-pull-request`) ships without its own pull request by design: it is excluded from the coverage
+  requirement and named as excluded on the epic receipt, and never counts toward either the
+  fallback or the partial-gap state.
+
+## 0.19.0
+
+- analyze: aggregate mode now judges the epic's success metrics and any decision-record invariant
+  spanning two stories against the **combined** code of every story pull request — the one
+  judgment no single story's own PR can carry. The new `nexus epic-verdicts combined` read prints
+  the union of each story pull request's own changed-file set (each pull request's own diff, never
+  a range spanning two of them, and no worktree created); a finding only the combined set shows is
+  attributed to the epic rather than to a single story, and a cross-story check the combined set
+  cannot yet decide is reported as unverifiable rather than passed silently.
+
+## 0.18.0
+
+- close: the choice gate now recognizes the aggregate epic receipt (a `stories:` list instead of a
+  single `head:`) and re-checks it with the same `nexus epic-verdicts` helper that derived it,
+  rather than reading it as a stale single-head receipt. A stale story is reported by name, on
+  whichever axis — code or decision-record — it failed, never collapsed into one epic-wide "stale"
+  statement. `nexus epic-verdicts currency` is the new read: it re-checks each story's verdict
+  against that story's pull request's current head and, when a record is named, the record's
+  current digest, and reuses `pr-acceptance`'s receipt parser (now also surfacing the stamped
+  `record` / `record_hash` fields) instead of a second parser.
+
+## 0.17.0
+
+- analyze: when an epic's stories were each analyzed on their own pull request, `/nxs.analyze` run
+  against the epic now detects their published verdicts and derives one epic receipt from them
+  instead of re-running conformance from scratch. A story carrying no verdict on any of its
+  candidate pull requests stops the derivation and names that story, rather than deriving a receipt
+  with a silent hole in it. Findings are summed once per distinct verdict, never per story, so a
+  verdict covering two stories is not double-counted. The new `nexus epic-verdicts derive` helper
+  is the one program both `/nxs.analyze` and (soon) `/nxs.close` call for this, sharing the
+  collection, trust and recency rules record #495 already fixed for a single pull request's
+  verdict.
+
+## 0.16.0
+
+- analyze: `--pr` now resolves the epic and stories correctly for two pull-request shapes that
+  previously resolved to the wrong issues, or to none. A PR carrying its `Closes #<n>` lines one
+  per commit is now read from those commit messages — GitHub's own linked-issues field reads the
+  pull-request *body* alone, so such a PR looked to the ladder as though it named nothing and the
+  only signal left was its branch name. And a **pull request that ships a whole epic** — one
+  branch, all of that epic's stories, a branch named for the epic — now resolves to that epic and
+  its own live story set, instead of being mistaken for a story.
+- analyze, decision-record: what an issue *is* now comes from the repository's declared
+  `github.classification` — the `epic` / `story` / `decision-record` label under
+  `classification: labels`, the corresponding GitHub issue type under `classification: types`,
+  either one under the legacy default — and never from the issue graph's shape. The previous rule
+  ("it has a parent, and that parent lists it back, therefore it is a story") cannot tell a story
+  of an epic from an epic of an initiative: in a repository that files epics under initiatives it
+  resolved one level too high, so `/nxs.analyze --pr` checked the initiative's non-existent
+  acceptance criteria and decision record, and `/nxs.decision-record --from` refused every genuine
+  epic as `not-an-epic`. Both now read the declared marker. When the declared mode's marker is
+  absent and the other mode's marker would have answered, the run stops with
+  `classification-mode-mismatch` rather than working around settings that do not describe how this
+  repository files issues.
+- analyze: a `--pr` run that resolves no story now names every candidate it considered *and why
+  each was dropped*, rather than listing the numbers alone.
+- analyze: the `--pr` mode machine block now stamps `repo` (the target repository actually read —
+  the member, not the hub) and `stories` (the story issue number(s) the verdict covers), full and
+  untruncated. `/nxs.close --pr`'s trusted-block selection is now scoped to the repository the PR
+  lives in: the author-association check, the `pr:` match, and a new `repo:` match (when present)
+  are all checked against that repository, so a block copied from a different PR — possibly in a
+  different member — can never be read as this PR's verdict. A block predating epic #211 carries no
+  `repo:` key and is always accepted, unchanged from before.
+
+## 0.15.0
+
+- analyze: in `--pr` mode, the epic and the story it checks now come from a validated candidate
+  ladder (`nexus pr-worktree stories`) instead of GitHub's closing-keyword linkage alone — that
+  linkage is same-repository only and produced nothing for a member PR whose story lives in the
+  hub. The ladder tries an explicit story reference, the PR's own linked/closing issues, the
+  `Closes #<n>` trailers in its commit messages, the issue number in its branch name, and
+  repo-qualified issue references in its body, validating every
+  candidate against the live issue graph; a PR resolving to no story stops the run and names what
+  was considered, and one resolving to several is covered, not refused. Findings are now scoped to
+  only the story (or stories) a PR implements, never every story of the epic, and success-metric
+  coverage — a property of the whole epic — no longer runs in `--pr` mode at all.
+
+## 0.14.0
+
+- analyze: `--pr` now accepts a member-qualified reference (`owner/repo#N`) or a full pull-request
+  URL, not only a bare number. From a hub checkout, this opens the `--pr` role gate to a declared
+  member: the run reads that member's own checkout and code, and reports the member repository
+  (not the hub) as what it read. Naming a repository the workspace does not declare, or a declared
+  member not checked out where the workspace expects it, stops the run and says so. A bare number
+  keeps its existing meaning — this checkout's own repository — and `/nxs.close --pr` is unchanged:
+  it still refuses a member outright, with its refusal message now naming close specifically.
 
 ## 0.13.0
 

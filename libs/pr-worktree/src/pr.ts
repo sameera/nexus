@@ -27,6 +27,14 @@ export interface PrInfo {
     url: string;
     crossRepo: boolean;
     authorLogin: string;
+    body: string;
+    /** Issue numbers the PR closes via GitHub's closing-keyword linkage (same-repo only). */
+    closingIssues: number[];
+    /**
+     * Every commit message on the PR, headline and body joined. GitHub's closing-keyword linkage
+     * reads the PR *body* alone, so a PR built one commit per story states its scope only here.
+     */
+    commitMessages: string[];
 }
 
 export type ResolvePrResult =
@@ -34,7 +42,7 @@ export type ResolvePrResult =
     | { ok: false; error: PrWorktreeDiagnostic };
 
 const GH_FIELDS =
-    "state,mergedAt,baseRefOid,headRefOid,mergeCommit,commits,headRefName,url,isCrossRepository,author";
+    "state,mergedAt,baseRefOid,headRefOid,mergeCommit,commits,headRefName,url,isCrossRepository,author,body,closingIssuesReferences";
 
 function asString(v: unknown, fallback = ""): string {
     return typeof v === "string" ? v : fallback;
@@ -85,6 +93,21 @@ export function resolvePr(
     const mergedAt = doc["mergedAt"];
     const merged = typeof mergedAt === "string" && mergedAt.length > 0;
     const commits = doc["commits"];
+    const commitMessages: string[] = Array.isArray(commits)
+        ? commits
+              .map((entry) => {
+                  if (entry === null || typeof entry !== "object") return "";
+                  const node = entry as Record<string, unknown>;
+                  return [asString(node["messageHeadline"]), asString(node["messageBody"])].filter((part) => part.length > 0).join("\n\n");
+              })
+              .filter((message) => message.length > 0)
+        : [];
+    const closingIssuesRaw = doc["closingIssuesReferences"];
+    const closingIssues: number[] = Array.isArray(closingIssuesRaw)
+        ? closingIssuesRaw
+              .map((entry) => (entry !== null && typeof entry === "object" ? (entry as Record<string, unknown>)["number"] : undefined))
+              .filter((n): n is number => typeof n === "number")
+        : [];
     const pr: PrInfo = {
         number: prNumber,
         state: asString(doc["state"], "UNKNOWN"),
@@ -97,6 +120,9 @@ export function resolvePr(
         url: asString(doc["url"]),
         crossRepo: doc["isCrossRepository"] === true,
         authorLogin: nestedString(doc["author"], "login") ?? "",
+        body: asString(doc["body"]),
+        closingIssues,
+        commitMessages,
     };
 
     if (opts.requireMerged && !merged) {

@@ -1,5 +1,5 @@
 /**
- * Role gate for the --pr post-merge flow.
+ * Role gate for /nxs.close's --pr post-merge flow.
  *
  * Single-repo and hub may run the post-merge worktree flow; a member repo may not
  * (epic #215 retired the close-and-migrate path — a member epic closes from the hub
@@ -9,6 +9,9 @@
  * (`.nexus/config/hub.yml`) is rejected up front, before any hub resolution, so a
  * member is refused even when its hub is not checked out. Identity for the
  * single-repo/hub path comes from close's preflight. Read-only.
+ *
+ * The analyze mode opened by epic #211 does not use this gate — see `./member-target.js`'s
+ * `resolveAnalyzeTarget`, which accepts a member.
  */
 
 import * as fs from "node:fs";

@@ -9,8 +9,9 @@
  *
  * Reads the fixture named by NEXUS_PARITY_GH_FIXTURE (an absolute path to a JSON file) and answers
  * the exact call shapes the epic-resolve, record-digest, and pr-worktree libraries make (story
- * #273 added `pr view`). Deliberately narrow: it only understands the shapes those libraries
- * currently emit, not the full `gh` surface.
+ * #273 added `pr view`; story #502 added `issue edit`, the close-time waiver's one write).
+ * Deliberately narrow: it only understands the shapes those libraries currently emit, not the
+ * full `gh` surface.
  */
 // Repo root's package.json declares "type": "module", so Node loads this extensionless script as
 // ESM when it walks up from here looking for the nearest package.json — use import, not require.
@@ -49,6 +50,13 @@ if (args[0] === "pr" && args[1] === "view") {
 if (args[0] === "issue" && args[1] === "view") {
     const number = args[2];
     const entry = fixture.issueView && fixture.issueView[number];
+    if (!entry) reply(1, "", `gh: issue #${number} not found\n`);
+    reply(entry.status, entry.stdout || "", entry.stderr || "");
+}
+
+if (args[0] === "issue" && args[1] === "edit") {
+    const number = args[2];
+    const entry = fixture.issueEdit && fixture.issueEdit[number];
     if (!entry) reply(1, "", `gh: issue #${number} not found\n`);
     reply(entry.status, entry.stdout || "", entry.stderr || "");
 }

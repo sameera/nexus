@@ -59,6 +59,27 @@ function ghRunner(epic: { number: number; title: string }, stories: FakeStory[],
         }
         if (args[0] === "api" && args[1] === "graphql") {
             const query: string = args.find((a) => a.startsWith("query=")) ?? "";
+            // The combined facts query — matched before the bare parent query it contains.
+            if (query.includes("parent{number} issueType{name}")) {
+                const n = Number((args.find((a) => a.startsWith("num=")) ?? "num=0").slice(4));
+                const labels: string[] = n === epic.number ? ["epic"] : byNumber.has(n) ? ["story"] : [];
+                if (n !== epic.number && !byNumber.has(n)) return ok(JSON.stringify({ data: { repository: { issue: null } } }));
+                return ok(
+                    JSON.stringify({
+                        data: {
+                            repository: {
+                                issue: {
+                                    parent: n === epic.number ? null : { number: epic.number },
+                                    issueType: null,
+                                    state: "OPEN",
+                                    stateReason: null,
+                                    labels: { nodes: labels.map((name) => ({ name })) },
+                                },
+                            },
+                        },
+                    }),
+                );
+            }
             if (query.includes("parent{number}")) return ok("");
             if (query.includes("issueType{name}")) return ok("");
             return ok(stories.map((s) => s.number).join("\n") + "\n");
@@ -146,7 +167,21 @@ describe("a number that names something other than an epic", () => {
             if (cmd === "gh" && args[0] === "issue") {
                 return { status: 0, stdout: JSON.stringify({ number: 12, title: "A story", body: "", state: "OPEN", stateReason: "", labels: [] }), stderr: "" };
             }
-            if (cmd === "gh" && args[0] === "api") return { status: 0, stdout: "100\n", stderr: "" };
+            if (cmd === "gh" && args[0] === "api") {
+                // #12 is a story: filed as one, and a sub-issue of epic #100.
+                const query: string = args.find((a) => a.startsWith("query=")) ?? "";
+                if (query.includes("parent{number} issueType{name}")) {
+                    const issue = {
+                        parent: { number: 100 },
+                        issueType: null,
+                        state: "OPEN",
+                        stateReason: null,
+                        labels: { nodes: [{ name: "story" }] },
+                    };
+                    return { status: 0, stdout: JSON.stringify({ data: { repository: { issue } } }), stderr: "" };
+                }
+                return { status: 0, stdout: "100\n", stderr: "" };
+            }
             return { status: 0, stdout: "", stderr: "" };
         };
         const code: number = runWorkbookCli(["roadmap", "--epic", "12"], io, run);
