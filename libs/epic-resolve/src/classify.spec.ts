@@ -2,7 +2,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { classifySubIssue, isWithdrawnStory, resolveRecordClassification } from "./classify.js";
+import {
+    classifyIssueKind,
+    classifySubIssue,
+    isWithdrawnStory,
+    resolveKindClassification,
+    resolveRecordClassification,
+} from "./classify.js";
 
 /** A checkout declaring `settings` — the only thing the resolver reads. */
 function repoWith(settings: string): string {
@@ -138,5 +144,135 @@ describe("isWithdrawnStory — a cancelled story is not live scope", () => {
 
     it("withdraws when either signal alone suffices, and combining them changes nothing", () => {
         expect(isWithdrawnStory(["wontfix"], "CLOSED", "NOT_PLANNED")).toBe(true);
+    });
+});
+
+describe("resolveKindClassification — the epic/story markers, from the same resolver", () => {
+    it("takes the epic and story names from the declared settings", () => {
+        const r = resolveKindClassification(
+            repoWith("github:\n  classification: labels\n  epic-label: epic\n  story-label: story\n"),
+        );
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.classification.mode).toBe("labels");
+        expect(r.classification.epicLabel).toBe("epic");
+        expect(r.classification.storyLabel).toBe("story");
+    });
+
+    it("falls back to the resolver's built-in epic and story labels", () => {
+        const r = resolveKindClassification(repoWith("github:\n  project: none\n"));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.classification.epicLabel).toBe("epic");
+        expect(r.classification.storyLabel).toBe("story");
+    });
+
+    it("refuses type-based classification when the repo declares no epic or story type", () => {
+        // `epic-type` and `story-type` carry no built-in — under `types` there is nothing to
+        // classify against, and guessing a name would silently mis-file every candidate.
+        const r = resolveKindClassification(repoWith("github:\n  classification: types\n"));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("record-classification-unresolved");
+        expect(r.error.message).toContain("epic-type");
+    });
+
+    it("resolves type-based classification when both types are declared", () => {
+        const r = resolveKindClassification(
+            repoWith("github:\n  classification: types\n  epic-type: Epic\n  story-type: Story\n"),
+        );
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.classification.epicType).toBe("Epic");
+        expect(r.classification.storyType).toBe("Story");
+    });
+});
+
+describe("classifyIssueKind — what an issue is filed as, under the declared mode", () => {
+    const labels = {
+        mode: "labels" as const,
+        epicLabel: "epic",
+        epicType: "Epic",
+        storyLabel: "story",
+        storyType: "Story",
+        recordLabel: "decision-record",
+        recordType: "Decision Record",
+    };
+    const types = { ...labels, mode: "types" as const };
+    const legacy = { ...labels, mode: "legacy-auto" as const };
+
+    it("names an epic, a story and a record apart under label mode", () => {
+        expect(classifyIssueKind(labels, { number: 211, labels: ["epic", "in-progress"], issueType: null })).toEqual({
+            ok: true,
+            kind: "epic",
+        });
+        expect(classifyIssueKind(labels, { number: 493, labels: ["story", "pipeline"], issueType: null })).toEqual({
+            ok: true,
+            kind: "story",
+        });
+        expect(classifyIssueKind(labels, { number: 495, labels: ["decision-record"], issueType: null })).toEqual({
+            ok: true,
+            kind: "record",
+        });
+    });
+
+    it("calls anything carrying no declared marker `other`, never a story by default", () => {
+        // The initiative one level above an epic is the case this exists for: it has a parent-of
+        // relationship to the epic, so a graph-shape check alone reads it as an epic's epic.
+        expect(classifyIssueKind(labels, { number: 491, labels: ["initiative"], issueType: null })).toEqual({
+            ok: true,
+            kind: "other",
+        });
+        expect(classifyIssueKind(labels, { number: 491, labels: [], issueType: null })).toEqual({
+            ok: true,
+            kind: "other",
+        });
+    });
+
+    it("folds case on both markers, as GitHub's label namespace does", () => {
+        expect(classifyIssueKind(labels, { number: 1, labels: ["Epic"], issueType: null })).toEqual({ ok: true, kind: "epic" });
+        expect(classifyIssueKind(types, { number: 1, labels: [], issueType: "EPIC" })).toEqual({ ok: true, kind: "epic" });
+    });
+
+    it("classifies by issue type under type mode", () => {
+        expect(classifyIssueKind(types, { number: 211, labels: [], issueType: "Epic" })).toEqual({ ok: true, kind: "epic" });
+        expect(classifyIssueKind(types, { number: 493, labels: [], issueType: "Story" })).toEqual({ ok: true, kind: "story" });
+    });
+
+    it("errors when the settings declare labels but the issue is classified by type instead", () => {
+        // Not a fallback: the declared mode is the repository's own statement of how it files
+        // issues. Reading the other marker anyway would let a wrong `classification:` value keep
+        // working silently, and the next stage that trusts the setting would disagree with this one.
+        const r = classifyIssueKind(labels, { number: 211, labels: ["pipeline"], issueType: "Epic" });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("classification-mode-mismatch");
+        expect(r.error.message).toContain("#211");
+        expect(r.error.message).toContain("labels");
+    });
+
+    it("errors when the settings declare types but the issue is classified by label instead", () => {
+        const r = classifyIssueKind(types, { number: 493, labels: ["story"], issueType: null });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("classification-mode-mismatch");
+        expect(r.error.message).toContain("#493");
+        expect(r.error.message).toContain("types");
+    });
+
+    it("does not error when both markers are present and agree", () => {
+        expect(classifyIssueKind(labels, { number: 211, labels: ["epic"], issueType: "Epic" })).toEqual({
+            ok: true,
+            kind: "epic",
+        });
+        expect(classifyIssueKind(types, { number: 211, labels: ["epic"], issueType: "Epic" })).toEqual({
+            ok: true,
+            kind: "epic",
+        });
+    });
+
+    it("accepts either marker under legacy-auto, which cannot be inaccurate about a mode it never declared", () => {
+        expect(classifyIssueKind(legacy, { number: 211, labels: ["epic"], issueType: null })).toEqual({ ok: true, kind: "epic" });
+        expect(classifyIssueKind(legacy, { number: 211, labels: [], issueType: "Epic" })).toEqual({ ok: true, kind: "epic" });
     });
 });

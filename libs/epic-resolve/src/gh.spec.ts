@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
     fetchBlockedBy,
     fetchIssue,
+    fetchIssueFacts,
     fetchParentNumber,
+    fetchSubIssueFacts,
     fetchSubIssueNumbers,
     fetchSubIssueTypes,
     resolveRepoSlug,
@@ -239,5 +241,104 @@ describe("fetchSubIssueTypes", () => {
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("malformed-json");
+    });
+});
+
+/** A `gh api graphql` responder returning a canned full document for the facts queries. */
+function factsRunner(doc: unknown, opts: { status?: number; stderr?: string } = {}): Runner {
+    return (cmd, args) => {
+        if (cmd !== "gh" || args[0] !== "api") return { status: 1, stdout: "", stderr: `unexpected ${cmd} ${args[0]}` };
+        if (opts.status !== undefined && opts.status !== 0) return { status: opts.status, stdout: "", stderr: opts.stderr ?? "boom" };
+        return { status: 0, stdout: JSON.stringify(doc), stderr: "" };
+    };
+}
+
+const SLUG = { owner: "acme", repo: "widget" };
+
+describe("fetchIssueFacts — parent, issue type and labels in one call", () => {
+    it("reads all three off one issue", () => {
+        const run = factsRunner({
+            data: {
+                repository: {
+                    issue: {
+                        parent: { number: 491 },
+                        issueType: { name: "Epic" },
+                        state: "OPEN",
+                        stateReason: null,
+                        labels: { nodes: [{ name: "epic" }, { name: "in-progress" }] },
+                    },
+                },
+            },
+        });
+        const r = fetchIssueFacts(run, "/repo", SLUG, 211);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.facts).toEqual({
+            exists: true,
+            parent: 491,
+            issueType: "Epic",
+            labels: ["epic", "in-progress"],
+            state: "OPEN",
+            stateReason: "",
+        });
+    });
+
+    it("reports a top-level issue as having no parent", () => {
+        const run = factsRunner({
+            data: { repository: { issue: { parent: null, issueType: null, state: "OPEN", stateReason: null, labels: { nodes: [] } } } },
+        });
+        const r = fetchIssueFacts(run, "/repo", SLUG, 211);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.facts).toEqual({ exists: true, parent: null, issueType: null, labels: [], state: "OPEN", stateReason: "" });
+    });
+
+    it("reports a number that names no issue as not existing, rather than failing", () => {
+        // A candidate lifted out of a branch name may be any number at all.
+        const run = factsRunner({ data: { repository: { issue: null } } });
+        const r = fetchIssueFacts(run, "/repo", SLUG, 99999);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.facts.exists).toBe(false);
+    });
+
+    it("maps a gh failure to a diagnostic", () => {
+        const r = fetchIssueFacts(factsRunner(null, { status: 1 }), "/repo", SLUG, 211);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
+    });
+});
+
+describe("fetchSubIssueFacts — the same facts for every sub-issue", () => {
+    it("keys each sub-issue's markers by number", () => {
+        const run = factsRunner({
+            data: {
+                repository: {
+                    issue: {
+                        subIssues: {
+                            nodes: [
+                                { number: 492, issueType: null, labels: { nodes: [{ name: "story" }] } },
+                                { number: 495, issueType: null, labels: { nodes: [{ name: "decision-record" }] } },
+                            ],
+                        },
+                    },
+                },
+            },
+        });
+        const r = fetchSubIssueFacts(run, "/repo", SLUG, 211);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect([...r.facts.keys()]).toEqual([492, 495]);
+        expect(r.facts.get(492)?.labels).toEqual(["story"]);
+        expect(r.facts.get(495)?.labels).toEqual(["decision-record"]);
+    });
+
+    it("reads an epic with no sub-issues as an empty map", () => {
+        const run = factsRunner({ data: { repository: { issue: { subIssues: { nodes: [] } } } } });
+        const r = fetchSubIssueFacts(run, "/repo", SLUG, 211);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.facts.size).toBe(0);
     });
 });

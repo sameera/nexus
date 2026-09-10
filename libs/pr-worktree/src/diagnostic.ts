@@ -15,6 +15,7 @@ export type PrWorktreeProblem =
     | "malformed-pr-reference"
     | "member-checkout-missing"
     | "no-story-candidates"
+    | "classification-mode-mismatch"
     | "story-candidates-multiple-epics"
     | "malformed-json"
     | "gh-failed"
