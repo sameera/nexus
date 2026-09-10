@@ -34,6 +34,7 @@ import {
     renderPreflight,
 } from "@nexus/close-migration/render";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/close-migration/run";
+import { resolveKindClassification } from "@nexus/epic-resolve/classify";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
@@ -1689,9 +1690,18 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             io.stderr(renderPrWorktreeDiagnostic(pr.error));
             return 1;
         }
-        const resolved = resolveStories(closeMigrationRunner, target.target.repoRoot, slug, {
+        // How this repository files an epic, a story and a record — read once, from the same
+        // shared publishing resolver every other stage reads, so the ladder cannot disagree with
+        // `settings.yml` about what an epic is.
+        const kinds = resolveKindClassification(flags.root);
+        if (!kinds.ok) {
+            io.stderr(renderEpicResolveDiagnostic(kinds.error));
+            return 1;
+        }
+        const resolved = resolveStories(closeMigrationRunner, target.target.repoRoot, slug, kinds.classification, {
             explicitStory: flags.story,
             closingIssues: pr.pr.closingIssues,
+            commitMessages: pr.pr.commitMessages,
             branchName: pr.pr.headRef,
             prBody: pr.pr.body,
         });

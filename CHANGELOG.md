@@ -145,6 +145,27 @@ behaviour says so.
 
 ## 0.16.0
 
+- analyze: `--pr` now resolves the epic and stories correctly for two pull-request shapes that
+  previously resolved to the wrong issues, or to none. A PR carrying its `Closes #<n>` lines one
+  per commit is now read from those commit messages — GitHub's own linked-issues field reads the
+  pull-request *body* alone, so such a PR looked to the ladder as though it named nothing and the
+  only signal left was its branch name. And a **pull request that ships a whole epic** — one
+  branch, all of that epic's stories, a branch named for the epic — now resolves to that epic and
+  its own live story set, instead of being mistaken for a story.
+- analyze, decision-record: what an issue *is* now comes from the repository's declared
+  `github.classification` — the `epic` / `story` / `decision-record` label under
+  `classification: labels`, the corresponding GitHub issue type under `classification: types`,
+  either one under the legacy default — and never from the issue graph's shape. The previous rule
+  ("it has a parent, and that parent lists it back, therefore it is a story") cannot tell a story
+  of an epic from an epic of an initiative: in a repository that files epics under initiatives it
+  resolved one level too high, so `/nxs.analyze --pr` checked the initiative's non-existent
+  acceptance criteria and decision record, and `/nxs.decision-record --from` refused every genuine
+  epic as `not-an-epic`. Both now read the declared marker. When the declared mode's marker is
+  absent and the other mode's marker would have answered, the run stops with
+  `classification-mode-mismatch` rather than working around settings that do not describe how this
+  repository files issues.
+- analyze: a `--pr` run that resolves no story now names every candidate it considered *and why
+  each was dropped*, rather than listing the numbers alone.
 - analyze: the `--pr` mode machine block now stamps `repo` (the target repository actually read —
   the member, not the hub) and `stories` (the story issue number(s) the verdict covers), full and
   untruncated. `/nxs.close --pr`'s trusted-block selection is now scoped to the repository the PR
@@ -158,8 +179,9 @@ behaviour says so.
 - analyze: in `--pr` mode, the epic and the story it checks now come from a validated candidate
   ladder (`nexus pr-worktree stories`) instead of GitHub's closing-keyword linkage alone — that
   linkage is same-repository only and produced nothing for a member PR whose story lives in the
-  hub. The ladder tries an explicit story reference, the PR's own linked/closing issues, the issue
-  number in its branch name, and repo-qualified issue references in its body, validating every
+  hub. The ladder tries an explicit story reference, the PR's own linked/closing issues, the
+  `Closes #<n>` trailers in its commit messages, the issue number in its branch name, and
+  repo-qualified issue references in its body, validating every
   candidate against the live issue graph; a PR resolving to no story stops the run and names what
   was considered, and one resolving to several is covered, not refused. Findings are now scoped to
   only the story (or stories) a PR implements, never every story of the epic, and success-metric

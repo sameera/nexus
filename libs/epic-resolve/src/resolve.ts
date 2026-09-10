@@ -23,9 +23,11 @@
  */
 
 import {
+    classifyIssueKind,
     classifySubIssue,
     isUnplannedEpic,
     isWithdrawnStory,
+    resolveKindClassification,
     resolveRecordClassification,
     resolveUnplannedLabel,
     type RecordClassification,
@@ -34,7 +36,7 @@ import { type EpicResolveDiagnostic } from "./diagnostic.js";
 import {
     fetchBlockedBy,
     fetchIssue,
-    fetchParentNumber,
+    fetchIssueFacts,
     fetchSubIssueNumbers,
     fetchSubIssueTypes,
     resolveRepoSlug,
@@ -98,16 +100,34 @@ export function resolveEpic(
     if (!epic.ok) return epic;
 
     if (opts.requireEpic) {
-        const parent = fetchParentNumber(run, targetRoot, slug.slug, epicNumber);
-        if (!parent.ok) return parent;
-        if (parent.parent !== null) {
+        // What the target is filed as, read from the declared classification — not inferred from
+        // the issue graph's shape. "Has a parent, therefore a story" was the shape rule here, and
+        // it rejects every genuine epic in a repository that files epics under initiatives.
+        const kinds = resolveKindClassification(targetRoot);
+        if (!kinds.ok) return kinds;
+        const facts = fetchIssueFacts(run, targetRoot, slug.slug, epicNumber);
+        if (!facts.ok) return facts;
+        const kind = classifyIssueKind(kinds.classification, {
+            number: epicNumber,
+            labels: facts.facts.labels,
+            issueType: facts.facts.issueType,
+        });
+        if (!kind.ok) return kind;
+
+        // An issue filed as something else is refused by name. An issue filed as nothing in
+        // particular is refused only when it is a sub-issue of something — the pre-classification
+        // rule, kept so a repository that labels no issue at all still resolves its epics.
+        const filedAs: string | null =
+            kind.kind === "story" ? "a story" : kind.kind === "record" ? "a decision record" : null;
+        if (kind.kind !== "epic" && (filedAs !== null || facts.facts.parent !== null)) {
+            const parentNote: string = facts.facts.parent !== null ? ` (sub-issue of #${facts.facts.parent})` : "";
             return {
                 ok: false,
                 error: {
                     problem: "not-an-epic",
                     message:
-                        `#${epicNumber} is a story issue (sub-issue of #${parent.parent}), not an epic; ` +
-                        `pass its parent epic number to --from.`,
+                        `#${epicNumber}${parentNote} is ${filedAs === null ? "not filed as an epic" : `filed as ${filedAs}`}` +
+                        `, not an epic; pass the epic's own issue number to --from.`,
                 },
             };
         }
