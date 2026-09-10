@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { type RunResult, type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type RunResult, type Runner, defaultRunner } from "@nexus/workspace/run";
 import { PROBE_SCRATCH_PATH } from "./fence-probe";
 import { allHandoffs, recordHandoff } from "./handoffs";
 import { type LiveStory } from "./teaching-plan";

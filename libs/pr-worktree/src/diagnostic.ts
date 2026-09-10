@@ -1,13 +1,13 @@
 /**
  * Structured failure reporting for the pr-worktree helper.
  *
- * Same shape and style as the close-migration and workspace diagnostics — a fixed
- * kebab-case problem plus one human sentence naming the offending input and how to
- * fix it. close-migration diagnostics pass through verbatim (identity resolution
- * reuses closePreflight); this union only adds the PR/worktree failure modes.
+ * Same shape and style as the workspace diagnostics — a fixed kebab-case problem plus one human
+ * sentence naming the offending input and how to fix it. The close-role diagnostic passes through
+ * verbatim (identity resolution reuses closePreflight); this union only adds the PR/worktree
+ * failure modes.
  */
 
-import { type MigrationDiagnostic } from "@nexus/close-migration/diagnostic";
+import { type CloseRoleDiagnostic } from "@nexus/workspace/close-role";
 
 export type PrWorktreeProblem =
     | "not-a-git-repo"
@@ -38,6 +38,6 @@ export type PrWorktreeProblem =
     | "usage";
 
 export interface PrWorktreeDiagnostic {
-    problem: PrWorktreeProblem | MigrationDiagnostic["problem"];
+    problem: PrWorktreeProblem | CloseRoleDiagnostic["problem"];
     message: string;
 }

@@ -10,14 +10,61 @@
  *   - a resolved workspace  → the hub, every declared member, and each member's checkout state;
  *   - single-repo mode      → "no workspace declared", stated as normal, never an error;
  *   - a resolution failure  → the structured diagnostic, naming the file, entry, and defect.
+ *
+ * One exception to "derives nothing of its own" (epic #215, story #510): a present member's
+ * `.nexus/queue` can hold an entry the close-and-migrate path would once have moved into the hub.
+ * Since that path is retired, {@link findStrandedQueueEntries} stats each present member's queue
+ * directly, and its line survives after relocation — changing only to say the copy can be
+ * deleted — until the member-side copy is actually gone, so an adopter who never runs the
+ * relocation still gets a signal from the one command that already walks member checkouts.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { type Diagnostic } from "./manifest.js";
 import {
     type ResolveResult,
     type ResolvedWorkspace,
     type SingleRepoWorkspace,
 } from "./resolve.js";
+
+export interface StrandedQueueEntry {
+    member: string;
+    entry: string;
+    /** Whether the hub's own queue already holds a same-named entry. */
+    relocatedToHub: boolean;
+}
+
+/** Directory names (not dotfiles) directly under `<root>/.nexus/queue`. */
+function listQueueEntries(root: string): string[] {
+    const dir = path.join(root, ".nexus", "queue");
+    if (!fs.existsSync(dir)) {
+        return [];
+    }
+    return fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !d.name.startsWith("."))
+        .map((d) => d.name)
+        .sort();
+}
+
+/** Every queue entry a present member still holds, read directly off disk. */
+export function findStrandedQueueEntries(ws: ResolvedWorkspace): StrandedQueueEntry[] {
+    const found: StrandedQueueEntry[] = [];
+    for (const member of ws.members) {
+        if (member.checkout !== "present") {
+            continue;
+        }
+        for (const entry of listQueueEntries(member.expectedPath)) {
+            found.push({
+                member: member.name,
+                entry,
+                relocatedToHub: fs.existsSync(path.join(ws.hubRoot, ".nexus", "queue", entry)),
+            });
+        }
+    }
+    return found;
+}
 
 /** Two-space-indented line. */
 function indent(line: string, depth = 1): string {
@@ -50,6 +97,19 @@ function renderResolvedWorkspace(ws: ResolvedWorkspace): string {
         lines.push(indent(`${m.expectedPath}${note}`, 3));
         lines.push(indent(`docs root: ${renderDocsRoot(m.docsRoot)}`, 3));
     }
+
+    for (const s of findStrandedQueueEntries(ws)) {
+        lines.push(
+            s.relocatedToHub
+                ? indent(
+                      `stranded queue entry '${s.entry}' in ${s.member} has been relocated — delete the member-side copy`,
+                  )
+                : indent(
+                      `stranded queue entry '${s.entry}' in ${s.member} is not yet relocated — run \`nexus queue-relocate\` from the hub`,
+                  ),
+        );
+    }
+
     return lines.join("\n");
 }
 

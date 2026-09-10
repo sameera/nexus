@@ -1,5 +1,7 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { type Diagnostic } from "./manifest";
 import { type ResolveResult } from "./resolve";
 import { renderWorkspaceStatus } from "./status";
@@ -139,6 +141,83 @@ describe("renderWorkspaceStatus — single-repo mode", () => {
         expect(out).toContain("single-repo");
         expect(out).not.toContain("failed");
         expect(out).not.toContain("error");
+    });
+});
+
+// --- stranded member-queue entries (epic #215, story #510) -----------------
+
+describe("renderWorkspaceStatus — stranded queue entries", () => {
+    let tmpDirs: string[] = [];
+
+    afterEach(() => {
+        for (const dir of tmpDirs) {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+        tmpDirs = [];
+    });
+
+    function resultFor(hubRoot: string, memberRoot: string): ResolveResult {
+        return {
+            ok: true,
+            workspace: {
+                mode: "workspace",
+                hubRoot,
+                parentDir: path.dirname(hubRoot),
+                hub: {
+                    name: "docs-hub",
+                    remote: "git@github.com:acme/docs-hub.git",
+                    normalizedRemote: "github.com/acme/docs-hub",
+                    path: hubRoot,
+                    docsRoot: ".",
+                },
+                members: [
+                    {
+                        name: "web-app",
+                        remote: "git@github.com:acme/web-app.git",
+                        normalizedRemote: "github.com/acme/web-app",
+                        expectedPath: memberRoot,
+                        checkout: "present",
+                        docsRoot: "docs",
+                    },
+                ],
+            },
+        };
+    }
+
+    function makeHubAndMember(): { hubRoot: string; memberRoot: string } {
+        const parent = fs.mkdtempSync(path.join(os.tmpdir(), "nexus-status-"));
+        tmpDirs.push(parent);
+        const hubRoot = path.join(parent, "docs-hub");
+        const memberRoot = path.join(parent, "web-app");
+        fs.mkdirSync(hubRoot, { recursive: true });
+        fs.mkdirSync(memberRoot, { recursive: true });
+        return { hubRoot, memberRoot };
+    }
+
+    it("says nothing about stranded entries when no member queue holds one", () => {
+        const { hubRoot, memberRoot } = makeHubAndMember();
+        const out = renderWorkspaceStatus(resultFor(hubRoot, memberRoot)).toLowerCase();
+        expect(out).not.toContain("stranded");
+    });
+
+    it("names a member queue entry not yet relocated to the hub", () => {
+        const { hubRoot, memberRoot } = makeHubAndMember();
+        fs.mkdirSync(path.join(memberRoot, ".nexus", "queue", "epic-9"), { recursive: true });
+
+        const out = renderWorkspaceStatus(resultFor(hubRoot, memberRoot));
+        expect(out).toContain("epic-9");
+        expect(out.toLowerCase()).toContain("web-app");
+        expect(out.toLowerCase()).toContain("stranded");
+    });
+
+    it("reports the entry as relocated once the hub also holds it, until the member copy is gone", () => {
+        const { hubRoot, memberRoot } = makeHubAndMember();
+        fs.mkdirSync(path.join(memberRoot, ".nexus", "queue", "epic-9"), { recursive: true });
+        fs.mkdirSync(path.join(hubRoot, ".nexus", "queue", "epic-9"), { recursive: true });
+
+        const out = renderWorkspaceStatus(resultFor(hubRoot, memberRoot)).toLowerCase();
+        expect(out).toContain("epic-9");
+        expect(out).toContain("relocated");
     });
 });
 

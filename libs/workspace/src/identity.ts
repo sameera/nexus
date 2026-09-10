@@ -9,7 +9,7 @@
  */
 
 import * as path from "node:path";
-import { normalizeRemote } from "@nexus/workspace/remote";
+import { normalizeRemote } from "./remote.js";
 import { type Runner, defaultRunner, git } from "./run.js";
 
 export interface RepoIdentity {

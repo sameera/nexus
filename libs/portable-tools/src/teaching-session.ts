@@ -22,7 +22,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { chooseDrill, conceptsToRevisit, type HintCounts, type LessonConceptHistory } from "./drill-selection.js";
 import {
     interpretReturn,

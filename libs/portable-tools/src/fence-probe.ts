@@ -29,7 +29,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { type Runner, defaultRunner } from "@nexus/close-migration/run";
+import { type Runner, defaultRunner } from "@nexus/workspace/run";
 
 /** The one scratch location the probe ever writes to, swept before anything else runs. */
 export const PROBE_SCRATCH_PATH: string = ".nexus/tmp/workbook-probe";

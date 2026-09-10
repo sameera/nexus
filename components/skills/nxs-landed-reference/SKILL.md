@@ -20,7 +20,7 @@ the calling lane.
 Resolve the checkout's role before anything else is looked up and before anything is written:
 
 ```bash
-nexus close-migration preflight
+nexus close-role
 ```
 
 - **single-repo** or **hub** → keep the reported `repo` identity and repo root, and continue.
@@ -142,7 +142,7 @@ be added, and only in one case:
 
 ## Contract
 
-- **Deterministic pieces stay in the tools this skill calls** — `nexus close-migration preflight`,
+- **Deterministic pieces stay in the tools this skill calls** — `nexus close-role`,
   `nexus pr-worktree range`, `nexus config resolve` — never restated here as a parallel derivation.
   This skill owns the ordering, the refusal wording and the interactive ask-path around them, which
   is exactly the part no CLI verb can host.

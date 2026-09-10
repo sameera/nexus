@@ -16,9 +16,6 @@
       "path": "./libs/abs-doc-path"
     },
     {
-      "path": "./libs/close-migration"
-    },
-    {
       "path": "./libs/delivery-config"
     },
     {

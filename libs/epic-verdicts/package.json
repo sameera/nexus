@@ -62,7 +62,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@nexus/close-migration": "workspace:*",
+    "@nexus/workspace": "workspace:*",
     "@nexus/epic-resolve": "workspace:*",
     "@nexus/pr-acceptance": "workspace:*",
     "@nexus/pr-worktree": "workspace:*",

@@ -123,9 +123,6 @@ importers:
       '@nexus/abs-doc-path':
         specifier: workspace:*
         version: link:libs/abs-doc-path
-      '@nexus/close-migration':
-        specifier: workspace:*
-        version: link:libs/close-migration
       '@nexus/epic-resolve':
         specifier: workspace:*
         version: link:libs/epic-resolve
@@ -173,13 +170,13 @@ importers:
         version: 23.0.1(5f41f50faf0df2238492afd2adccb1a7)
       '@react-router/dev':
         specifier: ^8.1.0
-        version: 8.1.0(babel-plugin-macros@3.1.0)(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.9.3)(vite@8.1.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.4.2)(terser@5.48.0)(tsx@4.22.5)(yaml@2.9.0))
+        version: 8.1.0(babel-plugin-macros@3.1.0)(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.9.3)(vite@8.1.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.4.2)(terser@5.48.0)(tsx@4.22.5)(yaml@2.9.0))
       '@react-router/express':
         specifier: ^8.1.0
-        version: 8.1.0(express@5.2.1(supports-color@8.1.1))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
+        version: 8.1.0(express@5.2.1(supports-color@8.1.1))(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
       '@react-router/node':
         specifier: ^8.1.0
-        version: 8.1.0(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
+        version: 8.1.0(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
       '@swc/cli':
         specifier: ~0.8.0
         version: 0.8.1(@swc/core@1.15.43(@swc/helpers@0.5.23))(chokidar@5.0.0)(supports-color@8.1.1)
@@ -316,12 +313,6 @@ importers:
         specifier: workspace:*
         version: link:../workspace
 
-  libs/close-migration:
-    dependencies:
-      '@nexus/workspace':
-        specifier: workspace:*
-        version: link:../workspace
-
   libs/delivery-config:
     dependencies:
       '@nexus/release-identity':
@@ -369,9 +360,6 @@ importers:
 
   libs/epic-resolve:
     dependencies:
-      '@nexus/close-migration':
-        specifier: workspace:*
-        version: link:../close-migration
       '@nexus/delivery-config':
         specifier: workspace:*
         version: link:../delivery-config
@@ -381,9 +369,6 @@ importers:
 
   libs/epic-verdicts:
     dependencies:
-      '@nexus/close-migration':
-        specifier: workspace:*
-        version: link:../close-migration
       '@nexus/epic-resolve':
         specifier: workspace:*
         version: link:../epic-resolve
@@ -396,6 +381,9 @@ importers:
       '@nexus/record-digest':
         specifier: workspace:*
         version: link:../record-digest
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
 
   libs/origin: {}
 
@@ -404,9 +392,6 @@ importers:
       '@nexus/abs-doc-path':
         specifier: workspace:*
         version: link:../abs-doc-path
-      '@nexus/close-migration':
-        specifier: workspace:*
-        version: link:../close-migration
       '@nexus/delivery-config':
         specifier: workspace:*
         version: link:../delivery-config
@@ -434,18 +419,15 @@ importers:
 
   libs/pr-acceptance:
     dependencies:
-      '@nexus/close-migration':
-        specifier: workspace:*
-        version: link:../close-migration
       '@nexus/pr-worktree':
         specifier: workspace:*
         version: link:../pr-worktree
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
 
   libs/pr-worktree:
     dependencies:
-      '@nexus/close-migration':
-        specifier: workspace:*
-        version: link:../close-migration
       '@nexus/delivery-config':
         specifier: workspace:*
         version: link:../delivery-config
@@ -460,9 +442,9 @@ importers:
 
   libs/record-digest:
     dependencies:
-      '@nexus/close-migration':
+      '@nexus/workspace':
         specifier: workspace:*
-        version: link:../close-migration
+        version: link:../workspace
 
   libs/release-identity: {}
 
@@ -4970,6 +4952,16 @@ packages:
     resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
     engines: {node: '>=0.10.0'}
 
+  react-router@8.1.0:
+    resolution: {integrity: sha512-Mdfi61uObuvWNN9OhChOC0HV6YWOIfKRzEWOvCHRSuQg8IM+Nv10edaM/2HE8ZixBpUTdQbruyWqC3sDkkh9vw==}
+    engines: {node: '>=22.22.0'}
+    peerDependencies:
+      react: '>=19.2.7'
+      react-dom: '>=19.2.7'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+
   react-router@8.3.0:
     resolution: {integrity: sha512-qyPMvW83jGIct3yiieisxdk9M745anqhpIMKN5m1t6yBMfgVPpt77aHOqs5fUlEJRMCGffg9BaQLH9oPVOL7xQ==}
     engines: {node: '>=22.22.0'}
@@ -7622,7 +7614,7 @@ snapshots:
 
   '@preact/signals-core@1.14.3': {}
 
-  '@react-router/dev@8.1.0(babel-plugin-macros@3.1.0)(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.9.3)(vite@8.1.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.4.2)(terser@5.48.0)(tsx@4.22.5)(yaml@2.9.0))':
+  '@react-router/dev@8.1.0(babel-plugin-macros@3.1.0)(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(supports-color@8.1.1)(typescript@5.9.3)(vite@8.1.3(@types/node@22.20.0)(esbuild@0.28.1)(jiti@2.4.2)(terser@5.48.0)(tsx@4.22.5)(yaml@2.9.0))':
     dependencies:
       '@babel/core': 7.29.7(supports-color@8.1.1)
       '@babel/generator': 7.29.7
@@ -7631,7 +7623,7 @@ snapshots:
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1)
       '@babel/traverse': 7.29.7(supports-color@8.1.1)
       '@babel/types': 7.29.7
-      '@react-router/node': 8.1.0(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
+      '@react-router/node': 8.1.0(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
       '@remix-run/node-fetch-server': 0.13.3
       babel-dead-code-elimination: 1.0.12(supports-color@8.1.1)
       chokidar: 5.0.0
@@ -7647,7 +7639,7 @@ snapshots:
       pkg-types: 2.3.1
       prettier: 3.9.4
       react-refresh: 0.18.0
-      react-router: 8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react-router: 8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       semver: 7.8.5
       tinyglobby: 0.2.17
       valibot: 1.4.2(typescript@5.9.3)
@@ -7658,11 +7650,18 @@ snapshots:
       - babel-plugin-macros
       - supports-color
 
-  '@react-router/express@8.1.0(express@5.2.1(supports-color@8.1.1))(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)':
+  '@react-router/express@8.1.0(express@5.2.1(supports-color@8.1.1))(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)':
     dependencies:
-      '@react-router/node': 8.1.0(react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
+      '@react-router/node': 8.1.0(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)
       express: 5.2.1(supports-color@8.1.1)
-      react-router: 8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react-router: 8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+    optionalDependencies:
+      typescript: 5.9.3
+
+  '@react-router/node@8.1.0(react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(typescript@5.9.3)':
+    dependencies:
+      '@remix-run/node-fetch-server': 0.13.3
+      react-router: 8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     optionalDependencies:
       typescript: 5.9.3
 
@@ -11229,6 +11228,13 @@ snapshots:
   react-is@17.0.2: {}
 
   react-refresh@0.18.0: {}
+
+  react-router@8.1.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
+    dependencies:
+      cookie-es: 3.1.1
+      react: 19.2.7
+    optionalDependencies:
+      react-dom: 19.2.7(react@19.2.7)
 
   react-router@8.3.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:

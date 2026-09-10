@@ -67,7 +67,7 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@nexus/close-migration": "workspace:*",
-    "@nexus/pr-worktree": "workspace:*"
+    "@nexus/pr-worktree": "workspace:*",
+    "@nexus/workspace": "workspace:*"
   }
 }

@@ -87,12 +87,13 @@ describe("verb dispatch", () => {
         expect(help).toContain("nexus record-digest");
     });
 
-    it("--help names the worktree and migration verbs (story #273)", async () => {
+    it("--help names the worktree verb, and lists the retired migration verb as retired (story #273, epic #215)", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-cwd-"));
         expect(await runNexusCli(["--help"], io)).toBe(0);
         const help: string = io.out.join("\n");
         expect(help).toContain("nexus pr-worktree");
         expect(help).toContain("nexus close-migration");
+        expect(help.toLowerCase()).toContain("retired");
     });
 
     it("VERB_NAMES is derived from the registry and lists every registered verb", () => {
@@ -129,13 +130,14 @@ describe("verb dispatch", () => {
                 "pr-worktree open",
                 "pr-worktree range",
                 "pr-worktree remove",
-                "close-migration preflight",
-                "close-migration migrate",
+                // The retired migration verb dispatches no subverbs any more (epic #215): every
+                // subcommand hits the same retirement marker, so it appears bare.
+                "close-migration",
+                "queue-relocate",
             ]),
         );
         expect(DISPATCH_NAMES).not.toContain("workspace");
         expect(DISPATCH_NAMES).not.toContain("pr-worktree");
-        expect(DISPATCH_NAMES).not.toContain("close-migration");
         expect(new Set(DISPATCH_NAMES).size).toBe(DISPATCH_NAMES.length);
     });
 
@@ -774,25 +776,44 @@ describe("nexus epic-verdicts waive-story (story #502)", () => {
     });
 });
 
-describe("nexus close-migration (registration only — full effect covered by the migration-axis parity corpus)", () => {
-    it("preflight resolves single-repo mode from a plain git repo", async () => {
-        const repo: string = makeTmpDir("cli-close-migration-");
+describe("nexus close-role (epic #215 — the surviving role-gate half of the retired close-migration verb)", () => {
+    it("reports single-repo mode from a plain git repo", async () => {
+        const repo: string = makeTmpDir("cli-close-role-");
         execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
         const io: CapturedIo = makeIo(repo);
 
-        expect(await runNexusCli(["close-migration", "preflight", repo], io)).toBe(0);
-        expect(io.out.join("\n")).toContain("single-repo mode");
+        expect(await runNexusCli(["close-role", repo], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("single-repo");
     });
 
-    it("exits 2 with a usage diagnostic when migrate has no entry-dir", async () => {
+    it("reports not-a-git-repo outside any checkout", async () => {
+        const dir: string = makeTmpDir("cli-close-role-bare-");
+        const io: CapturedIo = makeIo(dir);
+
+        expect(await runNexusCli(["close-role", dir], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("not-a-git-repo");
+    });
+});
+
+describe("nexus close-migration (retired, epic #215)", () => {
+    it("refuses with no subcommand at all, naming the replacement", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-migration-"));
-        expect(await runNexusCli(["close-migration", "migrate"], io)).toBe(2);
+        expect(await runNexusCli(["close-migration"], io)).toBe(1);
+        const err = io.err.join("\n").toLowerCase();
+        expect(err).toContain("retired");
+        expect(err).toContain("hub");
     });
 
-    it("names an unknown subcommand and exits 2", async () => {
+    it("refuses a former subcommand the same way, exiting 1 rather than dispatching it", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-migration-"));
-        expect(await runNexusCli(["close-migration", "bogus"], io)).toBe(2);
-        expect(io.err.join("\n")).toContain("usage");
+        expect(await runNexusCli(["close-migration", "preflight", "some-dir"], io)).toBe(1);
+        expect(io.err.join("\n").toLowerCase()).toContain("retired");
+    });
+
+    it("refuses any other subcommand the same way — nothing about it is dispatched any more", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-migration-"));
+        expect(await runNexusCli(["close-migration", "bogus"], io)).toBe(1);
+        expect(io.err.join("\n").toLowerCase()).toContain("retired");
     });
 });
 
@@ -831,7 +852,7 @@ describe("bare-runtime portability (epic #60 success metric)", () => {
         expect(stdout.trim()).toContain("{username|orgname}/{reponame}");
     });
 
-    it("the bundled nexus.mjs runs close-migration on plain node with no installed packages", async () => {
+    it("the bundled nexus.mjs refuses the retired close-migration verb on plain node with no installed packages", async () => {
         const toolsDir: string = makeTmpDir("cli-tools-close-migration-");
         const { code } = await buildBundle(path.join(__dirname, "nexus-cli.ts"));
         const bundlePath: string = path.join(toolsDir, "nexus.mjs");
@@ -839,12 +860,18 @@ describe("bare-runtime portability (epic #60 success metric)", () => {
         const repo: string = makeTmpDir("cli-bare-repo-close-migration-");
         execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
 
-        const stdout: string = execFileSync(process.execPath, [bundlePath, "close-migration", "preflight", repo], {
-            cwd: repo,
-            encoding: "utf8",
-        });
+        let stderr = "";
+        try {
+            execFileSync(process.execPath, [bundlePath, "close-migration", "preflight", repo], {
+                cwd: repo,
+                encoding: "utf8",
+            });
+            throw new Error("expected the retired verb to exit non-zero");
+        } catch (e) {
+            stderr = (e as { stderr?: string }).stderr ?? "";
+        }
 
-        expect(stdout).toContain("single-repo mode");
+        expect(stderr.toLowerCase()).toContain("retired");
     });
 
     it("the bundled nexus.mjs runs pr-worktree on plain node with no installed packages", async () => {

@@ -22,6 +22,6 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@nexus/close-migration": "workspace:*"
+    "@nexus/workspace": "workspace:*"
   }
 }

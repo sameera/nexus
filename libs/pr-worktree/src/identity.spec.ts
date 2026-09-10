@@ -52,5 +52,7 @@ describe("resolveRole", () => {
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("member-unsupported");
+        expect(r.error.message).not.toMatch(/migrates the entry|drain from the hub/);
+        expect(r.error.message).toMatch(/closes from the hub/);
     });
 });

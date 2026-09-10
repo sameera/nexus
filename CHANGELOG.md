@@ -5,6 +5,34 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.30.0
+
+- `close` no longer runs a member repository's own copy on any path: a member checkout is now a
+  hard block at the workspace preflight, in both the plain and the `--pr` flow, naming the hub
+  and the epic-addressed close as the replacement. The close-and-migrate path — the member-mode
+  checkpoint items, the migration step, the push instruction — is deleted; a member epic closes
+  from the hub instead, over its merged pull requests.
+- The retired `nexus close-migration` verb (and its `preflight`/`migrate` subcommands) now
+  refuses immediately, naming the replacement, instead of running the deleted migration. Its
+  surviving, non-migration half — reporting a checkout's close role — is the new
+  `nexus close-role` verb.
+- A guard now pins that the only shipped code path removing a committed queue entry is the
+  drain's own staged deletion, on its own branch; anything else that starts removing one fails
+  the build until deliberately waived.
+
+## 0.29.0
+
+- A new `nexus queue-relocate` verb one-shot relocates every stranded entry sitting in a
+  member's committed queue into the hub queue, in preparation for retiring `close`'s
+  member-specific migration path: it gates every candidate entry across every present member
+  before copying any of them, copies bytes without editing them, commits each entry path-scoped
+  in the hub, and verifies the commit byte for byte against the source. It never removes the
+  member-side copy — it prints the removal command for the lead to run as an ordinary commit.
+  Re-running it against an already-relocated workspace copies nothing.
+- `nexus workspace status` now names any present member whose committed queue still holds an
+  entry, and says whether it has already been relocated to the hub or still needs
+  `nexus queue-relocate`; the line persists until the member-side copy is gone.
+
 ## 0.28.0
 
 - distill/close: attributing a queue entry to a repository is no longer positional. The drain-SLO
