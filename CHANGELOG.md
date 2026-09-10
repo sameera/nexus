@@ -5,6 +5,43 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.28.0
+
+- distill/close: attributing a queue entry to a repository is no longer positional. The drain-SLO
+  report, and the hub's migrated-entry attribution, now name every distinct repository an entry's
+  range list names, in the order they first appear, rather than only the first range entry's
+  repository — an entry that shipped over several pull requests is chased at every repository it
+  touched, not just one. Resolving which repository a provenance reference belongs to is likewise
+  no longer positional: when a range list names more than one repository, the drain probes each
+  for the epic's own issue and requires exactly one title match, asking the lead when that is not
+  decisive. A resolution failure at the repository level (a missing checkout, an undeclared
+  repository) is now reported once per repository rather than once per range entry that named it.
+
+## 0.27.0
+
+- distill: `nexus derive-entry-diff` now carries the pull request each range entry stamped
+  (`pr:`, when present) through to the derived diff and its header line, so the drain can trace
+  a behavioral claim back to the change that justified it. Code anchors written by a multi-entry
+  drain now append which pull request last changed each path to the anchor's role text, and a
+  path a later entry renamed or deleted away is no longer anchored. A repository's stored anchor
+  identifier is now its newest drained head rather than the head of whichever entry happened to
+  be recorded. The structured provenance token in a concept page's frontmatter and Decision Log
+  heading is unchanged; the pull requests involved are named in the Decision Log entry's body.
+  An entry stamped before this pull-request field existed degrades attribution to the repository
+  and short head, named as a degradation in the drain's report — never silently.
+
+## 0.26.0
+
+- distill: the range reader no longer refuses a repository named by more than one range
+  entry — an epic closed over several pull requests in one repository now drains, where it was
+  previously blocked. It reads every stamped range entry, orders a repository's entries by
+  ancestry of their recorded heads (never the order they happened to be stamped in), and emits
+  one diff per range entry rather than one per repository; two heads that cannot be ordered by
+  ancestry stop that entry by name rather than guessing an order. `nexus derive-entry-diff` is now
+  the single reader for both hub and single-repo mode — single-repo mode resolves each entry
+  against its own identity instead of running separate range-reading prose, and the interim
+  `range-list-unsupported` refusal single-repo mode carried is deleted.
+
 ## 0.25.0
 
 - close: closing an epic that shipped as several story pull requests now writes every close
