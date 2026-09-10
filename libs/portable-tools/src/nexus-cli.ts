@@ -42,10 +42,11 @@ import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write
 import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
-import { isExcludedStory } from "@nexus/epic-verdicts/exclusion";
+import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
+import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
-import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
+import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
@@ -56,6 +57,8 @@ import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
+import { deriveRangeList, type RangeListItem } from "@nexus/pr-worktree/range-list";
+import { verifyTrunkContainsHeads } from "@nexus/pr-worktree/trunk-check";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -237,8 +240,16 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus epic-verdicts combined --epic <N> [--root <startDir>]",
             "      Print the union of every story pull request's own changed-file set, for judging",
             "      the epic's success metrics and cross-story invariants against the combined code.",
+            "  nexus epic-verdicts merge-gate --epic <N> [--root <startDir>]",
+            "      Read the local aggregate analyze-receipt.md and check every story pull request's",
+            "      merge state via `gh pr view`. Prints { command: \"merge-gate\", stories, allMerged,",
+            "      unmerged }. Exits 1 only when the local receipt itself cannot be found/read.",
+            "  nexus epic-verdicts waive-story --story <N> [--root <startDir>]",
+            "      Write the resolved no-pull-request marker label onto a story issue via `gh issue",
+            "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
+            "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "currency", "combined"],
+        subverbs: ["derive", "currency", "combined", "merge-gate", "waive-story"],
         run: runEpicVerdicts,
     },
     "record-digest": {
@@ -279,8 +290,20 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      In analyze mode, a bare N targets this checkout's own repository; 'owner/repo#N' or a",
             "      pull-request URL may target any member the hub's workspace manifest declares. Close",
             "      keeps refusing a member outright.",
+            "  nexus pr-worktree open --pr <N1,N2,...> --mode close --branch <distill/...> [--root <dir>]",
+            "      A comma-separated list of two or more PR numbers opens ONE worktree/branch for the",
+            "      whole epic (never one per PR) and prints { wtPath, ranges: [{ repo, base, head, pr },",
+            "      ...] } instead of a singular range. Every range is derived and every stamped head is",
+            "      verified as an ancestor of the trunk BEFORE the worktree is created — a failure of",
+            "      either check exits 1 with no worktree ever opened; a single --pr <N> keeps today's",
+            "      singular output shape unchanged.",
             "  nexus pr-worktree range --pr <N> [--root <dir>]",
             "      Print { repo, base, head } for a merged PR without creating a worktree.",
+            "  nexus pr-worktree range --pr <N1,N2,...> [--root <dir>]",
+            "      A comma-separated list of two or more PR numbers prints { ranges: [{ repo, base,",
+            "      head, pr }, ...] } instead — one entry per PR, in the given order, never merged or",
+            "      deduplicated per repository. The first PR whose range cannot be verified stops the",
+            "      whole call before any output is printed; a single --pr <N> keeps today's output shape.",
             "  nexus pr-worktree stories --pr <ref> --issues-repo <owner/repo> [--story <n>] [--root <dir>]",
             "      Print { epic, stories } — the validated candidate ladder that resolves a PR to the",
             "      story issue(s) it implements, without depending on same-repository closing-issue links.",
@@ -1007,9 +1030,10 @@ interface EpicVerdictsFlags {
     epic?: number;
     root: string;
     record?: number;
+    story?: number;
 }
 
-const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined"];
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "waive-story"];
 
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
     const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
@@ -1019,6 +1043,7 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
         if (a === "--epic") flags.epic = Number(args[++i]);
         else if (a === "--root") flags.root = args[++i];
         else if (a === "--record") flags.record = Number(args[++i]);
+        else if (a === "--story") flags.story = Number(args[++i]);
     }
     return flags;
 }
@@ -1113,13 +1138,48 @@ function resolveEpicVerdictsForCli(
  */
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
+
+    // waive-story takes --story, not --epic (it names one story issue directly, never an epic) —
+    // dispatched before the --epic check every other subverb below still enforces unconditionally.
+    if (argv[0] === "waive-story") {
+        if (flags.story === undefined || Number.isNaN(flags.story) || flags.story <= 0) {
+            io.stderr("usage: nexus epic-verdicts waive-story --story <N> [--root <startDir>]");
+            return 2;
+        }
+        const root = epicResolveTargetRoot(flags.root, io);
+        if (root === null) return 1;
+
+        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+        const result = waiveStory(closeMigrationRunner, root, flags.story, noPrLabel);
+        if (!result.ok) {
+            io.stderr(`epic-verdicts ${result.error.problem}: ${result.error.message}`);
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "waive-story", story: flags.story, label: noPrLabel }));
+        return 0;
+    }
+
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive|currency|combined --epic <N> [--record <N>] [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|currency|combined|merge-gate --epic <N> [--record <N>] [--root <startDir>]");
         return 2;
     }
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
+
+    if (argv[0] === "merge-gate") {
+        // Merge state is a narrower, local-file read — the already-written aggregate receipt names
+        // every story's repo+pr, so this never re-runs collection/discovery the way derive/currency do.
+        const receiptPath = path.join(path.dirname(defaultOutPath(root, flags.epic)), EPIC_RECEIPT_FILENAME);
+        const receipt = readEpicReceipt(receiptPath);
+        if (receipt === null) {
+            io.stderr(`epic-verdicts receipt-missing: no aggregate epic receipt found at ${receiptPath}`);
+            return 1;
+        }
+        const gate = checkEpicMergeGate(closeMigrationRunner, root, receipt);
+        io.stdout(JSON.stringify({ command: "merge-gate", ...gate }));
+        return 0;
+    }
 
     const resolved = resolveEpicVerdictsForCli(root, flags.epic);
     if (!resolved.ok) {
@@ -1374,14 +1434,33 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
 
     // `range` needs no mode and creates no worktree: it is the read the fix lane wants, where a
     // checkout would be built and torn down for one JSON object. Close's post-merge range is
-    // never cross-repo (epic #211 opens analyze only), so `--pr` here stays a bare number.
+    // never cross-repo (epic #211 opens analyze only), so `--pr` here is a bare number, or (story
+    // #501) a comma-separated list of them — never an owner/repo#N or URL reference.
     if (subcommand === "range") {
-        const prNumber = flags.prRef !== undefined ? Number(flags.prRef) : NaN;
-        if (Number.isNaN(prNumber)) {
-            io.stderr("usage: pr_worktree.ts range --pr <N>");
+        // A comma-separated `--pr` list (story #501) requests one range entry per PR, never a
+        // repository collapse; a single bare number keeps the existing singular shape byte-identical.
+        const prRefParts = flags.prRef !== undefined ? flags.prRef.split(",").map((s) => s.trim()) : [];
+        if (prRefParts.length === 0 || prRefParts.some((p) => p.length === 0)) {
+            io.stderr("usage: pr_worktree.ts range --pr <N>|<N1,N2,...>");
             return 2;
         }
-        const read = readRange(closeMigrationRunner, flags.root, prNumber);
+        const prNumbers = prRefParts.map(Number);
+        if (prNumbers.some((n) => Number.isNaN(n))) {
+            io.stderr("usage: pr_worktree.ts range --pr <N>|<N1,N2,...>");
+            return 2;
+        }
+
+        if (prNumbers.length > 1) {
+            const list = deriveRangeList(closeMigrationRunner, flags.root, prNumbers);
+            if (!list.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(list.error));
+                return 1;
+            }
+            io.stdout(JSON.stringify({ command: "range", ranges: list.ranges }));
+            return 0;
+        }
+
+        const read = readRange(closeMigrationRunner, flags.root, prNumbers[0]);
         if (!read.ok) {
             io.stderr(renderPrWorktreeDiagnostic(read.error));
             return 1;
@@ -1398,6 +1477,82 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
         if (flags.mode !== "analyze" && flags.mode !== "close") {
             io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
             return 2;
+        }
+
+        // A comma-separated `--pr` list (story #503, decision record #509) opens ONE worktree/branch
+        // for the whole epic, never one per PR. Order-inversion is the whole point: every range is
+        // derived and every stamped head is verified as an ancestor of the trunk BEFORE any worktree
+        // exists — never cut a branch, then discover a later PR's range or trunk membership fails.
+        // Only `open --mode close` grows this path; preflight and a member analyze target stay
+        // single-PR (a member PR isn't part of this epic-wide close flow at all).
+        if (subcommand === "open" && flags.mode === "close" && flags.prRef.includes(",")) {
+            const prRefParts = flags.prRef.split(",").map((s) => s.trim());
+            if (prRefParts.some((p) => p.length === 0)) {
+                io.stderr("usage: pr_worktree.ts open --pr <N1,N2,...> --mode close --branch <b>");
+                return 2;
+            }
+            const prNumbers = prRefParts.map(Number);
+            if (prNumbers.some((n) => Number.isNaN(n))) {
+                io.stderr("usage: pr_worktree.ts open --pr <N1,N2,...> --mode close --branch <b>");
+                return 2;
+            }
+            if (!flags.branch) {
+                io.stderr("usage: pr_worktree.ts open --pr <N1,N2,...> --mode close --branch <distill/...>");
+                return 2;
+            }
+
+            const role = resolveRole(flags.root, closeMigrationRunner);
+            if (!role.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(role.error));
+                return 1;
+            }
+            const { repoRoot } = role.resolved;
+
+            const list = deriveRangeList(closeMigrationRunner, repoRoot, prNumbers);
+            if (!list.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(list.error));
+                return 1;
+            }
+
+            // Resolve the trunk exactly the way `openCloseWorktree` is about to (best-effort refresh,
+            // falling back to the local ref offline) — duplicated rather than exported from
+            // worktree.ts, because this resolution must happen and be verified BEFORE the worktree is
+            // opened, while `openCloseWorktree` only ever resolves it internally, after it has already
+            // decided to create or reuse one.
+            closeMigrationRunner("git", ["fetch", "origin", "main"], { cwd: repoRoot });
+            const trunk =
+                git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "origin/main") ??
+                git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "main");
+            if (trunk === null) {
+                io.stderr(renderPrWorktreeDiagnostic({ problem: "git-failed", message: `neither origin/main nor main resolves in ${repoRoot}.` }));
+                return 1;
+            }
+
+            const verified = verifyTrunkContainsHeads(
+                closeMigrationRunner,
+                repoRoot,
+                trunk,
+                list.ranges.map((r: RangeListItem) => ({ pr: r.pr, head: r.head })),
+            );
+            if (!verified.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(verified.error));
+                return 1;
+            }
+
+            const wt = openCloseWorktree(closeMigrationRunner, repoRoot, flags.branch);
+            if (!wt.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(wt.error));
+                return 1;
+            }
+            io.stdout(
+                JSON.stringify({
+                    command: "open",
+                    mode: "close",
+                    wtPath: wt.wtPath,
+                    ranges: list.ranges.map((r: RangeListItem) => ({ repo: r.repo, base: r.base, head: r.head, pr: r.pr })),
+                }),
+            );
+            return 0;
         }
 
         // Analyze accepts a member (a bare number self-selects this checkout; a repo-qualified

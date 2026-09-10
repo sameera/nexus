@@ -443,6 +443,17 @@ a fallback for legacy entries with no usable range. For an entry the Phase 0.4 g
    `git diff <base>...<head>`. In continuation mode this is always the source (the close just
    stamped it).
 
+   **More than one entry names this repo (epic #213, story #501 — until #214 ships):** an epic
+   closed over several story pull requests stamps one `range:` entry per pull request, and several
+   of them can name the same repo. This single-repo drain path cannot yet read that shape — reading
+   several entries per repository (union, latest-wins, or anything else) is issue #214's job, not
+   this one's. Do not guess which entry is authoritative or combine them. Instead, name the entry,
+   mark it **blocked** exactly like the Exit 1 handling above (not drained this run, queue files
+   untouched), and continue with the remaining entries rather than stopping the whole distill run:
+   `range-list-unsupported: close-record.md in <entry> stamps <N> range entries for repo <repo>;
+   this single-repo drain reads one entry per repository until #214 ships — drain this epic once
+   #214 lands, or drain it manually`.
+
 2. **The commit that introduced the queue entry (fallback — only when the range SHAs are
    unreachable):**
 
