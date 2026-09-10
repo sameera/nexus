@@ -1,8 +1,8 @@
 ---
 title: "Pipeline Store Exclusion"
 aliases: ["excluded stores", "withheld stores", "behavioural diff exclusion", "pipeline store set", "what a stage never reads back"]
-touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record"]
-last_updated_by: "#405"
+touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record", "aggregated-epic-receipt"]
+last_updated_by: "#212"
 status: active
 verification: verified
 ---
@@ -33,9 +33,14 @@ Three stores are members: the close-time queue, the pre-epic discovery store, an
 - [distiller](distiller.md) — derives its behavioural diff from this one definition rather than restating the store paths.
 - [conformance-gate](conformance-gate.md) — analyze now draws its verdict from a diff with every member withheld; it withheld none before.
 - [durable-close-record](durable-close-record.md) — close derives its deviation rationale from the same filtered diff.
+- [aggregated-epic-receipt](aggregated-epic-receipt.md) — withholds every member of the set from each per-pull-request change set it unions into the epic's combined code.
 
 ## Decision Log
 
 ### 2026-09-07 — #405 — One definition of the stores a stage never reads back
 
 The exclusion was stated twice before this epic and applied by one stage of three, which is two ways for it to be wrong. Naming the set once, with a reason recorded per member, makes a disagreement impossible rather than unlikely. A stage that quietly reads generated markup as shipped behaviour fails silently, because the diff only gets smaller. Refuted alternative: a discovered convention, where a marker file in any directory opts that directory out. It needs no code change for a fourth store, and an adopter could exclude their own generated trees, but a marker anyone can drop can hide real application source from a gate. A closed, reviewed set keeps what a stage is allowed not to see a deliberate decision that appears in a diff.
+
+### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
+
+Mechanical reciprocity fan-out: the epic's combined code is a union of per-pull-request change sets, and each of those change sets withholds the whole set through the one shared definition rather than a locally written path list.

@@ -1,6 +1,6 @@
 ---
 concept: pr-story-resolution
-source_sha: 2da35932df3ffd38a3ab71f7c81fe1f75e139b15
+source_sha: 24149aa6fcb1600e3992dd8aeb7b893b8e8a4286
 generated: 2026-09-10
 ---
 
@@ -13,5 +13,7 @@ generated: 2026-09-10
 - `libs/pr-worktree/src/story-candidates.spec.ts` — coverage for each rung, for both pull-request shapes, and for the refusal that names every candidate and its drop reason (#520)
 - `libs/pr-worktree/src/pr.ts` — supplies the pull request's body, its platform-linked closing issues, and every commit message the trailer rung scans (#520)
 - `libs/epic-resolve/src/gh.ts` — the issue-facts and sub-issue-facts reads each candidate is validated against (#520)
-- `libs/portable-tools/src/nexus-cli.ts` — the verb that prints the resolved epic and story numbers (#520)
-- `components/commands/nxs.analyze.md` — the stage that calls the ladder, scopes its criteria findings to the resolved stories, and skips epic-level success metrics in this mode (#520)
+- `libs/epic-verdicts/src/discover.ts` — the mirror ladder, gathering a story's candidate pull requests from its closing links and from a head branch naming the story number (#521)
+- `libs/epic-verdicts/src/verdict.ts` — the validator for that direction: the verdict's own stamp, rather than the live issue graph, is what accepts a candidate (#521)
+- `libs/portable-tools/src/nexus-cli.ts` — the verbs that print the resolved epic and story numbers, and the resolved story verdicts (#521)
+- `components/commands/nxs.analyze.md` — the stage that calls the ladder, scopes its criteria findings to the resolved stories, and skips epic-level success metrics in this mode (#521)

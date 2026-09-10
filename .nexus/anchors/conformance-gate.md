@@ -1,6 +1,6 @@
 ---
 concept: conformance-gate
-source_sha: 2da35932df3ffd38a3ab71f7c81fe1f75e139b15
+source_sha: 24149aa6fcb1600e3992dd8aeb7b893b8e8a4286
 generated: 2026-09-10
 ---
 
@@ -9,9 +9,10 @@ generated: 2026-09-10
 
 # Code Anchors: Conformance Gate
 
-- `components/commands/nxs.analyze.md` — the gate's producer: inline findings, the receipt as its only write, the contractual placement rule, the stamped record reference and full hash, the blocked-run-emits-nothing rule, the epic-entry-only refusal, and the per-story scoping of criteria findings in pull-request mode (#520)
-- `components/commands/nxs.close.md` — reads the receipt before mining anything, classifies missing / stale-code / stale-record / blocking, requires an explicit per-axis waiver, and restates the verdict in the close comment (#520)
+- `components/commands/nxs.analyze.md` — the gate's producer: inline findings, the receipt as its only write, the contractual placement rule, the stamped record reference and full hash, the blocked-run-emits-nothing rule, the epic-entry-only refusal, the per-story scoping of criteria findings in pull-request mode, and the aggregate branch that derives the receipt from the story verdicts instead of judging the epic again (#521)
+- `components/commands/nxs.close.md` — reads the receipt before mining anything, classifies missing / stale-code / stale-record / blocking, requires an explicit per-axis waiver, restates the verdict in the close comment, and now discriminates a per-story receipt from a single-head one (#521)
 - `components/commands/nxs.fix.md` — writes the literal state value a fix entry's record carries in place of a verdict, so the state stays greppable and can never read as a waiver
-- `libs/pr-acceptance/src/verify.ts` — the receipt-block parser, which maps an absent writing release to an unknown writer and an absent stamped repository to a same-repository read, rather than to a failure (#520)
-- `libs/pr-acceptance/src/verify.spec.ts` — pins that a receipt carrying the newer stamped fields parses to the same values as one without them (#520)
+- `libs/epic-verdicts/src/write.ts` — the second receipt shape this gate reads back, and the null return that sends a caller to the single-head reader (#521)
+- `libs/pr-acceptance/src/verify.ts` — the receipt-block parser, which maps an absent writing release to an unknown writer and an absent stamped repository to a same-repository read, and now surfaces the stamped record reference and digest (#521)
+- `libs/pr-acceptance/src/verify.spec.ts` — pins that a receipt carrying the newer stamped fields parses to the same values as one without them (#521)
 - `libs/portable-tools/src/pipeline-stores.ts` — the exclusion set the gate's diff appends, having withheld nothing before

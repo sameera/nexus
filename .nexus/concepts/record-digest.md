@@ -1,8 +1,8 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp"]
-last_updated_by: "#251"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "aggregated-epic-receipt"]
+last_updated_by: "#212"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 - [conformance-gate](conformance-gate.md) — the receipt this digest is stamped into.
 - [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, matched byte-for-byte against its script form.
 - [writer-stamp](writer-stamp.md) — sits beside this digest, outside the bytes it covers, so stamping changes no hash and this rule needed no exception.
+- [aggregated-epic-receipt](aggregated-epic-receipt.md) — compares each story verdict's stamped digest against the record's current digest, one story at a time.
 
 ## Decision Log
 
@@ -57,3 +58,7 @@ Mechanical reciprocity fan-out: the verb-reachability page names this digest cap
 ### 2026-08-26 — #251 — Reciprocal link from writer-stamp
 
 The writer stamp is placed outside the bytes this digest covers, so the canonicalisation rule gained no permanent exception. Recorded here as the reciprocal edge.
+
+### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
+
+Mechanical reciprocity fan-out: the record-staleness axis is now evaluated once per story verdict rather than once per epic. Each verdict's stamped digest is compared against the record's current digest, so a record revised part way through an epic marks only the stories analyzed before the revision.

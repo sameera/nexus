@@ -1,6 +1,6 @@
 ---
 concept: pr-driven-flow
-source_sha: 2da35932df3ffd38a3ab71f7c81fe1f75e139b15
+source_sha: 24149aa6fcb1600e3992dd8aeb7b893b8e8a4286
 generated: 2026-09-10
 ---
 
@@ -17,13 +17,15 @@ generated: 2026-09-10
 - `libs/pr-worktree/src/pr.spec.ts` — proves merge-state resolution with an injected runner (#520)
 - `libs/pr-worktree/src/range.ts` — derives the close range anchored on the merge commit and verified against the pull-request head; correct for squash, true-merge and rebase, refusing an empty, non-ancestor or unverifiable range
 - `libs/pr-worktree/src/range.spec.ts` — proves range correctness against real squash, merge-commit and rebase topologies
-- `libs/pr-acceptance/src/verify.ts` — the published-verdict reader, which filters a block whose stamped repository differs from the one read before newest-wins selection, and parses the stamped repository and story numbers (#520)
-- `libs/pr-acceptance/src/verify.spec.ts` — pins the repository-scoped trust filter, the acceptance of an unstamped older block, and the changed-file exclusions (#520)
+- `libs/pr-acceptance/src/verify.ts` — the published-verdict reader, which filters a block whose stamped repository differs from the one read before newest-wins selection, and parses the stamped repository and story numbers, plus the stamped record reference and digest (#521)
+- `libs/pr-acceptance/src/verify.spec.ts` — pins the repository-scoped trust filter, the acceptance of an unstamped older block, and the changed-file exclusions (#521)
 - `libs/pr-worktree/src/run.ts` — the single git and platform-CLI process seam every step runs through, so specs can inject a runner
 - `libs/pr-worktree/src/diagnostic.ts` — the typed failure shapes the shim surfaces with named exit codes (#520)
 - `libs/pr-worktree/src/render.ts` — the one-JSON-object success output and named diagnostics the shim prints
-- `libs/portable-tools/src/nexus-cli.ts` — the verb surface: which reference shapes each mode accepts, and the story-resolution verb (#520)
+- `libs/portable-tools/src/nexus-cli.ts` — the verb surface: which reference shapes each mode accepts, the story-resolution verb, and the verbs that read a story's published verdict back (#521)
 - `components/skills/nxs-pr-worktree/SKILL.md` — the shim doc: the subcommands, the accepted reference shapes, and which modes admit a member
-- `components/commands/nxs.analyze.md` — the conformance mode: a worktree at the pull-request head in the resolved target repository, and the verdict published as a review carrying the machine-readable block (#520)
-- `components/commands/nxs.close.md` — the closure mode: post-merge closure in a worktree on a fresh distillation branch, reading the trusted verdict from the pull request (#520)
+- `components/commands/nxs.analyze.md` — the conformance mode: a worktree at the pull-request head in the resolved target repository, the verdict published as a review carrying the machine-readable block, and the aggregate branch that reads those verdicts back for the epic (#521)
+- `components/commands/nxs.close.md` — the closure mode: post-merge closure in a worktree on a fresh distillation branch, reading the trusted verdict from the pull request, and re-checking a per-story receipt at gate time (#521)
 - `components/commands/nxs.distill.md` — the continuation mode that resumes in the closure worktree and derives its diff from the stamped range
+- `libs/epic-verdicts/src/verdict.ts` — reads the published review blocks this flow leaves, applying the same repository-scoped trust and newest-wins rules across a story's candidate pull requests (#521)
+- `libs/epic-verdicts/src/aggregate.ts` — turns those per-story verdicts into one answer for the epic they belong to (#521)
