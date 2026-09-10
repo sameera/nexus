@@ -69,3 +69,44 @@ describe("resolvePr", () => {
         expect(r.error.problem).toBe("malformed-pr-json");
     });
 });
+
+describe("resolvePr — commit messages, where a per-story PR states its scope", () => {
+    it("joins each commit's headline and body", () => {
+        const stdout = JSON.stringify({
+            state: "OPEN",
+            mergedAt: null,
+            mergeCommit: null,
+            commits: [
+                { oid: "1", messageHeadline: "analyze: accept a member PR", messageBody: "Closes #492" },
+                { oid: "2", messageHeadline: "analyze: scope the run", messageBody: "Closes #493" },
+            ],
+        });
+        const r = resolvePr(ghRunner({ stdout }), "/repo", 7, { requireMerged: false });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.pr.commitMessages).toEqual([
+            "analyze: accept a member PR\n\nCloses #492",
+            "analyze: scope the run\n\nCloses #493",
+        ]);
+    });
+
+    it("keeps a commit that has a headline and no body", () => {
+        const stdout = JSON.stringify({
+            state: "OPEN",
+            mergedAt: null,
+            mergeCommit: null,
+            commits: [{ oid: "1", messageHeadline: "chore: tidy", messageBody: "" }],
+        });
+        const r = resolvePr(ghRunner({ stdout }), "/repo", 7, { requireMerged: false });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.pr.commitMessages).toEqual(["chore: tidy"]);
+    });
+
+    it("reads no commit messages off a PR whose commits carry none", () => {
+        const r = resolvePr(ghRunner({ stdout: MERGED }), "/repo", 7, { requireMerged: true });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.pr.commitMessages).toEqual([]);
+    });
+});
