@@ -1,8 +1,8 @@
 ---
 title: "Range-Entry Diff Derivation"
 aliases: ["range reader", "entry diff derivation", "per-entry change set", "range list reader"]
-touches: ["distiller", "close-entry-migration", "code-anchors", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close"]
-last_updated_by: "#214"
+touches: ["distiller", "code-anchors", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -28,7 +28,6 @@ Each stamped range names a repository, a start revision, an end revision, and th
 ## Integration Points
 
 - [distiller](distiller.md) — the stage that reads these change sets and decides what they mean.
-- [close-entry-migration](close-entry-migration.md) — stamps, in every mode, the range list this reads.
 - [code-anchors](code-anchors.md) — take their pull request and their stamped revision from the order this reader resolves.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — the single definition of the stores withheld from every change set.
 - [workspace-resolution](workspace-resolution.md) — resolves each named repository to its checkout in a hub.
@@ -43,3 +42,7 @@ Every question this change opens is a question about order: which change is curr
 ### 2026-09-10 — #213 — Reciprocal link from multi-pr-close
 
 Mechanical reciprocity fan-out: multi-pr-close is the writer of the range list this reader reads, landed as the same-release interim refusal this reader retires. Nothing this page already asserted has changed.
+
+### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
+
+Mechanical reciprocity fan-out: the page that used to stamp the range list this reads is retired, so the edge is removed. The stamper is the close over several pull requests, which this page already names.

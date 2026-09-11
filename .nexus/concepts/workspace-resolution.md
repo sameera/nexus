@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "aggregated-epic-receipt", "range-entry-diff"]
-last_updated_by: "#214"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "aggregated-epic-receipt", "range-entry-diff", "committed-queue"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -36,13 +36,14 @@ Resolution now walks upward from wherever it's given, bounded to the checkout's 
 - [remote-identity-normalization](remote-identity-normalization.md) — resolution compares git remotes through this rule to verify a pointer names its hub and to reject a member sharing another's remote.
 - [bare-name-guard](bare-name-guard.md) — every manifest and pointer name is validated as a bare segment first.
 - [portable-tooling](portable-tooling.md) — that tooling consults this resolver at run time; the resolved context reports no location for it.
-- [close-entry-migration](close-entry-migration.md) — a member close reads its role and hub here before relocating an entry.
 - [nexus-setup-cli](nexus-setup-cli.md) — writes the manifest and pointer this resolver reads, re-resolving for parity.
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
 - [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are that resolver's hub layer, inherited per key.
 - [workbook-store](workbook-store.md) — the resolver decides which member checkout a workbook belongs in; a hub checkout is refused.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — searches every repository this resolver declares for a story's published verdict, not only the invoking checkout.
 - [range-entry-diff](range-entry-diff.md) — resolves each repository a range entry names to its checkout, in a hub.
+
+- [committed-queue](committed-queue.md) — the status read-out names a member checkout still holding one of that queue's entries, until the copy is gone.
 
 ## Decision Log
 
@@ -101,3 +102,7 @@ Mechanical reciprocity fan-out: the search for a story's published verdict now s
 ### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
 
 Mechanical reciprocity fan-out: the drain's range reader asks this resolver for the checkout of every repository its entries name, and falls back to the current checkout's own identity where no workspace is declared. What the resolver produces is unchanged.
+
+### 2026-09-11 — #215 — Reciprocal links: the member close goes, the queue read-out arrives
+
+Mechanical reciprocity fan-out, both directions in one entry. A member close no longer reads a role and hub location here before relocating an entry, because that close is retired, so that edge is removed; the role this resolver reports is now what refuses a close in a member checkout outright. In its place, the status read-out gained a line naming any member checkout whose committed queue still holds an entry, and saying whether it has already been relocated to the hub. That line persists until the member-side copy is gone, so a leftover copy cannot become silently permanent. Resolution itself is unchanged.

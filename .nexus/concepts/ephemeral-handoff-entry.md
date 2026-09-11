@@ -1,8 +1,8 @@
 ---
 title: "Ephemeral Hand-Off Entry"
 aliases: ["ephemeral entry", "hand-off entry", "same-sitting entry", "ephemeral area", "tmp-first close", "entry kind"]
-touches: ["committed-queue", "distiller", "durable-close-record", "scratch-capture", "conformance-gate", "close-entry-migration", "fix-lane", "intake-lane"]
-last_updated_by: "#483"
+touches: ["committed-queue", "distiller", "durable-close-record", "scratch-capture", "conformance-gate", "fix-lane", "intake-lane"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -32,7 +32,6 @@ Under issue-sourced planning nothing is committed at planning, so a local run ma
 - [durable-close-record](durable-close-record.md) — the comment that makes discarding this copy safe.
 - [scratch-capture](scratch-capture.md) — the committed directory the drain's removal is re-aimed at.
 - [conformance-gate](conformance-gate.md) — the receipt written here for the same-sitting hand-off.
-- [close-entry-migration](close-entry-migration.md) — the member path migrating these artifacts and the committed scratch as one epic.
 - [fix-lane](fix-lane.md) — the other writer into this area, whose entries carry no scratch home and so no committed removal target.
 - [intake-lane](intake-lane.md) — the third writer into this area, whose entries also carry no scratch home and so no committed removal target.
 
@@ -49,3 +48,7 @@ The area gained a second kind of occupant when the fix lane began writing entrie
 ### 2026-09-08 — #483 — Reciprocal link from intake-lane
 
 Mechanical reciprocity fan-out: a third writer, the intake lane, now names this area as where it writes its two files, on the same terms the fix lane already does — the kind set the mismatch check closes against grows to three, but the check itself is unchanged.
+
+### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
+
+Mechanical reciprocity fan-out: the member path that migrated these artifacts and the committed scratch as one epic is retired, so the edge is removed. Nothing about how an ephemeral entry is written, discovered or drained changed.

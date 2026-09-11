@@ -2,7 +2,7 @@
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
 touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close"]
-last_updated_by: "#213"
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -19,7 +19,7 @@ A conformance run takes one pull-request reference. A bare number means this che
 
 ## Key Invariants
 
-1. Only conformance runs against a member repository; closure and distillation refuse one, its close-and-migrate path being the mutually-exclusive alternative.
+1. Only conformance runs against a member repository; closure and distillation refuse one, a member epic closing from the hub instead.
 2. The stamped range anchors on commits permanent on the trunk, never the pull-request branch tip; an empty, non-ancestor, or unverifiable range is refused rather than guessed.
 3. The flow is additive and mutually exclusive with the local path.
 4. A conformance verdict is trusted only from a maintainer-authored review or comment in the pull request's own repository, and only when its stamped repository and pull request match those read. Staleness is exact full-identifier equality against the pull-request head.
@@ -75,3 +75,7 @@ Mechanical reciprocity fan-out: the verdicts this flow publishes on story pull r
 ### 2026-09-10 — #213 — Reciprocal link from multi-pr-close
 
 Close over several pull requests generalizes this flow's closure stage, so the edge is recorded on both pages.
+
+### 2026-09-11 — #215 — A member is still refused, for a different reason
+
+The refusal on closure and distillation in a member checkout is unchanged, but what it points the lead at is not. It used to name the member's own close-and-migrate path as the alternative; that path is deleted, so the refusal now names the hub and the epic-addressed close over merged pull requests. The invariant survives because the reasoning behind it survives: a queue entry born in a member checkout sits in a repository whose drain refuses to run, which is the stranding the retirement exists to end. Refuted alternative: lift the refusal as well, so a member close works locally and the entry reaches the hub some other way. It is better for the lead, who never switches repository, but that other way is the relocation path under a new name, and the entry would still be born where nothing drains it.

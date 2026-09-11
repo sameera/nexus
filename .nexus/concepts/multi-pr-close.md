@@ -1,8 +1,8 @@
 ---
 title: "Close Over Several Pull Requests"
 aliases: ["multi-pull-request close", "epic-wide close", "merge gate", "story pull-request set", "range list", "one entry per pull request", "storyless story waiver", "trunk head verification"]
-touches: ["aggregated-epic-receipt", "pr-driven-flow", "close-entry-migration", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff"]
-last_updated_by: "#214"
+touches: ["aggregated-epic-receipt", "pr-driven-flow", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff", "remote-identity-normalization"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -33,11 +33,12 @@ Only once every gate passes are the ranges derived, one call per pull request in
 
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — the authoritative record of which story shipped in which pull request. This close reads its set from there, and writes the marker that page defines.
 - [pr-driven-flow](pr-driven-flow.md) — the single-pull-request post-merge flow this generalizes. One pull request is now the one-entry case of the same close.
-- [close-entry-migration](close-entry-migration.md) — owns range stamping in every mode. This fixes the shape stamped, one entry per pull request rather than one per repository.
 - [pr-worktree](pr-worktree.md) — the worktree now opened once for the whole epic, and only after every gate and every range derivation has passed.
 - [durable-close-record](durable-close-record.md) — carries the list-shaped range and every waived story with its date onto the epic issue.
 - [distiller](distiller.md) — reads the stamped list later, through the range-entry-diff reader.
 - [range-entry-diff](range-entry-diff.md) — the reader that turns this stamped list into one change set per pull request; it replaced the interim refusal this close shipped alongside.
+
+- [remote-identity-normalization](remote-identity-normalization.md) — canonicalizes the repository identity each stamped range entry carries.
 
 ## Decision Log
 
@@ -48,3 +49,7 @@ A pull request was only ever a proxy for the epic when there was exactly one of 
 ### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
 
 Mechanical reciprocity fan-out: the range-entry-diff page names this close as the writer of the stamped list it reads, and its reader retires the interim refusal this close shipped alongside. Nothing this page already asserted has changed.
+
+### 2026-09-11 — #215 — Reciprocal links: range stamping lands here alone
+
+Mechanical reciprocity fan-out, both directions in one entry. The page that used to own range stamping is retired, so that edge is removed, and this page's own invariant on one entry per pull request is now the store's only statement of the stamped shape. The rule that canonicalizes a repository identity correspondingly records its edge against this close, because this is what stamps the range those identities sit in. Nothing about the stamping itself changed here.
