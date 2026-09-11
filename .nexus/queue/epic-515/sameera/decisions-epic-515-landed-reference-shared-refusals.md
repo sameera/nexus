@@ -43,5 +43,5 @@
 
 ## 2026-09-11 — Left the pre-existing store-level concepts failure alone
 - **Choice:** Did not trim `.nexus/concepts/distiller.md` to clear the 25-bullet revisit advisory.
-- **Why:** It fails identically on `origin/main` (introduced by dc9ff18), is not a receipt finding, and the advisory asks for a distillation-stage content review, not a code fix.
-- **Refuted alternative:** Move interaction prose off the distiller page here to make the suite exit 0.
+- **Why:** `concept-page-capacity` invariant 4 forbids it — "neighbour-list pressure is never a reason to drop, demote, or compress an interaction" — and invariant 6 says degree is "watched, never limited"; the 25-bullet trigger is invariant 7's prompt for a human revisit, which is the lead's call, not an epic-515 code fix.
+- **Refuted alternative:** Drop a bullet from distiller.md, or raise `DEGREE_REVISIT_TRIGGER`, to make the suite exit 0.
