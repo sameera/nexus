@@ -1,5 +1,6 @@
 {
   "claude-components/agents/nxs-architect.md": "ab3067909c62eb98535938610ecd8211f4b261357ad4b5057eb5648f14d1bb2e",
+  "claude-components/agents/nxs-concept-extractor.md": "f2521765471f20916eaad52588e3b17a2c760ea15c1a1b90621b1da4f15966c7",
   "claude-components/agents/nxs-epic-gate.md": "ec70dd4566755a58e0b745f8f3c91d3ac3a4ff491b45a42b5edc2872fda12cc4",
   "claude-components/agents/nxs-pm.md": "a5f39fb6ac2dea6b3c57b3e8cd3cd76e838c24a430dacc6e9002856d5d5ad500",
   "claude-components/commands/nxs.analyze.md": "7e6ebd9ceb8a931a4b9fa9edc59c80283339501075782ffab5b847f80c7f7bfe",
@@ -12,7 +13,7 @@
   "claude-components/commands/nxs.fix.md": "d3f8f1482f796fa939b102fe73f8d285ba8dc0df2dcb045f4776b1ae63a44795",
   "claude-components/commands/nxs.intake.md": "c2b11f1b4e34173ad8bd42dbe170234f0b5d82ff939029620c5de6698f90d3cf",
   "claude-components/commands/nxs.setup.md": "0ac047ccb78c5c5712682dbc3173340ad0b9441c489104505911c4d2aa737e02",
-  "claude-components/commands/nxs.teach-plan.md": "95d4ddf480fa10c0a17111a6d96b54efd6bbe2087845f2a6483f1ec57dee1532",
+  "claude-components/commands/nxs.teach-plan.md": "8cb10d24d41558fd12d33320107b914d254acec95c9dddb6b38377459d0e7171",
   "claude-components/commands/nxs.teach.md": "23e549e05987b45e063fcc067fc031f5bdbbad4b43f54321bfbdcf3fef6c4035",
   "claude-components/skills/nxs-abs-doc-path/SKILL.md": "676abe2fc3fd44cd5bc7d896580431dbf38b3d5e8b83b053e82d7b27ab86a7b4",
   "claude-components/skills/nxs-epic-resolve/SKILL.md": "d24f9e49abea811c3e24ef962e47fb8680b363e10265baa6a100ba5b5e927c3b",

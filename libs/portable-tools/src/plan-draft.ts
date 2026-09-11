@@ -52,9 +52,17 @@ export interface PlanStub {
     assumes: string[];
 }
 
+/** One merged concept: the identifier every list now uses for it, and what it means in one line. */
+export interface VocabularyEntry {
+    id: string;
+    gloss: string;
+}
+
 export interface PlanDraft {
     /** Every slice, in the roadmap's dependency order. */
     slices: PlanStub[];
+    /** The merged concept vocabulary, kept with the draft so a later stage can match words to identifiers. */
+    vocabulary?: VocabularyEntry[];
 }
 
 /** The only fields a stub may carry. Anything else — prose, a pinned state, a source — is refused. */
@@ -136,13 +144,15 @@ export function validateDraft(draft: PlanDraft): PlanDraft {
         }
         seen.add(stub.story);
     }
-    return { slices };
+    return draft.vocabulary === undefined ? { slices } : { slices, vocabulary: draft.vocabulary };
 }
 
 /** The draft's text: the shipped plan's slice structure, in the order given. */
 export function renderPlanDraft(draft: PlanDraft): string {
     const valid: PlanDraft = validateDraft(draft);
-    return stringify({ slices: valid.slices.map((stub) => ({ ...stub })) }, { indent: 4, flowCollectionPadding: false });
+    const doc: Record<string, unknown> = { slices: valid.slices.map((stub) => ({ ...stub })) };
+    if (valid.vocabulary !== undefined) doc["vocabulary"] = valid.vocabulary.map((entry) => ({ ...entry }));
+    return stringify(doc, { indent: 4, flowCollectionPadding: false });
 }
 
 /** Where one roadmap's draft materializes: beside its roadmap, never in the committed workbook. */
@@ -170,5 +180,8 @@ export function readPlanDraft(repoRoot: string, roadmap: string): PlanDraft | nu
     const target: string = planDraftPath(repoRoot, roadmap);
     if (!fs.existsSync(target)) return null;
     const doc: Record<string, unknown> = (parse(fs.readFileSync(target, "utf8")) as Record<string, unknown> | null) ?? {};
-    return validateDraft({ slices: Array.isArray(doc["slices"]) ? (doc["slices"] as PlanStub[]) : [] });
+    return validateDraft({
+        slices: Array.isArray(doc["slices"]) ? (doc["slices"] as PlanStub[]) : [],
+        ...(Array.isArray(doc["vocabulary"]) ? { vocabulary: doc["vocabulary"] as VocabularyEntry[] } : {}),
+    });
 }

@@ -7,3 +7,18 @@
 - **Choice:** The draft materializes at `.nexus/tmp/roadmap-<name>/plan-draft.yml`, validated whole and landed by write-then-rename.
 - **Why:** The roadmap's own derived directory is already gitignored and keyed on the roadmap name, and a rename is the one-step replacement invariant 23 asks for.
 - **Refuted alternative:** A `plan.yml` under the workbook folder with a draft flag — it would sit in the committed tree, which decision 1 refused.
+
+## 2026-09-11 — A merge names every identifier, singletons included
+- **Choice:** The merge file lists every proposed identifier in exactly one group, kept identifier first; an identifier in no group is refused.
+- **Why:** Decision 4 refuses an unmapped identifier, and an explicit singleton shows the session looked at it rather than skipped it.
+- **Refuted alternative:** List only the groups that combine names and map every other identifier to itself — shorter, but a missed synonym and a deliberate singleton would read the same.
+
+## 2026-09-11 — The extraction subagent is its own agent component, with Bash only
+- **Choice:** `components/agents/nxs-concept-extractor.md`, tools `Bash`, reads its story through `nexus workbook extract --story` and hands back that verb's checked output.
+- **Why:** A declared agent holds its inputs and tools to what invariants 2, 4 and 27 allow, where a general-purpose subagent could read the roadmap file whole or load any reference.
+- **Refuted alternative:** A general-purpose subagent prompted from the command body — no new component, but nothing in it bounds what the subagent reads.
+
+## 2026-09-11 — A merged concept both introduced and assumed by one story stays introduced
+- **Choice:** After the merge maps two proposals onto one identifier, a story introducing either keeps it in `concepts` and drops it from `assumes`.
+- **Why:** The story teaches it, and a stub listing one concept in both is refused by the contract.
+- **Refuted alternative:** Refuse the merge — it would reject a correct synonym merge over a contradiction the merge itself created.

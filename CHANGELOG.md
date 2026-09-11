@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.31.0
+
+- `/nxs.teach-plan` now plans the concepts of every story on a planned epic's roadmap after the
+  interview. Each story is read
+  once, by its own new `nxs-concept-extractor` subagent started with nothing but the story's
+  number, and the planning session holds only the short list that subagent hands back — never the
+  story's text. Every list passes a code check of shape, identifier form and size through the new
+  `nexus workbook extract` verb; a bare empty list, an extra field or an over-long list counts as no
+  readable list. The session then merges synonyms from `nexus workbook vocabulary`, so a concept two
+  stories share carries one identifier, and `nexus workbook draft` writes one stub per story —
+  story, mark, introduced concepts and the new assumed concepts — as an uncommitted draft beside
+  the roadmap. It writes only when every story has a checked list, and otherwise writes nothing and
+  names every story that has none; a re-run re-extracts only those stories and any whose text
+  changed. The draft is never written into the committed workbook, so it cannot be taught until it
+  is approved.
+
 ## 0.30.0
 
 - `close` no longer runs a member repository's own copy on any path: a member checkout is now a
