@@ -30,6 +30,12 @@ describe("/nxs.intake records a landed change from its pull request (story #485)
         expect(INTAKE).toMatch(/#<n> is an issue[\s\S]{0,200}\/nxs\.fix/);
     });
 
+    it("applies the shared epic-classification and collision refusal right after Section B, ahead of its own refusal (story #542)", () => {
+        expect(INTAKE).toMatch(/\*\*Section E\*\*[\s\S]{0,200}substituting `\/nxs\.intake` for `<lane-command>`/);
+        expect(INTAKE).toMatch(/runs ahead of this lane's own refusal below/);
+        expect(INTAKE).not.toMatch(/#<n> is an epic\. An epic's reasoning reaches the concept store/);
+    });
+
     it("refuses an empty diff once the pipeline stores are withheld", () => {
         expect(INTAKE).toContain("nexus excluded-stores");
         expect(INTAKE).toMatch(/If the\s*\n?withheld diff is empty, \*\*stop and write nothing\*\*/);

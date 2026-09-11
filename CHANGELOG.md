@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.32.0
+
+- `/nxs.intake` now refuses a reference that carries the repository's epic classification, and
+  refuses a reference whose number — or a number reached through a closing pull request or a
+  closed issue — already has a `/nxs.fix` entry or an epic materialization recorded against it.
+  Both refusals apply right after the reference resolves, ahead of the lane's own "this is an
+  issue, not a pull request" refusal, so an epic reference is always named as an epic rather than
+  being sent to `/nxs.fix` first.
+
 ## 0.31.0
 
 - `nxs-landed-reference` gains a shared Section E stating the epic-classification refusal and the

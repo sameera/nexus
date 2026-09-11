@@ -38,6 +38,11 @@ Load the **`nxs-landed-reference`** skill and apply its **Section A** (the check
 refusal message. Both sections are shared with `/nxs.fix` so that a rule fixed in one lane cannot
 silently differ in the other.
 
+Immediately after Section B resolves the reference, apply the skill's **Section E** (the
+epic-classification and collision refusal), substituting `/nxs.intake` for `<lane-command>`. This
+runs ahead of this lane's own refusal below: an epic reference is always named as an epic, rather
+than first sending the developer to `/nxs.fix` only to be refused there too.
+
 **This lane accepts only a pull request.** When Section B resolves the number to an issue rather
 than a pull request, **stop and write nothing**. Report:
 
