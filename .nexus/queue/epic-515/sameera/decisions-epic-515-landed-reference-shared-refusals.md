@@ -35,3 +35,13 @@
 - **Refuted alternative:** Add a `deferred_scope_filed: true` frontmatter key to `epic.md` for a
   cheaper machine check. Refuted because it is a new fact to keep in sync with the prose section
   that already carries it, for a check that only ever runs against an entry this same lane wrote.
+
+## 2026-09-11 — No second version bump for the Section E clarification
+- **Choice:** Fold the absent-`entry_kind` sentence into the already-bumped 0.33.0 rather than bumping to 0.33.1.
+- **Why:** 0.33.0 is unreleased on this branch, so no adopter has yet seen a Section E without the sentence.
+- **Refuted alternative:** Bump to 0.33.1 with its own CHANGELOG entry.
+
+## 2026-09-11 — Left the pre-existing store-level concepts failure alone
+- **Choice:** Did not trim `.nexus/concepts/distiller.md` to clear the 25-bullet revisit advisory.
+- **Why:** It fails identically on `origin/main` (introduced by dc9ff18), is not a receipt finding, and the advisory asks for a distillation-stage content review, not a code fix.
+- **Refuted alternative:** Move interaction prose off the distiller page here to make the suite exit 0.

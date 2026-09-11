@@ -145,7 +145,11 @@ be added, and only in one case:
 Three kinds of entry can occupy a number, and the set is closed: **epic**, materializing at
 `.nexus/tmp/epic-<n>/` and owned by `/nxs.epic`; **fix**, at `.nexus/tmp/fix-<n>/`, owned by
 `/nxs.fix`; **intake**, at `.nexus/tmp/intake-<n>/`, owned by `/nxs.intake`. What an entry *is*
-comes from `entry_kind:` in its `epic.md` frontmatter, never from the directory it sits under.
+comes from `entry_kind:` in its `epic.md` frontmatter, never from the directory it sits under. The
+epic kind is the one kind that never records it: a resolver-materialized epic entry carries no
+`entry_kind` key at all, so **an absent `entry_kind` under `epic-<n>/` means epic** — the same
+reading `/nxs.analyze` and `/nxs.distill` already take. Read that way, an occupied `epic-<n>/` slot
+resolves to a foreign kind at E.1 item 4 and refuses there, before Section C resolves a range.
 
 This section is applied at two points in the calling lane's own phase numbering, substituting
 `<lane-command>` for the calling lane's own command name the same way Section A already does: E.1

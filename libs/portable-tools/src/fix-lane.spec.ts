@@ -115,6 +115,10 @@ describe("nxs-landed-reference states the shared epic-classification and collisi
         expect(LANDED_REFERENCE).toMatch(/entry_kind:` in its `epic\.md` frontmatter, never from the directory/);
     });
 
+    it("resolves the one kind that never records entry_kind: an absent key under epic-<n>/ means epic", () => {
+        expect(LANDED_REFERENCE).toMatch(/absent `entry_kind`[\s\S]{0,120}`epic-<n>\/`[\s\S]{0,60}means epic/);
+    });
+
     it("applies immediately after Section B and before Section C, ahead of any lane-local refusal", () => {
         expect(LANDED_REFERENCE).toMatch(/immediately after Section B resolves the reference and before Section C resolves\s*\n?\s*a\s*\n?\s*range, ahead of any refusal local to the calling lane/);
     });
