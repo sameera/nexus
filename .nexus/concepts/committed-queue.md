@@ -1,8 +1,8 @@
 ---
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
-touches: ["distiller", "nexus-pipeline", "scratch-capture", "close-entry-migration", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry", "pre-epic-discovery", "pipeline-store-exclusion"]
-last_updated_by: "#405"
+touches: ["distiller", "nexus-pipeline", "scratch-capture", "workspace-resolution", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry", "pre-epic-discovery", "pipeline-store-exclusion"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The committed queue is the durable handoff surface between the delivery pipeline
 
 ## How It Works
 
-The folder is the directory scratch capture already created during implementation — nothing moved or adopted. It holds the epic and close record; an old-contract entry alone still carries a decision-record file. Entries arrive from the pull-request flow, old-contract epics, and migrated member closes. A local close commits nothing here but the epic's per-user scratch, the target of the drain's removal. Under issue-sourced planning the entry is born at close, so the queue holds only closed, drainable entries. It holds only gated artifacts, never an ungated machine block.
+The folder is the directory scratch capture already created during implementation — nothing moved or adopted. It holds the epic and close record; an old-contract entry alone still carries a decision-record file. Entries arrive from the pull-request flow and from old-contract epics. A local close commits nothing here but the epic's per-user scratch, the target of the drain's removal. A member checkout can still hold an entry left over from before member closes were retired, and the workspace status read-out names it until the member-side copy is gone. Under issue-sourced planning the entry is born at close, so the queue holds only closed, drainable entries. It holds only gated artifacts, never an ungated machine block.
 
 ## Key Invariants
 
@@ -21,7 +21,7 @@ The folder is the directory scratch capture already created during implementatio
 2. The queue is committed, never ignored; every entry on the trunk carries a close record.
 3. Presence equals unconsumed here, with no separate state file; the ephemeral counterpart derives the same fact from the trunk store instead.
 4. An entry is drained only after its epic merges; abandoned epics never distill.
-5. A drained entry is deleted but stays recoverable through history.
+5. ~~A drained entry is deleted but stays recoverable through history.~~ The merge of the drain's own pull request is the only shipped path that removes an entry, pinned by a guard over the whole tree against a counted waiver list; a drained entry stays recoverable through history.
 6. Everything drained passed a human gate; the per-user scratch riding inside is hint-only, never read.
 7. An entry is an epic entry or a single-file decision memo, drained diff-less into logs.
 
@@ -30,7 +30,7 @@ The folder is the directory scratch capture already created during implementatio
 - [distiller](distiller.md) — drains each queue entry into the knowledge store.
 - [nexus-pipeline](nexus-pipeline.md) — the pipeline whose stages fill the entry.
 - [scratch-capture](scratch-capture.md) — the per-user scratch riding inside, never read into the store.
-- [close-entry-migration](close-entry-migration.md) — a closed member entry migrates to the hub queue, not this trunk.
+- [workspace-resolution](workspace-resolution.md) — its status read-out is what names a member checkout still holding one of these entries.
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose close record arrives on the distillation branch.
 - [issue-sourced-planning](issue-sourced-planning.md) — the model under which this entry is born at close.
 - [decision-record](decision-record.md) — no longer stored here; old-contract entries alone still carry its file.
@@ -89,3 +89,7 @@ Mechanical reciprocity fan-out: the pre-epic-discovery page names this queue as 
 ### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
 
 Mechanical reciprocity fan-out: the queue was already withheld from the distiller's diff, and that exclusion is now one named set every stage reads from a single definition. The queue's own membership is unchanged; what changed is that the reason is recorded beside it and no command body restates the path.
+
+### 2026-09-11 — #215 — The drain's own merge is the only remover, with no exception
+
+A second remover existed: the member close relocated an entry into the hub and then committed its deletion in the member repository, on whatever branch the lead happened to be standing on. Retiring that path removed it, and the replacement was deliberately built to copy and verify without removing anything, so the rule holds as an absolute rather than as a rule with one carve-out. A guard now walks the shipped tree for anything that deletes under this queue and pins the result against a waiver list holding exactly one entry, so a convenience cleanup added later fails the build rather than quietly becoming a second remover. Entries no longer arrive here by migration, and a leftover copy in a member checkout is reported by the workspace status read-out rather than collected by any command. Refuted alternative: keep the gated removal so relocation is a true move and nothing is left behind. That is what relocation ordinarily means and it leaves one copy in one place, but it keeps a second remover alive in the shipped toolkit, which is the exact property this change exists to establish.

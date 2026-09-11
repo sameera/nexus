@@ -1,8 +1,8 @@
 ---
 title: "Verb Reachability"
 aliases: ["component-invoked capability", "verb registry", "one executable many verbs", "reachability rather than size", "process-boundary hoisting", "migration-axis parity"]
-touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "close-entry-migration", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "delegating-port", "additive-surface-fold", "prose-verification"]
-last_updated_by: "#414"
+touches: ["component-invocation-gate", "portable-tooling", "nexus-setup-cli", "pr-worktree", "record-digest", "distiller", "issue-sourced-planning", "target-root-convention", "toolkit-location", "release-identity", "environment-guard", "delegating-port", "additive-surface-fold", "prose-verification"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -31,7 +31,6 @@ Every reachable capability is declared once in one registry, mapping a name to i
 - [portable-tooling](portable-tooling.md) — hosts this registry's built executable, under its parity and fingerprint discipline, alongside the five distiller capabilities' own standalone builds.
 - [nexus-setup-cli](nexus-setup-cli.md) — the deploy and workspace verbs already reachable on this same executable, now dispatched from the shared registry alongside the newly reachable capabilities.
 - [pr-worktree](pr-worktree.md) — the worktree-management capability now reachable as a verb, held to byte-identical output and matching spawned-process arguments against its script form.
-- [close-entry-migration](close-entry-migration.md) — the migration capability now reachable as a verb, under the same byte-identical parity guarantee as its script form.
 - [record-digest](record-digest.md) — now reachable as a verb, matched byte-for-byte against its script form by the migration-axis parity check.
 - [distiller](distiller.md) — its atlas, validator, entry-diff, drift-advisory and registry-seeding steps are reachable only as verbs; their standalone forms are deleted.
 - [issue-sourced-planning](issue-sourced-planning.md) — its epic resolver is now reachable as a verb, matched byte-for-byte against its script form.
@@ -81,3 +80,7 @@ The three capabilities that ran on the other runtime were folded in as flat top-
 ### 2026-09-02 — #414 — Reciprocal link from prose-verification
 
 Recorded the fan-out from the prose-verification page. A shipped component body invokes that check, which is what earns it a verb on the shared executable rather than leaving it a source-only library.
+
+### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
+
+Mechanical reciprocity fan-out: the migration capability that held a row here is retired, so the edge is removed. The retired name still answers, refusing and naming the hub close as its replacement, until the next minor release drops both.

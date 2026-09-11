@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff"]
-last_updated_by: "#214"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -33,7 +33,6 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [code-anchors](code-anchors.md) — derived sidecars regenerated per touched concept.
 - [scratch-capture](scratch-capture.md) — an input boundary, never read.
 - [portable-tooling](portable-tooling.md) — the installed toolkit a hub drain derives its cross-repo diff through.
-- [close-entry-migration](close-entry-migration.md) — the migrated entry a relocated epic drains from.
 - [taxonomy-filing-gate](taxonomy-filing-gate.md) — the filing decision and gate.
 - [drift-advisory](drift-advisory.md) — the non-blocking decay report.
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose stamped range supplies the diff.
@@ -160,3 +159,7 @@ The writer of a multi-entry range landed one epic before the reader that underst
 ### 2026-09-10 — #214 — An entry is chased at every repository it touched, and its diff comes from one reader
 
 Two reporting rules that had been one came apart once a range could hold several entries. An undrained entry is now attributed to every distinct repository its range list names, in the order they first appear, rather than to whichever repository happened to be stamped first — a lead chasing an entry that shipped over several pull requests needs every place it touched, not one of them. Age stays one figure per entry, measured from the introducing commit as before. Alongside that, the drain gained a single reader, described on its own page, and the interim refusal that blocked a single-repository epic whose range named one repository twice is gone in the same release. Refuted alternative for the age figure: measure it per range entry. It would say something true about each landed change, but the report measures how long an entry has waited to be drained rather than how old the code is, and it would make one entry appear several times in a list read for what is overdue.
+
+### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
+
+Mechanical reciprocity fan-out: entries no longer reach the drain by migration, so the edge is removed. The drain's own staged deletion is now the only shipped path that removes a committed queue entry, pinned by a guard over the tree.

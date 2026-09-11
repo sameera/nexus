@@ -1,8 +1,8 @@
 ---
 title: "Scratch Capture"
 aliases: ["decision stubs", "in-flight decision capture", "committed scratch", "queue scratch", "plan capture"]
-touches: ["committed-queue", "distiller", "nexus-pipeline", "ephemeral-handoff-entry", "close-entry-migration"]
-last_updated_by: "#170"
+touches: ["committed-queue", "distiller", "nexus-pipeline", "ephemeral-handoff-entry"]
+last_updated_by: "#215"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Scratch capture is the committed per-user surface inside an epic's queue entry w
 
 ## How It Works
 
-An engineer's agent appends a stub — the choice, the why, the refuted alternative — the instant a non-obvious choice is made, into a committed per-user location inside the epic's queue entry. The owning epic resolves from the story issue's parent alone, and capture stays silent when unresolved. Lead-run stages read it as hints only: close mines the stubs as its highest-fidelity why, verifying each against the diff; analyze takes it as soft context that never moves a verdict; notes are weaker still. Close deletes nothing — the scratch is removed only when the distiller drains the epic, and where the close wrote to the ephemeral area this directory is what that removal targets; a member close carries it into the hub entry rather than stranding it.
+An engineer's agent appends a stub — the choice, the why, the refuted alternative — the instant a non-obvious choice is made, into a committed per-user location inside the epic's queue entry. The owning epic resolves from the story issue's parent alone, and capture stays silent when unresolved. Lead-run stages read it as hints only: close mines the stubs as its highest-fidelity why, verifying each against the diff; analyze takes it as soft context that never moves a verdict; notes are weaker still. Close deletes nothing — the scratch is removed only when the distiller drains the epic, and where the close wrote to the ephemeral area this directory is what that removal targets.
 
 ## Key Invariants
 
@@ -31,7 +31,6 @@ An engineer's agent appends a stub — the choice, the why, the refuted alternat
 - [distiller](distiller.md) — drains the entry but never reads the scratch into a concept.
 - [nexus-pipeline](nexus-pipeline.md) — close and analyze consume it as hints; neither deletes it.
 - [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored entry whose drain re-aims its removal here.
-- [close-entry-migration](close-entry-migration.md) — carries this directory into the hub entry as part of the epic.
 
 ## Decision Log
 
@@ -50,3 +49,7 @@ Under issue-sourced planning an epic's queue entry does not exist until close, s
 ### 2026-07-31 — #170 — Scratch becomes the target of the drain's committed removal
 
 When a local close stopped committing its artifacts, the deletion that used to ride the distillation had nothing to aim at — and this directory, the one committed thing an implementation still leaves behind, would have accumulated on the trunk for every closed epic with nothing to ever remove it. Re-aiming the removal here preserves the lifecycle unchanged: scratch is still deleted exactly when the distillation merges, still atomically with the page writes. A member close carries it into the hub entry for the same reason, so it is neither stranded in the member repo nor dropped from the entry the hub drain cleans up. Refuted alternative: skip the committed removal entirely, on the grounds that an ephemeral entry has nothing committed to delete — literally true of the entry, but false of the epic, and it would make a pre-existing leak permanent by design.
+
+### 2026-09-11 — #215 — No close carries scratch anywhere any more
+
+A member close used to copy this scratch into the hub entry so the drain would find it and delete it. That close no longer exists, and a member epic closes from the hub, where the scratch its engineers committed already sits at the path the drain removes. The only thing that changes here is that the carry step is gone: scratch is written once, at the path the epic issue number fixes, and removed once, by the drain.

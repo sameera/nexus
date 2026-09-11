@@ -2,8 +2,8 @@
 title: "Close-Entry Migration"
 aliases: ["queue-entry migration", "cross-repo close tail", "close range stamping", "hub queue migration", "migrate-verify-remove"]
 touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability", "multi-pr-close", "range-entry-diff"]
-last_updated_by: "#214"
-status: active
+last_updated_by: "#215"
+status: deprecated
 verification: verified
 ---
 
@@ -60,3 +60,7 @@ An epic that shipped as several pull requests stamps one entry for each of them,
 ### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
 
 Mechanical reciprocity fan-out: the range this stamping writes is now read one entry at a time rather than one repository at a time, so a repository named by several entries is read as several change sets in the order they landed. Nothing about the stamping itself changed here.
+
+### 2026-09-11 — #215 — Retired: the member close-and-migrate path is deleted
+
+The path this page describes no longer exists. A member repository no longer closes its own epic and relocates the entry. It closes from the hub, over its merged pull requests, with no member-specific step at all. What survived the deletion is asserted elsewhere: range stamping by the close-over-several-pull-requests page and by the post-merge flow page, the role and repository identity by workspace resolution, and the rule that only the drain's own merge removes a committed entry by the committed queue. The entries already sitting in member queues were relocated once before the deletion landed, by a one-shot tool that copies and verifies and never removes, so the single-remover rule has no exception carved for it. That tool, and the marker that answers anyone still typing the retired name, are both removed in the next minor release. Refuted alternative: keep this page active and slim it to range stamping alone. That preserves a live page rather than archiving one, but range stamping is already asserted on two other pages, so keeping a third statement of one rule would leave three copies to drift apart.
