@@ -44,6 +44,7 @@ export const LEARNER_RECORD_KINDS: readonly string[] = [
     "hint-log",
     "handoffs",
     "interview",
+    "focus-verdicts",
 ];
 
 export type LearnerRecordKind = (typeof LEARNER_RECORD_KINDS)[number];

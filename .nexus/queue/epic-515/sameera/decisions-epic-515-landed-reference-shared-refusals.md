@@ -45,3 +45,8 @@
 - **Choice:** Did not trim `.nexus/concepts/distiller.md` to clear the 25-bullet revisit advisory.
 - **Why:** `concept-page-capacity` invariant 4 forbids it — "neighbour-list pressure is never a reason to drop, demote, or compress an interaction" — and invariant 6 says degree is "watched, never limited"; the 25-bullet trigger is invariant 7's prompt for a human revisit, which is the lead's call, not an epic-515 code fix.
 - **Refuted alternative:** Drop a bullet from distiller.md, or raise `DEGREE_REVISIT_TRIGGER`, to make the suite exit 0.
+
+## 2026-09-11 — Renumbered this branch's releases over main's 0.31.0
+- **Choice:** On merging main, shifted this branch's three unreleased CHANGELOG sections up one minor (0.31.0→0.32.0, 0.32.0→0.33.0, 0.33.0→0.34.0) and set `package.json` to 0.34.0, keeping main's released 0.31.0 entry where it is.
+- **Why:** Main shipped its own 0.31.0 (the `/nxs.teach-plan` roadmap work) while this branch was open, so the number is taken; a version is released once, and this branch's entries are the ones still unreleased.
+- **Refuted alternative:** Keep this branch's numbers and renumber main's 0.31.0. Refuted because that entry is already on main and may already be tagged, so its number is not ours to move.

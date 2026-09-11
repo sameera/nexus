@@ -12,3 +12,4 @@ Turns a planned roadmap into hands-on lessons a learner works through, placing t
 - **One session teaches one lesson, written on arrival** — [#407](https://github.com/sameera/nexus/issues/407)
 - **A roadmap resolves, and an interview establishes the learner's starting point and focus** — [#455](https://github.com/sameera/nexus/issues/455)
 - **The rest of the shared component library, and the answer-checking it needs** — [#480](https://github.com/sameera/nexus/issues/480)
+- **Concepts are extracted per story, and every slice is marked learner or handoff** — [#456](https://github.com/sameera/nexus/issues/456)
