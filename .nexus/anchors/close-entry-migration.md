@@ -15,8 +15,9 @@ generated: 2026-09-10
 - `libs/close-migration/src/diagnostic.ts` — the structured failure shapes (wrong-role, entry-conflict, hub-detached-head, hub-commit-failed, verify-mismatch, removal-failed) plus pass-through resolver diagnostics.
 - `libs/close-migration/src/render.ts` — the preflight read-out, migration outcome, and failure diagnostic as plain terminal text.
 - `libs/close-migration/src/run.ts` — the single git process seam every step runs through, so specs can inject failures.
+- `libs/pr-worktree/src/range-list.ts` — derives the stamped entries, one per story pull request rather than one per repository (#523)
 - `components/skills/nxs-close-migration/SKILL.md` — the skill doc: the observable surface, the safety contract, and the epic-unit migration source (committed entry or ephemeral area, unioned with committed scratch).
-- `components/commands/nxs.close.md` — the close command's cross-repo tail: the role gate, the range stamp, the checkpoint items, the migrate step, and the hub drain-health attribution that now names every distinct repository the migrated entry's range list names.
+- `components/commands/nxs.close.md` — the close command's cross-repo tail: the role gate, the range stamp, the checkpoint items, the migrate step, the Phase 4 stamp that now writes one entry per story pull request (#523), and the hub drain-health attribution that now names every distinct repository the migrated entry's range list names.
 - `.nexus/config/templates/close-record-template.md` — the `range:` block and its filling guidance.
 - `common/templates/close-record-template.md` — the seed copy of the same range block.
 - `libs/close-migration/src/migrate.spec.ts` — the ordering, verify-before-remove, idempotency, and failure-mode behavior.

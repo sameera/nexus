@@ -1,8 +1,8 @@
 ---
 title: "Durable Close Record"
 aliases: ["close comment", "durable close rationale", "close machine block", "closing rationale"]
-touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding", "pipeline-store-exclusion"]
-last_updated_by: "#405"
+touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding", "pipeline-store-exclusion", "multi-pr-close"]
+last_updated_by: "#213"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The durable copy of a close's rationale is the comment the close stage posts on 
 
 ## How It Works
 
-The close stage always posted its rationale onto the epic issue; that side effect is now the definition. The comment inlines the key decisions and the deviation rationale verbatim. Beneath the prose sits a marker-anchored block stamping what prose cannot recover: the decision record's reference and full approved-body hash, the conformance verdict including any waiver, and the full-revision range of the landed change. A queue or ephemeral location would dangle the moment the entry is consumed, so the comment links only durable targets. Because the rationale may exist nowhere else, a failed post is not tolerated: the run preserves the composed body, leaves the epic issue open, and ends with an explicit retry instruction rather than reporting success. A drain that has lost its local entry rebuilds one from this comment.
+The close stage always posted its rationale onto the epic issue; that side effect is now the definition. The comment inlines the key decisions and the deviation rationale verbatim. Beneath the prose sits a marker-anchored block stamping what prose cannot recover: the decision record's reference and full approved-body hash, the conformance verdict including any waiver, and the full-revision range of the landed change. Every story waived as having shipped without a pull request of its own is named there too, with the date of its waiver. A queue or ephemeral location would dangle the moment the entry is consumed, so the comment links only durable targets. Because the rationale may exist nowhere else, a failed post is not tolerated: the run preserves the composed body, leaves the epic issue open, and ends with an explicit retry instruction rather than reporting success. A drain that has lost its local entry rebuilds one from this comment.
 
 ## Key Invariants
 
@@ -36,6 +36,7 @@ The close stage always posted its rationale onto the epic issue; that side effec
 - [writer-stamp](writer-stamp.md) — the record of which release wrote this comment's block and the mirrored file, placed beside the record hash rather than inside it.
 - [template-seeding](template-seeding.md) — places the close-record template this stage fills; the stage now stops on its absence rather than falling back.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — close derives its deviation rationale from a diff withholding every member.
+- [multi-pr-close](multi-pr-close.md) — supplies the list-shaped range and every waived story this comment carries onto the epic issue.
 
 ## Decision Log
 
@@ -58,3 +59,7 @@ Mechanical reciprocity fan-out: the template the close stage fills now has a way
 ### 2026-09-07 — #405 — Reciprocal link from pipeline-store-exclusion
 
 Mechanical reciprocity fan-out: the close-from-diff pass that produces the deviation rationale now withholds the same named set analyze and distill withhold. Close read an unfiltered diff before, so a deviation could be reported against planning prose the pipeline had written itself.
+
+### 2026-09-10 — #213 — The comment names every waived story and its date
+
+A story waived as having shipped without a pull request of its own is adjudicated once, by the lead, at the moment the epic closes. This comment is the only copy of a close's rationale that survives the entry, so a waiver recorded nowhere else would be invisible to anyone reading the epic issue afterwards.

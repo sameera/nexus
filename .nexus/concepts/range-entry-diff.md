@@ -1,7 +1,7 @@
 ---
 title: "Range-Entry Diff Derivation"
 aliases: ["range reader", "entry diff derivation", "per-entry change set", "range list reader"]
-touches: ["distiller", "close-entry-migration", "code-anchors", "pipeline-store-exclusion", "workspace-resolution"]
+touches: ["distiller", "close-entry-migration", "code-anchors", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close"]
 last_updated_by: "#214"
 status: active
 verification: verified
@@ -32,9 +32,14 @@ Each stamped range names a repository, a start revision, an end revision, and th
 - [code-anchors](code-anchors.md) — take their pull request and their stamped revision from the order this reader resolves.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — the single definition of the stores withheld from every change set.
 - [workspace-resolution](workspace-resolution.md) — resolves each named repository to its checkout in a hub.
+- [multi-pr-close](multi-pr-close.md) — the epic-wide close that writes the multi-entry range list this reader was built to read, retiring the interim refusal it shipped alongside.
 
 ## Decision Log
 
 ### 2026-09-10 — #214 — The unit of a range is the entry, not the repository
 
 Every question this change opens is a question about order: which change is current for a file, which pull request an anchor names, which revision stamps a sidecar. Reading order off the stamp would make the answer depend on how the close happened to iterate its story list, which is not a fact about the code; ancestry is, it costs nothing to compute, and a human can check it. Single-repository mode was folded onto the same reader in the same release, because keeping a second reader would leave two copies of a rule that had already drifted once, in the path that runs most often — and the single-repository epic that shipped as several pull requests is the case this exists for. Refuted alternative: emit one change set per repository, computed at that repository's newest end revision. It needs no ordering rule and gives one coherent final state per file, but for any file another epic also touched between the two merges, that change set carries the other epic's change too, and the drain would then rewrite pages this epic never touched.
+
+### 2026-09-10 — #213 — Reciprocal link from multi-pr-close
+
+Mechanical reciprocity fan-out: multi-pr-close is the writer of the range list this reader reads, landed as the same-release interim refusal this reader retires. Nothing this page already asserted has changed.

@@ -1,7 +1,7 @@
 ---
 title: "Close-Entry Migration"
 aliases: ["queue-entry migration", "cross-repo close tail", "close range stamping", "hub queue migration", "migrate-verify-remove"]
-touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability", "range-entry-diff"]
+touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability", "multi-pr-close", "range-entry-diff"]
 last_updated_by: "#214"
 status: active
 verification: verified
@@ -22,7 +22,7 @@ At the closure checkpoint, in member mode, the move runs in a fixed order — mi
 1. After a member close the epic exists in exactly one place — one hub entry holding its artifacts and scratch — never the code repo.
 2. Removal is gated on a verified hub commit; a failed or aborted migration leaves the entry intact locally.
 3. Migration is all-or-nothing, any partial copy cleaned up before the failure is reported; source- and destination-relative paths are derived separately.
-4. The range is stamped in every mode: full-SHA, list-shaped, one entry per code repo, matching the close-from-diff pass.
+4. ~~The range is stamped in every mode: full-SHA, list-shaped, one entry per code repo, matching the close-from-diff pass.~~ The range is stamped in every mode: full-SHA, list-shaped, one entry per story pull request, each anchored on that pull request's own merge and naming its number. Several entries may name one repository.
 5. Role and hub location come from the shared resolver.
 6. Single-repo and hub closes attempt no hub write and never remove it.
 7. Closure is not durable until the migrated hub commit is pushed.
@@ -36,6 +36,7 @@ At the closure checkpoint, in member mode, the move runs in a fixed order — mi
 - [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — one of the two sources the union is drawn from.
 - [scratch-capture](scratch-capture.md) — the committed half of that union, not stranded.
 - [verb-reachability](verb-reachability.md) — this migration capability is now also reachable as a verb on the shared executable, under the same byte-identical parity guarantee as its script form.
+- [multi-pr-close](multi-pr-close.md) — the epic-wide close that stamps one entry per story pull request, so several entries can now name one repository.
 - [range-entry-diff](range-entry-diff.md) — the reader of the range this stamps, which now takes one entry per pull request rather than one per repository.
 
 ## Decision Log
@@ -51,6 +52,10 @@ Once a member close began writing its artifacts to the ephemeral area, migrating
 ### 2026-08-23 — #247 — Reciprocal link from verb-reachability
 
 Mechanical reciprocity fan-out: the verb-reachability page names this migration capability as one of the ten now reachable as a verb on the shared executable, under the same byte-identical parity guarantee as its script form.
+
+### 2026-09-10 — #213 — One stamped entry per pull request, never one per repository
+
+An epic that shipped as several pull requests stamps one entry for each of them, and several of those entries can name the same repository. A single span running from the first pull request's base to the last one's head always resolves, and it sweeps in every unrelated commit that landed between the merges, so the drain would rewrite pages the epic never touched. Refuted alternative: collapse a repository's pull requests into one span. That is simpler and it never fails to resolve, but it reintroduces exactly the interleaved-epics hazard the list shape exists to avoid.
 
 ### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
 
