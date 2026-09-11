@@ -1,8 +1,8 @@
 ---
 title: "Close Over Several Pull Requests"
 aliases: ["multi-pull-request close", "epic-wide close", "merge gate", "story pull-request set", "range list", "one entry per pull request", "storyless story waiver", "trunk head verification"]
-touches: ["aggregated-epic-receipt", "pr-driven-flow", "close-entry-migration", "pr-worktree", "durable-close-record", "distiller"]
-last_updated_by: "#213"
+touches: ["aggregated-epic-receipt", "pr-driven-flow", "close-entry-migration", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff"]
+last_updated_by: "#214"
 status: active
 verification: verified
 ---
@@ -36,10 +36,15 @@ Only once every gate passes are the ranges derived, one call per pull request in
 - [close-entry-migration](close-entry-migration.md) — owns range stamping in every mode. This fixes the shape stamped, one entry per pull request rather than one per repository.
 - [pr-worktree](pr-worktree.md) — the worktree now opened once for the whole epic, and only after every gate and every range derivation has passed.
 - [durable-close-record](durable-close-record.md) — carries the list-shaped range and every waived story with its date onto the epic issue.
-- [distiller](distiller.md) — reads the stamped list later. Its refusal of a shape it could not yet read shipped in this same release.
+- [distiller](distiller.md) — reads the stamped list later, through the range-entry-diff reader.
+- [range-entry-diff](range-entry-diff.md) — the reader that turns this stamped list into one change set per pull request; it replaced the interim refusal this close shipped alongside.
 
 ## Decision Log
 
 ### 2026-09-10 — #213 — Close is addressed at the epic, and every gate runs before any worktree exists
 
 A pull request was only ever a proxy for the epic when there was exactly one of them. Making the single-pull-request close the one-pull-request case of a single flow is what stops a second close mechanism appearing beside the first. The order inverted at the same time, because with several pull requests the coupling between opening the worktree and obtaining the range has no meaning, and keeping it would create and abandon a checkout on every refused close. Refuted alternative: a separate flag for the multi-pull-request case, leaving the single-pull-request flag untouched. That keeps the working path from regressing, but two flags mean two flows, and the flow that runs less often is the one whose gate, range stamp and artifact placement drift silently.
+
+### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
+
+Mechanical reciprocity fan-out: the range-entry-diff page names this close as the writer of the stamped list it reads, and its reader retires the interim refusal this close shipped alongside. Nothing this page already asserted has changed.

@@ -1,8 +1,8 @@
 ---
 title: "Close-Entry Migration"
 aliases: ["queue-entry migration", "cross-repo close tail", "close range stamping", "hub queue migration", "migrate-verify-remove"]
-touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability", "multi-pr-close"]
-last_updated_by: "#213"
+touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability", "multi-pr-close", "range-entry-diff"]
+last_updated_by: "#214"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ At the closure checkpoint, in member mode, the move runs in a fixed order — mi
 - [scratch-capture](scratch-capture.md) — the committed half of that union, not stranded.
 - [verb-reachability](verb-reachability.md) — this migration capability is now also reachable as a verb on the shared executable, under the same byte-identical parity guarantee as its script form.
 - [multi-pr-close](multi-pr-close.md) — the epic-wide close that stamps one entry per story pull request, so several entries can now name one repository.
+- [range-entry-diff](range-entry-diff.md) — the reader of the range this stamps, which now takes one entry per pull request rather than one per repository.
 
 ## Decision Log
 
@@ -55,3 +56,7 @@ Mechanical reciprocity fan-out: the verb-reachability page names this migration 
 ### 2026-09-10 — #213 — One stamped entry per pull request, never one per repository
 
 An epic that shipped as several pull requests stamps one entry for each of them, and several of those entries can name the same repository. A single span running from the first pull request's base to the last one's head always resolves, and it sweeps in every unrelated commit that landed between the merges, so the drain would rewrite pages the epic never touched. Refuted alternative: collapse a repository's pull requests into one span. That is simpler and it never fails to resolve, but it reintroduces exactly the interleaved-epics hazard the list shape exists to avoid.
+
+### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
+
+Mechanical reciprocity fan-out: the range this stamping writes is now read one entry at a time rather than one repository at a time, so a repository named by several entries is read as several change sets in the order they landed. Nothing about the stamping itself changed here.

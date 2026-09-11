@@ -1,6 +1,6 @@
 ---
 concept: pipeline-store-exclusion
-source_sha: 24149aa6fcb1600e3992dd8aeb7b893b8e8a4286
+source_sha: 05f96622db747798b040bf907091c881ba80c67c
 generated: 2026-09-10
 ---
 
@@ -12,7 +12,7 @@ generated: 2026-09-10
 - `libs/portable-tools/src/pipeline-stores.ts` — the one definition: the closed member list with a reason per store, the git pathspec rendering every consumer appends to a diff, and the containment test.
 - `libs/portable-tools/src/pipeline-stores.spec.ts` — pins that the set names all three stores, justifies each, excludes each entire, and that no command body restates a member path.
 - `libs/portable-tools/src/nexus-cli.ts` — the `excluded-stores` verb, and the combined-change-set verb that passes the same set through to every per-pull-request diff (#521)
-- `libs/portable-tools/src/derive-entry-diff.ts` — the cross-repo derivation, which now reads the pathspecs from the definition instead of writing two paths inline.
+- `libs/portable-tools/src/derive-entry-diff.ts` — the range reader, which withholds the set from every range entry's change set rather than writing paths inline.
 - `components/commands/nxs.analyze.md` — the conformance diff, which appends the exclusions and states that the body may not list the paths (#521)
 - `components/commands/nxs.close.md` — the close-from-diff pass, filtered the same way, with the same ban on restating the set (#521)
 - `components/commands/nxs.distill.md` — the behavioural diff, which asks the toolkit for the set rather than carrying its own list.

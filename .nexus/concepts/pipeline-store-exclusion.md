@@ -1,8 +1,8 @@
 ---
 title: "Pipeline Store Exclusion"
 aliases: ["excluded stores", "withheld stores", "behavioural diff exclusion", "pipeline store set", "what a stage never reads back"]
-touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record", "aggregated-epic-receipt"]
-last_updated_by: "#212"
+touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record", "aggregated-epic-receipt", "range-entry-diff"]
+last_updated_by: "#214"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ Three stores are members: the close-time queue, the pre-epic discovery store, an
 - [conformance-gate](conformance-gate.md) — analyze now draws its verdict from a diff with every member withheld; it withheld none before.
 - [durable-close-record](durable-close-record.md) — close derives its deviation rationale from the same filtered diff.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — withholds every member of the set from each per-pull-request change set it unions into the epic's combined code.
+- [range-entry-diff](range-entry-diff.md) — withholds the whole set from every range entry's change set, read from this one definition.
 
 ## Decision Log
 
@@ -44,3 +45,7 @@ The exclusion was stated twice before this epic and applied by one stage of thre
 ### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
 
 Mechanical reciprocity fan-out: the epic's combined code is a union of per-pull-request change sets, and each of those change sets withholds the whole set through the one shared definition rather than a locally written path list.
+
+### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
+
+Mechanical reciprocity fan-out: the drain's reader now emits one change set per range entry instead of one per repository, and each of those change sets withholds the whole set through this single definition. The set itself and its membership are unchanged.

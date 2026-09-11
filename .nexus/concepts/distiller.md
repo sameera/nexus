@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close"]
-last_updated_by: "#213"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "close-entry-migration", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff"]
+last_updated_by: "#214"
 status: active
 verification: verified
 ---
@@ -52,7 +52,8 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [fix-razor](fix-razor.md) — the bound it enforces on a fix entry's page writes before opening its reviewed write.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — the one definition its behavioural diff reads, rather than restating the store paths.
 - [intake-lane](intake-lane.md) — the third producer of drainable entries; the drain verifies its pull-request fingerprint before reading its why.
-- [multi-pr-close](multi-pr-close.md) — the writer of the stamped range list; the drain's named refusal of a shape it could not yet read shipped in the same release as that writer.
+- [multi-pr-close](multi-pr-close.md) — the writer of the stamped range list.
+- [range-entry-diff](range-entry-diff.md) — the reader that turns a stamped range list into one change set per pull request, in landed order.
 
 ## Decision Log
 
@@ -155,3 +156,7 @@ Mechanical reciprocity fan-out: a third entry kind joins the two this page alrea
 ### 2026-09-10 — #213 — The reader's refusal ships with the writer, not with the next epic
 
 The writer of a multi-entry range landed one epic before the reader that understands it. On the single-repository path the drain would have read one pull request's changes and silently dropped the rest, so a named refusal that blocks the entry and continues with the others shipped alongside the writer. A wrong but plausible distillation cannot be recovered from, and a blocked one can. Refuted alternative: release the writer and the reader together, so the interim guard is never needed. That is more economical, but it couples two epics into one release and makes the whole chain wait for the drain-side work.
+
+### 2026-09-10 — #214 — An entry is chased at every repository it touched, and its diff comes from one reader
+
+Two reporting rules that had been one came apart once a range could hold several entries. An undrained entry is now attributed to every distinct repository its range list names, in the order they first appear, rather than to whichever repository happened to be stamped first — a lead chasing an entry that shipped over several pull requests needs every place it touched, not one of them. Age stays one figure per entry, measured from the introducing commit as before. Alongside that, the drain gained a single reader, described on its own page, and the interim refusal that blocked a single-repository epic whose range named one repository twice is gone in the same release. Refuted alternative for the age figure: measure it per range entry. It would say something true about each landed change, but the report measures how long an entry has waited to be drained rather than how old the code is, and it would make one entry appear several times in a list read for what is overdue.
