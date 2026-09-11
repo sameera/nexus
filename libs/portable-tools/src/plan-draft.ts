@@ -17,6 +17,11 @@
  * the gitignored derived-artifact location, and never into the committed workbook, where every
  * render, drift check and session would fail on them until approval.
  *
+ * A handoff stub is smaller still (story #548). A handoff slice teaches nothing, so it carries its
+ * story and its mark and no concepts, no sources and no lesson — and with no lesson it never becomes
+ * a page. It names no sibling list either: the shipped handoff prompt already takes every other
+ * slice in the plan as a sibling, which includes every other slice of the same epic.
+ *
  * The draft is written whole or not at all. Every stub is validated before the file is touched, and
  * the file is replaced in one rename, so a reader never finds a draft that is part old and part new.
  */
@@ -124,6 +129,12 @@ export function validateStub(raw: unknown, index: number): PlanStub {
 
     const concepts: string[] = identifiers(record["concepts"], "concepts", at);
     const assumes: string[] = identifiers(record["assumes"], "assumes", at);
+    if (mark === "handoff" && (concepts.length > 0 || assumes.length > 0)) {
+        throw new StubError(
+            `${at} is a handoff and lists concepts. A handoff slice teaches nothing, so its stub carries its story ` +
+            `and its mark and no concepts or sources.`,
+        );
+    }
     const both: string[] = assumes.filter((id) => concepts.includes(id));
     if (both.length > 0) {
         throw new StubError(
@@ -150,7 +161,9 @@ export function validateDraft(draft: PlanDraft): PlanDraft {
 /** The draft's text: the shipped plan's slice structure, in the order given. */
 export function renderPlanDraft(draft: PlanDraft): string {
     const valid: PlanDraft = validateDraft(draft);
-    const doc: Record<string, unknown> = { slices: valid.slices.map((stub) => ({ ...stub })) };
+    const doc: Record<string, unknown> = {
+        slices: valid.slices.map((stub) => (stub.builds === "handoff" ? { story: stub.story, builds: stub.builds } : { ...stub })),
+    };
     if (valid.vocabulary !== undefined) doc["vocabulary"] = valid.vocabulary.map((entry) => ({ ...entry }));
     return stringify(doc, { indent: 4, flowCollectionPadding: false });
 }

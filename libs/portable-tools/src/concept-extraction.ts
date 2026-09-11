@@ -366,7 +366,10 @@ export function draftFromExtractions(repoRoot: string, roadmap: Roadmap, groups:
         // The record's explicit whole-roadmap statement decides the no-focus case, never membership of
         // the story list it wrote out; otherwise the subagent's verdict is the mark.
         const learner: boolean = interview.focus.whole || list.serves === true;
-        return { story: list.story, builds: learner ? "learner" : "handoff", concepts, assumes };
+        // A handed-off story was still extracted and merged, so a learner slice assuming one of its
+        // concepts names it with the same identifier (decision 7). Those concepts stay in the checked
+        // list and the vocabulary; the handoff stub itself teaches nothing and carries none of them.
+        return learner ? { story: list.story, builds: "learner", concepts, assumes } : { story: list.story, builds: "handoff", concepts: [], assumes: [] };
     });
     const written: string = writePlanDraft(repoRoot, roadmap.name, { slices, vocabulary: merge.vocabulary });
     const focusMatchedNothing: boolean = !interview.focus.whole && slices.every((stub) => stub.builds === "handoff");

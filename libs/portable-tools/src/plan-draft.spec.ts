@@ -117,9 +117,8 @@ describe("a stub carries no lesson prose", () => {
     it("writes nothing beyond the story, the mark and the concepts", () => {
         const repo: string = initRepo();
         const doc = parse(fs.readFileSync(writePlanDraft(repo, "alpha", DRAFT), "utf8")) as { slices: Record<string, unknown>[] };
-        for (const slice of doc.slices) {
-            expect(Object.keys(slice).sort()).toEqual(["assumes", "builds", "concepts", "story"]);
-        }
+        expect(Object.keys(doc.slices[0]).sort()).toEqual(["assumes", "builds", "concepts", "story"]);
+        expect(Object.keys(doc.slices[1]).sort()).toEqual(["builds", "story"]);
     });
 });
 

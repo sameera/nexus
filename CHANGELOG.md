@@ -30,6 +30,12 @@ behaviour says so.
   focus that matched no story still writes the draft and says so. Verdict reasons are filed as
   personal records under the ignored learner folder and appear on no stub. A handoff mark builds
   nothing and starts no coding-agent session.
+- A handoff stub in a planned epic's `/nxs.teach-plan` draft now carries only its story and its
+  mark: no concepts, no sources and no lesson, so it never becomes a workbook page, and a stub
+  offering any of them is refused. The handed-off story is still extracted and merged, so its
+  concepts keep the identifiers a learner slice uses when it assumes them. The draft writes no
+  sibling list; once approved, the shipped handoff prompt leaves every other slice of the plan —
+  every other slice of the same epic included — to the learner.
 
 ## 0.30.0
 

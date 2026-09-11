@@ -32,3 +32,8 @@
 - **Choice:** When the interview puts the whole roadmap in focus, a list carrying `serves` or `reason` fails the check.
 - **Why:** Invariant 12 says no verdict is requested, and a strict shape keeps story text from smuggling a mark into the list.
 - **Refuted alternative:** Accept and drop the verdict — more forgiving of a subagent, but a field the check tolerates is a field story text can reach.
+
+## 2026-09-11 — A handoff stub omits the concept keys rather than writing empty lists
+- **Choice:** The draft renders a handoff slice as `story` and `builds` only; in memory its `concepts` and `assumes` are empty, and a handoff offered any concept is refused.
+- **Why:** Invariant 19 says the stub carries its story and mark only, and an empty `concepts: []` on the page reads as "teaches nothing yet" instead of "teaches nothing".
+- **Refuted alternative:** Write `concepts: []` and `assumes: []` on every stub for one uniform shape — simpler for a reader, but the handoff stub would carry fields the record says it has none of.
