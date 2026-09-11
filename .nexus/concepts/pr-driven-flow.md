@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt"]
-last_updated_by: "#212"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close"]
+last_updated_by: "#213"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ A conformance run takes one pull-request reference. A bare number means this che
 - [pre-epic-discovery](pre-epic-discovery.md) — excluded from the stamped range too, so that range matches the diff the drain later recomputes.
 - [pr-story-resolution](pr-story-resolution.md) — resolves which stories a conformance run covers, and narrows that run's findings to them.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — collects the per-story verdicts this flow publishes into one answer for the epic they belong to.
+- [multi-pr-close](multi-pr-close.md) — generalizes this flow's closure stage to an epic that shipped as several pull requests; one pull request is the one-entry case.
 
 ## Decision Log
 
@@ -70,3 +71,7 @@ Mechanical reciprocity fan-out: the pull-request story resolution page names thi
 ### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
 
 Mechanical reciprocity fan-out: the verdicts this flow publishes on story pull requests are now read back and combined into one epic-level receipt, so an epic that shipped story by story has an answer the close gate can read without a second conformance run.
+
+### 2026-09-10 — #213 — Reciprocal link from multi-pr-close
+
+Close over several pull requests generalizes this flow's closure stage, so the edge is recorded on both pages.

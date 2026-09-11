@@ -1,6 +1,6 @@
 ---
 concept: aggregated-epic-receipt
-source_sha: 24149aa6fcb1600e3992dd8aeb7b893b8e8a4286
+source_sha: 7d289348f146211fa1103d88ff64646e6aa66c92
 generated: 2026-09-10
 ---
 
@@ -23,7 +23,7 @@ generated: 2026-09-10
 - `libs/epic-verdicts/src/combined.spec.ts` — pins the de-duplication of repeated verdicts and the withheld stores (#521)
 - `libs/epic-verdicts/src/write.ts` — writes the per-story receipt and reads it back, returning nothing for any other shape so a caller falls through to the single-head reader (#521)
 - `libs/epic-verdicts/src/write.spec.ts` — round-trip coverage and the null return on a single-head receipt (#521)
-- `libs/epic-verdicts/src/exclusion.ts` — the read half of the shipped-without-a-pull-request marker, resolved through the shared publishing chain rather than hard-coded (#521)
+- `libs/epic-verdicts/src/exclusion.ts` — both halves of the shipped-without-a-pull-request marker, resolved through the shared publishing chain rather than hard-coded: the read the coverage check uses, and the write the lead's close-time waiver performs (#523)
 - `libs/epic-verdicts/src/exclusion.spec.ts` — case-insensitive label matching (#521)
 - `libs/epic-verdicts/src/diagnostic.ts` — the broken-tool failure shape, kept distinct from the missing-verdict and partial-coverage states the derivation exists to report (#521)
 - `libs/portable-tools/src/nexus-cli.ts` — the verb surface for deriving, re-checking currency and reading the combined change set, and the repository targets each search spans (#521)
@@ -31,3 +31,5 @@ generated: 2026-09-10
 - `libs/pr-acceptance/src/verify.ts` — the receipt-block parser, now also surfacing the stamped record reference and digest the per-story record axis compares (#521)
 - `components/commands/nxs.analyze.md` — the aggregate-mode detection, its three states, and the cross-story judgment against the combined code (#521)
 - `components/commands/nxs.close.md` — the gate's reading of a per-story receipt and its per-story staleness report (#521)
+- `libs/epic-verdicts/src/merge-gate.ts` — the live merge-state re-check the close gate runs over this receipt's per-story list, kept separate from the currency axes so it can block without a waiver (#523)
+- `libs/epic-verdicts/src/merge-gate.spec.ts` — pins the per-story read and the unmerged list (#523)

@@ -1,0 +1,45 @@
+---
+title: "Close Over Several Pull Requests"
+aliases: ["multi-pull-request close", "epic-wide close", "merge gate", "story pull-request set", "range list", "one entry per pull request", "storyless story waiver", "trunk head verification"]
+touches: ["aggregated-epic-receipt", "pr-driven-flow", "close-entry-migration", "pr-worktree", "durable-close-record", "distiller"]
+last_updated_by: "#213"
+status: active
+verification: verified
+---
+
+# Close Over Several Pull Requests
+
+A close is addressed at the epic rather than at one pull request, so an epic whose stories shipped as several pull requests closes in one run. The set of pull requests comes from the epic receipt, every one of them must be merged, and each contributes its own merge-anchored range entry.
+
+## How It Works
+
+The gate runs in a fixed order. Merge state comes first, story by story, against live pull-request state. An unmerged pull request is a hard block naming that pull request and its story, and no waiver is offered. Currency is checked next and keeps its own waiver, because a stale analysis is a judgment the lead may take and an unmerged pull request is not.
+
+A closed story with no pull request of its own also stops the run, and the lead is offered a waiver for that story. Taking the waiver writes the durable marker onto the story issue, after the closure checkpoint, alongside the other writes to GitHub.
+
+Only once every gate passes are the ranges derived, one call per pull request into the existing merge-anchored derivation. Only once every range resolves is the branch cut. Nothing gathers the engineers' notes, because every story branch committed into the same epic-keyed path before the cut.
+
+## Key Invariants
+
+1. Every story's pull request must be merged. An open one is a hard block naming the pull request and its story, with no waiver.
+2. The set of pull requests comes from the epic receipt, never from branch names, timelines or searches.
+3. A story that shipped inside a sibling's pull request passes only on the lead's explicit waiver. The waiver writes the durable marker after the checkpoint, and the close record names the story and its date.
+4. One range entry is stamped per story pull request, anchored on that pull request's own merge and naming its number. Entries are never collapsed per repository.
+5. A refusal on any single entry stops the close before a branch is cut, a file is written, or an issue is touched.
+6. A commit that reached the trunk outside a story pull request is not in the recorded range.
+7. Every gate and every derivation completes before a working tree exists. The branch is cut from a trunk verified to hold every stamped head.
+
+## Integration Points
+
+- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the authoritative record of which story shipped in which pull request. This close reads its set from there, and writes the marker that page defines.
+- [pr-driven-flow](pr-driven-flow.md) — the single-pull-request post-merge flow this generalizes. One pull request is now the one-entry case of the same close.
+- [close-entry-migration](close-entry-migration.md) — owns range stamping in every mode. This fixes the shape stamped, one entry per pull request rather than one per repository.
+- [pr-worktree](pr-worktree.md) — the worktree now opened once for the whole epic, and only after every gate and every range derivation has passed.
+- [durable-close-record](durable-close-record.md) — carries the list-shaped range and every waived story with its date onto the epic issue.
+- [distiller](distiller.md) — reads the stamped list later. Its refusal of a shape it could not yet read shipped in this same release.
+
+## Decision Log
+
+### 2026-09-10 — #213 — Close is addressed at the epic, and every gate runs before any worktree exists
+
+A pull request was only ever a proxy for the epic when there was exactly one of them. Making the single-pull-request close the one-pull-request case of a single flow is what stops a second close mechanism appearing beside the first. The order inverted at the same time, because with several pull requests the coupling between opening the worktree and obtaining the range has no meaning, and keeping it would create and abandon a checkout on every refused close. Refuted alternative: a separate flag for the multi-pull-request case, leaving the single-pull-request flag untouched. That keeps the working path from regressing, but two flags mean two flows, and the flow that runs less often is the one whose gate, range stamp and artifact placement drift silently.
