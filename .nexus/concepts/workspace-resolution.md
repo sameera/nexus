@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store"]
-last_updated_by: "#405"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "aggregated-epic-receipt"]
+last_updated_by: "#212"
 status: active
 verification: verified
 ---
@@ -41,6 +41,7 @@ Resolution now walks upward from wherever it's given, bounded to the checkout's 
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
 - [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are that resolver's hub layer, inherited per key.
 - [workbook-store](workbook-store.md) — the resolver decides which member checkout a workbook belongs in; a hub checkout is refused.
+- [aggregated-epic-receipt](aggregated-epic-receipt.md) — searches every repository this resolver declares for a story's published verdict, not only the invoking checkout.
 
 ## Decision Log
 
@@ -91,3 +92,7 @@ The resolved workspace description no longer carries where a hub's toolkit lives
 ### 2026-09-07 — #405 — Reciprocal link from workbook-store
 
 Mechanical reciprocity fan-out: a workbook belongs to the member repository whose roadmap it teaches, and that placement is decided by asking this one resolver rather than by re-deriving workspace shape. Creating a workbook in a hub checkout is refused, and the refusal names the members the workspace declares.
+
+### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
+
+Mechanical reciprocity fan-out: the search for a story's published verdict now spans the hub and every declared member that is checked out, rather than the invoking checkout alone. A declared member with no local checkout is one place fewer searched, never a failure.

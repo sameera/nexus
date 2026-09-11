@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution"]
-last_updated_by: "#211"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt"]
+last_updated_by: "#212"
 status: active
 verification: verified
 ---
@@ -36,6 +36,7 @@ A conformance run takes one pull-request reference. A bare number means this che
 - [pr-worktree](pr-worktree.md) — the worktree these stages run in: where it lands, its isolation, reuse, and removal.
 - [pre-epic-discovery](pre-epic-discovery.md) — excluded from the stamped range too, so that range matches the diff the drain later recomputes.
 - [pr-story-resolution](pr-story-resolution.md) — resolves which stories a conformance run covers, and narrows that run's findings to them.
+- [aggregated-epic-receipt](aggregated-epic-receipt.md) — collects the per-story verdicts this flow publishes into one answer for the epic they belong to.
 
 ## Decision Log
 
@@ -65,3 +66,7 @@ The reference the lead supplies is the only token that names the repository, so 
 Refuted alternative: fetch the member's pull-request head into the hub's own git directory, so no member checkout is needed. That removes the missing-checkout refusal entirely. It loses on writing foreign objects into the hub repository, on having no member configuration to resolve against, and on contradicting the sibling-checkout model the workspace resolver already guarantees. One piece of the approved design did not ship: configuration is still resolved with the worktree as its root in this mode, so a pull request can still redirect where the gate reads its own settings from. That residue is carried as deferred scope rather than reopening a merged pull request.
 
 Mechanical reciprocity fan-out: the pull-request story resolution page names this flow's conformance stage as what resolves its scope through the candidate ladder, and its findings as what that ladder narrows.
+
+### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
+
+Mechanical reciprocity fan-out: the verdicts this flow publishes on story pull requests are now read back and combined into one epic-level receipt, so an epic that shipped story by story has an answer the close gate can read without a second conformance run.

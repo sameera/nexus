@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution"]
-last_updated_by: "#211"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt"]
+last_updated_by: "#212"
 status: active
 verification: verified
 ---
@@ -34,7 +34,7 @@ as a literal value no reader can mistake for a waiver.
    artifact exists.
 2. When an unapproved decision record blocks analyze, the run emits nothing: no receipt, no
    review, no comment.
-3. A missing receipt means exactly one thing to close: analyze never ran.
+3. A missing receipt means exactly one thing to close: there is no analysis to read.
 4. Close reads the receipt before mining anything else; it never infers conformance itself.
 5. A stale or blocking receipt gates close behind an explicit human waiver, never a silent
    pass.
@@ -62,6 +62,7 @@ as a literal value no reader can mistake for a waiver.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — analyze draws its verdict from a diff withholding every member; it withheld none before.
 - [intake-lane](intake-lane.md) — the other lane this gate refuses to run against, having no criteria to check.
 - [pr-story-resolution](pr-story-resolution.md) — decides which criteria are in scope against a pull request: the resolved stories' criteria, never every story's.
+- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the receipt shape derived from the stories' own verdicts, which this gate reads story by story instead of judging the epic afresh.
 
 ## Decision Log
 
@@ -105,3 +106,9 @@ Mechanical reciprocity fan-out: the gate's epic-only rule now also names the int
 The gate's summary said it checks the epic's acceptance criteria, and that stayed exactly true while a run covered a whole epic at once. A run against one story's pull request does not: the sibling stories of the same epic have not landed yet, so checking their criteria would mark every story pull request failing for work nobody claimed to have shipped. What is in scope is now decided next door, by pull-request story resolution, and this page's claim is narrowed to match. Locally that is still the epic's criteria; against a pull request it is the resolved stories' criteria, and a sibling's code in the diff reads as scope drift instead of an unmet criterion. Nothing else about the receipt moved. Its two forms, its placement, the blocked-run-emits-nothing rule, and the single meaning of a missing receipt are all unchanged.
 
 Mechanical reciprocity fan-out: the pull-request story resolution page names this gate as what it narrows, so a reader arriving at either page learns which criteria a given run answers for.
+
+### 2026-09-10 — #212 — A receipt can be derived rather than judged, and its absence still means one thing
+
+Analyze against an epic whose stories were each judged on their own pull request now derives the receipt from those verdicts instead of judging the epic again. The gate's own contract does not move. Analyze still writes the receipt as its only output, close still reads it back before mining anything else, and a stale or blocking receipt still needs an explicit waiver. What moved is the meaning of an absent receipt. Analyze can now run, find that only some stories carry a verdict, and refuse to derive, so "analyze never ran" stopped being the only way a receipt goes missing. The invariant is restated as what close can actually observe, which is that there is no analysis to read. Refuted alternative: give the gate a sixth state for a refused derivation. That state was rejected because the lead's remedy is the same in both cases, and a second meaning for an absent receipt would fork the gate's classification for no decision it changes.
+
+Mechanical reciprocity fan-out: the aggregated epic receipt page names this gate as the one whose receipt it fills, so a reader arriving at either page learns which shape a given run produced.
