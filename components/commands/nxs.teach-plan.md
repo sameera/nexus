@@ -136,13 +136,21 @@ nexus workbook draft <name> --merge <file>
 ```
 
 Code writes every stub in one step — story, mark, introduced concepts and assumed concepts — as an
-uncommitted draft beside the roadmap. If any story has no readable list, nothing is written and every
+uncommitted draft beside the roadmap.
+
+The **mark** says whether the learner builds the slice or it is handed to a coding-agent session the
+learner runs separately, and it is decided in code from what the interview recorded. When the learner
+named no focus, every slice is a learner slice. When they named one, each slice takes the verdict its
+extraction subagent returned against the recorded focus words. You do not judge the marks again, and
+you ask the learner nothing — a reviewer checks every mark when the draft is approved. If the recorded
+focus matched no story, the draft is still written and the command says so; report it as it stands. If any story has no readable list, nothing is written and every
 failed story is named: run Phase 3 again, which extracts only those, then this phase. Never write or
 edit the draft by hand, never commit it, and never write into the committed workbook.
 
 # Hand off
 
-Report the roadmap's story count, the interview's outcome and the draft's slice count. The draft is
+Report the roadmap's story count, the interview's outcome and the draft's learner and handoff counts.
+A handoff mark builds nothing: write no handoff prompt and start no coding-agent session here. The draft is
 not yet a plan anyone can be taught from: it becomes the committed plan when it is approved, and
 lesson writing is then `/nxs.teach <name>` — a fresh invocation, which is what lets it load the
 references this phase does not.

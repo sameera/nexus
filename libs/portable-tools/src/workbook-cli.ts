@@ -420,22 +420,25 @@ function resolvedRoadmap(repoRoot: string, name: string, io: WorkbookCliIo): Roa
  * prints only the identifiers and glosses that passed — the one form in which anything a subagent
  * read reaches the planning session.
  */
-function runExtract(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo): number {
+function runExtract(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo, run: Runner): number {
+    if (flags.story === undefined && flags.list !== undefined) {
+        io.stderr(`workbook extract --list checks one story's list, so it needs --story\n${USAGE}`);
+        return 2;
+    }
     const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
     if (roadmap === null) return 1;
+    // The focus comes from the recorded interview and from nowhere else: the pass asks the learner
+    // nothing, so a roadmap with no interview stops here, before any subagent can start.
+    const interview: InterviewRecord | null = readInterview(repoRoot, name);
+    if (interview === null) {
+        io.stderr(
+            `the roadmap ${name} has no interview, so nothing records what the learner came to learn. ` +
+            `Run 'nexus workbook interview ${name}' first — no story was extracted.`,
+        );
+        return 1;
+    }
 
     if (flags.story === undefined) {
-        if (flags.list !== undefined) {
-            io.stderr(`workbook extract --list checks one story's list, so it needs --story\n${USAGE}`);
-            return 2;
-        }
-        if (readInterview(repoRoot, name) === null) {
-            io.stderr(
-                `the roadmap ${name} has no interview, so nothing records what the learner came to learn. ` +
-                `Run 'nexus workbook interview ${name}' first — no story was extracted.`,
-            );
-            return 1;
-        }
         const { current, missing } = readExtractions(repoRoot, roadmap);
         io.stdout(JSON.stringify({ roadmap: name, extract: missing, checked: current.map((list) => list.story) }, null, 4));
         return 0;
@@ -448,10 +451,12 @@ function runExtract(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
         return 1;
     }
     if (flags.list === undefined) {
-        io.stdout(JSON.stringify({ story: story.number, title: story.title, body: story.body }, null, 4));
+        // A subagent's only inputs are its story and, when one was named, the recorded focus words.
+        const focus: { focus?: string } = interview.focus.whole ? {} : { focus: interview.focus.stated };
+        io.stdout(JSON.stringify({ story: story.number, title: story.title, body: story.body, ...focus }, null, 4));
         return 0;
     }
-    const result: CheckResult = recordExtraction(repoRoot, roadmap, number, fs.readFileSync(flags.list, "utf8"));
+    const result: CheckResult = recordExtraction(repoRoot, roadmap, number, fs.readFileSync(flags.list, "utf8"), run);
     if (!result.ok) {
         io.stderr(`no readable list for #${number}: ${result.problem}`);
         return 1;
@@ -489,10 +494,17 @@ function runDraft(repoRoot: string, name: string, flags: Flags, io: WorkbookCliI
         io.stderr(result.problem);
         return 1;
     }
+    const handoffs: number = result.slices.filter((stub) => stub.builds === "handoff").length;
     io.stdout(
-        `wrote the plan draft for ${name}: ${result.slices.length} slice${result.slices.length === 1 ? "" : "s"}. ` +
-        `It is not a plan anyone can be taught from until it is approved.`,
+        `wrote the plan draft for ${name}: ${result.slices.length} slice${result.slices.length === 1 ? "" : "s"}, ` +
+        `${result.slices.length - handoffs} learner and ${handoffs} handoff. It is not a plan anyone can be taught from until it is approved.`,
     );
+    if (result.focusMatchedNothing) {
+        io.stdout(
+            `the recorded focus matched no story on the roadmap, so every slice is marked handoff. ` +
+            `Whether the focus boundary is right is the reviewer's call at approval.`,
+        );
+    }
     io.stdout(`  ${result.path}`);
     return 0;
 }
@@ -521,7 +533,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
 
         if (sub === "interview") return runInterview(repoRoot, slug as string, flags, io, run);
 
-        if (sub === "extract") return runExtract(repoRoot, slug as string, flags, io);
+        if (sub === "extract") return runExtract(repoRoot, slug as string, flags, io, run);
 
         if (sub === "vocabulary") return runVocabulary(repoRoot, slug as string, io);
 

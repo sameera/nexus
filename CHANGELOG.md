@@ -20,6 +20,16 @@ behaviour says so.
   names every story that has none; a re-run re-extracts only those stories and any whose text
   changed. The draft is never written into the committed workbook, so it cannot be taught until it
   is approved.
+- Every stub `/nxs.teach-plan` writes for a planned epic's roadmap now carries a mark: learner, or
+  handoff to a coding-agent session the learner runs separately. A learner who named no focus in the
+  interview gets every slice marked learner, read from the interview record's explicit whole-roadmap
+  statement — so a story added after the interview is never handed off for that reason alone. When
+  a focus was named, each extraction subagent also judges its story against the recorded focus
+  words, a list without that verdict counts as unreadable, and code turns the verdict into the mark.
+  The pass asks the learner nothing, a missing interview stops it before any subagent starts, and a
+  focus that matched no story still writes the draft and says so. Verdict reasons are filed as
+  personal records under the ignored learner folder and appear on no stub. A handoff mark builds
+  nothing and starts no coding-agent session.
 
 ## 0.30.0
 

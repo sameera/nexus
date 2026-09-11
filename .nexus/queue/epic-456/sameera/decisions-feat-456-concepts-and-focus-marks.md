@@ -22,3 +22,13 @@
 - **Choice:** After the merge maps two proposals onto one identifier, a story introducing either keeps it in `concepts` and drops it from `assumes`.
 - **Why:** The story teaches it, and a stub listing one concept in both is refused by the contract.
 - **Refuted alternative:** Refuse the merge — it would reject a correct synonym merge over a contradiction the merge itself created.
+
+## 2026-09-11 — Verdict reasons go to a `focus-verdicts` learner record, not the checked list
+- **Choice:** A list's `serves` stays in the derived checked list; its `reason` is filed per roadmap under a new `focus-verdicts` learner-folder kind.
+- **Why:** Invariant 16 makes a saved reason a personal record, and the derived `.nexus/tmp` store is ignored but not the guarded learner write.
+- **Refuted alternative:** Discard the reason after the check — simplest, but the #458 reviewer would lose the one line saying why a slice was handed off.
+
+## 2026-09-11 — A verdict on a whole-roadmap list is refused, not ignored
+- **Choice:** When the interview puts the whole roadmap in focus, a list carrying `serves` or `reason` fails the check.
+- **Why:** Invariant 12 says no verdict is requested, and a strict shape keeps story text from smuggling a mark into the list.
+- **Refuted alternative:** Accept and drop the verdict — more forgiving of a subagent, but a field the check tolerates is a field story text can reach.
