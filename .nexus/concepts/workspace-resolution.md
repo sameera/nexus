@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "aggregated-epic-receipt"]
-last_updated_by: "#212"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "close-entry-migration", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "aggregated-epic-receipt", "range-entry-diff"]
+last_updated_by: "#214"
 status: active
 verification: verified
 ---
@@ -42,6 +42,7 @@ Resolution now walks upward from wherever it's given, bounded to the checkout's 
 - [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are that resolver's hub layer, inherited per key.
 - [workbook-store](workbook-store.md) — the resolver decides which member checkout a workbook belongs in; a hub checkout is refused.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — searches every repository this resolver declares for a story's published verdict, not only the invoking checkout.
+- [range-entry-diff](range-entry-diff.md) — resolves each repository a range entry names to its checkout, in a hub.
 
 ## Decision Log
 
@@ -96,3 +97,7 @@ Mechanical reciprocity fan-out: a workbook belongs to the member repository whos
 ### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
 
 Mechanical reciprocity fan-out: the search for a story's published verdict now spans the hub and every declared member that is checked out, rather than the invoking checkout alone. A declared member with no local checkout is one place fewer searched, never a failure.
+
+### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
+
+Mechanical reciprocity fan-out: the drain's range reader asks this resolver for the checkout of every repository its entries name, and falls back to the current checkout's own identity where no workspace is declared. What the resolver produces is unchanged.

@@ -1,6 +1,6 @@
 ---
 concept: workspace-resolution
-source_sha: 24149aa6fcb1600e3992dd8aeb7b893b8e8a4286
+source_sha: 05f96622db747798b040bf907091c881ba80c67c
 generated: 2026-09-10
 ---
 
@@ -34,3 +34,4 @@ generated: 2026-09-10
 - `libs/workspace/src/status.spec.ts` — read-out rendering across the three cases, including the docs root.
 - `libs/portable-tools/src/cross-ref-docs-root.spec.ts` — subprocess coverage of the doc-link builder's docs-root strip and URL-agreement behavior in both layouts.
 - `libs/portable-tools/src/workbook-placement.ts` — a consumer that asks this resolver which member checkout a workbook belongs in and refuses the hub, re-deriving no workspace shape.
+- `libs/portable-tools/src/derive-entry-diff.ts` — a consumer that asks this resolver for the checkout of every repository a range entry names, and falls back to the checkout's own identity where no workspace is declared.

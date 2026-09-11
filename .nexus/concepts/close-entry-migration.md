@@ -1,8 +1,8 @@
 ---
 title: "Close-Entry Migration"
 aliases: ["queue-entry migration", "cross-repo close tail", "close range stamping", "hub queue migration", "migrate-verify-remove"]
-touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability"]
-last_updated_by: "#247"
+touches: ["workspace-resolution", "committed-queue", "distiller", "remote-identity-normalization", "ephemeral-handoff-entry", "scratch-capture", "verb-reachability", "range-entry-diff"]
+last_updated_by: "#214"
 status: active
 verification: verified
 ---
@@ -36,6 +36,7 @@ At the closure checkpoint, in member mode, the move runs in a fixed order — mi
 - [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — one of the two sources the union is drawn from.
 - [scratch-capture](scratch-capture.md) — the committed half of that union, not stranded.
 - [verb-reachability](verb-reachability.md) — this migration capability is now also reachable as a verb on the shared executable, under the same byte-identical parity guarantee as its script form.
+- [range-entry-diff](range-entry-diff.md) — the reader of the range this stamps, which now takes one entry per pull request rather than one per repository.
 
 ## Decision Log
 
@@ -50,3 +51,7 @@ Once a member close began writing its artifacts to the ephemeral area, migrating
 ### 2026-08-23 — #247 — Reciprocal link from verb-reachability
 
 Mechanical reciprocity fan-out: the verb-reachability page names this migration capability as one of the ten now reachable as a verb on the shared executable, under the same byte-identical parity guarantee as its script form.
+
+### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
+
+Mechanical reciprocity fan-out: the range this stamping writes is now read one entry at a time rather than one repository at a time, so a repository named by several entries is read as several change sets in the order they landed. Nothing about the stamping itself changed here.
