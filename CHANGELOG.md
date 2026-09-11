@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.33.0
+
+- `nxs-landed-reference`'s Section E gains E.2, the same-kind reconciliation: re-running `/nxs.fix`
+  or `/nxs.intake` against a number that already carries an entry of that lane's own kind now
+  rewrites the entry in place — wholesale, at the point of writing, announced before anything is
+  replaced — instead of silently colliding or silently overwriting. A same-kind entry recorded
+  against a different reference, or reached only through a linked pull request or issue, still
+  refuses rather than rewrites, and an **epic**'s own materialization is never eligible for this
+  reconciliation at all — only a fix or an intake entry ever is. `/nxs.intake` also refuses a
+  rewrite over an entry that already recorded filed deferred-scope issues, naming them and the
+  remove-and-re-run alternative.
+
 ## 0.32.0
 
 - `/nxs.intake` now refuses a reference that carries the repository's epic classification, and

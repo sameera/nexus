@@ -59,6 +59,14 @@ branches of Section C ever apply here: an open pull request, or one closed witho
 hard block Section C already states. Keep the resolved `{ repo, base, head }` and the qualified
 reference; later phases use both.
 
+Immediately after Section D qualifies the reference, apply the skill's **Section E.2** (the
+same-kind reconciliation), substituting `/nxs.intake` for `<lane-command>`. This lane's own
+refusal condition, over E.2's third eligibility condition: **refuses the rewrite, naming the
+already-filed issues and the remove-and-re-run alternative**, when the occupying entry's
+`close-record.md` already recorded filed deferred-scope issues — its `## Deferred Scope` section
+names one or more `#<issue>` rather than reading "none". When E.2 finds no eligible rewrite, it
+refuses and Phase 3 never runs.
+
 # Phase 3 — Refuse a diff with nothing to record
 
 ```bash
@@ -236,7 +244,9 @@ deferred-scope stubs.
 # Phase 7 — Write the entry
 
 Create `.nexus/tmp/intake-<n>/` holding **exactly two files** — the same directory shape `/nxs.fix`
-already writes, with the entry kind as the field that carries the truth about what the entry is.
+already writes, with the entry kind as the field that carries the truth about what the entry is —
+or, when Phase 2's Section E.2 found an eligible rewrite, replace its contents wholesale exactly as
+Section E.2 states, having already announced the rewrite there.
 
 **`.nexus/tmp/intake-<n>/epic.md`** — frontmatter only, **no body**:
 

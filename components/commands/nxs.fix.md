@@ -53,6 +53,11 @@ Apply the **`nxs-landed-reference`** skill's **Section C** (range resolution) an
 (qualification), loaded already in Phase 0/1. Section C's ask-path, when it applies, prompts here.
 Keep the resolved `{ repo, base, head }` and the Section D qualified reference. Phase 5 uses both.
 
+Immediately after Section D qualifies the reference, apply the skill's **Section E.2** (the
+same-kind reconciliation), substituting `/nxs.fix` for `<lane-command>`. This lane states no
+refusal condition of its own over its own kind — E.2's third eligibility condition is always
+satisfied here. When E.2 finds no eligible rewrite, it refuses and Phase 5 never runs.
+
 # Phase 5 — Derive what changed, then ask why
 
 **Derive the description of the change yourself.** What changed can be read from the code, so read
@@ -86,10 +91,11 @@ writes themselves.
 
 # Phase 6 — Write the entry
 
-Create `.nexus/tmp/fix-<n>/` holding **exactly two files**. The names are deliberate: they assert
-nothing about an epic existing or about anything having been closed, and they keep the drain's
-discovery rule one line long instead of a parallel code path. `entry_kind: fix` is the field that
-carries the truth about what the entry is.
+Create `.nexus/tmp/fix-<n>/` holding **exactly two files** — or, when Phase 3/4's Section E.2 found
+an eligible rewrite, replace its contents wholesale exactly as Section E.2 states, having already
+announced the rewrite there. The names are deliberate: they assert nothing about an epic existing or
+about anything having been closed, and they keep the drain's discovery rule one line long instead of
+a parallel code path. `entry_kind: fix` is the field that carries the truth about what the entry is.
 
 **`.nexus/tmp/fix-<n>/epic.md`** — frontmatter only, **no body**:
 

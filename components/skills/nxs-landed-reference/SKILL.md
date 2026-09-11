@@ -147,9 +147,14 @@ Three kinds of entry can occupy a number, and the set is closed: **epic**, mater
 `/nxs.fix`; **intake**, at `.nexus/tmp/intake-<n>/`, owned by `/nxs.intake`. What an entry *is*
 comes from `entry_kind:` in its `epic.md` frontmatter, never from the directory it sits under.
 
-Apply this section immediately after Section B resolves the reference and before Section C resolves
-a range, ahead of any refusal local to the calling lane, substituting `<lane-command>` for the
-calling lane's own command name the same way Section A already does.
+This section is applied at two points in the calling lane's own phase numbering, substituting
+`<lane-command>` for the calling lane's own command name the same way Section A already does: E.1
+right after Section B resolves the reference, E.2 right after Section D qualifies it.
+
+### E.1 — Refuse an epic, and refuse a foreign-kind collision
+
+Apply this immediately after Section B resolves the reference and before Section C resolves a
+range, ahead of any refusal local to the calling lane.
 
 1. **The reference carries the repository's declared epic classification** → **stop and write
    nothing.** Read the classification the way the resolver does — the declared mode selects either a
@@ -189,11 +194,45 @@ calling lane's own command name the same way Section A already does.
 
 4. **A slot occupied by a kind other than the one `<lane-command>` owns is a collision:** **stop and
    write nothing.** Report the colliding path, the kind occupying it, and the command that owns that
-   kind. **A slot occupied by the kind `<lane-command>` owns is not a collision** — this lane
-   proceeds exactly as it would when no entry exists yet.
+   kind. **A slot occupied by the kind `<lane-command>` owns is not a collision** — E.2 decides
+   whether that match becomes a rewrite or a refusal.
 5. **A match found through a linked number — a closing pull request or a closed issue, rather than
    the reference's own number — is always a collision, whatever kind occupies it.** Report the linked
-   number and the relationship that produced it.
+   number and the relationship that produced it. E.2 never reconciles a match reached this way.
+
+### E.2 — Reconcile a same-kind match into a rewrite, or refuse it
+
+Apply this after Section D qualifies the reference, before the calling lane does anything else — no
+derivation, no diff read, no developer prompt, no follow-up filing, and no approval gate.
+
+Only a same-kind match found at the reference's own number in E.1 reaches this point — a match found
+through a linked number already refused in E.1 and is never reconciled here, whatever kind occupies
+it.
+
+A same-kind match is eligible for a rewrite only when **all** of the following hold; the first one
+that fails refuses instead, naming which one:
+
+1. **The occupying directory's name and its recorded `entry_kind` agree on the kind `<lane-command>`
+   owns.** A disagreement refuses: the recorded kind is authoritative, and rewriting on directory
+   name alone could destroy an entry of a different kind that happens to sit at that name.
+2. **The occupying entry's recorded reference is the same reference being checked**, in its qualified
+   form. A same-kind entry recorded against a different reference refuses rather than rewrites: with
+   directory names keyed by number alone, an unconditional rewrite could silently overwrite one
+   repository's reasoning with another's, and neither lane's entries are tracked by source control to
+   recover from that.
+3. **Any refusal condition the calling lane states over its own kind still holds.** This section
+   states none; a lane that has one applies it here (`/nxs.fix` states none; `/nxs.intake` refuses
+   when the occupying entry already recorded filed deferred-scope issues).
+
+When eligible, **say so before replacing anything**, then rewrite: at the point the lane is about to
+write, replace the occupying directory's contents wholesale, deriving both files fresh exactly as a
+first run would. Nothing carried over from the version it replaced survives — overwriting only the
+two fixed file names does not guarantee a stray third file is gone, so the directory's contents are
+replaced as a whole. Doing this at the point of writing, not the point of detection, means a run
+that still refuses for some other reason, or an approval a developer later declines, never leaves
+the entry destroyed with nothing written in its place.
+
+When any condition fails, refuse: **stop and write nothing**, naming which condition failed.
 
 ## Contract
 

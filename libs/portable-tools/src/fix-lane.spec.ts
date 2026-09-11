@@ -116,7 +116,7 @@ describe("nxs-landed-reference states the shared epic-classification and collisi
     });
 
     it("applies immediately after Section B and before Section C, ahead of any lane-local refusal", () => {
-        expect(LANDED_REFERENCE).toMatch(/immediately after Section B resolves the reference and before Section C resolves\s*\n?\s*a range, ahead of any refusal local to the calling lane/);
+        expect(LANDED_REFERENCE).toMatch(/immediately after Section B resolves the reference and before Section C resolves\s*\n?\s*a\s*\n?\s*range, ahead of any refusal local to the calling lane/);
     });
 
     it("states the epic-classification refusal with its report", () => {
@@ -142,6 +142,39 @@ describe("nxs-landed-reference states the shared epic-classification and collisi
 
     it("treats a match reached through a linked number as always a collision, whatever kind occupies it", () => {
         expect(LANDED_REFERENCE).toMatch(/always a collision, whatever kind occupies it/);
+    });
+});
+
+describe("nxs-landed-reference states the shared same-kind reconciliation (story #543)", () => {
+    it("applies after Section D qualifies the reference, before any derivation, prompt, filing or approval", () => {
+        expect(LANDED_REFERENCE).toMatch(/Apply this after Section D qualifies the reference, before the calling lane does anything else —\s*\n?\s*no\s*\n?\s*derivation, no diff read, no developer prompt, no follow-up filing, and no approval gate/);
+    });
+
+    it("never reconciles a match reached through a linked number, only one at the reference's own number", () => {
+        expect(LANDED_REFERENCE).toMatch(/a match found\s*\n?\s*through a linked number already refused in E\.1 and is never reconciled here/);
+    });
+
+    it("states three eligibility conditions, refusing on the first that fails", () => {
+        expect(LANDED_REFERENCE).toMatch(/directory's name and its recorded `entry_kind` agree on the kind `<lane-command>`\s*\n?\s*owns/);
+        expect(LANDED_REFERENCE).toMatch(/occupying entry's recorded reference is the same reference being checked/);
+        expect(LANDED_REFERENCE).toMatch(/Any refusal condition the calling lane states over its own kind still holds/);
+    });
+
+    it("announces the rewrite before replacing anything, then replaces the directory wholesale", () => {
+        expect(LANDED_REFERENCE).toMatch(/say so before replacing anything/);
+        expect(LANDED_REFERENCE).toMatch(/replace the occupying directory's contents wholesale/);
+        expect(LANDED_REFERENCE).toMatch(/Nothing carried over from the version it replaced survives/);
+    });
+
+    it("does the replacement at the point of writing, not at the point of detection", () => {
+        expect(LANDED_REFERENCE).toMatch(/at the point of writing, not the point of detection/);
+    });
+});
+
+describe("/nxs.fix reconciles a same-kind match into a rewrite (story #543)", () => {
+    it("applies Section E.2 right after qualification, substituting /nxs.fix, and states it has no extra refusal condition", () => {
+        expect(FIX).toMatch(/\*\*Section E\.2\*\*[\s\S]{0,200}substituting `\/nxs\.fix` for `<lane-command>`/);
+        expect(FIX).toMatch(/This lane states no\s*\n?\s*refusal condition of its own over its own kind/);
     });
 });
 

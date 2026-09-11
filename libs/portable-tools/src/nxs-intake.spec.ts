@@ -78,6 +78,17 @@ describe("/nxs.intake records a landed change from its pull request (story #485)
     });
 });
 
+describe("/nxs.intake reconciles a same-kind match into a rewrite (story #543)", () => {
+    it("applies Section E.2 right after qualification, substituting /nxs.intake", () => {
+        expect(INTAKE).toMatch(/\*\*Section E\.2\*\*[\s\S]{0,200}substituting `\/nxs\.intake` for `<lane-command>`/);
+    });
+
+    it("refuses the rewrite when the occupying entry already recorded filed deferred-scope issues", () => {
+        expect(INTAKE).toMatch(/refuses the rewrite, naming the\s*\n?\s*already-filed issues and the remove-and-re-run/);
+        expect(INTAKE).toMatch(/already recorded filed deferred-scope issues/);
+    });
+});
+
 describe("/nxs.intake writes a two-file entry stamped with the pull request's fingerprint (story #485)", () => {
     it("creates exactly two files under a kind-prefixed ephemeral directory", () => {
         expect(INTAKE).toContain(".nexus/tmp/intake-<n>/epic.md");

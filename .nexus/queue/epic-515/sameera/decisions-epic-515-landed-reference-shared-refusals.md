@@ -22,3 +22,16 @@
 - **Refuted alternative:** One bump in the final commit covering all three stories' behavior change
   at once. Refuted because it leaves the first two commits with component changes and no version
   signal, which is exactly the drift CLAUDE.md's rule exists to prevent.
+
+## 2026-09-11 — Intake's filed-deferred-scope check reads the existing Deferred Scope prose
+
+- **Choice:** Story #543's extra refusal condition for `/nxs.intake` — refuse a rewrite when the
+  occupying entry already recorded filed deferred-scope issues — reads the occupying entry's
+  existing `close-record.md` `## Deferred Scope` section (one or more `#<issue>` lines vs. the
+  literal "none"), rather than adding a new structured frontmatter field to `epic.md` for it.
+- **Why:** The epic's Assumptions section already treats `## Deferred Scope` as the source of truth
+  for filed issue numbers (Phase 6.5 fills it from there), so a second field would duplicate a fact
+  that one file already states, with no invariant tying the two together if they ever disagreed.
+- **Refuted alternative:** Add a `deferred_scope_filed: true` frontmatter key to `epic.md` for a
+  cheaper machine check. Refuted because it is a new fact to keep in sync with the prose section
+  that already carries it, for a check that only ever runs against an entry this same lane wrote.
