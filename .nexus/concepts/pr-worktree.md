@@ -1,8 +1,8 @@
 ---
 title: "PR Flow Worktree"
 aliases: ["worktree base", "worktree location", "pr worktree", "worktree isolation", "configurable worktree path"]
-touches: ["pr-driven-flow", "publishing-config-resolution", "verb-reachability", "fix-lane", "intake-lane"]
-last_updated_by: "#483"
+touches: ["pr-driven-flow", "publishing-config-resolution", "verb-reachability", "fix-lane", "intake-lane", "multi-pr-close"]
+last_updated_by: "#213"
 status: active
 verification: verified
 ---
@@ -36,6 +36,7 @@ A per-checkout segment is appended underneath. Reuse is path-based. Removal is f
 - [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, held to byte-identical output and matching spawned-process arguments against its script form.
 - [fix-lane](fix-lane.md) — takes the merge-safe range through a read that resolves it without creating a worktree.
 - [intake-lane](intake-lane.md) — takes the merge-safe range through the same worktree-free read the fix lane uses.
+- [multi-pr-close](multi-pr-close.md) — opens one worktree for the whole epic, after every gate and every range derivation has passed, never one per pull request.
 
 ## Decision Log
 
@@ -58,3 +59,7 @@ A caller appeared that needs the merge-safe range and nothing else, so the range
 ### 2026-09-08 — #483 — Reciprocal link from intake-lane
 
 Mechanical reciprocity fan-out: a second caller reads the merge-safe range through the same worktree-free path the fix lane already uses; nothing here changed to serve it.
+
+### 2026-09-10 — #213 — Reciprocal link from multi-pr-close
+
+Close over several pull requests opens one of these worktrees for the whole epic, so the edge is recorded on both pages.

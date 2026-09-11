@@ -1,8 +1,8 @@
 ---
 title: "Aggregated Epic Receipt"
 aliases: ["epic receipt", "aggregate mode", "story verdicts", "per-story staleness", "combined change set", "no-pull-request marker"]
-touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution"]
-last_updated_by: "#212"
+touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close"]
+last_updated_by: "#213"
 status: active
 verification: verified
 ---
@@ -33,6 +33,7 @@ The conformance stage, addressed at an epic, looks for a published verdict on ea
 - [record-digest](record-digest.md) — supplies the record's current digest, which each story's stamped digest is compared against on the design-staleness axis.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — the closed set withheld from every per-pull-request change set the combined code unions.
 - [workspace-resolution](workspace-resolution.md) — names the repositories the search for a story's verdict spans, so a story whose pull request lives in a member repository is found.
+- [multi-pr-close](multi-pr-close.md) — reads this receipt as the authoritative pull-request set for the epic, and its close-time waiver is what writes the no-pull-request marker onto a story issue.
 
 ## Decision Log
 
@@ -41,3 +42,7 @@ The conformance stage, addressed at an epic, looks for a published verdict on ea
 An epic that ships story by story ends up with one verdict per story pull request and none that speaks for the epic, which is the answer the close gate asks for. Deriving that answer from the verdicts already published costs nothing and cannot disagree with them, because nothing is re-judged. Two things still need the whole epic to judge. Its success metrics are properties of the finished capability, and a decision-record invariant can span two stories. Both are judged against the union of the story pull requests' own change sets, taken at the heads their verdicts stamped, so a cross-story finding and a per-story finding always describe the same code. Refuted alternative: build an integration branch by merging every story head and judge the resulting tree. That branch is the one thing a union of diffs cannot do, because it would show code that only exists once the stories are combined. It loses because it manufactures a commit that never shipped, and because it makes conflict resolution nobody reviewed part of the judged artifact. A cross-story check that only the integrated tree could decide is reported as unverifiable instead, naming what would decide it.
 
 Three parts of the approved design did not ship, and each is filed as deferred scope. The receipt carries no record of which release wrote it. The combined code reads every pull request from one checkout rather than from each pull request's own repository, which stays correct only while no epic ships story by story across repositories. The lead-supplied candidate list is implemented but cannot be reached from the command line, because both automatic candidate sources resolved every story in practice. One further omission was deliberate rather than deferred. The receipt drops the record reference and digest, because currency is judged per story against the record, so a receipt-level copy would be a second source for a fact the per-story check already reads.
+
+### 2026-09-10 — #213 — The receipt is the authoritative set, and the close-time waiver is what writes the marker
+
+The receipt already names each story's repository, pull request and analyzed head, so the close does not repeat the discovery ladder. Rediscovering the set from branch names or timelines would be a third copy of the trust and recency rules, in the stage that runs last and is re-read least. The marker gained a writer at the same time. A lead who waives a storyless story at close is what puts the marker on that story's issue. Refuted alternative: record the waiver only in the close record and never write the marker. That keeps the close's writes to GitHub confined to the epic issue, but it leaves two notions of the same fact, so an aborted close followed by a re-run stops again on a story the lead has already adjudicated.

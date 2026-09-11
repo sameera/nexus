@@ -1,6 +1,6 @@
 ---
 concept: pr-driven-flow
-source_sha: 24149aa6fcb1600e3992dd8aeb7b893b8e8a4286
+source_sha: 7d289348f146211fa1103d88ff64646e6aa66c92
 generated: 2026-09-10
 ---
 
@@ -29,3 +29,5 @@ generated: 2026-09-10
 - `components/commands/nxs.distill.md` — the continuation mode that resumes in the closure worktree and derives its diff from the stamped range
 - `libs/epic-verdicts/src/verdict.ts` — reads the published review blocks this flow leaves, applying the same repository-scoped trust and newest-wins rules across a story's candidate pull requests (#521)
 - `libs/epic-verdicts/src/aggregate.ts` — turns those per-story verdicts into one answer for the epic they belong to (#521)
+- `libs/pr-worktree/src/range-list.ts` — the same merge-anchored derivation called once per pull request, so an epic that shipped as several of them stamps one entry each (#523)
+- `libs/pr-worktree/src/trunk-check.ts` — verifies the trunk holds every stamped head before the closure branch is cut from it (#523)
