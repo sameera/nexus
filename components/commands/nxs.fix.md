@@ -40,38 +40,23 @@ silently differ in the other.
 the issue it closes, and an issue is never substituted for the pull request, even when the range is
 taken from that pull request. Only the *qualification* may be added, in Phase 4.
 
-# Phase 2 — Refuse an epic, and refuse a collision
+# Phase 2 — Apply the shared epic-classification and collision refusal
 
-Both refusals guard one silent and expensive failure: a fix entry shadowing an epic's
-materialization.
-
-1. **The reference carries the repository's declared epic classification** → **stop and write
-   nothing.** Read the classification the same way the resolver does — the declared mode selects
-   either a label or an issue type:
-
-    ```bash
-    nexus config resolve classification --root "<repo-root>"
-    nexus config resolve epic-label --root "<repo-root>"
-    nexus config resolve epic-type --root "<repo-root>"
-    ```
-
-    Report:
-
-    ```
-    #<n> is an epic. An epic's reasoning reaches the concept store through its own lane —
-    plan it with /nxs.epic, then /nxs.decision-record, /nxs.analyze, /nxs.close, /nxs.distill.
-    ```
-
-2. **`.nexus/tmp/epic-<n>/` already exists for the same number** → **stop and write nothing.** That
-   directory is an epic's materialization for this very number, and a fix entry beside it would
-   claim the number is two different things. Report the colliding path and name `/nxs.epic` as the
-   lane that owns it.
+Both refusals guard the same failure as before: a fix entry silently shadowing another kind's
+materialization for the same number. Apply the **`nxs-landed-reference`** skill's **Section E**,
+loaded already in Phase 0/1, substituting `/nxs.fix` for `<lane-command>`. The check now also
+catches a number that already carries an **intake** entry, which this lane did not check before.
 
 # Phase 3/4 — Resolve the range, or ask, then qualify the reference
 
 Apply the **`nxs-landed-reference`** skill's **Section C** (range resolution) and **Section D**
 (qualification), loaded already in Phase 0/1. Section C's ask-path, when it applies, prompts here.
 Keep the resolved `{ repo, base, head }` and the Section D qualified reference. Phase 5 uses both.
+
+Immediately after Section D qualifies the reference, apply the skill's **Section E.2** (the
+same-kind reconciliation), substituting `/nxs.fix` for `<lane-command>`. This lane states no
+refusal condition of its own over its own kind — E.2's third eligibility condition is always
+satisfied here. When E.2 finds no eligible rewrite, it refuses and Phase 5 never runs.
 
 # Phase 5 — Derive what changed, then ask why
 
@@ -106,10 +91,11 @@ writes themselves.
 
 # Phase 6 — Write the entry
 
-Create `.nexus/tmp/fix-<n>/` holding **exactly two files**. The names are deliberate: they assert
-nothing about an epic existing or about anything having been closed, and they keep the drain's
-discovery rule one line long instead of a parallel code path. `entry_kind: fix` is the field that
-carries the truth about what the entry is.
+Create `.nexus/tmp/fix-<n>/` holding **exactly two files** — or, when Phase 3/4's Section E.2 found
+an eligible rewrite, replace its contents wholesale exactly as Section E.2 states, having already
+announced the rewrite there. The names are deliberate: they assert nothing about an epic existing or
+about anything having been closed, and they keep the drain's discovery rule one line long instead of
+a parallel code path. `entry_kind: fix` is the field that carries the truth about what the entry is.
 
 **`.nexus/tmp/fix-<n>/epic.md`** — frontmatter only, **no body**:
 

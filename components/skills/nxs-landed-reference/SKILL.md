@@ -140,6 +140,104 @@ be added, and only in one case:
     not weaken the rule in Section B. Deriving the qualification is preferred to refusing the bare
     form, which would only make the developer supply what you can already resolve.
 
+## Section E — The epic-classification and collision refusals
+
+Three kinds of entry can occupy a number, and the set is closed: **epic**, materializing at
+`.nexus/tmp/epic-<n>/` and owned by `/nxs.epic`; **fix**, at `.nexus/tmp/fix-<n>/`, owned by
+`/nxs.fix`; **intake**, at `.nexus/tmp/intake-<n>/`, owned by `/nxs.intake`. What an entry *is*
+comes from `entry_kind:` in its `epic.md` frontmatter, never from the directory it sits under. The
+epic kind is the one kind that never records it: a resolver-materialized epic entry carries no
+`entry_kind` key at all, so **an absent `entry_kind` under `epic-<n>/` means epic** — the same
+reading `/nxs.analyze` and `/nxs.distill` already take. Read that way, an occupied `epic-<n>/` slot
+resolves to a foreign kind at E.1 item 4 and refuses there, before Section C resolves a range.
+
+This section is applied at two points in the calling lane's own phase numbering, substituting
+`<lane-command>` for the calling lane's own command name the same way Section A already does: E.1
+right after Section B resolves the reference, E.2 right after Section D qualifies it.
+
+### E.1 — Refuse an epic, and refuse a foreign-kind collision
+
+Apply this immediately after Section B resolves the reference and before Section C resolves a
+range, ahead of any refusal local to the calling lane.
+
+1. **The reference carries the repository's declared epic classification** → **stop and write
+   nothing.** Read the classification the way the resolver does — the declared mode selects either a
+   label or an issue type:
+
+    ```bash
+    nexus config resolve classification --root "<repo-root>"
+    nexus config resolve epic-label --root "<repo-root>"
+    nexus config resolve epic-type --root "<repo-root>"
+    ```
+
+    Report:
+
+    ```
+    #<n> is an epic. An epic's reasoning reaches the concept store through its own lane —
+    plan it with /nxs.epic, then /nxs.decision-record, /nxs.analyze, /nxs.close, /nxs.distill.
+    ```
+
+2. **A candidate entry occupies a slot** for a number when its own recorded reference — its
+   `epic.md` frontmatter's `link` — resolves to the same **repository** as the reference being
+   checked; a bare `link` resolves against the home repository Section B already resolved. A
+   candidate entry whose recorded reference cannot be read at all is still treated as occupying the
+   slot: a half-written entry must never let a second entry get written over it.
+
+3. **The check covers more than the reference's own number.** For an issue, also check the numbers
+   of its merged closing pull requests; for a pull request, also check the numbers of the issues it
+   closes — both within the same repository as the reference being checked:
+
+    ```bash
+    gh issue view <n> $REPO_ARG --json closedByPullRequestsReferences   # issue → its closing PRs
+    gh pr view <n> $REPO_ARG --json closingIssuesReferences             # PR → the issues it closes
+    ```
+
+    When this lookup fails, **degrade to checking the reference's own number alone** and report that
+    the wider check could not run: this check only ever produces a refusal, so a connectivity or
+    permissions failure on it must never turn a working command into a failing one.
+
+4. **A slot occupied by a kind other than the one `<lane-command>` owns is a collision:** **stop and
+   write nothing.** Report the colliding path, the kind occupying it, and the command that owns that
+   kind. **A slot occupied by the kind `<lane-command>` owns is not a collision** — E.2 decides
+   whether that match becomes a rewrite or a refusal.
+5. **A match found through a linked number — a closing pull request or a closed issue, rather than
+   the reference's own number — is always a collision, whatever kind occupies it.** Report the linked
+   number and the relationship that produced it. E.2 never reconciles a match reached this way.
+
+### E.2 — Reconcile a same-kind match into a rewrite, or refuse it
+
+Apply this after Section D qualifies the reference, before the calling lane does anything else — no
+derivation, no diff read, no developer prompt, no follow-up filing, and no approval gate.
+
+Only a same-kind match found at the reference's own number in E.1 reaches this point — a match found
+through a linked number already refused in E.1 and is never reconciled here, whatever kind occupies
+it.
+
+A same-kind match is eligible for a rewrite only when **all** of the following hold; the first one
+that fails refuses instead, naming which one:
+
+1. **The occupying directory's name and its recorded `entry_kind` agree on the kind `<lane-command>`
+   owns.** A disagreement refuses: the recorded kind is authoritative, and rewriting on directory
+   name alone could destroy an entry of a different kind that happens to sit at that name.
+2. **The occupying entry's recorded reference is the same reference being checked**, in its qualified
+   form. A same-kind entry recorded against a different reference refuses rather than rewrites: with
+   directory names keyed by number alone, an unconditional rewrite could silently overwrite one
+   repository's reasoning with another's, and neither lane's entries are tracked by source control to
+   recover from that.
+3. **Any refusal condition the calling lane states over its own kind still holds.** This section
+   states none; a lane that has one applies it here (`/nxs.fix` states none; `/nxs.intake` refuses
+   when the occupying entry already recorded filed deferred-scope issues).
+
+When eligible, **say so before replacing anything**, then rewrite: at the point the lane is about to
+write, replace the occupying directory's contents wholesale, deriving both files fresh exactly as a
+first run would. Nothing carried over from the version it replaced survives — overwriting only the
+two fixed file names does not guarantee a stray third file is gone, so the directory's contents are
+replaced as a whole. Doing this at the point of writing, not the point of detection, means a run
+that still refuses for some other reason, or an approval a developer later declines, never leaves
+the entry destroyed with nothing written in its place.
+
+When any condition fails, refuse: **stop and write nothing**, naming which condition failed.
+
 ## Contract
 
 - **Deterministic pieces stay in the tools this skill calls** — `nexus close-role`,
@@ -147,5 +245,5 @@ be added, and only in one case:
   This skill owns the ordering, the refusal wording and the interactive ask-path around them, which
   is exactly the part no CLI verb can host.
 - **Every rule in this file is stated once.** A lane that finds itself restating a checkout-role
-  refusal, a reference form, a range-resolution order, or a qualification rule instead of loading
-  this skill has drifted from the contract this skill exists to hold.
+  refusal, a reference form, a range-resolution order, a qualification rule, or the collision rule
+  instead of loading this skill has drifted from the contract this skill exists to hold.

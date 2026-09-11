@@ -35,13 +35,14 @@ describe("/nxs.fix delegates reference and range resolution to the shared skill 
         expect(FIX).not.toMatch(/--range <base>\.\.<head>` was given[\s\S]{0,200}verbatim/);
     });
 
-    it("still refuses an epic and names /nxs.epic as the lane to use (fix-specific, not shared)", () => {
-        expect(FIX).toContain("nexus config resolve epic-label");
-        expect(FIX).toMatch(/is an epic[\s\S]{0,400}\/nxs\.epic/);
+    it("loads the shared Section E for the epic-classification and collision refusal instead of restating it (story #541)", () => {
+        expect(FIX).toMatch(/\*\*Section E\*\*[\s\S]{0,200}substituting `\/nxs\.fix` for `<lane-command>`/);
+        expect(FIX).not.toContain("nexus config resolve epic-label");
+        expect(FIX).not.toMatch(/`\.nexus\/tmp\/epic-<n>\/` already exists/);
     });
 
-    it("still refuses a colliding materialization directory for the same number (fix-specific, not shared)", () => {
-        expect(FIX).toMatch(/`\.nexus\/tmp\/epic-<n>\/` already exists/);
+    it("gains the intake collision it did not check before (story #541)", () => {
+        expect(FIX).toMatch(/catches a number that already carries an \*\*intake\*\* entry/);
     });
 
     it("substitutes its own command name into the shared member-checkout refusal", () => {
@@ -102,6 +103,82 @@ describe("nxs-landed-reference holds the rules shared by every landed-work lane 
     it("qualifies a bare reference from a hub from the recorded range, keeping the number", () => {
         expect(LANDED_REFERENCE).toMatch(/hub, bare reference given\*\* → write `<owner>\/<repo>#<n>`/);
         expect(LANDED_REFERENCE).toMatch(/the number the developer gave, unchanged/);
+    });
+});
+
+describe("nxs-landed-reference states the shared epic-classification and collision refusal (story #541)", () => {
+    it("names the closed set of three kinds, each with its directory prefix and owning command", () => {
+        expect(LANDED_REFERENCE).toMatch(/the set is closed/);
+        expect(LANDED_REFERENCE).toContain(".nexus/tmp/epic-<n>/");
+        expect(LANDED_REFERENCE).toContain(".nexus/tmp/fix-<n>/");
+        expect(LANDED_REFERENCE).toContain(".nexus/tmp/intake-<n>/");
+        expect(LANDED_REFERENCE).toMatch(/entry_kind:` in its `epic\.md` frontmatter, never from the directory/);
+    });
+
+    it("resolves the one kind that never records entry_kind: an absent key under epic-<n>/ means epic", () => {
+        expect(LANDED_REFERENCE).toMatch(/absent `entry_kind`[\s\S]{0,120}`epic-<n>\/`[\s\S]{0,60}means epic/);
+    });
+
+    it("applies immediately after Section B and before Section C, ahead of any lane-local refusal", () => {
+        expect(LANDED_REFERENCE).toMatch(/immediately after Section B resolves the reference and before Section C resolves\s*\n?\s*a\s*\n?\s*range, ahead of any refusal local to the calling lane/);
+    });
+
+    it("states the epic-classification refusal with its report", () => {
+        expect(LANDED_REFERENCE).toContain("nexus config resolve epic-label");
+        expect(LANDED_REFERENCE).toMatch(/#<n> is an epic\. An epic's reasoning reaches the concept store through its own lane/);
+    });
+
+    it("defines a slot as occupied by repository, not number alone, and treats an unreadable reference as occupying", () => {
+        expect(LANDED_REFERENCE).toMatch(/occupies a slot[\s\S]{0,300}same \*\*repository\*\* as the reference being\s*\n?\s*checked/);
+        expect(LANDED_REFERENCE).toMatch(/cannot be read at all is still treated as occupying the\s*\n?\s*slot/);
+    });
+
+    it("widens the check to a closing pull request or a closed issue, and degrades on a failed lookup", () => {
+        expect(LANDED_REFERENCE).toContain("closedByPullRequestsReferences");
+        expect(LANDED_REFERENCE).toContain("closingIssuesReferences");
+        expect(LANDED_REFERENCE).toMatch(/degrade to checking the reference's own number alone/);
+    });
+
+    it("states two distinct outcomes: a foreign-kind collision and a same-kind non-collision", () => {
+        expect(LANDED_REFERENCE).toMatch(/kind other than the one `<lane-command>` owns is a collision/);
+        expect(LANDED_REFERENCE).toMatch(/kind `<lane-command>` owns is not a collision/);
+    });
+
+    it("treats a match reached through a linked number as always a collision, whatever kind occupies it", () => {
+        expect(LANDED_REFERENCE).toMatch(/always a collision, whatever kind occupies it/);
+    });
+});
+
+describe("nxs-landed-reference states the shared same-kind reconciliation (story #543)", () => {
+    it("applies after Section D qualifies the reference, before any derivation, prompt, filing or approval", () => {
+        expect(LANDED_REFERENCE).toMatch(/Apply this after Section D qualifies the reference, before the calling lane does anything else —\s*\n?\s*no\s*\n?\s*derivation, no diff read, no developer prompt, no follow-up filing, and no approval gate/);
+    });
+
+    it("never reconciles a match reached through a linked number, only one at the reference's own number", () => {
+        expect(LANDED_REFERENCE).toMatch(/a match found\s*\n?\s*through a linked number already refused in E\.1 and is never reconciled here/);
+    });
+
+    it("states three eligibility conditions, refusing on the first that fails", () => {
+        expect(LANDED_REFERENCE).toMatch(/directory's name and its recorded `entry_kind` agree on the kind `<lane-command>`\s*\n?\s*owns/);
+        expect(LANDED_REFERENCE).toMatch(/occupying entry's recorded reference is the same reference being checked/);
+        expect(LANDED_REFERENCE).toMatch(/Any refusal condition the calling lane states over its own kind still holds/);
+    });
+
+    it("announces the rewrite before replacing anything, then replaces the directory wholesale", () => {
+        expect(LANDED_REFERENCE).toMatch(/say so before replacing anything/);
+        expect(LANDED_REFERENCE).toMatch(/replace the occupying directory's contents wholesale/);
+        expect(LANDED_REFERENCE).toMatch(/Nothing carried over from the version it replaced survives/);
+    });
+
+    it("does the replacement at the point of writing, not at the point of detection", () => {
+        expect(LANDED_REFERENCE).toMatch(/at the point of writing, not the point of detection/);
+    });
+});
+
+describe("/nxs.fix reconciles a same-kind match into a rewrite (story #543)", () => {
+    it("applies Section E.2 right after qualification, substituting /nxs.fix, and states it has no extra refusal condition", () => {
+        expect(FIX).toMatch(/\*\*Section E\.2\*\*[\s\S]{0,200}substituting `\/nxs\.fix` for `<lane-command>`/);
+        expect(FIX).toMatch(/This lane states no\s*\n?\s*refusal condition of its own over its own kind/);
     });
 });
 
