@@ -141,6 +141,12 @@ anything, and then runs **one bounded interview**: at most five questions, estab
 roadmap, covering both what the learner already knows and what they came here to learn. The answers
 are personal records and stay out of the commit.
 
+The same command then reads each story **once**, in its own extraction subagent, and plans from the
+short concept lists those hand back rather than from the stories themselves — which is what lets it
+plan a roadmap of any size. A concept two stories share carries one identifier, and the result is an
+uncommitted draft of the plan, one stub per story, written only when every story produced a readable
+list. The draft is approved into the committed plan before anything is taught from it.
+
 `/nxs.teach <name>` writes one lesson per sitting, for the slice the learner has arrived at.
 
 They are separate commands because a session's references only ever accumulate. A session that

@@ -36,13 +36,36 @@ import { type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
 import { type WorkbookPlan } from "./workbook-plan.js";
-import { epicsFromQuery, readRoadmap, resolveRoadmap, writeRoadmap, type Roadmap, type RoadmapProblem, type RoadmapResult } from "./roadmap.js";
+import {
+    epicsFromQuery,
+    readRoadmap,
+    resolveRoadmap,
+    writeRoadmap,
+    type Roadmap,
+    type RoadmapProblem,
+    type RoadmapResult,
+    type RoadmapStory,
+} from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
+import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 
 /** The subverbs `nexus workbook` dispatches. */
-export const WORKBOOK_SUBVERBS: readonly string[] = ["create", "roadmap", "interview", "render", "check", "session", "teach", "handoff", "resolve"];
+export const WORKBOOK_SUBVERBS: readonly string[] = [
+    "create",
+    "roadmap",
+    "interview",
+    "extract",
+    "vocabulary",
+    "draft",
+    "render",
+    "check",
+    "session",
+    "teach",
+    "handoff",
+    "resolve",
+];
 
 export interface WorkbookCliIo {
     cwd: string;
@@ -64,6 +87,10 @@ interface Flags {
     query?: string;
     /** The file holding the answers an agent brought back from the interview. */
     answers?: string;
+    /** The file holding the concept list an extraction subagent wrote for one story. */
+    list?: string;
+    /** The file holding the groups of identifiers the planning session decided name one concept. */
+    merge?: string;
     positional: string[];
     unknown?: string;
 }
@@ -81,6 +108,8 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--epic") flags.epic = rest[++i];
         else if (token === "--query") flags.query = rest[++i];
         else if (token === "--answers") flags.answers = rest[++i];
+        else if (token === "--list") flags.list = rest[++i];
+        else if (token === "--merge") flags.merge = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -90,11 +119,15 @@ function parseFlags(argv: string[], cwd: string): Flags {
 }
 
 const USAGE: string = [
-    "usage: nexus workbook <create|roadmap|interview|render|check|session|teach|handoff|resolve> <name> [--root <dir>] [--repo <member>]",
+    `usage: nexus workbook <${WORKBOOK_SUBVERBS.join("|")}> <name> [--root <dir>] [--repo <member>]`,
     "  create <slug>                       make the workbook and ensure the learner folder is ignored",
     "  roadmap [<name>] --epic <n>         resolve a roadmap from one epic issue",
     "  roadmap <name> --query <expr>       resolve a roadmap from a backlog query",
     "  interview <name> [--answers <file>] the slate to ask from, or the answers to record",
+    "  extract <name> [--story <n> [--list <file>]]",
+    "                                      the stories still to extract, one story's text, or its list to check",
+    "  vocabulary <name>                   every proposed concept identifier and its glosses",
+    "  draft <name> --merge <file>         write the plan's stubs once every story has a checked list",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -367,6 +400,122 @@ export function readAnswers(file: string): GivenAnswer[] {
     });
 }
 
+/** The resolved roadmap a planning subverb works over, or null once the refusal has been reported. */
+function resolvedRoadmap(repoRoot: string, name: string, io: WorkbookCliIo): Roadmap | null {
+    const roadmap: Roadmap | null = readRoadmap(repoRoot, name);
+    if (roadmap === null) {
+        io.stderr(`no roadmap named ${name} has been resolved. Run 'nexus workbook roadmap ${name} --epic <n>' first.`);
+    }
+    return roadmap;
+}
+
+/**
+ * `nexus workbook extract` — the seam between the planning session and each extraction subagent
+ * (epic #456, story #546).
+ *
+ * Asked with no story it prints the story numbers still to extract and nothing any story says,
+ * because the planning session starts subagents from numbers and never holds the text. It refuses
+ * before any subagent can start when the roadmap has no interview. Asked with a story it prints that
+ * one story, for the one subagent reading it. Asked with a list it checks the subagent's output and
+ * prints only the identifiers and glosses that passed — the one form in which anything a subagent
+ * read reaches the planning session.
+ */
+function runExtract(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo, run: Runner): number {
+    if (flags.story === undefined && flags.list !== undefined) {
+        io.stderr(`workbook extract --list checks one story's list, so it needs --story\n${USAGE}`);
+        return 2;
+    }
+    const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
+    if (roadmap === null) return 1;
+    // The focus comes from the recorded interview and from nowhere else: the pass asks the learner
+    // nothing, so a roadmap with no interview stops here, before any subagent can start.
+    const interview: InterviewRecord | null = readInterview(repoRoot, name);
+    if (interview === null) {
+        io.stderr(
+            `the roadmap ${name} has no interview, so nothing records what the learner came to learn. ` +
+            `Run 'nexus workbook interview ${name}' first — no story was extracted.`,
+        );
+        return 1;
+    }
+
+    if (flags.story === undefined) {
+        const { current, missing } = readExtractions(repoRoot, roadmap);
+        io.stdout(JSON.stringify({ roadmap: name, extract: missing, checked: current.map((list) => list.story) }, null, 4));
+        return 0;
+    }
+
+    const number: number = Number(flags.story.replace(/^#/, ""));
+    const story: RoadmapStory | undefined = roadmap.stories.find((s) => s.number === number);
+    if (story === undefined) {
+        io.stderr(`${flags.story} is not a story on the roadmap ${name}, so there is nothing of it to extract.`);
+        return 1;
+    }
+    if (flags.list === undefined) {
+        // A subagent's only inputs are its story and, when one was named, the recorded focus words.
+        const focus: { focus?: string } = interview.focus.whole ? {} : { focus: interview.focus.stated };
+        io.stdout(JSON.stringify({ story: story.number, title: story.title, body: story.body, ...focus }, null, 4));
+        return 0;
+    }
+    const listFile: string = path.resolve(io.cwd, flags.list);
+    const output: string = fs.readFileSync(listFile, "utf8");
+    // A proposal written where the extractor agent writes it can carry a verdict's reason, and a saved
+    // reason is a personal record (invariant 16). Once it is read, only the checked list and the guarded
+    // learner-folder write keep anything; a list kept anywhere else is the caller's file, left alone.
+    const fromExtractor: string = path.relative(extractionsDir(repoRoot, name), listFile);
+    if (fromExtractor !== "" && !fromExtractor.startsWith("..") && !path.isAbsolute(fromExtractor)) fs.rmSync(listFile, { force: true });
+    const result: CheckResult = recordExtraction(repoRoot, roadmap, number, output, run);
+    if (!result.ok) {
+        io.stderr(`no readable list for #${number}: ${result.problem}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ story: number, introduces: result.list.introduces, assumes: result.list.assumes }, null, 4));
+    return 0;
+}
+
+/** `nexus workbook vocabulary` — every proposed identifier and its glosses, the only material the merge reads. */
+function runVocabulary(repoRoot: string, name: string, io: WorkbookCliIo): number {
+    const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
+    if (roadmap === null) return 1;
+    const { current, missing } = readExtractions(repoRoot, roadmap);
+    io.stdout(JSON.stringify({ roadmap: name, identifiers: proposedVocabulary(current), missing }, null, 4));
+    return 0;
+}
+
+/** `nexus workbook draft` — the one step that writes stubs: every one of them, or none. */
+function runDraft(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo): number {
+    if (flags.merge === undefined) {
+        io.stderr(`workbook draft needs --merge <file>: the groups of identifiers that name one concept\n${USAGE}`);
+        return 2;
+    }
+    const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
+    if (roadmap === null) return 1;
+    if (readInterview(repoRoot, name) === null) {
+        io.stderr(`the roadmap ${name} has no interview, so no slice can be marked. Run 'nexus workbook interview ${name}' first — nothing was written.`);
+        return 1;
+    }
+
+    const doc: unknown = parse(fs.readFileSync(flags.merge, "utf8"));
+    const groups: unknown = (doc as Record<string, unknown> | null)?.["concepts"];
+    const result: DraftResult = draftFromExtractions(repoRoot, roadmap, groups);
+    if (!result.ok) {
+        io.stderr(result.problem);
+        return 1;
+    }
+    const handoffs: number = result.slices.filter((stub) => stub.builds === "handoff").length;
+    io.stdout(
+        `wrote the plan draft for ${name}: ${result.slices.length} slice${result.slices.length === 1 ? "" : "s"}, ` +
+        `${result.slices.length - handoffs} learner and ${handoffs} handoff. It is not a plan anyone can be taught from until it is approved.`,
+    );
+    if (result.focusMatchedNothing) {
+        io.stdout(
+            `the recorded focus matched no story on the roadmap, so every slice is marked handoff. ` +
+            `Whether the focus boundary is right is the reviewer's call at approval.`,
+        );
+    }
+    io.stdout(`  ${result.path}`);
+    return 0;
+}
+
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
     const [sub, ...rest] = argv;
     if (sub === undefined || !WORKBOOK_SUBVERBS.includes(sub)) {
@@ -390,6 +539,12 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         if (sub === "roadmap") return runRoadmap(repoRoot, slug, flags, io, run);
 
         if (sub === "interview") return runInterview(repoRoot, slug as string, flags, io, run);
+
+        if (sub === "extract") return runExtract(repoRoot, slug as string, flags, io, run);
+
+        if (sub === "vocabulary") return runVocabulary(repoRoot, slug as string, io);
+
+        if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);
