@@ -13,8 +13,11 @@ behaviour says so.
   number, and the planning session holds only the short list that subagent hands back — never the
   story's text. Every list passes a code check of shape, identifier form and size through the new
   `nexus workbook extract` verb; a bare empty list, an extra field or an over-long list counts as no
-  readable list. The session then merges synonyms from `nexus workbook vocabulary`, so a concept two
-  stories share carries one identifier, and `nexus workbook draft` writes one stub per story —
+  readable list, and a refusal names what it refused cut to size, so no unchecked text of any length
+  reaches the session. An identifier YAML would read as `true`, `false` or `null` is refused. The
+  session then merges synonyms from `nexus workbook vocabulary`, so a concept two stories share
+  carries one identifier, and the draft's vocabulary keeps every merged-away name as an alias of it.
+  `nexus workbook draft` writes one stub per story —
   story, mark, introduced concepts and the new assumed concepts — as an uncommitted draft beside
   the roadmap. It writes only when every story has a checked list, and otherwise writes nothing and
   names every story that has none; a re-run re-extracts only those stories and any whose text
@@ -28,12 +31,14 @@ behaviour says so.
   words, a list without that verdict counts as unreadable, and code turns the verdict into the mark.
   The pass asks the learner nothing, a missing interview stops it before any subagent starts, and a
   focus that matched no story still writes the draft and says so. Verdict reasons are filed as
-  personal records under the ignored learner folder and appear on no stub. A handoff mark builds
+  personal records under the ignored learner folder and appear on no stub; the proposal file the
+  subagent wrote is removed once it is checked, so the reason is kept nowhere else. A handoff mark builds
   nothing and starts no coding-agent session.
 - A handoff stub in a planned epic's `/nxs.teach-plan` draft now carries only its story and its
   mark: no concepts, no sources and no lesson, so it never becomes a workbook page, and a stub
-  offering any of them is refused. The handed-off story is still extracted and merged, so its
-  concepts keep the identifiers a learner slice uses when it assumes them. The draft writes no
+  offering any of them is refused. The handed-off story is still extracted and merged, and its
+  checked list reaches the identifier a learner slice assumes through the vocabulary's aliases, even
+  when the merge renamed what it proposed. The draft writes no
   sibling list; once approved, the shipped handoff prompt leaves every other slice of the plan —
   every other slice of the same epic included — to the learner.
 

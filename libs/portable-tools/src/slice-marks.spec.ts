@@ -82,7 +82,9 @@ function runPass(repo: string, verdicts: Record<number, boolean> | null, calls: 
         return defaultRunner(cmd, args, opts);
     };
     for (const story of ROADMAP.stories) {
-        const file: string = path.join(repo, `list-${story.number}.json`);
+        // Where the extractor agent writes its proposal before handing it to the check.
+        const file: string = path.join(extractionsDir(repo, "alpha"), `${story.number}.proposed.yml`);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
         fs.writeFileSync(file, listFor(story.number, verdicts?.[story.number]));
         expect(runWorkbookCli(["extract", "alpha", "--story", String(story.number), "--list", file], io(repo), spy)).toBe(0);
     }
@@ -120,12 +122,23 @@ describe("a recorded focus marks what serves it learner and the rest handoff", (
         runPass(repo, { 21: true, 22: false, 23: true }, []);
         const derived: string = [
             fs.readFileSync(planDraftPath(repo, "alpha"), "utf8"),
-            ...fs.readdirSync(extractionsDir(repo, "alpha")).filter((f) => f.endsWith(".json")).map((f) => fs.readFileSync(path.join(extractionsDir(repo, "alpha"), f), "utf8")),
+            ...fs.readdirSync(extractionsDir(repo, "alpha")).map((f) => fs.readFileSync(path.join(extractionsDir(repo, "alpha"), f), "utf8")),
         ].join("\n");
         expect(derived).not.toContain("FOCUS-WORDS");
         expect(derived).not.toContain("REASON-WORDS");
         expect(readLearnerRecord(repo, "focus-verdicts", "alpha.json")).toContain("REASON-WORDS");
         expect(execFileSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" })).not.toContain(".nexus");
+    });
+
+    it("leaves no reason behind in a proposal the check refused", () => {
+        const repo: string = repoWith(FOCUS);
+        const file: string = path.join(extractionsDir(repo, "alpha"), "21.proposed.yml");
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, JSON.stringify({ story: 21, introduces: [], serves: true, reason: REASON }));
+        expect(runWorkbookCli(["extract", "alpha", "--story", "21", "--list", file], io(repo))).toBe(1);
+        for (const f of fs.readdirSync(extractionsDir(repo, "alpha"))) {
+            expect(fs.readFileSync(path.join(extractionsDir(repo, "alpha"), f), "utf8")).not.toContain("REASON-WORDS");
+        }
     });
 
     it("still writes the draft when the focus matched no story, and says so", () => {

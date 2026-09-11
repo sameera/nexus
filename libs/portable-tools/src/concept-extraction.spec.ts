@@ -98,6 +98,23 @@ describe("a story's extraction returns a structured list", () => {
         expect(recordExtraction(repo, ROADMAP, 11, listFor(11, [["drift", "one line\nand another"]])).ok).toBe(false);
         expect(recordExtraction(repo, ROADMAP, 11, listFor(11, [["drift", "x".repeat(161)]])).ok).toBe(false);
     });
+
+    it("names what it refused without handing an unchecked value of any length back to the session", () => {
+        const repo: string = planned();
+        const injected: string = `INJECTED-${"x".repeat(5000)}`;
+        const refusals = [
+            recordExtraction(repo, ROADMAP, 11, JSON.stringify({ story: 11, introduces: [{ id: "drift", gloss: "g" }], [injected]: 1 })),
+            recordExtraction(repo, ROADMAP, 11, JSON.stringify({ story: 11, introduces: [{ id: "drift", gloss: "g", [injected]: 1 }] })),
+            recordExtraction(repo, ROADMAP, 11, JSON.stringify({ story: 11, introduces: [{ id: injected, gloss: "g" }] })),
+            recordExtraction(repo, ROADMAP, 11, JSON.stringify({ story: injected, introduces: [{ id: "drift", gloss: "g" }] })),
+        ];
+        for (const refused of refusals) {
+            expect(refused.ok).toBe(false);
+            const problem: string = refused.ok ? "" : refused.problem;
+            expect(problem.length).toBeLessThan(400);
+            expect(problem).not.toContain("x".repeat(100));
+        }
+    });
 });
 
 describe("each story is read by its own unit", () => {
@@ -182,6 +199,17 @@ describe("a concept two stories need carries one identifier in both lists", () =
         expect(slices?.[0].concepts).toEqual(["pinned-state"]);
         expect(slices?.[1].assumes).toEqual(["pinned-state"]);
         expect(readPlanDraft(repo, "alpha")?.vocabulary?.map((v) => v.id)).toEqual(["drift", "pinned-state"]);
+    });
+
+    it("keeps every name the merge folded into a concept, so a list still holding that name reaches the one identifier", () => {
+        const repo: string = planned();
+        recordExtraction(repo, ROADMAP, 11, listFor(11, [["pinned-state", "the state a plan records"]]));
+        recordExtraction(repo, ROADMAP, 12, listFor(12, [["drift", "g"]], [["pin-snapshot", "the story as approved"]]));
+        expect(draftFromExtractions(repo, ROADMAP, [["pinned-state", "pin-snapshot"], ["drift"]]).ok).toBe(true);
+        const vocabulary = readPlanDraft(repo, "alpha")?.vocabulary ?? [];
+        const proposedBy12: string[] = readExtractions(repo, ROADMAP).current.find((list) => list.story === 12)?.assumes.map((c) => c.id) ?? [];
+        expect(proposedBy12).toEqual(["pin-snapshot"]);
+        expect(vocabulary.filter((v) => v.id === "pin-snapshot" || v.aliases.includes("pin-snapshot")).map((v) => v.id)).toEqual(["pinned-state"]);
     });
 
     it("refuses a merge that leaves an identifier unmapped, invents one, or splits one", () => {

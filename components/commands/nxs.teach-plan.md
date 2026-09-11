@@ -146,8 +146,9 @@ you ask the learner nothing — a reviewer checks every mark when the draft is a
 focus matched no story, the draft is still written and the command says so; report it as it stands.
 
 A **handoff stub** carries its story and its mark and nothing else — no concepts, no sources and no
-lesson, so it never becomes a page. Its story was still extracted, so the concepts it would have
-introduced keep their identifiers in the vocabulary. Write no list of the slices a handoff must leave
+lesson, so it never becomes a page. Its story was still extracted and merged, and the draft's
+vocabulary keeps every name the merge folded into a concept as an alias, so the concepts it would have
+introduced still lead to the identifier a learner slice uses. Write no list of the slices a handoff must leave
 alone: when the plan is taught, every other slice in it is one of them. If any story has no readable list, nothing is written and every
 failed story is named: run Phase 3 again, which extracts only those, then this phase. Never write or
 edit the draft by hand, never commit it, and never write into the committed workbook.

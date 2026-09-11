@@ -15,7 +15,10 @@
  * case; only the session, reading every identifier and its one-line gloss at once, can see that two
  * different names are one concept. It names the groups, and code applies them — refusing any
  * identifier left out, any identifier that was never proposed, and any identifier placed in two
- * groups, because a merge combines what was proposed and never invents or splits a concept.
+ * groups, because a merge combines what was proposed and never invents or splits a concept. The
+ * draft's vocabulary keeps every name folded into a concept as its alias: a handed-off story's
+ * concepts stay only in its checked list, under the names its subagent proposed (decision 7), and the
+ * aliases are what join that list to the identifier a learner slice assumes.
  *
  * The stubs are written by one step that requires a checked list for every story on the roadmap
  * (decision 8). A plan missing one story looks complete, and ordering and coverage over it would be
@@ -93,6 +96,21 @@ export function normalizeIdentifier(raw: string): string {
         .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * A subagent-supplied value, as a refusal names it. A refused list never passed the size check, so
+ * what it held is cut to an identifier's length before it reaches the planning session (invariant 5).
+ */
+function shown(value: unknown): string {
+    const text: string = JSON.stringify(value ?? null) ?? "null";
+    return text.length > EXTRACTION_LIMITS.identifier ? `${text.slice(0, EXTRACTION_LIMITS.identifier)}…` : text;
+}
+
+/** Field names a refusal lists: the first few, each cut to size, and how many more there were. */
+function shownKeys(keys: readonly string[]): string {
+    const named: string = keys.slice(0, 3).map(shown).join(", ");
+    return keys.length > 3 ? `${named} and ${keys.length - 3} more` : named;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
     return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -108,11 +126,11 @@ function readEntries(value: unknown, field: string): { ok: true; entries: Propos
         const record: Record<string, unknown> | null = asRecord(item);
         if (record === null) return { ok: false, problem: `'${field}' holds an entry that is not an identifier and a gloss.` };
         const extra: string[] = Object.keys(record).filter((key) => !ENTRY_FIELDS.includes(key));
-        if (extra.length > 0) return { ok: false, problem: `an entry in '${field}' carries ${extra.join(", ")}, which a concept entry does not.` };
+        if (extra.length > 0) return { ok: false, problem: `an entry in '${field}' carries ${shownKeys(extra)}, which a concept entry does not.` };
 
         const id: string = typeof record["id"] === "string" ? normalizeIdentifier(record["id"]) : "";
         if (!CONCEPT_IDENTIFIER.test(id) || id.length > EXTRACTION_LIMITS.identifier) {
-            return { ok: false, problem: `${JSON.stringify(record["id"] ?? null)} in '${field}' is not a usable concept identifier.` };
+            return { ok: false, problem: `${shown(record["id"])} in '${field}' is not a usable concept identifier.` };
         }
         const gloss: string = typeof record["gloss"] === "string" ? record["gloss"].trim() : "";
         if (gloss === "" || gloss.includes("\n") || gloss.length > EXTRACTION_LIMITS.gloss) {
@@ -140,9 +158,9 @@ export function checkExtraction(raw: unknown, story: RoadmapStory, verdict: bool
     if (record === null) return { ok: false, problem: "what came back is not a list of concepts." };
 
     const extra: string[] = Object.keys(record).filter((key) => !LIST_FIELDS.includes(key));
-    if (extra.length > 0) return { ok: false, problem: `the list carries ${extra.join(", ")}, which a concept list does not.` };
+    if (extra.length > 0) return { ok: false, problem: `the list carries ${shownKeys(extra)}, which a concept list does not.` };
     if (record["story"] !== story.number) {
-        return { ok: false, problem: `the list names story ${JSON.stringify(record["story"] ?? null)}, not #${story.number}.` };
+        return { ok: false, problem: `the list names story ${shown(record["story"])}, not #${story.number}.` };
     }
 
     const introduces = readEntries(record["introduces"], "introduces");
@@ -309,7 +327,7 @@ export function applyMerge(proposed: readonly ProposedIdentifier[], groups: unkn
             }
             mapping.set(id, ids[0]);
         }
-        vocabulary.push({ id: ids[0], gloss: (known.get(ids[0]) as ProposedIdentifier).glosses[0] });
+        vocabulary.push({ id: ids[0], gloss: (known.get(ids[0]) as ProposedIdentifier).glosses[0], aliases: ids.slice(1) });
     }
 
     const unmapped: string[] = proposed.map((p) => p.id).filter((id) => !mapping.has(id));

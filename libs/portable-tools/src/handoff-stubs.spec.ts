@@ -49,12 +49,14 @@ const PROPOSALS: Record<number, Proposal> = {
     41: { serves: true, introduces: ["query-epics"], assumes: [] },
 };
 
+const GROUPS: string[][] = [["cycle-report"], ["html-render"], ["query-epics"], ["roadmap-order"]];
+
 /** A roadmap planned through to its draft, with a focus that leaves #32 outside it. */
-function drafted(): string {
+function drafted(proposals: Record<number, Proposal> = PROPOSALS, groups: string[][] = GROUPS): string {
     const repo: string = initRepo();
     writeRoadmap(repo, ROADMAP);
     recordInterview(repo, ROADMAP, [{ slot: FOCUS_SLOT, question: "What did you come to learn?", answer: "How a roadmap is ordered." }]);
-    for (const [story, p] of Object.entries(PROPOSALS)) {
+    for (const [story, p] of Object.entries(proposals)) {
         const entries = (ids: string[]) => ids.map((id) => ({ id, gloss: `what ${id} means` }));
         recordExtraction(
             repo,
@@ -63,7 +65,7 @@ function drafted(): string {
             JSON.stringify({ story: Number(story), introduces: entries(p.introduces), assumes: entries(p.assumes), serves: p.serves, reason: "r" }),
         );
     }
-    const result = draftFromExtractions(repo, ROADMAP, [["cycle-report"], ["html-render"], ["query-epics"], ["roadmap-order"]]);
+    const result = draftFromExtractions(repo, ROADMAP, groups);
     expect(result.ok).toBe(true);
     return repo;
 }
@@ -105,6 +107,22 @@ describe("a handoff stub carries no concepts and no sources", () => {
         expect(readPlanDraft(repo, "alpha")?.vocabulary?.map((v) => v.id)).toContain("html-render");
         // The learner slice that assumes it names it with the same identifier the handed-off story proposed.
         expect(readPlanDraft(repo, "alpha")?.slices.find((s) => s.story === 33)?.assumes).toEqual(["html-render"]);
+    });
+
+    it("names the handed-off story behind a concept a learner slice assumes, when the merge renamed what that story proposed", () => {
+        const repo: string = drafted(
+            { ...PROPOSALS, 32: { serves: false, introduces: ["page-render"], assumes: ["roadmap-order"] } },
+            [["cycle-report"], ["html-render", "page-render"], ["query-epics"], ["roadmap-order"]],
+        );
+        const draft = readPlanDraft(repo, "alpha");
+        expect(draft?.slices.find((s) => s.story === 33)?.assumes).toEqual(["html-render"]);
+        // Each checked list keeps the name its subagent proposed; the draft's vocabulary carries every
+        // name the merge folded into a concept, so the two meet on one identifier.
+        const identifierOf = (id: string): string | undefined => draft?.vocabulary?.find((v) => v.id === id || v.aliases.includes(id))?.id;
+        const introducedBy: number[] = readExtractions(repo, ROADMAP)
+            .current.filter((list) => list.introduces.some((c) => identifierOf(c.id) === "html-render"))
+            .map((list) => list.story);
+        expect(introducedBy).toEqual([32]);
     });
 });
 

@@ -101,7 +101,7 @@ describe("a learner stub lists the concepts it introduces and the concepts it as
     });
 
     it("refuses an identifier a front-matter reader would rename", () => {
-        for (const bad of ["Pinned State", "pinned_state", "42", "drift:"]) {
+        for (const bad of ["Pinned State", "pinned_state", "42", "drift:", "true", "false", "null"]) {
             expect(() => validateStub({ story: 11, builds: "learner", concepts: [bad] }, 0)).toThrow(StubError);
         }
     });

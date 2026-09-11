@@ -42,10 +42,11 @@ export const SLICE_MARKS: readonly SliceMark[] = ["learner", "handoff"];
 /**
  * The form every concept identifier takes: lower case, hyphenated, starting with a letter. The
  * shipped lesson writer places identifiers unquoted in a lesson's front matter and the shipped hint
- * log is keyed by them, so an identifier YAML would read as a number, or one carrying a space or a
- * colon, would be renamed by the first reader that parsed it (record for #456, invariant 8).
+ * log is keyed by them, so an identifier YAML would read as a number, a boolean or null, or one
+ * carrying a space or a colon, would be renamed by the first reader that parsed it (record for #456,
+ * invariant 8).
  */
-export const CONCEPT_IDENTIFIER: RegExp = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+export const CONCEPT_IDENTIFIER: RegExp = /^(?!(?:true|false|null)$)[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 
 /** One slice of the draft: the shipped plan's story, mark and introduced concepts, plus what it assumes. */
 export interface PlanStub {
@@ -61,6 +62,12 @@ export interface PlanStub {
 export interface VocabularyEntry {
     id: string;
     gloss: string;
+    /**
+     * Every other proposed name the merge folded into this concept. A handed-off story's concepts stay
+     * only in its checked list, under the names its subagent proposed (decision 7), so these are what
+     * lead a later stage from that list to the identifier a learner slice uses.
+     */
+    aliases: string[];
 }
 
 export interface PlanDraft {
@@ -164,7 +171,11 @@ export function renderPlanDraft(draft: PlanDraft): string {
     const doc: Record<string, unknown> = {
         slices: valid.slices.map((stub) => (stub.builds === "handoff" ? { story: stub.story, builds: stub.builds } : { ...stub })),
     };
-    if (valid.vocabulary !== undefined) doc["vocabulary"] = valid.vocabulary.map((entry) => ({ ...entry }));
+    if (valid.vocabulary !== undefined) {
+        doc["vocabulary"] = valid.vocabulary.map((entry) =>
+            entry.aliases.length === 0 ? { id: entry.id, gloss: entry.gloss } : { id: entry.id, gloss: entry.gloss, aliases: [...entry.aliases] },
+        );
+    }
     return stringify(doc, { indent: 4, flowCollectionPadding: false });
 }
 
@@ -195,6 +206,12 @@ export function readPlanDraft(repoRoot: string, roadmap: string): PlanDraft | nu
     const doc: Record<string, unknown> = (parse(fs.readFileSync(target, "utf8")) as Record<string, unknown> | null) ?? {};
     return validateDraft({
         slices: Array.isArray(doc["slices"]) ? (doc["slices"] as PlanStub[]) : [],
-        ...(Array.isArray(doc["vocabulary"]) ? { vocabulary: doc["vocabulary"] as VocabularyEntry[] } : {}),
+        ...(Array.isArray(doc["vocabulary"])
+            ? {
+                  vocabulary: (doc["vocabulary"] as Partial<VocabularyEntry>[]).map(
+                      (entry): VocabularyEntry => ({ id: String(entry.id), gloss: String(entry.gloss), aliases: Array.isArray(entry.aliases) ? entry.aliases.map(String) : [] }),
+                  ),
+              }
+            : {}),
     });
 }

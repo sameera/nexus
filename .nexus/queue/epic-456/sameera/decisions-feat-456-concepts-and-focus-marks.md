@@ -37,3 +37,13 @@
 - **Choice:** The draft renders a handoff slice as `story` and `builds` only; in memory its `concepts` and `assumes` are empty, and a handoff offered any concept is refused.
 - **Why:** Invariant 19 says the stub carries its story and mark only, and an empty `concepts: []` on the page reads as "teaches nothing yet" instead of "teaches nothing".
 - **Refuted alternative:** Write `concepts: []` and `assumes: []` on every stub for one uniform shape — simpler for a reader, but the handoff stub would carry fields the record says it has none of.
+
+## 2026-09-11 — The draft's vocabulary keeps the merge's renames as aliases
+- **Choice:** Each vocabulary entry carries `aliases`, the other proposed names the merge folded into it; checked lists keep the names their subagents proposed.
+- **Why:** Decision 7 keeps a handed-off story's concepts in its extraction results, so persisting the rename map is what joins those lists to the merged identifier without rewriting a cache kept against story text.
+- **Refuted alternative:** Record `introduced_by` story numbers on each vocabulary entry — #457 would read one file, but the draft would restate extraction results the record says stay in the checked lists.
+
+## 2026-09-11 — The extract verb removes a proposal only when it sits in the roadmap's extractions folder
+- **Choice:** `nexus workbook extract --list` deletes the list file once read when it lies under the roadmap's `extractions/` directory, where the extractor agent writes it; any other path is left alone.
+- **Why:** The proposal can carry a verdict reason (invariant 16), and the agent's documented flow stays unchanged.
+- **Refuted alternative:** Read the list from stdin so no file is written — cleaner, but it changes the agent's flow and the CLI's io contract for one file.

@@ -47,7 +47,7 @@ import {
     type RoadmapStory,
 } from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
-import { draftFromExtractions, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
+import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 
@@ -456,7 +456,14 @@ function runExtract(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
         io.stdout(JSON.stringify({ story: story.number, title: story.title, body: story.body, ...focus }, null, 4));
         return 0;
     }
-    const result: CheckResult = recordExtraction(repoRoot, roadmap, number, fs.readFileSync(flags.list, "utf8"), run);
+    const listFile: string = path.resolve(io.cwd, flags.list);
+    const output: string = fs.readFileSync(listFile, "utf8");
+    // A proposal written where the extractor agent writes it can carry a verdict's reason, and a saved
+    // reason is a personal record (invariant 16). Once it is read, only the checked list and the guarded
+    // learner-folder write keep anything; a list kept anywhere else is the caller's file, left alone.
+    const fromExtractor: string = path.relative(extractionsDir(repoRoot, name), listFile);
+    if (fromExtractor !== "" && !fromExtractor.startsWith("..") && !path.isAbsolute(fromExtractor)) fs.rmSync(listFile, { force: true });
+    const result: CheckResult = recordExtraction(repoRoot, roadmap, number, output, run);
     if (!result.ok) {
         io.stderr(`no readable list for #${number}: ${result.problem}`);
         return 1;
