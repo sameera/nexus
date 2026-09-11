@@ -140,6 +140,61 @@ be added, and only in one case:
     not weaken the rule in Section B. Deriving the qualification is preferred to refusing the bare
     form, which would only make the developer supply what you can already resolve.
 
+## Section E — The epic-classification and collision refusals
+
+Three kinds of entry can occupy a number, and the set is closed: **epic**, materializing at
+`.nexus/tmp/epic-<n>/` and owned by `/nxs.epic`; **fix**, at `.nexus/tmp/fix-<n>/`, owned by
+`/nxs.fix`; **intake**, at `.nexus/tmp/intake-<n>/`, owned by `/nxs.intake`. What an entry *is*
+comes from `entry_kind:` in its `epic.md` frontmatter, never from the directory it sits under.
+
+Apply this section immediately after Section B resolves the reference and before Section C resolves
+a range, ahead of any refusal local to the calling lane, substituting `<lane-command>` for the
+calling lane's own command name the same way Section A already does.
+
+1. **The reference carries the repository's declared epic classification** → **stop and write
+   nothing.** Read the classification the way the resolver does — the declared mode selects either a
+   label or an issue type:
+
+    ```bash
+    nexus config resolve classification --root "<repo-root>"
+    nexus config resolve epic-label --root "<repo-root>"
+    nexus config resolve epic-type --root "<repo-root>"
+    ```
+
+    Report:
+
+    ```
+    #<n> is an epic. An epic's reasoning reaches the concept store through its own lane —
+    plan it with /nxs.epic, then /nxs.decision-record, /nxs.analyze, /nxs.close, /nxs.distill.
+    ```
+
+2. **A candidate entry occupies a slot** for a number when its own recorded reference — its
+   `epic.md` frontmatter's `link` — resolves to the same **repository** as the reference being
+   checked; a bare `link` resolves against the home repository Section B already resolved. A
+   candidate entry whose recorded reference cannot be read at all is still treated as occupying the
+   slot: a half-written entry must never let a second entry get written over it.
+
+3. **The check covers more than the reference's own number.** For an issue, also check the numbers
+   of its merged closing pull requests; for a pull request, also check the numbers of the issues it
+   closes — both within the same repository as the reference being checked:
+
+    ```bash
+    gh issue view <n> $REPO_ARG --json closedByPullRequestsReferences   # issue → its closing PRs
+    gh pr view <n> $REPO_ARG --json closingIssuesReferences             # PR → the issues it closes
+    ```
+
+    When this lookup fails, **degrade to checking the reference's own number alone** and report that
+    the wider check could not run: this check only ever produces a refusal, so a connectivity or
+    permissions failure on it must never turn a working command into a failing one.
+
+4. **A slot occupied by a kind other than the one `<lane-command>` owns is a collision:** **stop and
+   write nothing.** Report the colliding path, the kind occupying it, and the command that owns that
+   kind. **A slot occupied by the kind `<lane-command>` owns is not a collision** — this lane
+   proceeds exactly as it would when no entry exists yet.
+5. **A match found through a linked number — a closing pull request or a closed issue, rather than
+   the reference's own number — is always a collision, whatever kind occupies it.** Report the linked
+   number and the relationship that produced it.
+
 ## Contract
 
 - **Deterministic pieces stay in the tools this skill calls** — `nexus close-role`,
@@ -147,5 +202,5 @@ be added, and only in one case:
   This skill owns the ordering, the refusal wording and the interactive ask-path around them, which
   is exactly the part no CLI verb can host.
 - **Every rule in this file is stated once.** A lane that finds itself restating a checkout-role
-  refusal, a reference form, a range-resolution order, or a qualification rule instead of loading
-  this skill has drifted from the contract this skill exists to hold.
+  refusal, a reference form, a range-resolution order, a qualification rule, or the collision rule
+  instead of loading this skill has drifted from the contract this skill exists to hold.

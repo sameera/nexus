@@ -35,13 +35,14 @@ describe("/nxs.fix delegates reference and range resolution to the shared skill 
         expect(FIX).not.toMatch(/--range <base>\.\.<head>` was given[\s\S]{0,200}verbatim/);
     });
 
-    it("still refuses an epic and names /nxs.epic as the lane to use (fix-specific, not shared)", () => {
-        expect(FIX).toContain("nexus config resolve epic-label");
-        expect(FIX).toMatch(/is an epic[\s\S]{0,400}\/nxs\.epic/);
+    it("loads the shared Section E for the epic-classification and collision refusal instead of restating it (story #541)", () => {
+        expect(FIX).toMatch(/\*\*Section E\*\*[\s\S]{0,200}substituting `\/nxs\.fix` for `<lane-command>`/);
+        expect(FIX).not.toContain("nexus config resolve epic-label");
+        expect(FIX).not.toMatch(/`\.nexus\/tmp\/epic-<n>\/` already exists/);
     });
 
-    it("still refuses a colliding materialization directory for the same number (fix-specific, not shared)", () => {
-        expect(FIX).toMatch(/`\.nexus\/tmp\/epic-<n>\/` already exists/);
+    it("gains the intake collision it did not check before (story #541)", () => {
+        expect(FIX).toMatch(/catches a number that already carries an \*\*intake\*\* entry/);
     });
 
     it("substitutes its own command name into the shared member-checkout refusal", () => {
@@ -102,6 +103,45 @@ describe("nxs-landed-reference holds the rules shared by every landed-work lane 
     it("qualifies a bare reference from a hub from the recorded range, keeping the number", () => {
         expect(LANDED_REFERENCE).toMatch(/hub, bare reference given\*\* → write `<owner>\/<repo>#<n>`/);
         expect(LANDED_REFERENCE).toMatch(/the number the developer gave, unchanged/);
+    });
+});
+
+describe("nxs-landed-reference states the shared epic-classification and collision refusal (story #541)", () => {
+    it("names the closed set of three kinds, each with its directory prefix and owning command", () => {
+        expect(LANDED_REFERENCE).toMatch(/the set is closed/);
+        expect(LANDED_REFERENCE).toContain(".nexus/tmp/epic-<n>/");
+        expect(LANDED_REFERENCE).toContain(".nexus/tmp/fix-<n>/");
+        expect(LANDED_REFERENCE).toContain(".nexus/tmp/intake-<n>/");
+        expect(LANDED_REFERENCE).toMatch(/entry_kind:` in its `epic\.md` frontmatter, never from the directory/);
+    });
+
+    it("applies immediately after Section B and before Section C, ahead of any lane-local refusal", () => {
+        expect(LANDED_REFERENCE).toMatch(/immediately after Section B resolves the reference and before Section C resolves\s*\n?\s*a range, ahead of any refusal local to the calling lane/);
+    });
+
+    it("states the epic-classification refusal with its report", () => {
+        expect(LANDED_REFERENCE).toContain("nexus config resolve epic-label");
+        expect(LANDED_REFERENCE).toMatch(/#<n> is an epic\. An epic's reasoning reaches the concept store through its own lane/);
+    });
+
+    it("defines a slot as occupied by repository, not number alone, and treats an unreadable reference as occupying", () => {
+        expect(LANDED_REFERENCE).toMatch(/occupies a slot[\s\S]{0,300}same \*\*repository\*\* as the reference being\s*\n?\s*checked/);
+        expect(LANDED_REFERENCE).toMatch(/cannot be read at all is still treated as occupying the\s*\n?\s*slot/);
+    });
+
+    it("widens the check to a closing pull request or a closed issue, and degrades on a failed lookup", () => {
+        expect(LANDED_REFERENCE).toContain("closedByPullRequestsReferences");
+        expect(LANDED_REFERENCE).toContain("closingIssuesReferences");
+        expect(LANDED_REFERENCE).toMatch(/degrade to checking the reference's own number alone/);
+    });
+
+    it("states two distinct outcomes: a foreign-kind collision and a same-kind non-collision", () => {
+        expect(LANDED_REFERENCE).toMatch(/kind other than the one `<lane-command>` owns is a collision/);
+        expect(LANDED_REFERENCE).toMatch(/kind `<lane-command>` owns is not a collision/);
+    });
+
+    it("treats a match reached through a linked number as always a collision, whatever kind occupies it", () => {
+        expect(LANDED_REFERENCE).toMatch(/always a collision, whatever kind occupies it/);
     });
 });
 

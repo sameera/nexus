@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.31.0
+
+- `nxs-landed-reference` gains a shared Section E stating the epic-classification refusal and the
+  cross-kind collision refusal, generalized from "collides with an epic" to "collides with any of
+  the three entry kinds — epic, fix, intake — that is not the caller's own." A slot is occupied
+  only when the candidate entry's recorded reference resolves to the same repository, and the
+  check now also reaches through a closing pull request or a closed issue, not only a reference's
+  own number. `/nxs.fix`'s Phase 2 now loads this shared section instead of restating it inline,
+  and gains the intake collision it did not check before.
+
 ## 0.30.0
 
 - `close` no longer runs a member repository's own copy on any path: a member checkout is now a
