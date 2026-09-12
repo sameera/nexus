@@ -445,3 +445,63 @@ describe("resolveStories — a body reference states scope or it is a mention (s
         expect(r.stories).toEqual([492, 493]);
     });
 });
+
+describe("resolveStories — an explicit reference settles the story list (story #568)", () => {
+    it("takes the named story whatever the body and the branch name cite", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            explicitStory: 493,
+            closingIssues: [492],
+            commitMessages: ["a\n\nCloses #494"],
+            branchName: "epic-211-everything",
+            prBody: "Implements acme/widget#492.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.epic).toBe(211);
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("looks up nothing else, so no other reference can stop the run", () => {
+        // The whole point of the escape: priority ordering cannot deliver it, because every other
+        // reference is still looked up and any one of them can still stop the run.
+        const graph = makeGraphRunner(EPIC_211);
+        const run: Runner = (cmd, args) => {
+            const query = args.find((a) => a.startsWith("query=")) ?? "";
+            const num = Number((args.find((a) => a.startsWith("num=")) ?? "num=NaN").slice(4));
+            // Every number the other sources carry — and only those — is a run-stopping lookup.
+            if (query.includes("parent{number}") && [99999, 492, 77777].includes(num)) {
+                return { status: 1, stdout: "", stderr: "gh: Bad credentials (HTTP 401)" };
+            }
+            return graph(cmd, args);
+        };
+        const r = resolveStories(run, "/repo", SLUG, LABELS, {
+            explicitStory: 493,
+            closingIssues: [99999],
+            prBody: "Implements acme/widget#492.",
+            branchName: "chore-77777-tidy",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("still accepts the epic itself, for a pull request that ships the whole epic", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            explicitStory: 211,
+            closingIssues: [],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.epic).toBe(211);
+        expect(r.stories).toEqual([492, 493, 494]);
+    });
+
+    it("stops and names the epic that was expected when the reference is not one of its stories", () => {
+        const graph = { ...EPIC_211, 211: { labels: ["epic"], parent: 491, subIssues: [492, 494, 495] } };
+        const r = resolveStories(makeGraphRunner(graph), "/repo", SLUG, LABELS, { explicitStory: 493, closingIssues: [] });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("no-story-candidates");
+        expect(r.error.message).toContain("#211");
+    });
+});
