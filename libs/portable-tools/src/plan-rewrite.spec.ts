@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { stringify } from "yaml";
-import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
+import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult, type StoryEdges } from "./plan-rewrite.js";
 import { readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { LEARNER_IGNORE_RULE } from "./learner-store.js";
 import { readPlanDraft, writePlanDraft, type PlanDraft, type PlanStub } from "./plan-draft.js";
@@ -254,5 +254,82 @@ describe("a concept the learner declared they already know is never introduced",
 
         expect(runWorkbookCli(["rewrite", "alpha", "--root", repo, "--declare", file], captured)).toBe(1);
         expect(readPlanDraft(repo, "alpha")?.slices.flatMap((stub) => stub.concepts)).toContain("pinned-state");
+    });
+});
+
+describe("slices order to introduce the fewest new concepts per step", () => {
+    function order(draft: PlanDraft, edges: StoryEdges[]): number[] {
+        return rewritePlan(draft, { edges }).slices.map((stub) => stub.story);
+    }
+
+    it("puts a blocked slice after the slice that blocks it", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a", "b", "c"]), learner(12, ["d"])] };
+        expect(order(draft, [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }])).toEqual([11, 12]);
+    });
+
+    it("takes the slice introducing the fewest concepts not yet introduced, at every step", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a", "b", "c"]), learner(12, ["d"]), learner(13, ["a", "b"])] };
+        const free: StoryEdges[] = [11, 12, 13].map((story) => ({ story, blockedBy: [] }));
+        // #12 costs one, then #13 costs two, and #11 then costs only the one concept #13 left.
+        expect(order(draft, free)).toEqual([12, 13, 11]);
+    });
+
+    it("breaks a tie by ascending story number", () => {
+        const draft: PlanDraft = { slices: [learner(13, ["c"]), learner(11, ["a"]), learner(12, ["b"])] };
+        expect(order(draft, [11, 12, 13].map((story) => ({ story, blockedBy: [] })))).toEqual([11, 12, 13]);
+    });
+
+    it("never lets a cheaper slice jump the edge that blocks it", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a", "b", "c"]), learner(12, ["d"])] };
+        expect(order(draft, [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }])).toEqual([11, 12]);
+    });
+
+    it("orders over learner slices, keeping an edge that runs through a handoff", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a", "b"]), handoff(12), learner(13, ["c"]), learner(14, ["d"])] };
+        const edges: StoryEdges[] = [
+            { story: 11, blockedBy: [] },
+            { story: 12, blockedBy: [11] },
+            { story: 13, blockedBy: [12] },
+            { story: 14, blockedBy: [] },
+        ];
+        const placed: number[] = order(draft, edges);
+        // #13 is blocked by #11 through the handoff, so it follows it however cheap it is.
+        expect(placed.indexOf(13)).toBeGreaterThan(placed.indexOf(11));
+        // A handoff never precedes what blocks it either.
+        expect(placed.indexOf(12)).toBeGreaterThan(placed.indexOf(11));
+        expect(placed.indexOf(13)).toBeGreaterThan(placed.indexOf(12));
+    });
+
+    it("ignores an edge onto a story the roadmap does not hold", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a"])] };
+        expect(order(draft, [{ story: 11, blockedBy: [99] }])).toEqual([11]);
+    });
+
+    it("assigns ownership as the chosen order is built, never against the arriving one", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a", "b"]), learner(12, ["a"])] };
+        const plan: PlanDraft = rewritePlan(draft, { edges: [11, 12].map((story) => ({ story, blockedBy: [] })) });
+        expect(plan.slices.map((stub) => stub.story)).toEqual([12, 11]);
+        expect(sliceFor(plan, 12).concepts).toEqual(["a"]);
+        expect(sliceFor(plan, 11).concepts).toEqual(["b"]);
+        expect(sliceFor(plan, 11).assumes).toEqual(["a"]);
+    });
+
+    it("holds the same slices in the same order when nothing changed", () => {
+        const draft: PlanDraft = { slices: [learner(13, ["a", "b"]), learner(11, ["b"]), learner(12, ["a", "c"])] };
+        const edges: StoryEdges[] = [11, 12, 13].map((story) => ({ story, blockedBy: [] }));
+        expect(order(draft, edges)).toEqual(order(draft, edges));
+        expect(rewritePlan(draft, { edges })).toEqual(rewritePlan(draft, { edges }));
+    });
+
+    it("orders the draft against the roadmap's own edges through the verb", () => {
+        const repo: string = initRepo();
+        writeRoadmap(repo, ROADMAP);
+        writePlanDraft(repo, "alpha", { slices: [learner(12, ["drift", "pinned-state"]), learner(11, ["pinned-state"])] });
+
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
+        const plan: PlanDraft = readPlanDraft(repo, "alpha") as PlanDraft;
+        expect(plan.slices.map((stub) => stub.story)).toEqual([11, 12]);
+        expect(sliceFor(plan, 11).concepts).toEqual(["pinned-state"]);
+        expect(sliceFor(plan, 12).concepts).toEqual(["drift"]);
     });
 });

@@ -126,39 +126,157 @@ export function applyDeclaration(interview: InterviewRecord, draft: PlanDraft, d
     return { ok: true, draft: { ...draft, slices, declared: removed, unmatched } };
 }
 
+/** One story's dependency edges, as the resolved roadmap records them. */
+export interface StoryEdges {
+    story: number;
+    blockedBy: number[];
+}
+
+export interface RewriteOptions {
+    /** The roadmap's dependency edges. Without them the draft keeps the order it arrived in. */
+    edges?: readonly StoryEdges[];
+}
+
 /** Append to `into` the entries of `from` that it does not already hold. Order is the first sighting. */
 function appendNew(into: string[], from: readonly string[]): void {
     for (const id of from) if (!into.includes(id)) into.push(id);
 }
 
+/** Assign one slice's concepts against what is already owned, and record the rest as assumed. */
+function assign(stub: PlanStub, owned: Set<string>): PlanStub {
+    if (stub.builds === "handoff") return { ...stub, concepts: [], assumes: [] };
+    const concepts: string[] = [];
+    const taken: string[] = [];
+    for (const id of stub.concepts) {
+        if (owned.has(id)) taken.push(id);
+        else if (!concepts.includes(id)) concepts.push(id);
+    }
+    for (const id of concepts) owned.add(id);
+    // What the slice already assumed comes first, then what it no longer introduces: a concept a
+    // slice assumes is not one it teaches, so the two lists never overlap.
+    const assumes: string[] = [];
+    appendNew(assumes, stub.assumes.filter((id) => !concepts.includes(id)));
+    appendNew(assumes, taken);
+    return { ...stub, concepts, assumes };
+}
+
 /**
- * Walk the slices once, in the order given, assigning each concept to the first slice that proposes
- * it. Every later slice that proposed the same concept assumes it instead.
+ * The blockers of each slice, restricted to the slices the plan holds. An edge onto a story that
+ * sits outside the roadmap is a real prerequisite nobody here will build, so it constrains nothing.
  */
-function assignIntroductions(slices: readonly PlanStub[]): PlanStub[] {
-    const owned: Set<string> = new Set();
-    return slices.map((stub): PlanStub => {
-        if (stub.builds === "handoff") return { ...stub, concepts: [], assumes: [] };
-        const concepts: string[] = [];
-        const taken: string[] = [];
-        for (const id of stub.concepts) {
-            if (owned.has(id)) taken.push(id);
-            else if (!concepts.includes(id)) concepts.push(id);
+function blockersWithin(slices: readonly PlanStub[], edges: readonly StoryEdges[]): Map<number, number[]> {
+    const held: Set<number> = new Set(slices.map((stub) => stub.story));
+    const direct: Map<number, number[]> = new Map(slices.map((stub) => [stub.story, []]));
+    for (const edge of edges) {
+        if (!held.has(edge.story)) continue;
+        direct.set(edge.story, edge.blockedBy.filter((blocker) => held.has(blocker) && blocker !== edge.story));
+    }
+    return direct;
+}
+
+/**
+ * The learner-slice graph: each learner slice's blockers, with every edge that runs through a
+ * handoff slice carried across as a transitive edge (invariant 11).
+ *
+ * Order is decided over learner slices alone (invariant 12), because a handoff slice introduces
+ * nothing — its cost is zero at every position, so it takes no ordering freedom. Carrying the
+ * transitive edges is what makes that exclusion lossless.
+ */
+function learnerBlockers(slices: readonly PlanStub[], direct: Map<number, number[]>): Map<number, number[]> {
+    const learners: Set<number> = new Set(slices.filter((stub) => stub.builds === "learner").map((stub) => stub.story));
+    const resolved: Map<number, number[]> = new Map();
+    const walk = (story: number, seen: Set<number>): number[] => {
+        const found: number[] = [];
+        for (const blocker of direct.get(story) ?? []) {
+            if (seen.has(blocker)) continue;
+            seen.add(blocker);
+            if (learners.has(blocker)) found.push(blocker);
+            else appendNumbers(found, walk(blocker, seen));
         }
-        for (const id of concepts) owned.add(id);
-        // What the slice already assumed comes first, then what it no longer introduces: a concept a
-        // slice assumes is not one it teaches, so the two lists never overlap.
-        const assumes: string[] = [];
-        appendNew(assumes, stub.assumes.filter((id) => !concepts.includes(id)));
-        appendNew(assumes, taken);
-        return { ...stub, concepts, assumes };
-    });
+        return found;
+    };
+    for (const story of learners) resolved.set(story, walk(story, new Set([story])));
+    return resolved;
+}
+
+function appendNumbers(into: number[], from: readonly number[]): void {
+    for (const value of from) if (!into.includes(value)) into.push(value);
+}
+
+/**
+ * Order the learner slices by step-wise greedy selection (record #562).
+ *
+ * At each position the candidates are the slices whose blockers are already placed, and the pass
+ * takes the candidate introducing the fewest concepts not yet introduced. The candidate set depends
+ * only on the prefix, so this attains the minimum new-concept count at every position given the
+ * positions before it — which is exactly the minimality story #556 asks for, reached exactly rather
+ * than by a heuristic. Ties break by ascending story number, the same tie-break the roadmap resolver
+ * already uses to make its own order total.
+ *
+ * Ownership is assigned as the order is built, never before it (decision 1): a concept counts
+ * against a step the first time it appears, and the objective the selection minimises is then
+ * literally the number of new concepts the step introduces.
+ */
+function orderLearnerSlices(slices: readonly PlanStub[], blockers: Map<number, number[]>): PlanStub[] {
+    const remaining: PlanStub[] = slices.filter((stub) => stub.builds === "learner").sort((a, b) => a.story - b.story);
+    const placed: Set<number> = new Set();
+    const owned: Set<string> = new Set();
+    const order: PlanStub[] = [];
+
+    while (remaining.length > 0) {
+        const ready: PlanStub[] = remaining.filter((stub) => (blockers.get(stub.story) ?? []).every((blocker) => placed.has(blocker)));
+        // The roadmap resolver refuses a cycle before a plan is ever drafted, so nothing should be
+        // unreachable here; taking the lowest remaining story keeps the pass total if one ever is.
+        const candidates: PlanStub[] = ready.length > 0 ? ready : remaining;
+        const cost = (stub: PlanStub): number => new Set(stub.concepts.filter((id) => !owned.has(id))).size;
+        const chosen: PlanStub = candidates.reduce((best, stub) => (cost(stub) < cost(best) ? stub : best));
+        remaining.splice(remaining.indexOf(chosen), 1);
+        placed.add(chosen.story);
+        order.push(assign(chosen, owned));
+    }
+    return order;
+}
+
+/**
+ * Put the handoff slices back into the learner order. Each is placed as soon as what blocks it is
+ * placed, so no slice precedes a slice that blocks it, transitively or through a handoff.
+ */
+function placeHandoffs(slices: readonly PlanStub[], order: readonly PlanStub[], direct: Map<number, number[]>): PlanStub[] {
+    const waiting: PlanStub[] = slices.filter((stub) => stub.builds === "handoff").sort((a, b) => a.story - b.story);
+    const placed: Set<number> = new Set();
+    const out: PlanStub[] = [];
+    const drain = (): void => {
+        for (let moved = true; moved; ) {
+            moved = false;
+            for (let i = 0; i < waiting.length; i++) {
+                if (!(direct.get(waiting[i].story) ?? []).every((blocker) => placed.has(blocker))) continue;
+                const stub: PlanStub = waiting.splice(i--, 1)[0];
+                placed.add(stub.story);
+                out.push({ ...stub, concepts: [], assumes: [] });
+                moved = true;
+            }
+        }
+    };
+    drain();
+    for (const stub of order) {
+        out.push(stub);
+        placed.add(stub.story);
+        drain();
+    }
+    for (const stub of waiting) out.push({ ...stub, concepts: [], assumes: [] });
+    return out;
 }
 
 /**
  * Rewrite a planning pass's draft. The result is a draft of the same shape — the rewrite replaces
  * the draft whole and never edits one in place.
  */
-export function rewritePlan(draft: PlanDraft): PlanDraft {
-    return { ...draft, slices: assignIntroductions(draft.slices) };
+export function rewritePlan(draft: PlanDraft, options: RewriteOptions = {}): PlanDraft {
+    if (options.edges === undefined) {
+        const owned: Set<string> = new Set();
+        return { ...draft, slices: draft.slices.map((stub) => assign(stub, owned)) };
+    }
+    const direct: Map<number, number[]> = blockersWithin(draft.slices, options.edges);
+    const order: PlanStub[] = orderLearnerSlices(draft.slices, learnerBlockers(draft.slices, direct));
+    return { ...draft, slices: placeHandoffs(draft.slices, order, direct) };
 }

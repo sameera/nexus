@@ -552,7 +552,8 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
         }
         draft = applied.draft;
     }
-    const rewritten: PlanDraft = rewritePlan(draft);
+    const roadmap: Roadmap = readRoadmap(repoRoot, name) as Roadmap;
+    const rewritten: PlanDraft = rewritePlan(draft, { edges: roadmap.stories.map((story) => ({ story: story.number, blockedBy: story.blockedBy })) });
     const introduced: number = rewritten.slices.reduce((count, stub) => count + stub.concepts.length, 0);
     io.stdout(
         `rewrote the plan draft for ${name}: ${rewritten.slices.length} slice${rewritten.slices.length === 1 ? "" : "s"} ` +

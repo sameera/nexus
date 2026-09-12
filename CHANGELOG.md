@@ -9,9 +9,13 @@ behaviour says so.
 
 - `/nxs.teach-plan`, the planning phase that turns a planned **epic** into a teaching roadmap, gains
   Phase 6 — the rewrite. `nexus workbook rewrite <name>` replaces the plan draft the planning pass
-  just wrote with one in which every concept is introduced once and assumed thereafter: a concept
-  belongs to the first slice that proposes it, and every later slice that proposed the same concept
-  now records it as assumed. A slice whose every concept an earlier slice already teaches stays in
+  just wrote with one whose slices are **ordered** and in which every concept is introduced once and
+  assumed thereafter. The order respects the roadmap's dependency edges and, among the orders those
+  edges permit, takes at every step the slice introducing the fewest concepts not yet introduced;
+  ties break by ascending story number, so a roadmap rewritten twice with nothing changed holds the
+  same slices in the same order. Ownership follows from that order: a concept belongs to the first
+  slice that reaches it, and every later slice that proposed the same concept now records it as
+  assumed. A slice whose every concept an earlier slice already teaches stays in
   the plan and introduces nothing, so its story is never dropped. With `--declare <file>` the phase
   also removes what the learner said in the interview that they already know, reporting back which
   of their words matched no concept the roadmap teaches. The rewrite reads no story text and no

@@ -1,6 +1,6 @@
 ---
 name: nxs.teach-plan
-description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent, writes the plan's stubs as an uncommitted draft and rewrites that draft so each concept is taught once. Plans the roadmap; writes no lesson.
+description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent, writes the plan's stubs as an uncommitted draft, then orders that draft and rewrites it so each concept is taught once. Plans the roadmap; writes no lesson.
 category: learning
 phase: planning
 references:
@@ -160,11 +160,17 @@ nexus workbook rewrite <name> [--declare <file>]
 ```
 
 Code rewrites the draft it just wrote, as arithmetic over the stubs. It re-reads no story, so this
-phase holds no story text either. A concept is assigned to the first slice that proposes it, and
-every later slice that proposed the same concept assumes it instead — so a concept is introduced once
-and assumed thereafter. A slice whose every concept an earlier slice already teaches stays in the
-plan and introduces nothing: it builds something real while teaching nothing new, and dropping it
-would drop its story.
+phase holds no story text either.
+
+The slices are ordered against the roadmap's own dependency edges, so no slice precedes a slice that
+blocks it, and at every position the pass takes the slice introducing the fewest concepts not yet
+introduced — the road gets steeper only where the work does. Ownership follows from that order: a
+concept is assigned to the first slice that reaches it, and every later slice that proposed the same
+concept assumes it instead, so a concept is introduced once and assumed thereafter. A slice whose
+every concept an earlier slice already teaches stays in the plan and introduces nothing: it builds
+something real while teaching nothing new, and dropping it would drop its story. Ties break by
+ascending story number, so a roadmap rewritten twice with nothing changed holds the same slices in
+the same order.
 
 **The declaration.** The interview recorded what the learner already knows in their own words, and
 nothing has resolved those words to concepts. That match is yours, and it is the one judgement in

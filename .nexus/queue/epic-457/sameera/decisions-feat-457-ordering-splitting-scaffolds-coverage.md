@@ -18,3 +18,8 @@
 - **Choice:** A declared concept is filtered out of every slice's `concepts` and left wherever a slice `assumes` it.
 - **Why:** Invariant 5 counts a declared concept satisfied where a later slice assumes it, so #557 needs the assumption still present to count it.
 - **Refuted alternative:** Strip it from `assumes` too, which reads cleaner but erases what the coverage check has to reason about.
+
+## 2026-09-12 — Handoffs are placed as early as permitted at #556, and moved late at #560
+- **Choice:** #556 orders learner slices alone and re-inserts each handoff as soon as its blockers are placed; #560 replaces that placement with "immediately before the slice it unblocks".
+- **Why:** Invariant 11 has to hold the moment ordering lands, and placing a zero-cost slice as early as permitted is precisely the waste story #560 exists to remove — so #560's criteria genuinely fail before it lands.
+- **Refuted alternative:** Leave every handoff at the end until #560, which would let a learner slice precede the handoff that blocks it in the meantime.
