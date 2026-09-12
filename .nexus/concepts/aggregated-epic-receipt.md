@@ -1,8 +1,8 @@
 ---
 title: "Aggregated Epic Receipt"
 aliases: ["epic receipt", "aggregate mode", "story verdicts", "per-story staleness", "combined change set", "no-pull-request marker"]
-touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close"]
-last_updated_by: "#213"
+touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim"]
+last_updated_by: "#564"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ The conformance stage, addressed at an epic, looks for a published verdict on ea
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — the closed set withheld from every per-pull-request change set the combined code unions.
 - [workspace-resolution](workspace-resolution.md) — names the repositories the search for a story's verdict spans, so a story whose pull request lives in a member repository is found.
 - [multi-pr-close](multi-pr-close.md) — reads this receipt as the authoritative pull-request set for the epic, and its close-time waiver is what writes the no-pull-request marker onto a story issue.
+- [scope-claim](scope-claim.md) — narrows what reaches a pull request's story list, so a story this aggregate reads as analyzed was one that pull request actually took on.
 
 ## Decision Log
 
@@ -46,3 +47,7 @@ Three parts of the approved design did not ship, and each is filed as deferred s
 ### 2026-09-10 — #213 — The receipt is the authoritative set, and the close-time waiver is what writes the marker
 
 The receipt already names each story's repository, pull request and analyzed head, so the close does not repeat the discovery ladder. Rediscovering the set from branch names or timelines would be a third copy of the trust and recency rules, in the stage that runs last and is re-read least. The marker gained a writer at the same time. A lead who waives a storyless story at close is what puts the marker on that story's issue. Refuted alternative: record the waiver only in the close record and never write the marker. That keeps the close's writes to GitHub confined to the epic issue, but it leaves two notions of the same fact, so an aborted close followed by a re-run stops again on a story the lead has already adjudicated.
+
+### 2026-09-12 — #564 — Reciprocal link from scope-claim
+
+Mechanical reciprocity fan-out: this aggregate reads a story as analyzed when any trusted receipt names it, and it re-judges nothing, so it can only be as honest as the story list each receipt stamps. Requiring a reference to claim the work is what keeps a story merely cited as background out of that list. Receipts published before that narrowing are not retracted here, because this aggregate picks the newest receipt naming a story, so a corrected receipt that omits the story does not displace the older one that wrongly named it; those are remediated by hand.
