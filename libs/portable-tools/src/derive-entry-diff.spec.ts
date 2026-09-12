@@ -91,7 +91,42 @@ function writeEntry(hubRoot: string, items: Array<{ repo: string; base: string; 
     return entryDir;
 }
 
+/**
+ * Writes the same entry in the shape the writers actually emit: prose, then the range stamped
+ * inside the marker-anchored machine block. This is what `/nxs.close`, `/nxs.fix` and
+ * `/nxs.intake` put on disk, so it is the shape the reader has to read.
+ */
+function writeEntryMarkerShape(hubRoot: string, items: Array<{ repo: string; base: string; head: string; pr?: number }>): string {
+    const entryDir = path.join(hubRoot, ".nexus", "queue", "demo-epic-ab12cd34");
+    const range = items.map((i) =>
+        `  - repo: ${i.repo}\n    base: ${i.base}\n    head: ${i.head}` + (i.pr === undefined ? "" : `\n    pr: ${i.pr}`),
+    ).join("\n");
+    write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/epic.md", "---\nlink: \"#3\"\n---\n# epic\n");
+    write(hubRoot, ".nexus/queue/demo-epic-ab12cd34/close-record.md",
+        "# Close Record: Demo\n\n## Key Decisions\n\n- **Something changed:** because of a reason.\n\n" +
+        "## Deferred Scope\n\nnone\n\n<!-- nexus:close-record -->\n```yaml\n" +
+        `entry_kind: epic\nnexus_version: 0.30.0\ndate: 2026-07-01\nanalyze: clean\nrange:\n${range}\n` +
+        "```\n");
+    return entryDir;
+}
+
 describe("deriveEntryDiff — happy paths", () => {
+    it("reads the range from the marker-anchored machine block, the shape the writers emit", () => {
+        const parent = makeParent();
+        const { hubRoot, web, api } = buildHubFixture(parent);
+        const entryDir = writeEntryMarkerShape(hubRoot, [
+            { repo: "github.com/acme/web-app", base: web.base, head: web.head },
+            { repo: "github.com/acme/api", base: api.base, head: api.head, pr: 512 },
+        ]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs.map((d) => d.repo)).toEqual(["github.com/acme/web-app", "github.com/acme/api"]);
+        expect(result.diffs[0].diff).toContain("src/app.ts");
+        expect(result.diffs[1].pr).toBe(512);
+    });
+
     it("excludes .nexus/discovery from the emitted diff (record #235, invariant 2)", () => {
         const parent = makeParent();
         const { hubRoot, web } = buildHubFixture(parent);
@@ -528,7 +563,57 @@ describe("parseRange", () => {
         expect(result.range).toEqual([{ repo: "github.com/acme/web-app", base: "a".repeat(40), head: "b".repeat(40) }]);
     });
 
-    it("file not starting with --- yields missing-range", () => {
+    it("the marker-anchored machine block yields items", () => {
+        const parent = makeParent();
+        const dir = path.join(parent, "entry");
+        write(parent, "entry/close-record.md",
+            "# Intake Record: Demo\n\n## Key Decisions\n\n- **A thing:** a reason.\n\n" +
+            "<!-- nexus:close-record -->\n```yaml\nentry_kind: intake\ndate: 2026-09-09\nrange:\n" +
+            "  - repo: github.com/acme/web-app\n    base: " + "a".repeat(40) + "\n    head: " + "b".repeat(40) + "\n```\n");
+        const result = parseRange(dir);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.range).toEqual([{ repo: "github.com/acme/web-app", base: "a".repeat(40), head: "b".repeat(40) }]);
+    });
+
+    it("the machine block wins over frontmatter when a record carries both", () => {
+        const parent = makeParent();
+        const dir = path.join(parent, "entry");
+        write(parent, "entry/close-record.md",
+            "---\ntitle: \"Close Record: Demo\"\nrange:\n  - repo: github.com/acme/stale\n    base: " +
+            "c".repeat(40) + "\n    head: " + "d".repeat(40) + "\n---\n\n# Close Record: Demo\n\n" +
+            "<!-- nexus:close-record -->\n```yaml\nrange:\n  - repo: github.com/acme/web-app\n    base: " +
+            "a".repeat(40) + "\n    head: " + "b".repeat(40) + "\n```\n");
+        const result = parseRange(dir);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.range).toEqual([{ repo: "github.com/acme/web-app", base: "a".repeat(40), head: "b".repeat(40) }]);
+    });
+
+    it("the marker with no fenced block after it yields missing-range", () => {
+        const parent = makeParent();
+        const dir = path.join(parent, "entry");
+        write(parent, "entry/close-record.md", "# Close Record: Demo\n\n<!-- nexus:close-record -->\n");
+        const result = parseRange(dir);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.error.problem).toBe("missing-range");
+        expect(result.error.message).toContain("no fenced YAML block follows it");
+    });
+
+    it("invalid YAML in the machine block yields malformed-range", () => {
+        const parent = makeParent();
+        const dir = path.join(parent, "entry");
+        write(parent, "entry/close-record.md",
+            "<!-- nexus:close-record -->\n```yaml\nrange: [unterminated\n```\n");
+        const result = parseRange(dir);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.error.problem).toBe("malformed-range");
+        expect(result.error.message).toContain("machine block");
+    });
+
+    it("neither a machine block nor frontmatter yields missing-range", () => {
         const parent = makeParent();
         const dir = path.join(parent, "entry");
         write(parent, "entry/close-record.md", "# no frontmatter\n");

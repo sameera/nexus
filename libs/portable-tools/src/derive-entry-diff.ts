@@ -59,6 +59,49 @@ export type ParseRangeResult =
     | { ok: true; range: RangeItem[] }
     | { ok: false; error: DeriveDiagnostic };
 
+/**
+ * The marker every close-record writer anchors its machine block to — `/nxs.close`, `/nxs.fix`
+ * and `/nxs.intake` alike (record #176, invariant 5: the block is mandatory in every mode). The
+ * `range:` stamp lives inside the fenced YAML that follows it, which is why that is the position
+ * this reader reads first.
+ */
+export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
+
+/** The fenced YAML that follows the marker: an opening ```/```yaml line, then content, then a closing fence. */
+const MARKER_FENCE = /(?:^|\n)```(?:yaml)?[^\n]*\n([\s\S]*?)\n```/;
+
+type StampSource =
+    | { ok: true; yaml: string; origin: string }
+    | { ok: false; problem: DeriveProblem; message: string };
+
+/**
+ * Locate the YAML carrying the `range:` stamp. The marker-anchored block is the authoritative
+ * position and is tried first; leading frontmatter stays readable behind it so an entry written
+ * in that older shape still drains. Pure over the file contents.
+ */
+function findStampYaml(text: string, entry: string): StampSource {
+    const marker = text.indexOf(CLOSE_RECORD_MARKER);
+    if (marker >= 0) {
+        const fence = MARKER_FENCE.exec(text.slice(marker + CLOSE_RECORD_MARKER.length));
+        if (fence === null) {
+            return { ok: false, problem: "missing-range",
+                message: `close-record.md in ${entry} carries the ${CLOSE_RECORD_MARKER} marker but no fenced YAML block follows it; the 'range:' stamp is read from that block` };
+        }
+        return { ok: true, yaml: fence[1], origin: "the close-record machine block" };
+    }
+    const lines = text.split("\n");
+    if (lines[0]?.trim() !== "---") {
+        return { ok: false, problem: "missing-range",
+            message: `close-record.md in ${entry} carries neither the ${CLOSE_RECORD_MARKER} machine block nor frontmatter, so no 'range:' stamp; hub mode derives the diff only from the recorded range` };
+    }
+    const end = lines.slice(1).findIndex((l) => l.trim() === "---");
+    if (end === -1) {
+        return { ok: false, problem: "missing-range",
+            message: `close-record.md in ${entry} has an unterminated frontmatter block; no 'range:' stamp readable` };
+    }
+    return { ok: true, yaml: lines.slice(1, end + 1).join("\n"), origin: "frontmatter" };
+}
+
 /** Extract and validate the close record's `range:` stamp. Pure over the file contents. */
 export function parseRange(entryDir: string): ParseRangeResult {
     const entry = path.basename(entryDir);
@@ -70,21 +113,14 @@ export function parseRange(entryDir: string): ParseRangeResult {
         return fail("missing-close-record",
             `${file} does not exist; only closed entries are drainable, and the recorded range is read from close-record.md`);
     }
-    const lines = fs.readFileSync(file, "utf8").split("\n");
-    if (lines[0]?.trim() !== "---") {
-        return fail("missing-range",
-            `close-record.md in ${entry} has no frontmatter, so no 'range:' stamp; hub mode derives the diff only from the recorded range`);
-    }
-    const end = lines.slice(1).findIndex((l) => l.trim() === "---");
-    if (end === -1) {
-        return fail("missing-range", `close-record.md in ${entry} has an unterminated frontmatter block; no 'range:' stamp readable`);
-    }
+    const stamp = findStampYaml(fs.readFileSync(file, "utf8"), entry);
+    if (!stamp.ok) return fail(stamp.problem, stamp.message);
     let doc: unknown;
     try {
-        doc = parse(lines.slice(1, end + 1).join("\n"));
+        doc = parse(stamp.yaml);
     } catch (e) {
         const detail = e instanceof Error ? e.message : String(e);
-        return fail("malformed-range", `close-record.md in ${entry}: frontmatter is not valid YAML — ${detail}`);
+        return fail("malformed-range", `close-record.md in ${entry}: ${stamp.origin} is not valid YAML — ${detail}`);
     }
     const range = (doc as Record<string, unknown> | null)?.["range"];
     if (range === undefined || range === null) {
