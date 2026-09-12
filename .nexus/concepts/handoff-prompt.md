@@ -1,8 +1,8 @@
 ---
 title: "Handoff Prompt"
 aliases: ["fenced brief", "coding agent handoff", "sibling slices to leave alone", "quoted story text", "prompt fence", "slice not the learner's to build"]
-touches: ["teaching-session", "workbook-handoff", "teaching-plan", "learner-folder"]
-last_updated_by: "#407"
+touches: ["teaching-session", "workbook-handoff", "teaching-plan", "learner-folder", "focus-marking"]
+last_updated_by: "#456"
 status: active
 verification: verified
 ---
@@ -35,9 +35,14 @@ The words quoted are the state the plan pinned, not a live read, so the prompt n
 - [workbook-handoff](workbook-handoff.md) — the pause this prompt is written beside, recorded through the existing mechanism rather than a second one.
 - [teaching-plan](teaching-plan.md) — the slice marks, the pinned story text and the sibling list the prompt is rendered from.
 - [learner-folder](learner-folder.md) — where the prompt is kept, under the same rule as everything else personal.
+- [focus-marking](focus-marking.md) — the planning pass that decides a slice is not the learner's to build, long before this prompt is written.
 
 ## Decision Log
 
 ### 2026-09-07 — #407 — The quotation cannot forge its own close, and every other slice is a sibling
 
 The story's words are quoted because a number alone is not buildable, and the quotation is delimited by markers that grow until the quoted text does not contain them. A quotation whose closing marker the quoted text can write is not a quotation, since the text after it would read as the prompt's own words, and the prompt's own words are the fence. The rules come last, after the quotation closes. Sibling is read as every other slice in the plan because neither the epic nor the record defines it more narrowly, and a wrong narrower guess would leave a slice unnamed for the agent to touch. Refuted alternative: name only the slices adjacent in the dependency order. It reads more like what sibling suggests, but slices in one epic routinely share files, so an epic's slices are not isolated by adjacency.
+
+### 2026-09-11 — #456 — Reciprocal link from focus-marking
+
+The mark this prompt reads is now set by a planning pass, judged against the focus the learner recorded. Nothing here changed: that pass writes no sibling list of its own, leaving the rule stated here — every other slice in the plan — as the only definition, and it writes no prompt and starts no session, so a handed-off slice still reaches a coding agent only through this step.

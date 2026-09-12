@@ -1,8 +1,8 @@
 ---
 title: "Teaching Plan"
 aliases: ["plan of slices", "slice", "pinned story state", "declared suite command", "grading command", "control test", "handoff slice", "lesson stub"]
-touches: ["workbook-store", "teaching-session", "plan-drift-gate", "just-in-time-lesson", "return-verification", "handoff-prompt"]
-last_updated_by: "#407"
+touches: ["workbook-store", "teaching-session", "plan-drift-gate", "just-in-time-lesson", "return-verification", "handoff-prompt", "plan-draft"]
+last_updated_by: "#456"
 status: active
 verification: verified
 ---
@@ -37,9 +37,14 @@ Nothing infers the commands. A green light is worth exactly what the command beh
 - [just-in-time-lesson](just-in-time-lesson.md) — the lesson written into a slice, whose exercise names facts taken only from here.
 - [return-verification](return-verification.md) — the suite, grading and control commands it runs, all declared here.
 - [handoff-prompt](handoff-prompt.md) — the prompt for a handoff slice, rendered from the marks, pinned text and sibling list held here.
+- [plan-draft](plan-draft.md) — the uncommitted draft of stubs a planning pass writes, which approval turns into this plan.
 
 ## Decision Log
 
 ### 2026-09-07 — #407 — The plan is one file of slices, and a handoff slice names no lesson
 
 The order, the pinned state, the marks, the concepts, the branch and the pinning test all live in the one plan file, because two committed documents describing one plan can disagree with nothing in a position to notice. A handoff slice declares no lesson, so it never enters the reading order: a lesson for it would be a stub that never becomes a page, and the navigation would advertise a lesson that will never exist. The suite and grading commands are declared rather than inferred, since an inferred command that runs part of the suite makes the gate decorative while still looking like a gate. Refuted alternative: a separate teaching plan beside the existing plan file. It separates what the renderer orders from what the session teaches, and it would leave the earlier renderer's contract untouched, but it is exactly the two-documents-describing-one-plan shape this decision refuses.
+
+### 2026-09-11 — #456 — Reciprocal link from plan-draft
+
+A planning pass now produces this plan's slices, as stubs in an uncommitted draft that approval turns into the committed plan. The contract here is unchanged by that: a stub adopts these field names rather than defining a second set, and the one thing it adds beside them — the concepts a slice assumes — is a field the readers here ignore.
