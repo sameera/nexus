@@ -1,8 +1,8 @@
 ---
 title: "Intake Lane"
 aliases: ["landed-change lane", "landed-change intake", "intake entry", "sixth entry point", "recording a landed change"]
-touches: ["fix-lane", "fix-razor", "ephemeral-handoff-entry", "distiller", "provenance-reference", "pr-worktree", "decision-record", "conformance-gate", "backlog-stub", "distillation-pr"]
-last_updated_by: "#483"
+touches: ["fix-lane", "fix-razor", "ephemeral-handoff-entry", "distiller", "provenance-reference", "pr-worktree", "decision-record", "conformance-gate", "backlog-stub", "distillation-pr", "entry-slot-ownership"]
+last_updated_by: "#515"
 status: active
 verification: verified
 ---
@@ -37,9 +37,14 @@ The fix razor blocks a change that would create a page or alter what one asserts
 - [conformance-gate](conformance-gate.md) — refuses to run against this lane's entries, which carry none of the three things it checks.
 - [backlog-stub](backlog-stub.md) — where the pull request's kept follow-ups land, filed through the same batch path a close already uses.
 - [distillation-pr](distillation-pr.md) — flags this lane's writes distinctly in its body, since their why was reviewed only there.
+- [entry-slot-ownership](entry-slot-ownership.md) — refuses an epic reference and a foreign-kind collision here, before this lane's own refusals; re-recording is refused once this lane has filed its deferred-scope issues.
 
 ## Decision Log
 
 ### 2026-09-08 — #483 — A third entry kind, bought with one review instead of two
 
 The fix razor's own bound left a gap: a change that needs to create a page or alter what one asserts is refused, correctly, and the only route left was a retroactive epic that manufactures acceptance criteria from a diff — for a change that has already shipped, invented planning ceremony over code nobody is choosing anymore. This lane closes that gap by reading the pull request as the reasoning source it already is, rather than asking the lead to reconstruct it. The reference, range, and refusal rules it shares with the fix lane were extracted into one skill precisely so the two lanes cannot silently diverge; each keeps its own entry template, so a re-recorded fix entry stays byte-identical to before. Refuted alternative: require a reason for every decision the diff shows, mirroring the fix lane's one required question — rejected because on a large pull request it turns the lane into an interview, and the lane stops being cheaper than the epic it replaces.
+
+### 2026-09-12 — #515 — The guardrails the sibling lane already had
+
+This lane could be pointed at an epic, or at a number that already carried a fix entry, and it would draft an entry anyway, because the two refusals guarding against that were written inside the sibling lane's own file rather than in the skill both lanes share. Loading the shared rule gives this lane both refusals at once. They run ahead of this lane's own refusal of anything that is not a pull request, so an epic issue is named as an epic instead of being sent to the sibling lane only to be refused there for the same reason, which is a two-step dead end. Re-running the lane against a pull request it has already recorded now replaces that entry, with one exception: an entry that already filed its deferred-scope issues is refused rather than replaced, because approving the same follow-ups again would file a second, duplicate set, and filing is the one act this lane cannot take back. Refuted alternative: carry the already-filed issue numbers into the replacement and present them as filed rather than as fresh options. It is the better long-term behaviour and it lost only on scope, because it changes the approval step itself rather than the replacement path.

@@ -1,8 +1,8 @@
 ---
 title: "Provenance Reference"
 aliases: ["provenance hop", "issue reference form", "cross-repo reference", "page blame", "reference substitution"]
-touches: ["concept-store", "append-only-decision-log", "fix-lane", "intake-lane"]
-last_updated_by: "#214"
+touches: ["concept-store", "append-only-decision-log", "fix-lane", "intake-lane", "entry-slot-ownership"]
+last_updated_by: "#515"
 status: active
 verification: verified
 ---
@@ -38,6 +38,7 @@ A reference may name an issue or a pull request. The two share one number namesp
 - [append-only-decision-log](append-only-decision-log.md) — each log entry is attributed by a provenance reference.
 - [fix-lane](fix-lane.md) — reads its single input in this grammar, so what resolves at the input is what reaches the page.
 - [intake-lane](intake-lane.md) — reads its one input in this same grammar, through a skill shared with the fix lane.
+- [entry-slot-ownership](entry-slot-ownership.md) — compares recorded references in this grammar, so a number's slot is judged by repository and not by number alone.
 
 ## Decision Log
 
@@ -60,3 +61,7 @@ Mechanical reciprocity fan-out: a second lane now reads its one input in this gr
 ### 2026-09-10 — #214 — Which repository qualifies a reference stops being positional
 
 Taking the first stamped range's repository was only ever right because a range never had more than one entry. Two questions had been answered by that one rule: which single repository an issue lives in, and which repositories a lead might have to chase. The first is now the sole distinct repository the range list names; where it names several, the drain asks each for the epic's issue number and takes the one title match, and asks the lead when that is not decisive. Guessing here is worse than asking, because a reference qualified against the wrong repository becomes a dead link on a page that is never rewritten. Refuted alternative: refuse any entry whose ranges span two repositories at this step. It is simpler and spends no lookup, but it strands an entry the reader can read perfectly well over a fact one title probe settles, and probing then asking is already how a single repository resolves the same ambiguity.
+
+### 2026-09-12 — #515 — Reciprocal link from entry-slot-ownership
+
+Mechanical reciprocity fan-out: the rule that decides which kind of entry holds a number's slot compares each candidate entry's recorded reference in this grammar, resolving a bare reference against the home repository, so two repositories that happen to share a number no longer collide. Nothing this page already asserted has changed.
