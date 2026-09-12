@@ -91,10 +91,10 @@ describe("resolveStories — a story-level pull request", () => {
         expect(r.stories).toEqual([493]);
     });
 
-    it("reads repo-qualified issue references out of the PR body", () => {
+    it("reads a body reference that names the issues repo and states scope", () => {
         const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
             closingIssues: [],
-            prBody: "Implements acme/hub#493 per the epic.",
+            prBody: "Implements acme/widget#493 per the epic.",
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
@@ -304,5 +304,52 @@ describe("resolveStories — what it refuses", () => {
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("classification-mode-mismatch");
+    });
+});
+
+describe("resolveStories — a reference qualified to another repository (story #565)", () => {
+    it("keeps a body reference naming another repository out of the story list", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements acme/widget#493. Builds on acme/hub#492.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("never names a reference to another repository among what a refusal considered", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements other/repo#493.",
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("no-story-candidates");
+        expect(r.error.message).not.toContain("#493");
+    });
+
+    it("ignores the platform closing-issue links of a pull request in another repository", () => {
+        // GitHub's closing links are same-repository by construction: for a member pull request
+        // they are member issue numbers, and a collision with a hub story would otherwise claim
+        // that story as implemented.
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            prRepo: "acme/member",
+            closingIssues: [493],
+            commitMessages: ["a\n\nCloses #492"],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([492]);
+    });
+
+    it("still reads the closing-issue links of a pull request in the issues repository", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            prRepo: "ACME/Widget",
+            closingIssues: [493],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
     });
 });

@@ -40,6 +40,13 @@ export interface CandidateSources {
     explicitStory?: number;
     /** The PR's linked/closing issue numbers (same-repository, PR body only; empty when none). */
     closingIssues: number[];
+    /**
+     * The repository the pull request itself lives in, as `owner/repo`. The platform's closing
+     * links are same-repository by construction, so for a member PR they are that member's issue
+     * numbers and mean nothing here; the rung contributes nothing unless this is the issues repo.
+     * Omitted means "not established" and leaves the rung alone.
+     */
+    prRepo?: string;
     /** Every commit message on the PR, scanned for closing trailers the PR body never carries. */
     commitMessages?: string[];
     /** The current branch name, scanned for an embedded issue number. */
@@ -54,13 +61,26 @@ interface Candidate {
 }
 
 const BRANCH_NUMBER_RE = /(?:^|[/-])(\d+)(?:[/-]|$)/;
-/** A repository-qualified issue reference, e.g. `acme/widget#493` — never a bare `#N`. */
-const BODY_REF_RE = /[\w.-]+\/[\w.-]+#(\d+)\b/g;
+/**
+ * A repository-qualified issue reference, e.g. `acme/widget#493` — never a bare `#N`, which in a
+ * member pull request names that member's own issue.
+ */
+const BODY_REF_RE = /([\w.-]+\/[\w.-]+)#(\d+)\b/g;
 /**
  * A closing reference in a commit message — GitHub's own keyword set, optionally repo-qualified.
  * Only a keyword counts: a bare `#N` in a commit body is a mention, not a statement of scope.
  */
 const TRAILER_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+([\w.-]+\/[\w.-]+)?#(\d+)\b/gi;
+
+/**
+ * Does a repository qualifier name the issues repository? The one implementation of that rule,
+ * shared by both rungs that read text a human wrote. A qualifier is only ever *compared* against
+ * the configured issues repository — never used as the target of a lookup — so text an external
+ * author controls cannot direct a query at a repository the workspace did not declare.
+ */
+function namesIssuesRepo(qualifier: string, slug: RepoSlug): boolean {
+    return qualifier.toLowerCase() === `${slug.owner}/${slug.repo}`.toLowerCase();
+}
 
 function gather(sources: CandidateSources, slug: RepoSlug): Candidate[] {
     const out: Candidate[] = [];
@@ -72,13 +92,15 @@ function gather(sources: CandidateSources, slug: RepoSlug): Candidate[] {
     };
 
     if (sources.explicitStory !== undefined) push(sources.explicitStory, "explicit");
-    for (const n of sources.closingIssues) push(n, "closing-issue");
+    if (sources.prRepo === undefined || namesIssuesRepo(sources.prRepo, slug)) {
+        for (const n of sources.closingIssues) push(n, "closing-issue");
+    }
     for (const message of sources.commitMessages ?? []) {
         for (const m of message.matchAll(TRAILER_RE)) {
             const qualifier: string | undefined = m[1];
             // A qualified trailer naming a different repository is a reference to that repo's
             // issue, not to a story of this epic — the one case we can rule out without asking.
-            if (qualifier !== undefined && qualifier.toLowerCase() !== `${slug.owner}/${slug.repo}`.toLowerCase()) continue;
+            if (qualifier !== undefined && !namesIssuesRepo(qualifier, slug)) continue;
             push(Number(m[2]), "commit-trailer");
         }
     }
@@ -87,7 +109,13 @@ function gather(sources: CandidateSources, slug: RepoSlug): Candidate[] {
         if (m) push(Number(m[1]), "branch-name");
     }
     if (sources.prBody) {
-        for (const m of sources.prBody.matchAll(BODY_REF_RE)) push(Number(m[1]), "pr-body");
+        for (const m of sources.prBody.matchAll(BODY_REF_RE)) {
+            // A qualifier naming another repository is ruled out here, before the number is ever
+            // looked up: the lookup is what can stop a run, and a foreign reference is not a near
+            // miss worth printing in a refusal either.
+            if (!namesIssuesRepo(m[1], slug)) continue;
+            push(Number(m[2]), "pr-body");
+        }
     }
     return out;
 }
