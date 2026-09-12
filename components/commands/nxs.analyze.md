@@ -74,13 +74,20 @@ target repository.
     qualified.) It gathers candidates in priority order — an explicit `--story <n>` when given, the
     PR's own linked/closing issues (only when the PR itself lives in the issues repository, since
     that linkage is same-repository by construction), the `Closes #<n>` trailers in its **commit
-    messages**, the issue number in its branch name, the references in its body qualified to the
-    issues repository — validates each against the live issue graph, and prints `{ epic, stories }`.
+    messages**, the issue number in its branch name, the references in its body that name the issues
+    repository *and* state scope — validates each against the live issue graph, and prints
+    `{ epic, stories }`.
 
     A body reference is read only when it carries a repository qualifier naming the issues
-    repository. A bare `#N` names the PR's own repository's issue and is never read, and a
-    reference qualified to another repository is ruled out before it is looked up — it does not
-    reach the story list, and does not appear among the candidates a refusal reports as considered.
+    repository **and** is introduced by a word that claims the work: GitHub's closing keywords, or
+    `implements` / `part of`. Both text rungs — the body and the commit trailers — share that one
+    grammar. A bare `#N` names the PR's own repository's issue and is never read, and a reference
+    qualified to another repository is ruled out before it is looked up: it does not reach the story
+    list, and does not appear among the candidates a refusal reports as considered. A reference that
+    merely *appears* in the body is a mention, not a claim — the story list names only the stories
+    the PR implements, because that list is stamped verbatim onto the receipt the epic's aggregate
+    reads. A same-repository reference set aside for claiming nothing is named in the refusal as a
+    near miss, with `--story <n>` offered as the way through.
 
     A candidate survives by being an issue this repository *files as* a story or an epic, read from
     the declared `github.classification` — never inferred from the issue graph's shape. Both PR

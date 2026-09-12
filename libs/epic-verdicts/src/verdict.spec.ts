@@ -56,6 +56,24 @@ describe("resolveStoryVerdict — trust and recency across a story's candidate p
         expect(r.verdict.head).toBe("a".repeat(40));
     });
 
+    it("does not count a story a receipt only cited, rather than named (story #567)", () => {
+        // The receipt names the story list the resolver returned. A pull request whose body
+        // merely cited a sibling story therefore leaves that story with no verdict, and the
+        // epic's close gate sees the gap instead of passing over code nobody read.
+        const run = ghRunner({
+            501: {
+                state: "OPEN",
+                head: "a".repeat(40),
+                base: "b".repeat(40),
+                reviews: [{ body: block({ stories: "496" }), submittedAt: "2026-09-01T00:00:00Z" }],
+            },
+        });
+        const r = resolveStoryVerdict(run, { epic: 212, story: 497, candidates: [{ pr: 501, repo: SLUG, cwd: "/repo" }] });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.found).toBe(false);
+    });
+
     it("reports no verdict when no candidate carries a trusted receipt", () => {
         const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), base: "b".repeat(40) } });
         const r = resolveStoryVerdict(run, { epic: 212, story: 496, candidates: [{ pr: 501, repo: SLUG, cwd: "/repo" }] });
