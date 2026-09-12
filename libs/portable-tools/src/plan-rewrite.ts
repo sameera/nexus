@@ -182,8 +182,8 @@ function assign(stub: PlanStub, owned: Set<string>): PlanStub {
  * sits outside the roadmap is a real prerequisite nobody here will build, so it constrains nothing.
  */
 function blockersWithin(slices: readonly PlanStub[], edges: readonly StoryEdges[]): Map<number, number[]> {
-    const held: Set<number> = new Set(slices.map((stub) => stub.story));
-    const direct: Map<number, number[]> = new Map(slices.map((stub) => [stub.story, []]));
+    const held: Set<number> = new Set(slices.flatMap((stub) => (stub.story === undefined ? [] : [stub.story])));
+    const direct: Map<number, number[]> = new Map([...held].map((story) => [story, []]));
     for (const edge of edges) {
         if (!held.has(edge.story)) continue;
         direct.set(edge.story, edge.blockedBy.filter((blocker) => held.has(blocker) && blocker !== edge.story));
@@ -200,7 +200,7 @@ function blockersWithin(slices: readonly PlanStub[], edges: readonly StoryEdges[
  * transitive edges is what makes that exclusion lossless.
  */
 function learnerBlockers(slices: readonly PlanStub[], direct: Map<number, number[]>): Map<number, number[]> {
-    const learners: Set<number> = new Set(slices.filter((stub) => stub.builds === "learner").map((stub) => stub.story));
+    const learners: Set<number> = new Set(slices.filter((stub) => stub.builds === "learner" && stub.story !== undefined).map((stub) => stub.story as number));
     const resolved: Map<number, number[]> = new Map();
     const walk = (story: number, seen: Set<number>): number[] => {
         const found: number[] = [];
@@ -221,6 +221,84 @@ function appendNumbers(into: number[], from: readonly number[]): void {
 }
 
 /**
+ * Decide which concepts need a scaffold, and which only need the order rearranging (story #559).
+ *
+ * The restraint is the whole of the story: reordering is tried first, and a scaffold is the last
+ * resort. So the question "could this concept be taught in time" is answered from the **dependency
+ * edges** — whether the graph permits the concept's introducer to precede the slice that assumes it
+ * — rather than from whichever order the greedy pass happens to land on. Reachability is a property
+ * of the edges, so the answer is the same on every run; deciding from the chosen order would instead
+ * make the number of scaffolds depend on the selection rule.
+ *
+ * Every satisfiable need becomes an **added edge** on the learner-slice graph, and the ordering pass
+ * then satisfies them all by construction. Avoiding a scaffold outranks minimising one step's load,
+ * so minimality is over the orders these added edges permit. The restraint is read one concept at a
+ * time, so where the added edges cannot all hold together the pass drops the ones that would close a
+ * cycle — taking them in ascending order of the assuming story, then in the merged vocabulary's own
+ * order — and scaffolds each dropped concept.
+ *
+ * Two cases are decided before reachability is consulted. A concept **no slice of the roadmap
+ * introduces** is treated as one no order could deliver, and is scaffolded rather than faulted: every
+ * roadmap's first slices stand on background no story teaches, and placing required theory
+ * immediately before the exercise is this feature's own premise. A concept only a **handed-off**
+ * story would introduce is never scaffolded — that is the plan being wrong rather than tight, and a
+ * scaffold there would cover up the defect the coverage check exists to surface.
+ */
+function decideScaffolds(
+    slices: readonly PlanStub[],
+    blockers: Map<number, number[]>,
+    vocabulary: readonly VocabularyEntry[],
+    declared: readonly string[],
+    handoffOnly: ReadonlySet<string>,
+): Map<number, string[]> {
+    const rank: Map<string, number> = new Map(vocabulary.map((entry, index) => [entry.id, index]));
+    const learners: PlanStub[] = slices.filter((stub) => stub.builds === "learner" && stub.story !== undefined);
+    const introducers: Map<string, number[]> = new Map();
+    for (const stub of [...learners].sort((a, b) => (a.story as number) - (b.story as number))) {
+        for (const id of stub.concepts) introducers.set(id, [...(introducers.get(id) ?? []), stub.story as number]);
+    }
+    const satisfied: Set<string> = new Set(declared);
+
+    /** Whether `blocker` already blocks `story`, transitively — so an edge the other way would cycle. */
+    const blocks = (blocker: number, story: number): boolean => {
+        const seen: Set<number> = new Set([story]);
+        const stack: number[] = [...(blockers.get(story) ?? [])];
+        while (stack.length > 0) {
+            const next: number = stack.pop() as number;
+            if (next === blocker) return true;
+            if (seen.has(next)) continue;
+            seen.add(next);
+            stack.push(...(blockers.get(next) ?? []));
+        }
+        return false;
+    };
+
+    const needed: { story: number; concept: string }[] = [];
+    for (const stub of learners) {
+        for (const id of stub.assumes) if (!satisfied.has(id)) needed.push({ story: stub.story as number, concept: id });
+    }
+    needed.sort((a, b) => a.story - b.story || (rank.get(a.concept) ?? rank.size) - (rank.get(b.concept) ?? rank.size));
+
+    const scaffolds: Map<number, string[]> = new Map();
+    for (const { story, concept } of needed) {
+        if (handoffOnly.has(concept)) continue;
+        // The lowest-numbered introducer the graph still permits to go first. An introducer this
+        // slice already blocks would close a cycle, so it is passed over rather than forced.
+        const introducer: number | undefined = (introducers.get(concept) ?? []).find((candidate) => candidate !== story && !blocks(story, candidate));
+        if (introducer === undefined) {
+            const held: string[] = scaffolds.get(story) ?? [];
+            if (!held.includes(concept)) scaffolds.set(story, [...held, concept]);
+            continue;
+        }
+        blockers.set(story, [...new Set([...(blockers.get(story) ?? []), introducer])]);
+    }
+    for (const [story, concepts] of scaffolds) {
+        scaffolds.set(story, [...concepts].sort((a, b) => (rank.get(a) ?? rank.size) - (rank.get(b) ?? rank.size) || a.localeCompare(b)));
+    }
+    return scaffolds;
+}
+
+/**
  * Order the learner slices by step-wise greedy selection (record #562).
  *
  * At each position the candidates are the slices whose blockers are already placed, and the pass
@@ -234,21 +312,31 @@ function appendNumbers(into: number[], from: readonly number[]): void {
  * against a step the first time it appears, and the objective the selection minimises is then
  * literally the number of new concepts the step introduces.
  */
-function orderLearnerSlices(slices: readonly PlanStub[], blockers: Map<number, number[]>): PlanStub[] {
-    const remaining: PlanStub[] = slices.filter((stub) => stub.builds === "learner").sort((a, b) => a.story - b.story);
+function orderLearnerSlices(slices: readonly PlanStub[], blockers: Map<number, number[]>, scaffolds: Map<number, string[]>): PlanStub[] {
+    const remaining: PlanStub[] = slices
+        .filter((stub) => stub.builds === "learner" && stub.story !== undefined)
+        .sort((a, b) => (a.story as number) - (b.story as number));
     const placed: Set<number> = new Set();
     const owned: Set<string> = new Set();
     const order: PlanStub[] = [];
 
     while (remaining.length > 0) {
-        const ready: PlanStub[] = remaining.filter((stub) => (blockers.get(stub.story) ?? []).every((blocker) => placed.has(blocker)));
+        const ready: PlanStub[] = remaining.filter((stub) => (blockers.get(stub.story as number) ?? []).every((blocker) => placed.has(blocker)));
         // The roadmap resolver refuses a cycle before a plan is ever drafted, so nothing should be
         // unreachable here; taking the lowest remaining story keeps the pass total if one ever is.
         const candidates: PlanStub[] = ready.length > 0 ? ready : remaining;
         const cost = (stub: PlanStub): number => new Set(stub.concepts.filter((id) => !owned.has(id))).size;
         const chosen: PlanStub = candidates.reduce((best, stub) => (cost(stub) < cost(best) ? stub : best));
         remaining.splice(remaining.indexOf(chosen), 1);
-        placed.add(chosen.story);
+        placed.add(chosen.story as number);
+        // A scaffold is placed immediately before the slice whose assumption forced it, and it owns
+        // the concept it teaches — so a later slice that also proposed it assumes it instead, and no
+        // concept is introduced twice.
+        for (const concept of scaffolds.get(chosen.story as number) ?? []) {
+            if (owned.has(concept)) continue;
+            owned.add(concept);
+            order.push({ scaffold: concept, need: chosen.story as number, builds: "learner", concepts: [concept], assumes: [] });
+        }
         order.push(assign(chosen, owned));
     }
     return order;
@@ -303,16 +391,16 @@ function splitOverLimit(order: readonly PlanStub[], vocabulary: readonly Vocabul
  * placed, so no slice precedes a slice that blocks it, transitively or through a handoff.
  */
 function placeHandoffs(slices: readonly PlanStub[], order: readonly PlanStub[], direct: Map<number, number[]>): PlanStub[] {
-    const waiting: PlanStub[] = slices.filter((stub) => stub.builds === "handoff").sort((a, b) => a.story - b.story);
+    const waiting: PlanStub[] = slices.filter((stub) => stub.builds === "handoff").sort((a, b) => (a.story as number) - (b.story as number));
     const placed: Set<number> = new Set();
     const out: PlanStub[] = [];
     const drain = (): void => {
         for (let moved = true; moved; ) {
             moved = false;
             for (let i = 0; i < waiting.length; i++) {
-                if (!(direct.get(waiting[i].story) ?? []).every((blocker) => placed.has(blocker))) continue;
+                if (!(direct.get(waiting[i].story as number) ?? []).every((blocker) => placed.has(blocker))) continue;
                 const stub: PlanStub = waiting.splice(i--, 1)[0];
-                placed.add(stub.story);
+                placed.add(stub.story as number);
                 out.push({ ...stub, concepts: [], assumes: [] });
                 moved = true;
             }
@@ -321,7 +409,7 @@ function placeHandoffs(slices: readonly PlanStub[], order: readonly PlanStub[], 
     drain();
     for (const stub of order) {
         out.push(stub);
-        placed.add(stub.story);
+        if (stub.story !== undefined) placed.add(stub.story);
         drain();
     }
     for (const stub of waiting) out.push({ ...stub, concepts: [], assumes: [] });
@@ -352,6 +440,12 @@ function placeHandoffs(slices: readonly PlanStub[], order: readonly PlanStub[], 
  * diagnosed by reading the plan, so withholding it would force the reviewer to reconstruct from a
  * terminal report the very document that exists to save them that work.
  */
+/** The concepts only a handed-off story would introduce. Those are never scaffolded (invariant 27). */
+function handoffOnly(slices: readonly PlanStub[], handoffConcepts: ReadonlyMap<number, readonly string[]>): Set<string> {
+    const byLearner: Set<string> = new Set(slices.filter((stub) => stub.builds === "learner").flatMap((stub) => stub.concepts));
+    return new Set([...handoffConcepts.values()].flat().filter((id) => !byLearner.has(id)));
+}
+
 function checkCoverage(slices: readonly PlanStub[], declared: readonly string[], handoffConcepts: ReadonlyMap<number, readonly string[]>): CoverageVerdict {
     const fromHandoff: Map<string, number> = new Map();
     for (const story of [...handoffConcepts.keys()].sort((a, b) => a - b)) {
@@ -386,15 +480,23 @@ function checkCoverage(slices: readonly PlanStub[], declared: readonly string[],
  * finished plan, writing no plan content of its own.
  */
 export function rewritePlan(draft: PlanDraft, options: RewriteOptions = {}): PlanDraft {
+    const declaredConcepts: string[] = (draft.declared ?? []).map((entry) => entry.concept);
     let slices: PlanStub[];
     if (options.edges === undefined) {
         const owned: Set<string> = new Set();
         slices = draft.slices.map((stub) => assign(stub, owned));
     } else {
         const direct: Map<number, number[]> = blockersWithin(draft.slices, options.edges);
-        const order: PlanStub[] = orderLearnerSlices(draft.slices, learnerBlockers(draft.slices, direct));
+        const blockers: Map<number, number[]> = learnerBlockers(draft.slices, direct);
+        const scaffolds: Map<number, string[]> = decideScaffolds(
+            draft.slices,
+            blockers,
+            draft.vocabulary ?? [],
+            declaredConcepts,
+            handoffOnly(draft.slices, options.handoffConcepts ?? new Map()),
+        );
+        const order: PlanStub[] = orderLearnerSlices(draft.slices, blockers, scaffolds);
         slices = placeHandoffs(draft.slices, splitOverLimit(order, draft.vocabulary ?? []), direct);
     }
-    const declared: string[] = (draft.declared ?? []).map((entry) => entry.concept);
-    return { ...draft, slices, coverage: checkCoverage(slices, declared, options.handoffConcepts ?? new Map()) };
+    return { ...draft, slices, coverage: checkCoverage(slices, declaredConcepts, options.handoffConcepts ?? new Map()) };
 }

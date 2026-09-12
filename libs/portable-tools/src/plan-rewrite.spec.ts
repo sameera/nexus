@@ -7,6 +7,7 @@ import { stringify } from "yaml";
 import { STEP_CONCEPT_LIMIT, applyDeclaration, rewritePlan, type Declaration, type DeclarationResult, type RewriteOptions, type StoryEdges } from "./plan-rewrite.js";
 import { readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { LEARNER_IGNORE_RULE } from "./learner-store.js";
+import { recordExtraction } from "./concept-extraction.js";
 import { StubError, readPlanDraft, validateDraft, validateStub, writePlanDraft, type CoverageVerdict, type PlanDraft, type PlanStub } from "./plan-draft.js";
 import { writeRoadmap, type Roadmap } from "./roadmap.js";
 import { runWorkbookCli } from "./workbook-cli.js";
@@ -352,7 +353,7 @@ describe("coverage is verified before anything reaches the gate", () => {
 
     it("faults a learner slice assuming a concept only a later learner slice introduces", () => {
         const draft: PlanDraft = { slices: [learner(11, ["a"], ["b"]), learner(12, ["b"])] };
-        const verdict: CoverageVerdict = coverage(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] });
+        const verdict: CoverageVerdict = rewritePlan(draft).coverage as CoverageVerdict;
         expect(verdict.clean).toBe(false);
         expect(verdict.gaps).toEqual([{ concept: "b", story: 11 }]);
     });
@@ -370,10 +371,7 @@ describe("coverage is verified before anything reaches the gate", () => {
 
     it("names every gap rather than only the first", () => {
         const draft: PlanDraft = { slices: [learner(11, ["a"], ["b", "c"]), handoff(13), learner(12, ["b"])] };
-        const verdict: CoverageVerdict = coverage(draft, {
-            edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }, { story: 13, blockedBy: [] }],
-            handoffConcepts: new Map([[13, ["c"]]]),
-        });
+        const verdict: CoverageVerdict = rewritePlan(draft, { handoffConcepts: new Map([[13, ["c"]]]) }).coverage as CoverageVerdict;
         expect(verdict.gaps).toEqual([
             { concept: "b", story: 11 },
             { concept: "c", story: 11, handedOff: 13 },
@@ -383,13 +381,15 @@ describe("coverage is verified before anything reaches the gate", () => {
     it("records the verdict with the plan, and writes the plan even when it fails", () => {
         const repo: string = initRepo();
         writeRoadmap(repo, ROADMAP);
-        writePlanDraft(repo, "alpha", { slices: [learner(11, ["drift"], ["pinned-state"]), learner(12, ["pinned-state"])] });
+        recordInterview(repo, ROADMAP, []);
+        recordExtraction(repo, ROADMAP, 12, JSON.stringify({ story: 12, introduces: [{ id: "pinned-state", gloss: "the state a plan records" }] }));
+        writePlanDraft(repo, "alpha", { slices: [learner(11, ["drift"], ["pinned-state"]), handoff(12)] });
         const captured: Captured = io(repo);
 
         expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], captured)).toBe(1);
         const plan: PlanDraft = readPlanDraft(repo, "alpha") as PlanDraft;
         expect(plan.coverage?.clean).toBe(false);
-        expect(plan.coverage?.gaps).toEqual([{ concept: "pinned-state", story: 11 }]);
+        expect(plan.coverage?.gaps).toEqual([{ concept: "pinned-state", story: 11, handedOff: 12 }]);
         expect(captured.err.join("\n")).toContain("pinned-state");
     });
 
@@ -438,7 +438,7 @@ describe("a slice that would teach more than one step can hold is split", () => 
     });
 
     it("makes a later part assume what the earlier parts introduced, keeping the original's own assumptions", () => {
-        const parts: PlanStub[] = split(many, ["z"]);
+        const parts: PlanStub[] = split(many, ["z"]).filter((stub) => stub.story === 11);
         expect(parts[0].assumes).toEqual(["z"]);
         expect(parts[1].assumes).toEqual(["z", "a", "b", "c"]);
     });
@@ -468,5 +468,82 @@ describe("a slice that would teach more than one step can hold is split", () => 
         expect(() => validateDraft({ slices: [learner(11, ["a"]), learner(11, ["b"])] })).toThrow(StubError);
         expect(() => validateDraft({ slices: [{ ...learner(11, ["a"]), part: 1 }, { ...learner(11, ["b"]), part: 3 }] })).toThrow(/part/);
         expect(() => validateStub({ story: 11, builds: "handoff", part: 1 }, 0)).toThrow(/part/);
+    });
+});
+
+describe("a scaffold is inserted only where no ordering could introduce a concept in time", () => {
+    const VOCAB = ["a", "b", "c"].map((id) => ({ id, gloss: `what ${id} is`, aliases: [] }));
+
+    function scaffoldsOf(plan: PlanDraft): PlanStub[] {
+        return plan.slices.filter((stub) => stub.scaffold !== undefined);
+    }
+
+    it("places a scaffold before a slice whose concept no permitted ordering could introduce in time", () => {
+        // #12 introduces "a", but #12 is blocked by #11, so no permitted order puts it first.
+        const draft: PlanDraft = { slices: [learner(11, ["b"], ["a"]), learner(12, ["a"])], vocabulary: VOCAB };
+        const plan: PlanDraft = rewritePlan(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] });
+        const order: (number | string | undefined)[] = plan.slices.map((stub) => stub.scaffold ?? stub.story);
+        expect(order).toEqual(["a", 11, 12]);
+        expect(plan.coverage).toEqual({ clean: true, gaps: [] });
+    });
+
+    it("reorders instead, where some permitted ordering introduces the concept in time", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["b"], ["a"]), learner(12, ["a"])], vocabulary: VOCAB };
+        const plan: PlanDraft = rewritePlan(draft, { edges: [11, 12].map((story) => ({ story, blockedBy: [] })) });
+        expect(scaffoldsOf(plan)).toEqual([]);
+        expect(plan.slices.map((stub) => stub.story)).toEqual([12, 11]);
+    });
+
+    it("scaffolds a concept no slice of the roadmap introduces, rather than faulting it", () => {
+        const plan: PlanDraft = rewritePlan({ slices: [learner(11, ["b"], ["a"])], vocabulary: VOCAB }, { edges: [{ story: 11, blockedBy: [] }] });
+        expect(scaffoldsOf(plan).map((stub) => stub.scaffold)).toEqual(["a"]);
+        expect(plan.coverage?.clean).toBe(true);
+    });
+
+    it("never scaffolds a concept only a handed-off story would introduce", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["b"], ["a"]), handoff(12)], vocabulary: VOCAB };
+        const plan: PlanDraft = rewritePlan(draft, { edges: [11, 12].map((story) => ({ story, blockedBy: [] })), handoffConcepts: new Map([[12, ["a"]]]) });
+        expect(scaffoldsOf(plan)).toEqual([]);
+        expect(plan.coverage?.gaps).toEqual([{ concept: "a", story: 11, handedOff: 12 }]);
+    });
+
+    it("names no story, is identified by its one concept, and records the need that forced it", () => {
+        const plan: PlanDraft = rewritePlan({ slices: [learner(11, ["b"], ["a"])], vocabulary: VOCAB }, { edges: [{ story: 11, blockedBy: [] }] });
+        expect(scaffoldsOf(plan)).toEqual([{ scaffold: "a", need: 11, builds: "learner", concepts: ["a"], assumes: [] }]);
+    });
+
+    it("gives a slice one scaffold per concept it could not get in time", () => {
+        const plan: PlanDraft = rewritePlan({ slices: [learner(11, ["c"], ["a", "b"])], vocabulary: VOCAB }, { edges: [{ story: 11, blockedBy: [] }] });
+        expect(scaffoldsOf(plan).map((stub) => stub.scaffold)).toEqual(["a", "b"]);
+        for (const stub of scaffoldsOf(plan)) expect(stub.concepts).toHaveLength(1);
+    });
+
+    it("leaves the later introducer assuming the concept, so nothing introduces it twice", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["b"], ["a"]), learner(12, ["a"])], vocabulary: VOCAB };
+        const plan: PlanDraft = rewritePlan(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] });
+        const introduced: string[] = plan.slices.flatMap((stub) => stub.concepts);
+        expect(new Set(introduced).size).toBe(introduced.length);
+        expect(sliceFor(plan, 12).concepts).toEqual([]);
+        expect(sliceFor(plan, 12).assumes).toEqual(["a"]);
+    });
+
+    it("scaffolds nothing for a concept the learner declared they already know", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["b"], ["a"])], vocabulary: VOCAB, declared: [{ concept: "a", phrase: "I know a" }] };
+        expect(scaffoldsOf(rewritePlan(draft, { edges: [{ story: 11, blockedBy: [] }] }))).toEqual([]);
+    });
+
+    it("writes a slice with no story, and reads it back", () => {
+        const repo: string = initRepo();
+        writeRoadmap(repo, ROADMAP);
+        writePlanDraft(repo, "alpha", { slices: [learner(11, ["drift"], ["pinned-state"])], vocabulary: VOCAB });
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
+        expect(readPlanDraft(repo, "alpha")?.slices.map((stub) => stub.scaffold ?? stub.story)).toEqual(["pinned-state", 11]);
+    });
+
+    it("refuses a scaffold that names a story, teaches more than its one concept, or records no need", () => {
+        expect(() => validateStub({ scaffold: "a", need: 11, builds: "learner", concepts: ["a", "b"] }, 0)).toThrow(/one concept/);
+        expect(() => validateStub({ scaffold: "a", builds: "learner", concepts: ["a"] }, 0)).toThrow(/need/);
+        expect(() => validateStub({ scaffold: "a", need: 11, story: 11, builds: "learner", concepts: ["a"] }, 0)).toThrow(/no story/);
+        expect(() => validateStub({ scaffold: "a", need: 11, builds: "handoff", concepts: ["a"] }, 0)).toThrow(/learner/);
     });
 });

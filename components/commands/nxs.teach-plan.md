@@ -205,6 +205,15 @@ where the original sat, and a later part assumes what the earlier parts taught. 
 within the limit stays one slice. So the draft may now hold several slices for one story, and a
 slice's identity is its story plus its part.
 
+**Scaffolds.** Where a slice assumes a concept that no permitted ordering of the real work could
+introduce beforehand, a teaching step is inserted immediately before it. Reordering is tried first
+and a scaffold is the last resort, so a concept some permitted order could deliver in time gets that
+order instead of a scaffold. A scaffold teaches exactly one concept, names no story, is identified by
+that concept and records which slice's assumption forced it — that is what the reviewer at the gate
+argues down, one scaffold at a time. A concept no story on the roadmap introduces at all is
+scaffolded too; a concept only a handed-off story would introduce never is, because that is the focus
+boundary being wrong and a scaffold would hide it.
+
 **Coverage.** The pass then checks the finished plan, last, and names every gap rather than only the
 first. A gap is a bug in the plan, and it is catchable here — before a word of any lesson is written.
 Two readings are deliberately not gaps: a concept no story on the roadmap introduces at all is

@@ -23,7 +23,13 @@ behaviour says so.
   fit, spread as evenly as those parts allow, sitting consecutively where the original sat and each
   naming the same story; a later part assumes what the earlier parts taught. The plan draft
   therefore admits **several slices for one story**, each saying which part of it it is, where
-  before one story was always one slice. The rewrite then checks the finished plan
+  before one story was always one slice. Where a slice assumes a concept that no permitted ordering
+  of the real work could introduce beforehand, the rewrite inserts a **scaffold** immediately before
+  it — a teaching step that teaches exactly one concept, names no story, is identified by that
+  concept and records which slice's assumption forced it. Reordering is tried first, so a concept
+  some permitted order could deliver in time gets that order rather than a scaffold; a concept no
+  story introduces at all is scaffolded; a concept only a handed-off story would introduce never is.
+  The draft contract therefore also admits a **slice with no story**. The rewrite then checks the finished plan
   for coverage and names **every** gap: a learner slice assuming a concept no earlier learner slice
   introduces, and — named as such, with the story it came from — a learner slice assuming a concept
   only a handed-off story would introduce, which says the focus boundary is drawn in the wrong

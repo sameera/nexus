@@ -50,7 +50,16 @@ export const CONCEPT_IDENTIFIER: RegExp = /^(?!(?:true|false|null)$)[a-z][a-z0-9
 
 /** One slice of the draft: the shipped plan's story, mark and introduced concepts, plus what it assumes. */
 export interface PlanStub {
-    story: number;
+    /** The roadmap story this slice builds. Absent exactly on a scaffold, which builds nothing. */
+    story?: number;
+    /**
+     * The one concept a scaffold teaches, which is also its identity. Present exactly on a scaffold —
+     * a teaching step inserted where no permitted ordering of the real work could introduce a concept
+     * before a slice needed it (record #562).
+     */
+    scaffold?: string;
+    /** The story of the slice whose assumption forced this scaffold. Present exactly on a scaffold. */
+    need?: number;
     builds: SliceMark;
     /**
      * Which part of its story this slice is, 1-based, when the story became several slices. Absent
@@ -118,7 +127,7 @@ export interface PlanDraft {
 }
 
 /** The only fields a stub may carry. Anything else — prose, a pinned state, a source — is refused. */
-const STUB_FIELDS: readonly string[] = ["story", "builds", "part", "concepts", "assumes"];
+const STUB_FIELDS: readonly string[] = ["story", "scaffold", "need", "builds", "part", "concepts", "assumes"];
 
 /** Raised instead of writing a stub the shipped teaching session could not read as it stands. */
 export class StubError extends Error {
@@ -144,6 +153,46 @@ function identifiers(value: unknown, field: string, where: string): string[] {
 }
 
 /**
+ * Read one scaffold: a learner slice with no story, identified by the one concept it teaches, and
+ * recording the need that forced it.
+ *
+ * One concept per scaffold keeps each scaffold individually refutable at the approval gate, where
+ * the reviewer is judging restraint — a scaffold justified by three separate needs cannot be argued
+ * down one need at a time. It carries no story because it builds nothing on the roadmap, and that
+ * absence is also what lets the learner see it as a teaching step rather than as one of the
+ * roadmap's stories.
+ */
+function validateScaffold(record: Record<string, unknown>, where: string): PlanStub {
+    const scaffold: string = typeof record["scaffold"] === "string" ? record["scaffold"] : "";
+    if (!CONCEPT_IDENTIFIER.test(scaffold)) {
+        throw new StubError(`${where} is a scaffold identified by ${JSON.stringify(record["scaffold"] ?? null)}, which is not a concept identifier.`);
+    }
+    const at: string = `${where} (scaffold ${scaffold})`;
+    if (record["story"] !== undefined) {
+        throw new StubError(`${at} names a story. A scaffold builds nothing on the roadmap, so it carries no story — that absence is what makes it read as a teaching step.`);
+    }
+    if (record["part"] !== undefined) throw new StubError(`${at} carries a 'part'. A scaffold teaches one concept, so there is nothing of it to split.`);
+    if (record["builds"] !== "learner") {
+        throw new StubError(`${at} is marked ${JSON.stringify(record["builds"] ?? null)}. A scaffold is a learner slice, and this stage adds no third mark.`);
+    }
+    const need: unknown = record["need"];
+    if (typeof need !== "number" || !Number.isInteger(need) || need <= 0) {
+        throw new StubError(`${at} records no 'need'. A scaffold records which slice's assumption forced it, because that is the reason a reviewer checks.`);
+    }
+    const extra: string[] = Object.keys(record).filter((key) => !STUB_FIELDS.includes(key));
+    if (extra.length > 0) throw new StubError(`${at} carries ${extra.map((key) => `'${key}'`).join(", ")}, which a scaffold does not.`);
+
+    const concepts: string[] = identifiers(record["concepts"], "concepts", at);
+    if (concepts.length !== 1 || concepts[0] !== scaffold) {
+        throw new StubError(`${at} introduces ${concepts.join(", ") || "nothing"}. A scaffold introduces exactly one concept, the one that identifies it.`);
+    }
+    if (identifiers(record["assumes"], "assumes", at).length > 0) {
+        throw new StubError(`${at} assumes a concept. A scaffold is inserted to teach what nothing else could, so it stands on nothing itself.`);
+    }
+    return { scaffold, need, builds: "learner", concepts, assumes: [] };
+}
+
+/**
  * Read one stub, refusing anything the shipped plan contract would not accept as it stands. Pure:
  * it returns the stub or it throws, naming the slice and what is wrong with it.
  */
@@ -152,9 +201,12 @@ export function validateStub(raw: unknown, index: number): PlanStub {
     const record: Record<string, unknown> =
         typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 
+    const scaffold: unknown = record["scaffold"];
+    if (scaffold !== undefined) return validateScaffold(record, where);
+
     const story: unknown = record["story"];
     if (typeof story !== "number" || !Number.isInteger(story) || story <= 0) {
-        throw new StubError(`${where} names no single 'story'. A slice is one story at this stage, so a stub names exactly one.`);
+        throw new StubError(`${where} names no single 'story'. A slice builds one story, so a stub names exactly one — unless it is a scaffold, which builds none.`);
     }
     const at: string = `${where} (story #${story})`;
 
@@ -209,8 +261,17 @@ export function validateStub(raw: unknown, index: number): PlanStub {
  */
 export function validateDraft(draft: PlanDraft): PlanDraft {
     const slices: PlanStub[] = draft.slices.map((stub, index) => validateStub(stub, index));
+    const scaffolded: Set<string> = new Set();
+    for (const stub of slices) {
+        if (stub.scaffold === undefined) continue;
+        if (scaffolded.has(stub.scaffold)) throw new StubError(`${stub.scaffold} has two scaffolds. A scaffold is identified by the one concept it teaches.`);
+        scaffolded.add(stub.scaffold);
+    }
     const byStory: Map<number, PlanStub[]> = new Map();
-    for (const stub of slices) byStory.set(stub.story, [...(byStory.get(stub.story) ?? []), stub]);
+    for (const stub of slices) {
+        if (stub.story === undefined) continue;
+        byStory.set(stub.story, [...(byStory.get(stub.story) ?? []), stub]);
+    }
     for (const [story, group] of byStory) {
         if (group.length === 1 && group[0].part === undefined) continue;
         const parts: number[] = group.map((stub) => stub.part ?? 0).sort((a, b) => a - b);

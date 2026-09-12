@@ -33,3 +33,13 @@
 - **Choice:** `PlanStub.part?: number`, absent on an unsplit slice; `validateDraft` requires a story's group to be exactly 1..n.
 - **Why:** Record #562 makes a slice's identity "story plus which part", and the consecutive-run check is what distinguishes a legitimate split from a duplicated stub without a second key.
 - **Refuted alternative:** A composite `{ index, of }` object, which states the total on every part and so can disagree with itself.
+
+## 2026-09-12 — Scaffolds are emitted inside the ordering traversal, not inserted afterwards
+- **Choice:** `decideScaffolds` runs before ordering and returns story → concepts; `orderLearnerSlices` emits each scaffold at the moment its needing slice is chosen, adding the concept to the owned set.
+- **Why:** A scaffold introduces a concept a later slice also proposed; emitting it inside the one traversal is what keeps invariant 2 (one owner per concept) without a second ownership pass.
+- **Refuted alternative:** Splice scaffolds into the finished order, then re-run ownership assignment — an extra pass over the same data, and the iteration record #562 forbids.
+
+## 2026-09-12 — The non-handed-off coverage gap stays, exercised through the edge-less rewrite
+- **Choice:** `checkCoverage` keeps the "no earlier slice introduces it" gap even though #559's scaffolds now remove that class whenever the roadmap's edges are supplied.
+- **Why:** The check is the last pass over the finished plan and must be true of whatever sequence it is handed; it is reachable through `rewritePlan` without edges, which the tests use.
+- **Refuted alternative:** Reduce coverage to the handed-off case only, which would make the check silently depend on the scaffolding pass having run.
