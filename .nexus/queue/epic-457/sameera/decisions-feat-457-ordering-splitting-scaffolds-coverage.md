@@ -48,3 +48,8 @@
 - **Choice:** Did not trim `.nexus/concepts/distiller.md` to clear the 25-bullet revisit advisory.
 - **Why:** It fails identically on `origin/main`, and `concept-page-capacity` invariant 4 forbids dropping an interaction for neighbour-list pressure; the trigger is invariant 7's prompt for a human revisit, which is the lead's call.
 - **Refuted alternative:** Drop a bullet from distiller.md, or raise `DEGREE_REVISIT_TRIGGER`, to make the suite exit 0.
+
+## 2026-09-12 — M1's fix (analyze-receipt) touches only `teaching-plan.ts`, not `workbook-plan.ts`
+- **Choice:** `PlanSlice.story`/`.pinned` became optional and a `scaffold` field was added, with `checkPlanDrift` skipping a storyless slice. `workbook-plan.ts`'s `PlanSliceRecord` (the committed `plan.yml` contract) was left untouched.
+- **Why:** Relaxing `PlanSliceRecord` the same way would force `pinned`/`branch`/`pinningTest` optional too, and `teaching-session.ts`/`lesson-writer.ts` read those unconditionally at ~15 sites (`briefFor`, `isFinished`, handoff resolution) — fixing the fallout means deciding what a scaffold's branch/pinning-test/lesson are, which is #559's own notes calling that "a decision the record owes," i.e. #458's scope, not a mechanical type relax.
+- **Refuted alternative:** Relax `PlanSliceRecord` too and patch every call site with guards or assertions to keep the compiler green — makes the same design call #458 owns, under cover of "just relaxing a type."

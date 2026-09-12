@@ -246,6 +246,21 @@ describe("a concept the learner declared they already know is never introduced",
         expect(captured.out.join("\n")).toContain("I have written vitest");
     });
 
+    it("reuses the recorded mapping on a later rewrite that passes no --declare", () => {
+        const repo: string = withInterview();
+        writePlanDraft(repo, "alpha", DRAFT);
+        const file: string = path.join(repo, "declare.yml");
+        fs.writeFileSync(file, stringify(KNOWN));
+        const captured: Captured = io(repo);
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo, "--declare", file], captured)).toBe(0);
+
+        const again: Captured = io(repo);
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], again)).toBe(0);
+        const plan: PlanDraft = readPlanDraft(repo, "alpha") as PlanDraft;
+        expect(plan.declared).toEqual([{ concept: "unit-test", phrase: "written vitest suites for years" }]);
+        expect(plan.slices.flatMap((stub) => stub.concepts)).not.toContain("unit-test");
+    });
+
     it("writes nothing when the declaration is refused", () => {
         const repo: string = withInterview();
         writePlanDraft(repo, "alpha", DRAFT);

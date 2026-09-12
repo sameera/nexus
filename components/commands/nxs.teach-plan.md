@@ -199,6 +199,14 @@ empty rather than guessing: a wrong match deletes a lesson the learner is never 
 notice, while an unmatched phrase only leaves them something they already knew. Code applies the
 mapping, refuses anything the vocabulary does not hold, and reports the phrases that matched nothing.
 
+**Pass `--declare` once.** The mapping you write is recorded on the draft, and every later `rewrite`
+of this roadmap — run with no `--declare` at all — reads it back and reuses it unchanged. Pass
+`--declare` again only when the interview was re-run or the merged vocabulary changed underneath it;
+re-judging the same phrases differently on a rerun is exactly what would break the second success
+metric this phase owes, that a roadmap rewritten twice with nothing changed holds the same slices in
+the same order. Between those two cases, run `rewrite` with no `--declare` and let the recorded
+mapping stand.
+
 **Splitting.** A slice that would introduce more concepts than one step can hold becomes several
 slices, each naming the same story and saying which part of it it is. The parts sit consecutively
 where the original sat, and a later part assumes what the earlier parts taught. A slice already

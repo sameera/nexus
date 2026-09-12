@@ -32,11 +32,17 @@ export interface PinnedStory {
     closed?: boolean;
 }
 
-/** One slice of the plan: the story it teaches, and the state that story was pinned to. */
+/**
+ * One slice of the plan: the story it teaches, and the state that story was pinned to. A scaffold
+ * (epic #457, story #559) names no story — it teaches a concept the roadmap itself did not
+ * introduce in time — so it pins nothing and never drifts; `story` and `pinned` are absent together
+ * on such a slice, and `scaffold` names the one concept it teaches instead.
+ */
 export interface PlanSlice {
-    story: number;
+    story?: number;
+    scaffold?: string;
     learnerBuilds: boolean;
-    pinned: PinnedStory;
+    pinned?: PinnedStory;
 }
 
 export interface TeachingPlan {
@@ -87,7 +93,7 @@ function changes(pinned: PinnedStory, live: LiveStory): string[] {
     return found;
 }
 
-function driftFor(slice: PlanSlice, live: LiveStory | null): DriftFinding | null {
+function driftFor(slice: PlanSlice & { story: number; pinned: PinnedStory }, live: LiveStory | null): DriftFinding | null {
     if (live === null) {
         return {
             story: slice.story,
@@ -113,7 +119,9 @@ function driftFor(slice: PlanSlice, live: LiveStory | null): DriftFinding | null
 export function checkPlanDrift(plan: TeachingPlan, read: IssueReader): DriftFinding[] {
     const findings: DriftFinding[] = [];
     for (const slice of plan.slices) {
-        const finding: DriftFinding | null = driftFor(slice, read(slice.story));
+        // A scaffold names no story, so there is no live issue to compare it against — it never drifts.
+        if (slice.story === undefined || slice.pinned === undefined) continue;
+        const finding: DriftFinding | null = driftFor({ ...slice, story: slice.story, pinned: slice.pinned }, read(slice.story));
         if (finding !== null) findings.push(finding);
     }
     return findings;
