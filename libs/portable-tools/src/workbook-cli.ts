@@ -48,6 +48,8 @@ import {
 } from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
+import { readPlanDraft, writePlanDraft, type PlanDraft } from "./plan-draft.js";
+import { rewritePlan } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 
@@ -59,6 +61,7 @@ export const WORKBOOK_SUBVERBS: readonly string[] = [
     "extract",
     "vocabulary",
     "draft",
+    "rewrite",
     "render",
     "check",
     "session",
@@ -128,6 +131,7 @@ const USAGE: string = [
     "                                      the stories still to extract, one story's text, or its list to check",
     "  vocabulary <name>                   every proposed concept identifier and its glosses",
     "  draft <name> --merge <file>         write the plan's stubs once every story has a checked list",
+    "  rewrite <name>                      rewrite the draft: one slice owns each concept",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -516,6 +520,29 @@ function runDraft(repoRoot: string, name: string, flags: Flags, io: WorkbookCliI
     return 0;
 }
 
+/**
+ * `nexus workbook rewrite` — the arithmetic pass over the stubs (epic #457).
+ *
+ * It reads the draft the planning pass wrote and replaces it whole. It re-reads no story, so a draft
+ * rewritten twice with nothing changed is the same draft.
+ */
+function runRewrite(repoRoot: string, name: string, io: WorkbookCliIo): number {
+    if (resolvedRoadmap(repoRoot, name, io) === null) return 1;
+    const draft: PlanDraft | null = readPlanDraft(repoRoot, name);
+    if (draft === null) {
+        io.stderr(`the roadmap ${name} has no plan draft to rewrite. Run 'nexus workbook draft ${name} --merge <file>' first — nothing was written.`);
+        return 1;
+    }
+    const rewritten: PlanDraft = rewritePlan(draft);
+    const introduced: number = rewritten.slices.reduce((count, stub) => count + stub.concepts.length, 0);
+    io.stdout(
+        `rewrote the plan draft for ${name}: ${rewritten.slices.length} slice${rewritten.slices.length === 1 ? "" : "s"} ` +
+        `introducing ${introduced} concept${introduced === 1 ? "" : "s"} between them, each taught once.`,
+    );
+    io.stdout(`  ${writePlanDraft(repoRoot, name, rewritten)}`);
+    return 0;
+}
+
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
     const [sub, ...rest] = argv;
     if (sub === undefined || !WORKBOOK_SUBVERBS.includes(sub)) {
@@ -545,6 +572,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         if (sub === "vocabulary") return runVocabulary(repoRoot, slug as string, io);
 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
+        if (sub === "rewrite") return runRewrite(repoRoot, slug as string, io);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);

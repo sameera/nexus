@@ -1,6 +1,6 @@
 ---
 name: nxs.teach-plan
-description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent and writes the plan's stubs as an uncommitted draft. Plans the roadmap; writes no lesson.
+description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent, writes the plan's stubs as an uncommitted draft and rewrites that draft so each concept is taught once. Plans the roadmap; writes no lesson.
 category: learning
 phase: planning
 references:
@@ -152,6 +152,21 @@ introduced still lead to the identifier a learner slice uses. Write no list of t
 alone: when the plan is taught, every other slice in it is one of them. If any story has no readable list, nothing is written and every
 failed story is named: run Phase 3 again, which extracts only those, then this phase. Never write or
 edit the draft by hand, never commit it, and never write into the committed workbook.
+
+# Phase 6 — Rewrite the draft
+
+```bash
+nexus workbook rewrite <name>
+```
+
+Code rewrites the draft it just wrote, as arithmetic over the stubs. It re-reads no story, so this
+phase holds no story text either. A concept is assigned to the first slice that proposes it, and
+every later slice that proposed the same concept assumes it instead — so a concept is introduced once
+and assumed thereafter. A slice whose every concept an earlier slice already teaches stays in the
+plan and introduces nothing: it builds something real while teaching nothing new, and dropping it
+would drop its story.
+
+Report the counts the command prints. Never edit the rewritten draft by hand, and never commit it.
 
 # Hand off
 

@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.35.0
+
+- `/nxs.teach-plan` gains Phase 6, the rewrite: `nexus workbook rewrite <name>` replaces the plan
+  draft the planning pass just wrote with one in which every concept is introduced once and assumed
+  thereafter. A concept belongs to the first slice that proposes it, and every later slice that
+  proposed the same concept now records it as assumed. A slice whose every concept an earlier slice
+  already teaches stays in the plan and introduces nothing, so its story is never dropped. The
+  rewrite reads no story text and no issue graph, so the planning session still holds neither.
+
 ## 0.34.0
 
 - `nxs-landed-reference`'s Section E gains E.2, the same-kind reconciliation: re-running `/nxs.fix`
