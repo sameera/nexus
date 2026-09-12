@@ -5,6 +5,43 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.36.0
+
+- `/nxs.teach-plan`, the planning phase that turns a planned **epic** into a teaching roadmap, gains
+  Phase 6 — the rewrite. `nexus workbook rewrite <name>` replaces the plan draft the planning pass
+  just wrote with one whose slices are **ordered** and in which every concept is introduced once and
+  assumed thereafter. The order respects the roadmap's dependency edges and, among the orders those
+  edges permit, takes at every step the slice introducing the fewest concepts not yet introduced;
+  ties break by ascending story number, so a roadmap rewritten twice with nothing changed holds the
+  same slices in the same order. Ownership follows from that order: a concept belongs to the first
+  slice that reaches it, and every later slice that proposed the same concept now records it as
+  assumed. A slice whose every concept an earlier slice already teaches stays in
+  the plan and introduces nothing, so its story is never dropped. With `--declare <file>` the phase
+  also removes what the learner said in the interview that they already know, reporting back which
+  of their words matched no concept the roadmap teaches. A slice that would introduce more than four
+  new concepts — the ceiling for what one sitting can carry — now becomes the fewest parts that all
+  fit, spread as evenly as those parts allow, sitting consecutively where the original sat and each
+  naming the same story; a later part assumes what the earlier parts taught. The plan draft
+  therefore admits **several slices for one story**, each saying which part of it it is, where
+  before one story was always one slice. Where a slice assumes a concept that no permitted ordering
+  of the real work could introduce beforehand, the rewrite inserts a **scaffold** immediately before
+  it — a teaching step that teaches exactly one concept, names no story, is identified by that
+  concept and records which slice's assumption forced it. Reordering is tried first, so a concept
+  some permitted order could deliver in time gets that order rather than a scaffold; a concept no
+  story introduces at all is scaffolded; a concept only a handed-off story would introduce never is.
+  The draft contract therefore also admits a **slice with no story**. Each handoff slice is then
+  placed immediately before the earliest learner slice it unblocks, with several handoffs for one
+  slice forming one block before it, and a handoff that unblocks nothing ordered after every learner
+  slice — so a coding agent is handed the non-focus work at the step that needs it rather than all
+  of it at the start. The rewrite then checks the finished plan
+  for coverage and names **every** gap: a learner slice assuming a concept no earlier learner slice
+  introduces, and — named as such, with the story it came from — a learner slice assuming a concept
+  only a handed-off story would introduce, which says the focus boundary is drawn in the wrong
+  place. A concept no story on the roadmap introduces at all is background, not a gap. The plan is
+  written whatever the verdict and carries it, but the phase stops rather than handing a plan with
+  gaps to approval. The rewrite reads no story text and no issue graph, so the planning session
+  still holds neither.
+
 ## 0.35.0
 
 - `analyze --pr` now resolves a pull request to the stories it actually implements. A reference in

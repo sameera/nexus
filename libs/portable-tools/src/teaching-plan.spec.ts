@@ -96,6 +96,15 @@ describe("checkPlanDrift", () => {
         const findings = checkPlanDrift(PLAN, read);
         expect(findings).toEqual([{ story: 460, state: "unverifiable", detail: expect.stringContaining("460") }]);
     });
+
+    it("never drifts a scaffold, which names no story and pins nothing", () => {
+        const withScaffold: TeachingPlan = { slices: [{ scaffold: "drift", learnerBuilds: true }, ...PLAN.slices] };
+        const read = readerOf({
+            460: { title: PLAN.slices[0].pinned.title, body: PLAN.slices[0].pinned.body, closed: false },
+            461: { title: PLAN.slices[1].pinned.title, body: PLAN.slices[1].pinned.body, closed: false },
+        });
+        expect(checkPlanDrift(withScaffold, read)).toEqual([]);
+    });
 });
 
 describe("gateNextLesson", () => {

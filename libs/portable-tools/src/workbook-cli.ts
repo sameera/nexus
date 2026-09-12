@@ -48,6 +48,8 @@ import {
 } from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
+import { readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft } from "./plan-draft.js";
+import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 
@@ -59,6 +61,7 @@ export const WORKBOOK_SUBVERBS: readonly string[] = [
     "extract",
     "vocabulary",
     "draft",
+    "rewrite",
     "render",
     "check",
     "session",
@@ -91,6 +94,8 @@ interface Flags {
     list?: string;
     /** The file holding the groups of identifiers the planning session decided name one concept. */
     merge?: string;
+    /** The file holding the phrases the planning session matched to concepts the learner already knows. */
+    declare?: string;
     positional: string[];
     unknown?: string;
 }
@@ -110,6 +115,7 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--answers") flags.answers = rest[++i];
         else if (token === "--list") flags.list = rest[++i];
         else if (token === "--merge") flags.merge = rest[++i];
+        else if (token === "--declare") flags.declare = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -128,6 +134,8 @@ const USAGE: string = [
     "                                      the stories still to extract, one story's text, or its list to check",
     "  vocabulary <name>                   every proposed concept identifier and its glosses",
     "  draft <name> --merge <file>         write the plan's stubs once every story has a checked list",
+    "  rewrite <name> [--declare <file>]   rewrite the draft: one slice owns each concept, less what",
+    "                                      the learner declared they already know",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -516,6 +524,92 @@ function runDraft(repoRoot: string, name: string, flags: Flags, io: WorkbookCliI
     return 0;
 }
 
+/**
+ * What each handed-off story would have introduced, under the identifiers the merge kept.
+ *
+ * A handoff stub carries no concepts, so the only record of them is that story's checked list, under
+ * the names its own extractor proposed — and the draft's vocabulary keeps every folded name as an
+ * alias, which is what joins the two (record #562). This is what lets a coverage gap name the story
+ * a concept came from, and so tell the reviewer that the focus boundary is what needs fixing.
+ */
+function handoffConcepts(repoRoot: string, roadmap: Roadmap, draft: PlanDraft): Map<number, string[]> {
+    const kept: Map<string, string> = new Map();
+    for (const entry of draft.vocabulary ?? []) {
+        kept.set(entry.id, entry.id);
+        for (const alias of entry.aliases) kept.set(alias, entry.id);
+    }
+    const handedOff: Set<number> = new Set(draft.slices.filter((stub) => stub.builds === "handoff").map((stub) => stub.story));
+    const concepts: Map<number, string[]> = new Map();
+    for (const list of readExtractions(repoRoot, roadmap).current) {
+        if (!handedOff.has(list.story)) continue;
+        concepts.set(list.story, [...new Set(list.introduces.map((entry) => kept.get(entry.id) ?? entry.id))]);
+    }
+    return concepts;
+}
+
+/**
+ * `nexus workbook rewrite` — the arithmetic pass over the stubs (epic #457).
+ *
+ * It reads the draft the planning pass wrote and replaces it whole. It re-reads no story, so a draft
+ * rewritten twice with nothing changed is the same draft.
+ */
+function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo): number {
+    if (resolvedRoadmap(repoRoot, name, io) === null) return 1;
+    let draft: PlanDraft | null = readPlanDraft(repoRoot, name);
+    if (draft === null) {
+        io.stderr(`the roadmap ${name} has no plan draft to rewrite. Run 'nexus workbook draft ${name} --merge <file>' first — nothing was written.`);
+        return 1;
+    }
+    if (flags.declare !== undefined) {
+        const interview: InterviewRecord | null = readInterview(repoRoot, name);
+        if (interview === null) {
+            io.stderr(`the roadmap ${name} has no interview, so nothing records what the learner already knows. Nothing was removed.`);
+            return 1;
+        }
+        const doc: unknown = parse(fs.readFileSync(path.resolve(io.cwd, flags.declare), "utf8"));
+        const declared: unknown = (doc as Record<string, unknown> | null)?.["declared"];
+        const applied: DeclarationResult = applyDeclaration(interview, draft, { declared: Array.isArray(declared) ? (declared as Declaration["declared"]) : [] });
+        if (!applied.ok) {
+            io.stderr(applied.problem);
+            return 1;
+        }
+        draft = applied.draft;
+    }
+    const roadmap: Roadmap = readRoadmap(repoRoot, name) as Roadmap;
+    const rewritten: PlanDraft = rewritePlan(draft, {
+        edges: roadmap.stories.map((story) => ({ story: story.number, blockedBy: story.blockedBy })),
+        handoffConcepts: handoffConcepts(repoRoot, roadmap, draft),
+    });
+    const introduced: number = rewritten.slices.reduce((count, stub) => count + stub.concepts.length, 0);
+    io.stdout(
+        `rewrote the plan draft for ${name}: ${rewritten.slices.length} slice${rewritten.slices.length === 1 ? "" : "s"} ` +
+        `introducing ${introduced} concept${introduced === 1 ? "" : "s"} between them, each taught once.`,
+    );
+    // The removed set travels with the plan for the reviewer at the gate; the learner is told nothing,
+    // because the pass asks them nothing and the gate sees the same information before any lesson is
+    // written (record #562).
+    for (const phrase of rewritten.unmatched ?? []) {
+        io.stdout(`  ${JSON.stringify(phrase)} matched no concept the roadmap teaches, so nothing was removed for it.`);
+    }
+    io.stdout(`  ${writePlanDraft(repoRoot, name, rewritten)}`);
+
+    // The plan is written whatever the verdict: a gap is diagnosed by reading the plan, so
+    // withholding it would force the reviewer to rebuild the evidence. The pass simply does not hand
+    // over to the approval gate (record #562, invariant 33).
+    const gaps: CoverageGap[] = rewritten.coverage?.gaps ?? [];
+    if (gaps.length === 0) return 0;
+    io.stderr(`${gaps.length} concept${gaps.length === 1 ? "" : "s"} assumed by a slice of ${name} is out of that slice's reach:`);
+    for (const gap of gaps) {
+        io.stderr(
+            gap.handedOff === undefined
+                ? `  #${gap.story} assumes ${gap.concept}, which no earlier slice introduces.`
+                : `  #${gap.story} assumes ${gap.concept}, which only the handed-off story #${gap.handedOff} would introduce — the focus boundary is drawn in the wrong place.`,
+        );
+    }
+    io.stderr("The plan is written and carries this verdict. It does not go to approval until every gap is closed.");
+    return 1;
+}
+
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
     const [sub, ...rest] = argv;
     if (sub === undefined || !WORKBOOK_SUBVERBS.includes(sub)) {
@@ -545,6 +639,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         if (sub === "vocabulary") return runVocabulary(repoRoot, slug as string, io);
 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
+        if (sub === "rewrite") return runRewrite(repoRoot, slug as string, flags, io);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);
