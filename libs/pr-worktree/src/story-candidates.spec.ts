@@ -46,6 +46,16 @@ function makeGraphRunner(issues: Record<number, IssueSpec>): Runner {
             return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: { subIssues: { nodes } } } } }), stderr: "" };
         }
         if (query.includes("parent{number}")) {
+            // GitHub answers a number that names no issue with a *failed* call carrying a
+            // GraphQL error, never with a successful document whose issue is null. A double
+            // that answers the way the platform cannot hides the next defect of this class.
+            if (issues[num] === undefined) {
+                return {
+                    status: 1,
+                    stdout: "",
+                    stderr: `gh: Could not resolve to an Issue with the number of ${num}. (repository.issue)`,
+                };
+            }
             return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: node(num) } } }), stderr: "" };
         }
         return { status: 1, stdout: "", stderr: "unrecognized graphql query" };
@@ -351,5 +361,42 @@ describe("resolveStories — a reference qualified to another repository (story 
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.stories).toEqual([493]);
+    });
+});
+
+describe("resolveStories — a reference that names no issue (story #566)", () => {
+    it("completes and reports a story list when one reference matches no issue", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [493],
+            branchName: "chore-99999-tidy",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("names the reference and its reason when nothing resolves", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            branchName: "chore-99999-tidy",
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.message).toContain("#99999");
+        expect(r.error.message).toContain("no issue in the issues repository");
+    });
+
+    it("stops on a failure that is not a missing issue", () => {
+        // An unreachable host or a rejected credential must not shrink the story list: a gate
+        // that reports a pass over stories it never read is worse than a gate that stops.
+        const failing: Runner = (cmd, args) => {
+            const query = args.find((a) => a.startsWith("query=")) ?? "";
+            if (query.includes("parent{number}")) return { status: 1, stdout: "", stderr: "gh: Bad credentials (HTTP 401)" };
+            return makeGraphRunner(EPIC_211)(cmd, args);
+        };
+        const r = resolveStories(failing, "/repo", SLUG, LABELS, { closingIssues: [493] });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
     });
 });

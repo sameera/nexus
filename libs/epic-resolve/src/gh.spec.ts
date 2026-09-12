@@ -294,16 +294,41 @@ describe("fetchIssueFacts — parent, issue type and labels in one call", () => 
     });
 
     it("reports a number that names no issue as not existing, rather than failing", () => {
-        // A candidate lifted out of a branch name may be any number at all.
-        const run = factsRunner({ data: { repository: { issue: null } } });
+        // GitHub answers a missing issue with a *failed* call — a GraphQL error naming the
+        // lookup that could not be resolved — never with a successful empty document. A
+        // candidate lifted out of a branch name may be any number at all, so absence is a fact
+        // for the caller to act on, not a run-stopping error.
+        const run = factsRunner(null, {
+            status: 1,
+            stderr: "gh: Could not resolve to an Issue with the number of 99999. (repository.issue)",
+        });
         const r = fetchIssueFacts(run, "/repo", SLUG, 99999);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.facts.exists).toBe(false);
     });
 
-    it("maps a gh failure to a diagnostic", () => {
+    it("maps a gh failure that is not a missing issue to a diagnostic", () => {
         const r = fetchIssueFacts(factsRunner(null, { status: 1 }), "/repo", SLUG, 211);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
+    });
+
+    it("keeps a rejected credential a failure, never an absent issue", () => {
+        const run = factsRunner(null, { status: 1, stderr: "gh: Bad credentials (HTTP 401)" });
+        const r = fetchIssueFacts(run, "/repo", SLUG, 211);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
+    });
+
+    it("keeps a missing repository a failure, never an absent issue", () => {
+        const run = factsRunner(null, {
+            status: 1,
+            stderr: "gh: Could not resolve to a Repository with the name 'acme/widget'.",
+        });
+        const r = fetchIssueFacts(run, "/repo", SLUG, 211);
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("gh-failed");

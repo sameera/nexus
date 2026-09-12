@@ -165,7 +165,7 @@ export function resolveStories(
         const f = facts(c.number);
         if (!f.ok) return f;
         if (!f.facts.exists) {
-            dropped.push({ candidate: c, why: "names no issue in this repository" });
+            dropped.push({ candidate: c, why: "matches no issue in the issues repository" });
             continue;
         }
         const kind = kindOf(c.number, f.facts);
