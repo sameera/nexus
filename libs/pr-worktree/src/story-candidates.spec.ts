@@ -400,3 +400,48 @@ describe("resolveStories — a reference that names no issue (story #566)", () =
         expect(r.error.problem).toBe("gh-failed");
     });
 });
+
+describe("resolveStories — a body reference states scope or it is a mention (story #567)", () => {
+    it("takes only the story the body says the pull request implements", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements acme/widget#493.\n\nBackground: acme/widget#492 and acme/widget#494 explain why.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("takes every story a body claims when a pull request implements more than one", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements acme/widget#492. Closes acme/widget#493. Part of acme/widget#494.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([492, 493, 494]);
+    });
+
+    it("names a same-repository mention as a near miss, and the way through", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "See acme/widget#493 for the background.",
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("no-story-candidates");
+        expect(r.error.message).toContain("#493");
+        expect(r.error.message).toContain("--story");
+    });
+
+    it("accepts the project's own vocabulary in a commit trailer too", () => {
+        // One implementation of the grammar serves both text rungs, so neither can drift.
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            commitMessages: ["a\n\nImplements #492", "b\n\nPart of #493"],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([492, 493]);
+    });
+});
