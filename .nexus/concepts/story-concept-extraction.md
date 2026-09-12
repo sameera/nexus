@@ -1,8 +1,8 @@
 ---
 title: "Story Concept Extraction"
 aliases: ["per-story extraction", "extraction unit", "checked concept list", "concepts a story introduces", "concepts a story assumes", "no readable list"]
-touches: ["concept-vocabulary-merge", "plan-draft", "focus-marking"]
-last_updated_by: "#456"
+touches: ["concept-vocabulary-merge", "plan-draft", "focus-marking", "coverage-check"]
+last_updated_by: "#457"
 status: active
 verification: verified
 ---
@@ -34,9 +34,14 @@ A story with no readable list stops the pass rather than being left out of it, b
 - [concept-vocabulary-merge](concept-vocabulary-merge.md) — reads every checked list at once, because no unit can know what another called the same idea.
 - [plan-draft](plan-draft.md) — the one write these lists feed, which needs a readable list for every story before it writes anything.
 - [focus-marking](focus-marking.md) — the verdict a unit returns from this same single read, which decides its slice's mark.
+- [coverage-check](coverage-check.md) — reads a handed-off story's checked list to name that story behind a coverage gap.
 
 ## Decision Log
 
 ### 2026-09-11 — #456 — One story per unit, and the check is the only way in
 
 A session carrying every story's full text could not plan a roadmap of any size, so each story is read by a unit with its own context and the session keeps only the short list that comes back. That saving is only real if the text does not pass through the session on the way in, which is why a unit is started with a number rather than a prompt built from the story. The code check is what makes "a short structured list" testable, and it is also what stops a story's own words from changing the shape of what reaches the session. An empty list needs the unit to say so outright, because a bare empty return and a silent failure look identical. Refuted alternative: have the toolkit start one headless model run per story and collect the output, which would put concurrency, retries and timeouts in code and make the fan-out repeatable. It lost because the toolkit decides facts and calls no model, so this would give a local command its own model dependency and credentials, outside the session the learner is already in.
+
+### 2026-09-12 — #457 — Reciprocal link from coverage-check
+
+A handed-off stub carries no concepts, so a handed-off story's checked list is the only record of what that story would introduce. The coverage check reads that list to name the story when a learner slice assumes one of its concepts.

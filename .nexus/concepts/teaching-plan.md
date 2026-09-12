@@ -1,8 +1,8 @@
 ---
 title: "Teaching Plan"
 aliases: ["plan of slices", "slice", "pinned story state", "declared suite command", "grading command", "control test", "handoff slice", "lesson stub"]
-touches: ["workbook-store", "teaching-session", "plan-drift-gate", "just-in-time-lesson", "return-verification", "handoff-prompt", "plan-draft"]
-last_updated_by: "#456"
+touches: ["workbook-store", "teaching-session", "plan-drift-gate", "just-in-time-lesson", "return-verification", "handoff-prompt", "plan-draft", "scaffold-slice"]
+last_updated_by: "#457"
 status: active
 verification: verified
 ---
@@ -38,6 +38,7 @@ Nothing infers the commands. A green light is worth exactly what the command beh
 - [return-verification](return-verification.md) — the suite, grading and control commands it runs, all declared here.
 - [handoff-prompt](handoff-prompt.md) — the prompt for a handoff slice, rendered from the marks, pinned text and sibling list held here.
 - [plan-draft](plan-draft.md) — the uncommitted draft of stubs a planning pass writes, which approval turns into this plan.
+- [scaffold-slice](scaffold-slice.md) — a slice with no story, which the draft admits and this committed contract still refuses.
 
 ## Decision Log
 
@@ -48,3 +49,7 @@ The order, the pinned state, the marks, the concepts, the branch and the pinning
 ### 2026-09-11 — #456 — Reciprocal link from plan-draft
 
 A planning pass now produces this plan's slices, as stubs in an uncommitted draft that approval turns into the committed plan. The contract here is unchanged by that: a stub adopts these field names rather than defining a second set, and the one thing it adds beside them — the concepts a slice assumes — is a field the readers here ignore.
+
+### 2026-09-12 — #457 — Reciprocal link from scaffold-slice
+
+The draft now admits a slice with no story. This committed contract was deliberately left unchanged and still refuses such a slice, because admitting one means deciding what a scaffold's branch, pinning test and lesson are, and that decision belongs to the approval stage.
