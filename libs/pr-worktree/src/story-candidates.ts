@@ -40,6 +40,13 @@ export interface CandidateSources {
     explicitStory?: number;
     /** The PR's linked/closing issue numbers (same-repository, PR body only; empty when none). */
     closingIssues: number[];
+    /**
+     * The repository the pull request itself lives in, as `owner/repo`. The platform's closing
+     * links are same-repository by construction, so for a member PR they are that member's issue
+     * numbers and mean nothing here; the rung contributes nothing unless this is the issues repo.
+     * Omitted means "not established" and leaves the rung alone.
+     */
+    prRepo?: string;
     /** Every commit message on the PR, scanned for closing trailers the PR body never carries. */
     commitMessages?: string[];
     /** The current branch name, scanned for an embedded issue number. */
@@ -54,15 +61,40 @@ interface Candidate {
 }
 
 const BRANCH_NUMBER_RE = /(?:^|[/-])(\d+)(?:[/-]|$)/;
-/** A repository-qualified issue reference, e.g. `acme/widget#493` — never a bare `#N`. */
-const BODY_REF_RE = /[\w.-]+\/[\w.-]+#(\d+)\b/g;
 /**
- * A closing reference in a commit message — GitHub's own keyword set, optionally repo-qualified.
- * Only a keyword counts: a bare `#N` in a commit body is a mention, not a statement of scope.
+ * A repository-qualified issue reference, e.g. `acme/widget#493` — never a bare `#N`, which in a
+ * member pull request names that member's own issue. Used to find the near misses a refusal
+ * prints; on its own it says nothing about what the pull request implements.
  */
-const TRAILER_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+([\w.-]+\/[\w.-]+)?#(\d+)\b/gi;
+const BODY_REF_RE = /([\w.-]+\/[\w.-]+)#(\d+)\b/g;
+/**
+ * A reference that *states scope* — the one grammar both rungs that read human-written text use,
+ * so the body and the commit trailers cannot drift apart again.
+ *
+ * The vocabulary is GitHub's own closing keywords plus a project-recognised set. Nexus does not
+ * author the bodies of member pull requests, and this project's own worked example introduces a
+ * reference with "Implements", which is not a closing keyword: a rung accepting the platform set
+ * alone would reject the form engineers already write. The repository qualifier is optional here
+ * — each rung decides for itself whether one is required.
+ */
+const SCOPE_REF_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|implement(?:s|ed)?|part of)\s+([\w.-]+\/[\w.-]+)?#(\d+)\b/gi;
 
-function gather(sources: CandidateSources, slug: RepoSlug): Candidate[] {
+/**
+ * Does a repository qualifier name the issues repository? The one implementation of that rule,
+ * shared by both rungs that read text a human wrote. A qualifier is only ever *compared* against
+ * the configured issues repository — never used as the target of a lookup — so text an external
+ * author controls cannot direct a query at a repository the workspace did not declare.
+ */
+function namesIssuesRepo(qualifier: string, slug: RepoSlug): boolean {
+    return qualifier.toLowerCase() === `${slug.owner}/${slug.repo}`.toLowerCase();
+}
+
+/** A same-repository body reference that claimed nothing — a near miss worth printing. */
+interface NearMiss {
+    number: number;
+}
+
+function gather(sources: CandidateSources, slug: RepoSlug): { candidates: Candidate[]; nearMisses: NearMiss[] } {
     const out: Candidate[] = [];
     const seen = new Set<number>();
     const push = (n: number, source: CandidateSource): void => {
@@ -71,14 +103,23 @@ function gather(sources: CandidateSources, slug: RepoSlug): Candidate[] {
         out.push({ number: n, source });
     };
 
-    if (sources.explicitStory !== undefined) push(sources.explicitStory, "explicit");
-    for (const n of sources.closingIssues) push(n, "closing-issue");
+    // A reference the lead supplies at invocation *replaces* the collection. It exists so a lead
+    // has a way through a pull request whose body no rule reads correctly, and priority ordering
+    // cannot deliver that: every other reference would still be looked up, and any one of them
+    // could still stop the run. It is still validated against the live issue graph below.
+    if (sources.explicitStory !== undefined) {
+        push(sources.explicitStory, "explicit");
+        return { candidates: out, nearMisses: [] };
+    }
+    if (sources.prRepo === undefined || namesIssuesRepo(sources.prRepo, slug)) {
+        for (const n of sources.closingIssues) push(n, "closing-issue");
+    }
     for (const message of sources.commitMessages ?? []) {
-        for (const m of message.matchAll(TRAILER_RE)) {
+        for (const m of message.matchAll(SCOPE_REF_RE)) {
             const qualifier: string | undefined = m[1];
             // A qualified trailer naming a different repository is a reference to that repo's
             // issue, not to a story of this epic — the one case we can rule out without asking.
-            if (qualifier !== undefined && qualifier.toLowerCase() !== `${slug.owner}/${slug.repo}`.toLowerCase()) continue;
+            if (qualifier !== undefined && !namesIssuesRepo(qualifier, slug)) continue;
             push(Number(m[2]), "commit-trailer");
         }
     }
@@ -86,10 +127,34 @@ function gather(sources: CandidateSources, slug: RepoSlug): Candidate[] {
         const m = BRANCH_NUMBER_RE.exec(sources.branchName);
         if (m) push(Number(m[1]), "branch-name");
     }
+    const claimed = new Set<number>();
     if (sources.prBody) {
-        for (const m of sources.prBody.matchAll(BODY_REF_RE)) push(Number(m[1]), "pr-body");
+        for (const m of sources.prBody.matchAll(SCOPE_REF_RE)) {
+            const qualifier: string | undefined = m[1];
+            // In a member pull request a bare number names the member's own issue, so the body
+            // rung requires a qualifier, and requires it to name the issues repository. A
+            // qualifier naming another repository is ruled out here, before the number is ever
+            // looked up: the lookup is what can stop a run, and a foreign reference is not a near
+            // miss worth printing in a refusal either.
+            if (qualifier === undefined || !namesIssuesRepo(qualifier, slug)) continue;
+            claimed.add(Number(m[2]));
+            push(Number(m[2]), "pr-body");
+        }
     }
-    return out;
+
+    // Appearing in a body is a mention, not a claim. The story list is stamped verbatim onto the
+    // receipt the epic's aggregate trusts, so a body that cites three sibling stories as
+    // background would otherwise mark all three analyzed. A same-repository reference that
+    // claimed nothing is still a near miss: a refusal names it, so a narrowed run can be read.
+    const nearMisses: NearMiss[] = [];
+    const seenMiss = new Set<number>();
+    for (const m of (sources.prBody ?? "").matchAll(BODY_REF_RE)) {
+        const number = Number(m[2]);
+        if (!namesIssuesRepo(m[1], slug) || claimed.has(number) || seen.has(number) || seenMiss.has(number)) continue;
+        seenMiss.add(number);
+        nearMisses.push({ number });
+    }
+    return { candidates: out, nearMisses };
 }
 
 export type ResolveStoriesResult =
@@ -114,7 +179,7 @@ export function resolveStories(
     classification: KindClassification,
     sources: CandidateSources,
 ): ResolveStoriesResult {
-    const candidates: Candidate[] = gather(sources, slug);
+    const { candidates, nearMisses } = gather(sources, slug);
     const cache = new Map<number, IssueFacts>();
     const dropped: Dropped[] = [];
     const storyCandidates: Candidate[] = [];
@@ -137,7 +202,7 @@ export function resolveStories(
         const f = facts(c.number);
         if (!f.ok) return f;
         if (!f.facts.exists) {
-            dropped.push({ candidate: c, why: "names no issue in this repository" });
+            dropped.push({ candidate: c, why: "matches no issue in the issues repository" });
             continue;
         }
         const kind = kindOf(c.number, f.facts);
@@ -164,7 +229,11 @@ export function resolveStories(
             const reason: Dropped | undefined = dropped.find((d) => d.candidate.number === c.number);
             return `#${c.number} (${c.source})${reason ? ` — ${reason.why}` : ""}`;
         });
-        return lines.length > 0 ? lines.join("; ") : "(none)";
+        for (const miss of nearMisses) {
+            lines.push(`#${miss.number} (pr-body) — names this repository but makes no claim of scope`);
+        }
+        const escape: string = nearMisses.length > 0 ? " Pass --story <n> to name the story explicitly." : "";
+        return `${lines.length > 0 ? lines.join("; ") : "(none)"}.${escape}`;
     };
 
     if (epics.size === 0) {
@@ -172,7 +241,7 @@ export function resolveStories(
             ok: false,
             error: {
                 problem: "no-story-candidates",
-                message: `no candidate resolved to a story or an epic of this repository; considered: ${considered()}.`,
+                message: `no candidate resolved to a story or an epic of this repository; considered: ${considered()}`,
             },
         };
     }
@@ -205,7 +274,7 @@ export function resolveStories(
                 problem: "no-story-candidates",
                 message:
                     `candidates resolve to #${epic}, which this repository does not file as an epic; ` +
-                    `considered: ${considered()}.`,
+                    `considered: ${considered()}`,
             },
         };
     }
@@ -235,7 +304,7 @@ export function resolveStories(
                 : `epic #${epic} has no live story sub-issues`;
         return {
             ok: false,
-            error: { problem: "no-story-candidates", message: `${why}; considered: ${considered()}.` },
+            error: { problem: "no-story-candidates", message: `${why}; considered: ${considered()}` },
         };
     }
 

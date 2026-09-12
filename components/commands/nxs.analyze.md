@@ -72,9 +72,22 @@ target repository.
 
     (`ISSUES_REPO` is the repo resolved in Phase 0.5 below — resolve that step first when `<ref>` is
     qualified.) It gathers candidates in priority order — an explicit `--story <n>` when given, the
-    PR's own linked/closing issues, the `Closes #<n>` trailers in its **commit messages**, the issue
-    number in its branch name, repo-qualified issue references in its body — validates each against
-    the live issue graph, and prints `{ epic, stories }`.
+    PR's own linked/closing issues (only when the PR itself lives in the issues repository, since
+    that linkage is same-repository by construction), the `Closes #<n>` trailers in its **commit
+    messages**, the issue number in its branch name, the references in its body that name the issues
+    repository *and* state scope — validates each against the live issue graph, and prints
+    `{ epic, stories }`.
+
+    A body reference is read only when it carries a repository qualifier naming the issues
+    repository **and** is introduced by a word that claims the work: GitHub's closing keywords, or
+    `implements` / `part of`. Both text rungs — the body and the commit trailers — share that one
+    grammar. A bare `#N` names the PR's own repository's issue and is never read, and a reference
+    qualified to another repository is ruled out before it is looked up: it does not reach the story
+    list, and does not appear among the candidates a refusal reports as considered. A reference that
+    merely *appears* in the body is a mention, not a claim — the story list names only the stories
+    the PR implements, because that list is stamped verbatim onto the receipt the epic's aggregate
+    reads. A same-repository reference set aside for claiming nothing is named in the refusal as a
+    near miss, with `--story <n>` offered as the way through.
 
     A candidate survives by being an issue this repository *files as* a story or an epic, read from
     the declared `github.classification` — never inferred from the issue graph's shape. Both PR
@@ -561,8 +574,11 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
   closing-keyword linkage alone** (decision record #495) — that linkage is same-repository only,
   and it reads the pull-request *body* alone, so it gives nothing for a member PR whose story lives
   in the hub and nothing for a PR that carries its `Closes #<n>` lines one per commit.
-  `nexus pr-worktree stories` gathers candidates (explicit ref, linked/closing issues, commit
-  trailers, branch name, repo-qualified body references) and validates each against the issue graph.
+  `nexus pr-worktree stories` gathers candidates (linked/closing issues when the PR is in the issues
+  repository, commit trailers, branch name, body references qualified to the issues repository that
+  state scope) and validates each against the issue graph; an explicit `--story <n>` replaces that
+  gathering outright. A number that matches no issue is set aside and named in the refusal, while
+  any other GitHub failure stops the run.
   Zero validated stories stops the run and names what was considered; findings in Phase 2.1 are
   scoped to only the resolved story(ies); Phase 2.3 (success-metric coverage) does not run in this
   mode at all.

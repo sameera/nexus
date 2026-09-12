@@ -46,6 +46,16 @@ function makeGraphRunner(issues: Record<number, IssueSpec>): Runner {
             return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: { subIssues: { nodes } } } } }), stderr: "" };
         }
         if (query.includes("parent{number}")) {
+            // GitHub answers a number that names no issue with a *failed* call carrying a
+            // GraphQL error, never with a successful document whose issue is null. A double
+            // that answers the way the platform cannot hides the next defect of this class.
+            if (issues[num] === undefined) {
+                return {
+                    status: 1,
+                    stdout: "",
+                    stderr: `gh: Could not resolve to an Issue with the number of ${num}. (repository.issue)`,
+                };
+            }
             return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: node(num) } } }), stderr: "" };
         }
         return { status: 1, stdout: "", stderr: "unrecognized graphql query" };
@@ -91,10 +101,10 @@ describe("resolveStories — a story-level pull request", () => {
         expect(r.stories).toEqual([493]);
     });
 
-    it("reads repo-qualified issue references out of the PR body", () => {
+    it("reads a body reference that names the issues repo and states scope", () => {
         const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
             closingIssues: [],
-            prBody: "Implements acme/hub#493 per the epic.",
+            prBody: "Implements acme/widget#493 per the epic.",
         });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
@@ -304,5 +314,194 @@ describe("resolveStories — what it refuses", () => {
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("classification-mode-mismatch");
+    });
+});
+
+describe("resolveStories — a reference qualified to another repository (story #565)", () => {
+    it("keeps a body reference naming another repository out of the story list", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements acme/widget#493. Builds on acme/hub#492.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("never names a reference to another repository among what a refusal considered", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements other/repo#493.",
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("no-story-candidates");
+        expect(r.error.message).not.toContain("#493");
+    });
+
+    it("ignores the platform closing-issue links of a pull request in another repository", () => {
+        // GitHub's closing links are same-repository by construction: for a member pull request
+        // they are member issue numbers, and a collision with a hub story would otherwise claim
+        // that story as implemented.
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            prRepo: "acme/member",
+            closingIssues: [493],
+            commitMessages: ["a\n\nCloses #492"],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([492]);
+    });
+
+    it("still reads the closing-issue links of a pull request in the issues repository", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            prRepo: "ACME/Widget",
+            closingIssues: [493],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+});
+
+describe("resolveStories — a reference that names no issue (story #566)", () => {
+    it("completes and reports a story list when one reference matches no issue", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [493],
+            branchName: "chore-99999-tidy",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("names the reference and its reason when nothing resolves", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            branchName: "chore-99999-tidy",
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.message).toContain("#99999");
+        expect(r.error.message).toContain("no issue in the issues repository");
+    });
+
+    it("stops on a failure that is not a missing issue", () => {
+        // An unreachable host or a rejected credential must not shrink the story list: a gate
+        // that reports a pass over stories it never read is worse than a gate that stops.
+        const failing: Runner = (cmd, args) => {
+            const query = args.find((a) => a.startsWith("query=")) ?? "";
+            if (query.includes("parent{number}")) return { status: 1, stdout: "", stderr: "gh: Bad credentials (HTTP 401)" };
+            return makeGraphRunner(EPIC_211)(cmd, args);
+        };
+        const r = resolveStories(failing, "/repo", SLUG, LABELS, { closingIssues: [493] });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("gh-failed");
+    });
+});
+
+describe("resolveStories — a body reference states scope or it is a mention (story #567)", () => {
+    it("takes only the story the body says the pull request implements", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements acme/widget#493.\n\nBackground: acme/widget#492 and acme/widget#494 explain why.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("takes every story a body claims when a pull request implements more than one", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "Implements acme/widget#492. Closes acme/widget#493. Part of acme/widget#494.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([492, 493, 494]);
+    });
+
+    it("names a same-repository mention as a near miss, and the way through", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            prBody: "See acme/widget#493 for the background.",
+        });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("no-story-candidates");
+        expect(r.error.message).toContain("#493");
+        expect(r.error.message).toContain("--story");
+    });
+
+    it("accepts the project's own vocabulary in a commit trailer too", () => {
+        // One implementation of the grammar serves both text rungs, so neither can drift.
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            closingIssues: [],
+            commitMessages: ["a\n\nImplements #492", "b\n\nPart of #493"],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([492, 493]);
+    });
+});
+
+describe("resolveStories — an explicit reference settles the story list (story #568)", () => {
+    it("takes the named story whatever the body and the branch name cite", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            explicitStory: 493,
+            closingIssues: [492],
+            commitMessages: ["a\n\nCloses #494"],
+            branchName: "epic-211-everything",
+            prBody: "Implements acme/widget#492.",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.epic).toBe(211);
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("looks up nothing else, so no other reference can stop the run", () => {
+        // The whole point of the escape: priority ordering cannot deliver it, because every other
+        // reference is still looked up and any one of them can still stop the run.
+        const graph = makeGraphRunner(EPIC_211);
+        const run: Runner = (cmd, args) => {
+            const query = args.find((a) => a.startsWith("query=")) ?? "";
+            const num = Number((args.find((a) => a.startsWith("num=")) ?? "num=NaN").slice(4));
+            // Every number the other sources carry — and only those — is a run-stopping lookup.
+            if (query.includes("parent{number}") && [99999, 492, 77777].includes(num)) {
+                return { status: 1, stdout: "", stderr: "gh: Bad credentials (HTTP 401)" };
+            }
+            return graph(cmd, args);
+        };
+        const r = resolveStories(run, "/repo", SLUG, LABELS, {
+            explicitStory: 493,
+            closingIssues: [99999],
+            prBody: "Implements acme/widget#492.",
+            branchName: "chore-77777-tidy",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.stories).toEqual([493]);
+    });
+
+    it("still accepts the epic itself, for a pull request that ships the whole epic", () => {
+        const r = resolveStories(makeGraphRunner(EPIC_211), "/repo", SLUG, LABELS, {
+            explicitStory: 211,
+            closingIssues: [],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.epic).toBe(211);
+        expect(r.stories).toEqual([492, 493, 494]);
+    });
+
+    it("stops and names the epic that was expected when the reference is not one of its stories", () => {
+        const graph = { ...EPIC_211, 211: { labels: ["epic"], parent: 491, subIssues: [492, 494, 495] } };
+        const r = resolveStories(makeGraphRunner(graph), "/repo", SLUG, LABELS, { explicitStory: 493, closingIssues: [] });
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("no-story-candidates");
+        expect(r.error.message).toContain("#211");
     });
 });
