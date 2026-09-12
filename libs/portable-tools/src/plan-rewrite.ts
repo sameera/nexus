@@ -159,6 +159,46 @@ function appendNew(into: string[], from: readonly string[]): void {
     for (const id of from) if (!into.includes(id)) into.push(id);
 }
 
+/**
+ * Collapse a draft this pass already wrote back to the one slice per story it reads.
+ *
+ * The rewrite replaces the draft whole and is run again over its own output — the declaration
+ * mapping is recorded on the draft precisely so a later run can reuse it without re-judging. That
+ * only holds if a second run reads the same thing the first one did, and the two slice shapes this
+ * epic adds are not that thing: a split story arrives as several slices, each carrying what its
+ * siblings introduced in its own `assumes`. Read as ordinary slices they are indistinguishable from
+ * several stories teaching each other, so the sibling that owns a concept is passed over as an
+ * introducer of itself, every one of those concepts is scaffolded, and the cheaper part is ordered
+ * first — a different plan from the same roadmap.
+ *
+ * So the parts of a story merge back into the slice they were split from, in the order they hold,
+ * and what a later part assumed of an earlier one is dropped because the merged slice introduces it.
+ * Ownership subtraction needs no undoing: a concept an earlier slice took is pinned before this
+ * slice by the added edge the scaffold pass derives from the assumption, so the order that produced
+ * it is the order it is produced from again.
+ */
+function merged(slices: readonly PlanStub[]): PlanStub[] {
+    const out: PlanStub[] = [];
+    const at: Map<number, number> = new Map();
+    for (const stub of slices) {
+        if (stub.story === undefined) {
+            out.push({ ...stub, concepts: [...stub.concepts], assumes: [...stub.assumes] });
+            continue;
+        }
+        const index: number | undefined = at.get(stub.story);
+        if (index === undefined) {
+            at.set(stub.story, out.length);
+            // Built field by field rather than spread, so a part's `part` is gone rather than
+            // carried as a key holding nothing.
+            out.push({ story: stub.story, builds: stub.builds, concepts: [...stub.concepts], assumes: [...stub.assumes] });
+            continue;
+        }
+        appendNew(out[index].concepts, stub.concepts);
+        appendNew(out[index].assumes, stub.assumes);
+    }
+    return out.map((stub) => ({ ...stub, assumes: stub.assumes.filter((id) => !stub.concepts.includes(id)) }));
+}
+
 /** Assign one slice's concepts against what is already owned, and record the rest as assumed. */
 function assign(stub: PlanStub, owned: Set<string>): PlanStub {
     if (stub.builds === "handoff") return { ...stub, concepts: [], assumes: [] };
@@ -528,19 +568,22 @@ export function rewritePlan(draft: PlanDraft, options: RewriteOptions = {}): Pla
     let slices: PlanStub[];
     if (options.edges === undefined) {
         const owned: Set<string> = new Set();
-        slices = draft.slices.map((stub) => assign(stub, owned));
+        slices = merged(draft.slices).map((stub) => assign(stub, owned));
     } else {
-        const direct: Map<number, number[]> = blockersWithin(draft.slices, options.edges);
-        const blockers: Map<number, number[]> = learnerBlockers(draft.slices, direct);
+        // A scaffold is dropped rather than merged: it is derived from the edges, so this run
+        // decides it again from the same reachability the last one read.
+        const source: PlanStub[] = merged(draft.slices).filter((stub) => stub.scaffold === undefined);
+        const direct: Map<number, number[]> = blockersWithin(source, options.edges);
+        const blockers: Map<number, number[]> = learnerBlockers(source, direct);
         const scaffolds: Map<number, string[]> = decideScaffolds(
-            draft.slices,
+            source,
             blockers,
             draft.vocabulary ?? [],
             declaredConcepts,
-            handoffOnly(draft.slices, options.handoffConcepts ?? new Map()),
+            handoffOnly(source, options.handoffConcepts ?? new Map()),
         );
-        const order: PlanStub[] = orderLearnerSlices(draft.slices, blockers, scaffolds);
-        slices = placeHandoffs(draft.slices, splitOverLimit(order, draft.vocabulary ?? []), direct);
+        const order: PlanStub[] = orderLearnerSlices(source, blockers, scaffolds);
+        slices = placeHandoffs(source, splitOverLimit(order, draft.vocabulary ?? []), direct);
     }
     return { ...draft, slices, coverage: checkCoverage(slices, declaredConcepts, options.handoffConcepts ?? new Map()) };
 }

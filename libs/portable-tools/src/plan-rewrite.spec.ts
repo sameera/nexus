@@ -479,6 +479,32 @@ describe("a slice that would teach more than one step can hold is split", () => 
         expect(plan.slices.filter((stub) => stub.story === 11).map((stub) => stub.part)).toEqual([1, 2]);
     });
 
+    it("rewrites a plan that already holds a split slice into the same plan", () => {
+        const draft: PlanDraft = { slices: [learner(11, many), learner(12, ["z"])], vocabulary: VOCABULARY };
+        const edges: StoryEdges[] = [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }];
+        const once: PlanDraft = rewritePlan(draft, { edges });
+        expect(rewritePlan(once, { edges })).toEqual(once);
+    });
+
+    it("scaffolds nothing for a concept an earlier part of the same story introduces", () => {
+        const edges: StoryEdges[] = [{ story: 11, blockedBy: [] }];
+        const once: PlanDraft = rewritePlan({ slices: [learner(11, many)], vocabulary: VOCABULARY }, { edges });
+        const again: PlanDraft = rewritePlan(once, { edges });
+        expect(again.slices.filter((stub) => stub.scaffold !== undefined)).toEqual([]);
+        expect(again.slices.map((stub) => stub.part)).toEqual([1, 2]);
+    });
+
+    it("writes the same draft when the verb runs a second time", () => {
+        const repo: string = initRepo();
+        writeRoadmap(repo, ROADMAP);
+        writePlanDraft(repo, "alpha", { slices: [learner(11, many), learner(12, ["z"])], vocabulary: VOCABULARY });
+
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
+        const once: PlanDraft = readPlanDraft(repo, "alpha") as PlanDraft;
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
+        expect(readPlanDraft(repo, "alpha")).toEqual(once);
+    });
+
     it("refuses a draft holding two whole slices for one story, and one whose parts are not consecutive", () => {
         expect(() => validateDraft({ slices: [learner(11, ["a"]), learner(11, ["b"])] })).toThrow(StubError);
         expect(() => validateDraft({ slices: [{ ...learner(11, ["a"]), part: 1 }, { ...learner(11, ["b"]), part: 3 }] })).toThrow(/part/);
@@ -553,6 +579,12 @@ describe("a scaffold is inserted only where no ordering could introduce a concep
         writePlanDraft(repo, "alpha", { slices: [learner(11, ["drift"], ["pinned-state"])], vocabulary: VOCAB });
         expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
         expect(readPlanDraft(repo, "alpha")?.slices.map((stub) => stub.scaffold ?? stub.story)).toEqual(["pinned-state", 11]);
+    });
+
+    it("inserts the same scaffolds when the plan is rewritten again", () => {
+        const edges: StoryEdges[] = [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }];
+        const once: PlanDraft = rewritePlan({ slices: [learner(11, ["b"], ["a"]), learner(12, ["a"])], vocabulary: VOCAB }, { edges });
+        expect(rewritePlan(once, { edges })).toEqual(once);
     });
 
     it("refuses a scaffold that names a story, teaches more than its one concept, or records no need", () => {
