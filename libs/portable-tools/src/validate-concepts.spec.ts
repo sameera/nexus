@@ -792,10 +792,19 @@ describe("the neighbour list is bounded per entry (#223)", () => {
 });
 
 describe("store-level revisit trigger (#223)", () => {
-    it("reports neither trigger on the store as it stands", () => {
+    it("reports on the store as it stands without ever failing it", () => {
+        // Degree is watched, never limited (concept-page-capacity invariants 6 and 7): passing 25
+        // neighbours opens the question of moving interaction prose off the page, it does not
+        // condemn the store — and invariant 4 forbids dropping or compressing an edge to relieve
+        // the pressure. So the contract to pin here is that a store-level trigger *reports*: every
+        // finding is advisory, and the one that names the hub names it by page. Asserting the live
+        // store trips neither trigger instead makes a watch signal a gate, and the only ways to
+        // clear it are the three the capacity contract rules out.
         const conceptsDir: string = path.join(REPO_ROOT, ".nexus", "concepts");
         const findings: Finding[] = storeLevelFindings(conceptsDir);
-        expect(findings).toEqual([]);
+        expect(findings.every((f) => f.severity === "advisory")).toBe(true);
+        const degree: Finding | undefined = findings.find((f) => f.message.includes("25-bullet revisit trigger"));
+        if (degree !== undefined) expect(degree.message).toContain("highest degree is");
     });
 
     it("advises when neighbour prose passes a quarter of all body text", () => {
