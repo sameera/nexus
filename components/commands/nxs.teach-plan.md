@@ -214,6 +214,13 @@ argues down, one scaffold at a time. A concept no story on the roadmap introduce
 scaffolded too; a concept only a handed-off story would introduce never is, because that is the focus
 boundary being wrong and a scaffold would hide it.
 
+**Handoffs.** Each handoff is then placed immediately before the earliest learner slice it unblocks,
+and several handoffs for one slice form one block before it. Nothing is built for the learner until
+the step that needs it — handing a coding agent the whole non-focus half of a roadmap at the start
+wastes exactly what writing twenty unread lessons wastes. A handoff that unblocks no learner slice is
+ordered after every learner slice. Ordering a handoff builds nothing: write no handoff prompt and
+start no coding-agent session here.
+
 **Coverage.** The pass then checks the finished plan, last, and names every gap rather than only the
 first. A gap is a bug in the plan, and it is catchable here — before a word of any lesson is written.
 Two readings are deliberately not gaps: a concept no story on the roadmap introduces at all is

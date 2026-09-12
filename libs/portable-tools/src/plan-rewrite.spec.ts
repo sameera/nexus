@@ -547,3 +547,77 @@ describe("a scaffold is inserted only where no ordering could introduce a concep
         expect(() => validateStub({ scaffold: "a", need: 11, builds: "handoff", concepts: ["a"] }, 0)).toThrow(/learner/);
     });
 });
+
+describe("each handoff is ordered immediately before the slice it unblocks", () => {
+    function placed(draft: PlanDraft, edges: StoryEdges[]): (number | string | undefined)[] {
+        return rewritePlan(draft, { edges }).slices.map((stub) => stub.scaffold ?? stub.story);
+    }
+
+    it("puts a handoff immediately before the learner slice it unblocks, not at the front", () => {
+        const draft: PlanDraft = { slices: [handoff(11), learner(12, ["a"]), learner(13, ["b"])] };
+        const edges: StoryEdges[] = [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [] }, { story: 13, blockedBy: [11] }];
+        expect(placed(draft, edges)).toEqual([12, 11, 13]);
+    });
+
+    it("puts every handoff that unblocks one learner slice in one block before it, by ascending story", () => {
+        const draft: PlanDraft = { slices: [handoff(14), handoff(11), learner(12, ["a"]), learner(13, ["b"])] };
+        const edges: StoryEdges[] = [
+            { story: 11, blockedBy: [] },
+            { story: 12, blockedBy: [] },
+            { story: 13, blockedBy: [11, 14] },
+            { story: 14, blockedBy: [] },
+        ];
+        expect(placed(draft, edges)).toEqual([12, 11, 14, 13]);
+    });
+
+    it("orders a handoff that unblocks no learner slice after every learner slice", () => {
+        const draft: PlanDraft = { slices: [handoff(11), learner(12, ["a"]), learner(13, ["b"])] };
+        expect(placed(draft, [11, 12, 13].map((story) => ({ story, blockedBy: [] })))).toEqual([12, 13, 11]);
+    });
+
+    it("places a handoff before the earliest learner slice it unblocks", () => {
+        const draft: PlanDraft = { slices: [handoff(11), learner(12, ["a"]), learner(13, ["b"])] };
+        const edges: StoryEdges[] = [
+            { story: 11, blockedBy: [] },
+            { story: 12, blockedBy: [11] },
+            { story: 13, blockedBy: [11] },
+        ];
+        expect(placed(draft, edges)).toEqual([11, 12, 13]);
+    });
+
+    it("keeps a handoff after the learner slice that blocks it", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a"]), handoff(12), learner(13, ["b"])] };
+        const edges: StoryEdges[] = [
+            { story: 11, blockedBy: [] },
+            { story: 12, blockedBy: [11] },
+            { story: 13, blockedBy: [12] },
+        ];
+        expect(placed(draft, edges)).toEqual([11, 12, 13]);
+    });
+
+    it("counts a learner slice it unblocks through another handoff", () => {
+        const draft: PlanDraft = { slices: [handoff(11), handoff(12), learner(13, ["a"]), learner(14, ["b"])] };
+        const edges: StoryEdges[] = [
+            { story: 11, blockedBy: [] },
+            { story: 12, blockedBy: [11] },
+            { story: 13, blockedBy: [] },
+            { story: 14, blockedBy: [12] },
+        ];
+        expect(placed(draft, edges)).toEqual([13, 11, 12, 14]);
+    });
+
+    it("puts the handoff block before the first part of a split slice it unblocks", () => {
+        const vocabulary = ["a", "b", "c", "d", "e"].map((id) => ({ id, gloss: `what ${id} is`, aliases: [] }));
+        const draft: PlanDraft = { slices: [handoff(11), learner(12, ["a", "b", "c", "d", "e"])], vocabulary };
+        const edges: StoryEdges[] = [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }];
+        const slices: PlanStub[] = rewritePlan(draft, { edges }).slices;
+        expect(slices.map((stub) => stub.story)).toEqual([11, 12, 12]);
+        expect(slices.map((stub) => stub.builds)).toEqual(["handoff", "learner", "learner"]);
+    });
+
+    it("builds nothing while ordering a handoff", () => {
+        const draft: PlanDraft = { slices: [handoff(11), learner(12, ["a"])] };
+        const plan: PlanDraft = rewritePlan(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] });
+        expect(plan.slices.filter((stub) => stub.builds === "handoff")).toEqual([handoff(11)]);
+    });
+});

@@ -387,32 +387,76 @@ function splitOverLimit(order: readonly PlanStub[], vocabulary: readonly Vocabul
 }
 
 /**
- * Put the handoff slices back into the learner order. Each is placed as soon as what blocks it is
- * placed, so no slice precedes a slice that blocks it, transitively or through a handoff.
+ * Put the handoff slices back into the finished learner order (epic #457, story #560).
+ *
+ * Each handoff sits **immediately before the earliest learner slice it unblocks**. Handing a coding
+ * agent the whole non-focus half of a roadmap at the start wastes exactly what writing twenty unread
+ * lessons wastes, and this is where that waste is removed: nothing is built for the learner until the
+ * step that needs it. Several handoffs unblocking one learner slice form one block before it, taken
+ * in ascending story number except where one of them blocks another.
+ *
+ * A handoff that unblocks no learner slice is ordered **after** every learner slice. That is the
+ * roadmap whose non-focus work nothing in focus depends on, where the waste this removes is at its
+ * largest.
+ *
+ * Ordering a handoff builds nothing: no handoff prompt is written and no coding-agent session starts.
  */
 function placeHandoffs(slices: readonly PlanStub[], order: readonly PlanStub[], direct: Map<number, number[]>): PlanStub[] {
-    const waiting: PlanStub[] = slices.filter((stub) => stub.builds === "handoff").sort((a, b) => (a.story as number) - (b.story as number));
-    const placed: Set<number> = new Set();
-    const out: PlanStub[] = [];
-    const drain = (): void => {
-        for (let moved = true; moved; ) {
-            moved = false;
-            for (let i = 0; i < waiting.length; i++) {
-                if (!(direct.get(waiting[i].story as number) ?? []).every((blocker) => placed.has(blocker))) continue;
-                const stub: PlanStub = waiting.splice(i--, 1)[0];
-                placed.add(stub.story as number);
-                out.push({ ...stub, concepts: [], assumes: [] });
-                moved = true;
-            }
+    const handoffs: PlanStub[] = slices
+        .filter((stub) => stub.builds === "handoff")
+        .sort((a, b) => (a.story as number) - (b.story as number))
+        .map((stub) => ({ ...stub, concepts: [], assumes: [] }));
+    const handedOff: Set<number> = new Set(handoffs.map((stub) => stub.story as number));
+
+    // Which learner slices each handoff unblocks: the ones it blocks directly, and the ones it
+    // reaches through other handoffs. An edge that runs on through a learner slice is that slice's
+    // own, and it is already satisfied by the order.
+    const unblocks: Map<number, number[]> = new Map(handoffs.map((stub) => [stub.story as number, []]));
+    for (const [story, blockers] of direct) {
+        const seen: Set<number> = new Set();
+        const stack: number[] = blockers.filter((blocker) => handedOff.has(blocker));
+        while (stack.length > 0) {
+            const next: number = stack.pop() as number;
+            if (seen.has(next)) continue;
+            seen.add(next);
+            if (!handedOff.has(story)) unblocks.set(next, [...(unblocks.get(next) ?? []), story]);
+            stack.push(...(direct.get(next) ?? []).filter((blocker) => handedOff.has(blocker)));
         }
-    };
-    drain();
-    for (const stub of order) {
-        out.push(stub);
-        if (stub.story !== undefined) placed.add(stub.story);
-        drain();
     }
-    for (const stub of waiting) out.push({ ...stub, concepts: [], assumes: [] });
+
+    const positionOf: Map<number, number> = new Map();
+    order.forEach((stub, index) => {
+        if (stub.story !== undefined && !positionOf.has(stub.story)) positionOf.set(stub.story, index);
+    });
+    const target: Map<number, number> = new Map();
+    for (const stub of handoffs) {
+        const positions: number[] = (unblocks.get(stub.story as number) ?? []).flatMap((story) => {
+            const at: number | undefined = positionOf.get(story);
+            return at === undefined ? [] : [at];
+        });
+        if (positions.length > 0) target.set(stub.story as number, Math.min(...positions));
+    }
+
+    /** One block of handoffs, lowest story first, never before a handoff that blocks it. */
+    const block = (waiting: PlanStub[]): PlanStub[] => {
+        const done: Set<number> = new Set();
+        const out: PlanStub[] = [];
+        while (waiting.length > out.length) {
+            const next: PlanStub =
+                waiting.find((stub) => !done.has(stub.story as number) && (direct.get(stub.story as number) ?? []).every((blocker) => !waiting.some((other) => other.story === blocker) || done.has(blocker))) ??
+                (waiting.find((stub) => !done.has(stub.story as number)) as PlanStub);
+            done.add(next.story as number);
+            out.push(next);
+        }
+        return out;
+    };
+
+    const out: PlanStub[] = [];
+    order.forEach((stub, index) => {
+        out.push(...block(handoffs.filter((handoff) => target.get(handoff.story as number) === index)));
+        out.push(stub);
+    });
+    out.push(...block(handoffs.filter((handoff) => !target.has(handoff.story as number))));
     return out;
 }
 

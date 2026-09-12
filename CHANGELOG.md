@@ -29,7 +29,11 @@ behaviour says so.
   concept and records which slice's assumption forced it. Reordering is tried first, so a concept
   some permitted order could deliver in time gets that order rather than a scaffold; a concept no
   story introduces at all is scaffolded; a concept only a handed-off story would introduce never is.
-  The draft contract therefore also admits a **slice with no story**. The rewrite then checks the finished plan
+  The draft contract therefore also admits a **slice with no story**. Each handoff slice is then
+  placed immediately before the earliest learner slice it unblocks, with several handoffs for one
+  slice forming one block before it, and a handoff that unblocks nothing ordered after every learner
+  slice — so a coding agent is handed the non-focus work at the step that needs it rather than all
+  of it at the start. The rewrite then checks the finished plan
   for coverage and names **every** gap: a learner slice assuming a concept no earlier learner slice
   introduces, and — named as such, with the story it came from — a learner slice assuming a concept
   only a handed-off story would introduce, which says the focus boundary is drawn in the wrong

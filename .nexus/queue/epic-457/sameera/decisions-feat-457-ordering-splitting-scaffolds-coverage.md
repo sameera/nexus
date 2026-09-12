@@ -43,3 +43,8 @@
 - **Choice:** `checkCoverage` keeps the "no earlier slice introduces it" gap even though #559's scaffolds now remove that class whenever the roadmap's edges are supplied.
 - **Why:** The check is the last pass over the finished plan and must be true of whatever sequence it is handed; it is reachable through `rewritePlan` without edges, which the tests use.
 - **Refuted alternative:** Reduce coverage to the handed-off case only, which would make the check silently depend on the scaffolding pass having run.
+
+## 2026-09-12 — Left the pre-existing store-level concepts failure alone
+- **Choice:** Did not trim `.nexus/concepts/distiller.md` to clear the 25-bullet revisit advisory.
+- **Why:** It fails identically on `origin/main`, and `concept-page-capacity` invariant 4 forbids dropping an interaction for neighbour-list pressure; the trigger is invariant 7's prompt for a human revisit, which is the lead's call.
+- **Refuted alternative:** Drop a bullet from distiller.md, or raise `DEGREE_REVISIT_TRIGGER`, to make the suite exit 0.
