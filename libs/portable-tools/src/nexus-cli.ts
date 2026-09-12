@@ -1721,8 +1721,17 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             io.stderr(renderEpicResolveDiagnostic(kinds.error));
             return 1;
         }
+        // Which repository the pull request itself lives in — read from the target checkout, so
+        // the platform's same-repository closing links are believed only when that repository is
+        // the issues repository.
+        const prSlug = resolveRepoSlug(closeMigrationRunner, target.target.repoRoot);
+        if (!prSlug.ok) {
+            io.stderr(renderEpicResolveDiagnostic(prSlug.error));
+            return 1;
+        }
         const resolved = resolveStories(closeMigrationRunner, target.target.repoRoot, slug, kinds.classification, {
             explicitStory: flags.story,
+            prRepo: `${prSlug.slug.owner}/${prSlug.slug.repo}`,
             closingIssues: pr.pr.closingIssues,
             commitMessages: pr.pr.commitMessages,
             branchName: pr.pr.headRef,
