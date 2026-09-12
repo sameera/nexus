@@ -7,12 +7,15 @@ behaviour says so.
 
 ## 0.35.0
 
-- `/nxs.teach-plan` gains Phase 6, the rewrite: `nexus workbook rewrite <name>` replaces the plan
-  draft the planning pass just wrote with one in which every concept is introduced once and assumed
-  thereafter. A concept belongs to the first slice that proposes it, and every later slice that
-  proposed the same concept now records it as assumed. A slice whose every concept an earlier slice
-  already teaches stays in the plan and introduces nothing, so its story is never dropped. The
-  rewrite reads no story text and no issue graph, so the planning session still holds neither.
+- `/nxs.teach-plan`, the planning phase that turns a planned **epic** into a teaching roadmap, gains
+  Phase 6 — the rewrite. `nexus workbook rewrite <name>` replaces the plan draft the planning pass
+  just wrote with one in which every concept is introduced once and assumed thereafter: a concept
+  belongs to the first slice that proposes it, and every later slice that proposed the same concept
+  now records it as assumed. A slice whose every concept an earlier slice already teaches stays in
+  the plan and introduces nothing, so its story is never dropped. With `--declare <file>` the phase
+  also removes what the learner said in the interview that they already know, reporting back which
+  of their words matched no concept the roadmap teaches. The rewrite reads no story text and no
+  issue graph, so the planning session still holds neither.
 
 ## 0.34.0
 

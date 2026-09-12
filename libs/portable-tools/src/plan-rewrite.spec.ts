@@ -3,7 +3,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { rewritePlan } from "./plan-rewrite.js";
+import { stringify } from "yaml";
+import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
+import { readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
+import { LEARNER_IGNORE_RULE } from "./learner-store.js";
 import { readPlanDraft, writePlanDraft, type PlanDraft, type PlanStub } from "./plan-draft.js";
 import { writeRoadmap, type Roadmap } from "./roadmap.js";
 import { runWorkbookCli } from "./workbook-cli.js";
@@ -13,7 +16,7 @@ function initRepo(): string {
     const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), "plan-rewrite-"));
     tmpDirs.push(dir);
     execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
-    fs.writeFileSync(path.join(dir, ".gitignore"), ".nexus/tmp/\n");
+    fs.writeFileSync(path.join(dir, ".gitignore"), `${LEARNER_IGNORE_RULE}\n.nexus/tmp/\n`);
     return dir;
 }
 afterEach(() => {
@@ -133,5 +136,123 @@ describe("the rewrite is reachable and replaces the draft whole", () => {
         expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], captured)).toBe(1);
         expect(captured.err.join("\n")).toMatch(/no plan draft/);
         expect(readPlanDraft(repo, "alpha")).toBeNull();
+    });
+});
+
+describe("a concept the learner declared they already know is never introduced", () => {
+    const VOCABULARY = [
+        { id: "drift", gloss: "a page that no longer matches its lesson", aliases: ["drifted"] },
+        { id: "pinned-state", gloss: "the state a plan records at approval", aliases: [] },
+        { id: "unit-test", gloss: "a test over one unit", aliases: [] },
+    ];
+    const DRAFT: PlanDraft = {
+        slices: [learner(11, ["unit-test", "pinned-state"]), learner(12, ["drift"], ["unit-test"])],
+        vocabulary: VOCABULARY,
+    };
+    const KNOWN: Declaration = { declared: [{ slot: "testing-practice", phrase: "written vitest suites for years", concepts: ["unit-test"] }] };
+    const ANSWERS: GivenAnswer[] = [
+        { slot: "testing-practice", question: "How have you worked with tests?", answer: "I have written vitest suites for years." },
+        { slot: "recent-difficulty", question: "What did you last find hard?", answer: "drift, every time." },
+        { slot: "focus", question: "What did you come to learn?", answer: "the pinned-state work." },
+    ];
+
+    function declared(repo: string, declaration: Declaration, draft: PlanDraft = DRAFT): DeclarationResult {
+        return applyDeclaration(readInterview(repo, "alpha") as InterviewRecord, draft, declaration);
+    }
+
+    function withInterview(answers: GivenAnswer[] = ANSWERS): string {
+        const repo: string = initRepo();
+        writeRoadmap(repo, ROADMAP);
+        recordInterview(repo, ROADMAP, answers);
+        return repo;
+    }
+
+    it("introduces the concept the learner's words name in no slice of the plan", () => {
+        const result: DeclarationResult = declared(withInterview(), KNOWN);
+        expect(result.ok).toBe(true);
+        const plan: PlanDraft = rewritePlan((result as { ok: true; draft: PlanDraft }).draft);
+        expect(plan.slices.flatMap((stub) => stub.concepts)).not.toContain("unit-test");
+        expect(sliceFor(plan, 11).concepts).toEqual(["pinned-state"]);
+    });
+
+    it("records each removed concept beside the learner's quoted phrase, and on no stub", () => {
+        const result = declared(withInterview(), KNOWN) as { ok: true; draft: PlanDraft };
+        expect(result.draft.declared).toEqual([{ concept: "unit-test", phrase: "written vitest suites for years" }]);
+        for (const stub of result.draft.slices) expect(JSON.stringify(stub)).not.toContain("vitest");
+    });
+
+    it("removes nothing for words that name nothing the roadmap teaches, and reports them", () => {
+        const result = declared(withInterview(), {
+            declared: [{ slot: "testing-practice", phrase: "written vitest suites for years", concepts: [] }],
+        }) as { ok: true; draft: PlanDraft };
+        expect(result.draft.unmatched).toEqual(["written vitest suites for years"]);
+        expect(result.draft.declared ?? []).toEqual([]);
+        expect(rewritePlan(result.draft).slices.flatMap((s) => s.concepts).sort()).toEqual(["drift", "pinned-state", "unit-test"]);
+    });
+
+    it("leaves a later slice assuming a removed concept, so it can be counted satisfied", () => {
+        const result = declared(withInterview(), KNOWN) as { ok: true; draft: PlanDraft };
+        expect(sliceFor(rewritePlan(result.draft), 12).assumes).toContain("unit-test");
+    });
+
+    it("refuses an identifier the merged vocabulary does not hold, and removes nothing", () => {
+        const result: DeclarationResult = declared(withInterview(), {
+            declared: [{ slot: "testing-practice", phrase: "written vitest suites for years", concepts: ["mutation-testing"] }],
+        });
+        expect(result.ok).toBe(false);
+        expect((result as { ok: false; problem: string }).problem).toMatch(/mutation-testing/);
+    });
+
+    it("reads an alias the merge folded in as the concept it was folded into", () => {
+        const result = declared(withInterview([
+            { slot: "stack-experience", question: "What have you built?", answer: "I have chased drifted pages before." },
+        ]), { declared: [{ slot: "stack-experience", phrase: "chased drifted pages", concepts: ["drifted"] }] }) as { ok: true; draft: PlanDraft };
+        expect(result.draft.declared).toEqual([{ concept: "drift", phrase: "chased drifted pages" }]);
+    });
+
+    it("refuses a phrase the slot's recorded answer does not hold verbatim", () => {
+        const result: DeclarationResult = declared(withInterview(), {
+            declared: [{ slot: "testing-practice", phrase: "written jest suites for years", concepts: ["unit-test"] }],
+        });
+        expect(result.ok).toBe(false);
+        expect((result as { ok: false; problem: string }).problem).toMatch(/verbatim|own words/);
+    });
+
+    it("refuses a slot that records what the learner came to learn, or what they found hard", () => {
+        for (const slot of ["focus", "recent-difficulty"]) {
+            const result: DeclarationResult = declared(withInterview(), {
+                declared: [{ slot, phrase: "drift", concepts: ["drift"] }],
+            });
+            expect(result.ok).toBe(false);
+            expect((result as { ok: false; problem: string }).problem).toContain(slot);
+        }
+    });
+
+    it("removes nothing when the session declares nothing", () => {
+        const result = declared(withInterview(), { declared: [] }) as { ok: true; draft: PlanDraft };
+        expect(rewritePlan(result.draft).slices.flatMap((s) => s.concepts).sort()).toEqual(["drift", "pinned-state", "unit-test"]);
+    });
+
+    it("applies the same declaration through the verb, and reports the words that matched nothing", () => {
+        const repo: string = withInterview();
+        writePlanDraft(repo, "alpha", DRAFT);
+        const file: string = path.join(repo, "declare.yml");
+        fs.writeFileSync(file, stringify({ ...KNOWN, declared: [...KNOWN.declared, { slot: "testing-practice", phrase: "I have written vitest", concepts: [] }] }));
+        const captured: Captured = io(repo);
+
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo, "--declare", file], captured)).toBe(0);
+        expect(readPlanDraft(repo, "alpha")?.slices.flatMap((stub) => stub.concepts)).not.toContain("unit-test");
+        expect(captured.out.join("\n")).toContain("I have written vitest");
+    });
+
+    it("writes nothing when the declaration is refused", () => {
+        const repo: string = withInterview();
+        writePlanDraft(repo, "alpha", DRAFT);
+        const file: string = path.join(repo, "declare.yml");
+        fs.writeFileSync(file, stringify({ declared: [{ slot: "focus", phrase: "the pinned-state work", concepts: ["pinned-state"] }] }));
+        const captured: Captured = io(repo);
+
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo, "--declare", file], captured)).toBe(1);
+        expect(readPlanDraft(repo, "alpha")?.slices.flatMap((stub) => stub.concepts)).toContain("pinned-state");
     });
 });

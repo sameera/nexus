@@ -8,3 +8,13 @@
 - **Choice:** #554 walks the slices in the order the roadmap gave them and assigns each concept to the first slice that proposes it; #556 replaces that order with the greedy selection.
 - **Why:** Record #457 decision 1 forbids a separate subtraction pass, and the roadmap already arrives in one dependency-respecting order, so the traversal is correct before the selection rule lands.
 - **Refuted alternative:** Land #554 as a standalone subtraction over the arriving order, then rewrite it at #556 — two implementations of the same invariant.
+
+## 2026-09-12 — A declaration entry names its slot and quotes the answer verbatim
+- **Choice:** Each `declared` entry carries `slot`, `phrase` and `concepts`; code refuses an ineligible slot and a phrase the slot's recorded answer does not hold verbatim, and reads an alias as the identifier the merge kept.
+- **Why:** Invariant 6 is only enforceable if the entry says which slot it came from, and the verbatim check (record #562) is what makes the unmatched set the exact complement of the mapping.
+- **Refuted alternative:** A bare `phrase → concepts` map, leaving slot eligibility to the session's instructions — an instruction nothing checks.
+
+## 2026-09-12 — Declared concepts leave `assumes` alone
+- **Choice:** A declared concept is filtered out of every slice's `concepts` and left wherever a slice `assumes` it.
+- **Why:** Invariant 5 counts a declared concept satisfied where a later slice assumes it, so #557 needs the assumption still present to count it.
+- **Refuted alternative:** Strip it from `assumes` too, which reads cleaner but erases what the coverage check has to reason about.

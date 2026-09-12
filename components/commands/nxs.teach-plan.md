@@ -156,7 +156,7 @@ edit the draft by hand, never commit it, and never write into the committed work
 # Phase 6 — Rewrite the draft
 
 ```bash
-nexus workbook rewrite <name>
+nexus workbook rewrite <name> [--declare <file>]
 ```
 
 Code rewrites the draft it just wrote, as arithmetic over the stubs. It re-reads no story, so this
@@ -166,7 +166,37 @@ and assumed thereafter. A slice whose every concept an earlier slice already tea
 plan and introduces nothing: it builds something real while teaching nothing new, and dropping it
 would drop its story.
 
-Report the counts the command prints. Never edit the rewritten draft by hand, and never commit it.
+**The declaration.** The interview recorded what the learner already knows in their own words, and
+nothing has resolved those words to concepts. That match is yours, and it is the one judgement in
+this phase — every other step is arithmetic. Read the draft's `vocabulary`: each entry is a concept
+identifier and the one-line gloss a match is made against. Then write every phrase you read, with
+what it names:
+
+```yaml
+declared:
+    - slot: testing-practice
+      phrase: <the learner's own words, quoted verbatim from that slot's recorded answer>
+      concepts: [unit-test]
+    - slot: stack-experience
+      phrase: <words that name nothing the roadmap teaches>
+      concepts: []
+```
+
+Read **only** the slots that record what the learner already knows — `stack-experience`,
+`codebase-familiarity`, `testing-practice`. What they came to learn is focus, not knowledge, and it
+has already done its work in Phase 5. What they most recently found hard is the slot most likely to
+name a concept in their own words while meaning the opposite of knowing it, so matching against it
+would remove precisely the teaching they need most. Code refuses either slot outright.
+
+Name only concepts the merged vocabulary holds, quote each phrase verbatim, and leave `concepts`
+empty rather than guessing: a wrong match deletes a lesson the learner is never shown and so cannot
+notice, while an unmatched phrase only leaves them something they already knew. Code applies the
+mapping, refuses anything the vocabulary does not hold, and reports the phrases that matched nothing.
+
+Report the counts the command prints, and the phrases that matched nothing. Tell the learner none of
+this — the reviewer reads the removed set at the approval gate, which is also before any lesson is
+written, and this phase asks the learner nothing. Never edit the rewritten draft by hand, and never
+commit it.
 
 # Hand off
 

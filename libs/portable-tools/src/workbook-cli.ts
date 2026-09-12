@@ -49,7 +49,7 @@ import {
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
 import { readPlanDraft, writePlanDraft, type PlanDraft } from "./plan-draft.js";
-import { rewritePlan } from "./plan-rewrite.js";
+import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 
@@ -94,6 +94,8 @@ interface Flags {
     list?: string;
     /** The file holding the groups of identifiers the planning session decided name one concept. */
     merge?: string;
+    /** The file holding the phrases the planning session matched to concepts the learner already knows. */
+    declare?: string;
     positional: string[];
     unknown?: string;
 }
@@ -113,6 +115,7 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--answers") flags.answers = rest[++i];
         else if (token === "--list") flags.list = rest[++i];
         else if (token === "--merge") flags.merge = rest[++i];
+        else if (token === "--declare") flags.declare = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -131,7 +134,8 @@ const USAGE: string = [
     "                                      the stories still to extract, one story's text, or its list to check",
     "  vocabulary <name>                   every proposed concept identifier and its glosses",
     "  draft <name> --merge <file>         write the plan's stubs once every story has a checked list",
-    "  rewrite <name>                      rewrite the draft: one slice owns each concept",
+    "  rewrite <name> [--declare <file>]   rewrite the draft: one slice owns each concept, less what",
+    "                                      the learner declared they already know",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -526,12 +530,27 @@ function runDraft(repoRoot: string, name: string, flags: Flags, io: WorkbookCliI
  * It reads the draft the planning pass wrote and replaces it whole. It re-reads no story, so a draft
  * rewritten twice with nothing changed is the same draft.
  */
-function runRewrite(repoRoot: string, name: string, io: WorkbookCliIo): number {
+function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo): number {
     if (resolvedRoadmap(repoRoot, name, io) === null) return 1;
-    const draft: PlanDraft | null = readPlanDraft(repoRoot, name);
+    let draft: PlanDraft | null = readPlanDraft(repoRoot, name);
     if (draft === null) {
         io.stderr(`the roadmap ${name} has no plan draft to rewrite. Run 'nexus workbook draft ${name} --merge <file>' first — nothing was written.`);
         return 1;
+    }
+    if (flags.declare !== undefined) {
+        const interview: InterviewRecord | null = readInterview(repoRoot, name);
+        if (interview === null) {
+            io.stderr(`the roadmap ${name} has no interview, so nothing records what the learner already knows. Nothing was removed.`);
+            return 1;
+        }
+        const doc: unknown = parse(fs.readFileSync(path.resolve(io.cwd, flags.declare), "utf8"));
+        const declared: unknown = (doc as Record<string, unknown> | null)?.["declared"];
+        const applied: DeclarationResult = applyDeclaration(interview, draft, { declared: Array.isArray(declared) ? (declared as Declaration["declared"]) : [] });
+        if (!applied.ok) {
+            io.stderr(applied.problem);
+            return 1;
+        }
+        draft = applied.draft;
     }
     const rewritten: PlanDraft = rewritePlan(draft);
     const introduced: number = rewritten.slices.reduce((count, stub) => count + stub.concepts.length, 0);
@@ -539,6 +558,12 @@ function runRewrite(repoRoot: string, name: string, io: WorkbookCliIo): number {
         `rewrote the plan draft for ${name}: ${rewritten.slices.length} slice${rewritten.slices.length === 1 ? "" : "s"} ` +
         `introducing ${introduced} concept${introduced === 1 ? "" : "s"} between them, each taught once.`,
     );
+    // The removed set travels with the plan for the reviewer at the gate; the learner is told nothing,
+    // because the pass asks them nothing and the gate sees the same information before any lesson is
+    // written (record #562).
+    for (const phrase of rewritten.unmatched ?? []) {
+        io.stdout(`  ${JSON.stringify(phrase)} matched no concept the roadmap teaches, so nothing was removed for it.`);
+    }
     io.stdout(`  ${writePlanDraft(repoRoot, name, rewritten)}`);
     return 0;
 }
@@ -572,7 +597,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         if (sub === "vocabulary") return runVocabulary(repoRoot, slug as string, io);
 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
-        if (sub === "rewrite") return runRewrite(repoRoot, slug as string, io);
+        if (sub === "rewrite") return runRewrite(repoRoot, slug as string, flags, io);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);

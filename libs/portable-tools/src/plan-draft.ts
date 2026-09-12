@@ -70,11 +70,26 @@ export interface VocabularyEntry {
     aliases: string[];
 }
 
+/** One concept the learner's declaration removed, beside the words that removed it. */
+export interface DeclaredConcept {
+    concept: string;
+    /** The learner's own phrase, quoted verbatim. It reaches no stub and no committed file. */
+    phrase: string;
+}
+
 export interface PlanDraft {
     /** Every slice, in the roadmap's dependency order. */
     slices: PlanStub[];
     /** The merged concept vocabulary, kept with the draft so a later stage can match words to identifiers. */
     vocabulary?: VocabularyEntry[];
+    /**
+     * The concepts the learner declared they already know, each beside the phrase that declared it.
+     * The reviewer at the approval gate reads these; a later slice assuming one of them is satisfied
+     * rather than missing (record #562, invariants 5 and 9).
+     */
+    declared?: DeclaredConcept[];
+    /** Every declared phrase that named no concept the roadmap teaches (invariant 8). */
+    unmatched?: string[];
 }
 
 /** The only fields a stub may carry. Anything else — prose, a pinned state, a source — is refused. */
@@ -162,7 +177,12 @@ export function validateDraft(draft: PlanDraft): PlanDraft {
         }
         seen.add(stub.story);
     }
-    return draft.vocabulary === undefined ? { slices } : { slices, vocabulary: draft.vocabulary };
+    return {
+        slices,
+        ...(draft.vocabulary === undefined ? {} : { vocabulary: draft.vocabulary }),
+        ...(draft.declared === undefined ? {} : { declared: draft.declared }),
+        ...(draft.unmatched === undefined ? {} : { unmatched: draft.unmatched }),
+    };
 }
 
 /** The draft's text: the shipped plan's slice structure, in the order given. */
@@ -176,6 +196,8 @@ export function renderPlanDraft(draft: PlanDraft): string {
             entry.aliases.length === 0 ? { id: entry.id, gloss: entry.gloss } : { id: entry.id, gloss: entry.gloss, aliases: [...entry.aliases] },
         );
     }
+    if (valid.declared !== undefined) doc["declared"] = valid.declared.map((entry) => ({ ...entry }));
+    if (valid.unmatched !== undefined) doc["unmatched"] = [...valid.unmatched];
     return stringify(doc, { indent: 4, flowCollectionPadding: false });
 }
 
@@ -213,5 +235,9 @@ export function readPlanDraft(repoRoot: string, roadmap: string): PlanDraft | nu
                   ),
               }
             : {}),
+        ...(Array.isArray(doc["declared"])
+            ? { declared: (doc["declared"] as Partial<DeclaredConcept>[]).map((entry): DeclaredConcept => ({ concept: String(entry.concept), phrase: String(entry.phrase) })) }
+            : {}),
+        ...(Array.isArray(doc["unmatched"]) ? { unmatched: (doc["unmatched"] as unknown[]).map(String) } : {}),
     });
 }
