@@ -5,6 +5,25 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.35.0
+
+- `analyze --pr` now resolves a pull request to the stories it actually implements. A reference in
+  the pull-request body counts only when it names the issues repository **and** says the pull
+  request takes the work on — a closing keyword, `implements` or `part of`; a bare number, a
+  reference to another repository, and a story the body merely cites as background no longer reach
+  the story list. **Breaking:** a pull request whose only signal was an unqualified mention in its
+  body now stops the gate instead of resolving. Pass `--story <n>` — which now replaces candidate
+  gathering entirely, reading no other text — or add a claim of scope to the body. Because the
+  story list is stamped verbatim onto the receipt the epic aggregate trusts, a lead should dismiss
+  or edit reviews published by `analyze` before this release on any epic still open: a receipt
+  written under the old rule can still name stories nobody read, and `close` will pass on them.
+- `analyze --pr` no longer stops on a number that matches no issue: it is set aside and named in
+  the refusal, while a genuine GitHub failure — an unreachable host, a rejected credential, a rate
+  limit, a missing repository — still stops the run and reports itself.
+- `analyze --pr` reads GitHub's own closing-issue links only when the pull request lives in the
+  issues repository, since that linkage is same-repository by construction and a member pull
+  request's numbers would otherwise collide with hub story numbers.
+
 ## 0.34.0
 
 - `nxs-landed-reference`'s Section E gains E.2, the same-kind reconciliation: re-running `/nxs.fix`

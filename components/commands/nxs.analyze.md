@@ -575,9 +575,10 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
   and it reads the pull-request *body* alone, so it gives nothing for a member PR whose story lives
   in the hub and nothing for a PR that carries its `Closes #<n>` lines one per commit.
   `nexus pr-worktree stories` gathers candidates (linked/closing issues when the PR is in the issues
-  repository, commit trailers, branch name, body references qualified to the issues repository) and
-  validates each against the issue graph. An explicit `--story <n>` is the highest-priority
-  candidate.
+  repository, commit trailers, branch name, body references qualified to the issues repository that
+  state scope) and validates each against the issue graph; an explicit `--story <n>` replaces that
+  gathering outright. A number that matches no issue is set aside and named in the refusal, while
+  any other GitHub failure stops the run.
   Zero validated stories stops the run and names what was considered; findings in Phase 2.1 are
   scoped to only the resolved story(ies); Phase 2.3 (success-metric coverage) does not run in this
   mode at all.

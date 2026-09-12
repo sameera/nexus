@@ -103,7 +103,14 @@ function gather(sources: CandidateSources, slug: RepoSlug): { candidates: Candid
         out.push({ number: n, source });
     };
 
-    if (sources.explicitStory !== undefined) push(sources.explicitStory, "explicit");
+    // A reference the lead supplies at invocation *replaces* the collection. It exists so a lead
+    // has a way through a pull request whose body no rule reads correctly, and priority ordering
+    // cannot deliver that: every other reference would still be looked up, and any one of them
+    // could still stop the run. It is still validated against the live issue graph below.
+    if (sources.explicitStory !== undefined) {
+        push(sources.explicitStory, "explicit");
+        return { candidates: out, nearMisses: [] };
+    }
     if (sources.prRepo === undefined || namesIssuesRepo(sources.prRepo, slug)) {
         for (const n of sources.closingIssues) push(n, "closing-issue");
     }
