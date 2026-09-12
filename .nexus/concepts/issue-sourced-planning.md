@@ -1,8 +1,8 @@
 ---
 title: "Issue-Sourced Planning"
 aliases: ["issues as source of truth", "epic resolver", "materialized epic", "resolve from issue number", "no-commit planning", "epic-meta round-trip"]
-touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention"]
-last_updated_by: "#248"
+touches: ["nexus-pipeline", "committed-queue", "epic-approval-gate", "distiller", "workspace-resolution", "decision-record", "story-identity", "backlog-stub", "verb-reachability", "target-root-convention", "issue-absence-fact"]
+last_updated_by: "#564"
 status: active
 verification: verified
 ---
@@ -37,6 +37,7 @@ At approval the epic stage files the epic issue and its story sub-issues as chil
 - [backlog-stub](backlog-stub.md) — the unplanned epic this resolver refuses by name, rather than emitting one whose story set is empty.
 - [verb-reachability](verb-reachability.md) — this resolver is now also reachable as a verb on the shared executable, matched byte-for-byte against its script form.
 - [target-root-convention](target-root-convention.md) — this resolver now takes its target root through that same convention rather than a bespoke argument of its own.
+- [issue-absence-fact](issue-absence-fact.md) — the lookup boundary this resolver reads an epic's facts through, which reports a number matching no issue as a fact rather than a platform failure.
 
 ## Decision Log
 
@@ -64,3 +65,7 @@ Mechanical reciprocity fan-out: the verb-reachability page names this resolver a
 ### 2026-08-25 — #248 — Reciprocal link from target-root-convention
 
 Mechanical reciprocity fan-out: the target-root-convention page names this resolver as now taking its target root through that same convention rather than a bespoke argument of its own.
+
+### 2026-09-12 — #564 — Reciprocal link from issue-absence-fact
+
+Mechanical reciprocity fan-out: this resolver reads the target epic's kind and parent through the lookup that now tells an absent issue apart from a platform failure. Absence arrives here as an issue filed as nothing, which the classification refuses by name, so a mistyped epic number is still refused as a missing epic. The repair changes nothing this resolver does; it changes which failures reach it.
