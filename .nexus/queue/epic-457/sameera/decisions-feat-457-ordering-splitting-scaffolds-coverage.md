@@ -23,3 +23,8 @@
 - **Choice:** #556 orders learner slices alone and re-inserts each handoff as soon as its blockers are placed; #560 replaces that placement with "immediately before the slice it unblocks".
 - **Why:** Invariant 11 has to hold the moment ordering lands, and placing a zero-cost slice as early as permitted is precisely the waste story #560 exists to remove — so #560's criteria genuinely fail before it lands.
 - **Refuted alternative:** Leave every handoff at the end until #560, which would let a learner slice precede the handoff that blocks it in the meantime.
+
+## 2026-09-12 — A failing coverage verdict is a non-zero exit that still writes the plan
+- **Choice:** `nexus workbook rewrite` writes the rewritten draft with its verdict and then exits 1 when the verdict is not clean.
+- **Why:** Invariant 33 wants the plan withheld from the gate but the evidence kept; the exit code is what stops the calling phase in code rather than on instruction.
+- **Refuted alternative:** Exit 0 and rely on the command's prose to stop the session — an instruction nothing enforces.

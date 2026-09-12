@@ -77,6 +77,21 @@ export interface DeclaredConcept {
     phrase: string;
 }
 
+/** One concept a learner slice assumes that the plan put out of its reach. */
+export interface CoverageGap {
+    concept: string;
+    /** The learner slice that assumes it. */
+    story: number;
+    /** The handed-off story that introduces it, when the focus boundary is what put it out of reach. */
+    handedOff?: number;
+}
+
+/** What the coverage check found. A plan whose verdict is not clean does not reach the approval gate. */
+export interface CoverageVerdict {
+    clean: boolean;
+    gaps: CoverageGap[];
+}
+
 export interface PlanDraft {
     /** Every slice, in the roadmap's dependency order. */
     slices: PlanStub[];
@@ -90,6 +105,11 @@ export interface PlanDraft {
     declared?: DeclaredConcept[];
     /** Every declared phrase that named no concept the roadmap teaches (invariant 8). */
     unmatched?: string[];
+    /**
+     * What the coverage check found over the finished plan. It travels with the plan so the approval
+     * gate can refuse a plan in code rather than on instruction (invariant 33).
+     */
+    coverage?: CoverageVerdict;
 }
 
 /** The only fields a stub may carry. Anything else — prose, a pinned state, a source — is refused. */
@@ -182,6 +202,7 @@ export function validateDraft(draft: PlanDraft): PlanDraft {
         ...(draft.vocabulary === undefined ? {} : { vocabulary: draft.vocabulary }),
         ...(draft.declared === undefined ? {} : { declared: draft.declared }),
         ...(draft.unmatched === undefined ? {} : { unmatched: draft.unmatched }),
+        ...(draft.coverage === undefined ? {} : { coverage: draft.coverage }),
     };
 }
 
@@ -198,6 +219,7 @@ export function renderPlanDraft(draft: PlanDraft): string {
     }
     if (valid.declared !== undefined) doc["declared"] = valid.declared.map((entry) => ({ ...entry }));
     if (valid.unmatched !== undefined) doc["unmatched"] = [...valid.unmatched];
+    if (valid.coverage !== undefined) doc["coverage"] = { clean: valid.coverage.clean, gaps: valid.coverage.gaps.map((gap) => ({ ...gap })) };
     return stringify(doc, { indent: 4, flowCollectionPadding: false });
 }
 
@@ -239,5 +261,17 @@ export function readPlanDraft(repoRoot: string, roadmap: string): PlanDraft | nu
             ? { declared: (doc["declared"] as Partial<DeclaredConcept>[]).map((entry): DeclaredConcept => ({ concept: String(entry.concept), phrase: String(entry.phrase) })) }
             : {}),
         ...(Array.isArray(doc["unmatched"]) ? { unmatched: (doc["unmatched"] as unknown[]).map(String) } : {}),
+        ...(typeof doc["coverage"] === "object" && doc["coverage"] !== null
+            ? {
+                  coverage: {
+                      clean: (doc["coverage"] as CoverageVerdict).clean === true,
+                      gaps: (((doc["coverage"] as CoverageVerdict).gaps ?? []) as CoverageGap[]).map((gap): CoverageGap => ({
+                          concept: String(gap.concept),
+                          story: Number(gap.story),
+                          ...(gap.handedOff === undefined ? {} : { handedOff: Number(gap.handedOff) }),
+                      })),
+                  },
+              }
+            : {}),
     });
 }

@@ -199,6 +199,18 @@ empty rather than guessing: a wrong match deletes a lesson the learner is never 
 notice, while an unmatched phrase only leaves them something they already knew. Code applies the
 mapping, refuses anything the vocabulary does not hold, and reports the phrases that matched nothing.
 
+**Coverage.** The pass then checks the finished plan, last, and names every gap rather than only the
+first. A gap is a bug in the plan, and it is catchable here — before a word of any lesson is written.
+Two readings are deliberately not gaps: a concept no story on the roadmap introduces at all is
+background the plan teaches for itself, and a concept an earlier learner slice already introduced is
+covered however the order arrived at it.
+
+A gap that names a **handed-off** story is the focus boundary drawn in the wrong place, not a fault
+in the concept lists: a learner slice is assuming something the plan decided the learner will not
+build. Report it as the command words it and **stop** — a plan whose verdict is not clean does not go
+to approval. The plan is still written, and it carries the verdict, because the gap is diagnosed by
+reading the plan.
+
 Report the counts the command prints, and the phrases that matched nothing. Tell the learner none of
 this — the reviewer reads the removed set at the approval gate, which is also before any lesson is
 written, and this phase asks the learner nothing. Never edit the rewritten draft by hand, and never

@@ -4,10 +4,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { stringify } from "yaml";
-import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult, type StoryEdges } from "./plan-rewrite.js";
+import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult, type RewriteOptions, type StoryEdges } from "./plan-rewrite.js";
 import { readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { LEARNER_IGNORE_RULE } from "./learner-store.js";
-import { readPlanDraft, writePlanDraft, type PlanDraft, type PlanStub } from "./plan-draft.js";
+import { readPlanDraft, writePlanDraft, type CoverageVerdict, type PlanDraft, type PlanStub } from "./plan-draft.js";
 import { writeRoadmap, type Roadmap } from "./roadmap.js";
 import { runWorkbookCli } from "./workbook-cli.js";
 
@@ -331,5 +331,73 @@ describe("slices order to introduce the fewest new concepts per step", () => {
         expect(plan.slices.map((stub) => stub.story)).toEqual([11, 12]);
         expect(sliceFor(plan, 11).concepts).toEqual(["pinned-state"]);
         expect(sliceFor(plan, 12).concepts).toEqual(["drift"]);
+    });
+});
+
+describe("coverage is verified before anything reaches the gate", () => {
+    const FREE: StoryEdges[] = [11, 12, 13, 14].map((story) => ({ story, blockedBy: [] }));
+
+    function coverage(draft: PlanDraft, options: RewriteOptions = {}): CoverageVerdict {
+        return rewritePlan(draft, { edges: FREE, ...options }).coverage as CoverageVerdict;
+    }
+
+    it("passes a plan whose every assumption an earlier learner slice introduces", () => {
+        expect(coverage({ slices: [learner(11, ["a"]), learner(12, ["b"], ["a"])] })).toEqual({ clean: true, gaps: [] });
+    });
+
+    it("passes an assumption the learner declared they already know", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["b"], ["a"])], declared: [{ concept: "a", phrase: "I know a" }] };
+        expect(coverage(draft).clean).toBe(true);
+    });
+
+    it("faults a learner slice assuming a concept only a later learner slice introduces", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a"], ["b"]), learner(12, ["b"])] };
+        const verdict: CoverageVerdict = coverage(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] });
+        expect(verdict.clean).toBe(false);
+        expect(verdict.gaps).toEqual([{ concept: "b", story: 11 }]);
+    });
+
+    it("faults an assumption only a handed-off story would introduce, and names that story", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a"], ["b"]), handoff(12)] };
+        const verdict: CoverageVerdict = coverage(draft, { handoffConcepts: new Map([[12, ["b"]]]) });
+        expect(verdict.clean).toBe(false);
+        expect(verdict.gaps).toEqual([{ concept: "b", story: 11, handedOff: 12 }]);
+    });
+
+    it("faults a concept no slice of the roadmap introduces not at all", () => {
+        expect(coverage({ slices: [learner(11, ["a"], ["nowhere"])] })).toEqual({ clean: true, gaps: [] });
+    });
+
+    it("names every gap rather than only the first", () => {
+        const draft: PlanDraft = { slices: [learner(11, ["a"], ["b", "c"]), handoff(13), learner(12, ["b"])] };
+        const verdict: CoverageVerdict = coverage(draft, {
+            edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }, { story: 13, blockedBy: [] }],
+            handoffConcepts: new Map([[13, ["c"]]]),
+        });
+        expect(verdict.gaps).toEqual([
+            { concept: "b", story: 11 },
+            { concept: "c", story: 11, handedOff: 13 },
+        ]);
+    });
+
+    it("records the verdict with the plan, and writes the plan even when it fails", () => {
+        const repo: string = initRepo();
+        writeRoadmap(repo, ROADMAP);
+        writePlanDraft(repo, "alpha", { slices: [learner(11, ["drift"], ["pinned-state"]), learner(12, ["pinned-state"])] });
+        const captured: Captured = io(repo);
+
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], captured)).toBe(1);
+        const plan: PlanDraft = readPlanDraft(repo, "alpha") as PlanDraft;
+        expect(plan.coverage?.clean).toBe(false);
+        expect(plan.coverage?.gaps).toEqual([{ concept: "pinned-state", story: 11 }]);
+        expect(captured.err.join("\n")).toContain("pinned-state");
+    });
+
+    it("hands over when coverage is clean", () => {
+        const repo: string = initRepo();
+        writeRoadmap(repo, ROADMAP);
+        writePlanDraft(repo, "alpha", { slices: [learner(11, ["pinned-state"]), learner(12, ["drift"], ["pinned-state"])] });
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
+        expect(readPlanDraft(repo, "alpha")?.coverage).toEqual({ clean: true, gaps: [] });
     });
 });

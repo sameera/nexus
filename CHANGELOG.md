@@ -18,8 +18,14 @@ behaviour says so.
   assumed. A slice whose every concept an earlier slice already teaches stays in
   the plan and introduces nothing, so its story is never dropped. With `--declare <file>` the phase
   also removes what the learner said in the interview that they already know, reporting back which
-  of their words matched no concept the roadmap teaches. The rewrite reads no story text and no
-  issue graph, so the planning session still holds neither.
+  of their words matched no concept the roadmap teaches. The rewrite then checks the finished plan
+  for coverage and names **every** gap: a learner slice assuming a concept no earlier learner slice
+  introduces, and — named as such, with the story it came from — a learner slice assuming a concept
+  only a handed-off story would introduce, which says the focus boundary is drawn in the wrong
+  place. A concept no story on the roadmap introduces at all is background, not a gap. The plan is
+  written whatever the verdict and carries it, but the phase stops rather than handing a plan with
+  gaps to approval. The rewrite reads no story text and no issue graph, so the planning session
+  still holds neither.
 
 ## 0.34.0
 

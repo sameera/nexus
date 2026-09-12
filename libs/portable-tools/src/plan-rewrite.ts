@@ -25,7 +25,7 @@
  */
 
 import { KNOWLEDGE_SLOTS, type InterviewRecord, type SlotAnswer } from "./interview.js";
-import { type PlanDraft, type PlanStub, type VocabularyEntry } from "./plan-draft.js";
+import { type CoverageGap, type CoverageVerdict, type PlanDraft, type PlanStub, type VocabularyEntry } from "./plan-draft.js";
 
 /** One phrase the planning session matched, the slot it came from, and what it names. */
 export interface DeclaredPhrase {
@@ -135,6 +135,12 @@ export interface StoryEdges {
 export interface RewriteOptions {
     /** The roadmap's dependency edges. Without them the draft keeps the order it arrived in. */
     edges?: readonly StoryEdges[];
+    /**
+     * What each handed-off story would have introduced, under the merged vocabulary's identifiers.
+     * A handoff stub carries no concepts, so this is what lets a gap name the story a concept came
+     * from (record #562).
+     */
+    handoffConcepts?: ReadonlyMap<number, readonly string[]>;
 }
 
 /** Append to `into` the entries of `from` that it does not already hold. Order is the first sighting. */
@@ -268,15 +274,71 @@ function placeHandoffs(slices: readonly PlanStub[], order: readonly PlanStub[], 
 }
 
 /**
+ * Check the finished plan for gaps (epic #457, story #557).
+ *
+ * A gap is a bug in the plan, and it is catchable before a word of any lesson is written — which is
+ * the whole reason this check runs here rather than at the gate. Every concept a learner slice
+ * assumes has to be introduced by an earlier learner slice, or to be something the learner declared
+ * they already know, which counts as satisfied rather than missing (invariant 5).
+ *
+ * Two things are **not** gaps, and the difference is the point:
+ *
+ * - A concept **no slice of the roadmap introduces** is not faulted (invariant 26). Every roadmap's
+ *   first slices stand on background no story teaches and no five-question interview enumerated, so
+ *   faulting that would make a realistic roadmap unplannable. Story #559 teaches it with a scaffold.
+ * - A concept an **earlier** learner slice introduces is covered, whatever order it arrived in.
+ *
+ * A gap whose concept only a **handed-off** story would introduce names that story (invariant 32).
+ * That is the case where the plan is wrong rather than merely tight: the focus boundary is drawn in
+ * the wrong place, and naming the story is what tells the reviewer so, rather than sending them to
+ * re-read the concept lists.
+ *
+ * Every gap is named, never only the first, and the verdict travels with the plan: a gap is
+ * diagnosed by reading the plan, so withholding it would force the reviewer to reconstruct from a
+ * terminal report the very document that exists to save them that work.
+ */
+function checkCoverage(slices: readonly PlanStub[], declared: readonly string[], handoffConcepts: ReadonlyMap<number, readonly string[]>): CoverageVerdict {
+    const fromHandoff: Map<string, number> = new Map();
+    for (const story of [...handoffConcepts.keys()].sort((a, b) => a - b)) {
+        for (const id of handoffConcepts.get(story) ?? []) if (!fromHandoff.has(id)) fromHandoff.set(id, story);
+    }
+    const anywhere: Set<string> = new Set(slices.flatMap((stub) => stub.concepts));
+    const satisfied: Set<string> = new Set(declared);
+    const gaps: CoverageGap[] = [];
+
+    for (const stub of slices) {
+        if (stub.builds !== "learner") continue;
+        for (const id of stub.assumes) {
+            if (satisfied.has(id)) continue;
+            const handedOff: number | undefined = fromHandoff.get(id);
+            // A concept nothing on the roadmap introduces is scaffolded, not faulted; one an earlier
+            // slice introduced is already satisfied. What is left is a plan that put an introducer
+            // out of reach.
+            if (handedOff === undefined && !anywhere.has(id)) continue;
+            gaps.push(handedOff === undefined ? { concept: id, story: stub.story } : { concept: id, story: stub.story, handedOff });
+        }
+        for (const id of stub.concepts) satisfied.add(id);
+    }
+    return { clean: gaps.length === 0, gaps };
+}
+
+/**
  * Rewrite a planning pass's draft. The result is a draft of the same shape — the rewrite replaces
  * the draft whole and never edits one in place.
+ *
+ * The passes run once, in a fixed order, and nothing iterates (record #562): each pass after
+ * ordering is built not to disturb the passes before it, and the coverage check runs last, over the
+ * finished plan, writing no plan content of its own.
  */
 export function rewritePlan(draft: PlanDraft, options: RewriteOptions = {}): PlanDraft {
+    let slices: PlanStub[];
     if (options.edges === undefined) {
         const owned: Set<string> = new Set();
-        return { ...draft, slices: draft.slices.map((stub) => assign(stub, owned)) };
+        slices = draft.slices.map((stub) => assign(stub, owned));
+    } else {
+        const direct: Map<number, number[]> = blockersWithin(draft.slices, options.edges);
+        slices = placeHandoffs(draft.slices, orderLearnerSlices(draft.slices, learnerBlockers(draft.slices, direct)), direct);
     }
-    const direct: Map<number, number[]> = blockersWithin(draft.slices, options.edges);
-    const order: PlanStub[] = orderLearnerSlices(draft.slices, learnerBlockers(draft.slices, direct));
-    return { ...draft, slices: placeHandoffs(draft.slices, order, direct) };
+    const declared: string[] = (draft.declared ?? []).map((entry) => entry.concept);
+    return { ...draft, slices, coverage: checkCoverage(slices, declared, options.handoffConcepts ?? new Map()) };
 }
