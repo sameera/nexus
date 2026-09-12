@@ -55,10 +55,23 @@ describe("a stub names exactly one story", () => {
         expect(() => validateStub({ story: [11, 12], builds: "learner" }, 0)).toThrow(/exactly one/);
     });
 
-    it("refuses two slices for one story", () => {
+    it("refuses two whole slices for one story", () => {
         const repo: string = initRepo();
         const twice: PlanDraft = { slices: [DRAFT.slices[0], { ...DRAFT.slices[0] }] };
-        expect(() => writePlanDraft(repo, "alpha", twice)).toThrow(/two slices/);
+        expect(() => writePlanDraft(repo, "alpha", twice)).toThrow(/consecutive from 1/);
+    });
+
+    it("writes several slices for one story when each names which part of it it is", () => {
+        const repo: string = initRepo();
+        const split: PlanDraft = {
+            slices: [
+                { ...DRAFT.slices[0], part: 1, concepts: ["pinned-state"] },
+                { ...DRAFT.slices[0], part: 2, concepts: ["drift"], assumes: ["pinned-state"] },
+            ],
+        };
+        writePlanDraft(repo, "alpha", split);
+        expect(readPlanDraft(repo, "alpha")?.slices.map((slice) => slice.part)).toEqual([1, 2]);
+        expect(readPlanDraft(repo, "alpha")?.slices.map((slice) => slice.story)).toEqual([11, 11]);
     });
 });
 

@@ -52,6 +52,11 @@ export const CONCEPT_IDENTIFIER: RegExp = /^(?!(?:true|false|null)$)[a-z][a-z0-9
 export interface PlanStub {
     story: number;
     builds: SliceMark;
+    /**
+     * Which part of its story this slice is, 1-based, when the story became several slices. Absent
+     * exactly when the slice is the whole of its story (record #562).
+     */
+    part?: number;
     /** The concepts this slice introduces — the shipped plan's own concept field, unchanged. */
     concepts: string[];
     /** The concepts this slice assumes a learner already holds. The one field a stub adds. */
@@ -113,7 +118,7 @@ export interface PlanDraft {
 }
 
 /** The only fields a stub may carry. Anything else — prose, a pinned state, a source — is refused. */
-const STUB_FIELDS: readonly string[] = ["story", "builds", "concepts", "assumes"];
+const STUB_FIELDS: readonly string[] = ["story", "builds", "part", "concepts", "assumes"];
 
 /** Raised instead of writing a stub the shipped teaching session could not read as it stands. */
 export class StubError extends Error {
@@ -169,6 +174,14 @@ export function validateStub(raw: unknown, index: number): PlanStub {
         );
     }
 
+    const part: unknown = record["part"];
+    if (part !== undefined && (typeof part !== "number" || !Number.isInteger(part) || part <= 0)) {
+        throw new StubError(`${at} carries a 'part' that is not a positive whole number. A part says which of its story's slices this is.`);
+    }
+    if (part !== undefined && mark === "handoff") {
+        throw new StubError(`${at} is a handoff and carries a 'part'. A handoff teaches nothing, so there is nothing of it to split.`);
+    }
+
     const concepts: string[] = identifiers(record["concepts"], "concepts", at);
     const assumes: string[] = identifiers(record["assumes"], "assumes", at);
     if (mark === "handoff" && (concepts.length > 0 || assumes.length > 0)) {
@@ -184,18 +197,32 @@ export function validateStub(raw: unknown, index: number): PlanStub {
             `and listing it as introduced would make it read as freshly taught.`,
         );
     }
-    return { story, builds: mark as SliceMark, concepts, assumes };
+    return { story, builds: mark as SliceMark, ...(part === undefined ? {} : { part: part as number }), concepts, assumes };
 }
 
-/** Validate a whole draft: every stub, and one slice per story. */
+/**
+ * Validate a whole draft: every stub, and each story's slices.
+ *
+ * A story is one slice, or it is several consecutively numbered parts of itself — a slice's identity
+ * is its story plus which part of that story it is, and an unsplit slice is the whole of its story
+ * (record #562). Without that rule nothing distinguishes a legitimate split from a duplicated stub.
+ */
 export function validateDraft(draft: PlanDraft): PlanDraft {
     const slices: PlanStub[] = draft.slices.map((stub, index) => validateStub(stub, index));
-    const seen: Set<number> = new Set();
-    for (const stub of slices) {
-        if (seen.has(stub.story)) {
-            throw new StubError(`story #${stub.story} has two slices. One story is one slice at this stage.`);
+    const byStory: Map<number, PlanStub[]> = new Map();
+    for (const stub of slices) byStory.set(stub.story, [...(byStory.get(stub.story) ?? []), stub]);
+    for (const [story, group] of byStory) {
+        if (group.length === 1 && group[0].part === undefined) continue;
+        const parts: number[] = group.map((stub) => stub.part ?? 0).sort((a, b) => a - b);
+        if (group.length === 1) {
+            throw new StubError(`story #${story} is one slice and carries a 'part'. An unsplit slice is the whole of its story.`);
         }
-        seen.add(stub.story);
+        if (parts.some((part, index) => part !== index + 1)) {
+            throw new StubError(
+                `story #${story} has ${group.length} slices numbered ${parts.join(", ")}. The parts of a split story are ` +
+                `consecutive from 1, because several slices for one story are otherwise indistinguishable from a duplicated stub.`,
+            );
+        }
     }
     return {
         slices,

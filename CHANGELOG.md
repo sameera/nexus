@@ -18,7 +18,12 @@ behaviour says so.
   assumed. A slice whose every concept an earlier slice already teaches stays in
   the plan and introduces nothing, so its story is never dropped. With `--declare <file>` the phase
   also removes what the learner said in the interview that they already know, reporting back which
-  of their words matched no concept the roadmap teaches. The rewrite then checks the finished plan
+  of their words matched no concept the roadmap teaches. A slice that would introduce more than four
+  new concepts — the ceiling for what one sitting can carry — now becomes the fewest parts that all
+  fit, spread as evenly as those parts allow, sitting consecutively where the original sat and each
+  naming the same story; a later part assumes what the earlier parts taught. The plan draft
+  therefore admits **several slices for one story**, each saying which part of it it is, where
+  before one story was always one slice. The rewrite then checks the finished plan
   for coverage and names **every** gap: a learner slice assuming a concept no earlier learner slice
   introduces, and — named as such, with the story it came from — a learner slice assuming a concept
   only a handed-off story would introduce, which says the focus boundary is drawn in the wrong

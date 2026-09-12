@@ -4,10 +4,10 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { stringify } from "yaml";
-import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult, type RewriteOptions, type StoryEdges } from "./plan-rewrite.js";
+import { STEP_CONCEPT_LIMIT, applyDeclaration, rewritePlan, type Declaration, type DeclarationResult, type RewriteOptions, type StoryEdges } from "./plan-rewrite.js";
 import { readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { LEARNER_IGNORE_RULE } from "./learner-store.js";
-import { readPlanDraft, writePlanDraft, type CoverageVerdict, type PlanDraft, type PlanStub } from "./plan-draft.js";
+import { StubError, readPlanDraft, validateDraft, validateStub, writePlanDraft, type CoverageVerdict, type PlanDraft, type PlanStub } from "./plan-draft.js";
 import { writeRoadmap, type Roadmap } from "./roadmap.js";
 import { runWorkbookCli } from "./workbook-cli.js";
 
@@ -399,5 +399,74 @@ describe("coverage is verified before anything reaches the gate", () => {
         writePlanDraft(repo, "alpha", { slices: [learner(11, ["pinned-state"]), learner(12, ["drift"], ["pinned-state"])] });
         expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
         expect(readPlanDraft(repo, "alpha")?.coverage).toEqual({ clean: true, gaps: [] });
+    });
+});
+
+describe("a slice that would teach more than one step can hold is split", () => {
+    const many: string[] = ["a", "b", "c", "d", "e"];
+    const VOCABULARY = many.concat("z").map((id) => ({ id, gloss: `what ${id} is`, aliases: [] }));
+
+    function split(concepts: string[], assumes: string[] = []): PlanStub[] {
+        return rewritePlan({ slices: [learner(11, concepts, assumes)], vocabulary: VOCABULARY }, { edges: [{ story: 11, blockedBy: [] }] }).slices;
+    }
+
+    it("breaks a slice over the limit into slices that each fit", () => {
+        for (const stub of split(["a", "b", "c", "d", "e"])) expect(stub.concepts.length).toBeLessThanOrEqual(STEP_CONCEPT_LIMIT);
+    });
+
+    it("leaves a slice at the limit whole", () => {
+        expect(split(["a", "b", "c", "d"])).toHaveLength(1);
+        expect(split(["a", "b", "c", "d"])[0].part).toBeUndefined();
+    });
+
+    it("names the original's story on every part", () => {
+        expect(split(many).map((stub) => stub.story)).toEqual([11, 11]);
+        expect(split(many).map((stub) => stub.part)).toEqual([1, 2]);
+    });
+
+    it("takes the fewest parts that all fit, and spreads the concepts as evenly as they allow", () => {
+        expect(split(many).map((stub) => stub.concepts)).toEqual([["a", "b", "c"], ["d", "e"]]);
+        expect(split(["a", "b", "c", "d", "e", "z"]).map((stub) => stub.concepts)).toEqual([["a", "b", "c"], ["d", "e", "z"]]);
+    });
+
+    it("assigns the concepts in the merged vocabulary's own order", () => {
+        const reversed: PlanStub[] = rewritePlan(
+            { slices: [learner(11, ["e", "d", "c", "b", "a"])], vocabulary: VOCABULARY },
+            { edges: [{ story: 11, blockedBy: [] }] },
+        ).slices;
+        expect(reversed.map((stub) => stub.concepts)).toEqual([["a", "b", "c"], ["d", "e"]]);
+    });
+
+    it("makes a later part assume what the earlier parts introduced, keeping the original's own assumptions", () => {
+        const parts: PlanStub[] = split(many, ["z"]);
+        expect(parts[0].assumes).toEqual(["z"]);
+        expect(parts[1].assumes).toEqual(["z", "a", "b", "c"]);
+    });
+
+    it("keeps the parts consecutive, inside the span the original slice held", () => {
+        const draft: PlanDraft = { slices: [learner(11, many), learner(12, ["z"])], vocabulary: VOCABULARY };
+        const placed: number[] = rewritePlan(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] }).slices.map((s) => s.story);
+        expect(placed).toEqual([11, 11, 12]);
+    });
+
+    it("covers a part that assumes what an earlier part taught", () => {
+        const plan: PlanDraft = rewritePlan({ slices: [learner(11, many)], vocabulary: VOCABULARY }, { edges: [{ story: 11, blockedBy: [] }] });
+        expect(plan.coverage).toEqual({ clean: true, gaps: [] });
+    });
+
+    it("writes several slices for one story, and reads them back", () => {
+        const repo: string = initRepo();
+        writeRoadmap(repo, ROADMAP);
+        writePlanDraft(repo, "alpha", { slices: [learner(11, many), learner(12, ["z"])], vocabulary: VOCABULARY });
+
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
+        const plan: PlanDraft = readPlanDraft(repo, "alpha") as PlanDraft;
+        expect(plan.slices.filter((stub) => stub.story === 11).map((stub) => stub.part)).toEqual([1, 2]);
+    });
+
+    it("refuses a draft holding two whole slices for one story, and one whose parts are not consecutive", () => {
+        expect(() => validateDraft({ slices: [learner(11, ["a"]), learner(11, ["b"])] })).toThrow(StubError);
+        expect(() => validateDraft({ slices: [{ ...learner(11, ["a"]), part: 1 }, { ...learner(11, ["b"]), part: 3 }] })).toThrow(/part/);
+        expect(() => validateStub({ story: 11, builds: "handoff", part: 1 }, 0)).toThrow(/part/);
     });
 });

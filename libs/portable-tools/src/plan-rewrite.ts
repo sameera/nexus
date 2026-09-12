@@ -126,6 +126,17 @@ export function applyDeclaration(interview: InterviewRecord, draft: PlanDraft, d
     return { ok: true, draft: { ...draft, slices, declared: removed, unmatched } };
 }
 
+/**
+ * How many new concepts one step may carry, inclusive (record #562).
+ *
+ * Four is the working-memory ceiling for genuinely novel material, and the shipped sitting already
+ * spends attention elsewhere: a cold drill, a revisit of what the learner took hints on, the theory,
+ * and one exercise the learner writes a test for first. The extraction ceiling of twelve is a guard
+ * against a runaway extraction rather than a claim about what a person can hold in one sitting, and a
+ * twelve-concept lesson is exactly the step this limit exists to break up.
+ */
+export const STEP_CONCEPT_LIMIT: number = 4;
+
 /** One story's dependency edges, as the resolved roadmap records them. */
 export interface StoryEdges {
     story: number;
@@ -244,6 +255,50 @@ function orderLearnerSlices(slices: readonly PlanStub[], blockers: Map<number, n
 }
 
 /**
+ * Break the slices that would teach more than one step can hold (epic #457, story #558).
+ *
+ * A slice over the limit becomes the **fewest parts that all fit**, and the concepts are spread as
+ * evenly as those parts allow — five concepts become three and two rather than four and one, because
+ * a trailing part carrying a single concept reads to the learner as a step that exists for
+ * administrative reasons, which is the same objection the scaffold restraint exists to prevent.
+ *
+ * The parts stay **consecutive inside the span their story held**, and each names that story. All
+ * parts satisfy the dependency edges identically wherever the original sat, so splitting cannot
+ * change the surrounding order and the ordering pass never runs again. A part after the first
+ * assumes what the earlier parts introduced, which is what gives the coverage check something true
+ * to check about each part. Concepts are assigned in the merged vocabulary's own order, which makes
+ * the partition deterministic.
+ */
+function splitOverLimit(order: readonly PlanStub[], vocabulary: readonly VocabularyEntry[]): PlanStub[] {
+    const rank: Map<string, number> = new Map(vocabulary.map((entry, index) => [entry.id, index]));
+    const at = (id: string): number => rank.get(id) ?? vocabulary.length;
+    const out: PlanStub[] = [];
+
+    for (const stub of order) {
+        if (stub.concepts.length <= STEP_CONCEPT_LIMIT) {
+            out.push(stub);
+            continue;
+        }
+        const ordered: string[] = [...stub.concepts].sort((a, b) => at(a) - at(b) || stub.concepts.indexOf(a) - stub.concepts.indexOf(b));
+        const parts: number = Math.ceil(ordered.length / STEP_CONCEPT_LIMIT);
+        const base: number = Math.floor(ordered.length / parts);
+        const wider: number = ordered.length % parts;
+        const taught: string[] = [];
+        for (let index = 0, taken = 0; index < parts; index++) {
+            const size: number = base + (index < wider ? 1 : 0);
+            const concepts: string[] = ordered.slice(taken, taken + size);
+            const assumes: string[] = [];
+            appendNew(assumes, stub.assumes);
+            appendNew(assumes, taught);
+            out.push({ ...stub, part: index + 1, concepts, assumes });
+            appendNew(taught, concepts);
+            taken += size;
+        }
+    }
+    return out;
+}
+
+/**
  * Put the handoff slices back into the learner order. Each is placed as soon as what blocks it is
  * placed, so no slice precedes a slice that blocks it, transitively or through a handoff.
  */
@@ -337,7 +392,8 @@ export function rewritePlan(draft: PlanDraft, options: RewriteOptions = {}): Pla
         slices = draft.slices.map((stub) => assign(stub, owned));
     } else {
         const direct: Map<number, number[]> = blockersWithin(draft.slices, options.edges);
-        slices = placeHandoffs(draft.slices, orderLearnerSlices(draft.slices, learnerBlockers(draft.slices, direct)), direct);
+        const order: PlanStub[] = orderLearnerSlices(draft.slices, learnerBlockers(draft.slices, direct));
+        slices = placeHandoffs(draft.slices, splitOverLimit(order, draft.vocabulary ?? []), direct);
     }
     const declared: string[] = (draft.declared ?? []).map((entry) => entry.concept);
     return { ...draft, slices, coverage: checkCoverage(slices, declared, options.handoffConcepts ?? new Map()) };

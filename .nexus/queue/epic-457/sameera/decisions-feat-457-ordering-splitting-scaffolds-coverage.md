@@ -28,3 +28,8 @@
 - **Choice:** `nexus workbook rewrite` writes the rewritten draft with its verdict and then exits 1 when the verdict is not clean.
 - **Why:** Invariant 33 wants the plan withheld from the gate but the evidence kept; the exit code is what stops the calling phase in code rather than on instruction.
 - **Refuted alternative:** Exit 0 and rely on the command's prose to stop the session — an instruction nothing enforces.
+
+## 2026-09-12 — A part is a plain 1-based `part` field, checked as a consecutive run
+- **Choice:** `PlanStub.part?: number`, absent on an unsplit slice; `validateDraft` requires a story's group to be exactly 1..n.
+- **Why:** Record #562 makes a slice's identity "story plus which part", and the consecutive-run check is what distinguishes a legitimate split from a duplicated stub without a second key.
+- **Refuted alternative:** A composite `{ index, of }` object, which states the total on every part and so can disagree with itself.

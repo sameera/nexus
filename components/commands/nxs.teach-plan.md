@@ -199,6 +199,12 @@ empty rather than guessing: a wrong match deletes a lesson the learner is never 
 notice, while an unmatched phrase only leaves them something they already knew. Code applies the
 mapping, refuses anything the vocabulary does not hold, and reports the phrases that matched nothing.
 
+**Splitting.** A slice that would introduce more concepts than one step can hold becomes several
+slices, each naming the same story and saying which part of it it is. The parts sit consecutively
+where the original sat, and a later part assumes what the earlier parts taught. A slice already
+within the limit stays one slice. So the draft may now hold several slices for one story, and a
+slice's identity is its story plus its part.
+
 **Coverage.** The pass then checks the finished plan, last, and names every gap rather than only the
 first. A gap is a bug in the plan, and it is catchable here — before a word of any lesson is written.
 Two readings are deliberately not gaps: a concept no story on the roadmap introduces at all is
