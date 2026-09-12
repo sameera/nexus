@@ -1,8 +1,8 @@
 ---
 title: "Focus Marking"
 aliases: ["learner or handoff", "slice mark", "recorded focus", "whole roadmap in focus", "focus verdict", "no focus means every slice"]
-touches: ["story-concept-extraction", "plan-draft", "learner-folder", "handoff-prompt"]
-last_updated_by: "#456"
+touches: ["story-concept-extraction", "plan-draft", "learner-folder", "handoff-prompt", "plan-rewrite", "coverage-check"]
+last_updated_by: "#457"
 status: active
 verification: verified
 ---
@@ -35,9 +35,15 @@ A named focus that matches no story still writes the draft and says so; whether 
 - [plan-draft](plan-draft.md) — the stub the mark lands on, which carries nothing besides its story once the mark is handoff.
 - [learner-folder](learner-folder.md) — where a verdict's reason is filed, because the reason a slice was handed off is a personal record.
 - [handoff-prompt](handoff-prompt.md) — what a handoff mark eventually produces when the approved plan is taught, never here.
+- [plan-rewrite](plan-rewrite.md) — orders only the slices marked learner, and places each handoff before the learner slice it unblocks.
+- [coverage-check](coverage-check.md) — names the handed-off story when a learner slice assumes a concept only that story introduces.
 
 ## Decision Log
 
 ### 2026-09-11 — #456 — The mark is judged in the same read as the concepts
 
 The pass reads each story once, and only the unit reading it holds its text, so the verdict is returned from that read rather than decided afterwards from the lists. What a story builds is what the question is about, and a concept list is a lossy stand-in for it — a focus phrased as something to build could not be judged from concepts at all. Verdicts spread across units can be inconsistent, which is accepted because two later checks catch a wrongly drawn boundary before anything is taught: the coverage check fails a learner slice that assumes a concept only a handed-off slice introduces, and a person reviews every mark at approval. The no-focus case is kept out of judgement entirely and read from the interview's explicit statement, because a reader that treats "no focus" as "nothing in focus" hands off the whole roadmap, and reading the recorded story list instead would hand off every story added after the interview. Refuted alternative: after the merge, have the planning session mark every slice itself by judging the concept lists against the focus. One judge seeing the whole roadmap draws one boundary and can revise a mark without re-reading a story, but the stage's most consequential decision would then rest on the stand-in rather than on the story.
+
+### 2026-09-12 — #457 — Reciprocal link from plan-rewrite and coverage-check
+
+The mark now decides where a slice sits as well as who builds it. The rewrite orders learner slices and places each handoff immediately before the earliest learner slice it unblocks. The coverage check this page already relied on to catch a wrongly drawn boundary now exists, and it names the handed-off story behind each such gap.
