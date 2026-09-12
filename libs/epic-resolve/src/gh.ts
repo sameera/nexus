@@ -360,7 +360,27 @@ export interface IssueFacts {
     stateReason: string;
 }
 
-function graphql(run: Runner, cwd: string, slug: RepoSlug, query: string, num: number, what: string): Ok<{ doc: unknown }> | Err {
+/**
+ * Does this failure say the *issue* lookup resolved to nothing?
+ *
+ * GitHub reports a number that names no issue as a failed call carrying a GraphQL error, and
+ * never as a successful empty answer — so absence can only be read out of the failure itself.
+ * The match is deliberately narrow: an unreachable host, a rejected credential, a rate limit and
+ * a missing *repository* are all failures that stay failures, because reading any of them as
+ * "that issue is absent" silently shrinks a story list and lets a gate pass over unread code.
+ */
+function isIssueNotFound(stderr: string): boolean {
+    return /could not resolve to an issue with the (?:number|name)/i.test(stderr);
+}
+
+function graphql(
+    run: Runner,
+    cwd: string,
+    slug: RepoSlug,
+    query: string,
+    num: number,
+    what: string,
+): Ok<{ doc: unknown }> | (Err & { stderr: string }) {
     const r = run(
         "gh",
         ["api", "graphql", "-f", `query=${query}`, "-F", `owner=${slug.owner}`, "-F", `repo=${slug.repo}`, "-F", `num=${num}`],
@@ -369,6 +389,7 @@ function graphql(run: Runner, cwd: string, slug: RepoSlug, query: string, num: n
     if (r.status !== 0) {
         return {
             ok: false,
+            stderr: r.stderr,
             error: { problem: "gh-failed", message: `reading ${what} of #${num} failed: ${r.stderr.trim() || "unknown gh error"}` },
         };
     }
@@ -377,6 +398,7 @@ function graphql(run: Runner, cwd: string, slug: RepoSlug, query: string, num: n
     } catch (e) {
         return {
             ok: false,
+            stderr: r.stderr,
             error: {
                 problem: "malformed-json",
                 message: `reading ${what} of #${num} returned unparseable JSON: ${e instanceof Error ? e.message : String(e)}`,
@@ -413,18 +435,25 @@ function issueTypeName(node: unknown): string | null {
     return typeof name === "string" && name.length > 0 ? name : null;
 }
 
+const ABSENT: IssueFacts = { exists: false, parent: null, issueType: null, labels: [], state: "", stateReason: "" };
+
 /**
  * Read one issue's parent, issue type and labels together.
  *
  * A number naming no issue is not a failure — a candidate lifted out of a branch name may be
- * anything — so it comes back as `exists: false` for the caller to drop.
+ * anything — so it comes back as `exists: false` for the caller to decide about. This is the
+ * boundary where absence is told apart from a genuine platform failure: every other failure
+ * stays an error and stops the run.
  */
 export function fetchIssueFacts(run: Runner, cwd: string, slug: RepoSlug, number: number): Ok<{ facts: IssueFacts }> | Err {
     const r = graphql(run, cwd, slug, ISSUE_FACTS_QUERY, number, "issue facts");
-    if (!r.ok) return r;
+    if (!r.ok) {
+        if (r.error.problem === "gh-failed" && isIssueNotFound(r.stderr)) return { ok: true, facts: ABSENT };
+        return { ok: false, error: r.error };
+    }
     const issue: unknown = at(r.doc, "data", "repository", "issue");
     if (issue === null) {
-        return { ok: true, facts: { exists: false, parent: null, issueType: null, labels: [], state: "", stateReason: "" } };
+        return { ok: true, facts: ABSENT };
     }
     const parent: unknown = at(issue, "parent", "number");
     return {
@@ -448,7 +477,7 @@ export function fetchSubIssueFacts(
     epicNumber: number,
 ): Ok<{ facts: Map<number, IssueFacts> }> | Err {
     const r = graphql(run, cwd, slug, SUB_ISSUE_FACTS_QUERY, epicNumber, "sub-issue facts");
-    if (!r.ok) return r;
+    if (!r.ok) return { ok: false, error: r.error };
     const nodes: unknown = at(r.doc, "data", "repository", "issue", "subIssues", "nodes");
     const facts = new Map<number, IssueFacts>();
     if (!Array.isArray(nodes)) return { ok: true, facts };
