@@ -1,8 +1,8 @@
 ---
 title: "Ephemeral Hand-Off Entry"
 aliases: ["ephemeral entry", "hand-off entry", "same-sitting entry", "ephemeral area", "tmp-first close", "entry kind"]
-touches: ["committed-queue", "distiller", "durable-close-record", "scratch-capture", "conformance-gate", "fix-lane", "intake-lane"]
-last_updated_by: "#215"
+touches: ["committed-queue", "distiller", "durable-close-record", "scratch-capture", "conformance-gate", "fix-lane", "intake-lane", "entry-slot-ownership"]
+last_updated_by: "#515"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ An ephemeral hand-off entry is the version-ignored directory a local close leave
 
 ## How It Works
 
-Under issue-sourced planning nothing is committed at planning, so a local run materializes the epic into the ephemeral area and writes its receipt and close record beside it. No throwaway commit or manual hand-off step is needed. Because nothing can commit the deletion of a version-ignored path, consumption is derived rather than marked: the entry is consumed exactly when the concept store at the fetched trunk carries that epic's provenance in a structured position. A consumed directory is then removed with no commit; an unconsumed one never is, so a distillation abandoned before merge stays rediscoverable. They stay out of drain-health accounting. A local directory says nothing about any other machine. What an entry is comes from the kind recorded in its own header, not from its location or what its directory name is. When the two disagree, the entry stops outright.
+Under issue-sourced planning nothing is committed at planning, so a local run materializes the epic into the ephemeral area and writes its receipt and close record beside it. No throwaway commit or manual hand-off step is needed. Because nothing can commit the deletion of a version-ignored path, consumption is derived rather than marked: the entry is consumed exactly when the concept store at the fetched trunk carries that epic's provenance in a structured position. A consumed directory is then removed with no commit; an unconsumed one never is, so a distillation abandoned before merge stays rediscoverable. They stay out of drain-health accounting. A local directory says nothing about any other machine. What an entry is comes from the kind recorded in its own header, not from its location or what its directory name is. When the two disagree, the entry stops outright. The epic kind alone records nothing, so a missing kind under an epic-named directory reads as epic.
 
 ## Key Invariants
 
@@ -34,6 +34,7 @@ Under issue-sourced planning nothing is committed at planning, so a local run ma
 - [conformance-gate](conformance-gate.md) — the receipt written here for the same-sitting hand-off.
 - [fix-lane](fix-lane.md) — the other writer into this area, whose entries carry no scratch home and so no committed removal target.
 - [intake-lane](intake-lane.md) — the third writer into this area, whose entries also carry no scratch home and so no committed removal target.
+- [entry-slot-ownership](entry-slot-ownership.md) — reads the recorded kind of whatever holds a number's slot here, and treats an unreadable entry as holding it.
 
 ## Decision Log
 
@@ -52,3 +53,7 @@ Mechanical reciprocity fan-out: a third writer, the intake lane, now names this 
 ### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
 
 Mechanical reciprocity fan-out: the member path that migrated these artifacts and the committed scratch as one epic is retired, so the edge is removed. Nothing about how an ephemeral entry is written, discovered or drained changed.
+
+### 2026-09-12 — #515 — The epic kind records nothing, so its directory name answers for it
+
+Reading an entry's kind from its own header leaves one kind unanswerable. An epic's materialization is written by the resolver, which records no kind at all, so a lookup that consulted only the header could never identify an epic, and the refusal that stops a lane from shadowing one would quietly stop firing. A missing kind under an epic-named directory therefore reads as epic, which is how the stages that already read these entries treat it. The rule itself is unchanged: every other kind states its own kind, and a stated kind that disagrees with its directory still stops the entry. An entry whose recorded reference cannot be read at all still holds its number rather than reading as absent, so a half-written entry is never written over. This reading closes a gap the design left open rather than reversing a decision the design made.

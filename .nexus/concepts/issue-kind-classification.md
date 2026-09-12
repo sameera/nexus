@@ -1,8 +1,8 @@
 ---
 title: "Issue Kind Classification"
 aliases: ["issue kind", "what an issue is filed as", "epic or story", "classification mode mismatch", "declared marker over graph shape"]
-touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record"]
-last_updated_by: "#211"
+touches: ["publishing-config-resolution", "pr-story-resolution", "decision-record", "entry-slot-ownership"]
+last_updated_by: "#515"
 status: active
 verification: verified
 ---
@@ -34,9 +34,14 @@ The design stage's import refuses an issue its repository files as a story or a 
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the declared mode and every marker name this rule matches against.
 - [pr-story-resolution](pr-story-resolution.md) — validates each of a pull request's story candidates through this rule.
 - [decision-record](decision-record.md) — the design stage's import decides here whether the issue it was handed is the epic.
+- [entry-slot-ownership](entry-slot-ownership.md) — reads the declared epic marker through this rule, so a landed-work lane names an epic from the repository's own statement.
 
 ## Decision Log
 
 ### 2026-09-10 — #211 — What an issue is comes from the declared classification, never from the graph's shape
 
 The rule this replaced asked the issue graph: an issue with a parent that lists it back was a story, and a parentless issue was an epic. Shape cannot carry that question. A story of an epic and an epic of an initiative have the same shape, so in a repository that files its epics under an initiative the shape rule resolved one level too high. Two stages read the wrong issue as a result. The conformance gate checked an initiative's non-existent acceptance criteria and decision record, and the design stage's import refused every genuine epic as not being one. Reading the declared marker instead makes the answer the repository's own statement rather than an inference. A mode that contradicts the issue is treated as a defect in the settings rather than as an input to route around, because a silent fallback would let a wrong declaration keep working here while every other stage that trusts the same setting disagrees about the same issue. The unmarked case stayed permissive on purpose: requiring a positive epic marker would refuse every epic in a repository that labels nothing, which is a new refusal rather than a fix. Refuted alternative: keep the shape check and add a depth heuristic, where an issue whose parent also has a parent is an epic. It needs no settings and it fixes this repository. It also encodes one repository's nesting depth as a global rule, and it breaks as soon as an adopter nests differently or does not nest at all.
+
+### 2026-09-12 — #515 — Reciprocal link from entry-slot-ownership
+
+Mechanical reciprocity fan-out: the rule that decides which kind of entry holds a number's slot now names this rule as the source of the epic marker it reads, so both landed-work lanes refuse an epic from the repository's own declaration rather than from a hard-coded label or type name. Nothing this page already asserted has changed.

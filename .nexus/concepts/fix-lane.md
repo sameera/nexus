@@ -1,8 +1,8 @@
 ---
 title: "Fix Lane"
 aliases: ["lightweight fix lane", "fix entry", "small-fix lane", "fifth entry point", "recording a small fix"]
-touches: ["fix-razor", "ephemeral-handoff-entry", "distiller", "provenance-reference", "pr-worktree", "nexus-pipeline", "conformance-gate", "intake-lane"]
-last_updated_by: "#483"
+touches: ["fix-razor", "ephemeral-handoff-entry", "distiller", "provenance-reference", "pr-worktree", "nexus-pipeline", "conformance-gate", "intake-lane", "entry-slot-ownership"]
+last_updated_by: "#515"
 status: active
 verification: verified
 ---
@@ -17,10 +17,10 @@ The system was gated on epics at two points: the file heading an entry had one p
 
 ## Key Invariants
 
-1. The lane writes exactly two files into the ephemeral area and nothing else: no host writes, no branch, no pull request, no commit.
+1. The lane writes exactly two files into the ephemeral area and nothing else: no host writes, no branch, no pull request, no commit. Re-running it against the same reference replaces that entry whole rather than adding a second.
 2. Provenance is always the reference the developer named. A pull request is never substituted for the issue it closes, nor an issue for a pull request, even when the range came from that pull request.
 3. A recorded range carries full commit identifiers at both ends and its head must already reach the trunk. A range is never guessed and never defaulted.
-4. The lane refuses and writes nothing when the reference is epic-classified, when a materialized epic already exists for that number, when run inside a member repository, or when the pull request is unmerged.
+4. The lane refuses and writes nothing when the reference is epic-classified, when the number's slot is held by a kind this lane does not own, when run inside a member repository, or when the pull request is unmerged.
 5. The kind recorded in an entry's header determines what the entry is, never the directory name.
 6. The developer is asked exactly two things: why the change mattered (required) and the feature (optional, never invented).
 7. There is no approval checkpoint and no conformance receipt. Nothing durable is written, so a second gate would force no decision.
@@ -35,6 +35,7 @@ The system was gated on epics at two points: the file heading an entry had one p
 - [nexus-pipeline](nexus-pipeline.md) — the epic-shaped path this lane is the alternative to, for a change too small to justify it.
 - [conformance-gate](conformance-gate.md) — refuses to run against this lane's entries, which carry none of the three things it checks.
 - [intake-lane](intake-lane.md) — the sibling lane for a landed change that would alter what a page asserts, sharing this lane's reference and range resolution rules through one skill.
+- [entry-slot-ownership](entry-slot-ownership.md) — the shared rule this lane loads for both of its pre-write refusals, instead of stating them itself.
 
 ## Decision Log
 
@@ -45,3 +46,7 @@ Recording the reason behind a two-line fix cost four durable artifacts and two r
 ### 2026-09-08 — #483 — Reciprocal link from intake-lane
 
 Mechanical reciprocity fan-out: the intake-lane page names this lane as its sibling for work that has already landed, sharing the checkout-role gate, reference resolution, range resolution and qualification rule through one extracted skill so a fix to either cannot silently diverge from the other. Nothing this page already asserted has changed.
+
+### 2026-09-12 — #515 — Both refusals moved out, and the intake collision arrived with them
+
+The two refusals this lane ran before writing anything were stated only in its own file, so the sibling lane that shares every other reference rule had neither of them, and a rule fixed here could drift there unnoticed. Moving them into the skill both lanes already load makes the collision check general: the lane now asks whether the number's slot is held by a kind it does not own, rather than checking for an epic alone, and that gains it the intake collision it never checked before. Re-running the lane against a reference it has already recorded now replaces that entry whole instead of refusing, so correcting a recorded reason no longer requires deleting the entry by hand first. The existing epic refusal keeps its trigger, its wording and its position ahead of range resolution, because the risk in this move was entirely in rewording prose that already worked. Refuted alternative: keep the refusals here and copy them into the sibling lane, which needs no shared section at all. It loses for the reason the move exists: two copies of one rule drift, and the drift is silent.
