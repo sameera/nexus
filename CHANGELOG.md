@@ -36,6 +36,12 @@ behaviour says so.
   and refuses — leaving the approved plan, its lessons and its pages unchanged — a draft whose coverage
   is not clean, one not planned over the taught part, or one whose merge renamed a concept identifier a
   written lesson carries.
+- An approved plan now renders a workbook **home page**: every slice in plan order with the slices it
+  depends on, including the edges from one part to the next and from a scaffold to the slice it serves.
+  A slice with a written lesson links to its page, one without is shown as not yet written, a handoff is
+  marked as handed off, and a scaffold as a teaching step. Approval, every `/nxs.teach` session, and
+  `nexus workbook render` and `check` all produce it from the plan and the lessons, so it exists before
+  any lesson is written, stays current after each session, and needs no network to display.
 
 ## 0.36.0
 

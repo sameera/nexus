@@ -32,3 +32,13 @@
 - **Choice:** `--approve --commands` over an existing plan is refused; the committed plan's suite, grading and control test are reused.
 - **Why:** Record #591 has re-approval reuse them, and silently preferring either source would hide which one won.
 - **Refuted alternative:** Let a newly declared file replace the committed commands.
+
+## 2026-09-13 — Every render path takes one options builder over the plan and the lessons
+- **Choice:** `planRenderOptions` in the store builds lessons, stubs and home entries from a given plan; the session, approval, `render` and `check` all call it, and a workbook with no teaching plan keeps the lessons-only render.
+- **Why:** Check mode compares bytes, so any path that rendered from different inputs would report the home page as drifted after every session (record #591 ADDRESS risk 2).
+- **Refuted alternative:** Add home-page rendering to each path separately, which is how the render verb and check mode diverged from the session before.
+
+## 2026-09-13 — The home page is `index.html`, its dependency edges are in-page anchors
+- **Choice:** The home page renders to `index.html`, each slice an `<li>` anchored by its identity, dependencies linked by anchor; the plan reader refuses a lesson that would render to that name.
+- **Why:** Derived lesson names start `story-` or `scaffold-`, so the reservation only ever refuses a hand-written plan, and anchors keep the graph navigable without layout code.
+- **Refuted alternative:** An SVG graph laid out by a script when the page opens, which record #450 refuses because the content must exist at render time.

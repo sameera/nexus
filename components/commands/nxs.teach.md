@@ -74,5 +74,8 @@ and the next story slice's. Write both the same way and re-run.
 
 # After the lesson
 
-The session renders the page itself. Report where the lesson landed and what the learner does next.
+The session renders the page itself, and the workbook's home page with it: every slice of the plan
+in order, with the slices each depends on, the written ones linked, the rest shown as not yet
+written, handoffs marked as handed off and scaffolds as teaching steps. Report where the lesson landed,
+point the learner at the home page for the road ahead, and say what they do next.
 Never edit a rendered page by hand, and never write a personal record yourself.

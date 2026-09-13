@@ -52,9 +52,9 @@ import {
     type StagedLesson,
 } from "./lesson-writer.js";
 import { gateNextLesson, type DriftFinding, type IssueReader, type LessonGate, type TeachingPlan } from "./teaching-plan.js";
-import { planStubs, sliceId, sliceLabel, toTeachingPlan, type PlanSliceRecord, type WorkbookPlan } from "./workbook-plan.js";
+import { sliceId, sliceLabel, toTeachingPlan, type PlanSliceRecord, type WorkbookPlan } from "./workbook-plan.js";
 import { parseLesson, pageNameFor, renderWorkbookInto, type Lesson, type LessonSource } from "./workbook-render.js";
-import { lessonsDir, readLessons, readWorkbookPlan, workbookRoot, writeWorkbookPlan, writtenLessonFiles } from "./workbook-store.js";
+import { lessonsDir, planRenderOptions, readLessons, readWorkbookPlan, workbookRoot, writeWorkbookPlan } from "./workbook-store.js";
 
 /** The learner record the drill's ranking reads: how many hints were taken, by concept. */
 export const HINT_LOG_FILENAME: string = "hints.json";
@@ -183,14 +183,12 @@ function isFinished(repoRoot: string, slice: PlanSliceRecord): boolean {
     return fs.existsSync(path.join(repoRoot, slice.pinningTest.file));
 }
 
-/** Re-render the workbook so the pages match the lessons, and name the page a lesson renders to. */
+/**
+ * Re-render the workbook so the pages match the lessons and the plan — the home page included, so it
+ * links a lesson's slice the moment the lesson is written (record #591, invariant 46).
+ */
 function render(repoRoot: string, slug: string, plan: WorkbookPlan): void {
-    const lessons: LessonSource[] = readLessons(repoRoot, slug);
-    if (lessons.length === 0) return;
-    renderWorkbookInto(workbookRoot(repoRoot, slug), {
-        lessons,
-        stubs: planStubs(plan, writtenLessonFiles(repoRoot, slug)).map((stub) => stub.label),
-    });
+    renderWorkbookInto(workbookRoot(repoRoot, slug), planRenderOptions(repoRoot, slug, plan));
 }
 
 function pagePath(repoRoot: string, slug: string, lessonFile: string): string {

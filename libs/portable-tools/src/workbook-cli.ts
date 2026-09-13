@@ -33,7 +33,7 @@ import {
     writtenLessonFiles,
     type CreatedWorkbook,
 } from "./workbook-store.js";
-import { checkWorkbook, parseLesson, renderWorkbook, renderWorkbookInto, writeWorkbook, type LessonSource, type RenderedFile, type WorkbookDrift } from "./workbook-render.js";
+import { checkWorkbook, parseLesson, renderWorkbook, renderWorkbookInto, writeWorkbook, type LessonSource, type RenderOptions, type RenderedFile, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
 import { type AuthoredPinningTest, type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
@@ -195,8 +195,8 @@ const DRIFT_WORDING: Record<WorkbookDrift["state"], string> = {
  * committing generated output). It reports and repairs nothing — re-rendering is the fix, and it is
  * the author's to run.
  */
-function reportDrift(repoRoot: string, slug: string, lessons: readonly LessonSource[], io: WorkbookCliIo): number {
-    const drift: WorkbookDrift[] = checkWorkbook(workbookRoot(repoRoot, slug), { lessons });
+function reportDrift(repoRoot: string, slug: string, options: RenderOptions, io: WorkbookCliIo): number {
+    const drift: WorkbookDrift[] = checkWorkbook(workbookRoot(repoRoot, slug), options);
     if (drift.length === 0) {
         io.stdout(`every page in ${slug} matches the lesson it was generated from.`);
         return 0;
@@ -741,7 +741,7 @@ function runApprove(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags:
     // approved plan and its pages exactly as they were (invariant 31).
     const pages: RenderedFile[] = renderWorkbook(planRenderOptions(repoRoot, roadmap.name, approval.plan));
     const planFile: string = writeWorkbookPlan(repoRoot, roadmap.name, approval.plan);
-    if (pages.some((file) => file.name.endsWith(".html"))) writeWorkbook(workbookRoot(repoRoot, roadmap.name), pages);
+    writeWorkbook(workbookRoot(repoRoot, roadmap.name), pages);
     const learner: number = approval.plan.slices.filter((slice) => slice.learnerBuilds).length;
     io.stdout(
         `approved the plan for ${roadmap.name}: ${approval.plan.slices.length} slice${approval.plan.slices.length === 1 ? "" : "s"}, ` +
@@ -845,13 +845,17 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         }
 
         if (sub === "render" || sub === "check") {
-            const lessons = readLessons(repoRoot, slug);
-            if (lessons.length === 0) {
+            // A teaching plan renders from the plan and the lessons together, so its home page exists
+            // even before any lesson is written; a workbook with no plan renders its lessons alone.
+            const taught: WorkbookPlan | null = readWorkbookPlan(repoRoot, slug);
+            const options: RenderOptions = taught === null ? { lessons: readLessons(repoRoot, slug) } : planRenderOptions(repoRoot, slug, taught);
+            const lessons: readonly LessonSource[] = options.lessons;
+            if (lessons.length === 0 && taught === null) {
                 io.stderr(`${lessonsDir(repoRoot, slug)} holds no authored lesson, so there is nothing to ${sub}.`);
                 return 1;
             }
-            if (sub === "check") return reportDrift(repoRoot, slug, lessons, io);
-            const written: string[] = renderWorkbookInto(workbookRoot(repoRoot, slug), { lessons });
+            if (sub === "check") return reportDrift(repoRoot, slug, options, io);
+            const written: string[] = renderWorkbookInto(workbookRoot(repoRoot, slug), options);
             io.stdout(`rendered ${lessons.length} lesson${lessons.length === 1 ? "" : "s"} to ${workbookRoot(repoRoot, slug)}`);
             for (const name of written) io.stdout(`  ${name}`);
             io.stdout(`Open ${path.join(workbookRoot(repoRoot, slug), written.find((n) => n.endsWith(".html")) ?? "")} to read it — nothing needs to be started.`);

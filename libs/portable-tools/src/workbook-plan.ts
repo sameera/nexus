@@ -20,6 +20,7 @@
 
 import { parse, stringify } from "yaml";
 import { type TeachingPlan } from "./teaching-plan.js";
+import { HOME_PAGE_NAME, pageNameFor, type HomeEntry } from "./workbook-render.js";
 
 /** The file a workbook declares its plan in, beside the lessons it orders. */
 export const PLAN_FILENAME: string = "plan.yml";
@@ -314,6 +315,9 @@ export function parsePlan(source: string): WorkbookPlan {
     const seen: Map<string, string> = new Map();
     for (const slice of read) {
         if (slice.lesson === "") continue;
+        if (pageNameFor(slice.lesson) === HOME_PAGE_NAME) {
+            throw new PlanError(`${sliceLabel(slice)} teaches into ${slice.lesson}, which would render over the workbook's home page.`);
+        }
         const first: string | undefined = seen.get(slice.lesson);
         if (first !== undefined) {
             throw new PlanError(
@@ -391,4 +395,34 @@ export function planStubs(plan: WorkbookPlan, written: readonly string[]): { lab
             label: slice.scaffold === undefined ? `Story ${sliceLabel(slice)}` : `Teaching step — ${slice.scaffold}`,
             lesson: slice.lesson,
         }));
+}
+
+/** How the home page names a slice: its story, part and pinned title, or the concept a scaffold teaches. */
+function homeLabel(slice: PlanSliceRecord): string {
+    if (slice.scaffold !== undefined) return `Teaching step — ${slice.scaffold}`;
+    return slice.pinned === null ? sliceLabel(slice) : `${sliceLabel(slice)} — ${slice.pinned.title}`;
+}
+
+/** How a dependency is named beside the slice that depends on it. */
+function edgeLabel(slice: PlanSliceRecord): string {
+    return slice.scaffold === undefined ? sliceLabel(slice) : `Teaching step — ${slice.scaffold}`;
+}
+
+/**
+ * Every slice of the plan as the home page shows it, in plan order (story #589). A slice with a written
+ * lesson links to its page; one without is not yet written; a handoff is handed off and never a page.
+ * It reads the plan and the lesson file names alone, so a handoff's resolution is not shown (invariant 41).
+ */
+export function homeEntries(plan: WorkbookPlan, written: readonly string[]): HomeEntry[] {
+    const byId: Map<string, PlanSliceRecord> = new Map(plan.slices.map((slice) => [sliceId(slice), slice]));
+    return plan.slices.map((slice): HomeEntry => ({
+        id: sliceId(slice),
+        label: homeLabel(slice),
+        kind: slice.scaffold !== undefined ? "scaffold" : slice.learnerBuilds ? "story" : "handoff",
+        page: slice.lesson !== "" && written.includes(slice.lesson) ? pageNameFor(slice.lesson) : null,
+        dependsOn: slice.dependsOn.flatMap((id) => {
+            const dependency: PlanSliceRecord | undefined = byId.get(id);
+            return dependency === undefined ? [] : [{ id, label: edgeLabel(dependency) }];
+        }),
+    }));
 }

@@ -18,7 +18,7 @@ import { parse } from "yaml";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { ensureLearnerIgnored } from "./learner-store.js";
 import { assertWorkbookHome } from "./workbook-placement.js";
-import { PLAN_FILENAME, parsePlan, planStubs, renderWorkbookPlan, type WorkbookPlan } from "./workbook-plan.js";
+import { PLAN_FILENAME, homeEntries, parsePlan, planStubs, renderWorkbookPlan, type WorkbookPlan } from "./workbook-plan.js";
 import { NEXUS_ROOT_DIRNAME, WORKBOOK_STORE_DIRNAME, WORKBOOK_STORE_PATH } from "./pipeline-stores.js";
 import { type LessonSource, type RenderOptions } from "./workbook-render.js";
 
@@ -214,5 +214,6 @@ export function planRenderOptions(repoRoot: string, slug: string, plan: Workbook
     return {
         lessons: order.filter((file) => present.includes(file)).map((file) => ({ file, source: fs.readFileSync(path.join(lessonsDir(repoRoot, slug), file), "utf8") })),
         stubs: planStubs(plan, present).map((stub) => stub.label),
+        home: homeEntries(plan, present),
     };
 }
