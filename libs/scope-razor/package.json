@@ -29,6 +29,16 @@
             "types": "./src/check.ts",
             "import": "./src/check.ts",
             "default": "./src/check.ts"
+        },
+        "./offer": {
+            "types": "./src/offer.ts",
+            "import": "./src/offer.ts",
+            "default": "./src/offer.ts"
+        },
+        "./rollup": {
+            "types": "./src/rollup.ts",
+            "import": "./src/rollup.ts",
+            "default": "./src/rollup.ts"
         }
     }
 }

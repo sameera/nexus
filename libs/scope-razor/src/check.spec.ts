@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkDraft, checkFiledSet, type RazorFinding } from "./check.js";
+import { checkApplied, checkDraft, checkFiledSet, type RazorFinding } from "./check.js";
 import { renderRazorFindings } from "./render.js";
 
 /** Every story the draft declares, ordered as independent of each other — the ordering block is not what these tests are about. */
@@ -296,5 +296,76 @@ describe("the provenance label on a story heading", () => {
     it("checks the heading's asked fragment against the source text like any other citation", () => {
         const body: string = epic('### Story 1: One `[asked: "a thing the lead never said"]`');
         expect(checkDraft(body, "the lead asked for something else entirely").some((f: RazorFinding) => f.rule === "citation")).toBe(true);
+    });
+});
+
+describe("the apply-time arm, over the set the reviewer approved", () => {
+    const draft: string = [
+        "---",
+        'epic: "Reporting"',
+        "complexity: M",
+        "complexity_drivers: [two services]",
+        "---",
+        "",
+        "## Implementation Order",
+        "",
+        "- **One** — blocked by: none",
+        "- **Two** — blocked by: One",
+        "",
+        "## Smallest Usable Version",
+        "",
+        "One",
+        "",
+        "## User Stories",
+        "",
+        "### Story 1: One `[inferred]`",
+        "",
+        "- **size:** S",
+        "",
+        "### Story 2: Two `[inferred]`",
+        "",
+        "- **size:** M",
+        "",
+    ].join("\n");
+
+    it("blocks an addition whose blocker the reviewer did not also take", () => {
+        const findings: RazorFinding[] = checkApplied(draft, ["Two"]).filter((f: RazorFinding) => f.rule === "closure");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].severity).toBe("blocking");
+        expect(findings[0].where).toBe("Two");
+        expect(findings[0].message).toContain("One");
+    });
+
+    it("blocks a selection naming a story the draft does not hold", () => {
+        const findings: RazorFinding[] = checkApplied(draft, ["One", "Telemetry"]);
+        expect(findings.some((f: RazorFinding) => f.message.includes("Telemetry"))).toBe(true);
+    });
+
+    it("passes the approved set the smallest usable version alone leaves closed", () => {
+        expect(checkApplied(draft.replace("complexity: M", "complexity: S").replace("complexity_drivers: [two services]", "complexity_drivers: []"), ["One"])).toEqual([]);
+    });
+
+    it("blocks a rollup left below the largest size in the filed set", () => {
+        const findings: RazorFinding[] = checkApplied(draft.replace("complexity: M", "complexity: S"), ["One", "Two"]).filter((f: RazorFinding) => f.rule === "rollup");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].severity).toBe("blocking");
+        expect(findings[0].message).toContain("M");
+    });
+
+    it("blocks a rollup left above the filed set with nothing stated to raise it", () => {
+        const stale: string = draft.replace("complexity: M", "complexity: L").replace("complexity_drivers: [two services]", "complexity_drivers: []");
+        const findings: RazorFinding[] = checkApplied(stale, ["One"]).filter((f: RazorFinding) => f.rule === "rollup");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].message).toContain("complexity_drivers");
+    });
+
+    it("permits a rollup above the floor when the drivers state what raises it", () => {
+        expect(checkApplied(draft.replace("complexity: M", "complexity: L"), ["One", "Two"]).filter((f: RazorFinding) => f.rule === "rollup")).toEqual([]);
+    });
+
+    it("blocks a filed story that states no size, because nothing can be re-derived from it", () => {
+        const unsized: string = draft.replace("### Story 2: Two `[inferred]`\n\n- **size:** M", "### Story 2: Two `[inferred]`\n");
+        const findings: RazorFinding[] = checkApplied(unsized, ["One", "Two"]).filter((f: RazorFinding) => f.rule === "rollup");
+        expect(findings.some((f: RazorFinding) => f.where === "Two")).toBe(true);
     });
 });

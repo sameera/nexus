@@ -57,9 +57,10 @@ import { verifyTrunkContainsHeads } from "@nexus/pr-worktree/trunk-check";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
-import { survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
-import { checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
-import { renderRazorFindings, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { deriveFilingBody, survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
+import { checkApplied, checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
+import { renderOfferList, renderRazorFindings, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { offerList, type OfferItem } from "@nexus/scope-razor/offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
@@ -268,13 +269,29 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
         usage: [
             "  nexus razor-check --draft <path> --source <path>",
+            "  nexus razor-check --draft <path> --filed \"<title>; <title>\"",
+            "  nexus razor-check --draft <path> --derive <path>",
             "  nexus razor-check --draft <path> --assert-clean",
             "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
-            "      personas table, exiting 1 when any finding blocks. With --assert-clean it instead",
-            "      asserts that a derived filing body carries no provenance label, template placeholder",
-            "      token or observation marker, so a drafting-time body is never filed.",
+            "      personas table, exiting 1 when any finding blocks. With --filed it instead runs the",
+            "      apply-time arm over the set the reviewer approved, before any edge is rewritten: the",
+            "      set is closed under its blockers, every name in it is a story, and the complexity",
+            "      rollup and the design warrant describe the stories actually filed. With --derive it",
+            "      writes the filing body — labels and the ordering block removed — and asserts it, and",
+            "      with --assert-clean it asserts a body it is given, so a drafting-time body is never",
+            "      filed.",
         ].join("\n"),
         run: runRazorCheck,
+    },
+    "razor-offer": {
+        summary: "Print the planning gate's offer list, ordered by the draft's dependency graph.",
+        usage: [
+            "  nexus razor-offer --draft <path>",
+            "      List every story the draft's smallest usable version excludes, asked-for first and",
+            "      then model-added, each in the order the ordering block unlocks it, with the stable",
+            "      number the reviewer types against. The gate's removals continue the same sequence.",
+        ].join("\n"),
+        run: runRazorOffer,
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
@@ -1348,6 +1365,10 @@ interface RazorCheckFlags {
     draft?: string;
     source?: string;
     assertClean: boolean;
+    /** `--filed`: the story titles the reviewer approved, semicolon-separated — the apply-time arm. */
+    filed?: string[];
+    /** `--derive`: where to write the filing body derived from the draft. */
+    derive?: string;
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
@@ -1356,6 +1377,12 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
         if (argv[i] === "--draft") flags.draft = argv[++i];
         else if (argv[i] === "--source") flags.source = argv[++i];
         else if (argv[i] === "--assert-clean") flags.assertClean = true;
+        else if (argv[i] === "--derive") flags.derive = argv[++i];
+        else if (argv[i] === "--filed")
+            flags.filed = (argv[++i] ?? "")
+                .split(";")
+                .map((title: string) => title.trim())
+                .filter((title: string) => title !== "");
     }
     return flags;
 }
@@ -1372,8 +1399,9 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
  */
 async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const flags: RazorCheckFlags = parseRazorCheckFlags(argv);
-    if (flags.draft === undefined || (!flags.assertClean && flags.source === undefined)) {
-        io.stderr("usage: nexus razor-check --draft <path> (--source <path> | --assert-clean)");
+    const mode: boolean = flags.assertClean || flags.filed !== undefined || flags.derive !== undefined;
+    if (flags.draft === undefined || (!mode && flags.source === undefined)) {
+        io.stderr("usage: nexus razor-check --draft <path> (--source <path> | --filed \"<title>; <title>\" | --derive <path> | --assert-clean)");
         return 2;
     }
 
@@ -1388,6 +1416,34 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
 
     const body: string | undefined = readOr(flags.draft);
     if (body === undefined) return 1;
+
+    if (flags.filed !== undefined) {
+        const findings: RazorRuleFinding[] = checkApplied(body, flags.filed);
+        const report: string = renderRazorFindings(flags.draft, findings);
+        if (findings.some((f: RazorRuleFinding) => f.severity === "blocking")) {
+            io.stderr(report);
+            return 1;
+        }
+        io.stdout(report);
+        return 0;
+    }
+
+    if (flags.derive !== undefined) {
+        const filing: string = deriveFilingBody(body);
+        try {
+            fs.writeFileSync(path.resolve(io.cwd, flags.derive), filing, "utf8");
+        } catch {
+            io.stderr(`razor-check: cannot write ${flags.derive}`);
+            return 1;
+        }
+        const survived: RazorFinding[] = survivingTokens(filing);
+        if (survived.length > 0) {
+            io.stderr(renderSurvivingTokens(flags.derive, survived));
+            return 1;
+        }
+        io.stdout(`razor-check: derived ${flags.derive}; it carries no drafting-time token`);
+        return 0;
+    }
 
     if (flags.assertClean) {
         const findings: RazorFinding[] = survivingTokens(body);
@@ -1409,6 +1465,30 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
     io.stdout(report);
+    return 0;
+}
+
+/**
+ * `nexus razor-offer` — the planning gate's offer list, ordered by the draft's own dependency graph
+ * (epic #576, story #579). The gate renders from this rather than deriving the sequence itself:
+ * ordering by what each item unlocks is mechanical, and the alternative — the drafting model ranking
+ * its own additions by predicted value — is the self-assessment the razor forbids elsewhere.
+ */
+async function runRazorOffer(argv: string[], io: CliIo): Promise<number> {
+    const flags: RazorCheckFlags = parseRazorCheckFlags(argv);
+    if (flags.draft === undefined) {
+        io.stderr("usage: nexus razor-offer --draft <path>");
+        return 2;
+    }
+    let body: string;
+    try {
+        body = fs.readFileSync(path.resolve(io.cwd, flags.draft), "utf8");
+    } catch {
+        io.stderr(`razor-offer: cannot read ${flags.draft}`);
+        return 1;
+    }
+    const items: OfferItem[] = offerList(body);
+    io.stdout(renderOfferList(flags.draft, items));
     return 0;
 }
 

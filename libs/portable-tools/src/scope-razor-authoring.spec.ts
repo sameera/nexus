@@ -252,7 +252,7 @@ describe("the approval digest", () => {
 
     it("offers the rest as additions the reviewer has to name, in one stably numbered list", () => {
         expect(epic).toContain("### Additions — taken only if you name them");
-        expect(epic).toMatch(/One stably numbered list/);
+        expect(epic).toMatch(/share one stably numbered\s+list/);
         expect(epic).toMatch(/one typed selection covers both/i);
     });
 
@@ -289,13 +289,36 @@ describe("the approval digest", () => {
         expect(epic).toMatch(/before\*\* Phase 6 derives the filing body/);
     });
 
-    it("re-parents the dependents of a dropped story and states the cascade before applying it", () => {
-        expect(epic).toMatch(/Re-parent the dependents of a dropped story/);
-        expect(epic).toMatch(/have the lead confirm before applying it/);
+    it("re-checks closure over the approved set before it edits the draft's graph", () => {
+        expect(epic).toMatch(/Re-check closure over the filed set — before any edit, over the graph as drafted/);
+        expect(epic).toMatch(/nexus razor-check --draft "\$\{DRAFT_DIR\}\/epic\.md" --filed/);
+    });
+
+    it("re-parents nothing on the reviewer's behalf, so the apply-time arm can still fire", () => {
+        expect(epic).toMatch(/nothing is re-parented on their behalf/i);
+        expect(epic).toMatch(/no cascade follows and no edge is re-parented/i);
     });
 
     it("re-derives what the story set determined over the filed set", () => {
         expect(epic).toMatch(/re-derive what the story set determined/i);
+    });
+
+    it("numbers only the two groups a selection can act on", () => {
+        expect(epic).toMatch(/Only the two acted-on groups are numbered/);
+        expect(epic).toMatch(/a number against it\s+would name an action the selection has no meaning for/);
+    });
+
+    it("takes the offer list's order and numbering from the checker rather than by hand", () => {
+        expect(epic).toMatch(/nexus razor-offer --draft/);
+    });
+
+    it("derives the filing body with the checker, which asserts what it wrote", () => {
+        expect(epic).toMatch(/nexus razor-check --draft "\$\{DRAFT_DIR\}\/epic\.md" --derive/);
+    });
+
+    it("writes the deferral count in the form the floor reads back", () => {
+        expect(epic).toMatch(/\*\*deferred:\*\* <n> story\|stories/);
+        expect(epic).toMatch(/`deferred:` line counts one story/);
     });
 });
 
@@ -440,7 +463,7 @@ describe("the draft-time ordering block", () => {
     });
 
     it("dies at filing, because the native dependency edges own the graph once the issues exist", () => {
-        expect(epic.replace(/\s+/g, " ")).toMatch(/ordering block[^.]*removed/i);
+        expect(epic.replace(/\s+/g, " ")).toMatch(/ordering block dies here/i);
         expect(skill.replace(/\s+/g, " ")).toMatch(/never read again/i);
     });
 });
@@ -566,6 +589,6 @@ describe("asked-for scope the smallest usable version excludes", () => {
 
     it("terminates: a planning run that consumes a single-story deferral defers nothing further", () => {
         expect(flat).toMatch(/defers nothing further/i);
-        expect(flat).toMatch(/\*\*deferred:\*\* <n> stories/i);
+        expect(flat).toMatch(/\*\*deferred:\*\* <n> story\|stories/i);
     });
 });

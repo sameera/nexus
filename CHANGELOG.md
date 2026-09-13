@@ -5,6 +5,28 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.43.0
+
+- The `/nxs.epic` approval gate now **checks the set you approved before it edits anything**, so an
+  addition whose prerequisite you did not also take is caught instead of quietly re-wired. The gate
+  used to re-parent a dropped story's dependents onto that story's own blockers first, which left
+  every approved set closed by construction and the closure rule unable to fire in the direction the
+  addition convention added it for. It now re-checks closure over the graph as drafted, returns to
+  the choice naming both stories, and re-parents nothing on your behalf: you take the prerequisite
+  too, or drop the addition.
+- The epic's **`complexity` rollup and the needs-design label are now checked against the stories you
+  actually filed**, not only re-derived by hand. The rollup may not sit below the largest size in the
+  filed set, and it may not sit above it while `complexity_drivers` states nothing that raises it.
+  How far cross-story integration raises it is still your judgement — what is checked is that the
+  judgement was made over the set that shipped, and stated.
+- The gate's offer list takes its **order and its numbering from the checker** rather than deriving
+  them again in prose, and `/nxs.epic` derives the filing body — provenance labels and the ordering
+  block removed — with the same checker, which asserts what it wrote. Only the two groups a selection
+  can act on are numbered now: what a plain approval files is shown as plain bullets, so no number
+  names an action the selection has no meaning for.
+- A deferral stub written for a single story now says `deferred: 1 story`, the form the deferral
+  floor reads back, so a one-story deferral is recognised as the floor and defers nothing further.
+
 ## 0.42.0
 
 - The razor's rule set now describes **two gate conventions over one shared shape**, rather than one

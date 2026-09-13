@@ -11,6 +11,7 @@
 
 import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, normalize, type Citation } from "./citations.js";
 import { stripLabels } from "./labels.js";
+import { compareSize, complexityDrivers, designWarrant, recordedComplexity, rollupFloor, storySizes, type Size, type StorySize } from "./rollup.js";
 import {
     NECESSITY_HEADING,
     orderedByUnlock,
@@ -30,7 +31,7 @@ export type Severity = "blocking" | "advisory";
 export interface RazorFinding {
     severity: Severity;
     /** The rule that failed, as a stable slug the caller may group on. */
-    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label" | "ordering" | "closure";
+    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label" | "ordering" | "closure" | "rollup";
     /** The story title or section heading the finding belongs to. */
     where: string;
     message: string;
@@ -245,22 +246,97 @@ export function checkFiledSet(entries: OrderingEntry[], chosen: string[]): Razor
     }));
 }
 
+/** Where an apply-time finding belongs: the set the reviewer assembled, which no heading in the draft names. */
+export const FILED_SET: string = "the approved set";
+
+/** A selected title that matches no story heading in the draft. */
+function unknownTitles(draft: string, chosen: string[], where: string): RazorFinding[] {
+    const titles: string[] = storyTitles(draft);
+    return chosen
+        .filter((name: string) => !titles.some((title: string) => normalize(title) === normalize(name)))
+        .map((name: string) => ({
+            severity: "blocking" as const,
+            rule: "closure" as const,
+            where,
+            message: `Names "${name}", which is no story in this draft.`,
+        }));
+}
+
+/**
+ * The rollup arm of the apply-time check (epic #576, story #580): the epic's `complexity` and the
+ * design warrant that follows from it are properties of the story set, so a filed set that differs
+ * from the drafted one leaves both describing stories nobody filed.
+ *
+ * Only the mechanical half is decided here. The floor the filed sizes force is a comparison; how far
+ * cross-story integration raises the rollup above that floor is a judgment, and the rule is that the
+ * judgment is stated in `complexity_drivers` rather than left as the draft's first guess.
+ */
+function checkRollup(draft: string, chosen: string[]): RazorFinding[] {
+    const sizes: StorySize[] = storySizes(draft);
+    const inSet = (title: string): boolean => chosen.some((name: string) => normalize(name) === normalize(title));
+
+    const unsized: RazorFinding[] = sizes
+        .filter((story: StorySize) => inSet(story.title) && story.size === undefined)
+        .map((story: StorySize) => ({
+            severity: "blocking" as const,
+            rule: "rollup" as const,
+            where: story.title,
+            message: "States no size, so the epic's rollup cannot be re-derived from the filed story set.",
+        }));
+
+    const floor: Size | undefined = rollupFloor(sizes, chosen);
+    if (floor === undefined) return unsized;
+
+    const recorded: Size | undefined = recordedComplexity(draft);
+    const warrant: string = `The needs-design label follows from it: ${designWarrant(recorded) ? "M or larger carries it" : "S does not carry it"}.`;
+    if (recorded === undefined) {
+        return [...unsized, { severity: "blocking", rule: "rollup", where: FILED_SET, message: `Records no complexity rollup, and the filed story set forces at least ${floor}. ${warrant}` }];
+    }
+    if (compareSize(recorded, floor) < 0) {
+        return [
+            ...unsized,
+            {
+                severity: "blocking",
+                rule: "rollup",
+                where: FILED_SET,
+                message: `Records complexity ${recorded}, below ${floor} — the largest size in the filed story set. Re-derive the rollup from the set actually filed. ${warrant}`,
+            },
+        ];
+    }
+    if (compareSize(recorded, floor) > 0 && complexityDrivers(draft).length === 0) {
+        return [
+            ...unsized,
+            {
+                severity: "blocking",
+                rule: "rollup",
+                where: FILED_SET,
+                message: `Records complexity ${recorded}, above ${floor} — the largest size in the filed story set — and \`complexity_drivers\` names nothing that raises it. ${warrant}`,
+            },
+        ];
+    }
+    return unsized;
+}
+
+/**
+ * The apply-time arm, run over the set the reviewer approved and **before any edge in the ordering
+ * block is rewritten** (epic #576, stories #578 and #580). It is the one check between a selection
+ * and a filed issue: the set is closed under its blockers, every name in it is a story, and the
+ * rollup and the design warrant describe the stories actually filed.
+ *
+ * Reading the drafted graph is the whole point of its position. Rewriting a dropped story's edges
+ * first — re-parenting its dependents onto its own blockers — makes every filed set trivially closed,
+ * and the arm could never fire in the direction the addition convention added it for.
+ */
+export function checkApplied(draft: string, chosen: string[]): RazorFinding[] {
+    return [...unknownTitles(draft, chosen, FILED_SET), ...checkFiledSet(parseOrdering(draft), chosen), ...checkRollup(draft, chosen)];
+}
+
 /** The same rule at drafting time, over the necessity answer, before the gate renders. */
 function checkNecessity(draft: string): RazorFinding[] {
     const named: string[] | undefined = smallestUsableVersion(draft);
     if (named === undefined) return [];
 
-    const titles: string[] = storyTitles(draft);
-    const unknown: RazorFinding[] = named
-        .filter((name: string) => !titles.some((title: string) => normalize(title) === normalize(name)))
-        .map((name: string) => ({
-            severity: "blocking" as const,
-            rule: "closure" as const,
-            where: NECESSITY_HEADING,
-            message: `Names "${name}", which is no story in this draft.`,
-        }));
-
-    return [...unknown, ...checkFiledSet(parseOrdering(draft), named)];
+    return [...unknownTitles(draft, named, NECESSITY_HEADING), ...checkFiledSet(parseOrdering(draft), named)];
 }
 
 /**

@@ -664,37 +664,51 @@ default here is **addition**: a plain approval files the smallest usable version
 scope the lead never asked for takes an act of will to acquire rather than an act of vigilance to
 avoid.
 
+**Take the additions and their numbering from the checker, not by hand:**
+
+```bash
+nexus razor-offer --draft "${DRAFT_DIR}/epic.md"
+```
+
+It prints every story the `## Smallest Usable Version` line excludes — asked-for first, then
+model-added, each group in the order the `## Implementation Order` block unlocks it — with the stable
+number and the blockers each carries. Transcribe those numbers; the removals below continue the same
+sequence from the last one it printed.
+
 ```markdown
 ### What a plain approval files
 
 **Smallest usable version** — <the stories the `## Smallest Usable Version` line names>
 
-1. **<Story Title>** (<size>) · waits on: <…> — <one line: what it adds>
+- **<Story Title>** (<size>) · waits on: <…> — <one line: what it adds>
 
 ### Additions — taken only if you name them
 
 *Asked for*
 
-2. **<Story Title>** (<size>) · waits on: <Story Title> — <one line> · you asked: "<the story's asked fragment, verbatim>"
+1. **<Story Title>** (<size>) · waits on: <Story Title> — <one line> · you asked: "<the story's asked fragment, verbatim>"
 
 *Added by the drafting model*
 
-3. **<Story Title>** (<size>) · waits on: <…> — <one line>
+2. **<Story Title>** (<size>) · waits on: <…> — <one line>
 
 ### Removals — applied unless you name them
 
 **<A story in the filed set>**
 
-4. <an inferred acceptance criterion, verbatim minus its label>
+3. <an inferred acceptance criterion, verbatim minus its label>
 
 **Epic-level**
 
-5. <an inferred assumption>
-6. <an inferred out-of-scope item>
+4. <an inferred assumption>
+5. <an inferred out-of-scope item>
 ```
 
-One stably numbered list, in three labelled groups, and **one typed selection covers both
-directions**: a number in *Additions* adds that story, a number in *Removals* deletes that item.
+**Only the two acted-on groups are numbered.** *Additions* and *Removals* share one stably numbered
+list, and **one typed selection covers both directions**: a number in *Additions* adds that story, a
+number in *Removals* deletes that item. What a plain approval files is rendered as plain bullets and
+carries no numbers at all — it is what the reviewer gets by typing nothing, so a number against it
+would name an action the selection has no meaning for.
 
 The offer list holds **every story the `## Smallest Usable Version` line excludes**. The stories the
 lead asked for sort **first** and are rendered **asked-for**, each carrying its story-level asked
@@ -748,49 +762,83 @@ is added or removed after something is filed.
    were refused and what remains.
 2. **Refuse an empty filed set.** At least one story is always filed; a selection that would file
    none is a revise, not an approval. Say so and return to the choice.
-3. **Apply the selection.** Delete the `### Story` section of every story outside the filed set, and
+3. **Re-check closure over the filed set — before any edit, over the graph as drafted.**
+
+    ```bash
+    nexus razor-check --draft "${DRAFT_DIR}/epic.md" --filed "<Story Title>; <Story Title>; …"
+    ```
+
+    This is the apply-time arm of nxs-razor §11, and **its position is the whole of it**. It reads the
+    `## Implementation Order` block as the drafter wrote it, so an addition whose blocker the reviewer
+    did not also take is a story waiting on a story outside the filed set, and the check blocks. Edit
+    the graph first — delete a dropped story's row, or re-parent its dependents onto its own blockers
+    — and every filed set is closed by construction: the edge the rule exists to catch is the edge
+    that was rewritten, and the arm can never fire in the direction the addition convention added it
+    for.
+
+    A non-zero exit **returns to the choice** with the pair it named. The reviewer either takes the
+    blocker too or drops the addition; **nothing is re-parented on their behalf**, because "exactly
+    the named items join the filed set" and a set silently re-wired to run is a set they did not
+    approve. Nothing has been edited at this point, so there is nothing to undo.
+
+4. **Apply the selection.** Delete the `### Story` section of every story outside the filed set, and
    delete the lines of every listed removal the reviewer did not name back. Delete each dropped
    story's row from the `## Implementation Order` block too, so the block describes the filed set.
-4. **Re-parent the dependents of a dropped story** onto that story's own blockers, rather than
-   dropping the edges. Dropping an edge can let a dependent start before a prerequisite that was only
-   reachable through the removed story; an under-constrained order breaks work, while an
-   over-constrained one merely delays it. **State the cascade — which surviving stories are
-   re-parented onto what — and have the lead confirm before applying it.**
+   No surviving story waits on a deleted one — step 3 refused the set otherwise — so **no cascade
+   follows and no edge is re-parented**.
 5. **Re-derive what the story set determined — one step, in one place.** Run it whenever the filed
    story set **differs from the drafted one, in either direction**: an addition and a removal both
    change the set, and all three of these are properties of the set rather than of one direction of
    travel. Skip it only when the two sets are identical.
 
     - the epic `complexity` rollup, re-derived **from the filed story set** by the Phase 3 step-4
-      rule — never from the draft as it was first written;
+      rule — never from the draft as it was first written. **Step 6's `--filed` run checks this one
+      mechanically**: the rollup may not sit below the largest size in the filed set, and it may not
+      sit above it with `complexity_drivers` stating nothing that raises it. How far cross-story
+      integration raises it is still the judgment — the check is that the judgment was made over the
+      stories actually filed, and is stated;
     - the **needs-design** label that follows from that new value in Phase 6. A change that drops the
       epic below the threshold must drop the label, and **additions that carry the epic past it must
-      gain the label** — or the epic filed demands a record it does not warrant, or omits one it does;
+      gain the label** — or the epic filed demands a record it does not warrant, or omits one it does.
+      The label is not re-derived by hand either: it follows from the checked rollup by the one
+      threshold Phase 6 step 1 states, and the `--filed` report names the warrant it implies;
     - any utilization-risk or scope banner in the epic body quoting the pre-change assessment —
       **re-derived, or removed**, so any warning the epic still carries **describes the story set that
       was actually filed**. A stale banner asserts a sizing the epic no longer has, to every future
       reader of the issue.
 
-6. **Re-check closure over the filed set** (nxs-razor §11) and **re-run the gate** (Phase 4b) on the
-   edited draft, then continue to Phase 6. Both run in this same step, because a set the reviewer
-   assembled at the gate has been checked by nothing until they do.
+6. **Re-run the checker and the gate on the edited draft**, then continue to Phase 6:
+
+    ```bash
+    nexus razor-check --draft "${DRAFT_DIR}/epic.md" --filed "<the same filed titles>"
+    ```
+
+    The same command, now over the edited draft: closure again — cheap, and it catches an edit that
+    went wrong — and the arm that reads the re-derived rollup, so a `complexity` or a
+    `complexity_drivers` step 5 left describing stories nobody filed blocks here rather than reaching
+    an issue. Then **re-run the gate** (Phase 4b). A set the reviewer assembled at the gate has been
+    checked by nothing until both have run.
 
 ## Phase 6 — File the epic and story issues (on approve)
 
 **Derive the filing body first (before step 1).** The draft carries provenance labels and the
-drafting-time ordering block; the issues must not. Copy `${DRAFT_DIR}/epic.md` to
-`${DRAFT_DIR}/epic.filing.md`, remove every `[asked: "…"]` and `[inferred]` label from it, remove the
-whole `## Implementation Order` section — **the ordering block is removed here**, because the native
-dependency edges wired in step 4 own the graph once the issues exist — and assert that no
-drafting-time token survived:
+drafting-time ordering block; the issues must not. **The checker derives it and asserts it in one
+step** — hand-stripping a label out of a dozen headings is exactly the clerical pass a model drops
+one line of:
 
 ```bash
-nexus razor-check --draft "${DRAFT_DIR}/epic.filing.md" --assert-clean
+nexus razor-check --draft "${DRAFT_DIR}/epic.md" --derive "${DRAFT_DIR}/epic.filing.md"
 ```
 
-A non-zero exit stops the run: **file nothing**, fix the derived body, and re-assert. The assertion
-covers a surviving template placeholder (`{{…}}`) and observation marker (`⚠️ razor:`) as well as a
-label, so nothing drafting-time reaches an issue.
+It writes `epic.filing.md` with every `[asked: "…"]` and `[inferred]` label removed and the whole
+`## Implementation Order` section removed — **the ordering block dies here**, because the native
+dependency edges wired in step 4 own the graph once the issues exist — and then asserts that no
+drafting-time token survived into what it wrote.
+
+A non-zero exit stops the run: **file nothing**, fix the draft, and re-derive. The assertion covers a
+surviving template placeholder (`{{…}}`) and observation marker (`⚠️ razor:`) as well as a label, so
+nothing drafting-time reaches an issue. (`--assert-clean` runs the same assertion over a body derived
+some other way, and every other stage's filing body still goes through it.)
 
 **Every command below names `epic.filing.md` explicitly.** The two files have different jobs and the
 distinction is not one a blanket sentence can carry through a dozen concrete commands:
@@ -1027,8 +1075,12 @@ story becomes one GitHub issue, child of the epic issue.
     - **estimate:** S | M
     - **candidate stories:** <Story Title>; <Story Title>; …
     - **source:** deferred from #${EPIC} (<YYYY-MM-DD>)
-    - **deferred:** <n> stories
+    - **deferred:** <n> story|stories
     ```
+
+    The `deferred` line **counts the titles** — `1 story`, `2 stories`, and the singular form is
+    written when the count is one, because step 9's floor reads that line and a stub that says
+    `1 stories` is a floor the next run does not recognise.
 
     It carries **story titles only** — **no acceptance criteria**, no provenance label and no
     ordering block. A deferred title is drafted again when it is planned, so criteria copied across
@@ -1041,7 +1093,8 @@ story becomes one GitHub issue, child of the epic issue.
     reads it and files no second stub.
 
 9. **The deferral floor — a deferral that carries one story defers nothing further.** When this run
-   is planning a stub whose `## Meta` says `deferred: 1 story`, file its remainder into the epic and
+   is planning a stub whose `## Meta` **`deferred:` line counts one story** (`deferred: 1 story`, the
+   singular form step 8's template writes for a count of one), file its remainder into the epic and
    **skip step 8 entirely**: it **defers nothing further**, whatever the necessity answer says. The
    request makes deferral recursive, and without a floor the tail of an initiative recedes
    indefinitely, each round deferring a remainder that is never built. The floor is checkable at the

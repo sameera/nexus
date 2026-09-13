@@ -327,7 +327,17 @@ a gate instruction is something a model can drop:
    A story in the set waiting on a story outside it blocks, and the finding **names both stories and
    the draft it is in**. It blocks *before the gate renders*, so the reviewer is never shown a set
    that cannot run.
-2. **At apply time**, over the approved set after any addition, before any issue is created.
+2. **At apply time**, over the approved set after any addition, before any issue is created — and
+   **before the draft's graph is edited at all**. The arm reads the ordering block as the drafter
+   wrote it. A gate that first deletes a dropped story's row, or re-parents its dependents onto that
+   story's own blockers, leaves every approved set closed by construction: the edge the rule exists
+   to catch is the edge that was rewritten, and the arm can no longer fire in the direction the
+   addition convention (§8) added it for.
+
+**A set that fails the apply-time arm returns to the gate's choice.** Nothing is re-parented and
+nothing is added on the reviewer's behalf: the selection names exactly what joins the filed set, so a
+set silently re-wired to run is a set nobody approved. The reviewer takes the blocker too, or drops
+the addition.
 
 A draft that carries no `## Smallest Usable Version` section raises **no finding** here, and this
 rule adds no minimum-count check of any kind — §5's ban is not narrowed by it.
