@@ -16,7 +16,8 @@ behaviour says so.
   reported and not published; a repository that declares no store says assets are unsupported once
   and files the same issue bodies it filed before. The approval digest names the store and its
   visibility, and warns — without refusing — when a public store backs a private issues repository.
-  The store (`asset-store`, `owner/repo` or `owner/repo@branch`) and the per-file cap
+  A run resumed after `revise` recovers the declared assets from the draft folder, so the rewrite
+  and the clean-body assertion run on the resumed filing as they do on a first one. The store (`asset-store`, `owner/repo` or `owner/repo@branch`) and the per-file cap
   (`asset-size-cap`, default 5 MB) are declared once, in the same settings block as the issues
   repository, and a hub may declare them for every member.
 - `decision-record` accepts the same `--assets <path>…`, on a first filing and on `--revise`: the

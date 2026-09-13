@@ -173,10 +173,25 @@ The check reads; it writes nothing to the store. Nothing is published before the
 1. **Resume check.** Look in your **session scratch** for a pending epic draft — a working folder
    (e.g. `nxs-epic-<slug>/epic.md`) written by a prior run of this command whose frontmatter has
    **no `link`** (an epic drafted but not yet filed as issues). If one exists, report it and ask
-   whether to **resume** its approval gate or start a new epic. Resume → load that draft and skip to
-   Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending draft exists, resume it without
-   asking. Otherwise continue. (There is no committed queue entry to resume — nothing is committed at
-   planning; a draft abandoned mid-session is simply never filed, and needs no cleanup.)
+   whether to **resume** its approval gate or start a new epic. Resume → load that draft, **recover
+   its asset state** (below), and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one
+   pending draft exists, resume it without asking. Otherwise continue. (There is no committed queue
+   entry to resume — nothing is committed at planning; a draft abandoned mid-session is simply never
+   filed, and needs no cleanup.)
+
+   **Recovering asset state on resume.** `ASSETS`, `ASSET_STORE` and `ASSET_VISIBILITY` live in the
+   context of the run that drafted; a resumed run has none of them, and Phase 6 runs the rewrite and
+   the `--asset-path` assertion only when `ASSETS` is set — so a resume that skipped this step would
+   file the draft's local paths into the issues. Look for `assets.json` in the draft's folder — the
+   intake result Phase 4 stores beside `epic.md`:
+   - **Present** → re-run the intake step with the `path` of every entry in its `assets` list, in
+     order — `nexus assets check --asset <path> [--asset <path> ...]` — and handle its result exactly
+     as the assets intake above does: a non-zero exit stops the run and reports the diagnostic (a
+     file moved since the draft was written is a `missing-asset`), `unsupported` sets `ASSETS = none`,
+     `declared` sets the three values. The store is read again; nothing is published.
+   - **Absent** → the run that drafted was not passed `--assets`. Set `ASSETS = none`.
+   Never derive the declared list from the draft's prose: the intake file is the record of what the
+   lead declared, and the assertion in Phase 6 must fail on exactly those paths.
 2. If `$ARGUMENTS` is empty (and not resuming) → ERROR. Ask for a capability description or a stub's issue number. Stop.
 3. Decide **promotion** vs **intent**. The rule is purely syntactic, then checked against issue state:
     - `$ARGUMENTS` is a **single bare integer**, optionally `#`-prefixed, and no `--from` was passed → **promotion mode**. Resolution reads issue state only and never globs the docs tree:
@@ -558,6 +573,14 @@ DRAFT_DIR="<your-session-scratch>/nxs-epic-${EPIC_SLUG}"
 mkdir -p "$DRAFT_DIR"
 ```
 
+**Store the assets intake result beside the draft** (when `--assets` was passed): write the JSON the
+intake step printed — `declared` or `unsupported`, with its `assets` list — verbatim to
+`${DRAFT_DIR}/assets.json`. It is what a resumed run (Phase 0 step 1) recovers `ASSETS`,
+`ASSET_STORE` and `ASSET_VISIBILITY` from after a `revise`. It is session scratch like the draft:
+it is never copied into `epic.filing.md` and never reaches an issue. **Do not put the declared paths
+in the draft's frontmatter** — the frontmatter is embedded onto the epic issue as its meta block,
+and the Phase 6 assertion scans every line of the filing body, frontmatter included.
+
 **Materialize the run's source text first.** Write, verbatim, into `${DRAFT_DIR}/source.md`: the
 capability description the lead typed (intent mode), the stub issue's body (promotion mode), or the
 discovery document plus every resolved ticket (discovery mode). Write it before labelling anything —
@@ -744,6 +767,8 @@ an open-source project with a private planning repository.
 - `revise` → stop. Leave the scratch draft intact for editing; report how to resume. Nothing is
   committed, so there is nothing to clean up — and **nothing has been published to the store**:
   assets are published only in Phase 6, after approval, so a revise leaves the store unchanged.
+  Leave `${DRAFT_DIR}/assets.json` beside the draft: the resumed run recovers the declared assets
+  from it, so the rewrite and the `--asset-path` assertion run on the resumed filing too.
 
 ### Applying cuts (before any issue is created)
 

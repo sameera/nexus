@@ -12,3 +12,8 @@
 - **Choice:** The rewrite and the clean-body assertion match a declared path only when no path character precedes or follows it.
 - **Why:** The published address of `assets/flow.png` under the feature `issue-assets` ends in `issue-assets/flow.png`, so a plain substring match rewrote the address it had just written and then reported it as a survivor.
 - **Refuted alternative:** Plain substring matching, which the record's "matching those paths exactly" reads as at first; exactness is kept, boundaries are added.
+
+## 2026-09-13 — Resume recovers asset state from a sidecar file, not the draft frontmatter
+- **Choice:** Phase 4 stores the `nexus assets check` output verbatim as `${DRAFT_DIR}/assets.json`; a resumed run re-runs `check` on its declared paths to recover `ASSETS`, `ASSET_STORE` and `ASSET_VISIBILITY`.
+- **Why:** The draft frontmatter is embedded onto the epic issue as its meta block and the `--assert-clean --asset-path` scan covers every line of the filing body, so declared local paths in frontmatter would either fail the run or reach an issue body (invariant 4).
+- **Refuted alternative:** Persist the declared list in the draft's frontmatter (the receipt's first suggestion) — rejected for the reason above; deriving the list from the draft's prose was rejected because the assertion must fail on exactly the paths the lead declared, not on whatever the draft happens to mention.
