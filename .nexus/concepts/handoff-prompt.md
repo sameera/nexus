@@ -2,7 +2,7 @@
 title: "Handoff Prompt"
 aliases: ["fenced brief", "coding agent handoff", "sibling slices to leave alone", "quoted story text", "prompt fence", "slice not the learner's to build"]
 touches: ["teaching-session", "workbook-handoff", "teaching-plan", "learner-folder", "focus-marking"]
-last_updated_by: "#456"
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -17,12 +17,12 @@ The two commands are named because the epic is not finished when one slice is, a
 
 The story's own words are quoted, because a number alone is not something an agent can build from. The prompt is read by an agent that acts on what it reads, so the quotation is delimited by markers the quoted text cannot forge: they grow until they do not occur in the text they enclose. The rules are stated outside the quotation and come after it closes, so the last words the prompt says are its own. Text imitating a marker stays inside the quotation, where it restates nothing.
 
-The words quoted are the state the plan pinned, not a live read, so the prompt needs no network and renders identically twice. It is a personal record under the learner folder and never a page, so it can never appear as drift against the rendered lessons. Every other slice in the plan is a sibling, because slices in one epic routinely share files.
+The words quoted are the state the plan pinned, not a live read, so the prompt needs no network and renders identically twice. It is a personal record under the learner folder and never a page, so it can never appear as drift against the rendered lessons. Stories in one epic share files, so every other story is a sibling and a scaffold never is.
 
 ## Key Invariants
 
-1. A prompt names exactly one story to build, and also names the repository, the branch, the epic, the sibling slices to leave alone, and the two epic-level commands not to run.
-2. The sibling slices are every other slice in the plan.
+1. A prompt names exactly one story to build, and also names the repository, the branch, its slice's recorded epic, the sibling slices to leave alone, and the two epic-level commands not to run.
+2. ~~The sibling slices are every other slice in the plan.~~ Each is named once.
 3. Story text quoted inside a prompt is delimited by markers the quoted text cannot forge, and no rule of the handoff is stated inside the quotation.
 4. The prompt's own rules come after the quotation closes, so the last words are the prompt's own.
 5. The words quoted are the state the plan pinned, so the prompt needs no network and renders identically twice.
@@ -46,3 +46,7 @@ The story's words are quoted because a number alone is not buildable, and the qu
 ### 2026-09-11 — #456 — Reciprocal link from focus-marking
 
 The mark this prompt reads is now set by a planning pass, judged against the focus the learner recorded. Nothing here changed: that pass writes no sibling list of its own, leaving the rule stated here — every other slice in the plan — as the only definition, and it writes no prompt and starts no session, so a handed-off slice still reaches a coding agent only through this step.
+
+### 2026-09-13 — #458 — The prompt names its own slice's recorded epic, and names each sibling story once
+
+A roadmap can now span several epics, so the plan-wide epic a prompt used to state would send a coding agent to the wrong one. Every slice that builds a story records the epic that story belonged to at approval, and the prompt names that. The epic is recorded rather than looked up when the prompt is written, because the prompt is built from the plan alone with no network and two renders must give the same prompt — and the resolved roadmap that knows each story's epic is ignored by git and missing from a fresh clone. Refuted alternative: look up the story's parent epic at prompt time, which catches a story moved to another epic after approval; it lost because the prompt would need the network, two renders could differ, and the committed plan would stop being the record of what was approved. The sibling list also changed with split stories and scaffolds in the plan: it names every other story once, however many slices build it, and never a scaffold, because a scaffold builds nothing a coding agent could touch.

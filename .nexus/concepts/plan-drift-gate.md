@@ -1,8 +1,8 @@
 ---
 title: "Plan Drift Gate"
 aliases: ["drift check", "pinned versus live", "re-scoped story", "unverifiable story", "drift report", "closed story stops its lesson"]
-touches: ["teaching-plan", "teaching-session"]
-last_updated_by: "#407"
+touches: ["teaching-plan", "teaching-session", "plan-re-approval"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -17,7 +17,7 @@ The comparison covers the story's title and description, with whitespace normali
 
 The report names the story and what about that story changed, quoting the old value and the new one. Telling a learner only that something changed leaves them to compare the two by hand, which is the work the report exists to save. Story text is data, so it is quoted and displayed, never executed and never expanded into a command.
 
-Drift on a slice other than the one about to be taught is reported and the session teaches on. Only the next slice's own drift stops it, so a plan whose later stories have moved does not block a lesson those stories have nothing to do with. The live state is handed to the comparison rather than fetched by it, which keeps the comparison a pure function of two inputs and makes the unverifiable case assertable.
+A story is read once however many slices name it; a scaffold never drifts. Drift on a slice other than the one about to be taught is reported and the session teaches on. Only the next slice's own drift stops it, so a plan whose later stories have moved does not block a lesson those stories have nothing to do with. The live state is handed to the comparison rather than fetched by it, which keeps the comparison a pure function of two inputs and makes the unverifiable case assertable.
 
 ## Key Invariants
 
@@ -33,9 +33,14 @@ Drift on a slice other than the one about to be taught is reported and the sessi
 
 - [teaching-plan](teaching-plan.md) — the pinned state this check compares against, and the slice order it walks.
 - [teaching-session](teaching-session.md) — the chain this check gates, which reports every finding and stops on the next slice's own.
+- [plan-re-approval](plan-re-approval.md) — the only way past a stop here: the changed story is re-pinned and the taught lessons are carried forward.
 
 ## Decision Log
 
 ### 2026-09-07 — #407 — Pinned against live, per slice, and unverifiable is not unchanged
 
 The check compares only the story's title and description because the reader is a learner in mid-flow, and a check firing on labels or comments is one they learn to skip past. Only the next slice's own drift blocks, so a later story that moved does not stop a lesson it has nothing to do with. A story that could not be read is reported as unverifiable rather than passed as unchanged, because treating a failed read as agreement is how a lesson gets written for work nobody is doing. The live read is injected rather than performed here, which keeps the comparison pure and makes the unverifiable case something a test can assert. Refuted alternative: have the check fetch the story itself and cache the result. It is simpler at the point of use, but it couples a pure comparison to running a process, and it duplicates a live-reading concern the session's own wiring should own once.
+
+### 2026-09-13 — #458 — A story is read once however many slices name it, a scaffold never drifts, and re-approval is the way out
+
+A split story now has several slices pinning one story, so the check read that story once per slice and reported the same drift several times. It now reads each story once and finds each story's drift once; only the slice about to be taught still blocks. A scaffold pins nothing, because it builds no story, so it is never drift-checked and drift never blocks it. The stop this check produces also became something a learner can act on: it told them the plan was re-approved, and until this epic nothing did that. Re-approval now runs the same planning chain and the same gate, carries every slice up to the last written lesson forward unchanged, and pins the changed story to its current state, so a changed story costs the learner nothing they have already been taught. This entry also records the reciprocal link from plan-re-approval.

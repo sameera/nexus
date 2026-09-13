@@ -1,8 +1,8 @@
 ---
 title: "Offline Page"
 aliases: ["opened from disk", "no server", "file-url page", "classic script", "printed lesson", "workbook page assets"]
-touches: ["lesson-renderer", "widget-seam", "reading-surface-tokens"]
-last_updated_by: "#405"
+touches: ["lesson-renderer", "widget-seam", "reading-surface-tokens", "workbook-home-page"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -28,9 +28,14 @@ A page opened directly from disk cannot load a module script and cannot fetch an
 - [lesson-renderer](lesson-renderer.md) — writes the page and the two shared assets it references by relative path.
 - [widget-seam](widget-seam.md) — the one interactive element here, whose content is present before any interaction.
 - [reading-surface-tokens](reading-surface-tokens.md) — where the page's colours and typography come from, on screen and on paper.
+- [workbook-home-page](workbook-home-page.md) — a generated page under these same rules, whose dependency graph is in-page anchors rather than a layout computed on open.
 
 ## Decision Log
 
 ### 2026-09-07 — #405 — A page opened from disk, with everything it needs beside it
 
 A page opened directly from disk can neither load a module script nor fetch anything, so the design commits to that constraint rather than meeting it late: a classic script, relative paths, and no remote asset. Requiring nothing to be started is what lets a learner with no network and no running toolkit read a lesson. Printing is treated as a first-class output rather than a side effect, because a dark reading surface printed is unreadable and the navigation is not worth paper. Refuted alternative: serve the workbook from a local process the learner starts. It makes module scripts, fetching and per-request rendering available, which would ease later interactive components, but the learner must start a process before reading, and the published toolkit would gain a server it does not otherwise need.
+
+### 2026-09-13 — #458 — Reciprocal link from workbook-home-page
+
+Mechanical reciprocity fan-out: the workbook's home page is opened from disk under exactly these rules, and its dependency graph is drawn as list items linking to anchors on the same page rather than as a layout a script computes when the page opens. That choice is this page's rule applied: a generated page's content has to exist at render time and print as it appears.
