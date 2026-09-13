@@ -289,6 +289,16 @@ here. Then ask the reviewer, with `AskUserQuestion`, to approve, change marks, o
 
 Approval moves no git state. Tell the learner the plan is written and theirs to commit.
 
+**Re-approval.** A teaching session that stopped because a story changed sends the learner back here,
+and the same chain runs again from Phase 1. What has already been taught stays exactly as it is: the
+rewrite keeps every slice up to the last written lesson first and unchanged, counts the concepts those
+slices introduced as introduced, and plans only the rest. In Phase 4, keep every identifier the
+approved plan already uses — a written lesson, the drill history and the hint log are all keyed on it.
+Approve with `--approve` alone: a re-approval reuses the committed plan's commands and refuses new
+ones. It refuses a draft that was not planned over the taught part (run the rewrite again), and a draft
+whose merge dropped or renamed an identifier a written lesson carries (merge again, then run Phases 5
+to 7). A refused re-approval leaves the approved plan, its lessons and its pages unchanged.
+
 # Hand off
 
 Report the roadmap's story count, the interview's outcome, the draft's learner and handoff counts, and

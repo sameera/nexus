@@ -29,6 +29,13 @@ behaviour says so.
   arrival**: the brief asks for it when the plan holds none, and at a handoff the session asks for the
   handed-off slice's test and the next story slice's test before it writes the prompt. A test is
   recorded once and never rewritten.
+- A `/nxs.teach` session that stopped on drift can now be continued: the learner **re-approves** the
+  plan through `/nxs.teach-plan`. The rewrite keeps every slice up to the last written lesson first and
+  unchanged and plans only the rest, so no written lesson is taught again and no concept is introduced
+  twice. Re-approval pins the changed story to its current state, reuses the committed plan's commands,
+  and refuses — leaving the approved plan, its lessons and its pages unchanged — a draft whose coverage
+  is not clean, one not planned over the taught part, or one whose merge renamed a concept identifier a
+  written lesson carries.
 
 ## 0.36.0
 

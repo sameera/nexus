@@ -25,19 +25,21 @@ import {
     LESSONS_DIRNAME,
     createWorkbook,
     lessonsDir,
+    planRenderOptions,
     readLessons,
     readWorkbookPlan,
     workbookRoot,
     writeWorkbookPlan,
+    writtenLessonFiles,
     type CreatedWorkbook,
 } from "./workbook-store.js";
-import { checkWorkbook, renderWorkbookInto, type LessonSource, type WorkbookDrift } from "./workbook-render.js";
+import { checkWorkbook, parseLesson, renderWorkbook, renderWorkbookInto, writeWorkbook, type LessonSource, type RenderedFile, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
 import { type AuthoredPinningTest, type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
 import { parseCommands, type DeclaredCommands, type WorkbookPlan } from "./workbook-plan.js";
-import { approvePlan, draftFingerprint, type Approval } from "./plan-commit.js";
+import { approvePlan, carriedStubs, draftFingerprint, type Approval } from "./plan-commit.js";
 import {
     epicsFromQuery,
     readRoadmap,
@@ -50,7 +52,7 @@ import {
 } from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
-import { planDraftPath, readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft } from "./plan-draft.js";
+import { planDraftPath, readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft, type PlanStub } from "./plan-draft.js";
 import { rebuildDraft, refuseUncleanCoverage, renderGateDigest, type CoverageRefusal } from "./plan-approval.js";
 import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
@@ -620,6 +622,7 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
     const rewritten: PlanDraft = rewritePlan(draft, {
         edges: roadmap.stories.map((story) => ({ story: story.number, blockedBy: story.blockedBy })),
         handoffConcepts: handoffConcepts(repoRoot, roadmap, draft),
+        carried: taughtPart(repoRoot, name),
     });
     const introduced: number = rewritten.slices.reduce((count, stub) => count + stub.concepts.length, 0);
     io.stdout(
@@ -649,6 +652,15 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
     }
     io.stderr("The plan is written and carries this verdict. It does not go to approval until every gap is closed.");
     return 1;
+}
+
+/**
+ * The taught part of the plan already approved for this workbook, as the stubs a re-plan keeps first
+ * (story #588). Empty on a first plan, and on an approved plan with no lesson written yet.
+ */
+function taughtPart(repoRoot: string, name: string): PlanStub[] {
+    const approved: WorkbookPlan | null = readWorkbookPlan(repoRoot, name);
+    return approved === null ? [] : carriedStubs(approved, writtenLessonFiles(repoRoot, name));
 }
 
 /**
@@ -703,6 +715,8 @@ function workspaceRepo(repoRoot: string, run: Runner): string | null {
 function runApprove(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags: Flags, io: WorkbookCliIo, run: Runner): number {
     const shownFile: string = path.join(path.dirname(planDraftPath(repoRoot, roadmap.name)), SHOWN_RECORD);
     const commands: DeclaredCommands | null = flags.commands === undefined ? null : parseCommands(fs.readFileSync(path.resolve(io.cwd, flags.commands), "utf8"));
+    const previous: WorkbookPlan | null = readWorkbookPlan(repoRoot, roadmap.name);
+    const written: string[] = writtenLessonFiles(repoRoot, roadmap.name);
     const approval: Approval = approvePlan({
         workbook: roadmap.name,
         draft,
@@ -712,18 +726,28 @@ function runApprove(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags:
         read: ghIssueReader(repoRoot, run),
         commands,
         handoffConcepts: handoffConcepts(repoRoot, roadmap, draft),
+        previous,
+        written,
+        taughtConcepts: previous === null ? [] : readLessons(repoRoot, roadmap.name).flatMap((lesson) => {
+            const concepts: unknown = parseLesson(lesson).frontMatter["concepts"];
+            return Array.isArray(concepts) ? concepts.map(String) : [];
+        }),
     });
     if (!approval.ok) {
         io.stderr(approval.report);
         return 1;
     }
-    const written: string = writeWorkbookPlan(repoRoot, roadmap.name, approval.plan);
+    // The pages are rendered in memory before anything is written, so a render that fails leaves the
+    // approved plan and its pages exactly as they were (invariant 31).
+    const pages: RenderedFile[] = renderWorkbook(planRenderOptions(repoRoot, roadmap.name, approval.plan));
+    const planFile: string = writeWorkbookPlan(repoRoot, roadmap.name, approval.plan);
+    if (pages.some((file) => file.name.endsWith(".html"))) writeWorkbook(workbookRoot(repoRoot, roadmap.name), pages);
     const learner: number = approval.plan.slices.filter((slice) => slice.learnerBuilds).length;
     io.stdout(
         `approved the plan for ${roadmap.name}: ${approval.plan.slices.length} slice${approval.plan.slices.length === 1 ? "" : "s"}, ` +
         `${learner} taught and ${approval.plan.slices.length - learner} handed off. The next session teaches from it.`,
     );
-    io.stdout(`  ${written}`);
+    io.stdout(`  ${planFile}`);
     return 0;
 }
 
@@ -772,6 +796,7 @@ function changeMark(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags:
     const rebuilt: PlanDraft = rebuildDraft(draft, stubs, {
         edges: roadmap.stories.map((story) => ({ story: story.number, blockedBy: story.blockedBy })),
         handoffConcepts: handoffConcepts(repoRoot, roadmap, { ...draft, slices: fresh.slices }),
+        carried: taughtPart(repoRoot, roadmap.name),
     });
     writePlanDraft(repoRoot, roadmap.name, rebuilt);
     return rebuilt;

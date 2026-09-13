@@ -52,6 +52,12 @@ export interface ApprovalInput {
     /** The commands the reviewer declared, or null when none were declared. */
     commands: DeclaredCommands | null;
     handoffConcepts?: ReadonlyMap<number, readonly string[]>;
+    /** The plan already approved for this workbook, which makes this a re-approval. Null on a first approval. */
+    previous?: WorkbookPlan | null;
+    /** The lesson files the workbook holds. */
+    written?: readonly string[];
+    /** Every concept identifier a written lesson carries — what the drill history and the hint log are keyed on. */
+    taughtConcepts?: readonly string[];
 }
 
 export type Approval = { ok: true; plan: WorkbookPlan } | { ok: false; report: string };
@@ -156,6 +162,69 @@ function buildSlice(workbook: string, stub: PlanStub, roadmap: Roadmap, live: Re
 }
 
 /**
+ * The taught part of an approved plan: every slice up to and including the last one with a written
+ * lesson. A re-approval carries it forward unchanged except for its pins (record #591, invariant 35).
+ */
+export function carriedSlices(plan: WorkbookPlan, written: readonly string[]): PlanSliceRecord[] {
+    let last: number = -1;
+    plan.slices.forEach((slice, index) => {
+        if (slice.lesson !== "" && written.includes(slice.lesson)) last = index;
+    });
+    return plan.slices.slice(0, last + 1);
+}
+
+/**
+ * The taught part as the stubs a re-plan's rewrite keeps first. A scaffold's need is the story of the
+ * slice that depends on it, or of the next slice that builds a story.
+ */
+export function carriedStubs(plan: WorkbookPlan, written: readonly string[]): PlanStub[] {
+    return carriedSlices(plan, written).map((slice, index): PlanStub => {
+        if (slice.scaffold !== undefined) {
+            const id: string = sliceId(slice);
+            const served: PlanSliceRecord | undefined =
+                plan.slices.find((other) => other.dependsOn.includes(id)) ?? plan.slices.slice(index + 1).find((other) => other.story !== undefined);
+            return { scaffold: slice.scaffold, need: served?.story ?? 0, builds: "learner", concepts: [slice.scaffold], assumes: [] };
+        }
+        return {
+            story: slice.story,
+            ...(slice.part === undefined ? {} : { part: slice.part }),
+            builds: slice.learnerBuilds ? "learner" : "handoff",
+            concepts: slice.learnerBuilds ? [...slice.concepts] : [],
+            assumes: [],
+        };
+    });
+}
+
+/**
+ * What stops a re-approval before anything is read from the graph: a draft not planned over the taught
+ * part, or one whose vocabulary no longer holds an identifier a written lesson carries. Re-planning can
+ * rename an identifier through the merge, and the drill history and the hint log are keyed on it
+ * (invariant 38).
+ */
+function refuseReplan(draft: PlanDraft, carried: readonly PlanSliceRecord[], taughtConcepts: readonly string[]): Approval | null {
+    const prefix: PlanStub[] = draft.slices.slice(0, carried.length);
+    const matches: boolean = carried.every((slice, index) => {
+        const stub: PlanStub | undefined = prefix[index];
+        return stub !== undefined && sliceId(stub) === sliceId(slice) && stub.concepts.join(",") === (slice.learnerBuilds ? slice.concepts : []).join(",");
+    });
+    if (!matches) {
+        return refused(
+            `the draft was not planned over the part of the plan already taught (${carried.map((slice) => sliceId(slice)).join(", ")}). ` +
+            "Run the rewrite again, which keeps that part first and unchanged.",
+        );
+    }
+    if (draft.vocabulary === undefined) return null;
+    const vocabulary = draft.vocabulary;
+    const lost: string[] = [...new Set(taughtConcepts)].flatMap((concept) => {
+        if (vocabulary.some((entry) => entry.id === concept)) return [];
+        const into: string | undefined = vocabulary.find((entry) => entry.aliases.includes(concept))?.id;
+        return [into === undefined ? `  ${concept} is no longer in the merged vocabulary.` : `  ${concept} was renamed to ${into}.`];
+    });
+    if (lost.length === 0) return null;
+    return refused("the re-planned draft drops or renames a concept identifier a written lesson carries. Merge the vocabulary so it keeps each one.", lost);
+}
+
+/**
  * Approve a draft. It runs the coverage refusal again rather than trusting that the gate was shown,
  * refuses a draft that changed since it was shown, refuses without declared commands, reads every
  * story's live state, and only then builds the plan. It writes nothing: the caller writes the plan and
@@ -172,7 +241,13 @@ export function approvePlan(input: ApprovalInput): Approval {
     if (input.shown !== draftFingerprint(draft)) {
         return refused("the draft changed after the gate was shown, so it is not the plan the reviewer read. Print the gate again.");
     }
-    if (input.commands === null) {
+    const previous: WorkbookPlan | null = input.previous ?? null;
+    const carried: PlanSliceRecord[] = previous === null ? [] : carriedSlices(previous, input.written ?? []);
+    if (previous !== null && input.commands !== null) {
+        return refused("a re-approval reuses the suite and grading commands the committed plan declares, so none are declared again.");
+    }
+    const commands: DeclaredCommands | null = previous === null ? input.commands : { suite: previous.suite, grading: previous.grading, probeControl: previous.probeControl };
+    if (commands === null) {
         return refused(
             "no suite and grading commands are declared. The reviewer declares both as argument lists with --commands <file>; " +
             "nothing here infers a command, because a green light is worth exactly as much as the command behind it.",
@@ -180,6 +255,11 @@ export function approvePlan(input: ApprovalInput): Approval {
     }
     if (input.repo === null || input.repo.trim() === "") {
         return refused("the repository could not be read from the workspace, and a handoff prompt has to name it.");
+    }
+
+    if (previous !== null) {
+        const replan: Approval | null = refuseReplan(draft, carried, input.taughtConcepts ?? []);
+        if (replan !== null) return replan;
     }
 
     const { live, problems } = readLive(draft, roadmap, input.read);
@@ -193,10 +273,14 @@ export function approvePlan(input: ApprovalInput): Approval {
         plan: {
             repo: input.repo.trim(),
             epic: null,
-            suite: [...input.commands.suite],
-            grading: [...input.commands.grading],
-            probeControl: input.commands.probeControl === null ? null : { ...input.commands.probeControl },
-            slices: draft.slices.map((stub, index) => buildSlice(input.workbook, stub, roadmap, live, edges[index])),
+            suite: [...commands.suite],
+            grading: [...commands.grading],
+            probeControl: commands.probeControl === null ? null : { ...commands.probeControl },
+            // A taught slice is carried forward exactly as it was approved; only its pin is refreshed.
+            slices: draft.slices.map((stub, index) => {
+                const built: PlanSliceRecord = buildSlice(input.workbook, stub, roadmap, live, edges[index]);
+                return index < carried.length ? { ...carried[index], pinned: built.pinned, dependsOn: edges[index] } : built;
+            }),
         },
     };
 }

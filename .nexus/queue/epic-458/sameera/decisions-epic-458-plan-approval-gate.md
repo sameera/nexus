@@ -22,3 +22,13 @@
 - **Choice:** `gate --approve --commands <file>` reads `suite`, `grading` and optional `probe_control` with the plan reader's own validation.
 - **Why:** Argument vectors and a multi-line control test do not fit a flag, and every other planning judgement already arrives as a file.
 - **Refuted alternative:** Repeated `--suite`/`--grading` flags, which cannot carry the control test's text.
+
+## 2026-09-13 — The taught prefix travels into the draft through the rewrite
+- **Choice:** `rewritePlan` takes `carried` stubs, sets them aside before merging, strips their concepts from the rest, continues a partly taught story's part numbers, and prepends them; approval then checks the draft's prefix matches the taught slices.
+- **Why:** The gate must show and coverage must check exactly the plan approval writes, so the fixed prefix has to be in the draft rather than spliced in at approval.
+- **Refuted alternative:** Splice the carried slices into the plan at approval time, which approves an order and a coverage verdict the reviewer never saw.
+
+## 2026-09-13 — A re-approval refuses a second declaration of the commands
+- **Choice:** `--approve --commands` over an existing plan is refused; the committed plan's suite, grading and control test are reused.
+- **Why:** Record #591 has re-approval reuse them, and silently preferring either source would hide which one won.
+- **Refuted alternative:** Let a newly declared file replace the committed commands.
