@@ -475,3 +475,34 @@ describe("a story's own provenance label", () => {
         expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/No third value/);
     });
 });
+
+describe("re-deriving what the story set determined", () => {
+    const epic: string = read("commands/nxs.epic.md").replace(/\s+/g, " ");
+
+    it("is one step, not a rule that lives on the removal path", () => {
+        expect(epic).toMatch(/one step, in one place/i);
+    });
+
+    it("fires on any difference between the drafted story set and the filed one, in either direction", () => {
+        expect(epic).toMatch(/differs from the drafted one[^.]*in either direction/i);
+    });
+
+    it("re-derives the size rollup from the filed story set rather than the draft as first written", () => {
+        expect(epic).toMatch(/`complexity` rollup[^.]*from the filed story set/i);
+    });
+
+    it("re-derives the design warrant, so additions that carry the epic past the threshold carry it", () => {
+        expect(epic).toContain("needs-design");
+        expect(epic).toMatch(/additions that carry the epic past it must gain the label/i);
+    });
+
+    it("re-derives or removes a sizing warning written before the change", () => {
+        expect(epic).toMatch(/re-derived, or removed/);
+        expect(epic).toMatch(/describes the story set that was actually filed/i);
+    });
+
+    it("re-checks closure and re-runs the gate in the same step", () => {
+        expect(epic).toMatch(/Re-check closure over the filed set/i);
+        expect(epic).toMatch(/re-run the gate/i);
+    });
+});

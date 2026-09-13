@@ -755,9 +755,24 @@ is added or removed after something is filed.
    reachable through the removed story; an under-constrained order breaks work, while an
    over-constrained one merely delays it. **State the cascade — which surviving stories are
    re-parented onto what — and have the lead confirm before applying it.**
-5. **Re-derive what the story set determined**, by the Phase 3 step-4 rule, over the filed set.
-6. **Re-check closure** over the filed set (nxs-razor §11) and **re-run the gate** (Phase 4b) on the
-   edited draft, then continue to Phase 6.
+5. **Re-derive what the story set determined — one step, in one place.** Run it whenever the filed
+   story set **differs from the drafted one, in either direction**: an addition and a removal both
+   change the set, and all three of these are properties of the set rather than of one direction of
+   travel. Skip it only when the two sets are identical.
+
+    - the epic `complexity` rollup, re-derived **from the filed story set** by the Phase 3 step-4
+      rule — never from the draft as it was first written;
+    - the **needs-design** label that follows from that new value in Phase 6. A change that drops the
+      epic below the threshold must drop the label, and **additions that carry the epic past it must
+      gain the label** — or the epic filed demands a record it does not warrant, or omits one it does;
+    - any utilization-risk or scope banner in the epic body quoting the pre-change assessment —
+      **re-derived, or removed**, so any warning the epic still carries **describes the story set that
+      was actually filed**. A stale banner asserts a sizing the epic no longer has, to every future
+      reader of the issue.
+
+6. **Re-check closure over the filed set** (nxs-razor §11) and **re-run the gate** (Phase 4b) on the
+   edited draft, then continue to Phase 6. Both run in this same step, because a set the reviewer
+   assembled at the gate has been checked by nothing until they do.
 
 ## Phase 6 — File the epic and story issues (on approve)
 

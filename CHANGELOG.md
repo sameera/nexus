@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.40.0
+
+- Adding a story at the `/nxs.epic` gate now re-derives what the story set determined, the way
+  removing one always has. The epic's `complexity` rollup, the **needs-design** label that follows
+  from it, and any utilization-risk banner in the body are re-derived in **one step**, fired by any
+  difference between the drafted story set and the filed one — in either direction. Additions that
+  carry the epic past the threshold gain the design warrant; ones that leave it below do not get it.
+  A warning the filed epic still carries describes the story set that was actually filed, not the
+  draft as first written. The same step re-checks closure over the filed set and re-runs the epic
+  gate, because a set the reviewer assembled at the gate has been checked by nothing until it does.
+
 ## 0.39.0
 
 - **The `/nxs.epic` approval gate now offers additions instead of cuts.** A plain approval files the
