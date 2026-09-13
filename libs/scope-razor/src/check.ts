@@ -247,7 +247,7 @@ export function checkFiledSet(entries: OrderingEntry[], chosen: string[]): Razor
 }
 
 /** Where an apply-time finding belongs: the set the reviewer assembled, which no heading in the draft names. */
-export const FILED_SET: string = "the approved set";
+const FILED_SET: string = "the approved set";
 
 /** A selected title that matches no story heading in the draft. */
 function unknownTitles(draft: string, chosen: string[], where: string): RazorFinding[] {
