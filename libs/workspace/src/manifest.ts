@@ -118,6 +118,7 @@ const GITHUB_DEFAULT_KEYS = [
     // absent from this allowlist cannot be declared on a hub at all, and the store is meant to be
     // declared once for the whole workspace.
     "asset-store",
+    "asset-size-cap",
 ];
 /** The hub-role default docs root when no explicit override is given: the repo root. */
 const DEFAULT_HUB_DOCS_ROOT = ".";

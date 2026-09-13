@@ -60,6 +60,10 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     // writing files into a repository nobody nominated — one this design never prunes — is a side
     // effect the team never asked for. The shape check lives in one place, `asset-store.ts`.
     { githubKey: "asset-store", normalized: "assetStore" },
+    // The per-file size cap the publish step checks a local file against before any request, in
+    // bytes. A team property rather than an invocation flag, so one lead cannot push a large binary
+    // into a store the team can never prune. The built-in is the stated 5 MB default.
+    { githubKey: "asset-size-cap", normalized: "assetSizeCap", builtin: "5242880" },
 ];
 
 /** The catalogue row for a github-block key, or undefined when the catalogue declares none. */

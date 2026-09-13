@@ -54,6 +54,11 @@
       "import": "./src/asset-store.ts",
       "default": "./src/asset-store.ts"
     },
+    "./asset-publish": {
+      "types": "./src/asset-publish.ts",
+      "import": "./src/asset-publish.ts",
+      "default": "./src/asset-publish.ts"
+    },
     "./assets-cli": {
       "types": "./src/assets-cli.ts",
       "import": "./src/assets-cli.ts",

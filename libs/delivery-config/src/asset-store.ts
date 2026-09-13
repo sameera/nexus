@@ -13,6 +13,12 @@ import { resolvePublishingKey } from "./resolve.js";
 /** The github-block key the store is declared under. */
 export const ASSET_STORE_KEY = "asset-store";
 
+/** The github-block key the per-file size cap is declared under, in bytes. */
+export const ASSET_SIZE_CAP_KEY = "asset-size-cap";
+
+/** The stated default cap: 5 MB. The catalogue's built-in carries the same number. */
+export const DEFAULT_ASSET_SIZE_CAP = 5 * 1024 * 1024;
+
 /** A declared, well-formed asset store. */
 export interface AssetStore {
     owner: string;
@@ -64,4 +70,24 @@ export function resolveAssetStore(start: string): AssetStoreResolution {
     const store: AssetStore | null = parseAssetStore(declared);
     if (store === null) return { kind: "malformed", value: declared, message: malformedStoreMessage(declared) };
     return { kind: "declared", store };
+}
+
+export type AssetSizeCapResolution =
+    | { kind: "declared"; bytes: number }
+    | { kind: "malformed"; value: string; message: string };
+
+/**
+ * Resolve the per-file size cap at (or above) `start`, in bytes. The built-in default applies when
+ * no layer declares one; a declared value that is not a positive whole number stops the run by name.
+ */
+export function resolveAssetSizeCap(start: string): AssetSizeCapResolution {
+    const declared: string = unquote(resolvePublishingKey(start, ASSET_SIZE_CAP_KEY));
+    if (!/^[1-9][0-9]*$/.test(declared)) {
+        return {
+            kind: "malformed",
+            value: declared,
+            message: `${ASSET_SIZE_CAP_KEY} '${declared}' is not a whole number of bytes`,
+        };
+    }
+    return { kind: "declared", bytes: Number(declared) };
 }

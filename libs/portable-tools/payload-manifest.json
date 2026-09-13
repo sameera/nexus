@@ -16,6 +16,7 @@
   "claude-components/commands/nxs.teach-plan.md": "cf62e85be5ba14b42d3033a4d5c9d8ce437e27ef0049209681d6b2d6f48ba303",
   "claude-components/commands/nxs.teach.md": "23e549e05987b45e063fcc067fc031f5bdbbad4b43f54321bfbdcf3fef6c4035",
   "claude-components/skills/nxs-abs-doc-path/SKILL.md": "676abe2fc3fd44cd5bc7d896580431dbf38b3d5e8b83b053e82d7b27ab86a7b4",
+  "claude-components/skills/nxs-assets/SKILL.md": "01ae16d250acb7171ea9ff36d9e978d3de543a59357cee591048ca5cc8147cca",
   "claude-components/skills/nxs-epic-resolve/SKILL.md": "d24f9e49abea811c3e24ef962e47fb8680b363e10265baa6a100ba5b5e927c3b",
   "claude-components/skills/nxs-gh-create-epic/SKILL.md": "a4581fafc07f89c28457bd179dfa45588b757cb41d1358194a16bf7b4ecc8504",
   "claude-components/skills/nxs-gh-create-story/SKILL.md": "8e0ce7a456cedfb7cea5e53553414875ab15eaec676b2e87761f9c233147e1a9",
