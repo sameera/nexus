@@ -42,6 +42,7 @@ import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
 import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
+import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
@@ -207,6 +208,23 @@ const REGISTRY: Record<string, VerbEntry> = {
         subverbs: WORKSPACE_SUBVERBS,
         run: runWorkspaceVerb,
     },
+    assets: {
+        summary: "Resolve the durable asset store the filing stages publish issue graphics into.",
+        usage: [
+            "  nexus assets resolve [--root <dir>]",
+            "      Print { state: declared, repo, branch } for the declared store, { state: unsupported }",
+            "      when no layer declares one, or stop on a malformed value naming it (exit 1).",
+            "  nexus assets publish --file <path> --feature <slug> [--root <dir>] [--json]",
+            "      Publish one local file under features/<slug>/ in the store through GitHub's",
+            "      file-contents endpoint (no clone) and print the reference pinned to the commit it",
+            "      created, in the form its reader renders: an image inline (blob address with the raw",
+            "      flag), any other file a link. Checks the file against asset-size-cap before any request.",
+            "  nexus assets visibility [--root <dir>]",
+            "      Read the store's visibility from GitHub once for the approval digest: public | private.",
+        ].join("\n"),
+        subverbs: ASSETS_SUBVERBS,
+        run: async (argv: string[], io: CliIo): Promise<number> => runAssets(argv, io),
+    },
     "abs-doc-path": {
         summary: "Convert a repository-relative path to an absolute GitHub URL.",
         usage: [
@@ -271,15 +289,16 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus razor-check --draft <path> --source <path>",
             "  nexus razor-check --draft <path> --filed \"<title>; <title>\"",
             "  nexus razor-check --draft <path> --derive <path>",
-            "  nexus razor-check --draft <path> --assert-clean",
+            "  nexus razor-check --draft <path> --assert-clean [--asset-path <path>]...",
             "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
             "      personas table, exiting 1 when any finding blocks. With --filed it instead runs the",
             "      apply-time arm over the set the reviewer approved, before any edge is rewritten: the",
             "      set is closed under its blockers, every name in it is a story, and the complexity",
             "      rollup and the design warrant describe the stories actually filed. With --derive it",
             "      writes the filing body — labels and the ordering block removed — and asserts it, and",
-            "      with --assert-clean it asserts a body it is given, so a drafting-time body is never",
-            "      filed.",
+            "      with --assert-clean it asserts a body it is given — no provenance label, template",
+            "      placeholder token, observation marker, ordering row or declared local asset path",
+            "      (--asset-path, repeatable, matched exactly) — so a drafting-time body is never filed.",
         ].join("\n"),
         run: runRazorCheck,
     },
@@ -1369,14 +1388,17 @@ interface RazorCheckFlags {
     filed?: string[];
     /** `--derive`: where to write the filing body derived from the draft. */
     derive?: string;
+    /** This run's declared local asset paths (epic #594): a survivor fails `--assert-clean`. */
+    assetPaths: string[];
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
-    const flags: RazorCheckFlags = { assertClean: false };
+    const flags: RazorCheckFlags = { assertClean: false, assetPaths: [] };
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--draft") flags.draft = argv[++i];
         else if (argv[i] === "--source") flags.source = argv[++i];
         else if (argv[i] === "--assert-clean") flags.assertClean = true;
+        else if (argv[i] === "--asset-path") flags.assetPaths.push(argv[++i] ?? "");
         else if (argv[i] === "--derive") flags.derive = argv[++i];
         else if (argv[i] === "--filed")
             flags.filed = (argv[++i] ?? "")
@@ -1446,7 +1468,7 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (flags.assertClean) {
-        const findings: RazorFinding[] = survivingTokens(body);
+        const findings: RazorFinding[] = survivingTokens(body, flags.assetPaths);
         if (findings.length > 0) {
             io.stderr(renderSurvivingTokens(flags.draft, findings));
             return 1;

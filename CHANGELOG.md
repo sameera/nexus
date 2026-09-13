@@ -5,6 +5,28 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.45.0
+
+- `epic` accepts `--assets <path>…`: local diagrams, mockups and sketches the filed issues should
+  carry. The draft names them by local path and nothing leaves the machine before the approval gate;
+  on approval each file a body references is published into the team's declared asset store, one
+  commit per file, and the local path is replaced with a reference pinned to that commit — an image
+  renders inline, every other file (HTML included) is a link to the version approved. A missing path
+  or two files sharing a name stops the run before drafting; a declared file no body mentions is
+  reported and not published; a repository that declares no store says assets are unsupported once
+  and files the same issue bodies it filed before. The approval digest names the store and its
+  visibility, and warns — without refusing — when a public store backs a private issues repository.
+  A run resumed after `revise` recovers the declared assets from the draft folder, so the rewrite
+  and the clean-body assertion run on the resumed filing as they do on a first one. The store (`asset-store`, `owner/repo` or `owner/repo@branch`) and the per-file cap
+  (`asset-size-cap`, default 5 MB) are declared once, in the same settings block as the issues
+  repository, and a hub may declare them for every member.
+- `decision-record` accepts the same `--assets <path>…`, on a first filing and on `--revise`: the
+  record sub-issue carries the diagram the decision was made against, published only after the
+  pre-filing checkpoint is answered with an approval and referenced at the commit that published it.
+  A revision's new assets are new commits even when they reuse a file name, so every reference in
+  the superseded body still resolves. A repository with no declared store files the record without
+  them and says so once.
+
 ## 0.44.0
 
 - `/nxs.teach-plan` gains Phase 7 — the **approval gate**. `nexus workbook gate <name>` refuses, in

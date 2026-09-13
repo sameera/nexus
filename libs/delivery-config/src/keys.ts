@@ -54,6 +54,16 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     // epic #212). One concept shared by the epic-receipt coverage check and #213's close waiver —
     // never two labels for the same fact.
     { githubKey: "no-pr-label", normalized: "noPrLabel", builtin: "no-pull-request" },
+    // The durable asset store the filing stages publish issue graphics into (epic #594). Declared
+    // as `owner/repo` or `owner/repo@branch`. Deliberately without a built-in and without a
+    // fallback to the issues repository: an absent store means assets are unsupported, because
+    // writing files into a repository nobody nominated — one this design never prunes — is a side
+    // effect the team never asked for. The shape check lives in one place, `asset-store.ts`.
+    { githubKey: "asset-store", normalized: "assetStore" },
+    // The per-file size cap the publish step checks a local file against before any request, in
+    // bytes. A team property rather than an invocation flag, so one lead cannot push a large binary
+    // into a store the team can never prune. The built-in is the stated 5 MB default.
+    { githubKey: "asset-size-cap", normalized: "assetSizeCap", builtin: "5242880" },
 ];
 
 /** The catalogue row for a github-block key, or undefined when the catalogue declares none. */

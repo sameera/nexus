@@ -55,6 +55,31 @@ the record, records what is being superseded, updates the body, and re-closes it
 before resolving the entry path. Without an existing closed record there is nothing to revise — say so
 and run the normal path instead.
 
+**Assets — `--assets <path>[,<path>…]`.** Any filing path, `--revise` included, may carry local
+files — the diagram a decision was made against, a sketch of the chosen shape — that the record
+sub-issue should show. The flag is repeatable and its value comma-separated; strip every `--assets`
+token and its value before resolving the rest of `$ARGUMENTS`, and keep the paths **exactly as
+written**. Load the **`nxs-assets`** skill before handling it. Run the intake step as soon as Phase
+0 has resolved the epic and **before Phase 1's analysis**, naming every declared path:
+
+```bash
+nexus assets check --asset <path> [--asset <path> ...]
+```
+
+- **Non-zero exit → stop and report the diagnostic verbatim** — a missing path, two assets sharing
+  a file name, a malformed `asset-store` value, or a store GitHub cannot read. Nothing has been
+  drafted and nothing has been published.
+- **`{ "state": "unsupported", … }`** → the repository declares no asset store. Say so once on the
+  console — *assets are unsupported for this repository: no asset-store is declared* — set
+  `ASSETS = none`, and continue **exactly as without the flag**: the record is drafted and filed
+  with no asset references, and the files are written nowhere else instead.
+- **`{ "state": "declared", repo, branch, visibility, assets }`** → record `ASSETS` (the paths, in
+  the order given), `ASSET_STORE` and `ASSET_VISIBILITY`. The visibility is read here once, for the
+  Phase 3.5 checkpoint's store line only; it never selects how an asset is referenced.
+
+An asset is a **picture of a decision, never a substitute for its why**: the body stays
+decisions-and-rationale prose, and every decision still carries its rationale in words.
+
 ## Interaction convention — actionable choice gates
 
 Every point where this command asks the user to choose — the multi-entry epic selection in Phase 0
@@ -374,6 +399,13 @@ and that body is the artifact the record hash is taken over. So:
   today — `rating` = the epic's `complexity`, `epic` = the epic issue ref, `feature`/`title`/`date`,
   and `concepts:` carried over from the epic.
 
+**Refer to each asset by its local path, exactly as declared** (when `ASSETS` is set), inside the
+decision it illustrates, as a Markdown image or link whose target is the declared path:
+`![the chosen flow](diagrams/flow.png)`. Write the path verbatim; the Phase 3.6 rewrite matches it
+exactly. **Nothing is published while drafting.** The approver judges a draft that names files on
+the lead's machine, so declining at the checkpoint costs nothing and leaves the store unchanged. A
+declared asset the draft never mentions is not published either — it is reported and skipped.
+
 ## Phase 3.5 — Pre-filing checkpoint (MANDATORY STOP)
 
 The gate this command already refers to, now with a phase behind it. It runs **before every path
@@ -407,6 +439,19 @@ the body is caught at Phase 3.6 rather than trusted not to happen.
 Every refuted alternative in the draft appears, numbered stably, grouped under the decision it
 belongs to. An observation is rendered beside its entry; it is a thing to look at, not a verdict.
 
+**Then render the store line** (when `ASSETS` is set), so approval is informed consent to publish
+there:
+
+```markdown
+**Assets:** <n> file(s) → `<ASSET_STORE>` (<public | private>) — <file names, comma-separated>
+```
+
+When the store is public and the issues repository is private (`nexus config resolve issues-repo`,
+or the current repository when it resolves to nothing), add a warning under it — the files will be
+world-readable while the record is not. **Warn; do not refuse** — the team chose the store
+deliberately. When the store is private and the issues repository is public, note that a reader
+outside the team sees a broken image where a member sees the diagram.
+
 Then ask via **`AskUserQuestion`** (per the interaction convention). Four options:
 
 - **approve as drafted** — file the record as it stands.
@@ -421,23 +466,45 @@ created or updated. **Naming nothing is identical to plain approval** — no re-
 confirmation. A cut naming an alternative in a body that is already filed and approved is refused
 with the reason: an approved record is frozen and changes only through Phase 4.5's reopen path.
 
-The checkpoint writes no file and is spent when it is answered.
+The checkpoint writes no file and is spent when it is answered. **`revise` and `no record` leave
+the store untouched**: nothing is published before this checkpoint is answered with an approval,
+and the publish itself is the first thing Phase 3.6 does after the labels come off.
 
 ## Phase 3.6 — Derive the filing body
 
 The labelled draft is not what is filed. Once the checkpoint is answered and any cut is applied,
-strip every label from `<scratch>/record-body.labelled.md` into `<scratch>/record-body.md` and
-assert that no drafting-time token survived:
+strip every label from `<scratch>/record-body.labelled.md` into `<scratch>/record-body.md`.
+
+**Then publish the assets and rewrite their references (when `ASSETS` is set)** — the first side
+effect after the checkpoint, on the derived body, before the assertion and before any issue is
+created or edited. `<feature-slug>` is the last segment of the epic's `feature_path` (the resolved
+`epic.md` frontmatter carries it):
 
 ```bash
-nexus razor-check --draft "<scratch>/record-body.md" --assert-clean
+nexus assets rewrite --body "<scratch>/record-body.md" \
+    --asset <path> [--asset <path> ...] \
+    --feature "<feature-slug>"
+```
+
+It publishes every asset the body references — one commit per file, in declared order, with no
+clone — and replaces each local path with the reference its reader renders: an image inline, any
+other file a link at the pinned commit. **A non-zero exit stops the run: file nothing.** Anything it
+had already published is harmless and unreferenced. An `unreferenced` entry is a declared file the
+body never mentions: report it in Phase 5; nothing is written for it.
+
+**Then assert that no drafting-time token — and no declared local path — survived:**
+
+```bash
+nexus razor-check --draft "<scratch>/record-body.md" --assert-clean \
+    [--asset-path <path> ...]     # one per declared asset, when ASSETS is set
 ```
 
 A non-zero exit stops the run — **file nothing**. The record body is the artifact the record hash is
 taken over, so a label surviving into it would report a design that did not change as changed. The
 same assertion covers the checkpoint's other promise: it fails on a surviving template placeholder
-token (`{{…}}`) and on a surviving observation marker (`⚠️ razor:`) as well, so neither reaches the
-filed body.
+token (`{{…}}`), on a surviving observation marker (`⚠️ razor:`) and — given this run's
+`--asset-path`s, matched exactly — on a local asset path the rewrite missed, so none of them reaches
+the filed body.
 
 This is a phase of its own rather than a step of Phase 3 because it runs **after** the Phase 3.5
 checkpoint: the body has to be derived from the draft the reviewer actually approved, cuts included.
@@ -565,6 +632,14 @@ a filing step: Phases 1–3 have already run and `<scratch>/record-body.md` hold
 below only publishes it. `$RECORD` is the record sub-issue Phase 0 already reported (the resolver's
 `record`, or Phase 0.2 step 2), and `$REPO_ARG` comes from Phase 0.2 step 1.
 
+**A revision may carry new assets** (`--revise … --assets <path>…`). They went through the same
+intake and the same Phase 3.6 publish-and-rewrite as a first filing, so the new body already
+carries their references. Each is a **new commit** in the store, even when it reuses a file name
+from the earlier record — the endpoint updates the path with a fresh commit and the earlier commit
+stays — so every reference in the superseded body, embedded verbatim in the comment below, still
+resolves to exactly what the earlier approver saw. No new machinery exists for this; it follows from
+the reference pinning the commit, not a branch.
+
 The freeze is what makes the record hash mean anything: if a closed body could change, "approved"
 would name a moving target and every downstream stamp would be unfalsifiable. Reopening is therefore
 not ceremony — it is the only way to make the body editable, and it re-fires the conformance and
@@ -672,6 +747,7 @@ Report concisely:
 /nxs.decision-record --from docs/design/x.md     # import an existing design doc as the record's basis
 /nxs.decision-record --from ~/plan.md 118        # import a design doc, epic resolved from issue #118
 /nxs.decision-record --revise 118                # revise the approved record: reopen, comment, update, re-close
+/nxs.decision-record 118 --assets diagrams/flow.png,mockups/detail.html   # file the record with the pictures it was decided against
 ```
 
 # Constraints
@@ -699,6 +775,11 @@ Report concisely:
   unfalsifiable.
 - **Never write `docs/`.** `docs/` is permanent human artifacts only (0005). An old-contract epic's
   record stays in its committed queue entry, as today.
+- **An asset is a picture of a decision, never a substitute for its why.** With `--assets` the
+  body still carries every rationale in prose; the files are published to the declared store only
+  after the Phase 3.5 checkpoint is answered with an approval, each reference pins the commit that
+  published it, and no local path reaches the record — the Phase 3.6 assertion fails the run on one.
+  A repository with no declared store files the record without them and says so once.
 - **Labels are created before they are applied**, and this stage writes only the **epic's** labels
   and its **record sub-issue** — it never touches a story issue.
 - **Approval is the close of the record sub-issue.** Never write an approval field, an `approved`

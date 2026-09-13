@@ -114,6 +114,11 @@ const GITHUB_DEFAULT_KEYS = [
     // bookkeeping — the allowlist rejects unlisted keys outright, so without it a hub declaring the
     // key fails validation and the workspace-wide default can never be expressed at all.
     "worktree-path",
+    // Epic #594: the asset store the filing stages publish into. Same reason as above — a key
+    // absent from this allowlist cannot be declared on a hub at all, and the store is meant to be
+    // declared once for the whole workspace.
+    "asset-store",
+    "asset-size-cap",
 ];
 /** The hub-role default docs root when no explicit override is given: the repo root. */
 const DEFAULT_HUB_DOCS_ROOT = ".";

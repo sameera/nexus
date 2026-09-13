@@ -49,6 +49,31 @@
       "import": "./src/config-cli.ts",
       "default": "./src/config-cli.ts"
     },
+    "./asset-store": {
+      "types": "./src/asset-store.ts",
+      "import": "./src/asset-store.ts",
+      "default": "./src/asset-store.ts"
+    },
+    "./asset-publish": {
+      "types": "./src/asset-publish.ts",
+      "import": "./src/asset-publish.ts",
+      "default": "./src/asset-publish.ts"
+    },
+    "./asset-reference": {
+      "types": "./src/asset-reference.ts",
+      "import": "./src/asset-reference.ts",
+      "default": "./src/asset-reference.ts"
+    },
+    "./asset-rewrite": {
+      "types": "./src/asset-rewrite.ts",
+      "import": "./src/asset-rewrite.ts",
+      "default": "./src/asset-rewrite.ts"
+    },
+    "./assets-cli": {
+      "types": "./src/assets-cli.ts",
+      "import": "./src/assets-cli.ts",
+      "default": "./src/assets-cli.ts"
+    },
     "./epic-filer/run": {
       "types": "./src/epic-filer/run.ts",
       "import": "./src/epic-filer/run.ts",

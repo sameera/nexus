@@ -14,6 +14,7 @@ const REMEDY: Record<TokenKind, string> = {
     placeholder: "template placeholder — replace it",
     observation: "observation marker — an observation belongs in the gate's render, not in the body",
     ordering: "draft-time ordering — the native dependency edges own the graph once the issues exist",
+    "asset-path": "local asset path — publish it and rewrite the reference; no local path reaches an issue",
 };
 
 /**

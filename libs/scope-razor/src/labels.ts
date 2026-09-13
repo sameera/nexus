@@ -15,7 +15,7 @@
  */
 
 /** Which drafting-time vocabulary a surviving token belongs to. */
-export type TokenKind = "label" | "placeholder" | "observation" | "ordering";
+export type TokenKind = "label" | "placeholder" | "observation" | "ordering" | "asset-path";
 
 /** One surviving drafting-time token in a body that was supposed to be clean. */
 export interface Finding {
@@ -65,6 +65,12 @@ const GRAMMARS: ReadonlyArray<{ kind: TokenKind; pattern: RegExp }> = [
     { kind: "ordering", pattern: ORDERING },
 ];
 
+/** A declared path as a whole token: not preceded or followed by another path character. */
+function wholePath(declared: string): RegExp {
+    const escaped: string = declared.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?<![A-Za-z0-9_./~-])${escaped}(?![A-Za-z0-9_./-])`);
+}
+
 /** Derive a filing body: the draft with every provenance label removed and nothing else changed. */
 export function stripLabels(draft: string): string {
     return draft
@@ -93,7 +99,7 @@ export function deriveFilingBody(draft: string): string {
  * Assertion mode: every drafting-time token still present in a body, in reading order. An empty
  * result is the only thing that permits filing.
  */
-export function survivingTokens(body: string): Finding[] {
+export function survivingTokens(body: string, assetPaths: readonly string[] = []): Finding[] {
     const findings: Finding[] = [];
     body.split("\n").forEach((line: string, index: number) => {
         const onLine: Finding[] = [];
@@ -101,6 +107,13 @@ export function survivingTokens(body: string): Finding[] {
             for (const match of line.matchAll(grammar.pattern)) {
                 onLine.push({ line: index + 1, kind: grammar.kind, token: match[0].trim() });
             }
+        }
+        // A local asset path this run declared (epic #594): matched exactly, never syntactically,
+        // because a body legitimately quotes repository-relative paths in its own prose — and as a
+        // whole token, because the published address of `assets/flow.png` under a feature named
+        // `issue-assets` ends in `issue-assets/flow.png`.
+        for (const assetPath of assetPaths) {
+            if (assetPath !== "" && wholePath(assetPath).test(line)) onLine.push({ line: index + 1, kind: "asset-path", token: assetPath });
         }
         findings.push(...onLine.sort((a: Finding, b: Finding) => line.indexOf(a.token) - line.indexOf(b.token)));
     });
