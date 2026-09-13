@@ -38,9 +38,17 @@ export interface HandoffContext {
     issue: { title: string; body: string };
 }
 
-/** Every other slice in the plan — the ones a handed-off coding agent must leave alone. */
+/**
+ * Every other story in the plan, once each — the ones a handed-off coding agent must leave alone. A
+ * scaffold builds nothing a coding agent could touch, so it is never named (record #591, invariant 6).
+ */
 export function siblingSlices(plan: TeachingPlan, story: number): number[] {
-    return plan.slices.map((s) => s.story).filter((s) => s !== story);
+    const siblings: number[] = [];
+    for (const slice of plan.slices) {
+        if (slice.story === undefined || slice.story === story || siblings.includes(slice.story)) continue;
+        siblings.push(slice.story);
+    }
+    return siblings;
 }
 
 /**

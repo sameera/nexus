@@ -421,7 +421,7 @@ that alternative as a **non-blocking observation**, prefixed with the razor's ma
 into the draft body** — and because the marker is one asserted string, a render that did leak into
 the body is caught at Phase 3.6 rather than trusted not to happen.
 
-**Then render the cut list** (nxs-razor §8), directly above the choice:
+**Then render the cut list** (nxs-razor §8 — this gate's convention is **removal**; a refuted alternative is not scope, so there is nothing here to add to), directly above the choice:
 
 ```markdown
 ### Refuted alternatives

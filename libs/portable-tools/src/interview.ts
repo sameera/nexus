@@ -39,6 +39,18 @@ export const FOCUS_SLOT: string = "focus";
 /** The ceiling this epic sets on the interview. The slate never grows past it. */
 export const INTERVIEW_SLOT_CAP: number = 5;
 
+/**
+ * The slots that record what the learner already knows, and the only ones a later stage may read a
+ * declaration of prior knowledge from (record #562, invariant 6).
+ *
+ * `focus` is excluded because what the learner came to learn is focus rather than knowledge, and it
+ * has already done its work in the marking pass. `recent-difficulty` is excluded because it is the
+ * slot most likely to name a concept in the learner's own words while meaning the opposite of
+ * knowing it — matching against it would remove precisely the teaching the learner needs most, taken
+ * from the answer they gave most concretely.
+ */
+export const KNOWLEDGE_SLOTS: readonly string[] = ["stack-experience", "codebase-familiarity", "testing-practice"];
+
 /** One question the stage is able to ask. The agent phrases it; it cannot invent another. */
 export interface InterviewSlot {
     /** The slot's stable identifier, which the recorded answer is filed under. */

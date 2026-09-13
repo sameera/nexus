@@ -44,15 +44,17 @@ import {
     resolveArrival,
     renderExerciseSection,
     type ArrivalAction,
+    type AuthoredPinningTest,
     type AuthoredProse,
     type HandoffState,
     type LessonBrief,
+    type PinningTestRequest,
     type StagedLesson,
 } from "./lesson-writer.js";
 import { gateNextLesson, type DriftFinding, type IssueReader, type LessonGate, type TeachingPlan } from "./teaching-plan.js";
-import { planStubs, toTeachingPlan, type PlanSliceRecord, type WorkbookPlan } from "./workbook-plan.js";
+import { sliceId, sliceLabel, toTeachingPlan, type PlanSliceRecord, type WorkbookPlan } from "./workbook-plan.js";
 import { parseLesson, pageNameFor, renderWorkbookInto, type Lesson, type LessonSource } from "./workbook-render.js";
-import { lessonsDir, readLessons, readWorkbookPlan, workbookRoot, writtenLessonFiles } from "./workbook-store.js";
+import { lessonsDir, planRenderOptions, readLessons, readWorkbookPlan, workbookRoot, writeWorkbookPlan } from "./workbook-store.js";
 
 /** The learner record the drill's ranking reads: how many hints were taken, by concept. */
 export const HINT_LOG_FILENAME: string = "hints.json";
@@ -78,9 +80,10 @@ export type SessionOutcome =
     | { kind: "breach"; story: number; report: string }
     | { kind: "drift"; finding: DriftFinding; report: string }
     | { kind: "handoff"; story: number; promptPath: string; report: string }
+    | { kind: "tests"; story: number; requests: PinningTestRequest[]; report: string }
     | { kind: "brief"; brief: LessonBrief; report: string }
-    | { kind: "written"; story: number; lesson: string; page: string; report: string }
-    | { kind: "open"; story: number; page: string; report: string }
+    | { kind: "written"; story?: number; lesson: string; page: string; report: string }
+    | { kind: "open"; story?: number; lesson: string; page: string; report: string }
     | { kind: "done"; report: string };
 
 export interface SessionResult {
@@ -176,28 +179,68 @@ function handoffState(repoRoot: string, slug: string): { state: HandoffState; op
  * a session in which the current exercise is finished.
  */
 function isFinished(repoRoot: string, slice: PlanSliceRecord): boolean {
+    if (slice.pinningTest === null) return true;
     return fs.existsSync(path.join(repoRoot, slice.pinningTest.file));
 }
 
-/** Re-render the workbook so the pages match the lessons, and name the page a lesson renders to. */
+/**
+ * Re-render the workbook so the pages match the lessons and the plan — the home page included, so it
+ * links a lesson's slice the moment the lesson is written (record #591, invariant 46).
+ */
 function render(repoRoot: string, slug: string, plan: WorkbookPlan): void {
-    const lessons: LessonSource[] = readLessons(repoRoot, slug);
-    if (lessons.length === 0) return;
-    renderWorkbookInto(workbookRoot(repoRoot, slug), {
-        lessons,
-        stubs: planStubs(plan, writtenLessonFiles(repoRoot, slug)).map((stub) => `Story #${stub.story}`),
-    });
+    renderWorkbookInto(workbookRoot(repoRoot, slug), planRenderOptions(repoRoot, slug, plan));
 }
 
 function pagePath(repoRoot: string, slug: string, lessonFile: string): string {
     return path.join(workbookRoot(repoRoot, slug), pageNameFor(lessonFile));
 }
 
-/** The slice the plan teaches next after the one that was handed off, or null when there is none. */
-function sliceAfter(plan: WorkbookPlan, story: number): PlanSliceRecord | null {
-    const at: number = plan.slices.findIndex((slice) => slice.story === story);
-    if (at === -1) return null;
-    return plan.slices.slice(at + 1).find((slice) => slice.learnerBuilds) ?? null;
+/**
+ * The slice that builds a story next after the one that was handed off, or null when there is none.
+ * A scaffold is skipped: it builds nothing, so it has no pinning test a fence could be probed with
+ * (record #591, invariant 7).
+ */
+function sliceAfter(plan: WorkbookPlan, handedOff: PlanSliceRecord): PlanSliceRecord | null {
+    const at: number = plan.slices.indexOf(handedOff);
+    return plan.slices.slice(at + 1).find((slice) => slice.learnerBuilds && slice.scaffold === undefined) ?? null;
+}
+
+/** What a pinning test for this slice is written against, for the agent that writes it. */
+function testRequest(plan: WorkbookPlan, slice: PlanSliceRecord): PinningTestRequest {
+    return {
+        slice: sliceId(slice),
+        story: slice.story as number,
+        title: slice.pinned?.title ?? "",
+        branch: slice.branch,
+        gradingCommand: plan.grading.join(" "),
+    };
+}
+
+/** True for a story slice the session has reached and whose pinning test nobody has written yet. */
+function needsTest(slice: PlanSliceRecord | null): slice is PlanSliceRecord {
+    return slice !== null && slice.story !== undefined && slice.pinningTest === null;
+}
+
+/**
+ * The plan with the pinning tests an arrival wrote, each under its own slice. A test is written once
+ * and never rewritten (record #591, invariant 29), so a slice that already holds one keeps it. A test
+ * must name a file inside this repository and carry its text, because the lesson shows it and the
+ * probe materializes it under that name. Pure: the caller writes the plan once nothing else can fail.
+ */
+function withPinningTests(plan: WorkbookPlan, authored: readonly AuthoredPinningTest[]): WorkbookPlan {
+    const slices: PlanSliceRecord[] = plan.slices.map((slice) => {
+        const test: AuthoredPinningTest | undefined = authored.find((entry) => entry.slice === sliceId(slice));
+        if (test === undefined || !needsTest(slice)) return slice;
+        const file: string = test.file.trim();
+        if (file === "" || path.isAbsolute(file) || path.normalize(file).split(path.sep)[0] === ".." || test.text.trim() === "") {
+            throw new Error(
+                `the pinning test for ${sliceLabel(slice)} names ${JSON.stringify(test.file)}. A pinning test is a file inside ` +
+                `this repository, given by a relative path, and carries the text the learner writes.`,
+            );
+        }
+        return { ...slice, pinningTest: { file, text: test.text } };
+    });
+    return { ...plan, slices };
 }
 
 /** The brief the chain hands the agent: everything about the lesson that is not its prose. */
@@ -208,19 +251,25 @@ function briefFor(
     revisit: readonly string[] = [],
 ): LessonBrief {
     return {
-        story: slice.story,
+        ...(slice.story === undefined ? {} : { story: slice.story }),
+        ...(slice.part === undefined ? {} : { part: slice.part }),
+        ...(slice.scaffold === undefined ? {} : { scaffold: slice.scaffold }),
         lesson: slice.lesson,
-        title: slice.pinned.title,
+        title: slice.pinned === null ? `Teaching step — ${slice.scaffold}` : slice.pinned.title,
         concepts: slice.concepts,
         drill,
         revisit,
-        exercise: {
-            story: slice.story,
-            branch: slice.branch,
-            pinningTest: slice.pinningTest.file,
-            pinningTestText: slice.pinningTest.text,
-            gradingCommand: plan.grading.join(" "),
-        },
+        exercise:
+            slice.story === undefined || slice.pinningTest === null
+                ? null
+                : {
+                      story: slice.story,
+                      branch: slice.branch,
+                      pinningTest: slice.pinningTest.file,
+                      pinningTestText: slice.pinningTest.text,
+                      gradingCommand: plan.grading.join(" "),
+                  },
+        ...(needsTest(slice) ? { writeTest: testRequest(plan, slice) } : {}),
     };
 }
 
@@ -237,7 +286,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     // 1. Sweep whatever a previous probe left behind, before anything else runs (invariant 11).
     sweepProbe(repoRoot);
 
-    const plan: WorkbookPlan | null = readWorkbookPlan(repoRoot, slug);
+    let plan: WorkbookPlan | null = readWorkbookPlan(repoRoot, slug);
     if (plan === null) {
         return {
             outcome: {
@@ -265,7 +314,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
 
     const staged: StagedLesson[] = plan.slices
         .filter((slice) => slice.lesson !== "" && written.some((lesson) => lesson.file === slice.lesson))
-        .map((slice) => ({ story: slice.story, pinningTestPassed: isFinished(repoRoot, slice) }));
+        .map((slice) => ({ lesson: slice.lesson, pinningTestPassed: isFinished(repoRoot, slice) }));
 
     /** What the walk settles on once any outstanding handoff has been verified and resolved. */
     type SettledArrival = Exclude<ArrivalAction, { kind: "resume" }>;
@@ -291,7 +340,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
         // 4. The fence probe, on a green suite only. The handed-off slice's own test must pass —
         // otherwise either its work is not in this tree, or this stack cannot run one test file on
         // its own and no probe result here means anything. The control test tells the two apart.
-        const handedOff: PlanSliceRecord | undefined = plan.slices.find((slice) => slice.story === paused);
+        const handedOff: PlanSliceRecord | undefined = plan.slices.find((slice) => slice.story === paused && !slice.learnerBuilds);
         if (handedOff === undefined) {
             // The plan teaches no slice for the story this pause names, so it names no pinning test
             // and there is nothing to probe. A handoff resolves on a green suite and an intact fence
@@ -316,7 +365,8 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
         }
         let fence: FenceState | null = null;
         let fenced: number = paused;
-        const landed: boolean = runProbe(repoRoot, handedOff.pinningTest.file, handedOff.pinningTest.text, plan.grading, run);
+        const landed: boolean =
+            handedOff.pinningTest !== null && runProbe(repoRoot, handedOff.pinningTest.file, handedOff.pinningTest.text, plan.grading, run);
         if (!landed) {
             const proof: ProbeProof = proveProbe(repoRoot, plan.probeControl, plan.grading, run);
             if (proof !== "unrunnable") {
@@ -345,8 +395,8 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             fence = "unchecked";
         }
 
-        const next: PlanSliceRecord | null = sliceAfter(plan, paused);
-        if (fence === null && next !== null) {
+        const next: PlanSliceRecord | null = sliceAfter(plan, handedOff);
+        if (fence === null && next !== null && next.pinningTest !== null && next.story !== undefined) {
             // The handed-off slice's own test passed, which is itself proof that one test file can
             // run alone here — so this probe's answer is a fact about the fence and not about the
             // stack (record #469's fifth ADDRESS risk).
@@ -373,7 +423,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
         notes.push(
             next === null
                 ? `the handed-off work for #${paused} is in this tree, and there was no next slice to fence.`
-                : `the handed-off work for #${paused} is in this tree, and the fence around #${next.story} is intact.`,
+                : `the handed-off work for #${paused} is in this tree, and the fence around ${sliceLabel(next)} is intact.`,
         );
 
         // A green suite and an intact fence are what resolve a handoff — never an assertion that it
@@ -397,18 +447,20 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     }
 
     if (arrival.kind === "open") {
-        const story: number = arrival.story;
-        const slice: PlanSliceRecord = plan.slices.find((s) => s.story === story) as PlanSliceRecord;
+        // The teaching view is built from the plan in the same order, so a slice's position is its identity here.
+        const slice: PlanSliceRecord = plan.slices[teaching.slices.indexOf(arrival.slice)];
+        const exercise = briefFor(plan, slice, null).exercise;
         render(repoRoot, slug, plan);
         return {
             outcome: {
                 kind: "open",
-                story: slice.story,
+                ...(slice.story === undefined ? {} : { story: slice.story }),
+                lesson: slice.lesson,
                 page: pagePath(repoRoot, slug, slice.lesson),
                 report:
-                    `The lesson for #${slice.story} is written and its exercise is not finished, so ` +
-                    `this session opens it again rather than writing another.\n\n` +
-                    renderExerciseSection(briefFor(plan, slice, null).exercise),
+                    `The lesson for ${sliceLabel(slice)} is written and its exercise is not finished, so ` +
+                    `this session opens it again rather than writing another.` +
+                    (exercise === null ? "" : `\n\n${renderExerciseSection(exercise)}`),
             },
             drift: [],
             skipped,
@@ -418,7 +470,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
 
     // 5. The drift check, on the slice about to be taught or handed off. Drift found elsewhere in
     // the plan is reported and the session teaches on.
-    const slice: PlanSliceRecord = plan.slices.find((s) => s.story === arrival.slice.story) as PlanSliceRecord;
+    const slice: PlanSliceRecord = plan.slices[teaching.slices.indexOf(arrival.slice)];
     const gate: LessonGate = gateNextLesson(teaching, slice.story, read);
     if (gate.blocked && gate.finding !== null) {
         return {
@@ -426,7 +478,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
                 kind: "drift",
                 finding: gate.finding,
                 report:
-                    `${gate.finding.detail} No lesson is written for #${slice.story}. Re-pinning the ` +
+                    `${gate.finding.detail} No lesson is written for ${sliceLabel(slice)}. Re-pinning the ` +
                     `plan is the plan approver's act, so report this rather than teaching past it.`,
             },
             drift: gate.findings,
@@ -443,14 +495,41 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     // The handoff comes before the suite gate: that gate exists so no *lesson* is written on a red
     // suite, and a handoff writes none. A slice that is not the learner's to build may be the very
     // thing that fixes a red suite, so blocking the pause on it would strand the workbook.
-    if (arrival.kind === "handoff") {
+    if (arrival.kind === "handoff" && slice.story !== undefined && slice.pinned !== null) {
+        // The handed-off slice's test is what the return probe runs, and the next story slice's test is
+        // what it fences — both are written on arrival here, before the prompt, because a pause that
+        // names no test could never be verified (record #591, invariant 29).
+        const needed: PlanSliceRecord[] = [slice, sliceAfter(plan, slice)].filter(needsTest);
+        const authored: readonly AuthoredPinningTest[] = inputs.prose?.pinningTests ?? [];
+        if (needed.some((each) => !authored.some((test) => test.slice === sliceId(each)))) {
+            const requests: PinningTestRequest[] = needed.map((each) => testRequest(plan as WorkbookPlan, each));
+            return {
+                outcome: {
+                    kind: "tests",
+                    story: slice.story,
+                    requests,
+                    report:
+                        `Before #${slice.story} is handed off, its pinning test has to exist — the return probe runs it — ` +
+                        `and so does the test of the next slice that builds a story, which the probe fences. Write ` +
+                        `${requests.map((request) => request.slice).join(" and ")} under 'pinning_tests', each with its file and text.`,
+                },
+                drift: gate.findings,
+                skipped,
+                notes,
+            };
+        }
+        if (needed.length > 0) {
+            plan = withPinningTests(plan, authored);
+            writeWorkbookPlan(repoRoot, slug, plan);
+        }
         const { promptPath } = pauseForHandoff(
             repoRoot,
             slug,
             {
                 repo: plan.repo,
                 branch: slice.branch,
-                epic: plan.epic,
+                // The epic this slice's story belonged to at approval, never a plan-wide one (invariant 8).
+                epic: slice.epic as number,
                 story: slice.story,
                 siblings: siblingSlices(teaching, slice.story),
                 issue: { title: slice.pinned.title, body: slice.pinned.body },
@@ -495,7 +574,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     const hints: HintCounts = readHints(repoRoot, skipped);
     const drill: string | null = chooseDrill(history, hints);
     const revisit: string[] = conceptsToRevisit(history, hints);
-    const brief: LessonBrief = briefFor(plan, slice, drill, revisit);
+    let brief: LessonBrief = briefFor(plan, slice, drill, revisit);
 
     // 7. The one generative step. Without the prose the chain hands out the brief and stops; with
     // it, the lesson is written, the workbook re-rendered, and the exercise handed over.
@@ -505,7 +584,7 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
                 kind: "brief",
                 brief,
                 report:
-                    `Ready to write the lesson for #${slice.story} into ${slice.lesson}. Every fact it ` +
+                    `Ready to write the lesson for ${sliceLabel(slice)} into ${slice.lesson}. Every fact it ` +
                     `states is decided; what it needs is the theory prose` +
                     (drill === null ? "" : `, the drill's question and answer on ${drill}`) +
                     (revisit.length === 0
@@ -519,18 +598,38 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
         };
     }
 
+    let pinned: WorkbookPlan | null = null;
+    if (brief.writeTest !== undefined) {
+        const request: PinningTestRequest = brief.writeTest;
+        const authored: AuthoredPinningTest[] = (inputs.prose.pinningTests ?? []).filter((test) => test.slice === request.slice);
+        if (authored.length === 0) {
+            throw new Error(
+                `the lesson for ${sliceLabel(slice)} has no pinning test to set as its exercise. A slice's test is ` +
+                `written when the learner arrives at it: write it under 'pinning_tests' as ${request.slice}, with its file and text.`,
+            );
+        }
+        const index: number = plan.slices.indexOf(slice);
+        pinned = withPinningTests(plan, authored);
+        brief = briefFor(pinned, pinned.slices[index], drill, revisit);
+    }
+    // Composed before anything is written, so a lesson that cannot be composed records no test either.
+    const lesson: string = composeLesson(brief, inputs.prose);
+    if (pinned !== null) {
+        plan = pinned;
+        writeWorkbookPlan(repoRoot, slug, plan);
+    }
     fs.mkdirSync(lessonsDir(repoRoot, slug), { recursive: true });
-    fs.writeFileSync(path.join(lessonsDir(repoRoot, slug), slice.lesson), composeLesson(brief, inputs.prose));
+    fs.writeFileSync(path.join(lessonsDir(repoRoot, slug), slice.lesson), lesson);
     render(repoRoot, slug, plan);
     return {
         outcome: {
             kind: "written",
-            story: slice.story,
+            ...(slice.story === undefined ? {} : { story: slice.story }),
             lesson: slice.lesson,
             page: pagePath(repoRoot, slug, slice.lesson),
             report:
-                `Wrote the lesson for #${slice.story} and opened it at ${pagePath(repoRoot, slug, slice.lesson)}.\n\n` +
-                renderExerciseSection(brief.exercise),
+                `Wrote the lesson for ${sliceLabel(slice)} and opened it at ${pagePath(repoRoot, slug, slice.lesson)}.` +
+                (brief.exercise === null ? "" : `\n\n${renderExerciseSection(brief.exercise)}`),
         },
         drift: gate.findings,
         skipped,

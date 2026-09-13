@@ -164,3 +164,17 @@ describe("pauseForHandoff", () => {
         expect(session.resumeAt?.story).toBe("464");
     });
 });
+
+describe("siblingSlices over a plan with split parts and scaffolds (story #583)", () => {
+    it("names every other story once and never a scaffold", () => {
+        const plan = {
+            slices: [
+                { story: 470, part: 1, learnerBuilds: true, pinned: { title: "t", body: "b" } },
+                { story: 470, part: 2, learnerBuilds: true, pinned: { title: "t", body: "b" } },
+                { scaffold: "bridging-idea", learnerBuilds: true },
+                { story: 471, learnerBuilds: false, pinned: { title: "t", body: "b" } },
+            ],
+        };
+        expect(siblingSlices(plan, 471)).toEqual([470]);
+    });
+});

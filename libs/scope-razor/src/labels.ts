@@ -15,7 +15,7 @@
  */
 
 /** Which drafting-time vocabulary a surviving token belongs to. */
-export type TokenKind = "label" | "placeholder" | "observation" | "asset-path";
+export type TokenKind = "label" | "placeholder" | "observation" | "ordering" | "asset-path";
 
 /** One surviving drafting-time token in a body that was supposed to be clean. */
 export interface Finding {
@@ -49,10 +49,20 @@ const PLACEHOLDER: RegExp = /\{\{[^{}\n]*\}\}/g;
  */
 const OBSERVATION: RegExp = /⚠️[ \t]*razor:/g;
 
+/**
+ * The draft-level ordering block (epic #576): its heading, and the rows under it. It is a fourth
+ * drafting-time vocabulary — after filing, the platform's native dependency edges are the
+ * authoritative graph, so a copy in a body would be a second and never-updated statement of it.
+ * Both the heading and a row are matched, because a hand-edit that removes only the heading leaves
+ * the graph behind in the body just the same.
+ */
+const ORDERING: RegExp = /^(?:##[ \t]+Implementation Order[ \t]*|-[ \t]+\*\*.+?\*\*[ \t]*[\u2014\u2013-][ \t]*blocked by:.*)$/gi;
+
 const GRAMMARS: ReadonlyArray<{ kind: TokenKind; pattern: RegExp }> = [
     { kind: "label", pattern: LABEL },
     { kind: "placeholder", pattern: PLACEHOLDER },
     { kind: "observation", pattern: OBSERVATION },
+    { kind: "ordering", pattern: ORDERING },
 ];
 
 /** A declared path as a whole token: not preceded or followed by another path character. */
@@ -67,6 +77,22 @@ export function stripLabels(draft: string): string {
         .split("\n")
         .map((line: string) => line.replace(LABEL, " ").replace(/[ \t]+$/, "").replace(/[ \t]{2,}/g, " "))
         .join("\n");
+}
+
+/**
+ * Derive the body that is filed: the draft with every provenance label removed and the draft-level
+ * ordering block removed whole, and nothing else changed. The two go together because they are the
+ * same kind of thing — bookkeeping the author, the gate and the digest read, and no durable reader
+ * of a filed issue ever does.
+ */
+export function deriveFilingBody(draft: string): string {
+    const lines: string[] = stripLabels(draft).split("\n");
+    const start: number = lines.findIndex((line: string) => /^##[ \t]+Implementation Order[ \t]*$/i.test(line));
+    if (start === -1) return lines.join("\n");
+    let end: number = lines.findIndex((line: string, index: number) => index > start && /^#{1,2} /.test(line));
+    if (end === -1) end = lines.length;
+    lines.splice(start, end - start);
+    return lines.join("\n");
 }
 
 /**

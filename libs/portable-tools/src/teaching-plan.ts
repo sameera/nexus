@@ -32,11 +32,21 @@ export interface PinnedStory {
     closed?: boolean;
 }
 
-/** One slice of the plan: the story it teaches, and the state that story was pinned to. */
+/**
+ * One slice of the plan: the story it teaches, and the state that story was pinned to. A scaffold
+ * (epic #457, story #559) names no story — it teaches a concept the roadmap itself did not
+ * introduce in time — so it pins nothing and never drifts; `story` and `pinned` are absent together
+ * on such a slice, and `scaffold` names the one concept it teaches instead.
+ */
 export interface PlanSlice {
-    story: number;
+    story?: number;
+    /** Which part of its story this slice is, when the story was split. */
+    part?: number;
+    scaffold?: string;
+    /** The lesson this slice teaches into — its own, never another slice's (record #591, invariant 2). */
+    lesson?: string;
     learnerBuilds: boolean;
-    pinned: PinnedStory;
+    pinned?: PinnedStory;
 }
 
 export interface TeachingPlan {
@@ -87,7 +97,7 @@ function changes(pinned: PinnedStory, live: LiveStory): string[] {
     return found;
 }
 
-function driftFor(slice: PlanSlice, live: LiveStory | null): DriftFinding | null {
+function driftFor(slice: PlanSlice & { story: number; pinned: PinnedStory }, live: LiveStory | null): DriftFinding | null {
     if (live === null) {
         return {
             story: slice.story,
@@ -112,8 +122,15 @@ function driftFor(slice: PlanSlice, live: LiveStory | null): DriftFinding | null
 /** Every slice whose live state no longer matches what the plan pinned, in plan order. */
 export function checkPlanDrift(plan: TeachingPlan, read: IssueReader): DriftFinding[] {
     const findings: DriftFinding[] = [];
+    const checked: Set<number> = new Set();
     for (const slice of plan.slices) {
-        const finding: DriftFinding | null = driftFor(slice, read(slice.story));
+        // A scaffold names no story, so there is no live issue to compare it against — it never drifts.
+        if (slice.story === undefined || slice.pinned === undefined) continue;
+        // The parts of a split story pin one story, so it is read once however many slices name it
+        // (record #591, invariant 5).
+        if (checked.has(slice.story)) continue;
+        checked.add(slice.story);
+        const finding: DriftFinding | null = driftFor({ ...slice, story: slice.story, pinned: slice.pinned }, read(slice.story));
         if (finding !== null) findings.push(finding);
     }
     return findings;
@@ -134,8 +151,9 @@ export interface LessonGate {
  * later slice is still returned in `findings` so the session can report it, but it does not stop
  * the current lesson from being written.
  */
-export function gateNextLesson(plan: TeachingPlan, nextStory: number, read: IssueReader): LessonGate {
+export function gateNextLesson(plan: TeachingPlan, nextStory: number | undefined, read: IssueReader): LessonGate {
     const findings: DriftFinding[] = checkPlanDrift(plan, read);
-    const finding: DriftFinding | null = findings.find((f) => f.story === nextStory) ?? null;
+    // A scaffold (no story) is never blocked by drift: it pins nothing that could have moved.
+    const finding: DriftFinding | null = nextStory === undefined ? null : (findings.find((f) => f.story === nextStory) ?? null);
     return { blocked: finding !== null, finding, findings };
 }

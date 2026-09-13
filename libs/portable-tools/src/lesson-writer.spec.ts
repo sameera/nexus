@@ -14,9 +14,9 @@ import { type TeachingPlan } from "./teaching-plan.js";
 
 const PLAN: TeachingPlan = {
     slices: [
-        { story: 460, learnerBuilds: true, pinned: { title: "t1", body: "b1" } },
-        { story: 464, learnerBuilds: false, pinned: { title: "t2", body: "b2" } },
-        { story: 465, learnerBuilds: true, pinned: { title: "t3", body: "b3" } },
+        { story: 460, learnerBuilds: true, lesson: "460.md", pinned: { title: "t1", body: "b1" } },
+        { story: 464, learnerBuilds: false, lesson: "464.md", pinned: { title: "t2", body: "b2" } },
+        { story: 465, learnerBuilds: true, lesson: "465.md", pinned: { title: "t3", body: "b3" } },
     ],
 };
 
@@ -26,28 +26,28 @@ describe("resolveArrival", () => {
     });
 
     it("opens the lesson already written rather than rewriting it while the learner is still on it", () => {
-        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: false }];
-        expect(resolveArrival(PLAN, written)).toEqual({ kind: "open", story: 460 });
+        const written: StagedLesson[] = [{ lesson: "460.md", pinningTestPassed: false }];
+        expect(resolveArrival(PLAN, written)).toEqual({ kind: "open", slice: PLAN.slices[0] });
     });
 
     it("writes the next lesson once the current exercise is finished", () => {
         const allLearnerBuilt: TeachingPlan = {
             slices: [
-                { story: 460, learnerBuilds: true, pinned: { title: "t1", body: "b1" } },
-                { story: 461, learnerBuilds: true, pinned: { title: "t2", body: "b2" } },
+                { story: 460, learnerBuilds: true, lesson: "460.md", pinned: { title: "t1", body: "b1" } },
+                { story: 461, learnerBuilds: true, lesson: "461.md", pinned: { title: "t2", body: "b2" } },
             ],
         };
-        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+        const written: StagedLesson[] = [{ lesson: "460.md", pinningTestPassed: true }];
         expect(resolveArrival(allLearnerBuilt, written)).toEqual({ kind: "write", slice: allLearnerBuilt.slices[1] });
     });
 
     it("hands off rather than writing a lesson when the next slice is not the learner's to build", () => {
-        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+        const written: StagedLesson[] = [{ lesson: "460.md", pinningTestPassed: true }];
         expect(resolveArrival(PLAN, written)).toEqual({ kind: "handoff", slice: PLAN.slices[1] });
     });
 
     it("resumes at the outstanding handoff rather than treating the next slice as fresh", () => {
-        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+        const written: StagedLesson[] = [{ lesson: "460.md", pinningTestPassed: true }];
 
         expect(resolveArrival(PLAN, written, { resolved: [], outstanding: 464 })).toEqual({
             kind: "resume",
@@ -56,7 +56,7 @@ describe("resolveArrival", () => {
     });
 
     it("teaches past a handoff slice once its handoff has been resolved", () => {
-        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+        const written: StagedLesson[] = [{ lesson: "460.md", pinningTestPassed: true }];
 
         expect(resolveArrival(PLAN, written, { resolved: [464], outstanding: null })).toEqual({
             kind: "write",
@@ -65,7 +65,7 @@ describe("resolveArrival", () => {
     });
 
     it("hands the same slice off again while its handoff is unresolved and unrecorded", () => {
-        const written: StagedLesson[] = [{ story: 460, pinningTestPassed: true }];
+        const written: StagedLesson[] = [{ lesson: "460.md", pinningTestPassed: true }];
 
         expect(resolveArrival(PLAN, written, { resolved: [], outstanding: null })).toEqual({
             kind: "handoff",
@@ -76,13 +76,13 @@ describe("resolveArrival", () => {
     it("reports done once every slice has a finished lesson", () => {
         const allLearnerBuilt: TeachingPlan = {
             slices: [
-                { story: 460, learnerBuilds: true, pinned: { title: "t1", body: "b1" } },
-                { story: 461, learnerBuilds: true, pinned: { title: "t2", body: "b2" } },
+                { story: 460, learnerBuilds: true, lesson: "460.md", pinned: { title: "t1", body: "b1" } },
+                { story: 461, learnerBuilds: true, lesson: "461.md", pinned: { title: "t2", body: "b2" } },
             ],
         };
         const written: StagedLesson[] = [
-            { story: 460, pinningTestPassed: true },
-            { story: 461, pinningTestPassed: true },
+            { lesson: "460.md", pinningTestPassed: true },
+            { lesson: "461.md", pinningTestPassed: true },
         ];
         expect(resolveArrival(allLearnerBuilt, written)).toEqual({ kind: "done" });
     });

@@ -1,8 +1,8 @@
 ---
 title: "Concept Vocabulary Merge"
 aliases: ["one identifier per concept", "synonym merge", "proposed identifier", "concept gloss", "merged vocabulary", "folded-away name"]
-touches: ["story-concept-extraction", "plan-draft"]
-last_updated_by: "#456"
+touches: ["story-concept-extraction", "plan-draft", "prior-knowledge-declaration"]
+last_updated_by: "#457"
 status: active
 verification: verified
 ---
@@ -33,9 +33,14 @@ The mapping lands on the stubs, not on the checked lists. Each list keeps the na
 
 - [story-concept-extraction](story-concept-extraction.md) — the independent reads whose proposed names this step reconciles into one vocabulary.
 - [plan-draft](plan-draft.md) — where the mapping lands, and which keeps the merged vocabulary beside its slices.
+- [prior-knowledge-declaration](prior-knowledge-declaration.md) — matches the learner's words against these glosses, and reads a folded name as the identifier kept.
 
 ## Decision Log
 
 ### 2026-09-11 — #456 — A merge after extraction, judged on glosses and applied by code
 
 Units run independently, so divergent names are certain and normalization in code reaches only spelling and case. The planning session is the one place every list is visible at once, and because the lists are small and each name carries a gloss, two names can be compared without reading either story. Code applies what the session decides and refuses anything that is not a combination, so a merge can never invent or split a concept. The mapping is applied to the stubs rather than written back into the checked lists, because a list is kept against the text it came from and rewriting it would force every story to be read again; the folded-away names are kept instead, which is what joins a handed-off story's list to the identifier a learner slice assumes. Refuted alternative: run the units one after another, each given the vocabulary so far, so it reuses an existing name instead of inventing one. That stops divergence at the source and needs no merge step, but extraction becomes serial, so a large roadmap takes as many times as long as it has stories, and the first story to run names every concept. A unit can still invent a synonym it did not recognize, so a merge would be needed anyway.
+
+### 2026-09-12 — #457 — Reciprocal link from prior-knowledge-declaration
+
+The merged vocabulary now has a second reader. The declaration match is made against these glosses, and a match naming a folded-away name is read as the identifier the merge kept.

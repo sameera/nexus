@@ -5,7 +5,7 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.36.0
+## 0.45.0
 
 - `epic` accepts `--assets <path>…`: local diagrams, mockups and sketches the filed issues should
   carry. The draft names them by local path and nothing leaves the machine before the approval gate;
@@ -26,6 +26,177 @@ behaviour says so.
   A revision's new assets are new commits even when they reuse a file name, so every reference in
   the superseded body still resolves. A repository with no declared store files the record without
   them and says so once.
+
+## 0.44.0
+
+- `/nxs.teach-plan` gains Phase 7 — the **approval gate**. `nexus workbook gate <name>` refuses, in
+  code, a draft whose coverage verdict is missing, names a gap, or is contradicted by a fresh check of
+  its slices, and names every gap. A clean draft prints one digest for the whole roadmap, however many
+  epics it spans: every slice in order with its mark, each split story with its parts, each scaffold
+  beside the slice that forced it, each removed concept beside the learner's phrase, the phrases that
+  matched nothing, and whether the focus matched no story. The agent shows it word for word. The
+  reviewer may change a slice's mark with `--mark <story>=learner|handoff`, which rebuilds the draft
+  from the recorded judgements and prints the gate again, or approve.
+- Approval, `nexus workbook gate <name> --approve --commands <file>`, writes the **committed plan**
+  the `/nxs.teach` session teaches from. It refuses a draft that changed after the gate was printed,
+  refuses without reviewer-declared suite and grading commands, and refuses — naming each story —
+  when a story on the issue graph changed since the roadmap was resolved. Every story is pinned to its
+  state at the moment of approval. Lesson names come from each slice's identity, one branch per story
+  is prefixed with the workbook, each slice records its own epic, and the dependency edges between
+  slices are recorded. None of the learner's interview words reaches the committed workbook.
+- `/nxs.teach` now teaches a plan with **split stories and scaffolds** step by step: a split story's
+  next part is taught once the previous part's exercise is finished, each part has its own lesson, and a
+  scaffold is taught by writing its lesson. A handoff prompt names the epic its own slice belongs to
+  and never lists a scaffold among the slices to leave alone. A slice's **pinning test is written on
+  arrival**: the brief asks for it when the plan holds none, and at a handoff the session asks for the
+  handed-off slice's test and the next story slice's test before it writes the prompt. A test is
+  recorded once and never rewritten.
+- A `/nxs.teach` session that stopped on drift can now be continued: the learner **re-approves** the
+  plan through `/nxs.teach-plan`. The rewrite keeps every slice up to the last written lesson first and
+  unchanged and plans only the rest, so no written lesson is taught again and no concept is introduced
+  twice. Re-approval pins the changed story to its current state, reuses the committed plan's commands,
+  and refuses — leaving the approved plan, its lessons and its pages unchanged — a draft whose coverage
+  is not clean, one not planned over the taught part, or one whose merge renamed a concept identifier a
+  written lesson carries.
+- An approved plan now renders a workbook **home page**: every slice in plan order with the slices it
+  depends on, including the edges from one part to the next and from a scaffold to the slice it serves.
+  A slice with a written lesson links to its page, one without is shown as not yet written, a handoff is
+  marked as handed off, and a scaffold as a teaching step. Approval, every `/nxs.teach` session, and
+  `nexus workbook render` and `check` all produce it from the plan and the lessons, so it exists before
+  any lesson is written, stays current after each session, and needs no network to display.
+
+## 0.43.0
+
+- The `/nxs.epic` approval gate now **checks the set you approved before it edits anything**, so an
+  addition whose prerequisite you did not also take is caught instead of quietly re-wired. The gate
+  used to re-parent a dropped story's dependents onto that story's own blockers first, which left
+  every approved set closed by construction and the closure rule unable to fire in the direction the
+  addition convention added it for. It now re-checks closure over the graph as drafted, returns to
+  the choice naming both stories, and re-parents nothing on your behalf: you take the prerequisite
+  too, or drop the addition.
+- The epic's **`complexity` rollup and the needs-design label are now checked against the stories you
+  actually filed**, not only re-derived by hand. The rollup may not sit below the largest size in the
+  filed set, and it may not sit above it while `complexity_drivers` states nothing that raises it.
+  How far cross-story integration raises it is still your judgement — what is checked is that the
+  judgement was made over the set that shipped, and stated.
+- The gate's offer list takes its **order and its numbering from the checker** rather than deriving
+  them again in prose, and `/nxs.epic` derives the filing body — provenance labels and the ordering
+  block removed — with the same checker, which asserts what it wrote. Only the two groups a selection
+  can act on are numbered now: what a plain approval files is shown as plain bullets, so no number
+  names an action the selection has no meaning for.
+- A deferral stub written for a single story now says `deferred: 1 story`, the form the deferral
+  floor reads back, so a one-story deferral is recognised as the floor and defers nothing further.
+
+## 0.42.0
+
+- The razor's rule set now describes **two gate conventions over one shared shape**, rather than one
+  convention it asserts for both gates. The shape is unchanged — numbered prose grouped by parent,
+  coarse actions, a typed list of numbers, an empty selection identical to a plain approval, and
+  nothing applied to content a prior partial run already filed. The planning gate's convention is
+  **addition**, and the rule set states exactly what a plain approval files and what happens to each
+  group the reviewer does not take. The decision-record checkpoint's convention is **removal**, and
+  the rule set says why that gate has nothing to add to: a refuted alternative is not scope. The
+  precedence clause still holds across the split — where a stage's own wording disagrees with the
+  rule set, the rule set governs.
+
+## 0.41.0
+
+- Scope you asked for that the smallest usable version does not need now **survives as a planned-later
+  item** instead of being dropped at the gate. After the epic's own issues are filed, `/nxs.epic`
+  files one epic stub carrying the titles of the asked-for stories you did not take — through the
+  same stub producer, the same unplanned label and the same resumability the oversized path already
+  uses, so planning it later meets this same command and this same gate. It carries story titles
+  only: a deferred title is drafted again when it is planned, so no acceptance criteria travel with
+  it. Its source line names the originating epic by issue number. Scope the drafting model added that
+  you declined is still discarded and carries into no stub, and an epic whose smallest usable version
+  needed every asked-for story files no stub at all. The stub's number is recorded back on the draft,
+  so re-running a partly completed filing never files a second one. The chain terminates at a floor:
+  a planning run that consumes a single-story deferral defers nothing further.
+
+## 0.40.0
+
+- Adding a story at the `/nxs.epic` gate now re-derives what the story set determined, the way
+  removing one always has. The epic's `complexity` rollup, the **needs-design** label that follows
+  from it, and any utilization-risk banner in the body are re-derived in **one step**, fired by any
+  difference between the drafted story set and the filed one — in either direction. Additions that
+  carry the epic past the threshold gain the design warrant; ones that leave it below do not get it.
+  A warning the filed epic still carries describes the story set that was actually filed, not the
+  draft as first written. The same step re-checks closure over the filed set and re-runs the epic
+  gate, because a set the reviewer assembled at the gate has been checked by nothing until it does.
+
+## 0.39.0
+
+- **The `/nxs.epic` approval gate now offers additions instead of cuts.** A plain approval files the
+  smallest usable version and nothing else. Every other story is offered in one stably numbered list
+  under *Additions*, and you file it only by naming its number. The stories you asked for sort first
+  and are rendered as asked-for, each carrying verbatim the fragment of your own words the drafting
+  model cited for it — so a story claiming your authority is a claim you can reject in the one place
+  you are already deciding. Within each group the order follows what unlocks what, never a ranking by
+  value. A model-added story you do not take is discarded and leaves no trace. The inversion is at
+  story granularity only: a model-added acceptance criterion, assumption or out-of-scope item on a
+  story that *is* being filed stays opt-out, listed under *Removals*, and one typed selection covers
+  both directions. An empty selection is still identical to a plain approval.
+- Every **story heading** in a drafted epic now carries a provenance label, because a story's label
+  is what decides whether it is filed by default. `nexus razor-check` blocks an unlabelled heading and
+  checks an `asked` heading's fragment against the run's source text like any other citation.
+
+## 0.38.0
+
+- The smallest usable version an epic names is now **checked before you see the approval gate**, not
+  taken on trust. `nexus razor-check` walks the draft's ordering block over the
+  `## Smallest Usable Version` line: a name matching no story stops the run, and so does a story in
+  the set that waits on a story the set leaves out — the finding names the draft, the story and the
+  blocker, so the fix is obvious without hunting. A set that cannot run is never rendered to a
+  reviewer. The same rule is applied a second time at apply time, over the set actually approved for
+  filing. A draft with no such section raises nothing, and no minimum-count rule is added anywhere.
+
+## 0.37.0
+
+- `/nxs.epic` now settles the story order **while it drafts**, not after you approve. A drafted epic
+  carries one `## Implementation Order` block naming each story's blockers by title, the approval
+  digest shows you what each story waits on beside the story itself, and filing derives its sequence
+  from that same block — so the ordering you approved is the ordering that gets filed. `nexus
+  razor-check` blocks a draft whose block leaves a story unplaced, names a story that does not
+  exist, or forms a cycle. The block is drafting-time only: it is removed when the filing body is
+  derived, and the assertion that no drafting-time token reaches an issue now covers it, because
+  once the issues exist GitHub's own dependency edges are the graph.
+
+## 0.36.0
+
+- `/nxs.teach-plan`, the planning phase that turns a planned **epic** into a teaching roadmap, gains
+  Phase 6 — the rewrite. `nexus workbook rewrite <name>` replaces the plan draft the planning pass
+  just wrote with one whose slices are **ordered** and in which every concept is introduced once and
+  assumed thereafter. The order respects the roadmap's dependency edges and, among the orders those
+  edges permit, takes at every step the slice introducing the fewest concepts not yet introduced;
+  ties break by ascending story number, so a roadmap rewritten twice with nothing changed holds the
+  same slices in the same order. Ownership follows from that order: a concept belongs to the first
+  slice that reaches it, and every later slice that proposed the same concept now records it as
+  assumed. A slice whose every concept an earlier slice already teaches stays in
+  the plan and introduces nothing, so its story is never dropped. With `--declare <file>` the phase
+  also removes what the learner said in the interview that they already know, reporting back which
+  of their words matched no concept the roadmap teaches. A slice that would introduce more than four
+  new concepts — the ceiling for what one sitting can carry — now becomes the fewest parts that all
+  fit, spread as evenly as those parts allow, sitting consecutively where the original sat and each
+  naming the same story; a later part assumes what the earlier parts taught. The plan draft
+  therefore admits **several slices for one story**, each saying which part of it it is, where
+  before one story was always one slice. Where a slice assumes a concept that no permitted ordering
+  of the real work could introduce beforehand, the rewrite inserts a **scaffold** immediately before
+  it — a teaching step that teaches exactly one concept, names no story, is identified by that
+  concept and records which slice's assumption forced it. Reordering is tried first, so a concept
+  some permitted order could deliver in time gets that order rather than a scaffold; a concept no
+  story introduces at all is scaffolded; a concept only a handed-off story would introduce never is.
+  The draft contract therefore also admits a **slice with no story**. Each handoff slice is then
+  placed immediately before the earliest learner slice it unblocks, with several handoffs for one
+  slice forming one block before it, and a handoff that unblocks nothing ordered after every learner
+  slice — so a coding agent is handed the non-focus work at the step that needs it rather than all
+  of it at the start. The rewrite then checks the finished plan
+  for coverage and names **every** gap: a learner slice assuming a concept no earlier learner slice
+  introduces, and — named as such, with the story it came from — a learner slice assuming a concept
+  only a handed-off story would introduce, which says the focus boundary is drawn in the wrong
+  place. A concept no story on the roadmap introduces at all is background, not a gap. The plan is
+  written whatever the verdict and carries it, but the phase stops rather than handing a plan with
+  gaps to approval. The rewrite reads no story text and no issue graph, so the planning session
+  still holds neither.
 
 ## 0.35.0
 

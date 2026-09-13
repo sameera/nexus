@@ -1,6 +1,6 @@
 ---
 name: nxs.teach-plan
-description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent and writes the plan's stubs as an uncommitted draft. Plans the roadmap; writes no lesson.
+description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent, writes the plan's stubs as an uncommitted draft, orders that draft and rewrites it so each concept is taught once, then shows the reviewer the approval gate and, on approval, writes the committed plan. Plans the roadmap; writes no lesson.
 category: learning
 phase: planning
 references:
@@ -153,10 +153,155 @@ alone: when the plan is taught, every other slice in it is one of them. If any s
 failed story is named: run Phase 3 again, which extracts only those, then this phase. Never write or
 edit the draft by hand, never commit it, and never write into the committed workbook.
 
+# Phase 6 — Rewrite the draft
+
+```bash
+nexus workbook rewrite <name> [--declare <file>]
+```
+
+Code rewrites the draft it just wrote, as arithmetic over the stubs. It re-reads no story, so this
+phase holds no story text either.
+
+The slices are ordered against the roadmap's own dependency edges, so no slice precedes a slice that
+blocks it, and at every position the pass takes the slice introducing the fewest concepts not yet
+introduced — the road gets steeper only where the work does. Ownership follows from that order: a
+concept is assigned to the first slice that reaches it, and every later slice that proposed the same
+concept assumes it instead, so a concept is introduced once and assumed thereafter. A slice whose
+every concept an earlier slice already teaches stays in the plan and introduces nothing: it builds
+something real while teaching nothing new, and dropping it would drop its story. Ties break by
+ascending story number, so a roadmap rewritten twice with nothing changed holds the same slices in
+the same order.
+
+**The declaration.** The interview recorded what the learner already knows in their own words, and
+nothing has resolved those words to concepts. That match is yours, and it is the one judgement in
+this phase — every other step is arithmetic. Read the draft's `vocabulary`: each entry is a concept
+identifier and the one-line gloss a match is made against. Then write every phrase you read, with
+what it names:
+
+```yaml
+declared:
+    - slot: testing-practice
+      phrase: <the learner's own words, quoted verbatim from that slot's recorded answer>
+      concepts: [unit-test]
+    - slot: stack-experience
+      phrase: <words that name nothing the roadmap teaches>
+      concepts: []
+```
+
+Read **only** the slots that record what the learner already knows — `stack-experience`,
+`codebase-familiarity`, `testing-practice`. What they came to learn is focus, not knowledge, and it
+has already done its work in Phase 5. What they most recently found hard is the slot most likely to
+name a concept in their own words while meaning the opposite of knowing it, so matching against it
+would remove precisely the teaching they need most. Code refuses either slot outright.
+
+Name only concepts the merged vocabulary holds, quote each phrase verbatim, and leave `concepts`
+empty rather than guessing: a wrong match deletes a lesson the learner is never shown and so cannot
+notice, while an unmatched phrase only leaves them something they already knew. Code applies the
+mapping, refuses anything the vocabulary does not hold, and reports the phrases that matched nothing.
+
+**Pass `--declare` once.** The mapping you write is recorded on the draft, and every later `rewrite`
+of this roadmap — run with no `--declare` at all — reads it back and reuses it unchanged. Pass
+`--declare` again only when the interview was re-run or the merged vocabulary changed underneath it;
+re-judging the same phrases differently on a rerun is exactly what would break the second success
+metric this phase owes, that a roadmap rewritten twice with nothing changed holds the same slices in
+the same order. Between those two cases, run `rewrite` with no `--declare` and let the recorded
+mapping stand.
+
+**Splitting.** A slice that would introduce more concepts than one step can hold becomes several
+slices, each naming the same story and saying which part of it it is. The parts sit consecutively
+where the original sat, and a later part assumes what the earlier parts taught. A slice already
+within the limit stays one slice. So the draft may now hold several slices for one story, and a
+slice's identity is its story plus its part.
+
+**Scaffolds.** Where a slice assumes a concept that no permitted ordering of the real work could
+introduce beforehand, a teaching step is inserted immediately before it. Reordering is tried first
+and a scaffold is the last resort, so a concept some permitted order could deliver in time gets that
+order instead of a scaffold. A scaffold teaches exactly one concept, names no story, is identified by
+that concept and records which slice's assumption forced it — that is what the reviewer at the gate
+argues down, one scaffold at a time. A concept no story on the roadmap introduces at all is
+scaffolded too; a concept only a handed-off story would introduce never is, because that is the focus
+boundary being wrong and a scaffold would hide it.
+
+**Handoffs.** Each handoff is then placed immediately before the earliest learner slice it unblocks,
+and several handoffs for one slice form one block before it. Nothing is built for the learner until
+the step that needs it — handing a coding agent the whole non-focus half of a roadmap at the start
+wastes exactly what writing twenty unread lessons wastes. A handoff that unblocks no learner slice is
+ordered after every learner slice. Ordering a handoff builds nothing: write no handoff prompt and
+start no coding-agent session here.
+
+**Coverage.** The pass then checks the finished plan, last, and names every gap rather than only the
+first. A gap is a bug in the plan, and it is catchable here — before a word of any lesson is written.
+Two readings are deliberately not gaps: a concept no story on the roadmap introduces at all is
+background the plan teaches for itself, and a concept an earlier learner slice already introduced is
+covered however the order arrived at it.
+
+A gap that names a **handed-off** story is the focus boundary drawn in the wrong place, not a fault
+in the concept lists: a learner slice is assuming something the plan decided the learner will not
+build. Report it as the command words it and **stop** — a plan whose verdict is not clean does not go
+to approval. The plan is still written, and it carries the verdict, because the gap is diagnosed by
+reading the plan.
+
+Report the counts the command prints, and the phrases that matched nothing. Tell the learner none of
+this — the reviewer reads the removed set at the approval gate, which is also before any lesson is
+written, and this phase asks the learner nothing. Never edit the rewritten draft by hand, and never
+commit it.
+
+# Phase 7 — The approval gate
+
+```bash
+nexus workbook gate <name>
+```
+
+This is the one human checkpoint the plan passes through, and it covers the whole roadmap at once,
+however many epics it spans. Code refuses a draft whose coverage is not clean before anything is
+shown, naming every gap. Report a refusal as it stands and **stop**.
+
+Otherwise the command prints the gate: every slice in order with its mark, each split story with its
+parts, each scaffold beside the slice that forced it, each concept the declaration removed beside the
+learner's phrase, the phrases that matched nothing, and whether the focus matched no story. Show it to
+the reviewer **word for word**. Do not summarise it, reorder it or leave a line out — the print is code's
+so that nothing can be dropped. It carries no lesson prose and no sources, because neither is decided
+here. Then ask the reviewer, with `AskUserQuestion`, to approve, change marks, or decline.
+
+- **Change marks.** Run `nexus workbook gate <name> --mark <story>=learner` (or `=handoff`), or
+  `--clear <story>` to drop an earlier change. Code rebuilds the draft from the recorded judgements and
+  prints the gate again; show the new print word for word and ask again. Only marks change here — the
+  order, the splits and the scaffolds follow from them. A change that opens a gap prints the refusal
+  instead, and the reviewer can change the mark back.
+- **Approve.** A first approval needs the command that runs the suite and the command that grades one
+  exercise. Ask the reviewer for both. Never infer either from the repository. Write them as argument
+  lists, with the optional control test that proves one test file can run on its own:
+
+  ```yaml
+  suite: [npx, vitest, run]
+  grading: [npx, vitest, run]
+  ```
+
+  ```bash
+  nexus workbook gate <name> --approve --commands <file>
+  ```
+
+  Approval checks coverage again, refuses a draft that changed after the gate was printed (print it
+  again), and reads every story's live state. If a story changed since the roadmap was resolved, or
+  cannot be read, approval writes nothing and names each one: report it and **stop** — the roadmap is
+  re-planned from Phase 1 before it is approved. Otherwise it writes the committed plan.
+- **Decline.** Run nothing. The committed workbook is unchanged and the draft stays in place.
+
+Approval moves no git state. Tell the learner the plan is written and theirs to commit.
+
+**Re-approval.** A teaching session that stopped because a story changed sends the learner back here,
+and the same chain runs again from Phase 1. What has already been taught stays exactly as it is: the
+rewrite keeps every slice up to the last written lesson first and unchanged, counts the concepts those
+slices introduced as introduced, and plans only the rest. In Phase 4, keep every identifier the
+approved plan already uses — a written lesson, the drill history and the hint log are all keyed on it.
+Approve with `--approve` alone: a re-approval reuses the committed plan's commands and refuses new
+ones. It refuses a draft that was not planned over the taught part (run the rewrite again), and a draft
+whose merge dropped or renamed an identifier a written lesson carries (merge again, then run Phases 5
+to 7). A refused re-approval leaves the approved plan, its lessons and its pages unchanged.
+
 # Hand off
 
-Report the roadmap's story count, the interview's outcome and the draft's learner and handoff counts.
-A handoff mark builds nothing: write no handoff prompt and start no coding-agent session here. The draft is
-not yet a plan anyone can be taught from: it becomes the committed plan when it is approved, and
-lesson writing is then `/nxs.teach <name>` — a fresh invocation, which is what lets it load the
-references this phase does not.
+Report the roadmap's story count, the interview's outcome, the draft's learner and handoff counts, and
+what the reviewer decided at the gate. A handoff mark builds nothing: write no handoff prompt and start
+no coding-agent session here. Lesson writing is `/nxs.teach <name>` — a fresh invocation, which is what
+lets it load the references this phase does not.

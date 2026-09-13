@@ -972,7 +972,8 @@ describe("nexus razor-check against a source text (story #287)", () => {
 
     const clean: string = [
         "# Epic: A", "", "## Personas", "", "Per `docs/product/context.md`.", "",
-        "## User Stories", "", "### Story 1: One", "", "#### Acceptance Criteria", "",
+        "## Implementation Order", "", "- **One** — blocked by: none", "",
+        "## User Stories", "", "### Story 1: One `[inferred]`", "", "#### Acceptance Criteria", "",
         "- [ ] **Given** a, **when** b, **then** c `[inferred]`", "", "## Assumptions", "", "- one `[inferred]`", "",
         "## Out of Scope", "", "- one `[inferred]`", "",
     ].join("\n");
@@ -1018,5 +1019,124 @@ describe("nexus razor-check against a source text (story #287)", () => {
         const io: CapturedIo = makeIo(dir);
         expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--source", "gone.md"], io)).toBe(1);
         expect(io.err.join("\n")).toContain("gone.md");
+    });
+});
+
+describe("nexus razor-check over the set the reviewer approved (epic #576)", () => {
+    const drafted: string = [
+        "---",
+        'epic: "A"',
+        "complexity: M",
+        "complexity_drivers: [two services]",
+        "---",
+        "",
+        "# Epic: A",
+        "",
+        "## Implementation Order",
+        "",
+        "- **One** — blocked by: none",
+        "- **Two** — blocked by: One",
+        "",
+        "## Smallest Usable Version",
+        "",
+        "One",
+        "",
+        "## User Stories",
+        "",
+        "### Story 1: One `[inferred]`",
+        "",
+        "- **size:** S",
+        "",
+        "### Story 2: Two `[asked: \"a way to report on it\"]`",
+        "",
+        "- **size:** M",
+        "",
+    ].join("\n");
+
+    function scratch(body: string = drafted): CapturedIo {
+        const dir: string = makeTmpDir("cli-razor-filed-");
+        fs.writeFileSync(path.join(dir, "epic.md"), body);
+        return makeIo(dir);
+    }
+
+    it("exits non-zero and names both stories when an addition's blocker was not also taken", async () => {
+        const io: CapturedIo = scratch();
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--filed", "Two"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("Two");
+        expect(io.err.join("\n")).toContain("One");
+    });
+
+    it("exits 0 for an approved set that is closed and whose rollup describes it", async () => {
+        const io: CapturedIo = scratch();
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--filed", "One; Two"], io)).toBe(0);
+    });
+
+    it("exits non-zero when the rollup still describes stories the reviewer did not file", async () => {
+        const io: CapturedIo = scratch(drafted.replace("complexity_drivers: [two services]", "complexity_drivers: []").replace("complexity: M", "complexity: L"));
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--filed", "One"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("rollup");
+    });
+
+    it("exits 2 with a usage diagnostic when no draft is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-razor-filed-"));
+        expect(await runNexusCli(["razor-check", "--filed", "One"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--filed");
+    });
+
+    it("derives the filing body and asserts it in one step, leaving no ordering block behind", async () => {
+        const io: CapturedIo = scratch();
+        expect(await runNexusCli(["razor-check", "--draft", "epic.md", "--derive", "epic.filing.md"], io)).toBe(0);
+        const filed: string = fs.readFileSync(path.join(io.cwd, "epic.filing.md"), "utf8");
+        expect(filed).not.toContain("## Implementation Order");
+        expect(filed).not.toContain("[inferred]");
+        expect(filed).not.toContain("[asked:");
+        expect(filed).toContain("### Story 2: Two");
+    });
+});
+
+describe("nexus razor-offer (epic #576)", () => {
+    const drafted: string = [
+        "## Implementation Order",
+        "",
+        "- **One** — blocked by: none",
+        "- **Two** — blocked by: One",
+        "- **Three** — blocked by: One",
+        "",
+        "## Smallest Usable Version",
+        "",
+        "One",
+        "",
+        "## User Stories",
+        "",
+        "### Story 1: One `[inferred]`",
+        "",
+        "### Story 2: Two `[inferred]`",
+        "",
+        "### Story 3: Three `[asked: \"a way to export it\"]`",
+        "",
+    ].join("\n");
+
+    it("is a dispatch name the executable declares, so the gate may invoke it", () => {
+        expect(DISPATCH_NAMES).toContain("razor-offer");
+    });
+
+    it("offers every story the smallest usable version excludes, asked-for first", async () => {
+        const dir: string = makeTmpDir("cli-razor-offer-");
+        fs.writeFileSync(path.join(dir, "epic.md"), drafted);
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-offer", "--draft", "epic.md"], io)).toBe(0);
+        const out: string = io.out.join("\n");
+        expect(out.indexOf("Three")).toBeLessThan(out.indexOf("Two"));
+        expect(out).toContain("1. Three");
+        expect(out).toContain("a way to export it");
+        expect(out).toContain("waits on: One");
+    });
+
+    it("offers nothing for a draft whose smallest usable version needs every story", async () => {
+        const dir: string = makeTmpDir("cli-razor-offer-");
+        fs.writeFileSync(path.join(dir, "epic.md"), drafted.replace("\nOne\n", "\nOne; Two; Three\n"));
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-offer", "--draft", "epic.md"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nothing to offer");
     });
 });
