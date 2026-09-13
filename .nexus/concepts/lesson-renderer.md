@@ -1,8 +1,8 @@
 ---
 title: "Lesson Renderer"
 aliases: ["workbook renderer", "lesson page", "closed markup channel", "all-or-nothing render", "provenance banner", "quoted code in a lesson"]
-touches: ["workbook-store", "widget-seam", "offline-page", "learner-folder", "reading-surface-tokens", "portable-tooling", "just-in-time-lesson", "generated-page-check", "workbook-home-page"]
-last_updated_by: "#458"
+touches: ["workbook-store", "widget-seam", "offline-page", "learner-folder", "reading-surface-tokens", "portable-tooling", "just-in-time-lesson", "generated-page-check", "workbook-home-page", "component-refusal"]
+last_updated_by: "#480"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ A lesson containing markup fails the render, and the failure names the file. The
 - [just-in-time-lesson](just-in-time-lesson.md) — the lesson written on arrival, whose quoted pinning test the render must show as code.
 - [generated-page-check](generated-page-check.md) — split from this page: what answers drift between a committed page and the lesson it came from.
 - [workbook-home-page](workbook-home-page.md) — one more page this render produces, from the committed plan rather than from an authored lesson.
+- [component-refusal](component-refusal.md) — the code fields this render's markup check now skips, because a component escapes and shows their values as code itself.
 
 ## Decision Log
 
@@ -49,3 +50,7 @@ The refusal was absolute, so a lesson could not quote the pinning test the learn
 ### 2026-09-13 — #458 — Reciprocal link from workbook-home-page
 
 Mechanical reciprocity fan-out: the render now produces a home page from the committed plan alongside the pages it builds from authored lessons. Nothing this page asserts changes — the home page goes through the same closed markup channel, the same shared chrome and the same all-or-nothing write, and it carries its provenance statement as the first content in the file like every other generated page.
+
+### 2026-09-13 — #480 — Reciprocal link from component-refusal
+
+Mechanical reciprocity fan-out: a component can now name fields of its own declaration that carry code, and this render's markup check skips exactly those fields' values, reading every other key and scalar in the declaration as before. Nothing else about the closed markup channel changes: code fences remain the only other exemption, and a widget declaration's content otherwise still counts as markup.

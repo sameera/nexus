@@ -1,6 +1,6 @@
 ---
 concept: lesson-renderer
-source_sha: 4e0330a2da84bebd909c77da8e6763e761339368
+source_sha: f1acc8776d98e4a4beb3b13ac29ee2bca434e6ff
 generated: 2026-09-13
 ---
 
