@@ -506,3 +506,45 @@ describe("re-deriving what the story set determined", () => {
         expect(epic).toMatch(/re-run the gate/i);
     });
 });
+
+describe("asked-for scope the smallest usable version excludes", () => {
+    const epic: string = read("commands/nxs.epic.md");
+    const flat: string = epic.replace(/\s+/g, " ");
+
+    it("leaves as one epic stub issue, through the producer the oversized path already uses", () => {
+        expect(epic).toContain("8. **File the deferral stub");
+        expect(flat).toMatch(/the same stub producer Phase 2b uses/i);
+    });
+
+    it("is filed only after the epic's own issues exist, and only on an explicit approval", () => {
+        expect(flat).toMatch(/after the epic issue and every story issue exist/i);
+        expect(flat).toMatch(/Nothing is created before an explicit approval/i);
+    });
+
+    it("never carries scope the reviewer declined, and never carries model-added scope", () => {
+        expect(flat).toMatch(/never carries a story the drafting model added/i);
+    });
+
+    it("carries story titles only — no acceptance criteria and no provenance label", () => {
+        expect(flat).toMatch(/story titles only/i);
+        expect(flat).toMatch(/no acceptance criteria/i);
+    });
+
+    it("names its originating epic by issue number, and never a path into session scratch", () => {
+        expect(flat).toMatch(/deferred from #\$\{EPIC\}/);
+        expect(flat).toMatch(/never any part of `source\.md`/i);
+    });
+
+    it("creates nothing when the smallest usable version needs every asked-for story", () => {
+        expect(flat).toMatch(/file no stub/i);
+    });
+
+    it("records the stub's number back on the draft, so a re-run does not file a second one", () => {
+        expect(flat).toMatch(/deferral_link/);
+    });
+
+    it("terminates: a planning run that consumes a single-story deferral defers nothing further", () => {
+        expect(flat).toMatch(/defers nothing further/i);
+        expect(flat).toMatch(/\*\*deferred:\*\* <n> stories/i);
+    });
+});

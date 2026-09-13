@@ -39,3 +39,9 @@
 - **Choice:** `storyProvenance` treats a heading with no label as `inferred`; the checker is what blocks it.
 - **Why:** The conservative reading — an unlabelled story is never filed by default — and it keeps the reader total, so the gate can render a draft the checker is about to reject.
 - **Refuted alternative:** Throw on an unlabelled heading and make every caller handle it.
+
+## 2026-09-12 — The deferral floor is read off the stub's own Meta block
+
+- **Choice:** The stub records `deferred: <n> stories`, and a planning run consuming a stub that says `1 story` skips the deferral step.
+- **Why:** The floor is checkable at the moment it matters with no history to keep; the Meta block is already the stub's durable carrier for `estimate` and `candidate stories`.
+- **Refuted alternative:** Require each deferral to be strictly smaller than the one before it — unenforceable, since a deferred title is drafted again and can legitimately grow.

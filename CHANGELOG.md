@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.41.0
+
+- Scope you asked for that the smallest usable version does not need now **survives as a planned-later
+  item** instead of being dropped at the gate. After the epic's own issues are filed, `/nxs.epic`
+  files one epic stub carrying the titles of the asked-for stories you did not take — through the
+  same stub producer, the same unplanned label and the same resumability the oversized path already
+  uses, so planning it later meets this same command and this same gate. It carries story titles
+  only: a deferred title is drafted again when it is planned, so no acceptance criteria travel with
+  it. Its source line names the originating epic by issue number. Scope the drafting model added that
+  you declined is still discarded and carries into no stub, and an epic whose smallest usable version
+  needed every asked-for story files no stub at all. The stub's number is recorded back on the draft,
+  so re-running a partly completed filing never files a second one. The chain terminates at a floor:
+  a planning run that consumes a single-story deferral defers nothing further.
+
 ## 0.40.0
 
 - Adding a story at the `/nxs.epic` gate now re-derives what the story set determined, the way

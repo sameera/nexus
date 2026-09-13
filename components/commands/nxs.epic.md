@@ -731,9 +731,10 @@ the two approve options, or an "Other" answer that clearly means approve).
 - `revise` → stop. Leave the scratch draft intact for editing; report how to resume. Nothing is
   committed, so there is nothing to clean up.
 
-**Scope the reviewer does not take is not banked.** A model-added story nobody took is discarded and
-leaves no trace anywhere — no issue, no note, no later triage. What happens to asked-for scope the
-reviewer did not take is Phase 6's last step.
+**Scope the reviewer does not take is treated by where it came from.** A model-added story nobody
+took is discarded and leaves no trace anywhere — no issue, no note, no later triage. An **asked-for**
+story nobody took is **deferred, not dropped**: Phase 6 step 8 files it as one epic stub the lead can
+plan later under this same gate, so deferring costs them nothing and forgets nothing.
 
 ### Applying the approved set (before any issue is created)
 
@@ -995,6 +996,57 @@ story becomes one GitHub issue, child of the epic issue.
    to the table in `<docs-root>/features/README.md` linking `<feature-path>/README.md` and its
    one-line capability statement. An existing feature needs nothing here.
 
+8. **File the deferral stub — asked-for scope the smallest usable version excludes, that the
+   reviewer did not take.** This runs **after the epic issue and every story issue exist**, and only
+   on the approval that filed them: nothing is created before an explicit approval selection.
+
+    The deferred set is exactly the *Asked for* entries of the Phase 5 offer list the reviewer left
+    unnamed. It **never carries a story the drafting model added** — model-added scope the reviewer
+    declined is discarded and leaves no trace anywhere, because regenerating it later is cheaper than
+    carrying it as an open item somebody has to triage.
+
+    If that set is empty — the smallest usable version needed every asked-for story, or the reviewer
+    took the rest — **file no stub**. An empty deferral is not an artifact.
+
+    Otherwise file **one** stub, through **the same stub producer Phase 2b uses** (same resolved
+    classification, same unplanned label, same work-item shape), so the thing deferred is an epic
+    nobody has planned yet and meets this same command and this same gate when it is planned:
+
+    ```markdown
+    ---
+    ref: "STUB-DEFERRED"
+    title: "<Originating epic title> — deferred scope"
+    labels: [<unplanned-label>]
+    ---
+
+    <one line: the capability the deferred stories together still leave unbuilt>
+
+    ## Meta
+
+    - **feature:** <feature-path>
+    - **estimate:** S | M
+    - **candidate stories:** <Story Title>; <Story Title>; …
+    - **source:** deferred from #${EPIC} (<YYYY-MM-DD>)
+    - **deferred:** <n> stories
+    ```
+
+    It carries **story titles only** — **no acceptance criteria**, no provenance label and no
+    ordering block. A deferred title is drafted again when it is planned, so criteria copied across
+    would be criteria nobody approved for the epic that ships them. The `source` line names the
+    originating epic **by issue number** (`deferred from #${EPIC}`) and **never any part of
+    `source.md`**, which may hold anything the lead pasted.
+
+    **Record the stub's number back onto `${DRAFT_DIR}/epic.md`'s frontmatter** as
+    `deferral_link: "#<n>"`, the way step 1 records `link`. A re-run of a partially completed filing
+    reads it and files no second stub.
+
+9. **The deferral floor — a deferral that carries one story defers nothing further.** When this run
+   is planning a stub whose `## Meta` says `deferred: 1 story`, file its remainder into the epic and
+   **skip step 8 entirely**: it **defers nothing further**, whatever the necessity answer says. The
+   request makes deferral recursive, and without a floor the tail of an initiative recedes
+   indefinitely, each round deferring a remainder that is never built. The floor is checkable at the
+   moment it matters and needs no history.
+
 A **promotion** needs no follow-up here: the stub issue *is* the epic issue now — Phase 6 populated
 it in place and removed the unplanned label. Nothing was created and nothing was closed, so every
 reference written when the scope was deferred still points at the right issue.
@@ -1018,6 +1070,9 @@ Report:
   mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a
   **tracked config file**, distinct from the no-queue-commit planning contract above — tell the user
   to review that diff and commit it, so the fragile probe never runs again.
+- **The deferral stub, when one was filed** (Phase 6 step 8): its issue number, and the story titles
+  it carries. If none was filed, say so — either the smallest usable version needed every asked-for
+  story, or this run was planning a single-story deferral and the floor suppressed it.
 - Epic issue link and the created story issue numbers, plus the implementation sequence (the table
   from Phase 6 step 5) — or, if the user chose `revise`, that no issues were created and how to
   resume (`/nxs.epic --resume`).
