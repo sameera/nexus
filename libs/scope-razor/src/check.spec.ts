@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { checkDraft, type RazorFinding } from "./check.js";
 
+/** Every story the draft declares, ordered as independent of each other — the ordering block is not what these tests are about. */
+function orderingFor(stories: string): string[] {
+    return [...stories.matchAll(/^### Story #?\d+: (.+)$/gm)].map((m: RegExpMatchArray) => `- **${m[1].trim()}** — blocked by: none`);
+}
+
 function draft(parts: { stories?: string; assumptions?: string[]; outOfScope?: string[]; personas?: string }): string {
+    const stories: string =
+        parts.stories ?? ["### Story 1: One", "", "#### Acceptance Criteria", "", "- [ ] **Given** a, **when** b, **then** c `[inferred]`"].join("\n");
     return [
         "# Epic: A Capability",
         "",
@@ -9,9 +16,13 @@ function draft(parts: { stories?: string; assumptions?: string[]; outOfScope?: s
         "",
         parts.personas ?? "Per `docs/product/context.md`.",
         "",
+        "## Implementation Order",
+        "",
+        ...orderingFor(stories),
+        "",
         "## User Stories",
         "",
-        parts.stories ?? ["### Story 1: One", "", "#### Acceptance Criteria", "", "- [ ] **Given** a, **when** b, **then** c `[inferred]`"].join("\n"),
+        stories,
         "",
         "## Assumptions",
         "",
@@ -135,5 +146,53 @@ describe("the provenance rule", () => {
     it("reports every unlabelled item, not just the first", () => {
         const body: string = draft({ outOfScope: ["- billing", "- reporting"] });
         expect(blocking(checkDraft(body, "src"))).toHaveLength(2);
+    });
+});
+
+describe("the draft-time ordering block", () => {
+    const withOrder = (rows: string[], stories: string[]): string =>
+        ["# Epic: Something", "", "## Implementation Order", "", ...rows, "", "## User Stories", "", ...stories, ""].join("\n");
+
+    it("raises nothing when every story has a row and every blocker names a story", () => {
+        const draft: string = withOrder(
+            ["- **One** — blocked by: none", "- **Two** — blocked by: One"],
+            ["### Story 1: One", "", "### Story 2: Two"],
+        );
+        expect(checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "ordering")).toEqual([]);
+    });
+
+    it("blocks a story the ordering block never places, so the gate can always say what it waits on", () => {
+        const draft: string = withOrder(["- **One** — blocked by: none"], ["### Story 1: One", "", "### Story 2: Two"]);
+        const findings: RazorFinding[] = checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "ordering");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].severity).toBe("blocking");
+        expect(findings[0].where).toBe("Two");
+    });
+
+    it("blocks a blocker name that matches no story in the draft", () => {
+        const draft: string = withOrder(["- **One** — blocked by: A story nobody wrote"], ["### Story 1: One"]);
+        const findings: RazorFinding[] = checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "ordering");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].message).toContain("A story nobody wrote");
+    });
+
+    it("blocks a row that places a story the draft does not have", () => {
+        const draft: string = withOrder(
+            ["- **One** — blocked by: none", "- **Ghost** — blocked by: One"],
+            ["### Story 1: One"],
+        );
+        expect(checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "ordering" && f.where === "Ghost")).toHaveLength(1);
+    });
+
+    it("blocks a cycle, which no ordering can satisfy", () => {
+        const draft: string = withOrder(
+            ["- **One** — blocked by: Two", "- **Two** — blocked by: One"],
+            ["### Story 1: One", "", "### Story 2: Two"],
+        );
+        expect(checkDraft(draft, "").some((f: RazorFinding) => f.rule === "ordering" && /cycle/i.test(f.message))).toBe(true);
+    });
+
+    it("raises nothing on a draft that declares no story, so the record and discovery stages are untouched", () => {
+        expect(checkDraft("# Decision Record\n\n## Key Decisions\n\n- A thing `[inferred]`\n", "")).toEqual([]);
     });
 });

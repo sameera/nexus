@@ -9,7 +9,8 @@
  * gate as an observation, never decided here.
  */
 
-import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, type Citation } from "./citations.js";
+import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, normalize, type Citation } from "./citations.js";
+import { orderedByUnlock, ORDERING_HEADING, parseOrdering, storyTitles, type OrderingEntry } from "./ordering.js";
 
 /** Blocking findings stop a run before the reviewer sees a digest; advisory ones are carried to them. */
 export type Severity = "blocking" | "advisory";
@@ -18,7 +19,7 @@ export type Severity = "blocking" | "advisory";
 export interface RazorFinding {
     severity: Severity;
     /** The rule that failed, as a stable slug the caller may group on. */
-    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label";
+    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label" | "ordering";
     /** The story title or section heading the finding belongs to. */
     where: string;
     message: string;
@@ -150,9 +151,74 @@ function checkCitations(draft: string, sourceText: string): RazorFinding[] {
 }
 
 /**
+ * The ordering block, as a name match and a walk (epic #576, story #577). The gate cannot tell a
+ * reviewer what a story waits on unless the graph exists while they are deciding, and it cannot
+ * check the approved set against a graph that names stories the draft does not have.
+ *
+ * A draft that declares no story is not an epic draft — the record and discovery stages share this
+ * checker — so it raises nothing there rather than demanding a block those drafts have no use for.
+ */
+function checkOrdering(draft: string): RazorFinding[] {
+    const titles: string[] = storyTitles(draft);
+    if (titles.length === 0) return [];
+
+    const entries: OrderingEntry[] = parseOrdering(draft);
+    const findings: RazorFinding[] = [];
+    const placed = (title: string): boolean => entries.some((entry: OrderingEntry) => normalize(entry.title) === normalize(title));
+    const isStory = (title: string): boolean => titles.some((name: string) => normalize(name) === normalize(title));
+
+    for (const title of titles) {
+        if (!placed(title)) {
+            findings.push({
+                severity: "blocking",
+                rule: "ordering",
+                where: title,
+                message: `No row under "${ORDERING_HEADING}" places this story. Every story names what it waits on, or \`none\`.`,
+            });
+        }
+    }
+    for (const entry of entries) {
+        if (!isStory(entry.title)) {
+            findings.push({
+                severity: "blocking",
+                rule: "ordering",
+                where: entry.title,
+                message: `Ordered, but no story in this draft carries that title.`,
+            });
+        }
+        for (const blocker of entry.blockedBy.filter((name: string) => !isStory(name))) {
+            findings.push({
+                severity: "blocking",
+                rule: "ordering",
+                where: entry.title,
+                message: `Waits on "${blocker}", which names no story in this draft.`,
+            });
+        }
+    }
+
+    const order: string[] = orderedByUnlock(entries);
+    const cyclic: string[] = entries
+        .filter((entry: OrderingEntry) =>
+            entry.blockedBy.some(
+                (blocker: string) => isStory(blocker) && order.findIndex((t: string) => normalize(t) === normalize(blocker)) > order.findIndex((t: string) => normalize(t) === normalize(entry.title)),
+            ),
+        )
+        .map((entry: OrderingEntry) => entry.title);
+    if (cyclic.length > 0) {
+        findings.push({
+            severity: "blocking",
+            rule: "ordering",
+            where: cyclic[0],
+            message: `A cycle in the ordering block, through ${cyclic.map((t: string) => `"${t}"`).join(", ")}. No order satisfies it.`,
+        });
+    }
+    return findings;
+}
+
+/**
  * Every mechanically decidable razor rule, over one draft and the source text that run was given.
  * An empty result is a draft that breaks none of them.
  */
 export function checkDraft(draft: string, sourceText: string): RazorFinding[] {
-    return [...checkStories(draft), ...checkSections(draft), ...checkPersonas(draft), ...checkCitations(draft, sourceText)];
+    return [...checkStories(draft), ...checkSections(draft), ...checkPersonas(draft), ...checkOrdering(draft), ...checkCitations(draft, sourceText)];
 }

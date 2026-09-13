@@ -961,6 +961,7 @@ describe("nexus razor-check against a source text (story #287)", () => {
 
     const clean: string = [
         "# Epic: A", "", "## Personas", "", "Per `docs/product/context.md`.", "",
+        "## Implementation Order", "", "- **One** — blocked by: none", "",
         "## User Stories", "", "### Story 1: One", "", "#### Acceptance Criteria", "",
         "- [ ] **Given** a, **when** b, **then** c `[inferred]`", "", "## Assumptions", "", "- one `[inferred]`", "",
         "## Out of Scope", "", "- one `[inferred]`", "",

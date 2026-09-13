@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.37.0
+
+- `/nxs.epic` now settles the story order **while it drafts**, not after you approve. A drafted epic
+  carries one `## Implementation Order` block naming each story's blockers by title, the approval
+  digest shows you what each story waits on beside the story itself, and filing derives its sequence
+  from that same block — so the ordering you approved is the ordering that gets filed. `nexus
+  razor-check` blocks a draft whose block leaves a story unplaced, names a story that does not
+  exist, or forms a cycle. The block is drafting-time only: it is removed when the filing body is
+  derived, and the assertion that no drafting-time token reaches an issue now covers it, because
+  once the issues exist GitHub's own dependency edges are the graph.
+
 ## 0.36.0
 
 - `/nxs.teach-plan`, the planning phase that turns a planned **epic** into a teaching roadmap, gains

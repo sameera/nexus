@@ -20,6 +20,11 @@
             "import": "./src/citations.ts",
             "default": "./src/citations.ts"
         },
+        "./ordering": {
+            "types": "./src/ordering.ts",
+            "import": "./src/ordering.ts",
+            "default": "./src/ordering.ts"
+        },
         "./check": {
             "types": "./src/check.ts",
             "import": "./src/check.ts",

@@ -371,3 +371,41 @@ describe("the record's pre-filing checkpoint", () => {
         expect(read("commands/nxs.decision-record.md")).toContain("⚠️ razor: names no trade-off");
     });
 });
+
+describe("the draft-time ordering block", () => {
+    const skill: string = read(RAZOR);
+    const epic: string = read("commands/nxs.epic.md");
+
+    it("is stated normatively in the skill, keyed on story titles rather than positions", () => {
+        expect(skill).toContain("## Implementation Order");
+        expect(skill.replace(/\s+/g, " ")).toMatch(/titles are the only stable name a story has/i);
+    });
+
+    it("is written while the epic is drafted, not assigned after approval", () => {
+        expect(epic).toContain("## Implementation Order");
+        expect(epic.replace(/\s+/g, " ")).toMatch(/order the stories while you draft them/i);
+    });
+
+    it("is what the digest renders each story's blockers from, so the reviewer decides with the graph in view", () => {
+        expect(digestSection().replace(/\s+/g, " ")).toMatch(/waits on/i);
+    });
+
+    it("is what filing derives its refs from, so the filed ordering is the one shown at approval", () => {
+        expect(epic.replace(/\s+/g, " ")).toMatch(/derive .{0,40}from the draft's `## Implementation Order` block/i);
+    });
+
+    it("dies at filing, because the native dependency edges own the graph once the issues exist", () => {
+        expect(epic.replace(/\s+/g, " ")).toMatch(/ordering block[^.]*removed/i);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/never read again/i);
+    });
+});
+
+/** Phase 5's digest, from its heading to the phase that files. */
+function digestSection(): string {
+    const command: string = read("commands/nxs.epic.md");
+    const start: number = command.indexOf("## Phase 5 — Approval digest");
+    const end: number = command.indexOf("## Phase 6 — File the epic", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    return command.slice(start, end);
+}

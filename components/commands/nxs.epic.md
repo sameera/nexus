@@ -503,6 +503,11 @@ nexus config backlog-query
     - **Size each story `S` or `M`** (story-scale rubric) and **split any story that would exceed M**
       into ≤ M stories before finalizing — the story is the implementation unit (0009), so an
       oversized story is split here, not filed. Record each story's `size`.
+    - **Order the stories while you draft them** (nxs-razor §10). Write the epic's `## Implementation
+      Order` block: one row per story, naming the stories it waits on by title, or `none`. Ordering
+      is not assigned after approval — the gate shows the reviewer what each story waits on, and the
+      closure check needs the graph before anything is filed. Generate both the rows and the
+      necessity line below from the story headings; never re-type a title.
     - **Answer the necessity question** (nxs-razor §7): which of these stories does the smallest
       usable version of this capability need? Write the answer as the epic's `## Smallest Usable
       Version` line. It is scope reasoning a later reader consumes, so it is one of the few razor
@@ -631,9 +636,12 @@ Personas — verbatim (condense only obvious redundancy).>
 
 ### Stories
 
-- **<Story 1 Title>** (<size>) — <one-line summary of the story's goal>
-- **<Story 2 Title>** (<size>) — <one-line summary>
+- **<Story 1 Title>** (<size>) — <one-line summary of the story's goal> · waits on: none
+- **<Story 2 Title>** (<size>) — <one-line summary> · waits on: <Story 1 Title>
 - …
+
+Each story's `waits on` is read from the draft's `## Implementation Order` block (nxs-razor §10) —
+the reviewer decides with the graph in view, and the block they see is the one filing uses.
 
 <everything in epic.md after the User Stories section — Assumptions, Out of Scope. If the user chose
 **answer**, `## Open Questions` is empty and omitted. If they chose **proceed**, render the remaining
@@ -723,9 +731,12 @@ is cut after something is filed.
 
 ## Phase 6 — File the epic and story issues (on approve)
 
-**Derive the filing body first (before step 1).** The draft carries provenance labels; the issues
-must not. Copy `${DRAFT_DIR}/epic.md` to `${DRAFT_DIR}/epic.filing.md`, remove every `[asked: "…"]`
-and `[inferred]` label from it, and assert that no drafting-time token survived:
+**Derive the filing body first (before step 1).** The draft carries provenance labels and the
+drafting-time ordering block; the issues must not. Copy `${DRAFT_DIR}/epic.md` to
+`${DRAFT_DIR}/epic.filing.md`, remove every `[asked: "…"]` and `[inferred]` label from it, remove the
+whole `## Implementation Order` section — **the ordering block is removed here**, because the native
+dependency edges wired in step 4 own the graph once the issues exist — and assert that no
+drafting-time token survived:
 
 ```bash
 nexus razor-check --draft "${DRAFT_DIR}/epic.filing.md" --assert-clean
@@ -789,10 +800,12 @@ story becomes one GitHub issue, child of the epic issue.
     rather than an error. The threshold is a stated default: **edit the label on the issue** to
     override it either way; nothing here is remembered off the issue.
 
-2. **Sequence the stories.** Order by dependency: foundational first (core data / shared surface),
-   then dependents, then polish. Assign each a ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in order)
-   and record `blocked_by` as a list of story refs or `none`. Do **not** split or merge — sizing
-   happened in Phase 3.
+2. **Sequence the stories — derive the sequence from the draft's `## Implementation Order` block.**
+   The ordering was settled in Phase 3 and shown to the reviewer at the digest; deriving it again
+   here from scratch would file an ordering nobody approved. Walk the block so a story follows
+   everything it waits on, assign each a ref `STORY-<EPIC>.<SEQ>` (`SEQ` zero-padded, in that order),
+   and translate each row's blocker titles into that story's `blocked_by` refs — `none` where the row
+   says `none`. Do **not** split or merge — sizing happened in Phase 3.
 
    The ref is an **authoring key with the lifetime of this batch**, not a name for the story: it exists
    only so a story can name a sibling before `gh issue create` has minted any issue numbers. It never
@@ -1014,6 +1027,11 @@ link:                 # GitHub epic issue, set by nxs-gh-create-epic
 ## Personas   <!-- deviations only — no table when the canonical personas apply as-is (nxs-razor §6) -->
 
 <Deviations only. Personas are canonical in `<docs-root>/product/context.md` — the `<docs-root>` resolved in Phase 0, with the empty-prefix rule applied (so `product/context.md` on a repo-root hub, `docs/product/context.md` in a single-repo checkout). If this epic uses them as-is, write that resolved path: "Per `<docs-root>/product/context.md`." Tabulate only personas specific to this epic or deviations from the canonical set.>
+
+## Implementation Order   <!-- drafting-time only (nxs-razor §10) — derived away at filing -->
+
+- **<Story Title>** — blocked by: none
+- **<Story Title>** — blocked by: <Story Title>; <Story Title>
 
 ## Smallest Usable Version
 

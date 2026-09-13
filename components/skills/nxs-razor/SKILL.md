@@ -235,3 +235,52 @@ Two conditions on that observation:
 - It lives **only in the gate's render**, prefixed with the `⚠️ razor:` marker (§4). It is never
   written into the draft body — and because the marker is one asserted string, a render that leaked
   into a body is caught at filing rather than trusted not to happen.
+
+## 10. The draft-time ordering block
+
+The necessity answer (§7) names a set of stories. Whether that set can actually run is a question
+about what each story waits on, so the dependency graph has to exist **while the draft is being
+written** — not be assigned after approval, when the reviewer has already decided.
+
+A drafted epic therefore carries one epic-level block, above `## User Stories`:
+
+    ## Implementation Order
+
+    - **<Story Title>** — blocked by: none
+    - **<Story Title>** — blocked by: <Story Title>; <Story Title>
+
+**Keyed on titles, never on positions.** Titles are the only stable name a story has before its
+issue number exists, and a positional reference shifts exactly when the story set is re-scoped at
+the gate — the one moment anything relies on it.
+
+**One block, not a line per story.** Each story's section is transcribed verbatim into its issue
+body, so a blockers line inside a story would land on that story's issue as a second, never-updated
+statement of a graph the platform's native edges own.
+
+Matching between this block, the `## Smallest Usable Version` line and the story headings is the
+same normalization §3 compares citations with, and **an unmatched name blocks**: a story with no row,
+a row naming no story, a blocker naming no story, and a cycle are each a blocking finding of
+`nexus razor-check`.
+
+**It dies at filing.** The block is derived away with the provenance labels when the filing body is
+derived (§4), and the assertion against surviving drafting-time tokens covers it. After filing, the
+platform's native dependency edges are the only authoritative ordering and the block is **never read
+again**.
+
+## 11. The closure rule
+
+**A set of stories that cannot run without a story it excludes is not a usable version.** The named
+smallest usable version, and the set actually approved for filing, are each closed under the
+blockers §10 records.
+
+The rule is one rule applied twice, both times in `nexus razor-check` rather than in a gate's prose —
+a gate instruction is something a model can drop:
+
+1. **At drafting time**, over the `## Smallest Usable Version` line. A name matching no story blocks.
+   A story in the set waiting on a story outside it blocks, and the finding **names both stories and
+   the draft it is in**. It blocks *before the gate renders*, so the reviewer is never shown a set
+   that cannot run.
+2. **At apply time**, over the approved set after any addition, before any issue is created.
+
+A draft that carries no `## Smallest Usable Version` section raises **no finding** here, and this
+rule adds **no minimum-count check** of any kind — §5's ban is not narrowed by it.

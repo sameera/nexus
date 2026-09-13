@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stripLabels, survivingTokens, type Finding } from "./labels.js";
+import { deriveFilingBody, stripLabels, survivingTokens, type Finding } from "./labels.js";
 
 describe("stripping provenance labels to derive a filing body", () => {
     it("removes an asked label and its quoted fragment, leaving the item", () => {
@@ -80,5 +80,55 @@ describe("the three token classes are asserted together", () => {
     it("reports a label, a placeholder and an observation from one body, in reading order", () => {
         const body: string = ["- One `[inferred]`", "- **Why:** {{RATIONALE}}", "   ⚠️ razor: names no trade-off"].join("\n");
         expect(survivingTokens(body).map((f: Finding) => f.kind)).toEqual(["label", "placeholder", "observation"]);
+    });
+});
+
+describe("deriving the filing body", () => {
+    const draft: string = [
+        "# Epic: Something",
+        "",
+        "## Implementation Order",
+        "",
+        "- **One** — blocked by: none",
+        "- **Two** — blocked by: One",
+        "",
+        "## User Stories",
+        "",
+        '### Story 1: One `[asked: "the first thing"]`',
+        "",
+    ].join("\n");
+
+    it("removes the draft-level ordering block, which the native dependency edges own after filing", () => {
+        const filed: string = deriveFilingBody(draft);
+        expect(filed).not.toContain("Implementation Order");
+        expect(filed).not.toContain("blocked by:");
+    });
+
+    it("keeps the sections on either side of the block, and the story it stripped the label off", () => {
+        const filed: string = deriveFilingBody(draft);
+        expect(filed).toContain("# Epic: Something");
+        expect(filed).toContain("## User Stories");
+        expect(filed).toContain("### Story 1: One");
+        expect(filed).not.toContain("[asked:");
+    });
+
+    it("leaves a draft that carries no ordering block unchanged apart from its labels", () => {
+        expect(deriveFilingBody("## Notes\n\n- A thing `[inferred]`")).toBe("## Notes\n\n- A thing");
+    });
+});
+
+describe("the assertion over a body about to be filed", () => {
+    it("reports a surviving ordering block, so the draft-time graph cannot reach an issue", () => {
+        const findings: Finding[] = survivingTokens("# Epic\n\n## Implementation Order\n\n- **One** — blocked by: none\n");
+        expect(findings.map((f: Finding) => f.kind)).toContain("ordering");
+        expect(findings.find((f: Finding) => f.kind === "ordering")?.line).toBe(3);
+    });
+
+    it("reports a surviving ordering row even where the heading was removed by hand", () => {
+        expect(survivingTokens("- **One** — blocked by: none").map((f: Finding) => f.kind)).toEqual(["ordering"]);
+    });
+
+    it("says nothing about a body that carries neither a label nor a graph", () => {
+        expect(survivingTokens("# Epic\n\n## User Stories\n\n### Story 1: One\n")).toEqual([]);
     });
 });
