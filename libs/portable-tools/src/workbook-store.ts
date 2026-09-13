@@ -18,7 +18,7 @@ import { parse } from "yaml";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { ensureLearnerIgnored } from "./learner-store.js";
 import { assertWorkbookHome } from "./workbook-placement.js";
-import { PLAN_FILENAME, parsePlan, type WorkbookPlan } from "./workbook-plan.js";
+import { PLAN_FILENAME, parsePlan, renderWorkbookPlan, type WorkbookPlan } from "./workbook-plan.js";
 import { NEXUS_ROOT_DIRNAME, WORKBOOK_STORE_DIRNAME, WORKBOOK_STORE_PATH } from "./pipeline-stores.js";
 import { type LessonSource } from "./workbook-render.js";
 
@@ -180,4 +180,17 @@ export function readWorkbookPlan(repoRoot: string, slug: string): WorkbookPlan |
     const planText: string | null = readPlanText(repoRoot, slug);
     if (planText === null || !hasSlices(planText)) return null;
     return parsePlan(planText);
+}
+
+/**
+ * Replace a workbook's plan with this one, whole, in one rename — so a reader never finds a plan that
+ * is part old and part new.
+ */
+export function writeWorkbookPlan(repoRoot: string, slug: string, plan: WorkbookPlan): string {
+    const target: string = path.join(workbookRoot(repoRoot, slug), PLAN_FILENAME);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    const staged: string = `${target}.partial`;
+    fs.writeFileSync(staged, renderWorkbookPlan(plan));
+    fs.renameSync(staged, target);
+    return target;
 }

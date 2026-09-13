@@ -215,8 +215,34 @@ export interface LessonBrief {
      * not a cold recall (invariant 21) — this is the other half of what the hint log is for.
      */
     revisit: readonly string[];
-    /** Null on a scaffold: it builds nothing, so it has no branch, no pinning test and no exercise. */
+    /**
+     * Null on a scaffold: it builds nothing, so it has no branch, no pinning test and no exercise. Null
+     * too on a story slice whose pinning test has not been written yet — see `writeTest`.
+     */
     exercise: ExerciseFacts | null;
+    /**
+     * The pinning test this arrival writes, when the slice's plan holds none yet: a slice's test is
+     * written when the learner arrives at it, and never before (record #591, invariant 29). The prose
+     * carries its file and text under this slice's identity; once recorded it is never rewritten.
+     */
+    writeTest?: PinningTestRequest;
+}
+
+/** One pinning test the session asks for, with the facts a test for that slice is written against. */
+export interface PinningTestRequest {
+    /** The slice's identity, which the authored test is filed under. */
+    slice: string;
+    story: number;
+    title: string;
+    branch: string;
+    gradingCommand: string;
+}
+
+/** One pinning test an agent wrote, filed under the identity of the slice it pins. */
+export interface AuthoredPinningTest {
+    slice: string;
+    file: string;
+    text: string;
 }
 
 /** How a brief names its slice in a refusal. */
@@ -240,6 +266,8 @@ export interface AuthoredProse {
     drill?: { question: string; answer: string };
     /** One question and answer per concept the brief named to revisit, required when it named any. */
     revisit?: readonly RevisitProse[];
+    /** The pinning tests the brief asked for, each filed under its slice's identity. */
+    pinningTests?: readonly AuthoredPinningTest[];
 }
 
 /**

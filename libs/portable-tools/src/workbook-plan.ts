@@ -18,7 +18,7 @@
  * them as not yet written rather than as a link to a page (invariants 1, 2).
  */
 
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
 import { type TeachingPlan } from "./teaching-plan.js";
 
 /** The file a workbook declares its plan in, beside the lessons it orders. */
@@ -68,14 +68,40 @@ export interface PlanSliceRecord {
      * "" on a scaffold, which builds nothing and so has no branch (invariant 4).
      */
     branch: string;
-    /** Null on a scaffold, which has no story to observe (invariant 4). */
+    /**
+     * Null on a scaffold, which has no story to observe (invariant 4), and null on a story slice the
+     * session has not reached yet: a pinning test is written when the learner arrives at its slice and
+     * never before, so approval leaves it absent rather than filling it with a placeholder (record
+     * #591, invariants 26, 27, 29).
+     */
     pinningTest: PinningTest | null;
+    /**
+     * The slices this one depends on, by identity: its story's blockers, the part before it, and the
+     * scaffold that serves it. Approval records them so the home page shows the graph from the plan
+     * alone (invariant 43). Empty on a plan written before approval recorded any.
+     */
+    dependsOn: string[];
 }
 
 /** How a slice is named to a reader: its story, its part, or the concept a scaffold teaches. */
 export function sliceLabel(slice: { story?: number; part?: number; scaffold?: string }): string {
     if (slice.scaffold !== undefined) return `scaffold ${slice.scaffold}`;
     return slice.part === undefined ? `#${slice.story}` : `#${slice.story} part ${slice.part}`;
+}
+
+/**
+ * A slice's identity as one token: `story-12`, `story-12-part-2`, or `scaffold-issue-graph`. It is
+ * derived from the slice's identity and never from its position, so a re-plan that shifts every later
+ * index leaves each written lesson attached to its slice (record #591).
+ */
+export function sliceId(slice: { story?: number; part?: number; scaffold?: string }): string {
+    if (slice.scaffold !== undefined) return `scaffold-${slice.scaffold}`;
+    return slice.part === undefined ? `story-${slice.story}` : `story-${slice.story}-part-${slice.part}`;
+}
+
+/** The lesson a teaching slice is written into, named from its identity. */
+export function lessonNameFor(slice: { story?: number; part?: number; scaffold?: string }): string {
+    return `${sliceId(slice)}.md`;
 }
 
 export interface WorkbookPlan {
@@ -146,7 +172,25 @@ function readScaffold(record: Record<string, unknown>, where: string): PlanSlice
         concepts: Array.isArray(concepts) ? concepts.map((c) => String(c)) : [scaffold],
         branch: "",
         pinningTest: null,
+        dependsOn: dependencies(record["depends_on"]),
     };
+}
+
+/**
+ * A slice's pinning test, or null when the session has not reached the slice yet. A half-declared one
+ * is refused: a test with a file and no text would prove nothing while looking like a proof.
+ */
+function readPinningTest(raw: unknown, at: string): PinningTest | null {
+    if (raw === undefined || raw === null) return null;
+    const probe: Record<string, unknown> = asRecord(raw);
+    return {
+        file: text(probe["file"], "pinning_test.file", at),
+        text: text(probe["text"], "pinning_test.text", at),
+    };
+}
+
+function dependencies(raw: unknown): string[] {
+    return Array.isArray(raw) ? raw.map((entry) => String(entry)) : [];
 }
 
 function readSlice(raw: unknown, index: number, planEpic: number | null): PlanSliceRecord {
@@ -177,7 +221,6 @@ function readSlice(raw: unknown, index: number, planEpic: number | null): PlanSl
     }
 
     const pinned: Record<string, unknown> = asRecord(record["pinned"]);
-    const probe: Record<string, unknown> = asRecord(record["pinning_test"]);
     const concepts: unknown = record["concepts"];
 
     const rawEpic: unknown = record["epic"];
@@ -205,10 +248,8 @@ function readSlice(raw: unknown, index: number, planEpic: number | null): PlanSl
         },
         concepts: Array.isArray(concepts) ? concepts.map((c) => String(c)) : [],
         branch: text(record["branch"], "branch", at),
-        pinningTest: {
-            file: text(probe["file"], "pinning_test.file", at),
-            text: text(probe["text"], "pinning_test.text", at),
-        },
+        pinningTest: readPinningTest(record["pinning_test"], at),
+        dependsOn: dependencies(record["depends_on"]),
     };
 }
 
@@ -223,6 +264,29 @@ function readProbeControl(raw: unknown): PinningTest | null {
     return {
         file: text(record["file"], "probe_control.file", "the plan"),
         text: text(record["text"], "probe_control.text", "the plan"),
+    };
+}
+
+/** The commands a workbook declares, as the reviewer declares them at approval. */
+export interface DeclaredCommands {
+    suite: string[];
+    grading: string[];
+    probeControl: PinningTest | null;
+}
+
+/** Read the suite and grading commands, and the optional control test, from a document declaring them. */
+export function parseCommands(source: string): DeclaredCommands {
+    let doc: unknown;
+    try {
+        doc = parse(source);
+    } catch (e) {
+        throw new PlanError(`commands are not readable — ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const record: Record<string, unknown> = asRecord(doc);
+    return {
+        suite: commandVector(record["suite"], "suite"),
+        grading: commandVector(record["grading"], "grading"),
+        probeControl: readProbeControl(record["probe_control"]),
     };
 }
 
@@ -268,6 +332,38 @@ export function parsePlan(source: string): WorkbookPlan {
         probeControl: readProbeControl(record["probe_control"]),
         slices: read,
     };
+}
+
+/**
+ * The plan's text. Every field is written from the plan's own record, one by one, so what reaches the
+ * committed file is exactly what the reader reads back and nothing else (record #591, invariant 25).
+ */
+export function renderWorkbookPlan(plan: WorkbookPlan): string {
+    const doc: Record<string, unknown> = {
+        repo: plan.repo,
+        ...(plan.epic === null ? {} : { epic: plan.epic }),
+        suite: [...plan.suite],
+        grading: [...plan.grading],
+        ...(plan.probeControl === null ? {} : { probe_control: { file: plan.probeControl.file, text: plan.probeControl.text } }),
+        slices: plan.slices.map((slice): Record<string, unknown> => {
+            if (slice.scaffold !== undefined) {
+                return { scaffold: slice.scaffold, builds: "learner", lesson: slice.lesson, concepts: [...slice.concepts], depends_on: [...slice.dependsOn] };
+            }
+            return {
+                story: slice.story,
+                ...(slice.part === undefined ? {} : { part: slice.part }),
+                ...(slice.epic === undefined ? {} : { epic: slice.epic }),
+                builds: slice.learnerBuilds ? "learner" : "handoff",
+                ...(slice.lesson === "" ? {} : { lesson: slice.lesson }),
+                branch: slice.branch,
+                concepts: [...slice.concepts],
+                depends_on: [...slice.dependsOn],
+                ...(slice.pinned === null ? {} : { pinned: { title: slice.pinned.title, body: slice.pinned.body, closed: slice.pinned.closed } }),
+                ...(slice.pinningTest === null ? {} : { pinning_test: { file: slice.pinningTest.file, text: slice.pinningTest.text } }),
+            };
+        }),
+    };
+    return stringify(doc, { indent: 4, flowCollectionPadding: false });
 }
 
 /** The pinned state the drift check compares against, in plan order. */

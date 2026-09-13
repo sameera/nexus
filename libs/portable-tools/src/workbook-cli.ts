@@ -28,14 +28,16 @@ import {
     readLessons,
     readWorkbookPlan,
     workbookRoot,
+    writeWorkbookPlan,
     type CreatedWorkbook,
 } from "./workbook-store.js";
 import { checkWorkbook, renderWorkbookInto, type LessonSource, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
-import { type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
+import { type AuthoredPinningTest, type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
-import { type WorkbookPlan } from "./workbook-plan.js";
+import { parseCommands, type DeclaredCommands, type WorkbookPlan } from "./workbook-plan.js";
+import { approvePlan, draftFingerprint, type Approval } from "./plan-commit.js";
 import {
     epicsFromQuery,
     readRoadmap,
@@ -101,6 +103,10 @@ interface Flags {
     positional: string[];
     mark?: string;
     clear?: string;
+    /** Approve the draft the gate last printed. */
+    approve?: boolean;
+    /** The file holding the suite and grading commands the reviewer declares at a first approval. */
+    commands?: string;
     unknown?: string;
 }
 
@@ -122,6 +128,8 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--declare") flags.declare = rest[++i];
         else if (token === "--mark") flags.mark = rest[++i];
         else if (token === "--clear") flags.clear = rest[++i];
+        else if (token === "--approve") flags.approve = true;
+        else if (token === "--commands") flags.commands = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -144,6 +152,8 @@ const USAGE: string = [
     "                                      the learner declared they already know",
     "  gate <name> [--mark <n>=<mark>|--clear <n>]",
     "                                      refuse a draft whose coverage is not clean, or print the approval gate",
+    "  gate <name> --approve [--commands <file>]",
+    "                                      write the committed plan from the draft the gate last printed",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -236,12 +246,24 @@ export function readProse(file: string): AuthoredProse {
     const question: unknown = front["question"];
     const answer: unknown = front["answer"];
     const revisit: RevisitProse[] = readRevisits(front["revisit"]);
+    const pinningTests: AuthoredPinningTest[] = readPinningTests(front["pinning_tests"]);
     const theory: string = lines.slice(end + 2).join("\n");
     return {
         theory,
         ...(typeof question === "string" && typeof answer === "string" ? { drill: { question, answer } } : {}),
         ...(revisit.length === 0 ? {} : { revisit }),
+        ...(pinningTests.length === 0 ? {} : { pinningTests }),
     };
+}
+
+/** The pinning tests an arrival asked for, each naming the slice it pins, its file and its text. */
+function readPinningTests(raw: unknown): AuthoredPinningTest[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item): AuthoredPinningTest[] => {
+        const entry: Record<string, unknown> = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+        const { slice, file, text } = entry;
+        return typeof slice === "string" && typeof file === "string" && typeof text === "string" ? [{ slice, file, text }] : [];
+    });
 }
 
 /**
@@ -288,6 +310,14 @@ function reportSession(result: SessionResult, io: WorkbookCliIo): number {
     }
     if (result.outcome.kind === "brief") {
         io.stdout(`Write the theory into a file and re-run with --prose <file>. The lesson goes to ${result.outcome.brief.lesson}.`);
+        const request = result.outcome.brief.writeTest;
+        if (request !== undefined) {
+            io.stdout(`The slice has no pinning test yet: put it in that file's front matter under 'pinning_tests' as ${request.slice}, with its file and text.`);
+        }
+    }
+    if (result.outcome.kind === "tests") {
+        for (const request of result.outcome.requests) io.stdout(`  ${request.slice}: #${request.story} ${JSON.stringify(request.title)} on ${request.branch}`);
+        io.stdout(`Write the tests into a file's front matter under 'pinning_tests' and re-run with --prose <file>.`);
     }
     return stopped ? 1 : 0;
 }
@@ -625,7 +655,7 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
  * `nexus workbook gate` — the approval gate (epic #458). A draft whose coverage is not clean is
  * refused here, in code, before the reviewer sees anything (record #591, invariant 10).
  */
-function runGate(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo): number {
+function runGate(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo, run: Runner): number {
     const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
     if (roadmap === null) return 1;
     let draft: PlanDraft | null = readPlanDraft(repoRoot, name);
@@ -638,6 +668,7 @@ function runGate(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo
         io.stderr(`the roadmap ${name} has no plan draft to approve. Run the planning chain first — nothing was written.`);
         return 1;
     }
+    if (flags.approve === true) return runApprove(repoRoot, roadmap, draft, flags, io, run);
     const refusal: CoverageRefusal = refuseUncleanCoverage(draft, handoffConcepts(repoRoot, roadmap, draft));
     if (refusal.refused) {
         io.stderr(refusal.report);
@@ -650,11 +681,56 @@ function runGate(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo
             focusMatchedNothing: interview !== null && !interview.focus.whole && draft.slices.every((stub) => stub.builds === "handoff"),
         }),
     );
+    // What was shown is recorded beside the draft, so approval can refuse a draft that changed after
+    // the reviewer read it (record #591, invariant 13). It is derived state, never committed.
+    fs.writeFileSync(path.join(path.dirname(planDraftPath(repoRoot, name)), SHOWN_RECORD), draftFingerprint(draft));
+    return 0;
+}
+
+/** The repository the workspace names, as a handoff prompt states it, or null when it cannot be read. */
+function workspaceRepo(repoRoot: string, run: Runner): string | null {
+    const result = run("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], { cwd: repoRoot });
+    return result.status === 0 && result.stdout.trim() !== "" ? result.stdout.trim() : null;
+}
+
+/**
+ * `nexus workbook gate <name> --approve` — write the committed plan from the draft the gate last
+ * printed (story #587). Approval builds the plan in memory, renders the workbook in memory, and only
+ * then writes the plan and its pages together; declining is simply never running this, which writes
+ * nothing (invariants 30, 31). The draft stays in place, because it holds the judgements a re-plan
+ * reuses (invariant 33). No git state moves (invariant 32).
+ */
+function runApprove(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags: Flags, io: WorkbookCliIo, run: Runner): number {
+    const shownFile: string = path.join(path.dirname(planDraftPath(repoRoot, roadmap.name)), SHOWN_RECORD);
+    const commands: DeclaredCommands | null = flags.commands === undefined ? null : parseCommands(fs.readFileSync(path.resolve(io.cwd, flags.commands), "utf8"));
+    const approval: Approval = approvePlan({
+        workbook: roadmap.name,
+        draft,
+        roadmap,
+        shown: fs.existsSync(shownFile) ? fs.readFileSync(shownFile, "utf8").trim() : null,
+        repo: workspaceRepo(repoRoot, run),
+        read: ghIssueReader(repoRoot, run),
+        commands,
+        handoffConcepts: handoffConcepts(repoRoot, roadmap, draft),
+    });
+    if (!approval.ok) {
+        io.stderr(approval.report);
+        return 1;
+    }
+    const written: string = writeWorkbookPlan(repoRoot, roadmap.name, approval.plan);
+    const learner: number = approval.plan.slices.filter((slice) => slice.learnerBuilds).length;
+    io.stdout(
+        `approved the plan for ${roadmap.name}: ${approval.plan.slices.length} slice${approval.plan.slices.length === 1 ? "" : "s"}, ` +
+        `${learner} taught and ${approval.plan.slices.length - learner} handed off. The next session teaches from it.`,
+    );
+    io.stdout(`  ${written}`);
     return 0;
 }
 
 /** The file beside the draft that records the merge the draft was built from. */
 const MERGE_RECORD: string = "merge.json";
+/** The file beside the draft that records the fingerprint of the draft the gate last printed. */
+const SHOWN_RECORD: string = "gate-shown.txt";
 /** The file beside the draft that records the reviewer's mark overrides. */
 const OVERRIDES_RECORD: string = "mark-overrides.json";
 
@@ -731,7 +807,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
         if (sub === "rewrite") return runRewrite(repoRoot, slug as string, flags, io);
-        if (sub === "gate") return runGate(repoRoot, slug as string, flags, io);
+        if (sub === "gate") return runGate(repoRoot, slug as string, flags, io, run);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);

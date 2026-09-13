@@ -29,6 +29,9 @@ nexus workbook interview <name> --answers <f>  # record what the learner said
 nexus workbook extract <name>                  # the stories still to extract, as numbers
 nexus workbook vocabulary <name>               # every proposed concept identifier, for the merge
 nexus workbook draft <name> --merge <f>        # write the plan's stubs, all of them or none
+nexus workbook rewrite <name>                  # order the draft so each concept is taught once
+nexus workbook gate <name>                     # refuse an unclean draft, or print the approval gate
+nexus workbook gate <name> --approve           # write the committed plan the gate last printed
 nexus workbook render <name>                   # render every authored lesson to its page
 nexus workbook check <name>                    # report a page that drifted from its lesson
 nexus workbook teach <name> --prose <file>     # write and render one lesson

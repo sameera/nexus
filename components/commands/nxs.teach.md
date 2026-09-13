@@ -41,8 +41,8 @@ The session runs its own checks and then briefs you. It stops on its own terms, 
 reported as it stands rather than worked around:
 
 - the suite is red, or the previous slice never integrated — the learner has work to finish first;
-- the plan's next slice has drifted from the story it was pinned to — the plan is re-approved, not
-  edited past;
+- the plan's next slice has drifted from the story it was pinned to — the plan is re-approved through
+  `/nxs.teach-plan <name>`, not edited past;
 - a fence was never checked — an unchecked fence is never read as one that held.
 
 When it briefs you, write the theory the brief asks for into a file and re-run:
@@ -54,6 +54,23 @@ nexus workbook teach <name> --prose <file>
 Write the theory the exercise needs and nothing more. Put it immediately before the exercise it
 serves. The brief names the concepts to teach and the concepts to come back to; you supply the
 wording, never the selection.
+
+**Pinning tests are written on arrival.** An approved plan holds no pinning test for a slice the
+learner has not reached. When the brief asks for one, write it into the same file's front matter,
+under the slice identity the brief names:
+
+```yaml
+pinning_tests:
+    - slice: story-12
+      file: <the test file's path in this repository>
+      text: |
+          <a test that fails until the story is built>
+```
+
+Write it against this repository and this one story. The session records it in the plan once and
+never rewrites it: the lesson shows that text and the fence probe runs it. When the next slice is a
+handoff, the session asks for two tests before it writes the handoff prompt — the handed-off slice's
+and the next story slice's. Write both the same way and re-run.
 
 # After the lesson
 
