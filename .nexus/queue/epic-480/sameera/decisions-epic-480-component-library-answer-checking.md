@@ -22,3 +22,13 @@
 - **Choice:** A learner fixture opens the rendered page with `JSDOM` (`runScripts: "outside-only"`), evals `workbook.js`, and traps network/storage/cookie/history access.
 - **Why:** The spacing rule, gating and resets only exist when the script runs (#616 ADDRESS risk); a parsed document without a browsing context cannot focus.
 - **Refuted alternative:** Running the script with `new Function` against a `DOMParser` document.
+
+## 2026-09-13 — The Parsons shuffle guard compares lines with all whitespace removed, and rotates by one
+- **Choice:** A seeded (FNV-1a of the lines) Fisher–Yates shuffle; if it equals the expected order with every whitespace character stripped, it is rotated one position; the "two distinct lines" refusal uses the same stripped comparison.
+- **Why:** Stripping is stricter than the check's spacing rule, so no written shuffle can pass the check, without a second copy of the spacing rule in TypeScript; a rotation of a sequence with two distinct items always differs.
+- **Refuted alternative:** Re-implementing the runtime spacing rule at render time, or re-seeding until the shuffle differs.
+
+## 2026-09-13 — A Parsons line moves with a pair of native buttons that stay put at the ends
+- **Choice:** "Earlier"/"Later" buttons on every line, a no-op at the first/last position, focus returned to the pressed control, position announced in a polite live region.
+- **Why:** Native buttons are keyboard, touch and pointer operable with no extra handling, and never-disabled controls keep focus from falling off a line that reaches an end.
+- **Refuted alternative:** Disabling the control at the ends.

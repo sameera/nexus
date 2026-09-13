@@ -29,6 +29,18 @@ export interface LearnerPage {
     typed(field?: number): string;
     /** Every answer field on the page opts out of the browser remembering or restoring what was typed. */
     fieldsRememberNothing(): boolean;
+    /** The lines of the n-th Parsons problem on the page, in the order they stand now, as written. */
+    lines(problem?: number): string[];
+    /** Move a line of the n-th Parsons problem one position earlier, with its own control. */
+    moveEarlier(line: number, problem?: number): void;
+    /** Move a line of the n-th Parsons problem one position later, with its own control. */
+    moveLater(line: number, problem?: number): void;
+    /** The text of the line that holds keyboard focus, or "" when no line does. */
+    focusedLine(): string;
+    /** What the page last announced about a move. */
+    announcement(): string;
+    /** Every move control is a native control a keyboard reaches and presses. */
+    movesWorkFromKeyboard(): boolean;
     /** Press the n-th check control on the page. */
     check(answer?: number): void;
     /** What the n-th result area says, or "" when it says nothing. */
@@ -112,7 +124,40 @@ export function openPage(files: readonly RenderedFile[], pageName: string): Lear
     const revealOf = (widget: number): HTMLButtonElement =>
         nth([...doc.querySelectorAll<HTMLButtonElement>(".widget-reveal")], widget, "reveal control");
 
+    const problems = (): Element[] => [...doc.querySelectorAll(".parsons-lines")];
+    const lineText = (line: Element): string => line.querySelector("[data-part]")?.textContent ?? "";
+    const move = (direction: "earlier" | "later", line: number, problem: number): void => {
+        const row: Element = nth([...nth(problems(), problem, "Parsons problem").children], line, "line");
+        const control: HTMLButtonElement | null = row.querySelector(`button[data-move="${direction}"]`);
+        if (control === null) throw new Error(`line #${line} has no control to move it ${direction}`);
+        control.focus();
+        click(control);
+    };
+
     return {
+        lines(problem: number = 0): string[] {
+            return [...nth(problems(), problem, "Parsons problem").children].map(lineText);
+        },
+        moveEarlier(line: number, problem: number = 0): void {
+            move("earlier", line, problem);
+        },
+        moveLater(line: number, problem: number = 0): void {
+            move("later", line, problem);
+        },
+        focusedLine(): string {
+            const row: Element | null = doc.activeElement?.closest(".parsons-line") ?? null;
+            return row === null ? "" : lineText(row);
+        },
+        announcement(): string {
+            return [...doc.querySelectorAll(".parsons-announce")].map((a) => normalise(a.textContent ?? "")).join(" ").trim();
+        },
+        movesWorkFromKeyboard(): boolean {
+            const controls: Element[] = [...doc.querySelectorAll("[data-move]")];
+            return (
+                controls.length > 0 &&
+                controls.every((c) => c.tagName === "BUTTON" && c.getAttribute("tabindex") !== "-1" && c.getAttribute("aria-label") !== "")
+            );
+        },
         visibleText(): string {
             const visible: string[] = [];
             for (const element of doc.body.querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, blockquote, pre, footer, button, label")) {
