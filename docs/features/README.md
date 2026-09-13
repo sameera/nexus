@@ -41,6 +41,7 @@ nexus config backlog-query --form exclude
 | [Concept Domain Taxonomy](concept-domains/README.md)                       | A curated domain taxonomy for the concept atlas, replacing derived headings.      |
 | [Concept Store Capacity](concept-store-capacity/README.md)                 | Keeping concept pages cheap to load and their touches graph growable.             |
 | [Component Distribution](component-distribution/README.md)                 | Packaging, installing, and addressing Nexus components outside the target repo.   |
+| [Issue Assets](issue-assets/README.md)                                     | Graphics and mockups filed alongside epic and decision-record issues.            |
 | [Issue-Sourced Planning](issue-sourced-planning/README.md)                 | Planning surfaces on GitHub issues rather than committed files.                   |
 | [Landed Change Intake](landed-change-intake/README.md)                     | Recording work that landed outside planning, so its reasoning still reaches the concept store. |
 | [Multi-Repo Workspaces](multi-repo-workspaces/README.md)                   | The pipeline across code repos plus a hub docs repo.                              |

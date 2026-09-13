@@ -42,6 +42,7 @@ import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
 import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
+import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
@@ -205,6 +206,16 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         subverbs: WORKSPACE_SUBVERBS,
         run: runWorkspaceVerb,
+    },
+    assets: {
+        summary: "Resolve the durable asset store the filing stages publish issue graphics into.",
+        usage: [
+            "  nexus assets resolve [--root <dir>]",
+            "      Print { state: declared, repo, branch } for the declared store, { state: unsupported }",
+            "      when no layer declares one, or stop on a malformed value naming it (exit 1).",
+        ].join("\n"),
+        subverbs: ASSETS_SUBVERBS,
+        run: async (argv: string[], io: CliIo): Promise<number> => runAssets(argv, io),
     },
     "abs-doc-path": {
         summary: "Convert a repository-relative path to an absolute GitHub URL.",

@@ -153,6 +153,12 @@ describe("parseAndValidateManifest — github defaults (STORY-121.05)", () => {
         expect(ws.github).toEqual({ "worktree-path": "/srv/nexus-worktrees" });
     });
 
+    it("accepts a hub-declared asset-store default (epic #594)", () => {
+        const raw = VALID + `github:\n  asset-store: acme/assets@media\n`;
+        const ws = asOk(parseAndValidateManifest(raw, FILE, HUB));
+        expect(ws.github).toEqual({ "asset-store": "acme/assets@media" });
+    });
+
     it("rejects an unknown key inside the github block", () => {
         const raw = VALID + `github:\n  classification: labels\n  banana: yes\n`;
         const err = asError(parseAndValidateManifest(raw, FILE, HUB));

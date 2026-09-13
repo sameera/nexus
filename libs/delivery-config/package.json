@@ -49,6 +49,16 @@
       "import": "./src/config-cli.ts",
       "default": "./src/config-cli.ts"
     },
+    "./asset-store": {
+      "types": "./src/asset-store.ts",
+      "import": "./src/asset-store.ts",
+      "default": "./src/asset-store.ts"
+    },
+    "./assets-cli": {
+      "types": "./src/assets-cli.ts",
+      "import": "./src/assets-cli.ts",
+      "default": "./src/assets-cli.ts"
+    },
     "./epic-filer/run": {
       "types": "./src/epic-filer/run.ts",
       "import": "./src/epic-filer/run.ts",
