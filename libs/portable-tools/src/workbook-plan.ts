@@ -154,6 +154,11 @@ function text(value: unknown, field: string, where: string): string {
     return asText;
 }
 
+function bodyText(value: unknown, where: string): string {
+    if (typeof value !== "string") throw new PlanError(`${where} declares no 'pinned.body'.`);
+    return value;
+}
+
 function readScaffold(record: Record<string, unknown>, where: string): PlanSliceRecord {
     const scaffold: string = typeof record["scaffold"] === "string" ? record["scaffold"] : "";
     if (scaffold.trim() === "") throw new PlanError(`${where} names a 'scaffold' that is not a concept identifier.`);
@@ -242,7 +247,9 @@ function readSlice(raw: unknown, index: number, planEpic: number | null): PlanSl
         learnerBuilds,
         pinned: {
             title: text(pinned["title"], "pinned.title", at),
-            body: text(pinned["body"], "pinned.body", at),
+            // An issue with no description pins an empty one: that is the story's real state, not a
+            // missing value, and approval pins it verbatim.
+            body: bodyText(pinned["body"], at),
             // Absent means the story was open at pinning time, which is the ordinary case. A plan
             // that pins an already-shipped story says so, and the drift gate lets it be taught.
             closed: pinned["closed"] === true,

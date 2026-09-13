@@ -202,3 +202,31 @@ describe("a slice marked handoff builds nothing", () => {
         for (const call of calls) expect(call.slice(0, 2)).toEqual(["git", "check-ignore"]);
     });
 });
+
+describe("the gate reports the focus match, not the marks a reviewer changed (epic #458)", () => {
+    function gateAfter(repo: string, ...marks: string[]): string {
+        expect(runWorkbookCli(["rewrite", "alpha", "--root", repo], io(repo))).toBe(0);
+        let captured: Captured = io(repo);
+        for (const mark of marks) {
+            captured = io(repo);
+            runWorkbookCli(["gate", "alpha", "--root", repo, "--mark", mark], captured);
+        }
+        return captured.out.join("\n");
+    }
+
+    it("still says the focus matched no story after the reviewer marks one story learner", () => {
+        const repo: string = repoWith(FOCUS);
+        runPass(repo, { 21: false, 22: false, 23: false }, []);
+
+        expect(gateAfter(repo, "21=learner")).toMatch(/focus matched no story/);
+    });
+
+    it("does not say the focus matched no story after the reviewer marks every matched story handoff", () => {
+        const repo: string = repoWith(FOCUS);
+        runPass(repo, { 21: true, 22: false, 23: false }, []);
+
+        const digest: string = gateAfter(repo, "21=handoff");
+        expect(digest).toMatch(/The plan:/);
+        expect(digest).not.toMatch(/focus matched no story/);
+    });
+});

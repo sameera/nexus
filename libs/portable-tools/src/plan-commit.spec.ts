@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { planDraftPath, readPlanDraft, writePlanDraft, type PlanDraft } from "./plan-draft.js";
-import { DRAFT, approve, committedPlan, committedText, gate, planned, type Planned } from "./plan-commit-fixtures.js";
+import { DRAFT, ROADMAP, approve, committedPlan, committedText, gate, planned, type Planned } from "./plan-commit-fixtures.js";
 import { type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
 import { PLAN_FILENAME, parsePlan, type WorkbookPlan } from "./workbook-plan.js";
@@ -107,6 +107,27 @@ describe("approval writes a committed plan the shipped teaching session reads (s
 
         expect(paused.outcome.kind).toBe("handoff");
         expect(committedPlan(p).slices.map((slice) => slice.pinningTest?.file)).toEqual(["tests/story-11.spec.ts", "tests/story-12.spec.ts"]);
+    });
+
+    it("approves a story whose issue body is empty into a plan the session still reads", () => {
+        const emptied = { ...ROADMAP, stories: ROADMAP.stories.map((story) => (story.number === 11 ? { ...story, body: "" } : story)) };
+        const p: Planned = planned(DRAFT, emptied);
+        p.fake.live[11] = { title: "Pin the plan", body: "", closed: false };
+
+        expect(approve(p).code).toBe(0);
+
+        expect(committedPlan(p).slices[0].pinned).toEqual({ title: "Pin the plan", body: "", closed: false });
+        expect(runTeachingSession({ repoRoot: p.repo, slug: "alpha", read: (story) => p.fake.live[story] ?? null, run: p.run }).outcome.kind).toBe("brief");
+    });
+
+    it("writes the plan and its pages together or not at all", () => {
+        const p: Planned = planned();
+        fs.mkdirSync(path.join(workbookRoot(p.repo, "alpha"), "index.html"));
+
+        const { code } = approve(p);
+
+        expect(code).toBe(1);
+        expect(fs.readdirSync(workbookRoot(p.repo, "alpha")).filter((name) => name.startsWith(PLAN_FILENAME))).toEqual([]);
     });
 
     it("pins every story to its state on the issue graph at the moment of approval, closure included", () => {

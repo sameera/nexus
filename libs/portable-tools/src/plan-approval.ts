@@ -92,7 +92,7 @@ export function renderGateDigest(draft: PlanDraft, context: GateContext): string
     lines.push(...(unmatched.length === 0 ? ["  (none)"] : unmatched.map((phrase) => `  ${JSON.stringify(phrase)}`)));
     lines.push(
         "",
-        context.focusMatchedNothing ? "The learner's focus matched no story, so every story is marked handoff." : "The learner's focus matched at least one story.",
+        context.focusMatchedNothing ? "The learner's focus matched no story." : "The learner's focus matched at least one story.",
         "Coverage: clean — every concept a slice assumes is taught before it.",
     );
     return lines.join("\n");

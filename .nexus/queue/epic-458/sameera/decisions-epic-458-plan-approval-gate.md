@@ -42,3 +42,13 @@
 - **Choice:** The home page renders to `index.html`, each slice an `<li>` anchored by its identity, dependencies linked by anchor; the plan reader refuses a lesson that would render to that name.
 - **Why:** Derived lesson names start `story-` or `scaffold-`, so the reservation only ever refuses a hand-written plan, and anchors keep the graph navigable without layout code.
 - **Refuted alternative:** An SVG graph laid out by a script when the page opens, which record #450 refuses because the content must exist at render time.
+
+## 2026-09-13 — An empty issue body is pinned as an empty string, and the reader accepts it
+- **Choice:** `pinned.body` must be a string but may be empty; approval pins it verbatim.
+- **Why:** An issue with no description is the story's real state, and refusing it at approval would block a legitimate roadmap over a field nobody chose.
+- **Refuted alternative:** Refuse at approval a story whose body is empty, which moves the refusal earlier without making the plan any more true.
+
+## 2026-09-13 — Plan and pages are written by staging the plan and restoring the previous pages on failure
+- **Choice:** `writePlanWithPages` stages `plan.yml.partial`, holds the previous rendered files in memory, writes the pages, and renames the plan into place only after they land; on failure it removes the staging and restores the old pages.
+- **Why:** Invariant 31 asks for together-or-not-at-all, and the page write clears the folder before writing, so only a held copy can put it back.
+- **Refuted alternative:** Render pages into a sibling directory and swap directories, which would move the authored `lessons/` folder along with them.

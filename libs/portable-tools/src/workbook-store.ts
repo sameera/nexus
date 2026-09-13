@@ -20,7 +20,7 @@ import { ensureLearnerIgnored } from "./learner-store.js";
 import { assertWorkbookHome } from "./workbook-placement.js";
 import { PLAN_FILENAME, homeEntries, parsePlan, planStubs, renderWorkbookPlan, type WorkbookPlan } from "./workbook-plan.js";
 import { NEXUS_ROOT_DIRNAME, WORKBOOK_STORE_DIRNAME, WORKBOOK_STORE_PATH } from "./pipeline-stores.js";
-import { type LessonSource, type RenderOptions } from "./workbook-render.js";
+import { clearWorkbookOutput, writeWorkbook, type LessonSource, type RenderOptions, type RenderedFile } from "./workbook-render.js";
 
 /** Absolute path of the workbook store inside a checkout. */
 export function workbookStoreRoot(repoRoot: string): string {
@@ -216,4 +216,38 @@ export function planRenderOptions(repoRoot: string, slug: string, plan: Workbook
         stubs: planStubs(plan, present).map((stub) => stub.label),
         home: homeEntries(plan, present),
     };
+}
+
+/**
+ * Write an approved plan and its rendered pages together, or leave both as they were (record #591,
+ * invariant 31). The plan is staged beside its target and the previous pages are held in memory; if
+ * the pages cannot be written, the staged plan is removed and the previous pages are put back, and
+ * only once the pages are written does the plan move into place.
+ */
+export function writePlanWithPages(repoRoot: string, slug: string, plan: WorkbookPlan, pages: readonly RenderedFile[]): string {
+    const root: string = workbookRoot(repoRoot, slug);
+    const target: string = path.join(root, PLAN_FILENAME);
+    const staged: string = `${target}.partial`;
+    const previous: RenderedFile[] = fs.existsSync(root)
+        ? fs
+              .readdirSync(root, { withFileTypes: true })
+              .filter((entry) => entry.isFile() && /\.(html|css|js)$/.test(entry.name))
+              .map((entry) => ({ name: entry.name, contents: fs.readFileSync(path.join(root, entry.name), "utf8") }))
+        : [];
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(staged, renderWorkbookPlan(plan));
+    try {
+        writeWorkbook(root, pages);
+    } catch (error) {
+        fs.rmSync(staged, { force: true });
+        try {
+            clearWorkbookOutput(root);
+            for (const file of previous) fs.writeFileSync(path.join(root, file.name), file.contents);
+        } catch {
+            // The original failure is the one worth reporting; the restore is best effort over it.
+        }
+        throw error;
+    }
+    fs.renameSync(staged, target);
+    return target;
 }

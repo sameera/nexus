@@ -397,6 +397,13 @@ export function draftFromExtractions(
         return learner ? { story: list.story, builds: "learner", concepts, assumes } : { story: list.story, builds: "handoff", concepts: [], assumes: [] };
     });
     const written: string = writePlanDraft(repoRoot, roadmap.name, { slices, vocabulary: merge.vocabulary });
-    const focusMatchedNothing: boolean = !interview.focus.whole && slices.every((stub) => stub.builds === "handoff");
-    return { ok: true, path: written, slices, focusMatchedNothing };
+    return { ok: true, path: written, slices, focusMatchedNothing: focusMatchedNothing(interview, current) };
+}
+
+/**
+ * Whether the learner named a focus and no story's extraction said it serves it. It reads the verdicts,
+ * never the marks, so a reviewer's mark override at the gate does not change what it reports.
+ */
+export function focusMatchedNothing(interview: InterviewRecord, lists: readonly CheckedList[]): boolean {
+    return !interview.focus.whole && lists.every((list) => list.serves !== true);
 }

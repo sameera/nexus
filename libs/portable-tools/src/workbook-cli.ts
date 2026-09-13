@@ -29,11 +29,11 @@ import {
     readLessons,
     readWorkbookPlan,
     workbookRoot,
-    writeWorkbookPlan,
+    writePlanWithPages,
     writtenLessonFiles,
     type CreatedWorkbook,
 } from "./workbook-store.js";
-import { checkWorkbook, parseLesson, renderWorkbook, renderWorkbookInto, writeWorkbook, type LessonSource, type RenderOptions, type RenderedFile, type WorkbookDrift } from "./workbook-render.js";
+import { checkWorkbook, parseLesson, renderWorkbook, renderWorkbookInto, type LessonSource, type RenderOptions, type RenderedFile, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
 import { type AuthoredPinningTest, type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
@@ -51,7 +51,7 @@ import {
     type RoadmapStory,
 } from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
-import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
+import { draftFromExtractions, extractionsDir, focusMatchedNothing, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
 import { planDraftPath, readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft, type PlanStub } from "./plan-draft.js";
 import { rebuildDraft, refuseUncleanCoverage, renderGateDigest, type CoverageRefusal } from "./plan-approval.js";
 import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
@@ -690,7 +690,7 @@ function runGate(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo
     io.stdout(
         renderGateDigest(draft, {
             titles: new Map(roadmap.stories.map((story) => [story.number, story.title])),
-            focusMatchedNothing: interview !== null && !interview.focus.whole && draft.slices.every((stub) => stub.builds === "handoff"),
+            focusMatchedNothing: interview !== null && focusMatchedNothing(interview, readExtractions(repoRoot, roadmap).current),
         }),
     );
     // What was shown is recorded beside the draft, so approval can refuse a draft that changed after
@@ -740,8 +740,7 @@ function runApprove(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags:
     // The pages are rendered in memory before anything is written, so a render that fails leaves the
     // approved plan and its pages exactly as they were (invariant 31).
     const pages: RenderedFile[] = renderWorkbook(planRenderOptions(repoRoot, roadmap.name, approval.plan));
-    const planFile: string = writeWorkbookPlan(repoRoot, roadmap.name, approval.plan);
-    writeWorkbook(workbookRoot(repoRoot, roadmap.name), pages);
+    const planFile: string = writePlanWithPages(repoRoot, roadmap.name, approval.plan, pages);
     const learner: number = approval.plan.slices.filter((slice) => slice.learnerBuilds).length;
     io.stdout(
         `approved the plan for ${roadmap.name}: ${approval.plan.slices.length} slice${approval.plan.slices.length === 1 ? "" : "s"}, ` +
