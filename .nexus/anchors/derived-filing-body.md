@@ -1,6 +1,6 @@
 ---
 concept: derived-filing-body
-source_sha: 6a2556e5da38a9496c2b9bb911cfc04a6113f7ed
+source_sha: 93b3d5f237a9ff6a6467514924197d35582482ed
 generated: 2026-09-13
 ---
 
@@ -9,9 +9,10 @@ generated: 2026-09-13
 
 # Code Anchors: Derived Filing Body
 
-- `libs/scope-razor/src/labels.ts` — the drafting-time grammars, the derivation that strips every label and removes the whole ordering block, and the assertion that returns every surviving token in reading order.
-- `libs/scope-razor/src/labels.spec.ts` — pins that only the label is stripped, that a placeholder and an observation marker are reported rather than deleted, and that a legitimate warning callout is not a leak.
-- `libs/portable-tools/src/nexus-cli.ts` — the derive-and-assert mode of the shared verb, which writes the filing body and fails the run before any issue is created; the standalone assertion mode stays for a body derived some other way.
+- `libs/scope-razor/src/labels.ts` — the drafting-time grammars, the derivation that strips every label and removes the whole ordering block, and the assertion that returns every surviving token in reading order, including the run's declared asset paths matched as whole tokens.
+- `libs/scope-razor/src/labels.spec.ts` — pins that only the label is stripped, that a placeholder and an observation marker are reported rather than deleted, that a legitimate warning callout is not a leak, and that a declared path matches only on its own boundaries.
+- `libs/scope-razor/src/render.ts` — the remedy line each token kind is reported with, including the one telling a lead to publish an asset and rewrite its reference.
+- `libs/portable-tools/src/nexus-cli.ts` — the derive-and-assert mode of the shared verb, which writes the filing body and fails the run before any issue is created; the standalone assertion mode stays for a body derived some other way, and takes this run's declared asset paths.
 - `components/commands/nxs.epic.md` — derives the epic filing body in one command that also asserts it, asserts each story work-item separately, and records the filed issue number on the labelled draft rather than the derived copy.
 - `components/commands/nxs.decision-record.md` — derives the record body after the checkpoint and asserts it before any filing path runs.
 - `common/templates/decision-record-template.md` — the removed standing slot for a refuted alternative, replaced by a guidance comment that carries no placeholder.

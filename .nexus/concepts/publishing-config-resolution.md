@@ -1,8 +1,8 @@
 ---
 title: "Publishing Config Resolution"
 aliases: ["github publishing config", "delivery config resolver", "classification mode", "project target", "issues-repo targeting", "publishing precedence chain"]
-touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification"]
-last_updated_by: "#211"
+touches: ["workspace-resolution", "config-write-back", "epic-approval-gate", "nexus-setup-cli", "decision-record", "pr-worktree", "backlog-stub", "target-root-convention", "toolkit-location", "settings-key-catalogue", "resumable-batch-filing", "epic-issue-filing", "issue-kind-classification", "issue-asset-store"]
+last_updated_by: "#594"
 status: active
 verification: verified
 ---
@@ -44,7 +44,7 @@ Classification is an explicit issue-type mode, an explicit label mode, or the de
 - [resumable-batch-filing](resumable-batch-filing.md) — the batch path resolving every key here before its first issue, its own sources checked for holding no second copy.
 - [epic-issue-filing](epic-issue-filing.md) — the single-issue filing path resolving classification, project target and repository through this same resolver.
 - [issue-kind-classification](issue-kind-classification.md) — reads what an issue is from the mode and the marker names only this resolver supplies.
-
+- [issue-asset-store](issue-asset-store.md) — one more key on this chain, hub layer included, and the one target that deliberately has no built-in fallback.
 ## Decision Log
 
 ### 2026-07-24 — #121 — One shared resolver over declared config, not discovery-by-failure
@@ -86,3 +86,7 @@ Mechanical reciprocity fan-out: the epic-issue-filing page names this resolver a
 ### 2026-09-10 — #211 — Reciprocal link from issue-kind-classification
 
 Mechanical reciprocity fan-out: deciding what an issue is filed as became its own rule, and every marker that rule matches against comes from here. Nothing about this resolver changed to serve it. The epic and story marker keys it already supplied are now read by a second consumer, which is why a declared mode that does not match an issue is reported by name rather than worked around.
+
+### 2026-09-13 — #594 — Reciprocal link from issue-asset-store
+
+The asset store declares an interaction with this concept, so the edge is mirrored here. No behaviour of this concept changed; follow the link for what the store does.
