@@ -33,6 +33,7 @@ import { FILL_THE_SIGNATURE, FILL_THE_SIGNATURE_COMPONENT } from "./fill-the-sig
 import { escapeText } from "./html-escape.js";
 import { PARSONS_PROBLEM, PARSONS_PROBLEM_COMPONENT, renderParsonsScript, renderParsonsStyles } from "./parsons-problem.js";
 import { PREDICT_THEN_REVEAL, PREDICT_THEN_REVEAL_COMPONENT } from "./predict-then-reveal.js";
+import { TRACE_STEPPER, TRACE_STEPPER_COMPONENT, renderTraceScript, renderTraceStyles } from "./trace-stepper.js";
 
 /** The fenced block's info string that marks a declaration. */
 export const WIDGET_FENCE_INFO: string = "widget";
@@ -87,6 +88,7 @@ export const WIDGET_MANIFEST: WidgetRegistry = {
     [PREDICT_THEN_REVEAL_COMPONENT]: PREDICT_THEN_REVEAL,
     [FILL_THE_SIGNATURE_COMPONENT]: FILL_THE_SIGNATURE,
     [PARSONS_PROBLEM_COMPONENT]: PARSONS_PROBLEM,
+    [TRACE_STEPPER_COMPONENT]: TRACE_STEPPER,
 };
 
 export class WidgetError extends Error {
@@ -275,6 +277,7 @@ export function renderScript(): string {
         "window.addEventListener('pageshow', function () { resetReveals(document); });",
         renderCheckScript(),
         renderParsonsScript(),
+        renderTraceScript(),
         "",
     ].join("\n");
 }
@@ -306,5 +309,6 @@ export function renderWidgetStyles(): string {
         "}",
         renderCheckStyles(),
         renderParsonsStyles(),
+        renderTraceStyles(),
     ].join("\n");
 }

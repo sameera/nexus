@@ -32,3 +32,13 @@
 - **Choice:** "Earlier"/"Later" buttons on every line, a no-op at the first/last position, focus returned to the pressed control, position announced in a polite live region.
 - **Why:** Native buttons are keyboard, touch and pointer operable with no extra handling, and never-disabled controls keep focus from falling off a line that reaches an end.
 - **Refuted alternative:** Disabling the control at the ends.
+
+## 2026-09-13 — A trace question belongs to the step it asks about and shows while the learner is one step before it
+- **Choice:** `steps[k].question` gates the move from step k-1 to step k; only that one question is visible, and it hides once the step is taken.
+- **Why:** Matches #616 (the step's state stays hidden until its question is checked) with one visible question at a time and no computed state.
+- **Refuted alternative:** Keeping every passed question and its result visible beneath the snippet.
+
+## 2026-09-13 — Trace step lines must be integer line numbers; a missing state renders empty
+- **Choice:** A non-integer, zero or out-of-range `line` fails the render; `state` is not required.
+- **Why:** #616 lists exactly which trace declarations fail the render, and a blank state still yields a checkable exercise.
+- **Refuted alternative:** Also refusing a step with no state.
