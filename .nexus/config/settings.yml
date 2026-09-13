@@ -4,5 +4,5 @@ cross-ref:
 github:
   classification: labels
   unplanned-label: needs-refinement
-  project: none
+  project: Nexus
   worktree-path: ~/projects/worktrees/nexus
