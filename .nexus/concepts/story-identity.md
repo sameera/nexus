@@ -1,7 +1,7 @@
 ---
 title: "Story Identity"
 aliases: ["story naming", "story withdrawal", "withdrawn story", "issue-number identity", "one name per story"]
-touches: ["issue-sourced-planning", "story-as-unit", "resumable-batch-filing", "pr-story-resolution"]
+touches: ["issue-sourced-planning", "story-as-unit", "resumable-batch-filing", "pr-story-resolution", "draft-ordering-block"]
 last_updated_by: "#211"
 status: active
 verification: verified
@@ -32,6 +32,7 @@ The materialized epic identifies every story by its issue number, in the story h
 - [resumable-batch-filing](resumable-batch-filing.md) — the filing path whose later passes resolve every pre-filing ref, in the dependency graph and in prose alike, into the issue number.
 - [pr-story-resolution](pr-story-resolution.md) — applies this withdrawal rule when it takes an epic's live story set as a pull request's scope.
 
+- [draft-ordering-block](draft-ordering-block.md) — the title-keyed graph filing walks to assign these references and their dependency edges.
 ## Decision Log
 
 ### 2026-07-28 — #157 — A story's only name is its issue number; withdrawal removes it from scope, not from the epic
@@ -49,3 +50,7 @@ Mechanical reciprocity fan-out: the resumable-batch-filing page names the two pa
 ### 2026-09-10 — #211 — Reciprocal link from pr-story-resolution
 
 Mechanical reciprocity fan-out: resolving a pull request that names only its epic now hands back that epic's live story set, and this page's withdrawal rule is what makes that set live. A story withdrawn by label or by a cancelling closure reason is dropped from the scope a pull-request verdict covers, exactly as it is dropped from a materialized epic.
+
+### 2026-09-13 — #576 — Reciprocal link from draft-ordering-block
+
+The draft-time ordering block is walked at filing to assign each story's reference and to translate its blocker titles into dependency edges, so the two concepts meet where a title becomes a number.

@@ -1,8 +1,8 @@
 ---
 title: "Epic Stub"
-aliases: ["epic stub", "backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "needs-refinement label", "cross-feature backlog", "deferred scope filing"]
-touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing", "intake-lane"]
-last_updated_by: "#483"
+aliases: ["epic stub", "backlog stub", "unplanned epic", "stub decomposition", "stub promotion", "unplanned label", "needs-refinement label", "cross-feature backlog", "deferred scope filing", "deferral stub", "deferral floor", "deferred line"]
+touches: ["epic-approval-gate", "publishing-config-resolution", "issue-sourced-planning", "durable-close-record", "discovery-graduation", "fog-referral-gate", "resumable-batch-filing", "epic-issue-filing", "intake-lane", "addition-gate"]
+last_updated_by: "#576"
 status: active
 verification: verified
 ---
@@ -13,12 +13,12 @@ An epic stub is an epic identified but not yet planned — an epic issue carryin
 
 ## How It Works
 
-Two writers create stubs: the epic stage when scope exceeds one epic, and the close stage when it defers scope. Both author transient work-items and file them through the one batch filing path, which takes its canonical classification from the caller instead of stamping everything a story. That path upserts every label it will apply before creating anything, and a label it can neither create nor find stops the run with nothing created. A stub is never a sub-issue — its link to the epic that spawned it is a body mention — because the close gate that blocks on open sub-issues has no exemptions and would deadlock on a stub it just filed. Feature, estimate, candidate stories and provenance live in the body, never in labels. Planning a stub fills in that same issue, files its story children beneath it, and clears the label; nothing is created and nothing is closed. A stub too large to become one epic is closed as not planned, naming its successors.
+Three writers create stubs: the epic stage when scope exceeds one epic, the approval gate when the reviewer declines asked-for scope, and the close stage when it defers. Both author transient work-items and file them through the one batch filing path, which takes its canonical classification from the caller instead of stamping everything a story. That path upserts every label it will apply before creating anything, and a label it can neither create nor find stops the run with nothing created. A stub is never a sub-issue — its link to the epic that spawned it is a body mention — because the close gate that blocks on open sub-issues has no exemptions and would deadlock on a stub it just filed. Feature, estimate, candidate stories and provenance live in the body, never in labels. Planning a stub fills in that same issue, files its story children beneath it, and clears the label; nothing is created and nothing is closed. A stub too large to become one epic is closed as not planned, naming its successors.
 
 ## Key Invariants
 
 1. A stub is an epic issue carrying the declared epic classification; no third kind of issue exists.
-2. Exactly one label denotes the unplanned state; feature, estimate, candidate stories and provenance are body content.
+2. Exactly one label denotes the unplanned state; feature, estimate, candidate stories, provenance and a deferral's story count are body content. A run planning a one-story deferral defers nothing further.
 3. The issue number is a stub's only identifier; no second lookup key is recorded or accepted as input.
 4. Promotion populates that same issue and clears the label — never a second issue, never a close.
 5. A stub too large for one epic is closed as not planned naming its successors, never as completed.
@@ -28,6 +28,7 @@ Two writers create stubs: the epic stage when scope exceeds one epic, and the cl
 ## Integration Points
 
 - [epic-approval-gate](epic-approval-gate.md) — what oversized scope becomes, and what a promotion re-enters this gate as.
+- [addition-gate](addition-gate.md) — the convention whose declined asked-for stories become one deferral stub here.
 - [publishing-config-resolution](publishing-config-resolution.md) — supplies the unplanned label and the classification the batch filing path stamps, as resolved keys rather than hard-coded values.
 - [issue-sourced-planning](issue-sourced-planning.md) — its resolver refuses an unplanned epic by name instead of emitting one whose story set is empty.
 - [durable-close-record](durable-close-record.md) — carries the numbers deferred scope was filed under, so the stubs are filed before that comment is composed.
@@ -66,3 +67,7 @@ The term "backlog stub" collided with "the product backlog" — the general list
 ### 2026-09-08 — #483 — Reciprocal link from intake-lane
 
 Mechanical reciprocity fan-out: the intake lane files a landed change's kept follow-ups through this same batch contract, unchanged, after its own approval gate.
+
+### 2026-09-13 — #576 — Declined asked-for scope defers here, and the chain has a floor
+
+The planning gate inverted its default, so a plain approval files the smallest usable version and leaves the rest offered. Asked-for scope the reviewer does not take is deferred rather than dropped, because dropping it would lose something the lead requested without telling anyone. The stub producer, its filer, its label resolution and its resumability already existed, and a stub planned later meets the same command and the same gate by construction, so the deferral reuses all of it rather than inventing a second carrier. The stub's number is recorded back onto the draft the way the epic's is, which is what stops a re-run of a partially completed filing from creating a second stub. It carries story titles only, because a deferred title is drafted again when it is planned, so criteria copied across would be criteria nobody approved for the epic that ships them. Deferral is recursive, so it needed a floor: a stub records how many stories it carries, and a run planning a one-story deferral files the remainder and defers nothing further. Requiring each deferral to be strictly smaller than the one before was considered and refused, because a deferred title is drafted again and the story count can legitimately grow, so the rule would either block a correct plan or be waived until it meant nothing.
