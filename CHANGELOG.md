@@ -19,6 +19,12 @@ behaviour says so.
   The store (`asset-store`, `owner/repo` or `owner/repo@branch`) and the per-file cap
   (`asset-size-cap`, default 5 MB) are declared once, in the same settings block as the issues
   repository, and a hub may declare them for every member.
+- `decision-record` accepts the same `--assets <path>…`, on a first filing and on `--revise`: the
+  record sub-issue carries the diagram the decision was made against, published only after the
+  pre-filing checkpoint is answered with an approval and referenced at the commit that published it.
+  A revision's new assets are new commits even when they reuse a file name, so every reference in
+  the superseded body still resolves. A repository with no declared store files the record without
+  them and says so once.
 
 ## 0.35.0
 

@@ -232,3 +232,50 @@ describe("the post-approval rewrite", () => {
         expect(store.writes()).toEqual([]);
     });
 });
+
+describe("a revised record with new assets (story #599)", () => {
+    it("publishes a reused file name as a new commit and leaves the earlier reference resolving to the earlier content", () => {
+        const root: string = workspace(SETTINGS, {
+            "v1/diagrams/flow.png": "FIRST-DIAGRAM",
+            "v2/diagrams/flow.png": "SECOND-DIAGRAM",
+            "record-v1.md": "## Chosen approach\n\n![flow](diagrams/flow.png)\n",
+            "record-v2.md": "## Chosen approach\n\n![flow](diagrams/flow.png)\n",
+        });
+        // A store stand-in that keeps every commit's snapshot, so a pinned commit can be read back.
+        const current: Map<string, { sha: string; content: string }> = new Map();
+        const snapshots: Map<string, Map<string, string>> = new Map();
+        const puts: Record<string, string>[] = [];
+        let n = 0;
+        const run: GhRunner = (args: string[]): RunResult => {
+            const filePath = (segment: string): string => segment.replace(/^repos\/[^/]+\/[^/]+\/contents\//, "").replace(/\?.*$/, "");
+            if (args.includes("PUT")) {
+                const target: string = filePath(args[3]);
+                const body = JSON.parse(fs.readFileSync(args[args.indexOf("--input") + 1], "utf8")) as Record<string, string>;
+                puts.push(body);
+                const existing = current.get(target);
+                if (existing && body["sha"] !== existing.sha) return { status: 1, stdout: "", stderr: "HTTP 422: sha mismatch" };
+                n++;
+                current.set(target, { sha: `blob${n}`, content: body["content"] });
+                snapshots.set(`c${n}`, new Map([...current].map(([p, f]) => [p, f.content])));
+                return { status: 0, stdout: JSON.stringify({ commit: { sha: `c${n}` } }), stderr: "" };
+            }
+            const existing = current.get(filePath(args[1]));
+            return existing ? { status: 0, stdout: existing.sha, stderr: "" } : { status: 1, stdout: "", stderr: "HTTP 404" };
+        };
+        const at = (commit: string, p: string): string => Buffer.from(snapshots.get(commit)?.get(p) ?? "", "base64").toString();
+
+        const first = recordingIo(path.join(root, "v1"));
+        expect(runAssets(["rewrite", "--body", "../record-v1.md", "--asset", "diagrams/flow.png", "--feature", "f", "--root", root], first, run)).toBe(0);
+        const second = recordingIo(path.join(root, "v2"));
+        expect(runAssets(["rewrite", "--body", "../record-v2.md", "--asset", "diagrams/flow.png", "--feature", "f", "--root", root], second, run)).toBe(0);
+
+        const v1: string = fs.readFileSync(path.join(root, "record-v1.md"), "utf8");
+        const v2: string = fs.readFileSync(path.join(root, "record-v2.md"), "utf8");
+        expect(v1).toContain("blob/c1/features/f/flow.png?raw=true");
+        expect(v2).toContain("blob/c2/features/f/flow.png?raw=true");
+        expect(at("c1", "features/f/flow.png")).toBe("FIRST-DIAGRAM");
+        expect(at("c2", "features/f/flow.png")).toBe("SECOND-DIAGRAM");
+        // The second write updated the path with the existing blob's sha: an update commit, never a force-overwrite.
+        expect(puts[1]["sha"]).toBe("blob1");
+    });
+});
