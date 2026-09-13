@@ -90,7 +90,7 @@ describe("a declaration resolves to a component from the shared library", () => 
     });
 
     it("ships with predict-then-reveal, its first component", () => {
-        expect(Object.keys(WIDGET_MANIFEST)).toEqual(["predict-then-reveal"]);
+        expect(Object.keys(WIDGET_MANIFEST)).toContain("predict-then-reveal");
     });
 
     it("leaves an ordinary code block alone", () => {
@@ -162,7 +162,7 @@ describe("a widget the learner has not touched still prints", () => {
         expect(printed.shows("Show the answer to: where does the store live?")).toBe(false);
     });
 
-    it("changes only what is visible when the learner does interact", () => {
+    it("never creates, fetches or runs content when the learner does interact", () => {
         const script = renderScript();
 
         expect(script).toContain("hidden");

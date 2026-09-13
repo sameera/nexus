@@ -1,0 +1,24 @@
+## 2026-09-13 — Checkable answer pairs with its expected copy by position in the widget
+- **Choice:** The n-th `[data-check]` in a widget compares against the n-th `[data-expected]` in the same widget.
+- **Why:** Components render from data alone and cannot mint page-unique ids deterministically, while position is fixed at render time.
+- **Refuted alternative:** Generated ids linking each check to its copy, which would need a per-page counter threaded through the seam.
+
+## 2026-09-13 — Reveal-after-first-check is enforced by the runtime, not the render
+- **Choice:** Every page show disables the reveal control of any widget holding a checkable answer; a check re-enables it.
+- **Why:** Keeps the widget contract and shell unchanged (#616 chosen approach) and doubles as the back/forward-cache reset.
+- **Refuted alternative:** A new contract flag making the shell render the reveal control `disabled`.
+
+## 2026-09-13 — A control that rearranges parts signals the change with an `input` event
+- **Choice:** The check clears on any `input` event inside a checkable answer; later controls dispatch one after moving parts.
+- **Why:** Lets #518/#519 consume the checking unchanged instead of calling into it.
+- **Refuted alternative:** Exposing a clear-result function each component's runtime calls directly.
+
+## 2026-09-13 — Code fields are dotted paths with a `*` wildcard; the markup check reads the remaining scalars
+- **Choice:** `codeFields` on the component contract; the renderer removes those values from the parsed declaration and scans every other key and scalar.
+- **Why:** The trace stepper's code lives inside a list of steps, so field names alone cannot name it.
+- **Refuted alternative:** Top-level field names only.
+
+## 2026-09-13 — Checking behaviour is specified by running the shipped script in jsdom
+- **Choice:** A learner fixture opens the rendered page with `JSDOM` (`runScripts: "outside-only"`), evals `workbook.js`, and traps network/storage/cookie/history access.
+- **Why:** The spacing rule, gating and resets only exist when the script runs (#616 ADDRESS risk); a parsed document without a browsing context cannot focus.
+- **Refuted alternative:** Running the script with `new Function` against a `DOMParser` document.
