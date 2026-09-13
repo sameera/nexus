@@ -4,12 +4,12 @@ import { renderRazorFindings } from "./render.js";
 
 /** Every story the draft declares, ordered as independent of each other — the ordering block is not what these tests are about. */
 function orderingFor(stories: string): string[] {
-    return [...stories.matchAll(/^### Story #?\d+: (.+)$/gm)].map((m: RegExpMatchArray) => `- **${m[1].trim()}** — blocked by: none`);
+    return [...stories.matchAll(/^### Story #?\d+: (.+?)(?: `\[[^\]]*\]`)?$/gm)].map((m: RegExpMatchArray) => `- **${m[1].trim()}** — blocked by: none`);
 }
 
 function draft(parts: { stories?: string; assumptions?: string[]; outOfScope?: string[]; personas?: string }): string {
     const stories: string =
-        parts.stories ?? ["### Story 1: One", "", "#### Acceptance Criteria", "", "- [ ] **Given** a, **when** b, **then** c `[inferred]`"].join("\n");
+        parts.stories ?? ["### Story 1: One `[inferred]`", "", "#### Acceptance Criteria", "", "- [ ] **Given** a, **when** b, **then** c `[inferred]`"].join("\n");
     return [
         "# Epic: A Capability",
         "",
@@ -37,7 +37,7 @@ function draft(parts: { stories?: string; assumptions?: string[]; outOfScope?: s
 }
 
 const acs = (n: number): string[] => Array.from({ length: n }, (_, i) => `- [ ] **Given** a${i}, **when** b, **then** c \`[inferred]\``);
-const story = (title: string, lines: string[]): string => ["### Story 1: " + title, "", "#### Acceptance Criteria", "", ...lines].join("\n");
+const story = (title: string, lines: string[]): string => ["### Story 1: " + title + " `[inferred]`", "", "#### Acceptance Criteria", "", ...lines].join("\n");
 const blocking = (findings: RazorFinding[]): RazorFinding[] => findings.filter((f: RazorFinding) => f.severity === "blocking");
 
 describe("a draft that meets every rule", () => {
@@ -157,7 +157,7 @@ describe("the draft-time ordering block", () => {
     it("raises nothing when every story has a row and every blocker names a story", () => {
         const draft: string = withOrder(
             ["- **One** — blocked by: none", "- **Two** — blocked by: One"],
-            ["### Story 1: One", "", "### Story 2: Two"],
+            ["### Story 1: One `[inferred]`", "", "### Story 2: Two `[inferred]`"],
         );
         expect(checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "ordering")).toEqual([]);
     });
@@ -180,7 +180,7 @@ describe("the draft-time ordering block", () => {
     it("blocks a row that places a story the draft does not have", () => {
         const draft: string = withOrder(
             ["- **One** — blocked by: none", "- **Ghost** — blocked by: One"],
-            ["### Story 1: One"],
+            ["### Story 1: One `[inferred]`"],
         );
         expect(checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "ordering" && f.where === "Ghost")).toHaveLength(1);
     });
@@ -188,7 +188,7 @@ describe("the draft-time ordering block", () => {
     it("blocks a cycle, which no ordering can satisfy", () => {
         const draft: string = withOrder(
             ["- **One** — blocked by: Two", "- **Two** — blocked by: One"],
-            ["### Story 1: One", "", "### Story 2: Two"],
+            ["### Story 1: One `[inferred]`", "", "### Story 2: Two `[inferred]`"],
         );
         expect(checkDraft(draft, "").some((f: RazorFinding) => f.rule === "ordering" && /cycle/i.test(f.message))).toBe(true);
     });
@@ -218,7 +218,7 @@ describe("the smallest usable version, as a checked boundary", () => {
         ].join("\n");
 
     const three: string[] = ["- **One** — blocked by: none", "- **Two** — blocked by: One", "- **Three** — blocked by: none"];
-    const headings: string[] = ["### Story 1: One", "", "### Story 2: Two", "", "### Story 3: Three"];
+    const headings: string[] = ["### Story 1: One `[inferred]`", "", "### Story 2: Two `[inferred]`", "", "### Story 3: Three `[inferred]`"];
     const closure = (draft: string): RazorFinding[] => checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "closure");
 
     it("raises no finding when the named set needs nothing outside itself", () => {
@@ -275,5 +275,26 @@ describe("the report a stopped run hands its author", () => {
         expect(report).toContain("scratch/epic.md");
         expect(report).toContain("Two");
         expect(report).toContain("One");
+    });
+});
+
+describe("the provenance label on a story heading", () => {
+    const epic = (heading: string): string =>
+        ["# Epic: Something", "", "## Implementation Order", "", "- **One** — blocked by: none", "", "## User Stories", "", heading, ""].join("\n");
+
+    it("blocks a story heading that carries no label, the way an unlabelled criterion does", () => {
+        const findings: RazorFinding[] = checkDraft(epic("### Story 1: One"), "").filter((f: RazorFinding) => f.rule === "provenance-label");
+        expect(findings).toHaveLength(1);
+        expect(findings[0].severity).toBe("blocking");
+        expect(findings[0].where).toContain("One");
+    });
+
+    it("accepts a labelled heading", () => {
+        expect(checkDraft(epic("### Story 1: One `[inferred]`"), "").filter((f: RazorFinding) => f.rule === "provenance-label")).toEqual([]);
+    });
+
+    it("checks the heading's asked fragment against the source text like any other citation", () => {
+        const body: string = epic('### Story 1: One `[asked: "a thing the lead never said"]`');
+        expect(checkDraft(body, "the lead asked for something else entirely").some((f: RazorFinding) => f.rule === "citation")).toBe(true);
     });
 });

@@ -27,3 +27,15 @@
 - **Choice:** `renderRazorFindings` prefixes its findings with `razor-check: <draft> — <n> finding(s):`.
 - **Why:** The story requires a stopped run to name the draft as well as the story at fault; the findings themselves carry only the story.
 - **Refuted alternative:** Put the draft path into every finding's message.
+
+## 2026-09-12 — The gate renders three groups, not two
+
+- **Choice:** The digest renders "What a plain approval files", "Additions", and "Removals" — one numbered list across all three.
+- **Why:** The record requires additions in two labelled groups and sub-item removal kept opt-out; showing the filed set first is what makes the new default legible before the reviewer reads anything optional.
+- **Refuted alternative:** Render only the two addition groups and leave the filed set implicit in the digest's story list above.
+
+## 2026-09-12 — An unlabelled story heading reads as inferred rather than throwing
+
+- **Choice:** `storyProvenance` treats a heading with no label as `inferred`; the checker is what blocks it.
+- **Why:** The conservative reading — an unlabelled story is never filed by default — and it keeps the reader total, so the gate can render a draft the checker is about to reject.
+- **Refuted alternative:** Throw on an unlabelled heading and make every caller handle it.

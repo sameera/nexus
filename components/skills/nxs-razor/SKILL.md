@@ -18,8 +18,9 @@ in an agent instead.
 
 ## 1. The provenance rule
 
-Every **acceptance criterion**, **assumption** and **out-of-scope item** in a drafted epic carries
-exactly one of two labels, written inline immediately after the item it labels:
+Every **acceptance criterion**, **assumption** and **out-of-scope item** in a drafted epic — and
+**the story heading itself** — carries exactly one of two labels, written inline immediately after
+the item it labels:
 
     - <the item> `[asked: "<verbatim fragment of the source text>"]`
     - <the item> `[inferred]`
@@ -27,8 +28,13 @@ exactly one of two labels, written inline immediately after the item it labels:
 - **`asked`** — the lead asked for this. The fragment is quoted from the run's source text.
 - **`inferred`** — the drafting model added this. Not a confession; a fact a reviewer needs.
 
-**The vocabulary is two-valued and stays that way.** No "partly asked", no confidence score, no
-third state anywhere the razor reaches. A third value restores the judgment call the rule exists to
+A story's label is the one that decides what the approval gate files by default (§8), so it is a
+claim the reviewer has to be able to reject: the gate renders each asked story's fragment verbatim
+beside the story it justifies. The citation rule (§3) applies to it unchanged — what the check proves
+is that the quote exists, not that it licenses the story.
+
+**The vocabulary is two-valued and stays that way**, at every granularity it reaches, the story
+heading included. No "partly asked", no confidence score. No third value anywhere the razor reaches. A third value restores the judgment call the rule exists to
 remove: the model then labels its own additions with the softest value that survives review.
 
 The labels are **drafting-time only**. They serve three readers — the author writing, the gate

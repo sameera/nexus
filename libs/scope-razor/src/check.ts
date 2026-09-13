@@ -10,6 +10,7 @@
  */
 
 import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, normalize, type Citation } from "./citations.js";
+import { stripLabels } from "./labels.js";
 import {
     NECESSITY_HEADING,
     orderedByUnlock,
@@ -101,6 +102,7 @@ function checkStories(draft: string): RazorFinding[] {
     for (const story of sections(draft, "###")) {
         const criteria: string[] = story.lines.filter((line: string) => /^- \[[ x]\] /.test(line));
         const reason: boolean = story.lines.some((line: string) => /^\*\*Reason for /.test(line.trim()));
+        findings.push(...unlabelled([`- ${story.heading}`], `Story: ${stripLabels(story.heading).trim()}`));
         findings.push(...unlabelled(criteria, story.heading));
         if (criteria.length > AC_CEILING && !reason) {
             findings.push({

@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.39.0
+
+- **The `/nxs.epic` approval gate now offers additions instead of cuts.** A plain approval files the
+  smallest usable version and nothing else. Every other story is offered in one stably numbered list
+  under *Additions*, and you file it only by naming its number. The stories you asked for sort first
+  and are rendered as asked-for, each carrying verbatim the fragment of your own words the drafting
+  model cited for it — so a story claiming your authority is a claim you can reject in the one place
+  you are already deciding. Within each group the order follows what unlocks what, never a ranking by
+  value. A model-added story you do not take is discarded and leaves no trace. The inversion is at
+  story granularity only: a model-added acceptance criterion, assumption or out-of-scope item on a
+  story that *is* being filed stays opt-out, listed under *Removals*, and one typed selection covers
+  both directions. An empty selection is still identical to a plain approval.
+- Every **story heading** in a drafted epic now carries a provenance label, because a story's label
+  is what decides whether it is filed by default. `nexus razor-check` blocks an unlabelled heading and
+  checks an `asked` heading's fragment against the run's source text like any other citation.
+
 ## 0.38.0
 
 - The smallest usable version an epic names is now **checked before you see the approval gate**, not

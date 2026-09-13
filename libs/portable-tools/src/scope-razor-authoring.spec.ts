@@ -224,33 +224,57 @@ describe("the cut-gate convention", () => {
 describe("the approval digest", () => {
     const epic: string = read("commands/nxs.epic.md").replace(/\s+/g, " ");
 
-    it("renders one numbered cut list grouped by story", () => {
-        expect(epic).toContain("### Cuts");
-        expect(epic).toMatch(/every `inferred` item/);
+    it("files the smallest usable version on a plain approval, and nothing else", () => {
+        expect(epic).toContain("### What a plain approval files");
+        expect(epic).toMatch(/a plain approval files the smallest usable version and nothing else/i);
     });
 
-    it("offers three actions, so approving with cuts is one choice rather than a re-run", () => {
-        expect(epic).toContain("**approve with cuts**");
-        expect(epic).toContain("**approve as drafted**");
+    it("offers the rest as additions the reviewer has to name, in one stably numbered list", () => {
+        expect(epic).toContain("### Additions — taken only if you name them");
+        expect(epic).toMatch(/One stably numbered list/);
+        expect(epic).toMatch(/one typed selection covers both/i);
     });
 
-    it("offers an excluded asked-for story as asked-for, never as an addition", () => {
-        expect(epic).toMatch(/Never render an asked-for story as an addition/);
+    it("offers three actions, so adding scope is one choice rather than a re-run", () => {
+        expect(epic).toContain("**approve with changes**");
+        expect(epic).toContain("**approve** —");
     });
 
-    it("applies cuts before any issue is created", () => {
+    it("sorts the asked-for stories first and renders each with the fragment that claims it", () => {
+        expect(epic).toMatch(/sort \*\*first\*\* and are rendered \*\*asked-for\*\*/);
+        expect(epic).toMatch(/asked fragment verbatim beside it/);
+    });
+
+    it("orders the offer by what each item unlocks, never by a ranking of value", () => {
+        expect(epic).toMatch(/what each item unlocks, never a ranking by value/);
+        expect(epic).toMatch(/scoring its own additions/);
+    });
+
+    it("inverts at story granularity only, keeping sub-story items opt-out", () => {
+        expect(epic).toContain("### Removals — applied unless you name them");
+        expect(epic).toMatch(/inversion is at story granularity only/i);
+        expect(epic).toMatch(/file with no criteria at all/);
+    });
+
+    it("discards what the reviewer does not take rather than banking it", () => {
+        expect(epic).toMatch(/is discarded and leaves no trace anywhere/);
+    });
+
+    it("treats an empty selection as a plain approval", () => {
+        expect(epic).toMatch(/empty selection is identical to a plain approval/i);
+    });
+
+    it("applies the approved set before any issue is created", () => {
         expect(epic).toMatch(/before\*\* Phase 6 derives the filing body/);
     });
 
-    it("re-parents the dependents of a cut story and states the cascade before applying it", () => {
-        expect(epic).toMatch(/Re-parent the dependents of a cut story/);
+    it("re-parents the dependents of a dropped story and states the cascade before applying it", () => {
+        expect(epic).toMatch(/Re-parent the dependents of a dropped story/);
         expect(epic).toMatch(/have the lead confirm before applying it/);
     });
 
-    it("re-derives the complexity rollup, the design-warrant label and the risk banner after a whole-story cut", () => {
+    it("re-derives what the story set determined over the filed set", () => {
         expect(epic).toMatch(/re-derive what the story set determined/i);
-        expect(epic).toContain("needs-design");
-        expect(epic).toMatch(/re-derived, or removed/);
     });
 });
 
@@ -436,5 +460,18 @@ describe("the closure rule", () => {
     it("raises nothing where there is no smallest-usable-version section, and adds no minimum-count rule", () => {
         expect(skill.replace(/\s+/g, " ")).toMatch(/carries no `## Smallest Usable Version` section raises \*\*no finding\*\*/);
         expect(skill.replace(/\s+/g, " ")).toMatch(/no minimum-count check of any kind/);
+    });
+});
+
+describe("a story's own provenance label", () => {
+    const epic: string = read("commands/nxs.epic.md");
+
+    it("is written on the story heading, because it is what decides whether the story is filed", () => {
+        expect(epic.replace(/\s+/g, " ")).toMatch(/label every story heading/i);
+    });
+
+    it("keeps the vocabulary two-valued at the granularity it now governs", () => {
+        expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/the story heading itself/i);
+        expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/No third value/);
     });
 });
