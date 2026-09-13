@@ -1,8 +1,8 @@
 ---
 title: "Just-In-Time Lesson"
-aliases: ["written on arrival", "lesson written when the learner arrives", "arrival", "exercise half", "revisit a hinted concept", "one lesson ahead"]
-touches: ["teaching-session", "teaching-plan", "cold-drill", "lesson-renderer", "learner-folder"]
-last_updated_by: "#407"
+aliases: ["written on arrival", "lesson written when the learner arrives", "arrival", "exercise half", "revisit a hinted concept", "one lesson ahead", "pinning test written on arrival"]
+touches: ["teaching-session", "teaching-plan", "cold-drill", "lesson-renderer", "learner-folder", "slice-identity", "plan-field-ownership"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -13,9 +13,9 @@ A lesson is written at the moment the learner reaches it, and never before. Writ
 
 ## How It Works
 
-Arrival walks the plan in order. The first slice with no lesson is where the learner is: a slice they build gets a lesson, and a slice they do not gets handed off. A slice that already has a lesson but an unfinished exercise is opened again rather than rewritten. An exercise is finished when the pinning test the lesson named is present in the tree, which is the text the fence check runs, so there is one notion of done rather than two that can disagree.
+Arrival walks the plan in order. The first slice with no lesson is where the learner is: a slice they build gets a lesson, a scaffold one with no exercise, and a slice they do not build a handoff. A slice that already has a lesson but an unfinished exercise is opened again rather than rewritten. An exercise is finished when the pinning test the lesson named is present in the tree, the text the fence check runs, so there is one notion of done rather than two that can disagree.
 
-The exercise half names the story, the branch, the pinning test to write first, that test's own text, and the grading command. Every one of those facts comes from the plan, so a lesson cannot name a branch or a test the session did not choose.
+The exercise half names the story, the branch, the pinning test to write first, that test's own text, and the grading command. Those facts come from the plan; the test's own text is written at this arrival and recorded there first.
 
 A concept the learner took a hint on in the lesson they have just finished is asked about again in this one. The drill cannot carry that, because a concept from the last lesson is not a cold recall.
 
@@ -36,9 +36,15 @@ A concept the learner took a hint on in the lesson they have just finished is as
 - [cold-drill](cold-drill.md) — the section that opens the lesson, which never carries a concept from the lesson just finished.
 - [lesson-renderer](lesson-renderer.md) — what turns the written lesson into the page the session opens for the learner.
 - [learner-folder](learner-folder.md) — the hint counts that say which concepts this lesson comes back to.
+- [slice-identity](slice-identity.md) — the name this lesson's file takes, and the reason the lesson itself is what marks its slice done.
+- [plan-field-ownership](plan-field-ownership.md) — why the pinning test is this arrival's to write rather than approval's, and why it is written once.
 
 ## Decision Log
 
 ### 2026-09-07 — #407 — Finished is the pinning test in the tree, and the hint log has a second use
 
 A slice is finished when the file the lesson named as its pinning test is present, and nothing else. Position is then derived from committed lessons plus files in the tree, so it is the same on every run, and a red suite reports itself as the blocker instead of the session claiming a finished exercise is unfinished. Folding the suite result into finished-ness was the first cut here and was refuted: it made every written slice read as unfinished on a red suite, so a learner who had finished their exercise was told it was not done, and a handoff slice that might have fixed the suite could never be reached. Concepts the learner took a hint on in the last lesson are carried into the brief and the lesson refuses to omit them, which puts the fact on the committed page where a teammate's checkout can read it without a hint log. Refuted alternative: fold those concepts into the next slice's concept list. It is cheaper, but that list means introduced here, so a revisited concept would read as freshly taught, would go cold one lesson late, and nothing would check the prose mentioned it.
+
+### 2026-09-13 — #458 — The pinning test is written on arrival too, and a scaffold's lesson has no exercise
+
+Writing on arrival now covers the exercise's pinning test, not only the lesson's prose. An approved plan holds no test for a slice the learner has not reached, so the arrival that writes the lesson also writes that slice's test, records it in the plan, and composes the lesson from the recorded value — which keeps every fact the exercise asserts a fact the plan holds. A test is written once and never rewritten, so the lesson and the fence probe always show the same words. Producing every test at approval was refused: it means generating tests for a whole roadmap from story text the planning session never holds, at a gate that shows no prose, and they would go stale before the learner reached them — which is what writing on arrival exists to avoid. A scaffold's lesson has no exercise half at all, because a scaffold builds nothing and so has no branch and no test. This entry also records the reciprocal links from slice-identity and plan-field-ownership.

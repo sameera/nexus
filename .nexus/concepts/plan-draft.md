@@ -1,15 +1,15 @@
 ---
 title: "Plan Draft"
 aliases: ["plan stub", "uncommitted draft", "draft of slices", "stub contract", "assumed concepts", "several slices per story", "draft verdict"]
-touches: ["teaching-plan", "story-concept-extraction", "concept-vocabulary-merge", "focus-marking", "plan-rewrite", "prior-knowledge-declaration", "scaffold-slice", "coverage-check"]
-last_updated_by: "#457"
+touches: ["teaching-plan", "story-concept-extraction", "concept-vocabulary-merge", "focus-marking", "plan-rewrite", "prior-knowledge-declaration", "scaffold-slice", "coverage-check", "plan-approval-gate"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
 
 # Plan Draft
 
-A planning pass writes the plan's slices as stubs into an uncommitted draft beside the resolved roadmap, never into the committed workbook. A stub declares its story, or the concept a scaffold teaches, whether the learner builds it, and the concepts it introduces and assumes. Approval is what turns the draft into the committed plan.
+A planning pass writes the plan's slices as stubs into an uncommitted draft beside the resolved roadmap, never into the committed workbook. A stub declares its story, or the concept a scaffold teaches, whether the learner builds it, and the concepts it introduces and assumes. Approval turns the draft into the committed plan and leaves the draft in place.
 
 ## How It Works
 
@@ -37,6 +37,7 @@ The stub uses the shipped plan's own names for the story, the mark and the intro
 - [prior-knowledge-declaration](prior-knowledge-declaration.md) — the removed concepts and quoted phrases this draft keeps for the reviewer.
 - [scaffold-slice](scaffold-slice.md) — the slice with no story, which only this draft admits.
 - [coverage-check](coverage-check.md) — the verdict this draft carries beside its slices.
+- [plan-approval-gate](plan-approval-gate.md) — the checkpoint that prints this draft, refuses it when its coverage is not clean, and turns it into the committed plan.
 
 ## Decision Log
 
@@ -47,3 +48,7 @@ A stub cannot carry the state its story was pinned to, a branch or a pinning tes
 ### 2026-09-12 — #457 — A story may become several slices, and a slice may have no story
 
 The rule that one story is one slice was enforced in code, so it was replaced rather than relaxed. Without a replacement, nothing tells a legitimate split from a duplicated stub. A split slice carries a plain part number, and a story's parts must run from one with no gap. A scaffold names its concept instead of a story, because it builds nothing on the roadmap. The draft also keeps the declared concepts beside the learner's phrases, the unmatched phrases and the coverage verdict, so the reviewer and the approval gate read them from the plan itself. Once the rewrite has run, the draft no longer keeps the roadmap's arriving order. This entry also records the reciprocal links from plan-rewrite, prior-knowledge-declaration, scaffold-slice and coverage-check. Refuted alternative: keep one slice per story and hold a split as ordered chunks inside it. Every reader keyed on the story keeps working, but a chunk is invisible to ordering, to coverage and to the learner's progress, so the plan would describe its sequence in two places.
+
+### 2026-09-13 — #458 — The draft survives approval, because it holds the judgements a rebuild reuses
+
+Approval was expected to consume the draft. It does not: the draft stays where it is, and beside it now sit three derived records — the concept merge the draft was built from, the reviewer's mark overrides, and a fingerprint of the digest the gate last printed. A mark change at the gate rebuilds the draft from the checked lists under all three rather than asking the learner-word match again, which is what makes changing a mark and changing it back give the same draft. Discarding the draft at approval was refused for that reason: the rebuild would either put removed concepts back silently or ask the learner a question they already answered. None of these records is committed, and the learner's quoted phrases stay in the draft and reach no committed file. This entry also records the reciprocal link from plan-approval-gate.

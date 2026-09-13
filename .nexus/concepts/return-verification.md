@@ -1,8 +1,8 @@
 ---
 title: "Return Verification"
 aliases: ["suite gate", "fence probe", "breached fence", "unchecked fence", "returning from a pause", "unintegrated handoff", "probe control"]
-touches: ["teaching-session", "teaching-plan", "workbook-handoff"]
-last_updated_by: "#407"
+touches: ["teaching-session", "teaching-plan", "workbook-handoff", "plan-field-ownership"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -15,7 +15,7 @@ A learner returning from a pause comes back to a repository somebody else has be
 
 The suite is always the full declared one, never a narrowed subset. Its result gates everything after it, and a probe result taken while the suite is red is never a breach: the absence of a failing probe there says nothing about whether the fence held.
 
-Two probes run on a return, answering different questions. The handed-off slice's own test runs first, and a failure means that work is not in this tree. Only then does the next slice's test run, for the breach.
+Two probes run on a return, answering different questions. The handed-off slice's test runs first; a failure means that work is not in this tree. Only then the next story slice's test runs, for the breach; a scaffold has none.
 
 The probe writes the test's own text at one scratch location, swept at the start of every session and removed after each run, so a crashed probe never leaves a mystery failing test in the learner's source tree. It names that location to the grading command, so the verdict is about that test and nothing else.
 
@@ -35,9 +35,14 @@ A single test file cannot run alone in every stack, so a workbook may declare a 
 - [teaching-session](teaching-session.md) — the chain that runs these checks on a return, before anything else is taught.
 - [teaching-plan](teaching-plan.md) — where the suite, grading and control commands are declared, and where a slice's pinning test text lives.
 - [workbook-handoff](workbook-handoff.md) — the pause these checks resolve, marked as verified only after a green suite and an intact fence.
+- [plan-field-ownership](plan-field-ownership.md) — who writes the two tests these probes run, and why they exist before the handoff prompt does.
 
 ## Decision Log
 
 ### 2026-09-07 — #407 — A third fence state, proven by a declared control test
 
 A pass-or-fail probe made a pinning test that cannot compile, or cannot run on its own, indistinguishable from an intact fence, and the session taught on. So the fence has three states and an unchecked one blocks with its own report, and the workbook declares a control test known to pass to tell the two apart. The decided fallback is that declared control rather than detecting the stack, because a control test fails in exactly the case the risk is about. A pause naming a story the plan holds no slice for gained its own blocking outcome: the plan is where a pinning test lives, so such a pause has nothing to probe, and the earlier path ran no probe, left the fence unset, and marked the pause verified when nothing had verified it. Refuted alternative: read the run's exit status or output to guess whether the test actually executed. No status or message is portable across test runners, so the guess would be wrong in exactly the stacks the risk names, and being wrong there is invisible.
+
+### 2026-09-13 — #458 — Both probed tests are written before the handoff, and the fence steps over a scaffold
+
+These checks probe two tests, and until now nothing guaranteed either existed: an approved plan holds no pinning test for a slice the learner has not reached. A handoff arrival now writes both before the prompt — the handed-off slice's, which the first probe runs, and the next slice's, which the second fences — so a pause can always be verified. A scaffold builds nothing and has no test, so the fence skips it and probes the next slice that builds a story. **Known deviation, filed as #604:** when that next slice carries no pinning test the probe is not run and the return is nonetheless reported as verified, with a note that the fence is intact — which is exactly what invariant 3 forbids. The gated flow cannot reach it, because a handoff arrival writes both tests first; it is reachable only from a hand-written plan whose later slice carries no test. The page keeps asserting the rule, because the rule is the contract and this is a defect against it. This entry also records the reciprocal link from plan-field-ownership.
