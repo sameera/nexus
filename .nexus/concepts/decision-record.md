@@ -1,7 +1,7 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification"]
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement"]
 last_updated_by: "#211"
 status: active
 verification: verified
@@ -42,6 +42,8 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 - [intake-lane](intake-lane.md) — never files one; a landed change's why is read from its pull request instead, hash-verified against that body rather than a record.
 - [issue-kind-classification](issue-kind-classification.md) — decides whether the issue the design stage's import was handed is the epic.
 
+- [design-warrant](design-warrant.md) — the rule that decides which epics must have one of these at all.
+- [razor-enforcement](razor-enforcement.md) — this stage has no gate agent of its own, which is what settles where a shared check must live.
 ## Decision Log
 
 ### 2026-07-26 — #139 — The decision record becomes an approvable sub-issue
@@ -73,3 +75,7 @@ Mechanical reciprocity fan-out: the intake-lane page names this record as the ap
 ### 2026-09-10 — #211 — Reciprocal link from issue-kind-classification
 
 Mechanical reciprocity fan-out: importing a design doc names an epic issue, and the check that the named issue really is an epic now reads the repository's declared marker instead of the issue graph's shape. The previous check refused any issue that had a parent, which refused every genuine epic in a repository that files its epics under an initiative. An unmarked issue still resolves unless it is a sub-issue of something, so a repository that labels nothing is unaffected.
+
+### 2026-09-13 — #576 — Reciprocal link from design-warrant
+
+The needs-design label that demands a decision record follows from the epic's complexity rollup, which is now checked against the stories actually filed.
