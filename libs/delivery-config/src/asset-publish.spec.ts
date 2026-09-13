@@ -182,7 +182,7 @@ describe("the publish command", () => {
         const file: string = localFile("flow.png", "x");
         const io = recordingIo(root);
         expect(runAssets(["publish", "--file", file, "--feature", "issue-assets", "--root", root], io, store.run)).toBe(0);
-        expect(io.out).toEqual(["https://github.com/acme/assets/blob/commit1/features/issue-assets/flow.png"]);
+        expect(io.out).toEqual(["https://github.com/acme/assets/blob/commit1/features/issue-assets/flow.png?raw=true"]);
         const jsonIo = recordingIo(root);
         expect(runAssets(["publish", "--file", file, "--feature", "issue-assets", "--json"], jsonIo, store.run)).toBe(0);
         expect(JSON.parse(jsonIo.out[0])).toMatchObject({ path: "features/issue-assets/flow.png", commit: "commit2", filename: "flow.png" });

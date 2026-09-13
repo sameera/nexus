@@ -7,6 +7,7 @@
 
 import * as path from "node:path";
 import { publishAsset, type PublishResult } from "./asset-publish.js";
+import { type AssetReference, assetReference } from "./asset-reference.js";
 import {
     type AssetSizeCapResolution,
     type AssetStore,
@@ -21,7 +22,7 @@ import { type ToolkitIo } from "./io.js";
 const PROGRAM = "nexus assets";
 
 /** The subverbs this capability dispatches; the executable's registry reads the same list. */
-export const ASSETS_SUBVERBS: readonly string[] = ["resolve", "publish"];
+export const ASSETS_SUBVERBS: readonly string[] = ["resolve", "publish", "visibility"];
 
 export function assetsUsage(): string {
     return [
@@ -31,7 +32,9 @@ export function assetsUsage(): string {
         "  resolve [--root <path>]   Print the declared asset store as JSON, or { state: unsupported }.",
         "  publish --file <path> --feature <slug> [--root <path>] [--json]",
         "                            Publish one local file under features/<slug>/ in the store and print",
-        "                            the reference pinned to the commit the publish created.",
+        "                            the reference pinned to the commit the publish created, in the form",
+        "                            its reader renders: an image inline (raw flag), any other file a link.",
+        "  visibility [--root <path>] Read the store's visibility from GitHub once: prints public or private.",
     ].join("\n");
 }
 
@@ -121,13 +124,52 @@ export function runAssetsPublish(args: string[], io: ToolkitIo, run: GhRunner = 
         io.stderr(`assets ${result.problem}: ${result.message}`);
         return 1;
     }
-    io.stdout(json ? JSON.stringify(result.asset) : result.asset.url);
+    const reference: AssetReference = assetReference(result.asset);
+    io.stdout(json ? JSON.stringify({ ...result.asset, ...reference }) : reference.url);
+    return 0;
+}
+
+/** What GitHub says about the store: public, or private (an internal repository counts as private). */
+export type StoreVisibility = "public" | "private";
+
+export type VisibilityResult = { ok: true; visibility: StoreVisibility } | { ok: false; message: string };
+
+/**
+ * Read the store's visibility from GitHub. Read once per run, at intake; it feeds the approval
+ * digest and nothing else — it never selects a reference form (invariant 13). The read doubles as
+ * the existence-and-access probe: a store that cannot be read is named and stops the run.
+ */
+export function readStoreVisibility(store: AssetStore, run: GhRunner): VisibilityResult {
+    const result = run(["repo", "view", store.repo, "--json", "isPrivate", "--jq", ".isPrivate"]);
+    if (result.status !== 0) {
+        return { ok: false, message: `asset store ${store.repo} cannot be read: ${result.stderr.trim()}` };
+    }
+    const answer: string = result.stdout.trim();
+    if (answer !== "true" && answer !== "false") {
+        return { ok: false, message: `asset store ${store.repo} cannot be read: unexpected answer '${answer}'` };
+    }
+    return { ok: true, visibility: answer === "true" ? "private" : "public" };
+}
+
+/** `assets visibility [--root <path>]` — prints `public` or `private`; stops when the store cannot be read. */
+export function runAssetsVisibility(args: string[], io: ToolkitIo, run: GhRunner = cliGhRunner): number {
+    const { value: root, rest } = takeOption(args, "--root");
+    if (rest.length > 0) return usageError(io, `visibility: unexpected argument '${rest[0]}'`);
+    const store: AssetStore | number = requireStore(path.resolve(io.cwd, root ?? "."), io);
+    if (typeof store === "number") return store;
+    const result: VisibilityResult = readStoreVisibility(store, run);
+    if (!result.ok) {
+        io.stderr(`assets store-unreadable: ${result.message}`);
+        return 1;
+    }
+    io.stdout(result.visibility);
     return 0;
 }
 
 export const ASSETS_COMMANDS: Record<string, (args: string[], io: ToolkitIo, run: GhRunner) => number> = {
     resolve: runAssetsResolve,
     publish: runAssetsPublish,
+    visibility: runAssetsVisibility,
 };
 
 export function runAssets(args: string[], io: ToolkitIo, run: GhRunner = cliGhRunner): number {
