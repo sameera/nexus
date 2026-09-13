@@ -1,8 +1,8 @@
 ---
 title: "Widget Seam"
 aliases: ["widget declaration", "component library", "inert widget", "interactive exercise", "widget manifest", "predict-then-reveal", "lead region", "always-visible region"]
-touches: ["lesson-renderer", "offline-page", "cold-drill"]
-last_updated_by: "#407"
+touches: ["lesson-renderer", "offline-page", "cold-drill", "component-refusal"]
+last_updated_by: "#480"
 status: active
 verification: verified
 ---
@@ -30,6 +30,7 @@ Position matters for a teaching aid, so a declaration held in front matter alone
 - [lesson-renderer](lesson-renderer.md) — the render that resolves a declaration, and that fails whole when it cannot.
 - [offline-page](offline-page.md) — the page a widget must work in, with nothing fetched and no module loader.
 - [cold-drill](cold-drill.md) — the library's first consumer, whose drill is a predict-then-reveal exercise on the page.
+- [component-refusal](component-refusal.md) — split from this page: how a component says it cannot check a declaration, and names its own code fields.
 
 ## Decision Log
 
@@ -40,3 +41,7 @@ The declaration is placed in the prose because position matters for a teaching a
 ### 2026-09-07 — #407 — One optional lead region, and the library's first component
 
 The library gained predict-then-reveal, the component the opening drill is built from: a learner who commits to an answer before seeing it finds out what they knew rather than recognising an answer they were shown. Commitment is enforced by ordering alone, and the component stores nothing about the learner, because a page opened from a file has nowhere to write and giving it somewhere would create a record about a person outside the one folder the ignore rule protects. The seam gained one optional lead region, always visible and always printed, because the shipped seam could only hide content or label a button and a button is excluded from print. One optional field on the existing component contract is the smallest change that satisfies it, since every existing component and the declaration syntax are untouched. This entry also records the reciprocal link to the cold drill. Refuted alternative: a second widget kind carrying its own always-visible slot. It leaves the component contract unchanged, but it forks the declaration syntax and the render path for what is really one property of the seam, and every future component wanting such a region faces the same fork.
+
+### 2026-09-13 — #480 — Split: the refusal and code-field contract additions moved to component-refusal
+
+Three more components need two additions to the component contract: a way to say a declaration has nothing to check, and a way to name which of a component's own fields carry code. Both belong to this page's own contract, but adding them here took the page over its own-content cap, so they moved to their own page rather than compressing what already stood here. A task asking how a declaration resolves against the library needs neither addition; a task asking why a bad declaration fails, or why a snippet reads as code and not markup, needs nothing about position, resolution or the lead region. This entry carries no other change: the seam's own resolution, failure and printing rules stand exactly as decided at #405 and #407.
