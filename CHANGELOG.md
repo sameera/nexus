@@ -5,6 +5,44 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.44.0
+
+- `/nxs.teach-plan` gains Phase 7 — the **approval gate**. `nexus workbook gate <name>` refuses, in
+  code, a draft whose coverage verdict is missing, names a gap, or is contradicted by a fresh check of
+  its slices, and names every gap. A clean draft prints one digest for the whole roadmap, however many
+  epics it spans: every slice in order with its mark, each split story with its parts, each scaffold
+  beside the slice that forced it, each removed concept beside the learner's phrase, the phrases that
+  matched nothing, and whether the focus matched no story. The agent shows it word for word. The
+  reviewer may change a slice's mark with `--mark <story>=learner|handoff`, which rebuilds the draft
+  from the recorded judgements and prints the gate again, or approve.
+- Approval, `nexus workbook gate <name> --approve --commands <file>`, writes the **committed plan**
+  the `/nxs.teach` session teaches from. It refuses a draft that changed after the gate was printed,
+  refuses without reviewer-declared suite and grading commands, and refuses — naming each story —
+  when a story on the issue graph changed since the roadmap was resolved. Every story is pinned to its
+  state at the moment of approval. Lesson names come from each slice's identity, one branch per story
+  is prefixed with the workbook, each slice records its own epic, and the dependency edges between
+  slices are recorded. None of the learner's interview words reaches the committed workbook.
+- `/nxs.teach` now teaches a plan with **split stories and scaffolds** step by step: a split story's
+  next part is taught once the previous part's exercise is finished, each part has its own lesson, and a
+  scaffold is taught by writing its lesson. A handoff prompt names the epic its own slice belongs to
+  and never lists a scaffold among the slices to leave alone. A slice's **pinning test is written on
+  arrival**: the brief asks for it when the plan holds none, and at a handoff the session asks for the
+  handed-off slice's test and the next story slice's test before it writes the prompt. A test is
+  recorded once and never rewritten.
+- A `/nxs.teach` session that stopped on drift can now be continued: the learner **re-approves** the
+  plan through `/nxs.teach-plan`. The rewrite keeps every slice up to the last written lesson first and
+  unchanged and plans only the rest, so no written lesson is taught again and no concept is introduced
+  twice. Re-approval pins the changed story to its current state, reuses the committed plan's commands,
+  and refuses — leaving the approved plan, its lessons and its pages unchanged — a draft whose coverage
+  is not clean, one not planned over the taught part, or one whose merge renamed a concept identifier a
+  written lesson carries.
+- An approved plan now renders a workbook **home page**: every slice in plan order with the slices it
+  depends on, including the edges from one part to the next and from a scaffold to the slice it serves.
+  A slice with a written lesson links to its page, one without is shown as not yet written, a handoff is
+  marked as handed off, and a scaffold as a teaching step. Approval, every `/nxs.teach` session, and
+  `nexus workbook render` and `check` all produce it from the plan and the lessons, so it exists before
+  any lesson is written, stays current after each session, and needs no network to display.
+
 ## 0.43.0
 
 - The `/nxs.epic` approval gate now **checks the set you approved before it edits anything**, so an

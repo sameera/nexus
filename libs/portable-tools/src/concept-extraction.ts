@@ -357,7 +357,13 @@ function mapped(entries: readonly ProposedConcept[], mapping: Map<string, string
  * writes only when every story has one — then replaces the whole draft at once. The merge and the
  * stubs are rebuilt over the full set on every run.
  */
-export function draftFromExtractions(repoRoot: string, roadmap: Roadmap, groups: unknown): DraftResult {
+export function draftFromExtractions(
+    repoRoot: string,
+    roadmap: Roadmap,
+    groups: unknown,
+    /** A reviewer's recorded mark overrides (epic #458). An override outlives re-plans until it is cleared. */
+    marks: ReadonlyMap<number, "learner" | "handoff"> = new Map(),
+): DraftResult {
     const interview: InterviewRecord | null = readInterview(repoRoot, roadmap.name);
     if (interview === null) {
         return { ok: false, problem: `the roadmap ${roadmap.name} has no interview, so no slice can be marked. No stub was written.`, failed: [] };
@@ -383,13 +389,21 @@ export function draftFromExtractions(repoRoot: string, roadmap: Roadmap, groups:
         const assumes: string[] = mapped(list.assumes, merge.mapping).filter((id) => !concepts.includes(id));
         // The record's explicit whole-roadmap statement decides the no-focus case, never membership of
         // the story list it wrote out; otherwise the subagent's verdict is the mark.
-        const learner: boolean = interview.focus.whole || list.serves === true;
+        const override: "learner" | "handoff" | undefined = marks.get(list.story);
+        const learner: boolean = override === undefined ? interview.focus.whole || list.serves === true : override === "learner";
         // A handed-off story was still extracted and merged, so a learner slice assuming one of its
         // concepts names it with the same identifier (decision 7). Those concepts stay in the checked
         // list and the vocabulary; the handoff stub itself teaches nothing and carries none of them.
         return learner ? { story: list.story, builds: "learner", concepts, assumes } : { story: list.story, builds: "handoff", concepts: [], assumes: [] };
     });
     const written: string = writePlanDraft(repoRoot, roadmap.name, { slices, vocabulary: merge.vocabulary });
-    const focusMatchedNothing: boolean = !interview.focus.whole && slices.every((stub) => stub.builds === "handoff");
-    return { ok: true, path: written, slices, focusMatchedNothing };
+    return { ok: true, path: written, slices, focusMatchedNothing: focusMatchedNothing(interview, current) };
+}
+
+/**
+ * Whether the learner named a focus and no story's extraction said it serves it. It reads the verdicts,
+ * never the marks, so a reviewer's mark override at the gate does not change what it reports.
+ */
+export function focusMatchedNothing(interview: InterviewRecord, lists: readonly CheckedList[]): boolean {
+    return !interview.focus.whole && lists.every((list) => list.serves !== true);
 }

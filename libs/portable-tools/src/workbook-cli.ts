@@ -25,17 +25,21 @@ import {
     LESSONS_DIRNAME,
     createWorkbook,
     lessonsDir,
+    planRenderOptions,
     readLessons,
     readWorkbookPlan,
     workbookRoot,
+    writePlanWithPages,
+    writtenLessonFiles,
     type CreatedWorkbook,
 } from "./workbook-store.js";
-import { checkWorkbook, renderWorkbookInto, type LessonSource, type WorkbookDrift } from "./workbook-render.js";
+import { checkWorkbook, parseLesson, renderWorkbook, renderWorkbookInto, type LessonSource, type RenderOptions, type RenderedFile, type WorkbookDrift } from "./workbook-render.js";
 import { resolveWorkbookHome, type WorkbookHomeResult } from "./workbook-placement.js";
-import { type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
+import { type AuthoredPinningTest, type AuthoredProse, type RevisitProse } from "./lesson-writer.js";
 import { type IssueReader, type LiveStory } from "./teaching-plan.js";
 import { runTeachingSession, type SessionResult } from "./teaching-session.js";
-import { type WorkbookPlan } from "./workbook-plan.js";
+import { parseCommands, type DeclaredCommands, type WorkbookPlan } from "./workbook-plan.js";
+import { approvePlan, carriedStubs, draftFingerprint, type Approval } from "./plan-commit.js";
 import {
     epicsFromQuery,
     readRoadmap,
@@ -47,8 +51,9 @@ import {
     type RoadmapStory,
 } from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
-import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
-import { readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft } from "./plan-draft.js";
+import { draftFromExtractions, extractionsDir, focusMatchedNothing, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
+import { planDraftPath, readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft, type PlanStub } from "./plan-draft.js";
+import { rebuildDraft, refuseUncleanCoverage, renderGateDigest, type CoverageRefusal } from "./plan-approval.js";
 import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
@@ -62,6 +67,7 @@ export const WORKBOOK_SUBVERBS: readonly string[] = [
     "vocabulary",
     "draft",
     "rewrite",
+    "gate",
     "render",
     "check",
     "session",
@@ -97,6 +103,12 @@ interface Flags {
     /** The file holding the phrases the planning session matched to concepts the learner already knows. */
     declare?: string;
     positional: string[];
+    mark?: string;
+    clear?: string;
+    /** Approve the draft the gate last printed. */
+    approve?: boolean;
+    /** The file holding the suite and grading commands the reviewer declares at a first approval. */
+    commands?: string;
     unknown?: string;
 }
 
@@ -116,6 +128,10 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--list") flags.list = rest[++i];
         else if (token === "--merge") flags.merge = rest[++i];
         else if (token === "--declare") flags.declare = rest[++i];
+        else if (token === "--mark") flags.mark = rest[++i];
+        else if (token === "--clear") flags.clear = rest[++i];
+        else if (token === "--approve") flags.approve = true;
+        else if (token === "--commands") flags.commands = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -136,6 +152,10 @@ const USAGE: string = [
     "  draft <name> --merge <file>         write the plan's stubs once every story has a checked list",
     "  rewrite <name> [--declare <file>]   rewrite the draft: one slice owns each concept, less what",
     "                                      the learner declared they already know",
+    "  gate <name> [--mark <n>=<mark>|--clear <n>]",
+    "                                      refuse a draft whose coverage is not clean, or print the approval gate",
+    "  gate <name> --approve [--commands <file>]",
+    "                                      write the committed plan from the draft the gate last printed",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -175,8 +195,8 @@ const DRIFT_WORDING: Record<WorkbookDrift["state"], string> = {
  * committing generated output). It reports and repairs nothing — re-rendering is the fix, and it is
  * the author's to run.
  */
-function reportDrift(repoRoot: string, slug: string, lessons: readonly LessonSource[], io: WorkbookCliIo): number {
-    const drift: WorkbookDrift[] = checkWorkbook(workbookRoot(repoRoot, slug), { lessons });
+function reportDrift(repoRoot: string, slug: string, options: RenderOptions, io: WorkbookCliIo): number {
+    const drift: WorkbookDrift[] = checkWorkbook(workbookRoot(repoRoot, slug), options);
     if (drift.length === 0) {
         io.stdout(`every page in ${slug} matches the lesson it was generated from.`);
         return 0;
@@ -228,12 +248,24 @@ export function readProse(file: string): AuthoredProse {
     const question: unknown = front["question"];
     const answer: unknown = front["answer"];
     const revisit: RevisitProse[] = readRevisits(front["revisit"]);
+    const pinningTests: AuthoredPinningTest[] = readPinningTests(front["pinning_tests"]);
     const theory: string = lines.slice(end + 2).join("\n");
     return {
         theory,
         ...(typeof question === "string" && typeof answer === "string" ? { drill: { question, answer } } : {}),
         ...(revisit.length === 0 ? {} : { revisit }),
+        ...(pinningTests.length === 0 ? {} : { pinningTests }),
     };
+}
+
+/** The pinning tests an arrival asked for, each naming the slice it pins, its file and its text. */
+function readPinningTests(raw: unknown): AuthoredPinningTest[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.flatMap((item): AuthoredPinningTest[] => {
+        const entry: Record<string, unknown> = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : {};
+        const { slice, file, text } = entry;
+        return typeof slice === "string" && typeof file === "string" && typeof text === "string" ? [{ slice, file, text }] : [];
+    });
 }
 
 /**
@@ -280,6 +312,14 @@ function reportSession(result: SessionResult, io: WorkbookCliIo): number {
     }
     if (result.outcome.kind === "brief") {
         io.stdout(`Write the theory into a file and re-run with --prose <file>. The lesson goes to ${result.outcome.brief.lesson}.`);
+        const request = result.outcome.brief.writeTest;
+        if (request !== undefined) {
+            io.stdout(`The slice has no pinning test yet: put it in that file's front matter under 'pinning_tests' as ${request.slice}, with its file and text.`);
+        }
+    }
+    if (result.outcome.kind === "tests") {
+        for (const request of result.outcome.requests) io.stdout(`  ${request.slice}: #${request.story} ${JSON.stringify(request.title)} on ${request.branch}`);
+        io.stdout(`Write the tests into a file's front matter under 'pinning_tests' and re-run with --prose <file>.`);
     }
     return stopped ? 1 : 0;
 }
@@ -504,7 +544,10 @@ function runDraft(repoRoot: string, name: string, flags: Flags, io: WorkbookCliI
 
     const doc: unknown = parse(fs.readFileSync(flags.merge, "utf8"));
     const groups: unknown = (doc as Record<string, unknown> | null)?.["concepts"];
-    const result: DraftResult = draftFromExtractions(repoRoot, roadmap, groups);
+    const result: DraftResult = draftFromExtractions(repoRoot, roadmap, groups, readOverrides(repoRoot, name));
+    // The merge is a recorded judgement: a mark change at the gate rebuilds the draft from it rather
+    // than asking for it again (record #591, invariant 21).
+    if (result.ok) fs.writeFileSync(path.join(path.dirname(result.path), MERGE_RECORD), JSON.stringify(groups, null, 4));
     if (!result.ok) {
         io.stderr(result.problem);
         return 1;
@@ -579,6 +622,7 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
     const rewritten: PlanDraft = rewritePlan(draft, {
         edges: roadmap.stories.map((story) => ({ story: story.number, blockedBy: story.blockedBy })),
         handoffConcepts: handoffConcepts(repoRoot, roadmap, draft),
+        carried: taughtPart(repoRoot, name),
     });
     const introduced: number = rewritten.slices.reduce((count, stub) => count + stub.concepts.length, 0);
     io.stdout(
@@ -608,6 +652,153 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
     }
     io.stderr("The plan is written and carries this verdict. It does not go to approval until every gap is closed.");
     return 1;
+}
+
+/**
+ * The taught part of the plan already approved for this workbook, as the stubs a re-plan keeps first
+ * (story #588). Empty on a first plan, and on an approved plan with no lesson written yet.
+ */
+function taughtPart(repoRoot: string, name: string): PlanStub[] {
+    const approved: WorkbookPlan | null = readWorkbookPlan(repoRoot, name);
+    return approved === null ? [] : carriedStubs(approved, writtenLessonFiles(repoRoot, name));
+}
+
+/**
+ * `nexus workbook gate` — the approval gate (epic #458). A draft whose coverage is not clean is
+ * refused here, in code, before the reviewer sees anything (record #591, invariant 10).
+ */
+function runGate(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo, run: Runner): number {
+    const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
+    if (roadmap === null) return 1;
+    let draft: PlanDraft | null = readPlanDraft(repoRoot, name);
+    if (draft !== null && (flags.mark !== undefined || flags.clear !== undefined)) {
+        const rebuilt: PlanDraft | null = changeMark(repoRoot, roadmap, draft, flags, io);
+        if (rebuilt === null) return 1;
+        draft = rebuilt;
+    }
+    if (draft === null) {
+        io.stderr(`the roadmap ${name} has no plan draft to approve. Run the planning chain first — nothing was written.`);
+        return 1;
+    }
+    if (flags.approve === true) return runApprove(repoRoot, roadmap, draft, flags, io, run);
+    const refusal: CoverageRefusal = refuseUncleanCoverage(draft, handoffConcepts(repoRoot, roadmap, draft));
+    if (refusal.refused) {
+        io.stderr(refusal.report);
+        return 1;
+    }
+    const interview: InterviewRecord | null = readInterview(repoRoot, name);
+    io.stdout(
+        renderGateDigest(draft, {
+            titles: new Map(roadmap.stories.map((story) => [story.number, story.title])),
+            focusMatchedNothing: interview !== null && focusMatchedNothing(interview, readExtractions(repoRoot, roadmap).current),
+        }),
+    );
+    // What was shown is recorded beside the draft, so approval can refuse a draft that changed after
+    // the reviewer read it (record #591, invariant 13). It is derived state, never committed.
+    fs.writeFileSync(path.join(path.dirname(planDraftPath(repoRoot, name)), SHOWN_RECORD), draftFingerprint(draft));
+    return 0;
+}
+
+/** The repository the workspace names, as a handoff prompt states it, or null when it cannot be read. */
+function workspaceRepo(repoRoot: string, run: Runner): string | null {
+    const result = run("gh", ["repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], { cwd: repoRoot });
+    return result.status === 0 && result.stdout.trim() !== "" ? result.stdout.trim() : null;
+}
+
+/**
+ * `nexus workbook gate <name> --approve` — write the committed plan from the draft the gate last
+ * printed (story #587). Approval builds the plan in memory, renders the workbook in memory, and only
+ * then writes the plan and its pages together; declining is simply never running this, which writes
+ * nothing (invariants 30, 31). The draft stays in place, because it holds the judgements a re-plan
+ * reuses (invariant 33). No git state moves (invariant 32).
+ */
+function runApprove(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags: Flags, io: WorkbookCliIo, run: Runner): number {
+    const shownFile: string = path.join(path.dirname(planDraftPath(repoRoot, roadmap.name)), SHOWN_RECORD);
+    const commands: DeclaredCommands | null = flags.commands === undefined ? null : parseCommands(fs.readFileSync(path.resolve(io.cwd, flags.commands), "utf8"));
+    const previous: WorkbookPlan | null = readWorkbookPlan(repoRoot, roadmap.name);
+    const written: string[] = writtenLessonFiles(repoRoot, roadmap.name);
+    const approval: Approval = approvePlan({
+        workbook: roadmap.name,
+        draft,
+        roadmap,
+        shown: fs.existsSync(shownFile) ? fs.readFileSync(shownFile, "utf8").trim() : null,
+        repo: workspaceRepo(repoRoot, run),
+        read: ghIssueReader(repoRoot, run),
+        commands,
+        handoffConcepts: handoffConcepts(repoRoot, roadmap, draft),
+        previous,
+        written,
+        taughtConcepts: previous === null ? [] : readLessons(repoRoot, roadmap.name).flatMap((lesson) => {
+            const concepts: unknown = parseLesson(lesson).frontMatter["concepts"];
+            return Array.isArray(concepts) ? concepts.map(String) : [];
+        }),
+    });
+    if (!approval.ok) {
+        io.stderr(approval.report);
+        return 1;
+    }
+    // The pages are rendered in memory before anything is written, so a render that fails leaves the
+    // approved plan and its pages exactly as they were (invariant 31).
+    const pages: RenderedFile[] = renderWorkbook(planRenderOptions(repoRoot, roadmap.name, approval.plan));
+    const planFile: string = writePlanWithPages(repoRoot, roadmap.name, approval.plan, pages);
+    const learner: number = approval.plan.slices.filter((slice) => slice.learnerBuilds).length;
+    io.stdout(
+        `approved the plan for ${roadmap.name}: ${approval.plan.slices.length} slice${approval.plan.slices.length === 1 ? "" : "s"}, ` +
+        `${learner} taught and ${approval.plan.slices.length - learner} handed off. The next session teaches from it.`,
+    );
+    io.stdout(`  ${planFile}`);
+    return 0;
+}
+
+/** The file beside the draft that records the merge the draft was built from. */
+const MERGE_RECORD: string = "merge.json";
+/** The file beside the draft that records the fingerprint of the draft the gate last printed. */
+const SHOWN_RECORD: string = "gate-shown.txt";
+/** The file beside the draft that records the reviewer's mark overrides. */
+const OVERRIDES_RECORD: string = "mark-overrides.json";
+
+function readOverrides(repoRoot: string, name: string): Map<number, "learner" | "handoff"> {
+    const file: string = path.join(path.dirname(planDraftPath(repoRoot, name)), OVERRIDES_RECORD);
+    if (!fs.existsSync(file)) return new Map();
+    const doc: Record<string, unknown> = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
+    return new Map(Object.entries(doc).map(([story, mark]) => [Number(story), mark === "learner" ? "learner" : "handoff"]));
+}
+
+/**
+ * Record a mark override (or clear one) and rebuild the draft from the checked lists under the
+ * recorded merge, declaration and overrides. Writes nothing to the committed workbook (invariant 20).
+ */
+function changeMark(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags: Flags, io: WorkbookCliIo): PlanDraft | null {
+    const overrides: Map<number, "learner" | "handoff"> = readOverrides(repoRoot, roadmap.name);
+    if (flags.mark !== undefined) {
+        const [story, mark] = flags.mark.replace(/^#/, "").split("=");
+        if (!roadmap.stories.some((s) => s.number === Number(story)) || (mark !== "learner" && mark !== "handoff")) {
+            io.stderr(`--mark takes <story>=learner or <story>=handoff for a story on the roadmap ${roadmap.name}. Only marks change at the gate.`);
+            return null;
+        }
+        overrides.set(Number(story), mark);
+    }
+    if (flags.clear !== undefined) overrides.delete(Number(flags.clear.replace(/^#/, "")));
+    const dir: string = path.dirname(planDraftPath(repoRoot, roadmap.name));
+    const mergeFile: string = path.join(dir, MERGE_RECORD);
+    if (!fs.existsSync(mergeFile)) {
+        io.stderr(`the roadmap ${roadmap.name} has no recorded merge, so its draft cannot be rebuilt. Run 'nexus workbook draft' again.`);
+        return null;
+    }
+    const fresh: DraftResult = draftFromExtractions(repoRoot, roadmap, JSON.parse(fs.readFileSync(mergeFile, "utf8")), overrides);
+    if (!fresh.ok) {
+        io.stderr(fresh.problem);
+        return null;
+    }
+    fs.writeFileSync(path.join(dir, OVERRIDES_RECORD), JSON.stringify(Object.fromEntries([...overrides].sort((a, b) => a[0] - b[0])), null, 4));
+    const stubs: PlanDraft = { slices: fresh.slices, vocabulary: (readPlanDraft(repoRoot, roadmap.name) as PlanDraft).vocabulary };
+    const rebuilt: PlanDraft = rebuildDraft(draft, stubs, {
+        edges: roadmap.stories.map((story) => ({ story: story.number, blockedBy: story.blockedBy })),
+        handoffConcepts: handoffConcepts(repoRoot, roadmap, { ...draft, slices: fresh.slices }),
+        carried: taughtPart(repoRoot, roadmap.name),
+    });
+    writePlanDraft(repoRoot, roadmap.name, rebuilt);
+    return rebuilt;
 }
 
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
@@ -640,6 +831,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
         if (sub === "rewrite") return runRewrite(repoRoot, slug as string, flags, io);
+        if (sub === "gate") return runGate(repoRoot, slug as string, flags, io, run);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);
@@ -652,13 +844,17 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         }
 
         if (sub === "render" || sub === "check") {
-            const lessons = readLessons(repoRoot, slug);
-            if (lessons.length === 0) {
+            // A teaching plan renders from the plan and the lessons together, so its home page exists
+            // even before any lesson is written; a workbook with no plan renders its lessons alone.
+            const taught: WorkbookPlan | null = readWorkbookPlan(repoRoot, slug);
+            const options: RenderOptions = taught === null ? { lessons: readLessons(repoRoot, slug) } : planRenderOptions(repoRoot, slug, taught);
+            const lessons: readonly LessonSource[] = options.lessons;
+            if (lessons.length === 0 && taught === null) {
                 io.stderr(`${lessonsDir(repoRoot, slug)} holds no authored lesson, so there is nothing to ${sub}.`);
                 return 1;
             }
-            if (sub === "check") return reportDrift(repoRoot, slug, lessons, io);
-            const written: string[] = renderWorkbookInto(workbookRoot(repoRoot, slug), { lessons });
+            if (sub === "check") return reportDrift(repoRoot, slug, options, io);
+            const written: string[] = renderWorkbookInto(workbookRoot(repoRoot, slug), options);
             io.stdout(`rendered ${lessons.length} lesson${lessons.length === 1 ? "" : "s"} to ${workbookRoot(repoRoot, slug)}`);
             for (const name of written) io.stdout(`  ${name}`);
             io.stdout(`Open ${path.join(workbookRoot(repoRoot, slug), written.find((n) => n.endsWith(".html")) ?? "")} to read it — nothing needs to be started.`);
@@ -709,7 +905,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
                 io.stderr(
                     `${slug} teaches no slice for story ${flags.story}, so nothing here could ever ` +
                     `verify a pause at it — the plan is where a slice's pinning test lives. The ` +
-                    `plan's stories are ${planned.slices.map((slice) => `#${slice.story}`).join(", ")}.`,
+                    `plan's stories are ${planned.slices.filter((slice) => slice.story !== undefined).map((slice) => `#${slice.story}`).join(", ")}.`,
                 );
                 return 2;
             }

@@ -1,6 +1,6 @@
 ---
 name: nxs.teach-plan
-description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent, writes the plan's stubs as an uncommitted draft, then orders that draft and rewrites it so each concept is taught once. Plans the roadmap; writes no lesson.
+description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent, writes the plan's stubs as an uncommitted draft, orders that draft and rewrites it so each concept is taught once, then shows the reviewer the approval gate and, on approval, writes the committed plan. Plans the roadmap; writes no lesson.
 category: learning
 phase: planning
 references:
@@ -246,10 +246,62 @@ this — the reviewer reads the removed set at the approval gate, which is also 
 written, and this phase asks the learner nothing. Never edit the rewritten draft by hand, and never
 commit it.
 
+# Phase 7 — The approval gate
+
+```bash
+nexus workbook gate <name>
+```
+
+This is the one human checkpoint the plan passes through, and it covers the whole roadmap at once,
+however many epics it spans. Code refuses a draft whose coverage is not clean before anything is
+shown, naming every gap. Report a refusal as it stands and **stop**.
+
+Otherwise the command prints the gate: every slice in order with its mark, each split story with its
+parts, each scaffold beside the slice that forced it, each concept the declaration removed beside the
+learner's phrase, the phrases that matched nothing, and whether the focus matched no story. Show it to
+the reviewer **word for word**. Do not summarise it, reorder it or leave a line out — the print is code's
+so that nothing can be dropped. It carries no lesson prose and no sources, because neither is decided
+here. Then ask the reviewer, with `AskUserQuestion`, to approve, change marks, or decline.
+
+- **Change marks.** Run `nexus workbook gate <name> --mark <story>=learner` (or `=handoff`), or
+  `--clear <story>` to drop an earlier change. Code rebuilds the draft from the recorded judgements and
+  prints the gate again; show the new print word for word and ask again. Only marks change here — the
+  order, the splits and the scaffolds follow from them. A change that opens a gap prints the refusal
+  instead, and the reviewer can change the mark back.
+- **Approve.** A first approval needs the command that runs the suite and the command that grades one
+  exercise. Ask the reviewer for both. Never infer either from the repository. Write them as argument
+  lists, with the optional control test that proves one test file can run on its own:
+
+  ```yaml
+  suite: [npx, vitest, run]
+  grading: [npx, vitest, run]
+  ```
+
+  ```bash
+  nexus workbook gate <name> --approve --commands <file>
+  ```
+
+  Approval checks coverage again, refuses a draft that changed after the gate was printed (print it
+  again), and reads every story's live state. If a story changed since the roadmap was resolved, or
+  cannot be read, approval writes nothing and names each one: report it and **stop** — the roadmap is
+  re-planned from Phase 1 before it is approved. Otherwise it writes the committed plan.
+- **Decline.** Run nothing. The committed workbook is unchanged and the draft stays in place.
+
+Approval moves no git state. Tell the learner the plan is written and theirs to commit.
+
+**Re-approval.** A teaching session that stopped because a story changed sends the learner back here,
+and the same chain runs again from Phase 1. What has already been taught stays exactly as it is: the
+rewrite keeps every slice up to the last written lesson first and unchanged, counts the concepts those
+slices introduced as introduced, and plans only the rest. In Phase 4, keep every identifier the
+approved plan already uses — a written lesson, the drill history and the hint log are all keyed on it.
+Approve with `--approve` alone: a re-approval reuses the committed plan's commands and refuses new
+ones. It refuses a draft that was not planned over the taught part (run the rewrite again), and a draft
+whose merge dropped or renamed an identifier a written lesson carries (merge again, then run Phases 5
+to 7). A refused re-approval leaves the approved plan, its lessons and its pages unchanged.
+
 # Hand off
 
-Report the roadmap's story count, the interview's outcome and the draft's learner and handoff counts.
-A handoff mark builds nothing: write no handoff prompt and start no coding-agent session here. The draft is
-not yet a plan anyone can be taught from: it becomes the committed plan when it is approved, and
-lesson writing is then `/nxs.teach <name>` — a fresh invocation, which is what lets it load the
-references this phase does not.
+Report the roadmap's story count, the interview's outcome, the draft's learner and handoff counts, and
+what the reviewer decided at the gate. A handoff mark builds nothing: write no handoff prompt and start
+no coding-agent session here. Lesson writing is `/nxs.teach <name>` — a fresh invocation, which is what
+lets it load the references this phase does not.

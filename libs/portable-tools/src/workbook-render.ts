@@ -37,6 +37,12 @@ import {
     type WidgetRegistry,
 } from "./workbook-widgets.js";
 
+/**
+ * The workbook's home page: the approved plan as a list of every slice with the edges between them.
+ * Its name is reserved — no lesson may render to it (record #591, invariant 49).
+ */
+export const HOME_PAGE_NAME: string = "index.html";
+
 /** The stylesheet written once per workbook and referenced by every page. */
 export const STYLESHEET_NAME: string = "workbook.css";
 
@@ -442,6 +448,60 @@ export interface RenderOptions {
      * They follow the written lessons, because a lesson is written when the learner arrives at it.
      */
     stubs?: readonly string[];
+    /** Every slice of the plan, in plan order, for the home page. Absent on a workbook with no teaching plan. */
+    home?: readonly HomeEntry[];
+}
+
+/** One slice as the home page shows it. */
+export interface HomeEntry {
+    /** The slice's identity, which is also its anchor on the page. */
+    id: string;
+    /** How the slice is named: its story and title, or the concept a scaffold teaches. */
+    label: string;
+    /** A roadmap story the learner builds, a scaffold the learner is taught, or a story handed off. */
+    kind: "story" | "scaffold" | "handoff";
+    /** The page its written lesson renders to, or null when no lesson is written. */
+    page: string | null;
+    /** The slices it depends on, each by its identity and how it is named. */
+    dependsOn: readonly { id: string; label: string }[];
+}
+
+/** One slice's line on the home page: what it is, whether it can be opened, and what it depends on. */
+function renderHomeEntry(entry: HomeEntry): string {
+    const name: string = entry.page === null ? escapeText(entry.label) : `<a href="./${escapeText(entry.page)}">${escapeText(entry.label)}</a>`;
+    const marks: string[] = [];
+    if (entry.kind === "scaffold") marks.push("a teaching step, not a roadmap story");
+    if (entry.kind === "handoff") marks.push("handed off to a coding agent");
+    else if (entry.page === null) marks.push("not yet written");
+    const edges: string =
+        entry.dependsOn.length === 0
+            ? ""
+            : ` — depends on ${entry.dependsOn.map((dep) => `<a href="#${escapeText(dep.id)}">${escapeText(dep.label)}</a>`).join(", ")}`;
+    return `<li id="${escapeText(entry.id)}">${name}${marks.map((mark) => ` — ${mark}`).join("")}${edges}</li>`;
+}
+
+/**
+ * The home page (story #589): every slice of the approved plan as a list in plan order, each naming the
+ * slices it depends on. It is built from the plan and the lessons alone — no learner record, roadmap or
+ * live issue state — and it prints exactly as it appears, so its content exists at render time and
+ * needs no layout computed when it opens (invariants 41, 42, 48).
+ */
+function renderHome(entries: readonly HomeEntry[]): RenderedFile {
+    return {
+        name: HOME_PAGE_NAME,
+        contents: renderPageShell({
+            title: "The plan",
+            provenance: [
+                "<!--",
+                "  This page is generated. Do not edit it.",
+                "  Rendered from the workbook's plan and its lessons; re-render rather than patching this file.",
+                "-->",
+            ].join("\n"),
+            content: ['<ol class="workbook-home">', ...entries.map(renderHomeEntry), "</ol>"].join("\n"),
+            trail: `<footer class="lesson-provenance">Generated from the workbook's plan and its lessons.</footer>`,
+            scripts: `<script src="./${SCRIPT_NAME}"></script>`,
+        }),
+    };
 }
 
 /** The page name a lesson renders to: its own name with the markdown suffix replaced. */
@@ -479,6 +539,7 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
             }),
         });
     }
+    if (options.home !== undefined) pages.push(renderHome(options.home));
     const assets: RenderedFile[] = [
         { name: STYLESHEET_NAME, contents: renderStylesheet() },
         { name: SCRIPT_NAME, contents: renderScript() },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PLAN_FILENAME, parsePlan, planStubs, toTeachingPlan, type WorkbookPlan } from "./workbook-plan";
+import { PLAN_FILENAME, parseCommands, parsePlan, planStubs, renderWorkbookPlan, toTeachingPlan, type WorkbookPlan } from "./workbook-plan";
 
 const PLAN_TEXT: string = [
     "repo: nexus",
@@ -140,15 +140,15 @@ describe("the plan is one file describing slices", () => {
         const teaching = toTeachingPlan(parsePlan(PLAN_TEXT));
 
         expect(teaching.slices).toEqual([
-            { story: 460, learnerBuilds: true, pinned: { title: "A re-scoped story stops", body: "As a learner, I want the check.", closed: false } },
-            { story: 464, learnerBuilds: false, pinned: { title: "A handoff slice pauses", body: "As a learner, I want the pause.", closed: false } },
+            { story: 460, learnerBuilds: true, lesson: "01-drift.md", pinned: { title: "A re-scoped story stops", body: "As a learner, I want the check.", closed: false } },
+            { story: 464, learnerBuilds: false, lesson: "", pinned: { title: "A handoff slice pauses", body: "As a learner, I want the pause.", closed: false } },
         ]);
     });
 
     it("names the slices with no lesson written yet, which the workbook shows as stubs", () => {
         const plan: WorkbookPlan = parsePlan(PLAN_TEXT);
 
-        expect(planStubs(plan, [])).toEqual([{ story: 460, lesson: "01-drift.md" }]);
+        expect(planStubs(plan, [])).toEqual([{ label: "Story #460", lesson: "01-drift.md" }]);
         expect(planStubs(plan, ["01-drift.md"])).toEqual([]);
     });
 
@@ -158,6 +158,30 @@ describe("the plan is one file describing slices", () => {
 
     it("refuses a plan file that is not readable at all", () => {
         expect(() => parsePlan("slices: [\n  - story: :\n")).toThrow(/not readable/);
+    });
+
+    it("reads a slice the session has not reached yet with no pinning test, rather than refusing it (record #591)", () => {
+        const unreached: string = PLAN_TEXT.replace(/    pinning_test:\n      file: teaching-plan.spec.ts\n      text: \|\n        it\('reports a closed story', \(\) => \{\}\);\n/, "");
+
+        expect(parsePlan(unreached).slices[0].pinningTest).toBeNull();
+    });
+
+    it("refuses a pinning test that names a file and no text, which could prove nothing", () => {
+        const half: string = PLAN_TEXT.replace("      text: |\n        it('reports a closed story', () => {});\n", "");
+
+        expect(() => parsePlan(half)).toThrow(/pinning_test.text/);
+    });
+
+    it("writes a plan the reader reads back unchanged, slice edges included", () => {
+        const plan: WorkbookPlan = parsePlan(PLAN_TEXT);
+        const withEdges: WorkbookPlan = { ...plan, slices: plan.slices.map((slice, index) => ({ ...slice, dependsOn: index === 0 ? [] : ["story-460"] })) };
+
+        expect(parsePlan(renderWorkbookPlan(withEdges))).toEqual(withEdges);
+    });
+
+    it("reads the commands a reviewer declares, refusing a declaration with no suite", () => {
+        expect(parseCommands("suite: [a, b]\ngrading: [c]\n")).toEqual({ suite: ["a", "b"], grading: ["c"], probeControl: null });
+        expect(() => parseCommands("grading: [c]\n")).toThrow(/suite/);
     });
 
     it("names the file a workbook declares its plan in", () => {

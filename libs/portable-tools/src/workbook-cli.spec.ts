@@ -380,6 +380,20 @@ describe("a teaching session writes the one lesson the learner is up to", () => 
         expect(readProse(file)).toEqual({ theory: "\nTheory.\n" });
     });
 
+    it("takes the pinning tests an arrival wrote from the prose file's front matter, each under its slice", () => {
+        const repo = initRepo();
+        const file = path.join(repo, "prose.md");
+        fs.writeFileSync(
+            file,
+            ["---", "pinning_tests:", "  - slice: story-12", "    file: tests/drift.spec.ts", "    text: |", "      it('pins #12', () => {});", "  - slice: story-13", "---", "", "Theory.", ""].join("\n"),
+        );
+
+        expect(readProse(file)).toEqual({
+            theory: "\nTheory.\n",
+            pinningTests: [{ slice: "story-12", file: "tests/drift.spec.ts", text: "it('pins #12', () => {});\n" }],
+        });
+    });
+
     it("takes a prose file with no front matter as the theory half alone", () => {
         const repo = initRepo();
         const file = path.join(repo, "prose.md");

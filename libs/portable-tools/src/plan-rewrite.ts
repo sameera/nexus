@@ -152,6 +152,13 @@ export interface RewriteOptions {
      * from (record #562).
      */
     handoffConcepts?: ReadonlyMap<number, readonly string[]>;
+    /**
+     * The taught part of an approved plan, as stubs in plan order: every slice up to and including the
+     * last one with a written lesson. A re-plan keeps it first and unchanged, counts what it introduced
+     * as introduced, and plans only what follows (record #591, invariants 35, 37). It is exempt from the
+     * ordering, because a new edge pointing into lessons already taught cannot move those lessons.
+     */
+    carried?: readonly PlanStub[];
 }
 
 /** Append to `into` the entries of `from` that it does not already hold. Order is the first sighting. */
@@ -197,6 +204,43 @@ function merged(slices: readonly PlanStub[]): PlanStub[] {
         appendNew(out[index].assumes, stub.assumes);
     }
     return out.map((stub) => ({ ...stub, assumes: stub.assumes.filter((id) => !stub.concepts.includes(id)) }));
+}
+
+/** How a slice is identified across a re-plan: its story and part, or the concept a scaffold teaches. */
+function identity(stub: PlanStub): string {
+    if (stub.scaffold !== undefined) return `scaffold-${stub.scaffold}`;
+    return stub.part === undefined ? `story-${stub.story}` : `story-${stub.story}-part-${stub.part}`;
+}
+
+/**
+ * The slices still to plan once the taught part is set aside, and the part number each partly taught
+ * story continues from.
+ *
+ * A slice the taught part already holds is dropped, and so is a scaffold for a concept the taught part
+ * introduced. The rest merge back into one slice per story, lose every concept the taught part
+ * introduced — those become assumed rather than taught twice — and a story whose parts were only
+ * partly taught continues from the part after the last one taught. A story taught whole, or one whose
+ * remaining parts have nothing left to teach, is behind the learner and is not planned again.
+ */
+function untaught(slices: readonly PlanStub[], carried: readonly PlanStub[]): { slices: PlanStub[]; offsets: Map<number, number> } {
+    if (carried.length === 0) return { slices: merged(slices), offsets: new Map() };
+    const held: Set<string> = new Set(carried.map(identity));
+    const taught: Set<string> = new Set(carried.flatMap((stub) => stub.concepts));
+    const whole: Set<number> = new Set(carried.flatMap((stub) => (stub.story !== undefined && stub.part === undefined ? [stub.story] : [])));
+    const offsets: Map<number, number> = new Map();
+    for (const stub of carried) {
+        if (stub.story !== undefined && stub.part !== undefined) offsets.set(stub.story, Math.max(offsets.get(stub.story) ?? 0, stub.part));
+    }
+    const kept: PlanStub[] = merged(
+        slices.filter((stub) => !held.has(identity(stub)) && !(stub.scaffold !== undefined && taught.has(stub.scaffold)) && !(stub.story !== undefined && whole.has(stub.story))),
+    ).flatMap((stub): PlanStub[] => {
+        const concepts: string[] = stub.concepts.filter((id) => !taught.has(id));
+        if (stub.story !== undefined && offsets.has(stub.story) && concepts.length === 0) return [];
+        const assumes: string[] = [...stub.assumes];
+        appendNew(assumes, stub.concepts.filter((id) => taught.has(id)));
+        return [{ ...stub, concepts, assumes }];
+    });
+    return { slices: kept, offsets };
 }
 
 /** Assign one slice's concepts against what is already owned, and record the rest as assumed. */
@@ -565,25 +609,46 @@ function checkCoverage(slices: readonly PlanStub[], declared: readonly string[],
  */
 export function rewritePlan(draft: PlanDraft, options: RewriteOptions = {}): PlanDraft {
     const declaredConcepts: string[] = (draft.declared ?? []).map((entry) => entry.concept);
+    const carried: PlanStub[] = (options.carried ?? []).map((stub) => ({ ...stub, concepts: [...stub.concepts], assumes: [...stub.assumes] }));
+    const rest: { slices: PlanStub[]; offsets: Map<number, number> } = untaught(draft.slices, carried);
+    const taught: string[] = carried.flatMap((stub) => stub.concepts);
     let slices: PlanStub[];
     if (options.edges === undefined) {
-        const owned: Set<string> = new Set();
-        slices = merged(draft.slices).map((stub) => assign(stub, owned));
+        const owned: Set<string> = new Set(taught);
+        slices = continueParts(rest.slices.map((stub) => assign(stub, owned)), rest.offsets);
     } else {
         // A scaffold is dropped rather than merged: it is derived from the edges, so this run
         // decides it again from the same reachability the last one read.
-        const source: PlanStub[] = merged(draft.slices).filter((stub) => stub.scaffold === undefined);
+        const source: PlanStub[] = rest.slices.filter((stub) => stub.scaffold === undefined);
         const direct: Map<number, number[]> = blockersWithin(source, options.edges);
         const blockers: Map<number, number[]> = learnerBlockers(source, direct);
         const scaffolds: Map<number, string[]> = decideScaffolds(
             source,
             blockers,
             draft.vocabulary ?? [],
-            declaredConcepts,
+            [...declaredConcepts, ...taught],
             handoffOnly(source, options.handoffConcepts ?? new Map()),
         );
         const order: PlanStub[] = orderLearnerSlices(source, blockers, scaffolds);
-        slices = placeHandoffs(source, splitOverLimit(order, draft.vocabulary ?? []), direct);
+        slices = placeHandoffs(source, continueParts(splitOverLimit(order, draft.vocabulary ?? []), rest.offsets), direct);
     }
+    slices = [...carried, ...slices];
     return { ...draft, slices, coverage: checkCoverage(slices, declaredConcepts, options.handoffConcepts ?? new Map()) };
+}
+
+/** Number the parts of a partly taught story on from the last part already taught. */
+function continueParts(slices: readonly PlanStub[], offsets: ReadonlyMap<number, number>): PlanStub[] {
+    return slices.map((stub) => {
+        const offset: number | undefined = stub.story === undefined ? undefined : offsets.get(stub.story);
+        return offset === undefined ? stub : { ...stub, part: offset + (stub.part ?? 1) };
+    });
+}
+
+/**
+ * Check a draft's coverage again, from its slices and its recorded declaration, without trusting the
+ * verdict it carries. The approval gate refuses a draft whose recorded verdict this disagrees with,
+ * because the draft is a file an agent can write (record #591, invariant 12).
+ */
+export function recheckCoverage(draft: PlanDraft, handoffConcepts: ReadonlyMap<number, readonly string[]> = new Map(), introduced: readonly string[] = []): CoverageVerdict {
+    return checkCoverage(draft.slices, [...(draft.declared ?? []).map((entry) => entry.concept), ...introduced], handoffConcepts);
 }
