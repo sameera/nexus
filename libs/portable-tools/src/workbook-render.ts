@@ -31,6 +31,7 @@ import { renderReadingTokensCss } from "./reading-tokens.js";
 import {
     SCRIPT_NAME,
     WIDGET_FENCE_INFO,
+    declarationMarkupText,
     makeWidgetSeam,
     renderScript,
     renderWidgetStyles,
@@ -87,9 +88,10 @@ function closesFence(line: string, fence: string): boolean {
  * A code fence's content is escaped and shown as code, so it is text a reader sees rather than a
  * channel through which markup reaches the page: a lesson quoting a test that reads like markup
  * shows the learner that test. A widget declaration is the opposite — a component turns it into
- * markup — so its content stays in what the check reads.
+ * markup — so its content stays in what the check reads, except the values of the fields its
+ * component declares as code, which that component escapes and shows as code (decision record #616).
  */
-function withoutCodeFences(source: string): string {
+function withoutCodeFences(source: string, widgets: WidgetRegistry | undefined): string {
     const lines: string[] = source.split("\n");
     const kept: string[] = [];
     for (let i = 0; i < lines.length; i++) {
@@ -97,9 +99,9 @@ function withoutCodeFences(source: string): string {
         const opening: RegExpMatchArray | null = lines[i].match(/^(`{3,})(.*)$/);
         if (opening === null) continue;
         const declaration: boolean = opening[2].trim() === WIDGET_FENCE_INFO;
-        for (i++; i < lines.length && !closesFence(lines[i], opening[1]); i++) {
-            if (declaration) kept.push(lines[i]);
-        }
+        const content: string[] = [];
+        for (i++; i < lines.length && !closesFence(lines[i], opening[1]); i++) content.push(lines[i]);
+        if (declaration) kept.push(declarationMarkupText(content.join("\n"), widgets));
         if (i < lines.length) kept.push(lines[i]);
     }
     return kept.join("\n");
@@ -109,8 +111,8 @@ function withoutCodeFences(source: string): string {
  * A lesson that contains markup fails the render. The check runs on the authored source, before
  * any conversion, so no markup can reach a page even by an accident of ordering.
  */
-function refuseMarkup(lesson: LessonSource): void {
-    const match: RegExpMatchArray | null = withoutCodeFences(lesson.source).match(/<\/?[a-zA-Z][^\n>]*>|<!--/);
+function refuseMarkup(lesson: LessonSource, widgets: WidgetRegistry | undefined): void {
+    const match: RegExpMatchArray | null = withoutCodeFences(lesson.source, widgets).match(/<\/?[a-zA-Z][^\n>]*>|<!--/);
     if (match === null) return;
     throw new LessonRenderError(
         "markup-in-lesson",
@@ -121,8 +123,8 @@ function refuseMarkup(lesson: LessonSource): void {
 }
 
 /** Split front matter from prose, and refuse a lesson that is not readable as either. */
-export function parseLesson(lesson: LessonSource): Lesson {
-    refuseMarkup(lesson);
+export function parseLesson(lesson: LessonSource, widgets?: WidgetRegistry): Lesson {
+    refuseMarkup(lesson, widgets);
     const lines: string[] = lesson.source.split("\n");
     if (lines[0]?.trim() !== "---") {
         throw new LessonRenderError("malformed-front-matter", lesson.file, "the lesson has no front matter");
@@ -516,7 +518,7 @@ export function pageNameFor(lessonFile: string): string {
 export function renderWorkbook(options: RenderOptions): RenderedFile[] {
     // Parse every lesson before rendering any page: the navigation names them all, and a lesson
     // that fails must fail the whole render rather than half of it.
-    const lessons: Lesson[] = options.lessons.map(parseLesson);
+    const lessons: Lesson[] = options.lessons.map((lesson) => parseLesson(lesson, options.widgets));
     const plan: { page: string; title: string }[] = lessons.map((l) => ({
         page: pageNameFor(l.file),
         title: l.title,

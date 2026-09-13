@@ -20,9 +20,16 @@
  *
  * The library shipped empty at #405; this seam and this file are what a component built later
  * resolves against. Its first component, predict-then-reveal, arrived with story #461.
+ *
+ * Epic #480 amends the second behaviour: interaction may also compare answers, and it still never
+ * creates, fetches or runs content (decision record #616). It adds two more structural rules — a
+ * declaration that cannot make a checkable exercise fails the whole render, and only the fields a
+ * component declares as code skip the renderer's markup check.
  */
 
 import { parse } from "yaml";
+import { renderCheckScript, renderCheckStyles } from "./answer-check.js";
+import { FILL_THE_SIGNATURE, FILL_THE_SIGNATURE_COMPONENT } from "./fill-the-signature.js";
 import { escapeText } from "./html-escape.js";
 import { PREDICT_THEN_REVEAL, PREDICT_THEN_REVEAL_COMPONENT } from "./predict-then-reveal.js";
 
@@ -54,6 +61,18 @@ export interface WidgetComponent {
     summary: (data: Record<string, unknown>) => string;
     /** The widget's content, as page markup. Complete at render time. */
     render: (data: Record<string, unknown>) => string;
+    /**
+     * The data fields that carry code, as dotted paths where `*` matches every item of a list or
+     * every key of a map. Their values skip the renderer's markup check — a signature such as
+     * `Promise<void>` reads like a tag — so the component must write every one of them escaped and
+     * shown as code. Every other field is still checked.
+     */
+    codeFields?: readonly string[];
+    /**
+     * Why this declaration cannot make the exercise, or null when it can. A problem fails the whole
+     * render: an exercise with a hole in its expected answer tells every learner they are wrong.
+     */
+    refuse?: (data: Record<string, unknown>) => string | null;
 }
 
 /** The library: every lesson in every workbook resolves against this one manifest. */
@@ -65,6 +84,7 @@ export type WidgetRegistry = Readonly<Record<string, WidgetComponent>>;
  */
 export const WIDGET_MANIFEST: WidgetRegistry = {
     [PREDICT_THEN_REVEAL_COMPONENT]: PREDICT_THEN_REVEAL,
+    [FILL_THE_SIGNATURE_COMPONENT]: FILL_THE_SIGNATURE,
 };
 
 export class WidgetError extends Error {
@@ -96,6 +116,62 @@ export function parseDeclaration(lesson: string, content: string): WidgetDeclara
         component: component.trim(),
         data: typeof data === "object" && data !== null && !Array.isArray(data) ? (data as Record<string, unknown>) : {},
     };
+}
+
+/** Remove every value a dotted path names from a copy of the data, leaving everything else. */
+function withoutPath(value: unknown, path: readonly string[]): unknown {
+    if (path.length === 0) return undefined;
+    if (typeof value !== "object" || value === null) return value;
+    const [head, ...rest] = path;
+    if (Array.isArray(value)) {
+        if (head !== "*" && !/^\d+$/.test(head)) return value;
+        return value.map((item, index) => (head === "*" || String(index) === head ? withoutPath(item, rest) : item));
+    }
+    const copy: Record<string, unknown> = { ...(value as Record<string, unknown>) };
+    for (const key of Object.keys(copy)) {
+        if (head === "*" || key === head) {
+            if (rest.length === 0) delete copy[key];
+            else copy[key] = withoutPath(copy[key], rest);
+        }
+    }
+    return copy;
+}
+
+/** Every key and scalar in a parsed declaration, one per line. */
+function scalarsOf(value: unknown, into: string[]): string[] {
+    if (Array.isArray(value)) {
+        for (const item of value) scalarsOf(item, into);
+    } else if (typeof value === "object" && value !== null) {
+        for (const [key, item] of Object.entries(value)) {
+            into.push(key);
+            scalarsOf(item, into);
+        }
+    } else if (value !== undefined && value !== null) {
+        into.push(String(value));
+    }
+    return into;
+}
+
+/**
+ * The part of a widget declaration the renderer's markup check reads: the whole declaration, minus
+ * the values of the fields its component declares as code. A declaration that does not parse, or
+ * names a component the library does not hold, is read whole — the seam refuses it later anyway.
+ */
+export function declarationMarkupText(content: string, registry: WidgetRegistry = WIDGET_MANIFEST): string {
+    let doc: unknown;
+    try {
+        doc = parse(content);
+    } catch {
+        return content;
+    }
+    if (typeof doc !== "object" || doc === null || Array.isArray(doc)) return content;
+    const record: Record<string, unknown> = doc as Record<string, unknown>;
+    const name: unknown = record["component"];
+    const component: WidgetComponent | undefined = typeof name === "string" ? registry[name.trim()] : undefined;
+    if (component?.codeFields === undefined || component.codeFields.length === 0) return content;
+    let data: unknown = record["data"];
+    for (const field of component.codeFields) data = withoutPath(data, field.split("."));
+    return scalarsOf({ ...record, data }, []).join("\n");
 }
 
 /**
@@ -142,6 +218,15 @@ export function makeWidgetSeam(
                 `The whole render fails rather than leaving a page with a hole in it.`,
             );
         }
+        const problem: string | null = component.refuse?.(declaration.data) ?? null;
+        if (problem !== null) {
+            throw new WidgetError(
+                lessonFile,
+                declaration.component,
+                `the '${declaration.component}' declaration cannot make a checkable exercise: ${problem}. ` +
+                `The whole render fails rather than leaving a page that tells every learner they are wrong.`,
+            );
+        }
         return renderWidgetShell(
             declaration.component,
             component.lead?.(declaration.data) ?? null,
@@ -153,18 +238,23 @@ export function makeWidgetSeam(
 
 /**
  * The workbook's interactive runtime, written once per workbook and loaded as a classic script —
- * a page opened from disk cannot load a module script. It toggles visibility and does nothing
- * else: no widget generates or fetches anything when the learner interacts with it.
+ * a page opened from disk cannot load a module script. It changes what is visible and compares
+ * answers against copies already in the page (the checkable answer); no widget generates, fetches
+ * or runs anything when the learner interacts with it, and nothing is stored.
+ *
+ * Every time the page is shown — including a return through the back/forward cache, which would
+ * otherwise hand the learner back the page exactly as they left it — every widget goes back to how
+ * it was written.
  */
 export function renderScript(): string {
     return [
         "/* Generated by the Nexus workbook renderer — do not edit by hand.",
-        " * Interaction changes what is visible and nothing else: every widget's content is already",
-        " * in the page, put there at render time. */",
+        " * Interaction changes what is visible and compares answers against copies already in the",
+        " * page: every widget's content is put there at render time, and nothing is fetched or kept. */",
         '"use strict";',
         "document.addEventListener('click', function (event) {",
         "    var control = event.target.closest('.widget-reveal');",
-        "    if (control === null) return;",
+        "    if (control === null || control.disabled) return;",
         "    var content = control.parentNode.querySelector('.widget-content');",
         "    if (content === null) return;",
         "    var revealed = content.hasAttribute('hidden');",
@@ -172,6 +262,16 @@ export function renderScript(): string {
         "    else content.setAttribute('hidden', '');",
         "    control.setAttribute('aria-expanded', String(revealed));",
         "});",
+        "function resetReveals(root) {",
+        "    var controls = root.querySelectorAll('.widget-reveal');",
+        "    for (var i = 0; i < controls.length; i++) {",
+        "        var content = controls[i].parentNode.querySelector('.widget-content');",
+        "        if (content !== null) content.setAttribute('hidden', '');",
+        "        controls[i].setAttribute('aria-expanded', 'false');",
+        "    }",
+        "}",
+        "window.addEventListener('pageshow', function () { resetReveals(document); });",
+        renderCheckScript(),
         "",
     ].join("\n");
 }
@@ -201,6 +301,6 @@ export function renderWidgetStyles(): string {
         "    .widget-reveal { display: none; }",
         "    .widget-content[hidden] { display: block !important; }",
         "}",
-        "",
+        renderCheckStyles(),
     ].join("\n");
 }
