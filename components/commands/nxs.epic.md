@@ -511,7 +511,9 @@ nexus config backlog-query
     - **Answer the necessity question** (nxs-razor §7): which of these stories does the smallest
       usable version of this capability need? Write the answer as the epic's `## Smallest Usable
       Version` line. It is scope reasoning a later reader consumes, so it is one of the few razor
-      outputs that reaches the filed body.
+      outputs that reaches the filed body. It is also **checked, not asserted** (nxs-razor §11): the
+      set you name must be closed under the ordering block's blockers, so name a story's blockers
+      alongside it or leave that story out.
     - For unclear aspects, make informed guesses from context and standards. Mark `[NEEDS CLARIFICATION: …]` only when the choice materially changes scope or UX and no reasonable default exists. **Max 3 markers.** Prioritize: scope > security/privacy > UX > technical.
 3. For each story assign **`story_type`**:
     - `user` — acceptance criteria describe a behavioral outcome observable by an end-user.
@@ -575,9 +577,15 @@ Source text: ${DRAFT_DIR}/source.md
 
 The gate runs the razor's checker (`nexus razor-check`) against that pair. It reports; it edits
 nothing and creates nothing. **A blocking razor finding is a high finding: do not render the Phase 5
-digest.** Fix `${DRAFT_DIR}/epic.md` — cut the item, restate the citation, or add the story's stated
-reason — and re-run the gate until it is clean. A draft that breaks a counted limit never reaches the
-reviewer.
+digest.** Fix `${DRAFT_DIR}/epic.md` — cut the item, restate the citation, add the story's stated
+reason, or repair the ordering block or the necessity line — and re-run the gate until it is clean. A
+draft that breaks a counted limit, or that names a smallest usable version which cannot run,
+**never reaches the reviewer**.
+
+The closure finding (nxs-razor §11) is the one to read carefully: it names the draft, the story in
+the smallest usable version, and the excluded story that story waits on. Either pull the blocker into
+the `## Smallest Usable Version` line or drop the story that needs it — the answer is scope
+reasoning, so it is yours and the lead's, not the checker's.
 
 The gate's **mechanism observations** are the one razor finding that does not block. Carry each into
 the Phase 5 digest verbatim, as an observation beside the story it belongs to, and let the reviewer

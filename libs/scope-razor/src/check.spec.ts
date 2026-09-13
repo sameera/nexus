@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkDraft, type RazorFinding } from "./check.js";
+import { checkDraft, checkFiledSet, type RazorFinding } from "./check.js";
+import { renderRazorFindings } from "./render.js";
 
 /** Every story the draft declares, ordered as independent of each other — the ordering block is not what these tests are about. */
 function orderingFor(stories: string): string[] {
@@ -194,5 +195,85 @@ describe("the draft-time ordering block", () => {
 
     it("raises nothing on a draft that declares no story, so the record and discovery stages are untouched", () => {
         expect(checkDraft("# Decision Record\n\n## Key Decisions\n\n- A thing `[inferred]`\n", "")).toEqual([]);
+    });
+});
+
+describe("the smallest usable version, as a checked boundary", () => {
+    const epic = (necessity: string, rows: string[], stories: string[]): string =>
+        [
+            "# Epic: Something",
+            "",
+            "## Implementation Order",
+            "",
+            ...rows,
+            "",
+            "## Smallest Usable Version",
+            "",
+            necessity,
+            "",
+            "## User Stories",
+            "",
+            ...stories,
+            "",
+        ].join("\n");
+
+    const three: string[] = ["- **One** — blocked by: none", "- **Two** — blocked by: One", "- **Three** — blocked by: none"];
+    const headings: string[] = ["### Story 1: One", "", "### Story 2: Two", "", "### Story 3: Three"];
+    const closure = (draft: string): RazorFinding[] => checkDraft(draft, "").filter((f: RazorFinding) => f.rule === "closure");
+
+    it("raises no finding when the named set needs nothing outside itself", () => {
+        expect(closure(epic("One; Two", three, headings))).toEqual([]);
+    });
+
+    it("blocks when the named set holds a story that waits on an excluded one, and names both", () => {
+        const findings: RazorFinding[] = closure(epic("Two", three, headings));
+        expect(findings).toHaveLength(1);
+        expect(findings[0].severity).toBe("blocking");
+        expect(findings[0].where).toBe("Two");
+        expect(findings[0].message).toContain("One");
+    });
+
+    it("blocks when the named set holds a story the draft does not have", () => {
+        const findings: RazorFinding[] = closure(epic("One; A story nobody wrote", three, headings));
+        expect(findings).toHaveLength(1);
+        expect(findings[0].message).toContain("A story nobody wrote");
+    });
+
+    it("raises nothing on a draft that carries no smallest-usable-version section at all", () => {
+        const draft: string = ["# Epic: Something", "", "## Implementation Order", "", ...three, "", "## User Stories", "", ...headings, ""].join("\n");
+        expect(closure(draft)).toEqual([]);
+    });
+
+    it("adds no minimum-count rule — an empty answer is not a finding of its own", () => {
+        expect(closure(epic("", three, headings))).toEqual([]);
+    });
+});
+
+describe("the closure rule applied to a set approved for filing", () => {
+    const entries = [
+        { title: "One", blockedBy: [] },
+        { title: "Two", blockedBy: ["One"] },
+    ];
+
+    it("blocks an approved set that waits on a story it leaves out, naming both", () => {
+        const findings: RazorFinding[] = checkFiledSet(entries, ["Two"]);
+        expect(findings).toHaveLength(1);
+        expect(findings[0].severity).toBe("blocking");
+        expect(findings[0].where).toBe("Two");
+        expect(findings[0].message).toContain("One");
+    });
+
+    it("passes a set that is closed under its blockers", () => {
+        expect(checkFiledSet(entries, ["One", "Two"])).toEqual([]);
+    });
+});
+
+describe("the report a stopped run hands its author", () => {
+    it("names the draft as well as the story at fault, not only that the check failed", () => {
+        const findings: RazorFinding[] = checkFiledSet([{ title: "Two", blockedBy: ["One"] }], ["Two"]);
+        const report: string = renderRazorFindings("scratch/epic.md", findings);
+        expect(report).toContain("scratch/epic.md");
+        expect(report).toContain("Two");
+        expect(report).toContain("One");
     });
 });

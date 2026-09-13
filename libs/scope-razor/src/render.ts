@@ -33,8 +33,10 @@ export function renderSurvivingTokens(draft: string, findings: Finding[]): strin
 export function renderRazorFindings(draft: string, findings: RazorFinding[]): string {
     if (findings.length === 0) return `razor-check: ${draft} breaks no razor rule`;
     const order = (f: RazorFinding): number => (f.severity === "blocking" ? 0 : 1);
-    return [...findings]
-        .sort((a: RazorFinding, b: RazorFinding) => order(a) - order(b))
-        .map((f: RazorFinding) => `  ${f.severity}: [${f.rule}] ${f.where} — ${f.message}`)
-        .join("\n");
+    return [
+        `razor-check: ${draft} — ${findings.length} finding(s):`,
+        ...[...findings]
+            .sort((a: RazorFinding, b: RazorFinding) => order(a) - order(b))
+            .map((f: RazorFinding) => `  ${f.severity}: [${f.rule}] ${f.where} — ${f.message}`),
+    ].join("\n");
 }

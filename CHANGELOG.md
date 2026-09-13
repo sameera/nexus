@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.38.0
+
+- The smallest usable version an epic names is now **checked before you see the approval gate**, not
+  taken on trust. `nexus razor-check` walks the draft's ordering block over the
+  `## Smallest Usable Version` line: a name matching no story stops the run, and so does a story in
+  the set that waits on a story the set leaves out — the finding names the draft, the story and the
+  blocker, so the fix is obvious without hunting. A set that cannot run is never rendered to a
+  reviewer. The same rule is applied a second time at apply time, over the set actually approved for
+  filing. A draft with no such section raises nothing, and no minimum-count rule is added anywhere.
+
 ## 0.37.0
 
 - `/nxs.epic` now settles the story order **while it drafts**, not after you approve. A drafted epic

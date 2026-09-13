@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orderedByUnlock, parseOrdering, storyTitles, unmetBlockers, type OrderingEntry } from "./ordering.js";
+import { orderedByUnlock, parseOrdering, smallestUsableVersion, storyTitles, unmetBlockers, type OrderingEntry } from "./ordering.js";
 
 const DRAFT: string = [
     "# Epic: Something",
@@ -96,5 +96,24 @@ describe("what a chosen set of stories still waits on", () => {
 
     it("matches titles the way a citation is matched, so case and spacing do not break closure", () => {
         expect(unmetBlockers(entries, ["sequence  the STORIES", "Check the smallest usable version"])).toEqual([]);
+    });
+});
+
+describe("the named smallest usable version", () => {
+    it("reads the titles off the one line under the heading", () => {
+        const draft: string = ["## Smallest Usable Version", "", "Sequence the stories; Check the smallest usable version", "", "## User Stories"].join("\n");
+        expect(smallestUsableVersion(draft)).toEqual(["Sequence the stories", "Check the smallest usable version"]);
+    });
+
+    it("reads a single-story answer", () => {
+        expect(smallestUsableVersion("## Smallest Usable Version\n\nSequence the stories\n")).toEqual(["Sequence the stories"]);
+    });
+
+    it("is absent — not empty — when the draft carries no such section", () => {
+        expect(smallestUsableVersion("# Epic\n\n## User Stories\n")).toBeUndefined();
+    });
+
+    it("is an empty answer when the section is there but says nothing", () => {
+        expect(smallestUsableVersion("## Smallest Usable Version\n\n## User Stories\n")).toEqual([]);
     });
 });

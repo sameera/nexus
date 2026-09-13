@@ -10,7 +10,17 @@
  */
 
 import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, normalize, type Citation } from "./citations.js";
-import { orderedByUnlock, ORDERING_HEADING, parseOrdering, storyTitles, type OrderingEntry } from "./ordering.js";
+import {
+    NECESSITY_HEADING,
+    orderedByUnlock,
+    ORDERING_HEADING,
+    parseOrdering,
+    smallestUsableVersion,
+    storyTitles,
+    unmetBlockers,
+    type OrderingEntry,
+    type UnmetBlocker,
+} from "./ordering.js";
 
 /** Blocking findings stop a run before the reviewer sees a digest; advisory ones are carried to them. */
 export type Severity = "blocking" | "advisory";
@@ -19,7 +29,7 @@ export type Severity = "blocking" | "advisory";
 export interface RazorFinding {
     severity: Severity;
     /** The rule that failed, as a stable slug the caller may group on. */
-    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label" | "ordering";
+    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label" | "ordering" | "closure";
     /** The story title or section heading the finding belongs to. */
     where: string;
     message: string;
@@ -216,9 +226,45 @@ function checkOrdering(draft: string): RazorFinding[] {
 }
 
 /**
+ * The closure rule over an arbitrary set of stories (epic #576, story #578): a set that cannot run
+ * without a story it excludes is not a usable version.
+ *
+ * It is one rule applied twice — at drafting time over the named smallest usable version, and at
+ * apply time over the set approved for filing after any addition. Both live here rather than in a
+ * gate's prose, because a gate instruction is something a model can drop and the point of the rule
+ * is that the reviewer is never shown, and never files, a set that will not run.
+ */
+export function checkFiledSet(entries: OrderingEntry[], chosen: string[]): RazorFinding[] {
+    return unmetBlockers(entries, chosen).map((unmet: UnmetBlocker) => ({
+        severity: "blocking" as const,
+        rule: "closure" as const,
+        where: unmet.story,
+        message: `Waits on "${unmet.blocker}", which this set excludes. A set that cannot run without an excluded story is not a usable version.`,
+    }));
+}
+
+/** The same rule at drafting time, over the necessity answer, before the gate renders. */
+function checkNecessity(draft: string): RazorFinding[] {
+    const named: string[] | undefined = smallestUsableVersion(draft);
+    if (named === undefined) return [];
+
+    const titles: string[] = storyTitles(draft);
+    const unknown: RazorFinding[] = named
+        .filter((name: string) => !titles.some((title: string) => normalize(title) === normalize(name)))
+        .map((name: string) => ({
+            severity: "blocking" as const,
+            rule: "closure" as const,
+            where: NECESSITY_HEADING,
+            message: `Names "${name}", which is no story in this draft.`,
+        }));
+
+    return [...unknown, ...checkFiledSet(parseOrdering(draft), named)];
+}
+
+/**
  * Every mechanically decidable razor rule, over one draft and the source text that run was given.
  * An empty result is a draft that breaks none of them.
  */
 export function checkDraft(draft: string, sourceText: string): RazorFinding[] {
-    return [...checkStories(draft), ...checkSections(draft), ...checkPersonas(draft), ...checkOrdering(draft), ...checkCitations(draft, sourceText)];
+    return [...checkStories(draft), ...checkSections(draft), ...checkPersonas(draft), ...checkOrdering(draft), ...checkNecessity(draft), ...checkCitations(draft, sourceText)];
 }

@@ -409,3 +409,32 @@ function digestSection(): string {
     expect(end).toBeGreaterThan(start);
     return command.slice(start, end);
 }
+
+describe("the closure rule", () => {
+    const skill: string = read(RAZOR);
+    const epic: string = read("commands/nxs.epic.md");
+
+    it("lives in the shared checker, not in a gate's prose a model can drop", () => {
+        expect(skill).toMatch(/## 11\. The closure rule/);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/both times in `nexus razor-check` rather than in a gate's prose/);
+    });
+
+    it("is one rule applied twice — over the named set while drafting, and over the approved set at apply time", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/At drafting time.*At apply time/s);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/before any issue is created/);
+    });
+
+    it("blocks before the gate renders, so a set that cannot run is never shown to a reviewer", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/blocks \*before the gate renders\*/);
+        expect(epic.replace(/\s+/g, " ")).toMatch(/never reaches the reviewer/i);
+    });
+
+    it("names both stories when a named story waits on an excluded one", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/names both stories and the draft it is in/);
+    });
+
+    it("raises nothing where there is no smallest-usable-version section, and adds no minimum-count rule", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/carries no `## Smallest Usable Version` section raises \*\*no finding\*\*/);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/no minimum-count check of any kind/);
+    });
+});

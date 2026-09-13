@@ -38,6 +38,32 @@ const STORY_HEADING: RegExp = /^###[ \t]+Story[ \t]+#?\d+[ \t]*:[ \t]*(.+?)[ \t]
 /** `- **<title>** — blocked by: <title>; <title>` — an em dash or a hyphen, `none` for no blockers. */
 const ORDERING_ROW: RegExp = /^-[ \t]+\*\*(.+?)\*\*[ \t]*[—–-][ \t]*blocked by:[ \t]*(.*)$/i;
 
+/** The heading the necessity answer (§7) is written under. */
+export const NECESSITY_HEADING: string = "## Smallest Usable Version";
+
+/**
+ * The stories the necessity answer names, or `undefined` when the draft carries no such section.
+ *
+ * The two are different states and the checker treats them differently: an absent section raises
+ * nothing at all, because the record and discovery stages share this checker and never write one.
+ * An empty one is an answer that names no story, and it is still not a finding — the razor admits no
+ * minimum-count rule anywhere.
+ */
+export function smallestUsableVersion(draft: string): string[] | undefined {
+    const lines: string[] = draft.split("\n");
+    const start: number = lines.findIndex((line: string) => line.trim() === NECESSITY_HEADING);
+    if (start === -1) return undefined;
+
+    const named: string[] = [];
+    for (const line of lines.slice(start + 1)) {
+        if (/^#{1,3} /.test(line)) break;
+        const text: string = stripLabels(line).trim();
+        if (text === "") continue;
+        named.push(...text.split(";").map((name: string) => name.trim().replace(/^[-*][ \t]*/, "").replace(/\*\*/g, "").trim()));
+    }
+    return named.filter((name: string) => name !== "");
+}
+
 /** Every story the draft declares, in reading order, with any provenance label stripped off. */
 export function storyTitles(draft: string): string[] {
     return draft

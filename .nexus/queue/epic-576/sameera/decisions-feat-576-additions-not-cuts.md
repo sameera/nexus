@@ -15,3 +15,15 @@
 - **Choice:** `deriveFilingBody` strips labels and removes the ordering section; `stripLabels` keeps its line-local meaning.
 - **Why:** `ordering.ts` calls `stripLabels` per line to read a title; widening it to remove a whole section would make the reader depend on the writer.
 - **Refuted alternative:** Extend `stripLabels` to drop the block as well.
+
+## 2026-09-12 — An absent necessity section and an empty one are different states
+
+- **Choice:** `smallestUsableVersion` returns `undefined` for a missing section and `[]` for a present but empty one.
+- **Why:** The razor forbids a minimum-count rule, so an empty answer must be expressible without being a finding, while an absent section must raise nothing at all for the record and discovery stages.
+- **Refuted alternative:** Return `[]` for both and treat the section's presence as irrelevant.
+
+## 2026-09-12 — The failing report gains a header line naming the draft
+
+- **Choice:** `renderRazorFindings` prefixes its findings with `razor-check: <draft> — <n> finding(s):`.
+- **Why:** The story requires a stopped run to name the draft as well as the story at fault; the findings themselves carry only the story.
+- **Refuted alternative:** Put the draft path into every finding's message.

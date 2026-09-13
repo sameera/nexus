@@ -283,4 +283,4 @@ a gate instruction is something a model can drop:
 2. **At apply time**, over the approved set after any addition, before any issue is created.
 
 A draft that carries no `## Smallest Usable Version` section raises **no finding** here, and this
-rule adds **no minimum-count check** of any kind — §5's ban is not narrowed by it.
+rule adds no minimum-count check of any kind — §5's ban is not narrowed by it.
