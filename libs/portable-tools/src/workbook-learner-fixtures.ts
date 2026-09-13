@@ -41,6 +41,14 @@ export interface LearnerPage {
     announcement(): string;
     /** Every move control is a native control a keyboard reaches and presses. */
     movesWorkFromKeyboard(): boolean;
+    /** The text of the line the n-th trace stepper marks as the current one. */
+    markedLine(trace?: number): string;
+    /** The state the n-th trace stepper shows beside its snippet right now. */
+    stateShown(trace?: number): string;
+    /** Whether the n-th trace stepper's step control can be pressed. */
+    canStep(trace?: number): boolean;
+    /** Press the n-th trace stepper's step control; a control that cannot be pressed does nothing. */
+    step(trace?: number): void;
     /** Press the n-th check control on the page. */
     check(answer?: number): void;
     /** What the n-th result area says, or "" when it says nothing. */
@@ -134,7 +142,29 @@ export function openPage(files: readonly RenderedFile[], pageName: string): Lear
         click(control);
     };
 
+    const traces = (): Element[] => [...doc.querySelectorAll("[data-trace]")];
+    const stepControl = (trace: number): HTMLButtonElement => {
+        const control: HTMLButtonElement | null = nth(traces(), trace, "trace stepper").querySelector(".trace-step-forward");
+        if (control === null) throw new Error(`trace stepper #${trace} has no step control`);
+        return control;
+    };
+
     return {
+        markedLine(trace: number = 0): string {
+            const marked: Element | null = nth(traces(), trace, "trace stepper").querySelector(".trace-line[aria-current]");
+            return marked === null ? "" : (marked.textContent ?? "").trim();
+        },
+        stateShown(trace: number = 0): string {
+            const states: Element[] = [...nth(traces(), trace, "trace stepper").querySelectorAll(".trace-state")].filter((s) => !hidden(s));
+            return states.map((s) => normalise(s.querySelector("pre")?.textContent ?? "")).join(" ");
+        },
+        canStep(trace: number = 0): boolean {
+            return !stepControl(trace).disabled;
+        },
+        step(trace: number = 0): void {
+            const control: HTMLButtonElement = stepControl(trace);
+            if (!control.disabled) click(control);
+        },
         lines(problem: number = 0): string[] {
             return [...nth(problems(), problem, "Parsons problem").children].map(lineText);
         },
