@@ -1,23 +1,23 @@
 ---
 title: "Epic Approval Gate"
-aliases: ["approval digest gate", "epic filing gate", "decision-grade digest"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body"]
-last_updated_by: "#442"
+aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "offer list at the digest", "waits on line"]
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement"]
+last_updated_by: "#576"
 status: active
 verification: verified
 ---
 
 # Epic Approval Gate
 
-The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves. The digest, not the epic document, is the read surface at the gate, and open questions block it.
+The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves. The digest, not the epic document, is the read surface at the gate, and open questions block it. What a plain approval files is the smallest usable version.
 
 ## How It Works
 
-The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story, sequences them, and writes the feature navigation index linking to the filed issue. Filing also declares the design-warrant: a medium-or-larger complexity rollup gets the needs-design label, upserted before applied; an absent or unrecognized rollup errs toward needing design, and the lead can edit the label. Under issue-sourced planning, it commits nothing at planning. The draft stays in session scratch. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics; the gate's consent covers that irreversible filing. The epic is translated before the digest is built, so the gate reads the wording that will be filed. Each story body is then a verbatim transcription of the translated epic; only the reference rewrite to an issue number may change a body afterwards. The gate also runs the scope razor's checker, and a blocking finding stops the digest. The digest carries a numbered cut list, and issues are filed from a derived body, not the labelled draft.
+The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners with what each waits on, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story for the approved set, sequences them from the draft's ordering block, and writes the feature navigation index linking to the filed issue. Filing declares the design warrant. Under issue-sourced planning, it commits nothing at planning. The draft stays in session scratch. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics, and the gate's consent covers that irreversible filing. The gate reads the drafted wording, with no translation step before it. Each story body is a verbatim transcription of the derived filing body; only the reference rewrite to an issue number may change a body afterwards. The gate runs the scope razor's checker, and a blocking finding stops the digest. The digest carries a numbered offer list, and one typed selection both adds stories and keeps back removals. Issues are filed from a derived body, not the labelled draft.
 
 ## Key Invariants
 
-1. The epic and its story issues are filed together, gated by one approval.
+1. The epic and its story issues are filed together for the approved set, gated by one approval.
 2. The decision-grade digest, not the epic document, is the read surface at the gate.
 3. Open questions and a blocking razor finding each stop the digest before filing.
 4. Oversized scope becomes backlog stub issues filed on the gate's consent, not fully generated epics.
@@ -37,9 +37,15 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [discovery-graduation](discovery-graduation.md) — the entry mode consuming a finished discovery, which files through this stage's existing paths.
 - [prose-translation](prose-translation.md) — translates the epic before the digest, so the gate approves the wording that is filed.
 - [scope-razor](scope-razor.md) — the rule set the draft is written under, whose checker this gate runs before any digest is rendered.
+- [addition-gate](addition-gate.md) — the convention this gate renders: a plain approval files the smallest usable version, and everything else is offered.
+- [draft-ordering-block](draft-ordering-block.md) — the graph the digest shows each story's blockers from, and that filing walks to sequence the issues.
+- [set-closure-check](set-closure-check.md) — blocks a set that cannot run, at drafting time and again over the set this gate assembled.
+- [design-warrant](design-warrant.md) — the rollup rule this gate declares the needs-design label from.
 - [cut-gate](cut-gate.md) — the convention behind the digest's cut list and its third approval action.
 - [derived-filing-body](derived-filing-body.md) — what every issue this gate files is filed from, asserted clean beforehand.
 
+- [citation-check](citation-check.md) — the evidence rule behind every `asked` label this gate renders and checks.
+- [razor-enforcement](razor-enforcement.md) — the shared checker this gate invokes, and the source of the observations its digest carries.
 ## Decision Log
 
 ### 2026-06-29 — bootstrap — 0010: file epic and stories at one approval digest
@@ -81,3 +87,7 @@ The gate had one pre-filing safeguard, and open questions were it: nothing asked
 ### 2026-09-06 — #442 — The gate reads the drafted wording, with no translation step before it
 
 The epic is no longer translated between drafting and the digest. The stage writes plain prose the first time, so the wording the gate approves is the wording the draft already carries, and each story body stays a verbatim transcription of the derived filing body. The property the translation step protected is unchanged: the reviewer approves the words that reach the tracker. The step was retired across four drafting stages because the translator re-read each artifact and its sources on every run, and that exchange cost more tokens and more time than it saved.
+
+### 2026-09-13 — #576 — The gate offers scope instead of banking it, and files the smallest usable version
+
+Approving cost one keystroke and cutting cost reading a numbered list, so the reviewer who was tired or merely trusting shipped scope nobody asked for. The default now files the smallest usable version and offers the rest, and the reviewer's one typed selection adds stories as well as keeping back removals. Two supporting changes make that default trustworthy. The dependency graph moved into the draft, so the digest shows what each story waits on at the moment the reviewer is deciding, and filing walks that same block instead of deriving an order nobody approved. The smallest usable version became a checked set rather than a line of prose. Asked-for scope the reviewer does not take is deferred as one epic stub rather than dropped, so declining costs nothing and forgets nothing, while model-added scope nobody took is discarded. The design-warrant rule moved to its own page when this one reached its own-content capacity; this gate still declares the warrant at filing.

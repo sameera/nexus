@@ -203,54 +203,122 @@ describe("the epic gate", () => {
     });
 });
 
-describe("the cut-gate convention", () => {
+describe("the two gate conventions", () => {
     const skill: string = read(RAZOR);
+    const flat: string = skill.replace(/\s+/g, " ");
 
-    it("is stated once in the skill and shared by shape, not by implementation", () => {
-        expect(skill).toMatch(/## 8\. The cut-gate convention/);
-        expect(skill.replace(/\s+/g, " ")).toContain("no implementation");
+    it("is one shared shape with a convention per gate, not one convention asserted for both", () => {
+        expect(skill).toMatch(/## 8\. The gate conventions/);
+        expect(flat).toContain("no implementation");
+        expect(flat).toMatch(/### The shared shape/);
+        expect(flat).toMatch(/### The planning gate's convention: addition/);
+        expect(flat).toMatch(/### The design-record checkpoint's convention: removal/);
     });
 
-    it("makes an empty selection identical to plain approval", () => {
-        expect(skill.replace(/\s+/g, " ")).toMatch(/empty selection is identical to plain approval/i);
+    it("keeps the shared shape the two gates still have in common", () => {
+        expect(flat).toMatch(/empty selection is identical to plain approval/i);
+        expect(flat).toMatch(/refused, with the reason stated, never silently ignored/);
     });
 
-    it("keeps at least one story and refuses a cut of already-filed content", () => {
-        expect(skill.replace(/\s+/g, " ")).toMatch(/At least one story must survive/);
-        expect(skill.replace(/\s+/g, " ")).toMatch(/refused, with the reason stated, never silently ignored/);
+    it("names addition as the planning gate's default and states what a plain approval files", () => {
+        expect(flat).toMatch(/The default is \*\*addition\*\*/);
+        expect(flat).toMatch(/A plain approval files the smallest usable version, and nothing else/);
+        expect(flat).toMatch(/At least one story is always filed/);
+    });
+
+    it("names removal as the checkpoint's action and says why that gate has nothing to add to", () => {
+        expect(flat).toMatch(/The action is \*\*removal\*\*/);
+        expect(flat).toMatch(/a refuted alternative is not scope/i);
+        expect(flat).toMatch(/nothing to add to/i);
+    });
+
+    it("keeps the inversion at story granularity, so a sub-story item is still opt-out", () => {
+        expect(flat).toMatch(/Only stories are opt-in/);
+    });
+
+    it("states that this file governs where a drafting stage's own wording disagrees with it", () => {
+        expect(flat).toMatch(/Where a restatement and this file disagree, this file governs/);
+        expect(flat).toMatch(/this page governs where a stage's own wording disagrees with it/i);
     });
 });
 
 describe("the approval digest", () => {
     const epic: string = read("commands/nxs.epic.md").replace(/\s+/g, " ");
 
-    it("renders one numbered cut list grouped by story", () => {
-        expect(epic).toContain("### Cuts");
-        expect(epic).toMatch(/every `inferred` item/);
+    it("files the smallest usable version on a plain approval, and nothing else", () => {
+        expect(epic).toContain("### What a plain approval files");
+        expect(epic).toMatch(/a plain approval files the smallest usable version and nothing else/i);
     });
 
-    it("offers three actions, so approving with cuts is one choice rather than a re-run", () => {
-        expect(epic).toContain("**approve with cuts**");
-        expect(epic).toContain("**approve as drafted**");
+    it("offers the rest as additions the reviewer has to name, in one stably numbered list", () => {
+        expect(epic).toContain("### Additions — taken only if you name them");
+        expect(epic).toMatch(/share one stably numbered\s+list/);
+        expect(epic).toMatch(/one typed selection covers both/i);
     });
 
-    it("offers an excluded asked-for story as asked-for, never as an addition", () => {
-        expect(epic).toMatch(/Never render an asked-for story as an addition/);
+    it("offers three actions, so adding scope is one choice rather than a re-run", () => {
+        expect(epic).toContain("**approve with changes**");
+        expect(epic).toContain("**approve** —");
     });
 
-    it("applies cuts before any issue is created", () => {
+    it("sorts the asked-for stories first and renders each with the fragment that claims it", () => {
+        expect(epic).toMatch(/sort \*\*first\*\* and are rendered \*\*asked-for\*\*/);
+        expect(epic).toMatch(/asked fragment verbatim beside it/);
+    });
+
+    it("orders the offer by what each item unlocks, never by a ranking of value", () => {
+        expect(epic).toMatch(/what each item unlocks, never a ranking by value/);
+        expect(epic).toMatch(/scoring its own additions/);
+    });
+
+    it("inverts at story granularity only, keeping sub-story items opt-out", () => {
+        expect(epic).toContain("### Removals — applied unless you name them");
+        expect(epic).toMatch(/inversion is at story granularity only/i);
+        expect(epic).toMatch(/file with no criteria at all/);
+    });
+
+    it("discards what the reviewer does not take rather than banking it", () => {
+        expect(epic).toMatch(/is discarded and leaves no trace anywhere/);
+    });
+
+    it("treats an empty selection as a plain approval", () => {
+        expect(epic).toMatch(/empty selection is identical to a plain approval/i);
+    });
+
+    it("applies the approved set before any issue is created", () => {
         expect(epic).toMatch(/before\*\* Phase 6 derives the filing body/);
     });
 
-    it("re-parents the dependents of a cut story and states the cascade before applying it", () => {
-        expect(epic).toMatch(/Re-parent the dependents of a cut story/);
-        expect(epic).toMatch(/have the lead confirm before applying it/);
+    it("re-checks closure over the approved set before it edits the draft's graph", () => {
+        expect(epic).toMatch(/Re-check closure over the filed set — before any edit, over the graph as drafted/);
+        expect(epic).toMatch(/nexus razor-check --draft "\$\{DRAFT_DIR\}\/epic\.md" --filed/);
     });
 
-    it("re-derives the complexity rollup, the design-warrant label and the risk banner after a whole-story cut", () => {
+    it("re-parents nothing on the reviewer's behalf, so the apply-time arm can still fire", () => {
+        expect(epic).toMatch(/nothing is re-parented on their behalf/i);
+        expect(epic).toMatch(/no cascade follows and no edge is re-parented/i);
+    });
+
+    it("re-derives what the story set determined over the filed set", () => {
         expect(epic).toMatch(/re-derive what the story set determined/i);
-        expect(epic).toContain("needs-design");
-        expect(epic).toMatch(/re-derived, or removed/);
+    });
+
+    it("numbers only the two groups a selection can act on", () => {
+        expect(epic).toMatch(/Only the two acted-on groups are numbered/);
+        expect(epic).toMatch(/a number against it\s+would name an action the selection has no meaning for/);
+    });
+
+    it("takes the offer list's order and numbering from the checker rather than by hand", () => {
+        expect(epic).toMatch(/nexus razor-offer --draft/);
+    });
+
+    it("derives the filing body with the checker, which asserts what it wrote", () => {
+        expect(epic).toMatch(/nexus razor-check --draft "\$\{DRAFT_DIR\}\/epic\.md" --derive/);
+    });
+
+    it("writes the deferral count in the form the floor reads back", () => {
+        expect(epic).toMatch(/\*\*deferred:\*\* <n> story\|stories/);
+        expect(epic).toMatch(/`deferred:` line counts one story/);
     });
 });
 
@@ -369,5 +437,158 @@ describe("the record's pre-filing checkpoint", () => {
 
     it("renders its observation with the sentinel the assertion looks for", () => {
         expect(read("commands/nxs.decision-record.md")).toContain("⚠️ razor: names no trade-off");
+    });
+});
+
+describe("the draft-time ordering block", () => {
+    const skill: string = read(RAZOR);
+    const epic: string = read("commands/nxs.epic.md");
+
+    it("is stated normatively in the skill, keyed on story titles rather than positions", () => {
+        expect(skill).toContain("## Implementation Order");
+        expect(skill.replace(/\s+/g, " ")).toMatch(/titles are the only stable name a story has/i);
+    });
+
+    it("is written while the epic is drafted, not assigned after approval", () => {
+        expect(epic).toContain("## Implementation Order");
+        expect(epic.replace(/\s+/g, " ")).toMatch(/order the stories while you draft them/i);
+    });
+
+    it("is what the digest renders each story's blockers from, so the reviewer decides with the graph in view", () => {
+        expect(digestSection().replace(/\s+/g, " ")).toMatch(/waits on/i);
+    });
+
+    it("is what filing derives its refs from, so the filed ordering is the one shown at approval", () => {
+        expect(epic.replace(/\s+/g, " ")).toMatch(/derive .{0,40}from the draft's `## Implementation Order` block/i);
+    });
+
+    it("dies at filing, because the native dependency edges own the graph once the issues exist", () => {
+        expect(epic.replace(/\s+/g, " ")).toMatch(/ordering block dies here/i);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/never read again/i);
+    });
+});
+
+/** Phase 5's digest, from its heading to the phase that files. */
+function digestSection(): string {
+    const command: string = read("commands/nxs.epic.md");
+    const start: number = command.indexOf("## Phase 5 — Approval digest");
+    const end: number = command.indexOf("## Phase 6 — File the epic", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    return command.slice(start, end);
+}
+
+describe("the closure rule", () => {
+    const skill: string = read(RAZOR);
+    const epic: string = read("commands/nxs.epic.md");
+
+    it("lives in the shared checker, not in a gate's prose a model can drop", () => {
+        expect(skill).toMatch(/## 11\. The closure rule/);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/both times in `nexus razor-check` rather than in a gate's prose/);
+    });
+
+    it("is one rule applied twice — over the named set while drafting, and over the approved set at apply time", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/At drafting time.*At apply time/s);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/before any issue is created/);
+    });
+
+    it("blocks before the gate renders, so a set that cannot run is never shown to a reviewer", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/blocks \*before the gate renders\*/);
+        expect(epic.replace(/\s+/g, " ")).toMatch(/never reaches the reviewer/i);
+    });
+
+    it("names both stories when a named story waits on an excluded one", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/names both stories and the draft it is in/);
+    });
+
+    it("raises nothing where there is no smallest-usable-version section, and adds no minimum-count rule", () => {
+        expect(skill.replace(/\s+/g, " ")).toMatch(/carries no `## Smallest Usable Version` section raises \*\*no finding\*\*/);
+        expect(skill.replace(/\s+/g, " ")).toMatch(/no minimum-count check of any kind/);
+    });
+});
+
+describe("a story's own provenance label", () => {
+    const epic: string = read("commands/nxs.epic.md");
+
+    it("is written on the story heading, because it is what decides whether the story is filed", () => {
+        expect(epic.replace(/\s+/g, " ")).toMatch(/label every story heading/i);
+    });
+
+    it("keeps the vocabulary two-valued at the granularity it now governs", () => {
+        expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/the story heading itself/i);
+        expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/No third value/);
+    });
+});
+
+describe("re-deriving what the story set determined", () => {
+    const epic: string = read("commands/nxs.epic.md").replace(/\s+/g, " ");
+
+    it("is one step, not a rule that lives on the removal path", () => {
+        expect(epic).toMatch(/one step, in one place/i);
+    });
+
+    it("fires on any difference between the drafted story set and the filed one, in either direction", () => {
+        expect(epic).toMatch(/differs from the drafted one[^.]*in either direction/i);
+    });
+
+    it("re-derives the size rollup from the filed story set rather than the draft as first written", () => {
+        expect(epic).toMatch(/`complexity` rollup[^.]*from the filed story set/i);
+    });
+
+    it("re-derives the design warrant, so additions that carry the epic past the threshold carry it", () => {
+        expect(epic).toContain("needs-design");
+        expect(epic).toMatch(/additions that carry the epic past it must gain the label/i);
+    });
+
+    it("re-derives or removes a sizing warning written before the change", () => {
+        expect(epic).toMatch(/re-derived, or removed/);
+        expect(epic).toMatch(/describes the story set that was actually filed/i);
+    });
+
+    it("re-checks closure and re-runs the gate in the same step", () => {
+        expect(epic).toMatch(/Re-check closure over the filed set/i);
+        expect(epic).toMatch(/re-run the gate/i);
+    });
+});
+
+describe("asked-for scope the smallest usable version excludes", () => {
+    const epic: string = read("commands/nxs.epic.md");
+    const flat: string = epic.replace(/\s+/g, " ");
+
+    it("leaves as one epic stub issue, through the producer the oversized path already uses", () => {
+        expect(epic).toContain("8. **File the deferral stub");
+        expect(flat).toMatch(/the same stub producer Phase 2b uses/i);
+    });
+
+    it("is filed only after the epic's own issues exist, and only on an explicit approval", () => {
+        expect(flat).toMatch(/after the epic issue and every story issue exist/i);
+        expect(flat).toMatch(/Nothing is created before an explicit approval/i);
+    });
+
+    it("never carries scope the reviewer declined, and never carries model-added scope", () => {
+        expect(flat).toMatch(/never carries a story the drafting model added/i);
+    });
+
+    it("carries story titles only — no acceptance criteria and no provenance label", () => {
+        expect(flat).toMatch(/story titles only/i);
+        expect(flat).toMatch(/no acceptance criteria/i);
+    });
+
+    it("names its originating epic by issue number, and never a path into session scratch", () => {
+        expect(flat).toMatch(/deferred from #\$\{EPIC\}/);
+        expect(flat).toMatch(/never any part of `source\.md`/i);
+    });
+
+    it("creates nothing when the smallest usable version needs every asked-for story", () => {
+        expect(flat).toMatch(/file no stub/i);
+    });
+
+    it("records the stub's number back on the draft, so a re-run does not file a second one", () => {
+        expect(flat).toMatch(/deferral_link/);
+    });
+
+    it("terminates: a planning run that consumes a single-story deferral defers nothing further", () => {
+        expect(flat).toMatch(/defers nothing further/i);
+        expect(flat).toMatch(/\*\*deferred:\*\* <n> story\|stories/i);
     });
 });
