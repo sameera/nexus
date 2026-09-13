@@ -1,8 +1,8 @@
 ---
 title: "Workbook Store"
 aliases: ["workbook", "workbook folder", "lessons folder", "teaching plan", "workbook placement"]
-touches: ["pipeline-store-exclusion", "learner-folder", "lesson-renderer", "workspace-resolution", "teaching-plan"]
-last_updated_by: "#407"
+touches: ["pipeline-store-exclusion", "learner-folder", "lesson-renderer", "workspace-resolution", "teaching-plan", "workbook-home-page"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -32,6 +32,7 @@ The store is created on first use and holds one folder per workbook. Inside a wo
 - [lesson-renderer](lesson-renderer.md) — reads the lessons and the plan this store lays out, and writes the pages back into it.
 - [workspace-resolution](workspace-resolution.md) — the one resolver that says which member checkout a workbook belongs in.
 - [teaching-plan](teaching-plan.md) — the plan of slices this store holds, which makes an unwritten lesson a stub rather than a mismatch.
+- [workbook-home-page](workbook-home-page.md) — the page written at the workbook's root beside the lesson pages, from the plan this store holds.
 
 ## Decision Log
 
@@ -42,3 +43,7 @@ The store is committed and sits beside the queue and the discovery store, under 
 ### 2026-09-07 — #407 — A plan of slices makes an unwritten lesson a stub, not a mismatch
 
 The refusal that fired when the plan named a lesson the folder did not hold assumed every lesson exists before anyone reads them. Under a plan of slices a lesson is written when the learner arrives at it, so an absent lesson is the normal state and the old refusal would block every workbook that teaches. The refusal therefore narrows to plans that list lessons, while the other half stands for both kinds: a lesson the plan does not name still has no place in the workbook. This entry also records the reciprocal link to the teaching plan, which the store now reads and hands to a session. Refuted alternative: keep the refusal absolute and have the planning stage write an empty lesson for every slice up front. It keeps one rule for both kinds of plan, but the workbook would then ship stub pages the navigation links to, which is the dead end the stub marking exists to avoid.
+
+### 2026-09-13 — #458 — Reciprocal link from workbook-home-page
+
+Mechanical reciprocity fan-out: the home page is written at a workbook's root beside the lesson pages, from the plan this store holds. The store's own rules are unchanged by it. Approval writes the plan and the pages together or not at all — the plan is staged beside its target and the previous pages are held while the new ones are written, so a failed render leaves both exactly as they were — which is the same all-or-nothing guarantee the render already gave, now spanning the plan as well.

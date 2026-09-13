@@ -1,8 +1,8 @@
 ---
 title: "Scaffold Slice"
 aliases: ["scaffold", "teaching step", "slice with no story", "storyless slice", "scaffold restraint", "forced need", "background concept"]
-touches: ["plan-rewrite", "plan-draft", "coverage-check", "teaching-plan"]
-last_updated_by: "#457"
+touches: ["plan-rewrite", "plan-draft", "coverage-check", "teaching-plan", "slice-identity"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -19,7 +19,7 @@ Needs are taken by ascending assuming story, then in vocabulary order. Each need
 
 A concept no slice of the roadmap introduces is scaffolded rather than faulted, because every roadmap's first slices stand on background no story teaches. A concept only a handed-off story would introduce is never scaffolded, because a scaffold would hide a focus boundary drawn in the wrong place.
 
-A scaffold is emitted during ordering, at the moment its needing slice is chosen, so each concept keeps one owner. The committed plan refuses a slice with no story, so a scaffold exists only in the draft.
+A scaffold is emitted during ordering, at the moment its needing slice is chosen, so each concept keeps one owner. The committed plan now admits one: it carries no story, no epic, no branch and no pinning test, and writing its lesson is the only fact that can put it behind the learner.
 
 ## Key Invariants
 
@@ -36,10 +36,15 @@ A scaffold is emitted during ordering, at the moment its needing slice is chosen
 - [plan-rewrite](plan-rewrite.md) — decides scaffolds before ordering, and emits each one when its needing slice is chosen.
 - [plan-draft](plan-draft.md) — the one place a scaffold lives, as a stub that names a concept instead of a story.
 - [coverage-check](coverage-check.md) — reports the handed-off case a scaffold must never cover.
-- [teaching-plan](teaching-plan.md) — the committed contract, which refuses a slice with no story, so no scaffold reaches it.
+- [teaching-plan](teaching-plan.md) — the committed contract, which now admits a scaffold as a slice with no story, no epic, no branch and no pinning test.
+- [slice-identity](slice-identity.md) — why a scaffold's concept is its identity, and why a session cannot key it by a story it does not have.
 
 ## Decision Log
 
 ### 2026-09-12 — #457 — Scaffolds come from reachability, one concept each, with no story
 
 Deciding scaffolds from the edges answers "could this be taught in time" the same way on every run. Deciding them from the chosen order would make the scaffold count depend on the selection rule, and would add scaffolds some permitted order did not need. One concept per scaffold lets a reviewer argue each scaffold down separately. A scaffold carries no story because it builds nothing. Borrowing the next slice's story would pin a teaching step to work it does not build and show the learner a story name on a step that is not that story. Scaffolds are emitted during ordering, so a concept has one owner without a second ownership pass. When needs conflict, the next permitted introducer is tried before scaffolding. Refuted alternative: order first, then insert a scaffold wherever the order left a concept late. That needs no reachability analysis, but it inserts scaffolds a different permitted order would have avoided.
+
+### 2026-09-13 — #458 — The committed plan admits a scaffold, and its lesson is the only fact that finishes it
+
+A scaffold lived only in the draft, because admitting one into the committed plan meant deciding what its branch, its pinning test and its lesson are — a decision left to approval. Approval decides them by leaving them out: a scaffold carries no story, no epic, no branch and no pinning test, and it is a learner slice by construction. That leaves nothing to observe about whether the learner finished it, since a scaffold builds nothing on the roadmap and has no test to pass, so writing its lesson is what puts it behind the learner. The session teaches it rather than stopping because it names no story; the drift check skips it, because it pins nothing that could have moved; a handoff prompt never names it among the slices to leave alone; and the return probe steps over it to fence the next slice that builds a story. This entry also records the reciprocal link from slice-identity.

@@ -1,8 +1,8 @@
 ---
 title: "Lesson Renderer"
 aliases: ["workbook renderer", "lesson page", "closed markup channel", "all-or-nothing render", "provenance banner", "quoted code in a lesson"]
-touches: ["workbook-store", "widget-seam", "offline-page", "learner-folder", "reading-surface-tokens", "portable-tooling", "just-in-time-lesson", "generated-page-check"]
-last_updated_by: "#407"
+touches: ["workbook-store", "widget-seam", "offline-page", "learner-folder", "reading-surface-tokens", "portable-tooling", "just-in-time-lesson", "generated-page-check", "workbook-home-page"]
+last_updated_by: "#458"
 status: active
 verification: verified
 ---
@@ -34,6 +34,7 @@ A lesson containing markup fails the render, and the failure names the file. The
 - [portable-tooling](portable-tooling.md) — the executable it ships on, which carries the built script and stylesheet it writes out.
 - [just-in-time-lesson](just-in-time-lesson.md) — the lesson written on arrival, whose quoted pinning test the render must show as code.
 - [generated-page-check](generated-page-check.md) — split from this page: what answers drift between a committed page and the lesson it came from.
+- [workbook-home-page](workbook-home-page.md) — one more page this render produces, from the committed plan rather than from an authored lesson.
 
 ## Decision Log
 
@@ -44,3 +45,7 @@ Moving the markup into code is only enforceable when there is no channel through
 ### 2026-09-07 — #407 — Code fences are exempt from the markup refusal, and the drift check splits out
 
 The refusal was absolute, so a lesson could not quote the pinning test the learner is asked to write, and naming only the file left the learner unable to see what is being checked without opening the plan. A code fence's content is escaped and shown as code, so it is text a reader sees rather than a channel through which markup reaches the page, and the exemption tracks exactly what the renderer escapes. A widget declaration's content still counts, because a component turns it into markup. Fence closing now honours the opening run's length, so a lesson can quote a test containing a fence. Fitting the amended refusal took the page over its own-content cap, so the committed-page drift check moved to its own page, taking the paragraph on committed generated output and the invariant on the check mode. The seam is that a task asking why a committed page no longer matches its lesson needs neither the markup rule nor the chrome rules, and a task debugging a failed render needs nothing about the check. This entry also records the reciprocal link to the just-in-time lesson. Refuted alternative: leave the lesson naming only the file and let the learner open the plan. It is cheaper and keeps the markup rule absolute, but it drops the half of the decision that exists so the learner can see what is being checked.
+
+### 2026-09-13 — #458 — Reciprocal link from workbook-home-page
+
+Mechanical reciprocity fan-out: the render now produces a home page from the committed plan alongside the pages it builds from authored lessons. Nothing this page asserts changes — the home page goes through the same closed markup channel, the same shared chrome and the same all-or-nothing write, and it carries its provenance statement as the first content in the file like every other generated page.
