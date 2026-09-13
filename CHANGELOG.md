@@ -5,6 +5,102 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.43.0
+
+- The `/nxs.epic` approval gate now **checks the set you approved before it edits anything**, so an
+  addition whose prerequisite you did not also take is caught instead of quietly re-wired. The gate
+  used to re-parent a dropped story's dependents onto that story's own blockers first, which left
+  every approved set closed by construction and the closure rule unable to fire in the direction the
+  addition convention added it for. It now re-checks closure over the graph as drafted, returns to
+  the choice naming both stories, and re-parents nothing on your behalf: you take the prerequisite
+  too, or drop the addition.
+- The epic's **`complexity` rollup and the needs-design label are now checked against the stories you
+  actually filed**, not only re-derived by hand. The rollup may not sit below the largest size in the
+  filed set, and it may not sit above it while `complexity_drivers` states nothing that raises it.
+  How far cross-story integration raises it is still your judgement — what is checked is that the
+  judgement was made over the set that shipped, and stated.
+- The gate's offer list takes its **order and its numbering from the checker** rather than deriving
+  them again in prose, and `/nxs.epic` derives the filing body — provenance labels and the ordering
+  block removed — with the same checker, which asserts what it wrote. Only the two groups a selection
+  can act on are numbered now: what a plain approval files is shown as plain bullets, so no number
+  names an action the selection has no meaning for.
+- A deferral stub written for a single story now says `deferred: 1 story`, the form the deferral
+  floor reads back, so a one-story deferral is recognised as the floor and defers nothing further.
+
+## 0.42.0
+
+- The razor's rule set now describes **two gate conventions over one shared shape**, rather than one
+  convention it asserts for both gates. The shape is unchanged — numbered prose grouped by parent,
+  coarse actions, a typed list of numbers, an empty selection identical to a plain approval, and
+  nothing applied to content a prior partial run already filed. The planning gate's convention is
+  **addition**, and the rule set states exactly what a plain approval files and what happens to each
+  group the reviewer does not take. The decision-record checkpoint's convention is **removal**, and
+  the rule set says why that gate has nothing to add to: a refuted alternative is not scope. The
+  precedence clause still holds across the split — where a stage's own wording disagrees with the
+  rule set, the rule set governs.
+
+## 0.41.0
+
+- Scope you asked for that the smallest usable version does not need now **survives as a planned-later
+  item** instead of being dropped at the gate. After the epic's own issues are filed, `/nxs.epic`
+  files one epic stub carrying the titles of the asked-for stories you did not take — through the
+  same stub producer, the same unplanned label and the same resumability the oversized path already
+  uses, so planning it later meets this same command and this same gate. It carries story titles
+  only: a deferred title is drafted again when it is planned, so no acceptance criteria travel with
+  it. Its source line names the originating epic by issue number. Scope the drafting model added that
+  you declined is still discarded and carries into no stub, and an epic whose smallest usable version
+  needed every asked-for story files no stub at all. The stub's number is recorded back on the draft,
+  so re-running a partly completed filing never files a second one. The chain terminates at a floor:
+  a planning run that consumes a single-story deferral defers nothing further.
+
+## 0.40.0
+
+- Adding a story at the `/nxs.epic` gate now re-derives what the story set determined, the way
+  removing one always has. The epic's `complexity` rollup, the **needs-design** label that follows
+  from it, and any utilization-risk banner in the body are re-derived in **one step**, fired by any
+  difference between the drafted story set and the filed one — in either direction. Additions that
+  carry the epic past the threshold gain the design warrant; ones that leave it below do not get it.
+  A warning the filed epic still carries describes the story set that was actually filed, not the
+  draft as first written. The same step re-checks closure over the filed set and re-runs the epic
+  gate, because a set the reviewer assembled at the gate has been checked by nothing until it does.
+
+## 0.39.0
+
+- **The `/nxs.epic` approval gate now offers additions instead of cuts.** A plain approval files the
+  smallest usable version and nothing else. Every other story is offered in one stably numbered list
+  under *Additions*, and you file it only by naming its number. The stories you asked for sort first
+  and are rendered as asked-for, each carrying verbatim the fragment of your own words the drafting
+  model cited for it — so a story claiming your authority is a claim you can reject in the one place
+  you are already deciding. Within each group the order follows what unlocks what, never a ranking by
+  value. A model-added story you do not take is discarded and leaves no trace. The inversion is at
+  story granularity only: a model-added acceptance criterion, assumption or out-of-scope item on a
+  story that *is* being filed stays opt-out, listed under *Removals*, and one typed selection covers
+  both directions. An empty selection is still identical to a plain approval.
+- Every **story heading** in a drafted epic now carries a provenance label, because a story's label
+  is what decides whether it is filed by default. `nexus razor-check` blocks an unlabelled heading and
+  checks an `asked` heading's fragment against the run's source text like any other citation.
+
+## 0.38.0
+
+- The smallest usable version an epic names is now **checked before you see the approval gate**, not
+  taken on trust. `nexus razor-check` walks the draft's ordering block over the
+  `## Smallest Usable Version` line: a name matching no story stops the run, and so does a story in
+  the set that waits on a story the set leaves out — the finding names the draft, the story and the
+  blocker, so the fix is obvious without hunting. A set that cannot run is never rendered to a
+  reviewer. The same rule is applied a second time at apply time, over the set actually approved for
+  filing. A draft with no such section raises nothing, and no minimum-count rule is added anywhere.
+
+## 0.37.0
+
+- `/nxs.epic` now settles the story order **while it drafts**, not after you approve. A drafted epic
+  carries one `## Implementation Order` block naming each story's blockers by title, the approval
+  digest shows you what each story waits on beside the story itself, and filing derives its sequence
+  from that same block — so the ordering you approved is the ordering that gets filed. `nexus
+  razor-check` blocks a draft whose block leaves a story unplaced, names a story that does not
+  exist, or forms a cycle. The block is drafting-time only: it is removed when the filing body is
+  derived, and the assertion that no drafting-time token reaches an issue now covers it, because
+  once the issues exist GitHub's own dependency edges are the graph.
+
 ## 0.36.0
 
 - `/nxs.teach-plan`, the planning phase that turns a planned **epic** into a teaching roadmap, gains
