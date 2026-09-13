@@ -462,7 +462,8 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             {
                 repo: plan.repo,
                 branch: slice.branch,
-                epic: plan.epic,
+                // The epic this slice's story belonged to at approval, never a plan-wide one (invariant 8).
+                epic: slice.epic as number,
                 story: slice.story,
                 siblings: siblingSlices(teaching, slice.story),
                 issue: { title: slice.pinned.title, body: slice.pinned.body },

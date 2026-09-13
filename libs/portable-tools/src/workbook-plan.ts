@@ -47,6 +47,11 @@ export interface PlanSliceRecord {
     /** The one concept a scaffold teaches, which is also its identity. Present exactly on a scaffold. */
     scaffold?: string;
     /**
+     * The epic this slice's story belonged to when the plan was approved — what a handoff prompt
+     * names (record #591, invariant 8). Absent on a scaffold, which builds no story.
+     */
+    epic?: number;
+    /**
      * The lesson file this slice teaches into, or "" for a handoff slice, which is neither built
      * nor taught by the learner and so never becomes a page. Named but absent from the folder means
      * the slice is a stub — the normal state before the learner arrives at it.
@@ -76,8 +81,11 @@ export function sliceLabel(slice: { story?: number; part?: number; scaffold?: st
 export interface WorkbookPlan {
     /** The repository the plan teaches, named in a handoff prompt. Required, as the prompt states it. */
     repo: string;
-    /** The epic the slices belong to, named in a handoff prompt. Required, for the same reason. */
-    epic: number;
+    /**
+     * The plan-wide epic an older, single-epic plan declared. A handoff prompt names each slice's own
+     * epic; this is only the value such a plan's slices carry when they record none of their own.
+     */
+    epic: number | null;
     /** The declared suite command, as an argument vector — never a shell string (invariant 14). */
     suite: string[];
     /** The declared command that grades one exercise, and that the fence probe runs. */
@@ -141,7 +149,7 @@ function readScaffold(record: Record<string, unknown>, where: string): PlanSlice
     };
 }
 
-function readSlice(raw: unknown, index: number): PlanSliceRecord {
+function readSlice(raw: unknown, index: number, planEpic: number | null): PlanSliceRecord {
     const where: string = `slice ${index + 1}`;
     const record: Record<string, unknown> = asRecord(raw);
     if (record["scaffold"] !== undefined) return readScaffold(record, where);
@@ -172,10 +180,20 @@ function readSlice(raw: unknown, index: number): PlanSliceRecord {
     const probe: Record<string, unknown> = asRecord(record["pinning_test"]);
     const concepts: unknown = record["concepts"];
 
+    const rawEpic: unknown = record["epic"];
+    const epic: number = rawEpic === undefined && planEpic !== null ? planEpic : Number(rawEpic);
+    if (!Number.isInteger(epic) || epic <= 0) {
+        throw new PlanError(
+            `${at} names no 'epic' issue number. A handoff prompt states the epic the slice's story ` +
+            `belongs to, so a slice without one would hand a coding agent a prompt reading 'Epic: #0'.`,
+        );
+    }
+
     const learnerBuilds: boolean = mark === "learner";
     return {
         story,
         ...(part === undefined ? {} : { part }),
+        epic,
         lesson: learnerBuilds ? text(record["lesson"], "lesson", at) : String(record["lesson"] ?? ""),
         learnerBuilds,
         pinned: {
@@ -221,7 +239,13 @@ export function parsePlan(source: string): WorkbookPlan {
     if (!Array.isArray(slices) || slices.length === 0) {
         throw new PlanError("declares no 'slices' list, so the workbook has no plan to teach from.");
     }
-    const read: PlanSliceRecord[] = slices.map(readSlice);
+    // A plan-wide epic is what an older single-epic plan declared; a plan approved from a roadmap of
+    // several epics records each slice's own instead, and never needs one.
+    const planEpic: number | null = record["epic"] === undefined ? null : Number(record["epic"]);
+    if (planEpic !== null && (!Number.isInteger(planEpic) || planEpic <= 0)) {
+        throw new PlanError(`names an 'epic' that is not an issue number.`);
+    }
+    const read: PlanSliceRecord[] = slices.map((raw, index) => readSlice(raw, index, planEpic));
 
     const seen: Map<string, string> = new Map();
     for (const slice of read) {
@@ -236,17 +260,9 @@ export function parsePlan(source: string): WorkbookPlan {
         seen.set(slice.lesson, sliceLabel(slice));
     }
 
-    const epic: number = Number(record["epic"]);
-    if (!Number.isInteger(epic) || epic <= 0) {
-        throw new PlanError(
-            `names no 'epic' issue number. A handoff prompt states the epic the slice belongs to, ` +
-            `so a plan without one would hand a coding agent a prompt reading 'Epic: #0'.`,
-        );
-    }
-
     return {
         repo: text(record["repo"], "repo", "the plan"),
-        epic,
+        epic: planEpic,
         suite: commandVector(record["suite"], "suite"),
         grading: commandVector(record["grading"], "grading"),
         probeControl: readProbeControl(record["probe_control"]),

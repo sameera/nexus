@@ -890,3 +890,60 @@ describe("a plan with split parts and scaffolds is taught step by step, in order
         expect(reads.filter((story) => story === 470)).toHaveLength(1);
     });
 });
+
+/** A plan approved from a roadmap whose two stories belong to the given epics (story #584). */
+function epicPlanText(first: number, second: number): string {
+    const slice = (story: number, epic: number, builds: string, lesson?: string): string[] => [
+        `  - story: ${story}`,
+        `    epic: ${epic}`,
+        ...(lesson === undefined ? [] : [`    lesson: ${lesson}`]),
+        `    builds: ${builds}`,
+        `    branch: rdl/story-${story}`,
+        "    concepts: [an-idea]",
+        "    pinning_test:",
+        `      file: tests/s${story}.spec.ts`,
+        "      text: |",
+        `        it("pins #${story}", () => {});`,
+        "    pinned:",
+        `      title: Story ${story} teaches something`,
+        `      body: As a learner, I want slice ${story}.`,
+    ];
+    return [
+        "repo: nexus",
+        `suite: ${JSON.stringify(SUITE)}`,
+        `grading: ${JSON.stringify(GRADING)}`,
+        "slices:",
+        ...slice(480, first, "learner", "story-480.md"),
+        ...slice(481, second, "handoff"),
+    ].join("\n") + "\n";
+}
+
+function handoffPromptFor(first: number, second: number): string {
+    const repo = makeDir();
+    execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+    fs.writeFileSync(path.join(repo, ".gitignore"), "");
+    createWorkbook(repo, "rdl");
+    fs.writeFileSync(path.join(workbookRoot(repo, "rdl"), PLAN_FILENAME), epicPlanText(first, second));
+    const live: Record<number, LiveStory> = {
+        480: { title: "Story 480 teaches something", body: "As a learner, I want slice 480.", closed: false },
+        481: { title: "Story 481 teaches something", body: "As a learner, I want slice 481.", closed: false },
+    };
+    teachOne(repo, { live });
+    finish(repo, "tests/s480.spec.ts");
+    const handoff = teach(repo, { live }).result;
+    expect(handoff.outcome.kind).toBe("handoff");
+    return handoff.outcome.kind === "handoff" ? fs.readFileSync(handoff.outcome.promptPath, "utf8") : "";
+}
+
+describe("a handoff prompt names the epic its own slice belongs to (story #584)", () => {
+    it("names the second epic for a slice of the second epic of an initiative roadmap", () => {
+        const prompt: string = handoffPromptFor(455, 456);
+
+        expect(prompt).toMatch(/Epic: #456\n/);
+        expect(prompt).not.toMatch(/#455/);
+    });
+
+    it("names the one epic of a single-epic roadmap", () => {
+        expect(handoffPromptFor(455, 455)).toMatch(/Epic: #455\n/);
+    });
+});
