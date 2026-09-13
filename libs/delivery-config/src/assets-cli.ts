@@ -8,6 +8,7 @@
 import * as path from "node:path";
 import { publishAsset, type PublishResult } from "./asset-publish.js";
 import { type AssetReference, assetReference } from "./asset-reference.js";
+import { type AssetListCheck, checkAssetList, publishAndRewrite, type RewriteOutcome } from "./asset-rewrite.js";
 import {
     type AssetSizeCapResolution,
     type AssetStore,
@@ -22,7 +23,7 @@ import { type ToolkitIo } from "./io.js";
 const PROGRAM = "nexus assets";
 
 /** The subverbs this capability dispatches; the executable's registry reads the same list. */
-export const ASSETS_SUBVERBS: readonly string[] = ["resolve", "publish", "visibility"];
+export const ASSETS_SUBVERBS: readonly string[] = ["resolve", "publish", "visibility", "check", "rewrite"];
 
 export function assetsUsage(): string {
     return [
@@ -35,6 +36,12 @@ export function assetsUsage(): string {
         "                            the reference pinned to the commit the publish created, in the form",
         "                            its reader renders: an image inline (raw flag), any other file a link.",
         "  visibility [--root <path>] Read the store's visibility from GitHub once: prints public or private.",
+        "  check --asset <path>... [--root <path>]",
+        "                            The intake step: every path exists, no two share a file name, the store",
+        "                            resolves and its visibility is read once. Prints one JSON object.",
+        "  rewrite --body <file>... --asset <path>... --feature <slug> [--root <path>]",
+        "                            After approval: publish every asset a body references, in declared order,",
+        "                            and replace each local path with its rendered reference. Prints a summary.",
     ].join("\n");
 }
 
@@ -166,10 +173,117 @@ export function runAssetsVisibility(args: string[], io: ToolkitIo, run: GhRunner
     return 0;
 }
 
+/** Every value of a repeatable `--flag value` option, with the rest kept in order. */
+function takeAll(args: string[], flag: string): { values: string[]; rest: string[] } {
+    const values: string[] = [];
+    const rest: string[] = [];
+    for (let i = 0; i < args.length; i++) {
+        if (args[i] === flag) {
+            if (args[i + 1] !== undefined) values.push(args[++i]);
+        } else rest.push(args[i]);
+    }
+    return { values, rest };
+}
+
+/**
+ * `assets check --asset <path>... [--root <path>]` — the intake step, before the draft is written.
+ *
+ * Stops (exit 1) on a missing path, two assets sharing a file name, a malformed store, or a store
+ * GitHub cannot read. Prints `{ state: "unsupported", assets }` when no store is declared — the
+ * stage then drafts without asset references — or `{ state: "declared", repo, branch, visibility,
+ * assets }`. Publishes nothing.
+ */
+export function runAssetsCheck(args: string[], io: ToolkitIo, run: GhRunner = cliGhRunner): number {
+    const { value: root, rest: afterRoot } = takeOption(args, "--root");
+    const { values: declared, rest } = takeAll(afterRoot, "--asset");
+    if (rest.length > 0) return usageError(io, `check: unexpected argument '${rest[0]}'`);
+    if (declared.length === 0) return usageError(io, "check requires at least one --asset <path>");
+    const list: AssetListCheck = checkAssetList(declared, io.cwd);
+    if (!list.ok) {
+        io.stderr(`assets ${list.problem}: ${list.message}`);
+        return 1;
+    }
+    const assets = list.assets.map((asset) => ({ path: asset.declared, filename: asset.filename, kind: asset.kind }));
+    const resolution: AssetStoreResolution = resolveAssetStore(path.resolve(io.cwd, root ?? "."));
+    if (resolution.kind === "malformed") {
+        io.stderr(`assets malformed-store: ${resolution.message}`);
+        return 1;
+    }
+    if (resolution.kind === "unsupported") {
+        io.stderr(`assets unsupported: ${UNSUPPORTED_MESSAGE}`);
+        io.stdout(JSON.stringify({ state: "unsupported", assets }));
+        return 0;
+    }
+    const visibility: VisibilityResult = readStoreVisibility(resolution.store, run);
+    if (!visibility.ok) {
+        io.stderr(`assets store-unreadable: ${visibility.message}`);
+        return 1;
+    }
+    io.stdout(
+        JSON.stringify({
+            state: "declared",
+            repo: resolution.store.repo,
+            branch: resolution.store.branch,
+            visibility: visibility.visibility,
+            assets,
+        }),
+    );
+    return 0;
+}
+
+/**
+ * `assets rewrite --body <file>... --asset <path>... --feature <slug> [--root <path>]` — the
+ * post-approval step, on the derived filing body and before the clean-body assertion.
+ */
+export function runAssetsRewrite(args: string[], io: ToolkitIo, run: GhRunner = cliGhRunner): number {
+    const { value: root, rest: afterRoot } = takeOption(args, "--root");
+    const { value: feature, rest: afterFeature } = takeOption(afterRoot, "--feature");
+    const { values: bodies, rest: afterBodies } = takeAll(afterFeature, "--body");
+    const { values: declared, rest } = takeAll(afterBodies, "--asset");
+    if (rest.length > 0) return usageError(io, `rewrite: unexpected argument '${rest[0]}'`);
+    if (bodies.length === 0) return usageError(io, "rewrite requires at least one --body <file>");
+    if (declared.length === 0) return usageError(io, "rewrite requires at least one --asset <path>");
+    if (!feature || !/^[a-z0-9][a-z0-9-]*$/.test(feature)) {
+        return usageError(io, "rewrite requires --feature <slug> (lower-case letters, digits and hyphens)");
+    }
+    const list: AssetListCheck = checkAssetList(declared, io.cwd);
+    if (!list.ok) {
+        io.stderr(`assets ${list.problem}: ${list.message}`);
+        return 1;
+    }
+    const resolvedRoot: string = path.resolve(io.cwd, root ?? ".");
+    const store: AssetStore | number = requireStore(resolvedRoot, io);
+    if (typeof store === "number") return store;
+    const sizeCap: number | null = requireSizeCap(resolvedRoot, io);
+    if (sizeCap === null) return 1;
+    const outcome: RewriteOutcome = publishAndRewrite({
+        bodies: bodies.map((body) => path.resolve(io.cwd, body)),
+        assets: list.assets,
+        feature,
+        store,
+        sizeCap,
+        run,
+    });
+    if (!outcome.ok) {
+        io.stderr(`assets ${outcome.problem}: ${outcome.message}`);
+        if (outcome.summary.published.length > 0) {
+            io.stderr(`  already published, harmless and unreferenced: ${outcome.summary.published.map((p) => p.path).join(", ")}`);
+        }
+        return 1;
+    }
+    for (const unreferenced of outcome.summary.unreferenced) {
+        io.stderr(`assets unreferenced: ${unreferenced} is declared but no body mentions it — not published`);
+    }
+    io.stdout(JSON.stringify(outcome.summary));
+    return 0;
+}
+
 export const ASSETS_COMMANDS: Record<string, (args: string[], io: ToolkitIo, run: GhRunner) => number> = {
     resolve: runAssetsResolve,
     publish: runAssetsPublish,
     visibility: runAssetsVisibility,
+    check: runAssetsCheck,
+    rewrite: runAssetsRewrite,
 };
 
 export function runAssets(args: string[], io: ToolkitIo, run: GhRunner = cliGhRunner): number {

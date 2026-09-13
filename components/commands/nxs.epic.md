@@ -30,6 +30,13 @@ The text after the slash command is either:
   `/nxs.discover` writes nothing to GitHub, so graduation happens here, through the emission path
   this command already owns.
 
+Any planning mode — intent, promotion or discovery — may also carry **`--assets <path>[,<path>…]`**:
+local files (a diagram, a screen mockup, a sketch) the filed issues should carry. The flag is
+repeatable and its value comma-separated; strip every `--assets` token and its value before reading
+the rest of `$ARGUMENTS`, and keep the paths **exactly as written** — they are the tokens the draft
+carries and the filing step matches. Load the **`nxs-assets`** skill before handling it. `--assets`
+is meaningless with `--from` (a pull drafts nothing) and is refused there.
+
 The flag selects the operation; it is never inferred from the shape of the argument. A bare number
 always means "plan this epic"; `--from` always means "load this already-planned epic";
 `--discovery` always means "consume this finished discovery". **Any other input is a capability
@@ -138,6 +145,30 @@ nexus workspace docs-root
 - **Building a path under `<docs-root>` (empty-prefix rule):** if `<docs-root>` is `.`, the taxonomy
   hangs directly off the repo root (`features/<slug>/…`); otherwise prefix it
   (`<docs-root>/features/<slug>/…`). Never emit a `./`-prefixed path or a segment named `.`.
+
+**Assets intake (when `--assets` was passed — before anything is drafted).** Run the one intake
+step, naming every declared path exactly as the lead wrote it:
+
+```bash
+nexus assets check --asset <path> [--asset <path> ...]
+```
+
+- **Non-zero exit → stop before drafting and report the diagnostic verbatim.** It names a missing
+  path (`missing-asset`), two assets sharing a file name (`duplicate-filename`), a malformed
+  `asset-store` value (`malformed-store`), or a store GitHub cannot read (`store-unreadable`).
+  Nothing has been drafted and nothing has been published.
+- **`{ "state": "unsupported", … }`** → this repository declares no asset store. Say so once on the
+  console — *assets are unsupported for this repository: no asset-store is declared* — and set
+  `ASSETS = none`. The run then continues **exactly as it would without the flag**: the draft is
+  written with no asset references and the issues are filed without them, with the same bodies this
+  command filed before assets existed. Never refer to the files in a body, and never write them
+  anywhere else instead.
+- **`{ "state": "declared", repo, branch, visibility, assets }`** → record `ASSETS` (the declared
+  paths, in the order given), `ASSET_STORE` (`repo`, plus `@branch` when one is set) and
+  `ASSET_VISIBILITY` (`public` | `private`). The visibility is read here **once** and feeds the
+  Phase 5 digest only; it never selects how an asset is referenced.
+
+The check reads; it writes nothing to the store. Nothing is published before the Phase 5 gate.
 
 1. **Resume check.** Look in your **session scratch** for a pending epic draft — a working folder
    (e.g. `nxs-epic-<slug>/epic.md`) written by a prior run of this command whose frontmatter has
@@ -537,6 +568,15 @@ session scratch and stays there: no part of it is posted to an issue, a comment 
 with a fragment quoted from `source.md`, or `[inferred]`. The vocabulary is the skill's and has two
 values.
 
+**Refer to each asset by its local path, exactly as declared** (when `ASSETS` is set). Put the
+reference in the section it illustrates — a story's `### Story` section for that story's diagram,
+an epic-level section for an epic-level one — as a Markdown image or link whose target is the
+declared path: `![the filing flow](assets/flow.png)`, `[the mockup](assets/mock.html)`. Write the
+path verbatim; the Phase 6 rewrite matches it exactly. **Nothing is published while drafting.** The
+reviewer approves a draft that names files on the lead's machine, so a revise at the gate costs
+nothing and leaves the store unchanged. A declared asset the draft never mentions is not published
+either — it is reported at filing and skipped, because the store is never pruned.
+
 `EPIC_SLUG` is the epic's kebab-case slug decided in Phase 3 (the same value written to the draft's
 `slug:` frontmatter). Write the epic to `${DRAFT_DIR}/epic.md` — this is the working draft the epic
 gate (Phase 4b) and the approval digest (Phase 5) read, and the source the filing skill (Phase 6)
@@ -626,6 +666,14 @@ Then render the digest:
 
 ## <Epic Title>   ·   complexity: <S|M|L|XL>
 
+<when ASSETS is set — the store line, informed consent to publish there:>
+**Assets:** <n> file(s) → `<ASSET_STORE>` (<public | private>) — <file names, comma-separated>
+<when ASSET_VISIBILITY is public and the issues repository is private (`nexus config resolve
+issues-repo`, or the current repository when it resolves to nothing):>
+⚠️ The store is public and the issues repository is private: these files will be world-readable while the issues are not.
+<when ASSET_VISIBILITY is private and the issues repository is public:>
+Note: the store is private, so a reader outside the team sees a broken image where a member sees the diagram.
+
 <everything in epic.md between the H1 title and `## User Stories` — Description, Success Metrics,
 Personas — verbatim (condense only obvious redundancy).>
 
@@ -684,14 +732,18 @@ emit a free-text prompt line. Three options:
 - **revise** — stop; edit the `epic.md` draft in session scratch, then re-run with `/nxs.epic --resume`.
 
 **Do NOT create any issue without an explicit approval** (an `AskUserQuestion` selection of one of
-the two approve options, or an "Other" answer that clearly means approve).
+the two approve options, or an "Other" answer that clearly means approve). The store line is part
+of what is approved: a public store under a private issues repository is a **warning the lead
+decides on**, never a refusal — the team chose the store deliberately, and a refusal would block
+an open-source project with a private planning repository.
 
 - `approve as drafted` → Phase 6.
 - `approve with cuts` → take the numbers (typed as a list, e.g. `1, 4, 5`), apply the cuts below,
   then Phase 6. **An empty selection is plain approval**: go straight to Phase 6 with no
   re-derivation, no re-render and no second confirmation.
 - `revise` → stop. Leave the scratch draft intact for editing; report how to resume. Nothing is
-  committed, so there is nothing to clean up.
+  committed, so there is nothing to clean up — and **nothing has been published to the store**:
+  assets are published only in Phase 6, after approval, so a revise leaves the store unchanged.
 
 ### Applying cuts (before any issue is created)
 
@@ -724,16 +776,42 @@ is cut after something is filed.
 ## Phase 6 — File the epic and story issues (on approve)
 
 **Derive the filing body first (before step 1).** The draft carries provenance labels; the issues
-must not. Copy `${DRAFT_DIR}/epic.md` to `${DRAFT_DIR}/epic.filing.md`, remove every `[asked: "…"]`
-and `[inferred]` label from it, and assert that no drafting-time token survived:
+must not. Copy `${DRAFT_DIR}/epic.md` to `${DRAFT_DIR}/epic.filing.md` and remove every
+`[asked: "…"]` and `[inferred]` label from it.
+
+**Then publish the assets and rewrite their references (when `ASSETS` is set).** This is the first
+side effect after the gate. It runs on the derived body, before the assertion below, and before any
+issue exists. `<feature-slug>` is the last segment of the draft's `feature_path` — the folder the
+files land in is the feature's, so a second epic in the same feature shares it:
 
 ```bash
-nexus razor-check --draft "${DRAFT_DIR}/epic.filing.md" --assert-clean
+nexus assets rewrite --body "${DRAFT_DIR}/epic.filing.md" \
+    --asset <path> [--asset <path> ...] \
+    --feature "<feature-slug>"
+```
+
+It publishes every asset the body references — one commit per file, in the order declared, through
+GitHub's file-contents endpoint with no clone — and replaces each local path with the reference its
+reader renders: an image inline, any other file a link to the version at the pinned commit. It
+prints `{ published, unreferenced, rewritten }`. **A non-zero exit stops the run: file nothing.** The
+diagnostic is GitHub's own error or a named problem; anything it had already published is harmless
+and unreferenced, and a re-run republishes cleanly. An `unreferenced` entry is a declared file no
+body mentions — report it in Phase 7; nothing is written for it. Because the story work-items in
+step 3 are transcribed from this rewritten body, a reference in a story's section lands in that
+story's issue body and one in an epic-level section lands in the epic body.
+
+**Then assert that no drafting-time token — and no declared local path — survived:**
+
+```bash
+nexus razor-check --draft "${DRAFT_DIR}/epic.filing.md" --assert-clean \
+    [--asset-path <path> ...]     # one per declared asset, when ASSETS is set
 ```
 
 A non-zero exit stops the run: **file nothing**, fix the derived body, and re-assert. The assertion
 covers a surviving template placeholder (`{{…}}`) and observation marker (`⚠️ razor:`) as well as a
-label, so nothing drafting-time reaches an issue.
+label, and — given this run's `--asset-path`s, matched exactly — a local asset path the rewrite
+missed, so a local filesystem path fails the run the same way a surviving label does, before any
+issue is created or edited.
 
 **Every command below names `epic.filing.md` explicitly.** The two files have different jobs and the
 distinction is not one a blanket sentence can carry through a dozen concrete commands:
@@ -810,8 +888,9 @@ story becomes one GitHub issue, child of the epic issue.
    `${DRAFT_DIR}/epic.filing.md` — copy the prose across, do not re-draft it. Transcribing from the
    labelled `epic.md` would carry a provenance label onto a story issue, which is the one leak the
    derived body exists to prevent. The epic was approved at the Phase 5 digest on that wording, so
-   a sentence rewritten here would reach the issue unapproved. Only the ref rewrite in step 4's
-   pass 3 (`STORY-<EPIC>.<SEQ>` → `#<issue>`) may change a body after approval:
+   a sentence rewritten here would reach the issue unapproved. Only the asset rewrite at the top of
+   this phase and the ref rewrite in step 4's pass 3 (`STORY-<EPIC>.<SEQ>` → `#<issue>`) may change
+   a body after approval:
 
     ```markdown
     ---
@@ -844,9 +923,12 @@ story becomes one GitHub issue, child of the epic issue.
 
     ```bash
     for item in "<scratch-folder>"/STORY-*.md; do
-        nexus razor-check --draft "$item" --assert-clean || exit 1
+        nexus razor-check --draft "$item" --assert-clean [--asset-path <path> ...] || exit 1
     done
     ```
+
+    Pass the same `--asset-path` flags as the epic body's assertion, so a local path that slipped
+    into a transcription is caught on the same terms.
 
     A non-zero exit stops the run: **file nothing**, fix the work-item, and re-assert. The epic body
     was asserted at the top of this phase and each story body is transcribed out of it — but a
@@ -960,6 +1042,10 @@ Report:
   mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a
   **tracked config file**, distinct from the no-queue-commit planning contract above — tell the user
   to review that diff and commit it, so the fragile probe never runs again.
+- **Assets**, when `--assets` was passed: each published file with its pinned reference and the
+  issue it landed in; any declared file that no body mentioned and so was **not** published; or,
+  when the repository declares no store, that assets were unsupported and the issues were filed
+  without them.
 - Epic issue link and the created story issue numbers, plus the implementation sequence (the table
   from Phase 6 step 5) — or, if the user chose `revise`, that no issues were created and how to
   resume (`/nxs.epic --resume`).

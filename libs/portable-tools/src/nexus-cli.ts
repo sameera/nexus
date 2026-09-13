@@ -286,11 +286,12 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
         usage: [
             "  nexus razor-check --draft <path> --source <path>",
-            "  nexus razor-check --draft <path> --assert-clean",
+            "  nexus razor-check --draft <path> --assert-clean [--asset-path <path>]...",
             "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
             "      personas table, exiting 1 when any finding blocks. With --assert-clean it instead",
             "      asserts that a derived filing body carries no provenance label, template placeholder",
-            "      token or observation marker, so a drafting-time body is never filed.",
+            "      token, observation marker or declared local asset path (--asset-path, repeatable,",
+            "      matched exactly), so a drafting-time body is never filed.",
         ].join("\n"),
         run: runRazorCheck,
     },
@@ -1366,14 +1367,17 @@ interface RazorCheckFlags {
     draft?: string;
     source?: string;
     assertClean: boolean;
+    /** This run's declared local asset paths (epic #594): a survivor fails `--assert-clean`. */
+    assetPaths: string[];
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
-    const flags: RazorCheckFlags = { assertClean: false };
+    const flags: RazorCheckFlags = { assertClean: false, assetPaths: [] };
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--draft") flags.draft = argv[++i];
         else if (argv[i] === "--source") flags.source = argv[++i];
         else if (argv[i] === "--assert-clean") flags.assertClean = true;
+        else if (argv[i] === "--asset-path") flags.assetPaths.push(argv[++i] ?? "");
     }
     return flags;
 }
@@ -1408,7 +1412,7 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     if (body === undefined) return 1;
 
     if (flags.assertClean) {
-        const findings: RazorFinding[] = survivingTokens(body);
+        const findings: RazorFinding[] = survivingTokens(body, flags.assetPaths);
         if (findings.length > 0) {
             io.stderr(renderSurvivingTokens(flags.draft, findings));
             return 1;

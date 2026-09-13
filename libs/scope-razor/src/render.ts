@@ -12,6 +12,7 @@ const REMEDY: Record<TokenKind, string> = {
     label: "provenance label — strip it",
     placeholder: "template placeholder — replace it",
     observation: "observation marker — an observation belongs in the gate's render, not in the body",
+    "asset-path": "local asset path — publish it and rewrite the reference; no local path reaches an issue",
 };
 
 /**

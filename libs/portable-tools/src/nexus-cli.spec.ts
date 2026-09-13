@@ -922,6 +922,17 @@ describe("nexus razor-check", () => {
         expect(io.err.join("\n")).toContain("inferred");
     });
 
+    it("exits non-zero and names the path when a declared local asset path survived into the filing body (epic #594)", async () => {
+        const dir: string = makeTmpDir("cli-razor-check-");
+        fs.writeFileSync(path.join(dir, "epic.filing.md"), "# Epic: A\n\n![flow](assets/flow.png)\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.filing.md", "--assert-clean", "--asset-path", "assets/flow.png"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("assets/flow.png");
+        expect(io.err.join("\n")).toContain("3");
+        const clean: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-check", "--draft", "epic.filing.md", "--assert-clean", "--asset-path", "assets/other.png"], clean)).toBe(0);
+    });
+
     it("exits non-zero and names the token when a template placeholder survived into the filing body", async () => {
         const dir: string = makeTmpDir("cli-razor-check-");
         fs.writeFileSync(path.join(dir, "record-body.md"), "# Decision Record: A\n\n- **Why:** {{RATIONALE}}\n");

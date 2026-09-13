@@ -49,14 +49,46 @@ nexus assets publish --file <local-path> --feature <slug> [--root <dir>] [--json
 # https://github.com/acme/assets/blob/<commit>/features/<slug>/<filename>
 ```
 
-`--json` prints `{ path, commit, url, filename }` instead of the bare address.
+`--json` prints `{ path, commit, url, filename, kind, markdown }` instead of the bare address.
+
+```bash
+# Intake, before a draft is written: every path exists, no two share a file name, the store
+# resolves and its visibility is read once. Publishes nothing.
+nexus assets check --asset <path> [--asset <path> ...] [--root <dir>]
+# {"state":"declared","repo":"acme/assets","branch":null,"visibility":"private","assets":[{"path":"assets/flow.png","filename":"flow.png","kind":"image"}]}
+# {"state":"unsupported","assets":[...]}          ← no store: the stage drafts without asset references
+
+# After approval, on the derived filing body: publish every asset a body references, in declared
+# order, and replace each local path with the reference its reader renders.
+nexus assets rewrite --body <file> [--body <file> ...] --asset <path> [--asset <path> ...] --feature <slug> [--root <dir>]
+# {"published":[{"declared":"assets/flow.png","kind":"image","path":"features/<slug>/flow.png","commit":"<sha>","url":"..."}],"unreferenced":[],"rewritten":["<file>"]}
+
+# The clean-body assertion, given this run's declared paths — a survivor fails the run.
+nexus razor-check --draft <file> --assert-clean --asset-path <path> [--asset-path <path> ...]
+```
+
+## How a filing stage uses it
+
+1. **Intake** (`check`), before drafting. A non-zero exit stops the run by name. `unsupported` is
+   said once on the console and the run continues with no asset references at all.
+2. **Draft** with each asset named by its **local path, exactly as declared**, as a Markdown image
+   or link target (`![the flow](assets/flow.png)`). Nothing is published.
+3. **Digest** names the store and its visibility. A public store under a private issues repository
+   is a warning the lead decides on, never a refusal.
+4. **After approval**, on the derived filing body and before the clean-body assertion: `rewrite`,
+   then `razor-check --assert-clean --asset-path …`. Every asset is published before the first issue
+   is created or edited; a revise at the gate leaves the store untouched.
+
+A declared path is matched **exactly and as a whole token** in both the rewrite and the assertion,
+so a body's own repository-relative paths are never findings, and the published address of
+`assets/flow.png` under a feature named `issue-assets` is not mistaken for the local path.
 
 ## Exit codes and diagnostics
 
 | Code | Meaning |
 | ---- | ------- |
 | 0    | Success. |
-| 1    | A named problem, on stderr: `assets unsupported:` (no store declared — nothing written), `assets malformed-store:` / `assets malformed-size-cap:` (the value, named), `assets oversize:` (the file's size and the cap — nothing sent), `assets missing-file:`, or `assets github:` carrying GitHub's own error verbatim. |
+| 1    | A named problem, on stderr: `assets unsupported:` (no store declared — nothing written), `assets malformed-store:` / `assets malformed-size-cap:` (the value, named), `assets missing-asset:` / `assets duplicate-filename:` (the intake stops, naming the paths), `assets store-unreadable:` (GitHub cannot read the store), `assets oversize:` (the file's size and the cap — nothing sent), `assets missing-file:`, `assets unreadable-body:`, or `assets github:` / `assets publish:` carrying GitHub's own error verbatim. |
 | 2    | Usage. |
 
 ## Rules the verb keeps (decision record #600)

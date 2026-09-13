@@ -82,3 +82,19 @@ describe("the three token classes are asserted together", () => {
         expect(survivingTokens(body).map((f: Finding) => f.kind)).toEqual(["label", "placeholder", "observation"]);
     });
 });
+
+describe("asserting a derived body carries none of this run's local asset paths (epic #594)", () => {
+    it("reports a declared path that survived, naming its line, and nothing when none was declared", () => {
+        const body: string = "# Epic\n\n![flow](assets/flow.png)\n";
+        expect(survivingTokens(body)).toEqual([]);
+        expect(survivingTokens(body, ["assets/flow.png"])).toEqual([{ line: 3, kind: "asset-path", token: "assets/flow.png" }]);
+    });
+
+    it("matches the declared path exactly, so a body's own repository-relative paths are not findings", () => {
+        const body: string = "See docs/features/x/README.md and assets/flow-v2.png.\n";
+        expect(survivingTokens(body, ["assets/flow.png"])).toEqual([]);
+        expect(survivingTokens("a rewritten https://github.com/acme/assets/blob/c1/features/f/flow.png?raw=true\n", ["assets/flow.png"])).toEqual([]);
+        // The published address of this very asset, under a feature whose slug ends in "assets".
+        expect(survivingTokens("![f](https://github.com/acme/assets/blob/c1/features/issue-assets/flow.png?raw=true)\n", ["assets/flow.png"])).toEqual([]);
+    });
+});

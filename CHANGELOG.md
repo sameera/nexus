@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.36.0
+
+- `epic` accepts `--assets <path>…`: local diagrams, mockups and sketches the filed issues should
+  carry. The draft names them by local path and nothing leaves the machine before the approval gate;
+  on approval each file a body references is published into the team's declared asset store, one
+  commit per file, and the local path is replaced with a reference pinned to that commit — an image
+  renders inline, every other file (HTML included) is a link to the version approved. A missing path
+  or two files sharing a name stops the run before drafting; a declared file no body mentions is
+  reported and not published; a repository that declares no store says assets are unsupported once
+  and files the same issue bodies it filed before. The approval digest names the store and its
+  visibility, and warns — without refusing — when a public store backs a private issues repository.
+  The store (`asset-store`, `owner/repo` or `owner/repo@branch`) and the per-file cap
+  (`asset-size-cap`, default 5 MB) are declared once, in the same settings block as the issues
+  repository, and a hub may declare them for every member.
+
 ## 0.35.0
 
 - `analyze --pr` now resolves a pull request to the stories it actually implements. A reference in

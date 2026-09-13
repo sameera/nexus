@@ -64,6 +64,11 @@
       "import": "./src/asset-reference.ts",
       "default": "./src/asset-reference.ts"
     },
+    "./asset-rewrite": {
+      "types": "./src/asset-rewrite.ts",
+      "import": "./src/asset-rewrite.ts",
+      "default": "./src/asset-rewrite.ts"
+    },
     "./assets-cli": {
       "types": "./src/assets-cli.ts",
       "import": "./src/assets-cli.ts",
