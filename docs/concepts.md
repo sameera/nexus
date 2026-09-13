@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 130 active concepts. Each links to its full page
+Orientation map of the concept store — 131 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -13,8 +13,8 @@ Orientation map of the concept store — 130 active concepts. Each links to its 
 - [Distiller](../.nexus/concepts/distiller.md) — The distiller drains queue entries into the concept store.
 - [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
 - [Approvable Decision Record](../.nexus/concepts/decision-record.md) — An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form.
-- [Verb Reachability](../.nexus/concepts/verb-reachability.md) — A capability becomes reachable by name, a verb on one named executable, exactly when a Nexus component body invokes it.
 - [Publishing Config Resolution](../.nexus/concepts/publishing-config-resolution.md) — Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, resolved by a single shared resolver every publishing consumer goes through.
+- [Verb Reachability](../.nexus/concepts/verb-reachability.md) — A capability becomes reachable by name, a verb on one named executable, exactly when a Nexus component body invokes it.
 - [Teaching Plan](../.nexus/concepts/teaching-plan.md) — One file describes everything a workbook teaches from: the order of the slices, what each one builds, whether the learner builds it or a coding agent does, and everything the session needs to teach it.
 - [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
 - [Conformance Gate](../.nexus/concepts/conformance-gate.md) — Analyze checks the implemented code against the acceptance criteria in scope and the decision record's invariants, then proves it ran by leaving a receipt.
@@ -58,6 +58,7 @@ Orientation map of the concept store — 130 active concepts. Each links to its 
 - [Rule Set Enforcement](../.nexus/concepts/razor-enforcement.md) — A rule set is the single normative home for its rules only while a build fails when a restatement drifts from it.
 - [Workbook Store](../.nexus/concepts/workbook-store.md) — A workbook is a committed folder a learner opens, holding the authored lessons and the pages rendered from them.
 - [Cut Gate](../.nexus/concepts/cut-gate.md) — A gate that shows a reviewer what the model added must also let them act on it in one action, or the labelling is decoration.
+- [Derived Filing Body](../.nexus/concepts/derived-filing-body.md) — A stage never files the draft it wrote.
 - [Design Warrant](../.nexus/concepts/design-warrant.md) — Whether an epic must have a decision record follows from its complexity rollup, and nothing else decides it.
 - [Draft-Time Ordering Block](../.nexus/concepts/draft-ordering-block.md) — A drafted epic carries one block naming what each story waits on, keyed on story titles.
 - [Taxonomy Drift Advisory](../.nexus/concepts/drift-advisory.md) — The drift advisory is a deterministic, non-blocking step of the drain that reads the concept link graph and each page's filing and reports taxonomy decay as text in the distillation-PR body.
@@ -68,13 +69,13 @@ Orientation map of the concept store — 130 active concepts. Each links to its 
 - [Scope Provenance](../.nexus/concepts/scope-provenance.md) — Every acceptance criterion, assumption, out-of-scope item and story heading in a draft says where it came from: either the lead asked for it, carrying a verbatim fragment quoted from what they actually said, or the drafting model added it.
 - [Story Set Closure](../.nexus/concepts/set-closure-check.md) — A set of stories that cannot run without a story it excludes is not a usable version.
 - [Additive Surface Fold](../.nexus/concepts/additive-surface-fold.md) — Moving a capability from one published name to another lands additively: the new name is declared first, both names resolve one shared set of handlers, callers are rewritten under that overlap, and the old name is withdrawn once nothing points at it.
-- [Derived Filing Body](../.nexus/concepts/derived-filing-body.md) — A stage never files the draft it wrote.
 - [Distillation PR](../.nexus/concepts/distillation-pr.md) — The distiller does not write the concept store directly; it opens a reviewed pull request against the store.
 - [Entry Slot Ownership](../.nexus/concepts/entry-slot-ownership.md) — A number holds one entry slot, and exactly three kinds compete for it: an epic's materialization, a fix entry, and an intake entry.
 - [The Fix Razor](../.nexus/concepts/fix-razor.md) — The fix razor is the bound that lets the fix lane be cheap without letting the store lie: a fix may append one decision log entry to a page that already exists, and nothing else.
 - [Forcing-Function Razor](../.nexus/concepts/forcing-function-razor.md) — Every artifact must exist to force a decision a human must make, or it is cut scaffolding.
 - [Grep-Native Retrieval](../.nexus/concepts/grep-native-retrieval.md) — The knowledge store is retrieved by plain text search: search, list, and read.
 - [Handoff Prompt](../.nexus/concepts/handoff-prompt.md) — A slice the plan marks as not the learner's to build is handed to a separate coding-agent session rather than taught.
+- [Issue Asset Store](../.nexus/concepts/issue-asset-store.md) — A team names one repository — or one unprotected branch of one — that its filing stages publish issue graphics into.
 - [Provenance Reference](../.nexus/concepts/provenance-reference.md) — A provenance reference links a concept page or a log entry back to the issue that originated it, so an agent can hop from a compressed page to the full context it distilled away.
 - [Range-Entry Diff Derivation](../.nexus/concepts/range-entry-diff.md) — Range-entry diff derivation turns the range list a close stamped into the change sets a drain reads.
 - [Scaffold Slice](../.nexus/concepts/scaffold-slice.md) — A scaffold is a teaching step the rewrite inserts before a slice that assumes a concept no permitted order of the real work could introduce in time.
@@ -121,6 +122,7 @@ Orientation map of the concept store — 130 active concepts. Each links to its 
 - [Pointing Install](../.nexus/concepts/pointing-install.md) — The second of the two contents an account's install location can hold: one pointer per payload file at a maintainer's authored checkout, rather than a copy of a release.
 - [Prose Verification](../.nexus/concepts/prose-verification.md) — A translated artifact is proven faithful by comparing the pre- and post-translation copies, never by asking a person to read it.
 - [Reading Surface Tokens](../.nexus/concepts/reading-surface-tokens.md) — The colour and typography values a reading surface needs are defined in one place that both the application and the workbook read.
+- [Settings Key Catalogue](../.nexus/concepts/settings-key-catalogue.md) — One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to.
 - [Two-Store Split](../.nexus/concepts/two-store-split.md) — Nexus keeps two knowledge surfaces that never share an artifact: a lean human-judgment surface for what a person must read and decide, and a machine knowledge surface where distilled volume is legitimate.
 - [Widget Seam](../.nexus/concepts/widget-seam.md) — A lesson declares an interactive widget where it belongs in the prose, as a fenced block that stays ordinary markdown.
 - [Config Write-Back](../.nexus/concepts/config-write-back.md) — Config write-back is how the declared publishing block comes to exist without anyone hand-authoring it: setup seeds it at bootstrap while a human can resolve ambiguity, and the first unattended fallback run persists what it just reached.
@@ -134,7 +136,6 @@ Orientation map of the concept store — 130 active concepts. Each links to its 
 - [Remote Identity Normalization](../.nexus/concepts/remote-identity-normalization.md) — A single git remote can be written many equivalent ways — as a secure-shell address or a web address, with or without a trailing suffix, with an upper- or lower-cased host.
 - [Report-Free Shared Layer](../.nexus/concepts/report-free-shared-layer.md) — A mechanism shared by more than one capability — a platform call, a lookup — never prints; it returns what happened, success value or failure detail included, so each caller renders its own line in its own vocabulary and its own stream.
 - [Claim of Scope](../.nexus/concepts/scope-claim.md) — A number appearing in a pull request is a mention; it counts as work the pull request takes on only when something claims it.
-- [Settings Key Catalogue](../.nexus/concepts/settings-key-catalogue.md) — One table declares every publishing settings key exactly once: the name it is written under, the name the resolver carries it under, and the built-in it falls back to.
 - [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root.
 - [Bare-Name Guard](../.nexus/concepts/bare-name-guard.md) — The bare-name guard is the security boundary of workspace resolution: a name declared in a workspace artifact may only be a bare directory segment, and the hub's optional docs-root override may only be a non-escaping repo-relative path.
 - [Markdown Editor](../.nexus/concepts/markdown-editor.md) — The Markdown Editor is Prime's shared in-repo editing library: a rich Markdown-editing surface plus a distinct plain-text, submit-capable mode built for command entry.

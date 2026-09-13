@@ -1,8 +1,8 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "offer list at the digest", "waits on line"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement"]
-last_updated_by: "#576"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store"]
+last_updated_by: "#594"
 status: active
 verification: verified
 ---
@@ -46,6 +46,7 @@ The epic stage takes a capability description directly, with no separate brief. 
 
 - [citation-check](citation-check.md) — the evidence rule behind every `asked` label this gate renders and checks.
 - [razor-enforcement](razor-enforcement.md) — the shared checker this gate invokes, and the source of the observations its digest carries.
+- [issue-asset-store](issue-asset-store.md) — approval here also publishes this run's files, so the digest names the store and its visibility; a revise publishes nothing.
 ## Decision Log
 
 ### 2026-06-29 — bootstrap — 0010: file epic and stories at one approval digest
@@ -91,3 +92,7 @@ The epic is no longer translated between drafting and the digest. The stage writ
 ### 2026-09-13 — #576 — The gate offers scope instead of banking it, and files the smallest usable version
 
 Approving cost one keystroke and cutting cost reading a numbered list, so the reviewer who was tired or merely trusting shipped scope nobody asked for. The default now files the smallest usable version and offers the rest, and the reviewer's one typed selection adds stories as well as keeping back removals. Two supporting changes make that default trustworthy. The dependency graph moved into the draft, so the digest shows what each story waits on at the moment the reviewer is deciding, and filing walks that same block instead of deriving an order nobody approved. The smallest usable version became a checked set rather than a line of prose. Asked-for scope the reviewer does not take is deferred as one epic stub rather than dropped, so declining costs nothing and forgets nothing, while model-added scope nobody took is discarded. The design-warrant rule moved to its own page when this one reached its own-content capacity; this gate still declares the warrant at filing.
+
+### 2026-09-13 — #594 — Reciprocal link from issue-asset-store
+
+The asset store declares an interaction with this concept, so the edge is mirrored here. No behaviour of this concept changed; follow the link for what the store does.

@@ -1,8 +1,8 @@
 ---
 title: "Settings Key Catalogue"
 aliases: ["key catalogue", "github-block key catalogue", "the key map", "one declaration per key", "derived inverse", "catalogue membership"]
-touches: ["publishing-config-resolution", "config-write-back"]
-last_updated_by: "#351"
+touches: ["publishing-config-resolution", "config-write-back", "issue-asset-store"]
+last_updated_by: "#594"
 status: active
 verification: verified
 ---
@@ -34,9 +34,13 @@ Keys carrying a built-in the general precedence path does not know about are row
 
 - [publishing-config-resolution](publishing-config-resolution.md) — the precedence chain this catalogue supplies keys and built-ins to; that concept owns what a key resolves to, this one which keys exist at all.
 - [config-write-back](config-write-back.md) — its two producers write through this catalogue's derived inverse, so a key they can resolve is a key they can seed.
-
+- [issue-asset-store](issue-asset-store.md) — two rows added here: the store, declared with no built-in, and its per-file size cap, which carries one.
 ## Decision Log
 
 ### 2026-08-28 — #351 — One catalogue is the schema, split out from the resolution chain
 
 Split from publishing-config-resolution, whose own content had reached its cap: which keys exist is loadable on its own, separately from what any given key resolves to. The catalogue became the single schema declaration during the port because the predecessor's hand-written inverse had already drifted and was missing every key added since it was written; deriving the inverse makes "a key added once is honoured end to end" a structural property rather than a test result. A late fix made membership the catalogue lookup rather than a spelling comparison, which had been silently dropping the two rows whose names coincide out of the workspace-defaults layer — caught by the conformance pass rather than by a test, because the tests asserted the layer and not its coverage of the catalogue. **Refuted alternative:** transliterate the existing shape — one read map, a separate hand-written inverse, and the per-key branch chain — the most literal reading of a behaviour-preserving port, but it carries a known drift across the boundary.
+
+### 2026-09-13 — #594 — Reciprocal link from issue-asset-store
+
+The asset store declares an interaction with this concept, so the edge is mirrored here. No behaviour of this concept changed; follow the link for what the store does.

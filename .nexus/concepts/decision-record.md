@@ -1,8 +1,8 @@
 ---
 title: "Approvable Decision Record"
 aliases: ["decision record", "record sub-issue", "record approval", "needs-design gate", "record revision flow"]
-touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement"]
-last_updated_by: "#211"
+touches: ["issue-sourced-planning", "epic-approval-gate", "publishing-config-resolution", "nexus-pipeline", "committed-queue", "distiller", "record-digest", "conformance-gate", "discovery-graduation", "scope-razor", "cut-gate", "derived-filing-body", "intake-lane", "issue-kind-classification", "design-warrant", "razor-enforcement", "issue-asset-store"]
+last_updated_by: "#594"
 status: active
 verification: verified
 ---
@@ -44,6 +44,7 @@ The design-warrant is read from the issue graph, never remembered: a medium-or-l
 
 - [design-warrant](design-warrant.md) — the rule that decides which epics must have one of these at all.
 - [razor-enforcement](razor-enforcement.md) — this stage has no gate agent of its own, which is what settles where a shared check must live.
+- [issue-asset-store](issue-asset-store.md) — pictures a record may carry, published only on its checkpoint's approval; a revision's new files are new commits, so a superseded body still resolves.
 ## Decision Log
 
 ### 2026-07-26 — #139 — The decision record becomes an approvable sub-issue
@@ -79,3 +80,7 @@ Mechanical reciprocity fan-out: importing a design doc names an epic issue, and 
 ### 2026-09-13 — #576 — Reciprocal link from design-warrant
 
 The needs-design label that demands a decision record follows from the epic's complexity rollup, which is now checked against the stories actually filed.
+
+### 2026-09-13 — #594 — Reciprocal link from issue-asset-store
+
+The asset store declares an interaction with this concept, so the edge is mirrored here. No behaviour of this concept changed; follow the link for what the store does.

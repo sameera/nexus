@@ -1,6 +1,6 @@
 ---
 concept: epic-approval-gate
-source_sha: 6a2556e5da38a9496c2b9bb911cfc04a6113f7ed
+source_sha: 93b3d5f237a9ff6a6467514924197d35582482ed
 generated: 2026-09-13
 ---
 
