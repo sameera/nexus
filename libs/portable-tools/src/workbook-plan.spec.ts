@@ -140,15 +140,15 @@ describe("the plan is one file describing slices", () => {
         const teaching = toTeachingPlan(parsePlan(PLAN_TEXT));
 
         expect(teaching.slices).toEqual([
-            { story: 460, learnerBuilds: true, pinned: { title: "A re-scoped story stops", body: "As a learner, I want the check.", closed: false } },
-            { story: 464, learnerBuilds: false, pinned: { title: "A handoff slice pauses", body: "As a learner, I want the pause.", closed: false } },
+            { story: 460, learnerBuilds: true, lesson: "01-drift.md", pinned: { title: "A re-scoped story stops", body: "As a learner, I want the check.", closed: false } },
+            { story: 464, learnerBuilds: false, lesson: "", pinned: { title: "A handoff slice pauses", body: "As a learner, I want the pause.", closed: false } },
         ]);
     });
 
     it("names the slices with no lesson written yet, which the workbook shows as stubs", () => {
         const plan: WorkbookPlan = parsePlan(PLAN_TEXT);
 
-        expect(planStubs(plan, [])).toEqual([{ story: 460, lesson: "01-drift.md" }]);
+        expect(planStubs(plan, [])).toEqual([{ label: "Story #460", lesson: "01-drift.md" }]);
         expect(planStubs(plan, ["01-drift.md"])).toEqual([]);
     });
 

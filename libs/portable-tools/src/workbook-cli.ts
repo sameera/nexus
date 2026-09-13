@@ -709,7 +709,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
                 io.stderr(
                     `${slug} teaches no slice for story ${flags.story}, so nothing here could ever ` +
                     `verify a pause at it — the plan is where a slice's pinning test lives. The ` +
-                    `plan's stories are ${planned.slices.map((slice) => `#${slice.story}`).join(", ")}.`,
+                    `plan's stories are ${planned.slices.filter((slice) => slice.story !== undefined).map((slice) => `#${slice.story}`).join(", ")}.`,
                 );
                 return 2;
             }

@@ -25,7 +25,8 @@ import { WIDGET_FENCE_INFO } from "./workbook-widgets.js";
 
 /** What is on record for a lesson already written. */
 export interface StagedLesson {
-    story: number;
+    /** The lesson file that is written — a slice is remembered through its own lesson (record #591). */
+    lesson: string;
     /** Whether the pinning test this slice's exercise names currently passes. */
     pinningTestPassed: boolean;
 }
@@ -47,7 +48,7 @@ const NO_HANDOFFS: HandoffState = { resolved: [], outstanding: null };
 export type ArrivalAction =
     | { kind: "resume"; story: number }
     | { kind: "write"; slice: PlanSlice }
-    | { kind: "open"; story: number }
+    | { kind: "open"; slice: PlanSlice }
     | { kind: "handoff"; slice: PlanSlice }
     | { kind: "done" };
 
@@ -72,15 +73,17 @@ export function resolveArrival(
     handoffs: HandoffState = NO_HANDOFFS,
 ): ArrivalAction {
     if (handoffs.outstanding !== null) return { kind: "resume", story: handoffs.outstanding };
-    const byStory: Map<number, StagedLesson> = new Map(written.map((w) => [w.story, w]));
+    const byLesson: Map<string, StagedLesson> = new Map(written.map((w) => [w.lesson, w]));
     for (const slice of plan.slices) {
         if (!slice.learnerBuilds) {
-            if (handoffs.resolved.includes(slice.story)) continue;
+            if (slice.story !== undefined && handoffs.resolved.includes(slice.story)) continue;
             return { kind: "handoff", slice };
         }
-        const lesson: StagedLesson | undefined = byStory.get(slice.story);
+        const lesson: StagedLesson | undefined = slice.lesson === undefined ? undefined : byLesson.get(slice.lesson);
         if (lesson === undefined) return { kind: "write", slice };
-        if (!lesson.pinningTestPassed) return { kind: "open", story: slice.story };
+        // A scaffold builds nothing, so writing its lesson is the only fact that can put it behind the learner.
+        if (slice.scaffold !== undefined) continue;
+        if (!lesson.pinningTestPassed) return { kind: "open", slice };
     }
     return { kind: "done" };
 }
@@ -191,7 +194,12 @@ export function renderRevisitSection(revisits: readonly RevisitProse[]): string 
 
 /** Everything the chain decided about the lesson it is about to write, handed to the agent. */
 export interface LessonBrief {
-    story: number;
+    /** The story the slice builds. Absent on a scaffold, which names its concept instead. */
+    story?: number;
+    /** Which part of its story this slice is, when the story was split. */
+    part?: number;
+    /** The concept a scaffold teaches. */
+    scaffold?: string;
     /** The lesson file this slice teaches into. */
     lesson: string;
     /** The lesson's title, which the plan's pinned story title supplies. */
@@ -207,7 +215,14 @@ export interface LessonBrief {
      * not a cold recall (invariant 21) — this is the other half of what the hint log is for.
      */
     revisit: readonly string[];
-    exercise: ExerciseFacts;
+    /** Null on a scaffold: it builds nothing, so it has no branch, no pinning test and no exercise. */
+    exercise: ExerciseFacts | null;
+}
+
+/** How a brief names its slice in a refusal. */
+function briefLabel(brief: LessonBrief): string {
+    if (brief.scaffold !== undefined) return `scaffold ${brief.scaffold}`;
+    return brief.part === undefined ? `#${brief.story}` : `#${brief.story} part ${brief.part}`;
 }
 
 /** One revisited concept's question and the answer it withholds, both the agent's to write. */
@@ -237,7 +252,7 @@ export function composeLesson(brief: LessonBrief, prose: AuthoredProse): string 
     if (brief.drill !== null && prose.drill === undefined) {
         throw new Error(
             `the drill on ${brief.drill} has no question and answer to reveal, so the lesson for ` +
-            `#${brief.story} would ask something with nothing behind it. The chain chooses the ` +
+            `${briefLabel(brief)} would ask something with nothing behind it. The chain chooses the ` +
             `concept; the question and the answer are the agent's to write.`,
         );
     }
@@ -245,7 +260,7 @@ export function composeLesson(brief: LessonBrief, prose: AuthoredProse): string 
         const written: RevisitProse | undefined = (prose.revisit ?? []).find((r) => r.concept === concept);
         if (written === undefined) {
             throw new Error(
-                `the lesson for #${brief.story} names ${concept} as an idea to ask about again — the ` +
+                `the lesson for ${briefLabel(brief)} names ${concept} as an idea to ask about again — the ` +
                 `learner took a hint on it last time — and nothing asks about it. The chain chooses ` +
                 `the concepts; the question and the answer are the agent's to write.`,
             );
@@ -255,7 +270,9 @@ export function composeLesson(brief: LessonBrief, prose: AuthoredProse): string 
     const frontMatter: string[] = [
         "---",
         `title: ${brief.title}`,
-        `story: ${brief.story}`,
+        ...(brief.story === undefined ? [] : [`story: ${brief.story}`]),
+        ...(brief.part === undefined ? [] : [`part: ${brief.part}`]),
+        ...(brief.scaffold === undefined ? [] : [`scaffold: ${brief.scaffold}`]),
         ...(brief.concepts.length === 0 ? [] : [`concepts: [${brief.concepts.join(", ")}]`]),
         // The concept this lesson drilled, so the next session can see it was already asked about.
         // The committed lessons are the session's memory, so what was drilled is recorded on the
@@ -277,7 +294,6 @@ export function composeLesson(brief: LessonBrief, prose: AuthoredProse): string 
         prose.theory.trim(),
         "",
         ...(revisits.length === 0 ? [] : [renderRevisitSection(revisits), ""]),
-        renderExerciseSection(brief.exercise),
-        "",
+        ...(brief.exercise === null ? [] : [renderExerciseSection(brief.exercise), ""]),
     ].join("\n");
 }

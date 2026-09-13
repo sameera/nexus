@@ -749,3 +749,144 @@ describe("a workbook with no plan of slices teaches nothing", () => {
         expect(result.outcome.report).toContain("pinned");
     });
 });
+
+/** A plan whose story #470 is split into two parts, with a scaffold before a handoff (epic #458, story #583). */
+function splitPlanText(): string {
+    const pinned = (story: number): string[] => [
+        "    pinned:",
+        `      title: Story ${story} teaches something`,
+        `      body: As a learner, I want slice ${story}.`,
+    ];
+    const test = (story: number, part: number): string[] => [
+        "    pinning_test:",
+        `      file: tests/s${story}-p${part}.spec.ts`,
+        "      text: |",
+        `        it("pins #${story} part ${part}", () => {});`,
+    ];
+    return [
+        "repo: nexus",
+        "epic: 458",
+        `suite: ${JSON.stringify(SUITE)}`,
+        `grading: ${JSON.stringify(GRADING)}`,
+        "slices:",
+        "  - story: 470",
+        "    part: 1",
+        "    lesson: story-470-part-1.md",
+        "    builds: learner",
+        "    branch: rdl/story-470",
+        "    concepts: [first-half]",
+        ...test(470, 1),
+        ...pinned(470),
+        "  - story: 470",
+        "    part: 2",
+        "    lesson: story-470-part-2.md",
+        "    builds: learner",
+        "    branch: rdl/story-470",
+        "    concepts: [second-half]",
+        ...test(470, 2),
+        ...pinned(470),
+        "  - scaffold: bridging-idea",
+        "    lesson: scaffold-bridging-idea.md",
+        "    builds: learner",
+        "    concepts: [bridging-idea]",
+        "  - story: 471",
+        "    builds: handoff",
+        "    branch: rdl/story-471",
+        ...test(471, 1),
+        ...pinned(471),
+    ].join("\n") + "\n";
+}
+
+const SPLIT_LIVE: Record<number, LiveStory> = {
+    470: { title: "Story 470 teaches something", body: "As a learner, I want slice 470.", closed: false },
+    471: { title: "Story 471 teaches something", body: "As a learner, I want slice 471.", closed: false },
+};
+
+function makeSplitRepo(): string {
+    const dir = makeDir();
+    execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
+    fs.writeFileSync(path.join(dir, ".gitignore"), "");
+    createWorkbook(dir, "rdl");
+    fs.writeFileSync(path.join(workbookRoot(dir, "rdl"), PLAN_FILENAME), splitPlanText());
+    return dir;
+}
+
+describe("a plan with split parts and scaffolds is taught step by step, in order (story #583)", () => {
+    it("teaches a split story's second part once its first part's exercise is finished", () => {
+        const repo = makeSplitRepo();
+        const first = teachOne(repo, { live: SPLIT_LIVE });
+        expect(first.outcome.kind === "written" && first.outcome.lesson).toBe("story-470-part-1.md");
+
+        finish(repo, "tests/s470-p1.spec.ts");
+        const second = teachOne(repo, { live: SPLIT_LIVE });
+
+        expect(second.outcome.kind === "written" && second.outcome.lesson).toBe("story-470-part-2.md");
+    });
+
+    it("opens the first part again while its exercise is unfinished, rather than moving on", () => {
+        const repo = makeSplitRepo();
+        teachOne(repo, { live: SPLIT_LIVE });
+
+        const again = teach(repo, { live: SPLIT_LIVE }).result;
+
+        expect(again.outcome.kind === "open" && again.outcome.lesson).toBe("story-470-part-1.md");
+    });
+
+    it("writes each part into its own lesson, and no lesson overwrites another", () => {
+        const repo = makeSplitRepo();
+        teachOne(repo, { live: SPLIT_LIVE });
+        const firstText: string = fs.readFileSync(path.join(lessonsDir(repo, "rdl"), "story-470-part-1.md"), "utf8");
+        finish(repo, "tests/s470-p1.spec.ts");
+        teachOne(repo, { live: SPLIT_LIVE });
+
+        expect(fs.readdirSync(lessonsDir(repo, "rdl")).sort()).toEqual(["story-470-part-1.md", "story-470-part-2.md"]);
+        expect(fs.readFileSync(path.join(lessonsDir(repo, "rdl"), "story-470-part-1.md"), "utf8")).toBe(firstText);
+    });
+
+    it("writes a scaffold's lesson when the learner arrives at it, and does not stop for its missing story", () => {
+        const repo = makeSplitRepo();
+        teachOne(repo, { live: SPLIT_LIVE });
+        finish(repo, "tests/s470-p1.spec.ts");
+        teachOne(repo, { live: SPLIT_LIVE });
+        finish(repo, "tests/s470-p2.spec.ts");
+
+        const scaffold = teachOne(repo, { live: SPLIT_LIVE });
+
+        expect(scaffold.outcome.kind).toBe("written");
+        expect(fs.existsSync(path.join(lessonsDir(repo, "rdl"), "scaffold-bridging-idea.md"))).toBe(true);
+    });
+
+    it("hands off past a written scaffold with a prompt that names no scaffold among the slices to leave alone", () => {
+        const repo = makeSplitRepo();
+        teachOne(repo, { live: SPLIT_LIVE });
+        finish(repo, "tests/s470-p1.spec.ts");
+        teachOne(repo, { live: SPLIT_LIVE });
+        finish(repo, "tests/s470-p2.spec.ts");
+        teachOne(repo, { live: SPLIT_LIVE });
+
+        const handoff = teach(repo, { live: SPLIT_LIVE }).result;
+
+        expect(handoff.outcome.kind).toBe("handoff");
+        const prompt: string = handoff.outcome.kind === "handoff" ? fs.readFileSync(handoff.outcome.promptPath, "utf8") : "";
+        expect(prompt).toMatch(/Sibling slices to leave alone: #470\n/);
+        expect(prompt).not.toMatch(/bridging-idea/);
+    });
+
+    it("reads a split story's live state once, however many slices name it", () => {
+        const repo = makeSplitRepo();
+        const reads: number[] = [];
+        const fixture: Fixture = { suite: true, passing: [], invoked: [] };
+        runTeachingSession({
+            repoRoot: repo,
+            slug: "rdl",
+            read: (story) => {
+                reads.push(story);
+                return SPLIT_LIVE[story] ?? null;
+            },
+            run: makeRunner(fixture),
+            now: () => "2026-09-12T12:00:00.000Z",
+        });
+
+        expect(reads.filter((story) => story === 470)).toHaveLength(1);
+    });
+});
