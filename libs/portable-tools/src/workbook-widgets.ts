@@ -31,6 +31,7 @@ import { parse } from "yaml";
 import { renderCheckScript, renderCheckStyles } from "./answer-check.js";
 import { FILL_THE_SIGNATURE, FILL_THE_SIGNATURE_COMPONENT } from "./fill-the-signature.js";
 import { escapeText } from "./html-escape.js";
+import { PARSONS_PROBLEM, PARSONS_PROBLEM_COMPONENT, renderParsonsScript, renderParsonsStyles } from "./parsons-problem.js";
 import { PREDICT_THEN_REVEAL, PREDICT_THEN_REVEAL_COMPONENT } from "./predict-then-reveal.js";
 
 /** The fenced block's info string that marks a declaration. */
@@ -85,6 +86,7 @@ export type WidgetRegistry = Readonly<Record<string, WidgetComponent>>;
 export const WIDGET_MANIFEST: WidgetRegistry = {
     [PREDICT_THEN_REVEAL_COMPONENT]: PREDICT_THEN_REVEAL,
     [FILL_THE_SIGNATURE_COMPONENT]: FILL_THE_SIGNATURE,
+    [PARSONS_PROBLEM_COMPONENT]: PARSONS_PROBLEM,
 };
 
 export class WidgetError extends Error {
@@ -272,6 +274,7 @@ export function renderScript(): string {
         "}",
         "window.addEventListener('pageshow', function () { resetReveals(document); });",
         renderCheckScript(),
+        renderParsonsScript(),
         "",
     ].join("\n");
 }
@@ -302,5 +305,6 @@ export function renderWidgetStyles(): string {
         "    .widget-content[hidden] { display: block !important; }",
         "}",
         renderCheckStyles(),
+        renderParsonsStyles(),
     ].join("\n");
 }
