@@ -203,21 +203,42 @@ describe("the epic gate", () => {
     });
 });
 
-describe("the cut-gate convention", () => {
+describe("the two gate conventions", () => {
     const skill: string = read(RAZOR);
+    const flat: string = skill.replace(/\s+/g, " ");
 
-    it("is stated once in the skill and shared by shape, not by implementation", () => {
-        expect(skill).toMatch(/## 8\. The cut-gate convention/);
-        expect(skill.replace(/\s+/g, " ")).toContain("no implementation");
+    it("is one shared shape with a convention per gate, not one convention asserted for both", () => {
+        expect(skill).toMatch(/## 8\. The gate conventions/);
+        expect(flat).toContain("no implementation");
+        expect(flat).toMatch(/### The shared shape/);
+        expect(flat).toMatch(/### The planning gate's convention: addition/);
+        expect(flat).toMatch(/### The design-record checkpoint's convention: removal/);
     });
 
-    it("makes an empty selection identical to plain approval", () => {
-        expect(skill.replace(/\s+/g, " ")).toMatch(/empty selection is identical to plain approval/i);
+    it("keeps the shared shape the two gates still have in common", () => {
+        expect(flat).toMatch(/empty selection is identical to plain approval/i);
+        expect(flat).toMatch(/refused, with the reason stated, never silently ignored/);
     });
 
-    it("keeps at least one story and refuses a cut of already-filed content", () => {
-        expect(skill.replace(/\s+/g, " ")).toMatch(/At least one story must survive/);
-        expect(skill.replace(/\s+/g, " ")).toMatch(/refused, with the reason stated, never silently ignored/);
+    it("names addition as the planning gate's default and states what a plain approval files", () => {
+        expect(flat).toMatch(/The default is \*\*addition\*\*/);
+        expect(flat).toMatch(/A plain approval files the smallest usable version, and nothing else/);
+        expect(flat).toMatch(/At least one story is always filed/);
+    });
+
+    it("names removal as the checkpoint's action and says why that gate has nothing to add to", () => {
+        expect(flat).toMatch(/The action is \*\*removal\*\*/);
+        expect(flat).toMatch(/a refuted alternative is not scope/i);
+        expect(flat).toMatch(/nothing to add to/i);
+    });
+
+    it("keeps the inversion at story granularity, so a sub-story item is still opt-out", () => {
+        expect(flat).toMatch(/Only stories are opt-in/);
+    });
+
+    it("states that this file governs where a drafting stage's own wording disagrees with it", () => {
+        expect(flat).toMatch(/Where a restatement and this file disagree, this file governs/);
+        expect(flat).toMatch(/this page governs where a stage's own wording disagrees with it/i);
     });
 });
 

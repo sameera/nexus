@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.42.0
+
+- The razor's rule set now describes **two gate conventions over one shared shape**, rather than one
+  convention it asserts for both gates. The shape is unchanged — numbered prose grouped by parent,
+  coarse actions, a typed list of numbers, an empty selection identical to a plain approval, and
+  nothing applied to content a prior partial run already filed. The planning gate's convention is
+  **addition**, and the rule set states exactly what a plain approval files and what happens to each
+  group the reviewer does not take. The decision-record checkpoint's convention is **removal**, and
+  the rule set says why that gate has nothing to add to: a refuted alternative is not scope. The
+  precedence clause still holds across the split — where a stage's own wording disagrees with the
+  rule set, the rule set governs.
+
 ## 0.41.0
 
 - Scope you asked for that the smallest usable version does not need now **survives as a planned-later
