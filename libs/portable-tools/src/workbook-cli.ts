@@ -48,8 +48,8 @@ import {
 } from "./roadmap.js";
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
-import { readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft } from "./plan-draft.js";
-import { refuseUncleanCoverage, type CoverageRefusal } from "./plan-approval.js";
+import { planDraftPath, readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft } from "./plan-draft.js";
+import { rebuildDraft, refuseUncleanCoverage, renderGateDigest, type CoverageRefusal } from "./plan-approval.js";
 import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
@@ -99,6 +99,8 @@ interface Flags {
     /** The file holding the phrases the planning session matched to concepts the learner already knows. */
     declare?: string;
     positional: string[];
+    mark?: string;
+    clear?: string;
     unknown?: string;
 }
 
@@ -118,6 +120,8 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--list") flags.list = rest[++i];
         else if (token === "--merge") flags.merge = rest[++i];
         else if (token === "--declare") flags.declare = rest[++i];
+        else if (token === "--mark") flags.mark = rest[++i];
+        else if (token === "--clear") flags.clear = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -138,7 +142,8 @@ const USAGE: string = [
     "  draft <name> --merge <file>         write the plan's stubs once every story has a checked list",
     "  rewrite <name> [--declare <file>]   rewrite the draft: one slice owns each concept, less what",
     "                                      the learner declared they already know",
-    "  gate <name>                         refuse a draft whose coverage is not clean, or print the approval gate",
+    "  gate <name> [--mark <n>=<mark>|--clear <n>]",
+    "                                      refuse a draft whose coverage is not clean, or print the approval gate",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -507,7 +512,10 @@ function runDraft(repoRoot: string, name: string, flags: Flags, io: WorkbookCliI
 
     const doc: unknown = parse(fs.readFileSync(flags.merge, "utf8"));
     const groups: unknown = (doc as Record<string, unknown> | null)?.["concepts"];
-    const result: DraftResult = draftFromExtractions(repoRoot, roadmap, groups);
+    const result: DraftResult = draftFromExtractions(repoRoot, roadmap, groups, readOverrides(repoRoot, name));
+    // The merge is a recorded judgement: a mark change at the gate rebuilds the draft from it rather
+    // than asking for it again (record #591, invariant 21).
+    if (result.ok) fs.writeFileSync(path.join(path.dirname(result.path), MERGE_RECORD), JSON.stringify(groups, null, 4));
     if (!result.ok) {
         io.stderr(result.problem);
         return 1;
@@ -617,10 +625,15 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
  * `nexus workbook gate` — the approval gate (epic #458). A draft whose coverage is not clean is
  * refused here, in code, before the reviewer sees anything (record #591, invariant 10).
  */
-function runGate(repoRoot: string, name: string, io: WorkbookCliIo): number {
+function runGate(repoRoot: string, name: string, flags: Flags, io: WorkbookCliIo): number {
     const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
     if (roadmap === null) return 1;
-    const draft: PlanDraft | null = readPlanDraft(repoRoot, name);
+    let draft: PlanDraft | null = readPlanDraft(repoRoot, name);
+    if (draft !== null && (flags.mark !== undefined || flags.clear !== undefined)) {
+        const rebuilt: PlanDraft | null = changeMark(repoRoot, roadmap, draft, flags, io);
+        if (rebuilt === null) return 1;
+        draft = rebuilt;
+    }
     if (draft === null) {
         io.stderr(`the roadmap ${name} has no plan draft to approve. Run the planning chain first — nothing was written.`);
         return 1;
@@ -630,8 +643,62 @@ function runGate(repoRoot: string, name: string, io: WorkbookCliIo): number {
         io.stderr(refusal.report);
         return 1;
     }
-    io.stdout(`the coverage of ${name} is clean: every concept a slice assumes is taught before it.`);
+    const interview: InterviewRecord | null = readInterview(repoRoot, name);
+    io.stdout(
+        renderGateDigest(draft, {
+            titles: new Map(roadmap.stories.map((story) => [story.number, story.title])),
+            focusMatchedNothing: interview !== null && !interview.focus.whole && draft.slices.every((stub) => stub.builds === "handoff"),
+        }),
+    );
     return 0;
+}
+
+/** The file beside the draft that records the merge the draft was built from. */
+const MERGE_RECORD: string = "merge.json";
+/** The file beside the draft that records the reviewer's mark overrides. */
+const OVERRIDES_RECORD: string = "mark-overrides.json";
+
+function readOverrides(repoRoot: string, name: string): Map<number, "learner" | "handoff"> {
+    const file: string = path.join(path.dirname(planDraftPath(repoRoot, name)), OVERRIDES_RECORD);
+    if (!fs.existsSync(file)) return new Map();
+    const doc: Record<string, unknown> = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
+    return new Map(Object.entries(doc).map(([story, mark]) => [Number(story), mark === "learner" ? "learner" : "handoff"]));
+}
+
+/**
+ * Record a mark override (or clear one) and rebuild the draft from the checked lists under the
+ * recorded merge, declaration and overrides. Writes nothing to the committed workbook (invariant 20).
+ */
+function changeMark(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags: Flags, io: WorkbookCliIo): PlanDraft | null {
+    const overrides: Map<number, "learner" | "handoff"> = readOverrides(repoRoot, roadmap.name);
+    if (flags.mark !== undefined) {
+        const [story, mark] = flags.mark.replace(/^#/, "").split("=");
+        if (!roadmap.stories.some((s) => s.number === Number(story)) || (mark !== "learner" && mark !== "handoff")) {
+            io.stderr(`--mark takes <story>=learner or <story>=handoff for a story on the roadmap ${roadmap.name}. Only marks change at the gate.`);
+            return null;
+        }
+        overrides.set(Number(story), mark);
+    }
+    if (flags.clear !== undefined) overrides.delete(Number(flags.clear.replace(/^#/, "")));
+    const dir: string = path.dirname(planDraftPath(repoRoot, roadmap.name));
+    const mergeFile: string = path.join(dir, MERGE_RECORD);
+    if (!fs.existsSync(mergeFile)) {
+        io.stderr(`the roadmap ${roadmap.name} has no recorded merge, so its draft cannot be rebuilt. Run 'nexus workbook draft' again.`);
+        return null;
+    }
+    const fresh: DraftResult = draftFromExtractions(repoRoot, roadmap, JSON.parse(fs.readFileSync(mergeFile, "utf8")), overrides);
+    if (!fresh.ok) {
+        io.stderr(fresh.problem);
+        return null;
+    }
+    fs.writeFileSync(path.join(dir, OVERRIDES_RECORD), JSON.stringify(Object.fromEntries([...overrides].sort((a, b) => a[0] - b[0])), null, 4));
+    const stubs: PlanDraft = { slices: fresh.slices, vocabulary: (readPlanDraft(repoRoot, roadmap.name) as PlanDraft).vocabulary };
+    const rebuilt: PlanDraft = rebuildDraft(draft, stubs, {
+        edges: roadmap.stories.map((story) => ({ story: story.number, blockedBy: story.blockedBy })),
+        handoffConcepts: handoffConcepts(repoRoot, roadmap, { ...draft, slices: fresh.slices }),
+    });
+    writePlanDraft(repoRoot, roadmap.name, rebuilt);
+    return rebuilt;
 }
 
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
@@ -664,7 +731,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
         if (sub === "rewrite") return runRewrite(repoRoot, slug as string, flags, io);
-        if (sub === "gate") return runGate(repoRoot, slug as string, io);
+        if (sub === "gate") return runGate(repoRoot, slug as string, flags, io);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);
