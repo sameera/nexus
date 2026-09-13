@@ -137,6 +137,34 @@ describe("a plan re-approved after drift keeps the lessons already written (stor
         expect(planText(p)).toBe(plan);
     });
 
+    it("keeps a pinning test a handoff already wrote for a slice past the taught part, so the probe and the lesson share one text", () => {
+        const stubs: PlanStub[] = [learner(11, ["pinned-state"]), handoff(12), learner(21, ["handoff-prompt"], ["pinned-state"])];
+        const p: Planned = planned({ slices: stubs, coverage: { clean: true, gaps: [] } });
+        expect(approve(p).code).toBe(0);
+        const briefed: SessionResult = teach(p);
+        const slice: string = briefed.outcome.kind === "brief" ? (briefed.outcome.brief.writeTest?.slice as string) : "";
+        expect(teach(p, { theory: "Pins.", pinningTests: [{ slice, file: "tests/pin.spec.ts", text: "it('pins #11', () => {});\n" }] }).outcome.kind).toBe("written");
+        fs.mkdirSync(path.join(p.repo, "tests"), { recursive: true });
+        fs.writeFileSync(path.join(p.repo, "tests", "pin.spec.ts"), "it('pins #11', () => {});\n");
+        const asked: SessionResult = teach(p);
+        if (asked.outcome.kind !== "tests") throw new Error(`expected a request for tests, got ${asked.outcome.kind}`);
+        const pinningTests = asked.outcome.requests.map((request) => ({ slice: request.slice, file: `tests/${request.slice}.spec.ts`, text: `it('pins #${request.story}', () => {});\n` }));
+        expect(teach(p, { theory: "", pinningTests }).outcome.kind).toBe("handoff");
+        const before: WorkbookPlan = committedPlan(p);
+        const changed: Roadmap = { ...ROADMAP, stories: ROADMAP.stories.map((story) => (story.number === 21 ? { ...story, body: "Write the prompt, and name the branch." } : story)) };
+        p.fake.live[21] = { title: "Hand a story off", body: "Write the prompt, and name the branch.", closed: false };
+        writeRoadmap(p.repo, changed);
+        writePlanDraft(p.repo, "alpha", { slices: stubs, coverage: { clean: true, gaps: [] } });
+
+        const { code, err } = reapprove(p);
+
+        expect(err).toBe("");
+        expect(code).toBe(0);
+        const after: WorkbookPlan = committedPlan(p);
+        expect(after.slices.find((each) => each.story === 21)?.pinned?.body).toBe("Write the prompt, and name the branch.");
+        expect(after.slices.map((each) => each.pinningTest)).toEqual(before.slices.map((each) => each.pinningTest));
+    });
+
     it("reuses the committed plan's commands, and refuses a second declaration of them", () => {
         const p: Planned = taughtThenDrifted();
         replan(p);

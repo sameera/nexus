@@ -52,3 +52,8 @@
 - **Choice:** `writePlanWithPages` stages `plan.yml.partial`, holds the previous rendered files in memory, writes the pages, and renames the plan into place only after they land; on failure it removes the staging and restores the old pages.
 - **Why:** Invariant 31 asks for together-or-not-at-all, and the page write clears the folder before writing, so only a held copy can put it back.
 - **Refuted alternative:** Render pages into a sibling directory and swap directories, which would move the authored `lessons/` folder along with them.
+
+## 2026-09-13 — Re-approval keeps a written pinning test on rebuilt slices, matched by slice identity
+- **Choice:** A slice past the carried prefix is rebuilt, but takes the previous plan's `pinningTest` from the slice with the same `sliceId`.
+- **Why:** A handoff writes the next story slice's test before its lesson, and the return probe fences with it; dropping it on re-approval makes the session request a second text (invariant 29).
+- **Refuted alternative:** Extend the carried prefix to every slice holding a test, which would also freeze the drifted slice's pin, concepts and order.

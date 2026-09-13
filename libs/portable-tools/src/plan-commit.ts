@@ -277,9 +277,13 @@ export function approvePlan(input: ApprovalInput): Approval {
             grading: [...commands.grading],
             probeControl: commands.probeControl === null ? null : { ...commands.probeControl },
             // A taught slice is carried forward exactly as it was approved; only its pin is refreshed.
+            // A later slice is rebuilt, but a pinning test a handoff already wrote for it stays: the
+            // return probe fenced with that text, so the lesson must show the same one (invariant 29).
             slices: draft.slices.map((stub, index) => {
                 const built: PlanSliceRecord = buildSlice(input.workbook, stub, roadmap, live, edges[index]);
-                return index < carried.length ? { ...carried[index], pinned: built.pinned, dependsOn: edges[index] } : built;
+                if (index < carried.length) return { ...carried[index], pinned: built.pinned, dependsOn: edges[index] };
+                const written: PlanSliceRecord | undefined = previous?.slices.find((slice) => sliceId(slice) === sliceId(built));
+                return written?.pinningTest ? { ...built, pinningTest: { ...written.pinningTest } } : built;
             }),
         },
     };
