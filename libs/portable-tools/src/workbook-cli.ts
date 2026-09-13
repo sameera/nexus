@@ -49,6 +49,7 @@ import {
 import { interviewSlate, readInterview, recordInterview, type GivenAnswer, type InterviewRecord } from "./interview.js";
 import { draftFromExtractions, extractionsDir, proposedVocabulary, readExtractions, recordExtraction, type CheckResult, type DraftResult } from "./concept-extraction.js";
 import { readPlanDraft, writePlanDraft, type CoverageGap, type PlanDraft } from "./plan-draft.js";
+import { refuseUncleanCoverage, type CoverageRefusal } from "./plan-approval.js";
 import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
@@ -62,6 +63,7 @@ export const WORKBOOK_SUBVERBS: readonly string[] = [
     "vocabulary",
     "draft",
     "rewrite",
+    "gate",
     "render",
     "check",
     "session",
@@ -136,6 +138,7 @@ const USAGE: string = [
     "  draft <name> --merge <file>         write the plan's stubs once every story has a checked list",
     "  rewrite <name> [--declare <file>]   rewrite the draft: one slice owns each concept, less what",
     "                                      the learner declared they already know",
+    "  gate <name>                         refuse a draft whose coverage is not clean, or print the approval gate",
     "  render <slug>                       render every authored lesson to its page",
     "  check <slug>                        report any committed page that has drifted from its lesson",
     "  session <slug>                      start a session: the pages, and the handoff it resumes at",
@@ -610,6 +613,27 @@ function runRewrite(repoRoot: string, name: string, flags: Flags, io: WorkbookCl
     return 1;
 }
 
+/**
+ * `nexus workbook gate` — the approval gate (epic #458). A draft whose coverage is not clean is
+ * refused here, in code, before the reviewer sees anything (record #591, invariant 10).
+ */
+function runGate(repoRoot: string, name: string, io: WorkbookCliIo): number {
+    const roadmap: Roadmap | null = resolvedRoadmap(repoRoot, name, io);
+    if (roadmap === null) return 1;
+    const draft: PlanDraft | null = readPlanDraft(repoRoot, name);
+    if (draft === null) {
+        io.stderr(`the roadmap ${name} has no plan draft to approve. Run the planning chain first — nothing was written.`);
+        return 1;
+    }
+    const refusal: CoverageRefusal = refuseUncleanCoverage(draft, handoffConcepts(repoRoot, roadmap, draft));
+    if (refusal.refused) {
+        io.stderr(refusal.report);
+        return 1;
+    }
+    io.stdout(`the coverage of ${name} is clean: every concept a slice assumes is taught before it.`);
+    return 0;
+}
+
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
     const [sub, ...rest] = argv;
     if (sub === undefined || !WORKBOOK_SUBVERBS.includes(sub)) {
@@ -640,6 +664,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
         if (sub === "rewrite") return runRewrite(repoRoot, slug as string, flags, io);
+        if (sub === "gate") return runGate(repoRoot, slug as string, io);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);

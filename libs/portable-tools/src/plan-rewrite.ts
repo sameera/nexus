@@ -587,3 +587,12 @@ export function rewritePlan(draft: PlanDraft, options: RewriteOptions = {}): Pla
     }
     return { ...draft, slices, coverage: checkCoverage(slices, declaredConcepts, options.handoffConcepts ?? new Map()) };
 }
+
+/**
+ * Check a draft's coverage again, from its slices and its recorded declaration, without trusting the
+ * verdict it carries. The approval gate refuses a draft whose recorded verdict this disagrees with,
+ * because the draft is a file an agent can write (record #591, invariant 12).
+ */
+export function recheckCoverage(draft: PlanDraft, handoffConcepts: ReadonlyMap<number, readonly string[]> = new Map(), introduced: readonly string[] = []): CoverageVerdict {
+    return checkCoverage(draft.slices, [...(draft.declared ?? []).map((entry) => entry.concept), ...introduced], handoffConcepts);
+}
