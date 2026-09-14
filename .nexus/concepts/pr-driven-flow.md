@@ -2,7 +2,7 @@
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
 touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close"]
-last_updated_by: "#215"
+last_updated_by: "#628"
 status: active
 verification: verified
 ---
@@ -79,3 +79,9 @@ Close over several pull requests generalizes this flow's closure stage, so the e
 ### 2026-09-11 — #215 — A member is still refused, for a different reason
 
 The refusal on closure and distillation in a member checkout is unchanged, but what it points the lead at is not. It used to name the member's own close-and-migrate path as the alternative; that path is deleted, so the refusal now names the hub and the epic-addressed close over merged pull requests. The invariant survives because the reasoning behind it survives: a queue entry born in a member checkout sits in a repository whose drain refuses to run, which is the stranding the retirement exists to end. Refuted alternative: lift the refusal as well, so a member close works locally and the entry reaches the hub some other way. It is better for the lead, who never switches repository, but that other way is the relocation path under a new name, and the entry would still be born where nothing drains it.
+
+### 2026-09-14 — #628 — The flow reads the trunk and the pull request from the repository the work is contributed to
+
+Every read this flow makes now names the repository the pull request was opened against, rather than the remote a lead's own checkout happens to call origin. A lead who works from a fork has an origin that is their personal copy of the repository. That copy carries no reference for a pull request opened against the canonical repository, and its trunk can be far behind the merge. Before this change the conformance stage failed to fetch the pull request's head in such a checkout. The closure stage cut its distillation branch from the fork's stale trunk. The close record stamped the fork as the repository the work landed in. The rule is now that the flow reads the remote named upstream when the checkout declares one, and origin otherwise. Pushes keep naming origin, because the lead pushes the distillation branch to their own fork and opens a pull request from it.
+
+The flow also names that same repository when it asks the platform about the pull request. Left to itself the platform client picks a base repository from whichever remotes it finds. In a fork checkout its pick and the fetch's pick can therefore be two different repositories, where one pull-request number means two different pull requests. Naming the repository makes the two reads agree by construction. A checkout that declares no upstream remote behaves exactly as it did before.
