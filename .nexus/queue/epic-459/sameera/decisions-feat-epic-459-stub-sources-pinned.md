@@ -17,3 +17,8 @@
 - **Choice:** Refuse a sources file that misses any unpinned learner slice of the epic; carry a slice's sources forward on re-approval while it stays a learner slice.
 - **Why:** A bare slice would be taught from the search pinning replaces, and nothing a re-plan reads changes the record the sources came from.
 - **Refuted alternative:** Pin whatever is given and leave the rest bare — silent partial pinning nobody notices until a lesson is written.
+
+## 2026-09-13 — A refuted alternative is required exactly when the named section states one
+- **Choice:** Scope the record to the named heading's section; its `**Refuted alternative:**` lines decide whether `refuted` must be present, and the named alternative must appear in one of them.
+- **Why:** The record template puts each decision's refuted alternatives under that decision's heading, so the section is where "the record states one for that invariant" can be checked mechanically.
+- **Refuted alternative:** Trust the authored file and only refuse empty strings — cheaper, but a remembered alternative the record never stated would pin as if grounded.

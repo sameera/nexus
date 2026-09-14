@@ -16,6 +16,7 @@ const RECORD_BODY: string = [
     "### Approval pins against the live issue graph",
     "",
     "- **Decision:** Pin the live state.",
+    "- **Refuted alternative:** Pin from the resolved roadmap's snapshot. It lost because the pins would not match a graph that moved.",
     "",
     "## Constraints & Invariants",
     "",
@@ -43,7 +44,12 @@ function writeSources(p: Planned, entries: readonly Record<string, unknown>[]): 
 }
 
 const BOTH_STORIES: Record<string, unknown>[] = [
-    { story: 11, section: "Approval pins against the live issue graph", exemplar: "src/pin.ts" },
+    {
+        story: 11,
+        section: "Approval pins against the live issue graph",
+        exemplar: "src/pin.ts",
+        refuted: { alternative: "Pin from the resolved roadmap's snapshot", lost_on: "the pins would not match a graph that moved" },
+    },
     { story: 12, section: "Constraints & Invariants", exemplar: "src/pin.ts" },
 ];
 
@@ -142,5 +148,56 @@ describe("a stub gains its pinned sources once its epic's decision record is app
         const { code, captured } = pin(p, 100);
         expect(code).toBe(1);
         expect(captured.err.join("\n")).toMatch(/handoff/);
+    });
+});
+
+describe("pinned sources name the record section, the refuted alternative and the exemplar", () => {
+    function pinOne(entry: Record<string, unknown>): { p: Planned; code: number; err: string } {
+        const p: Planned = approvedWithRecord("closed");
+        const { code, captured } = pin(p, 100, writeSources(p, [entry, BOTH_STORIES[1]]));
+        return { p, code, err: captured.err.join("\n") };
+    }
+
+    it("names the record section that states the invariant, and refuses one the record does not have", () => {
+        const { code, err } = pinOne({ ...BOTH_STORIES[0], section: "A section nobody wrote" });
+        expect(code).toBe(1);
+        expect(err).toContain("A section nobody wrote");
+    });
+
+    it("names the refuted alternative and what it lost on when the record states one", () => {
+        const { p, code, err } = pinOne(BOTH_STORIES[0]);
+        expect(code, err).toBe(0);
+        expect(slice(p, "story-11").sources?.refuted).toEqual({
+            alternative: "Pin from the resolved roadmap's snapshot",
+            lostOn: "the pins would not match a graph that moved",
+        });
+    });
+
+    it("refuses sources that leave out the refuted alternative the record states", () => {
+        const { code, err } = pinOne({ story: 11, section: "Approval pins against the live issue graph", exemplar: "src/pin.ts" });
+        expect(code).toBe(1);
+        expect(err).toMatch(/refuted alternative/);
+    });
+
+    it("refuses a refuted alternative the record's section does not state, or one with nothing it lost on", () => {
+        expect(pinOne({ ...BOTH_STORIES[0], refuted: { alternative: "Something else entirely", lost_on: "a reason" } }).code).toBe(1);
+        expect(pinOne({ ...BOTH_STORIES[0], refuted: { alternative: "Pin from the resolved roadmap's snapshot", lost_on: " " } }).code).toBe(1);
+    });
+
+    it("omits the refuted alternative rather than leaving a placeholder when the record states none", () => {
+        const p: Planned = approvedWithRecord("closed");
+        expect(pin(p, 100, writeSources(p, BOTH_STORIES)).code).toBe(0);
+        expect(slice(p, "story-12-part-1").sources?.refuted).toBeUndefined();
+        expect(fs.readFileSync(path.join(p.repo, ".nexus", "workbook", "alpha", "plan.yml"), "utf8").match(/refuted:/g)).toHaveLength(1);
+
+        const invented = pinOne({ ...BOTH_STORIES[0], story: 11, section: "Constraints & Invariants", refuted: { alternative: "Anything", lost_on: "anything" } });
+        expect(invented.code).toBe(1);
+        expect(invented.err).toMatch(/states no refuted alternative/);
+    });
+
+    it("names one exemplar file that exists in the codebase", () => {
+        expect(pinOne({ ...BOTH_STORIES[0], exemplar: "src/missing.ts" }).err).toContain("src/missing.ts");
+        expect(pinOne({ ...BOTH_STORIES[0], exemplar: "src" }).code).toBe(1);
+        expect(pinOne({ ...BOTH_STORIES[0], exemplar: "../outside.ts" }).code).toBe(1);
     });
 });

@@ -43,6 +43,11 @@ export interface PinnedSources {
     section: string;
     /** The one file in the codebase that demonstrates that invariant, relative to the repository root. */
     exemplar: string;
+    /**
+     * The alternative the record refuted for that invariant, and what it lost on. Present exactly when
+     * the record's section states one, so a reader never meets a placeholder for an alternative nobody refuted.
+     */
+    refuted?: { alternative: string; lostOn: string };
 }
 
 /**
@@ -290,9 +295,13 @@ function readSources(raw: unknown, learnerBuilds: boolean, at: string): PinnedSo
         throw new PlanError(`${at} is a handoff and carries 'sources'. A handoff slice teaches nothing, so no sources are pinned for it.`);
     }
     const record: Record<string, unknown> = asRecord(raw);
+    const refuted: Record<string, unknown> | null = record["refuted"] === undefined || record["refuted"] === null ? null : asRecord(record["refuted"]);
     return {
         section: text(record["section"], "sources.section", at),
         exemplar: text(record["exemplar"], "sources.exemplar", at),
+        ...(refuted === null
+            ? {}
+            : { refuted: { alternative: text(refuted["alternative"], "sources.refuted.alternative", at), lostOn: text(refuted["lost_on"], "sources.refuted.lost_on", at) } }),
     };
 }
 
@@ -406,7 +415,13 @@ export function renderWorkbookPlan(plan: WorkbookPlan): string {
                 depends_on: [...slice.dependsOn],
                 ...(slice.pinned === null ? {} : { pinned: { title: slice.pinned.title, body: slice.pinned.body, closed: slice.pinned.closed } }),
                 ...(slice.pinningTest === null ? {} : { pinning_test: { file: slice.pinningTest.file, text: slice.pinningTest.text } }),
-                ...(slice.sources === undefined ? {} : { sources: { section: slice.sources.section, exemplar: slice.sources.exemplar } }),
+                ...(slice.sources === undefined ? {} : {
+                          sources: {
+                              section: slice.sources.section,
+                              exemplar: slice.sources.exemplar,
+                              ...(slice.sources.refuted === undefined ? {} : { refuted: { alternative: slice.sources.refuted.alternative, lost_on: slice.sources.refuted.lostOn } }),
+                          },
+                      }),
             };
         }),
     };
