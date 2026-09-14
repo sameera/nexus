@@ -424,6 +424,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus workbook draft <name> --merge <file> [--root <dir>]",
             "  nexus workbook handoff <slug> --story <story> [--note <why>] [--root <dir>]",
             "  nexus workbook resolve <slug> <handoff-id> [--root <dir>]",
+            "  nexus workbook pin <slug> --epic <n> [--sources <file>] [--root <dir>]",
             "      Create makes the committed workbook folder and ensures the one rule that",
             "      excludes the learner folder. Render turns every authored lesson under",
             "      lessons/ into a page beside it — the whole workbook or none of it. Check",
