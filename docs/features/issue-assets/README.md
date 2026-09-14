@@ -10,3 +10,4 @@ Graphics and mockups filed alongside epic and decision-record issues, from a sto
 
 - **Durable asset store for filed issues** — [#594](https://github.com/sameera/nexus/issues/594)
 - **The renderer serves a pinned HTML mockup as an isolated page** — [#612](https://github.com/sameera/nexus/issues/612)
+- **A filed issue's HTML asset links to a configured renderer** — [#613](https://github.com/sameera/nexus/issues/613)
