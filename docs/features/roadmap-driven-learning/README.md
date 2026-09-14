@@ -14,3 +14,4 @@ Turns a planned roadmap into hands-on lessons a learner works through, placing t
 - **The rest of the shared component library, and the answer-checking it needs** — [#480](https://github.com/sameera/nexus/issues/480)
 - **Concepts are extracted per story, and every slice is marked learner or handoff** — [#456](https://github.com/sameera/nexus/issues/456)
 - **The plan is approved at a decision-grade gate and renders as a home page** — [#458](https://github.com/sameera/nexus/issues/458)
+- **A stub's sources are pinned when its epic is promoted** — [#459](https://github.com/sameera/nexus/issues/459)
