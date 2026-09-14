@@ -2,7 +2,7 @@
 title: "Close Over Several Pull Requests"
 aliases: ["multi-pull-request close", "epic-wide close", "merge gate", "story pull-request set", "range list", "one entry per pull request", "storyless story waiver", "trunk head verification"]
 touches: ["aggregated-epic-receipt", "pr-driven-flow", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff", "remote-identity-normalization"]
-last_updated_by: "#215"
+last_updated_by: "#628"
 status: active
 verification: verified
 ---
@@ -53,3 +53,9 @@ Mechanical reciprocity fan-out: the range-entry-diff page names this close as th
 ### 2026-09-11 — #215 — Reciprocal links: range stamping lands here alone
 
 Mechanical reciprocity fan-out, both directions in one entry. The page that used to own range stamping is retired, so that edge is removed, and this page's own invariant on one entry per pull request is now the store's only statement of the stamped shape. The rule that canonicalizes a repository identity correspondingly records its edge against this close, because this is what stamps the range those identities sit in. Nothing about the stamping itself changed here.
+
+### 2026-09-14 — #628 — The trunk this close verifies is the canonical repository's, and the stale-trunk remedy names the remote that fixes it
+
+The gate that verifies the trunk holds every stamped head now resolves that trunk from the repository the work is contributed to, not from the lead's own copy. A lead working from a fork has a local trunk that tracks the fork, and that trunk can be far behind the merges this close is verifying. Verifying against it would report a stamped head as missing when the head had in fact landed, so the close would refuse an epic that was fully merged.
+
+The refusal that reports a stale trunk also names the remote the lead must fetch from, and that name is now the remote actually being read. A remedy naming the wrong remote would send the lead to fetch a repository that can never bring their trunk up to date, and the resulting second failure would read as a defect in the gate rather than as a stale checkout.
