@@ -34,6 +34,18 @@ export interface PinningTest {
 }
 
 /**
+ * The material a slice's lesson is written from, pinned once the slice's epic has an approved
+ * decision record (epic #459). The pinning step owns it, so it is absent until that step runs — never
+ * a placeholder — and it is never carried by a handoff slice or a scaffold, which teach from nothing.
+ */
+export interface PinnedSources {
+    /** The heading of the decision-record section that states the invariant the slice's story implements. */
+    section: string;
+    /** The one file in the codebase that demonstrates that invariant, relative to the repository root. */
+    exemplar: string;
+}
+
+/**
  * One step of the plan: the story it builds, and everything the session needs to teach it.
  *
  * A slice's identity is its story plus which part of that story it is, or — for a scaffold, which
@@ -82,6 +94,8 @@ export interface PlanSliceRecord {
      * alone (invariant 43). Empty on a plan written before approval recorded any.
      */
     dependsOn: string[];
+    /** The sources this slice's lesson is written from. Absent until its epic's record is approved and pinned. */
+    sources?: PinnedSources;
 }
 
 /** How a slice is named to a reader: its story, its part, or the concept a scaffold teaches. */
@@ -169,6 +183,9 @@ function readScaffold(record: Record<string, unknown>, where: string): PlanSlice
     if (record["builds"] !== "learner") {
         throw new PlanError(`${at} is marked '${String(record["builds"])}'. A scaffold is a teaching step the learner takes.`);
     }
+    if (record["sources"] !== undefined) {
+        throw new PlanError(`${at} carries 'sources'. A scaffold builds no story, so there is no decision record to pin it to.`);
+    }
     const concepts: unknown = record["concepts"];
     return {
         scaffold,
@@ -239,6 +256,7 @@ function readSlice(raw: unknown, index: number, planEpic: number | null): PlanSl
     }
 
     const learnerBuilds: boolean = mark === "learner";
+    const sources: PinnedSources | undefined = readSources(record["sources"], learnerBuilds, at);
     return {
         story,
         ...(part === undefined ? {} : { part }),
@@ -258,6 +276,23 @@ function readSlice(raw: unknown, index: number, planEpic: number | null): PlanSl
         branch: text(record["branch"], "branch", at),
         pinningTest: readPinningTest(record["pinning_test"], at),
         dependsOn: dependencies(record["depends_on"]),
+        ...(sources === undefined ? {} : { sources }),
+    };
+}
+
+/**
+ * A slice's pinned sources, or undefined when none are pinned yet. A handoff slice carrying any is
+ * refused: it teaches nothing, so sources on it would read as a lesson nobody will write.
+ */
+function readSources(raw: unknown, learnerBuilds: boolean, at: string): PinnedSources | undefined {
+    if (raw === undefined || raw === null) return undefined;
+    if (!learnerBuilds) {
+        throw new PlanError(`${at} is a handoff and carries 'sources'. A handoff slice teaches nothing, so no sources are pinned for it.`);
+    }
+    const record: Record<string, unknown> = asRecord(raw);
+    return {
+        section: text(record["section"], "sources.section", at),
+        exemplar: text(record["exemplar"], "sources.exemplar", at),
     };
 }
 
@@ -371,6 +406,7 @@ export function renderWorkbookPlan(plan: WorkbookPlan): string {
                 depends_on: [...slice.dependsOn],
                 ...(slice.pinned === null ? {} : { pinned: { title: slice.pinned.title, body: slice.pinned.body, closed: slice.pinned.closed } }),
                 ...(slice.pinningTest === null ? {} : { pinning_test: { file: slice.pinningTest.file, text: slice.pinningTest.text } }),
+                ...(slice.sources === undefined ? {} : { sources: { section: slice.sources.section, exemplar: slice.sources.exemplar } }),
             };
         }),
     };

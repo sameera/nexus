@@ -738,6 +738,31 @@ The lesson is its own file (C3), one file per lesson; the close record only poin
      lessons, what the next epic in this area should do differently. Consumed by PM estimation.>
     ```
 
+# Phase 6.5 — Pin workbook sources (only when a workbook teaches this epic)
+
+A workbook plan's slices carry their concepts from the day the plan was approved, but not the
+material a lesson is written from: that needs this epic's approved decision record and its diff,
+which this stage has just read. Pin them now, so a later lesson opens named sources instead of
+searching the repository again.
+
+1. List the committed plans: `.nexus/workbook/*/plan.yml`. **Skip this phase** when none names
+   `epic: <N>` on a slice.
+2. For each such workbook `<slug>`, write a sources file (in `.nexus/tmp/`, never committed) with
+   one entry per story the learner builds in this epic — handoff slices and scaffolds get none:
+
+    ```yaml
+    sources:
+        - story: <story issue number>
+          section: <heading of the record section stating the invariant the story implements>
+          exemplar: <one repository-relative file that demonstrates that invariant>
+    ```
+
+3. Run `nexus workbook pin <slug> --epic <N> --sources <file>`. A record that is not approved yet
+   pins nothing and is not an error. A slice already pinned keeps its sources. A non-zero exit
+   names what is missing; fix the file and re-run.
+4. The changed `plan.yml` is a committed file: in `--pr` mode add it to the Phase 7.6 commit; otherwise
+   name it in the Phase 9 report for the lead to commit.
+
 # Phase 7 — Checkpoint (before any GitHub write)
 
 **STOP AND WAIT.** All the above (close record, deferred-scope work-items, lesson) is local and
@@ -876,7 +901,7 @@ closed, drainable entries (Success Metric: 100% of trunk-queue entries carry a c
 committed-entry path `epic.md` was already tracked, so `git add` simply no-ops on it.
 
 ```bash
-git -C <wtPath> add "${QDIR}/epic.md" "${QDIR}/close-record.md" <lesson>  # paths inside <wtPath>
+git -C <wtPath> add "${QDIR}/epic.md" "${QDIR}/close-record.md" <lesson> <pinned plan.yml, if any>  # paths inside <wtPath>
 git -C <wtPath> commit -m "close: <epic-slug> — born-at-close epic, close record, lesson"
 git -C <wtPath> push -u origin "distill/<date>-<slug>"
 ```

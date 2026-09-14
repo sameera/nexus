@@ -283,7 +283,10 @@ export function approvePlan(input: ApprovalInput): Approval {
                 const built: PlanSliceRecord = buildSlice(input.workbook, stub, roadmap, live, edges[index]);
                 if (index < carried.length) return { ...carried[index], pinned: built.pinned, dependsOn: edges[index] };
                 const written: PlanSliceRecord | undefined = previous?.slices.find((slice) => sliceId(slice) === sliceId(built));
-                return written?.pinningTest ? { ...built, pinningTest: { ...written.pinningTest } } : built;
+                const tested: PlanSliceRecord = written?.pinningTest ? { ...built, pinningTest: { ...written.pinningTest } } : built;
+                // Sources pinned from an approved record stay with their slice while it is still one the
+                // learner builds: nothing a re-plan reads could have changed the record they came from.
+                return written?.sources !== undefined && tested.learnerBuilds ? { ...tested, sources: { ...written.sources } } : tested;
             }),
         },
     };

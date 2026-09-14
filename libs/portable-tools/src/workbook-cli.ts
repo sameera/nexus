@@ -30,6 +30,7 @@ import {
     readWorkbookPlan,
     workbookRoot,
     writePlanWithPages,
+    writeWorkbookPlan,
     writtenLessonFiles,
     type CreatedWorkbook,
 } from "./workbook-store.js";
@@ -56,6 +57,8 @@ import { planDraftPath, readPlanDraft, writePlanDraft, type CoverageGap, type Pl
 import { rebuildDraft, refuseUncleanCoverage, renderGateDigest, type CoverageRefusal } from "./plan-approval.js";
 import { applyDeclaration, rewritePlan, type Declaration, type DeclarationResult } from "./plan-rewrite.js";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
+import { defaultOutPath } from "@nexus/epic-resolve/write";
+import { parseAuthoredSources, pinSources, type AuthoredSources, type DecisionRecordState, type PinningResult } from "./source-pinning.js";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
 
 /** The subverbs `nexus workbook` dispatches. */
@@ -72,6 +75,7 @@ export const WORKBOOK_SUBVERBS: readonly string[] = [
     "check",
     "session",
     "teach",
+    "pin",
     "handoff",
     "resolve",
 ];
@@ -109,6 +113,8 @@ interface Flags {
     approve?: boolean;
     /** The file holding the suite and grading commands the reviewer declares at a first approval. */
     commands?: string;
+    /** The file holding the sources an agent read out of an epic's decision record and diff. */
+    sources?: string;
     unknown?: string;
 }
 
@@ -132,6 +138,7 @@ function parseFlags(argv: string[], cwd: string): Flags {
         else if (token === "--clear") flags.clear = rest[++i];
         else if (token === "--approve") flags.approve = true;
         else if (token === "--commands") flags.commands = rest[++i];
+        else if (token === "--sources") flags.sources = rest[++i];
         else if (token.startsWith("--")) {
             flags.unknown = token;
             return flags;
@@ -162,6 +169,8 @@ const USAGE: string = [
     "  teach <slug> [--prose <file>]       run the teaching session: check, drill, and write one lesson",
     "  handoff <slug> --story <s> [--note] record a pause at a story",
     "  resolve <slug> <handoff-id>         mark a recorded handoff resolved",
+    "  pin <slug> --epic <n> [--sources <file>]",
+    "                                      pin the sources of every slice the learner builds in an epic whose record is approved",
 ].join("\n");
 
 /** The message an error carries, whatever kind of error it is. */
@@ -801,6 +810,67 @@ function changeMark(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags:
     return rebuilt;
 }
 
+/**
+ * The decision record of an epic this session already resolved, read live. The record's number comes
+ * from the epic the resolver materialized — the one reconstruction every stage shares — and its approval
+ * and body come from the issue graph now, so a record approved after the resolve still counts.
+ */
+function resolvedRecord(repoRoot: string, epic: number, io: WorkbookCliIo, run: Runner): { found: boolean; record: DecisionRecordState | null } {
+    const materialized: string = defaultOutPath(repoRoot, epic);
+    if (!fs.existsSync(materialized)) {
+        io.stderr(`epic #${epic} has not been resolved in this checkout. Run 'nexus epic-resolve --epic ${epic}' first — nothing was pinned.`);
+        return { found: false, record: null };
+    }
+    const front: RegExpMatchArray | null = fs.readFileSync(materialized, "utf8").match(/^---\n([\s\S]*?)\n---/);
+    const meta: Record<string, unknown> = ((front === null ? null : parse(front[1])) as Record<string, unknown> | null) ?? {};
+    const number: number = Number(String(meta["record"] ?? "").replace(/^#/, ""));
+    if (!Number.isInteger(number) || number <= 0) return { found: true, record: null };
+    const live: LiveStory | null = ghIssueReader(repoRoot, run)(number);
+    if (live === null) {
+        io.stderr(`decision record #${number} for epic #${epic} could not be read, so its approval is unknown — nothing was pinned.`);
+        return { found: false, record: null };
+    }
+    return { found: true, record: { number, approved: live.closed, body: live.body } };
+}
+
+/**
+ * `nexus workbook pin <slug> --epic <n>` — pin the sources of every slice the learner builds in one
+ * epic, once that epic's decision record is approved (epic #459). An unapproved or missing record pins
+ * nothing and is not an error.
+ */
+function runPin(repoRoot: string, slug: string, flags: Flags, io: WorkbookCliIo, run: Runner): number {
+    const epic: number = Number((flags.epic ?? "").replace(/^#/, ""));
+    if (!Number.isInteger(epic) || epic <= 0) {
+        io.stderr(`workbook pin needs --epic <n>: the epic whose decision record the sources come from\n${USAGE}`);
+        return 2;
+    }
+    const plan: WorkbookPlan | null = readWorkbookPlan(repoRoot, slug);
+    if (plan === null) {
+        io.stderr(`the workbook ${slug} has no approved plan, so there is no slice to pin sources for.`);
+        return 1;
+    }
+    const { found, record } = resolvedRecord(repoRoot, epic, io, run);
+    if (!found) return 1;
+    if (record !== null && record.approved && flags.sources === undefined) {
+        io.stderr(`decision record #${record.number} is approved, so workbook pin needs --sources <file> naming each story's sources.`);
+        return 2;
+    }
+    const authored: AuthoredSources[] =
+        record === null || !record.approved || flags.sources === undefined ? [] : parseAuthoredSources(fs.readFileSync(path.resolve(io.cwd, flags.sources), "utf8"));
+    const result: PinningResult = pinSources({ plan, epic, record, authored });
+    if (!result.ok) {
+        io.stderr(result.report);
+        return 1;
+    }
+    if (result.waiting !== null) {
+        io.stdout(result.waiting);
+        return 0;
+    }
+    if (result.pinned.length > 0) writeWorkbookPlan(repoRoot, slug, result.plan);
+    io.stdout(`pinned sources for ${result.pinned.length} slice${result.pinned.length === 1 ? "" : "s"} of epic #${epic}${result.kept.length === 0 ? "" : `; kept what ${result.kept.join(", ")} already had`}.`);
+    return 0;
+}
+
 export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = defaultRunner): number {
     const [sub, ...rest] = argv;
     if (sub === undefined || !WORKBOOK_SUBVERBS.includes(sub)) {
@@ -832,6 +902,7 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
         if (sub === "draft") return runDraft(repoRoot, slug as string, flags, io);
         if (sub === "rewrite") return runRewrite(repoRoot, slug as string, flags, io);
         if (sub === "gate") return runGate(repoRoot, slug as string, flags, io, run);
+        if (sub === "pin") return runPin(repoRoot, slug as string, flags, io, run);
 
         if (sub === "create") {
             const made: CreatedWorkbook = createWorkbook(repoRoot, slug as string, run);

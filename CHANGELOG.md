@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.46.0
+
+- `/nxs.close` gains Phase 6.5: when a committed workbook plan teaches the epic being closed, the
+  stage pins each learner slice's **sources** with `nexus workbook pin <slug> --epic <n> --sources
+  <file>` — the decision-record section stating the invariant the slice's story implements, and one
+  exemplar file. A record that is not approved yet pins nothing and is not an error; a slice already
+  pinned keeps its sources; a handoff slice or a scaffold is never pinned, and a plan carrying sources
+  on one is refused. Every learner slice of the epic is pinned together or none is, and a re-approval
+  of the plan keeps sources already pinned.
+
 ## 0.45.0
 
 - `epic` accepts `--assets <path>…`: local diagrams, mockups and sketches the filed issues should

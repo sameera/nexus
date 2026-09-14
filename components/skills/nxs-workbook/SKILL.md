@@ -35,6 +35,7 @@ nexus workbook gate <name> --approve           # write the committed plan the ga
 nexus workbook render <name>                   # render every authored lesson to its page
 nexus workbook check <name>                    # report a page that drifted from its lesson
 nexus workbook teach <name> --prose <file>     # write and render one lesson
+nexus workbook pin <name> --epic <n> --sources <f>  # pin each learner slice's sources once the epic's record is approved
 ```
 
 Add `--root <dir>` to point at another checkout, and `--repo <member>` to name the member repository
