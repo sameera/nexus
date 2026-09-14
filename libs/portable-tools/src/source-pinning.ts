@@ -4,9 +4,9 @@
  *
  * A stub is approved knowing its concepts and its mark, because both come from the roadmap alone. Its
  * sources cannot be known then: they come from a decision record, and a record does not exist until the
- * slice's own epic is designed. The stage that reads that record and the diff built against it is the
- * one that pins them, so a lesson written later opens named sources instead of searching the repository
- * again for what promotion already read.
+ * slice's own epic is designed. The stage that approves that record is the one that pins them, before any
+ * lesson in the epic is written, so a lesson opens named sources instead of searching the repository
+ * again for what the record stage already read.
  *
  * Pinning is owned here and nowhere else. It fills only slices the learner builds in the named epic,
  * never a handoff or a scaffold, which teach from nothing. It never rewrites a source already pinned, so
@@ -16,8 +16,9 @@
  *
  * What a source names is checked against material that already exists (story #625), so a lesson's
  * grounding is traceable rather than written from memory: the section must be a heading the record
- * carries, a refuted alternative must be one that section states — and must be named when it states
- * one — and the exemplar must be one file present in the codebase.
+ * carries that holds no other section, a refuted alternative must be one the decision it is attributed to
+ * states — and must be named when the section itself states one — and the exemplar must be one file
+ * present in the codebase.
  *
  * The step is pure. The record's approval, the plan, the authored sources and a check for whether a
  * repository file exists are handed in, and a plan comes back whole or not at all.
@@ -39,7 +40,8 @@ export interface AuthoredSources {
     story: number;
     section: string;
     exemplar: string;
-    refuted?: { alternative: string; lostOn: string };
+    /** `decision` is the heading that states the alternative; an entry that names none means the section itself. */
+    refuted?: { decision?: string; alternative: string; lostOn: string };
 }
 
 export interface PinningInput {
@@ -85,11 +87,16 @@ export function parseAuthoredSources(source: string): AuthoredSources[] {
         const rawRefuted: unknown = entry["refuted"];
         if (rawRefuted === undefined || rawRefuted === null) return { story, section: field("section"), exemplar: field("exemplar") };
         const refuted: Record<string, unknown> = typeof rawRefuted === "object" ? (rawRefuted as Record<string, unknown>) : {};
+        const decision: string = String(refuted["decision"] ?? "").trim();
         return {
             story,
             section: field("section"),
             exemplar: field("exemplar"),
-            refuted: { alternative: String(refuted["alternative"] ?? "").trim(), lostOn: String(refuted["lost_on"] ?? "").trim() },
+            refuted: {
+                ...(decision === "" ? {} : { decision }),
+                alternative: String(refuted["alternative"] ?? "").trim(),
+                lostOn: String(refuted["lost_on"] ?? "").trim(),
+            },
         };
     });
 }
@@ -122,26 +129,42 @@ function refutedIn(section: readonly string[]): string[] {
     });
 }
 
+/**
+ * The lines of a section a source may name: one the record carries that holds no section of its own. A
+ * heading with sections under it — the record's title, or Key Decisions — would widen what the section
+ * "states" to everything beneath it, so naming a wider heading could change whether an alternative is owed.
+ */
+function namedSection(body: string, heading: string, story: number, what: string, problems: string[]): string[] | null {
+    const section: string[] | null = recordSection(body, heading);
+    if (section === null) {
+        problems.push(`  #${story} names the ${what} ${JSON.stringify(heading)}, which the decision record does not have.`);
+        return null;
+    }
+    if (section.some((line) => /^#{1,6}\s/.test(line))) {
+        problems.push(`  #${story} names the ${what} ${JSON.stringify(heading)}, which holds other sections. Name the one heading that states it.`);
+        return null;
+    }
+    return section;
+}
+
 /** Everything wrong with what one story's sources name, checked against the record and the codebase. */
 function problemsWith(entry: AuthoredSources, record: DecisionRecordState, isFile: (relative: string) => boolean): string[] {
     const problems: string[] = [];
-    const section: string[] | null = recordSection(record.body, entry.section);
-    if (section === null) {
-        problems.push(`  #${entry.story} names the section ${JSON.stringify(entry.section)}, which decision record #${record.number} does not have.`);
-    } else {
-        const stated: string[] = refutedIn(section);
-        if (stated.length === 0 && entry.refuted !== undefined) {
-            problems.push(`  #${entry.story} names a refuted alternative, but the section ${JSON.stringify(entry.section)} states no refuted alternative. Omit it.`);
+    const section: string[] | null = namedSection(record.body, entry.section, entry.story, "section", problems);
+    if (section !== null && entry.refuted === undefined && refutedIn(section).length > 0) {
+        problems.push(`  #${entry.story} names no refuted alternative, but the section ${JSON.stringify(entry.section)} states one. Name it and what it lost on.`);
+    }
+    if (entry.refuted !== undefined) {
+        const decision: string = entry.refuted.decision ?? entry.section;
+        const where: string[] | null = entry.refuted.decision === undefined ? section : namedSection(record.body, decision, entry.story, "decision", problems);
+        const stated: string[] = where === null ? [] : refutedIn(where);
+        if (where !== null && stated.length === 0) {
+            problems.push(`  #${entry.story} names a refuted alternative, but the section ${JSON.stringify(decision)} states no refuted alternative. Name the decision that states it, or omit it.`);
         }
-        if (stated.length > 0 && entry.refuted === undefined) {
-            problems.push(`  #${entry.story} names no refuted alternative, but the section ${JSON.stringify(entry.section)} states one. Name it and what it lost on.`);
+        if (stated.length > 0 && (entry.refuted.alternative === "" || !stated.some((statement) => normalize(statement).includes(normalize(entry.refuted?.alternative ?? ""))))) {
+            problems.push(`  #${entry.story} names the refuted alternative ${JSON.stringify(entry.refuted.alternative)}, which the section ${JSON.stringify(decision)} does not state.`);
         }
-        if (stated.length > 0 && entry.refuted !== undefined) {
-            if (entry.refuted.alternative === "" || !stated.some((statement) => normalize(statement).includes(normalize(entry.refuted?.alternative ?? "")))) {
-                problems.push(`  #${entry.story} names the refuted alternative ${JSON.stringify(entry.refuted.alternative)}, which the section ${JSON.stringify(entry.section)} does not state.`);
-            }
-            if (entry.refuted.lostOn === "") problems.push(`  #${entry.story} names a refuted alternative but not what it lost on.`);
-        }
+        if (stated.length > 0 && entry.refuted.lostOn === "") problems.push(`  #${entry.story} names a refuted alternative but not what it lost on.`);
     }
     const relative: string = entry.exemplar.replace(/\\/g, "/");
     const escapes: boolean = relative.startsWith("/") || /^[a-z]:/i.test(relative) || relative.split("/").includes("..");
@@ -200,7 +223,9 @@ export function pinSources(input: PinningInput): PinningResult {
             return slice;
         }
         const entry: AuthoredSources = input.authored.find((candidate) => candidate.story === slice.story) as AuthoredSources;
-        const sources: PinnedSources = { section: entry.section, exemplar: entry.exemplar, ...(entry.refuted === undefined ? {} : { refuted: { ...entry.refuted } }) };
+        const refuted: PinnedSources["refuted"] =
+            entry.refuted === undefined ? undefined : { decision: entry.refuted.decision ?? entry.section, alternative: entry.refuted.alternative, lostOn: entry.refuted.lostOn };
+        const sources: PinnedSources = { section: entry.section, exemplar: entry.exemplar, ...(refuted === undefined ? {} : { refuted }) };
         pinned.push(sliceLabel(slice));
         return { ...slice, sources };
     });

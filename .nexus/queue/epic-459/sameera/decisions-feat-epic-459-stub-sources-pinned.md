@@ -27,3 +27,13 @@
 - **Choice:** `workbook pin` finds the epic in `.nexus/tmp/` then `.nexus/queue/` under the hub (workspace) or the repo root, and reads approval with `@nexus/record-digest/fetch` run in that same root.
 - **Why:** the digest fetch is the one reading of approval that already refuses a not-planned close, and the record and the epic belong to the pipeline, not the member the workbook lives in.
 - **Refuted alternative:** extend `ghIssueReader` with `stateReason` — a second approval rule beside the digest's, free to drift from it.
+
+## 2026-09-13 — The record stage pins at approval, not the close stage
+- **Choice:** `/nxs.decision-record` Phase 4 step 8 pins sources when it closes the record; close Phase 6.5 is removed.
+- **Why:** close waits for every story to merge, and a learner slice's lesson is written before its story is built, so close-time pinning always lands after the lessons (analyze on PR #626).
+- **Refuted alternative:** keep close as a backstop — it would pin sources onto slices whose lessons were already written from nothing.
+
+## 2026-09-13 — A refuted alternative names the decision heading that states it
+- **Choice:** `refuted.decision` names the Key Decisions heading holding the alternative; a named section or decision must hold no sub-section.
+- **Why:** the template states invariants under Constraints & Invariants and alternatives under each decision, so scoping to the invariant's own section refused real alternatives, and a wider heading widened what was owed.
+- **Refuted alternative:** match a refuted alternative anywhere in the record body — passes any alternative the record states, whether or not it bears on the invariant.

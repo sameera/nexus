@@ -145,16 +145,6 @@ describe("a stub gains its pinned sources once its epic's decision record is app
         expect(fs.readFileSync(path.join(p.repo, ".nexus", "workbook", "alpha", "plan.yml"), "utf8")).toBe(before);
     });
 
-    it("pins from a checkout whose epic sits in its committed queue entry, as a --pr close leaves it", () => {
-        const p: Planned = approvedWithRecord("closed");
-        const queued: string = path.join(p.repo, ".nexus", "queue", "epic-100");
-        fs.mkdirSync(queued, { recursive: true });
-        fs.renameSync(path.join(p.repo, ".nexus", "tmp", "epic-100", "epic.md"), path.join(queued, "epic.md"));
-        const { code, captured } = pin(p, 100, writeSources(p, BOTH_STORIES));
-        expect(code, captured.err.join("\n")).toBe(0);
-        expect(slice(p, "story-11").sources?.section).toBe("Approval pins against the live issue graph");
-    });
-
     it("reads the epic and its decision record from the hub when the workbook lives in a workspace member", () => {
         const p: Planned = approvedWithRecord("closed");
         const parent: string = fs.mkdtempSync(path.join(os.tmpdir(), "pin-workspace-"));
@@ -216,9 +206,39 @@ describe("pinned sources name the record section, the refuted alternative and th
         const { p, code, err } = pinOne(BOTH_STORIES[0]);
         expect(code, err).toBe(0);
         expect(slice(p, "story-11").sources?.refuted).toEqual({
+            decision: "Approval pins against the live issue graph",
             alternative: "Pin from the resolved roadmap's snapshot",
             lostOn: "the pins would not match a graph that moved",
         });
+    });
+
+    it("names the refuted alternative from the decision that states it when the invariant sits in its own section", () => {
+        const { p, code, err } = pinOne({
+            story: 11,
+            section: "Constraints & Invariants",
+            exemplar: "src/pin.ts",
+            refuted: { decision: "Approval pins against the live issue graph", alternative: "Pin from the resolved roadmap's snapshot", lost_on: "a graph that moved" },
+        });
+        expect(code, err).toBe(0);
+        expect(slice(p, "story-11").sources?.section).toBe("Constraints & Invariants");
+        expect(slice(p, "story-11").sources?.refuted?.decision).toBe("Approval pins against the live issue graph");
+        expect(fs.readFileSync(path.join(p.repo, ".nexus", "workbook", "alpha", "plan.yml"), "utf8")).toContain("decision: Approval pins against the live issue graph");
+    });
+
+    it("refuses a refuted alternative attributed to a decision the record does not have, or one that states no alternative", () => {
+        const refuted = { alternative: "Pin from the resolved roadmap's snapshot", lost_on: "a graph that moved" };
+        const missing = pinOne({ story: 11, section: "Constraints & Invariants", exemplar: "src/pin.ts", refuted: { ...refuted, decision: "A decision nobody made" } });
+        expect(missing.code).toBe(1);
+        expect(missing.err).toContain("A decision nobody made");
+        expect(pinOne({ story: 11, section: "Constraints & Invariants", exemplar: "src/pin.ts", refuted: { ...refuted, decision: "Constraints & Invariants" } }).code).toBe(1);
+    });
+
+    it("refuses a section that holds other sections, so naming a wider heading cannot change what the record states", () => {
+        const whole = pinOne({ ...BOTH_STORIES[0], section: "Decision Record: Pin the plan" });
+        expect(whole.code).toBe(1);
+        expect(whole.err).toContain("Decision Record: Pin the plan");
+        expect(pinOne({ ...BOTH_STORIES[0], section: "Key Decisions" }).code).toBe(1);
+        expect(pinOne({ story: 11, section: "Constraints & Invariants", exemplar: "src/pin.ts", refuted: { decision: "Key Decisions", alternative: "Pin from the resolved roadmap's snapshot", lost_on: "a graph that moved" } }).code).toBe(1);
     });
 
     it("refuses sources that leave out the refuted alternative the record states", () => {

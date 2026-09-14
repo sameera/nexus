@@ -817,16 +817,14 @@ function changeMark(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags:
  * and body come from the issue graph now, so a record approved after the resolve still counts.
  *
  * The epic and its record belong to the pipeline, not the workbook: in a workspace they live in the hub
- * while the workbook lives in a member, so both are read from the hub. The epic is found where a close
- * leaves it — the gitignored `.nexus/tmp/` entry, or the committed `.nexus/queue/` entry a `--pr` close
- * or an old-contract epic carries. Approval is the record fetch's own reading, so a record closed as not
- * planned is a withdrawn design and pins nothing.
+ * while the workbook lives in a member, so both are read from the hub. Approval is the record fetch's own
+ * reading, so a record closed as not planned is a withdrawn design and pins nothing.
  */
 function resolvedRecord(repoRoot: string, epic: number, io: WorkbookCliIo, run: Runner): { found: boolean; record: DecisionRecordState | null } {
     const resolved = resolveWorkspace(repoRoot);
     const pipelineRoot: string = resolved.ok && resolved.workspace.mode === "workspace" ? resolved.workspace.hubRoot : repoRoot;
-    const materialized: string | undefined = [defaultOutPath(pipelineRoot, epic), path.join(pipelineRoot, ".nexus", "queue", `epic-${epic}`, "epic.md")].find((file) => fs.existsSync(file));
-    if (materialized === undefined) {
+    const materialized: string = defaultOutPath(pipelineRoot, epic);
+    if (!fs.existsSync(materialized)) {
         io.stderr(`epic #${epic} has not been resolved in ${pipelineRoot}. Run 'nexus epic-resolve --epic ${epic}' first — nothing was pinned.`);
         return { found: false, record: null };
     }

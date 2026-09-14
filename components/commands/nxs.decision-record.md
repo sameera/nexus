@@ -621,6 +621,49 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
     nexus record-digest --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
+8. **Pin workbook sources** — only when step 6 closed the record, and only when a workbook teaches
+   this epic. A workbook plan's slices carry their concepts from the day the plan was approved, but not
+   the material a lesson is written from. That material is this record, and approval is the first
+   moment it is fixed. Pin it now, so every lesson in this epic — written when the learner arrives,
+   before they build the story — opens named sources instead of searching the repository again.
+
+    1. List the committed plans: `.nexus/workbook/*/plan.yml` in this checkout, or in each member
+       checkout when this is a workspace hub. **Skip this step** when no plan names `epic: <N>` on a
+       slice.
+    2. Re-materialize the epic, so it names the record step 3 just filed (Phase 0 ran before the
+       record existed): `nexus epic-resolve --epic <N>`.
+    3. For each such workbook `<slug>`, write a sources file (in `.nexus/tmp/`, never committed) with
+       one entry per story the learner builds in this epic. Handoff slices and scaffolds get none:
+
+        ```yaml
+        sources:
+            - story: <story issue number>
+              section: <heading of the one record section stating the invariant the story implements>
+              exemplar: <one repository-relative file that demonstrates that invariant today>
+              refuted:              # only when the record states a refuted alternative for it — omit otherwise
+                  decision: <heading of the decision that states it; omit when it is `section` itself>
+                  alternative: <the refuted alternative, as the decision words it>
+                  lost_on: <what it lost on>
+        ```
+
+       The story is not built yet: the learner builds it after its lesson. So the exemplar is a file
+       already in the tree that shows the invariant — the codebase as the record was approved against,
+       never the story's own implementation. The verb checks each entry against the record and the
+       tree. The section and the decision must each be a heading the record carries that holds no
+       other section. A refuted alternative must be one that decision states, and it is owed whenever
+       the named section itself states one. The exemplar must be one file in the codebase. Never write
+       a placeholder for a missing alternative.
+
+    4. Run `nexus workbook pin <slug> --epic <N> --sources <file>`, adding `--repo <member>` from a
+       hub. The verb reads the epic and the record from the hub while the plan stays in the member. A
+       slice already pinned keeps its sources. A non-zero exit names what is wrong; fix the file and
+       re-run. A failed pin does not undo the approval.
+    5. The changed `plan.yml` is a committed file: name it in the Phase 5 report for the lead to commit.
+
+    **When the record is left open for review**, nothing pins in this run. Say so in the Phase 5 report:
+    once the record is closed on GitHub, the lead runs steps 8.1–8.5 by hand, before `/nxs.teach`
+    reaches this epic.
+
 **Never** write anything under `docs/` (permanent human artifacts only), and never emit a
 `{prefix}-hld.md`, a task index, or any per-task design.
 
@@ -711,6 +754,10 @@ Run these four acts **in order**, and do not skip one:
     against the earlier body detectably out of date. If the two are equal, the body did not actually
     change: say so, and do not claim a revision happened.
 
+6. **Pin workbook sources** — when step 4 re-closed the record, run Phase 4 step 8 unchanged. Slices
+   pinned against the earlier body keep their sources: a lesson may already be written from them. Only
+   slices not yet pinned are pinned, from the revised body.
+
 Report the revision: the record reference, the superseded hash, the new hash, and the record's
 state. Every earlier approved state stays recoverable from the comment trail alone, revision by
 revision.
@@ -735,6 +782,8 @@ Report concisely:
 - Open clarifications: **none**, or **N resolved** at the Phase 2 gate (the Open Clarifications
   section is empty in the filed record).
 - Story coverage: confirm every user story is addressed.
+- Workbook sources (when a workbook teaches this epic): the slices pinned and the `plan.yml` to commit;
+  or, for a record left open, that pinning waits for its close and the lead runs Phase 4 step 8 then.
 - Next step: implement the stories, then `/nxs.analyze` — which **will not run** while the record is
   unapproved, so an open record must be closed before conformance can be checked.
 
