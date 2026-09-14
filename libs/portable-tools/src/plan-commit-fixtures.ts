@@ -75,6 +75,8 @@ export const COMMANDS: string = ["suite: [fake-suite, --all]", "grading: [fake-g
 export interface Fake {
     live: Record<number, LiveStory | null>;
     calls: string[][];
+    /** GitHub's close reason for a closed issue, when it is not `completed`. */
+    reasons?: Record<number, string>;
 }
 
 export function liveFromRoadmap(roadmap: Roadmap = ROADMAP): Record<number, LiveStory | null> {
@@ -90,6 +92,13 @@ export function ghRunner(fake: Fake): Runner {
             const live: LiveStory | null | undefined = fake.live[Number(args[2])];
             if (live === null || live === undefined) return { status: 1, stdout: "", stderr: "not found" };
             return { status: 0, stdout: JSON.stringify({ title: live.title, body: live.body, closedAt: live.closed ? "2026-09-01T00:00:00Z" : null }), stderr: "" };
+        }
+        const issuePath: RegExpMatchArray | null = cmd === "gh" && args[0] === "api" ? String(args[1]).match(/\/issues\/(\d+)$/) : null;
+        if (issuePath !== null) {
+            const live: LiveStory | null | undefined = fake.live[Number(issuePath[1])];
+            if (live === null || live === undefined) return { status: 1, stdout: "", stderr: "HTTP 404: Not Found" };
+            const reason: string | null = live.closed ? (fake.reasons?.[Number(issuePath[1])] ?? "completed") : null;
+            return { status: 0, stdout: JSON.stringify({ body: live.body, state: live.closed ? "closed" : "open", state_reason: reason }), stderr: "" };
         }
         if (cmd === "fake-suite") return { status: 0, stdout: "", stderr: "" };
         if (cmd === "fake-grade") return { status: 1, stdout: "", stderr: "" };

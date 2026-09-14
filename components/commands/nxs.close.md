@@ -764,9 +764,13 @@ searching the repository again.
    record carries, a refuted alternative must be named exactly when that section states one, and the
    exemplar must be one file in the codebase. Never write a placeholder for a missing alternative.
 
-3. Run `nexus workbook pin <slug> --epic <N> --sources <file>`. A record that is not approved yet
-   pins nothing and is not an error. A slice already pinned keeps its sources. A non-zero exit
-   names what is missing; fix the file and re-run.
+3. Run `nexus workbook pin <slug> --root <root> --epic <N> --sources <file>`, with `<root>` per
+   Phase 1.0 — the repo root, or `$wtPath` in `--pr` mode, so the plan changes inside the worktree
+   the Phase 7.6 commit is made from. The verb finds the epic in its `.nexus/tmp/` or its committed
+   `.nexus/queue/` entry, and in a workspace reads the epic and the record from the hub while the
+   plan stays in the member (`--repo <member>`). A record that is not approved yet, or one closed as
+   not planned, pins nothing and is not an error. A slice already pinned keeps its sources. A non-zero
+   exit names what is missing; fix the file and re-run.
 4. The changed `plan.yml` is a committed file: in `--pr` mode add it to the Phase 7.6 commit; otherwise
    name it in the Phase 9 report for the lead to commit.
 

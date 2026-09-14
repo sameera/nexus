@@ -22,3 +22,8 @@
 - **Choice:** Scope the record to the named heading's section; its `**Refuted alternative:**` lines decide whether `refuted` must be present, and the named alternative must appear in one of them.
 - **Why:** The record template puts each decision's refuted alternatives under that decision's heading, so the section is where "the record states one for that invariant" can be checked mechanically.
 - **Refuted alternative:** Trust the authored file and only refuse empty strings — cheaper, but a remembered alternative the record never stated would pin as if grounded.
+
+## 2026-09-13 — Pin reads the record through the digest's fetch, from the pipeline root
+- **Choice:** `workbook pin` finds the epic in `.nexus/tmp/` then `.nexus/queue/` under the hub (workspace) or the repo root, and reads approval with `@nexus/record-digest/fetch` run in that same root.
+- **Why:** the digest fetch is the one reading of approval that already refuses a not-planned close, and the record and the epic belong to the pipeline, not the member the workbook lives in.
+- **Refuted alternative:** extend `ghIssueReader` with `stateReason` — a second approval rule beside the digest's, free to drift from it.
