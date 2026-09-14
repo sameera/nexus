@@ -91,8 +91,9 @@ $ARGUMENTS
    the exact case this check exists to catch. For an ephemeral candidate,
    **presence alone is not the consumption signal** — nothing ever commits a deletion of a tmp
    path, so derive consumption from the store (invariant 8): fetch the trunk
-   (`git fetch origin main`), then check whether the concept store **at the trunk** carries this
-   epic's provenance in a **structured provenance position** — a `last_updated_by:` frontmatter
+   (`git fetch "$(nexus trunk --form remote)" main`), then check whether the concept store **at the
+   trunk** carries this epic's provenance in a **structured provenance position** — a
+   `last_updated_by:` frontmatter
    value or a `### <date> — <ref> — …` Decision Log heading in `${TRUNK}:.nexus/concepts/**`,
    matched on the whole provenance token (`#<n>`, or the qualified `<owner>/<repo>#<n>` form),
    never on free prose.
@@ -179,18 +180,19 @@ All drainable entries in one run are batched into **one** distillation-PR (0007 
 naturally), applied entry-by-entry (Phase 4).
 
 **Continuation mode (the `/nxs.close --pr` hand-off).** If the current branch matches `distill/*`,
-the working tree is clean, and the branch's commits vs `origin/main` touch **only** queue/docs
-artifacts (a close just prepared it — the close record, backlog append, and lesson), run in
-**continuation mode**:
+the working tree is clean, and the branch's commits vs the trunk ref (`nexus trunk`) touch **only**
+queue/docs artifacts (a close just prepared it — the close record, backlog append, and lesson), run
+in **continuation mode**:
 
 - **Drain exactly the one entry this branch carries** — the queue entry whose `close-record.md` is
-  present on this branch but not on `origin/main`. Do **not** scan the whole queue, and do **not**
+  present on this branch but not at the trunk ref. Do **not** scan the whole queue, and do **not**
   report other closed-on-their-own-branch entries as drain-SLO breaches (each is drained on its own
   branch). Whole-queue batching applies only to the ordinary drain, not continuation mode.
 - **Do not cut a new branch** (Phase 4) — you are already on the close-prepared one.
-- **Fetch and rebase onto the trunk first:** `git fetch origin main` and rebase this distill branch
-  onto `origin/main` before the Phase 2 survey, so slug convergence sees any distillation that
-  merged since the close (or warn if the branch base is behind and cannot fast-forward).
+- **Fetch and rebase onto the trunk first:** `git fetch "$(nexus trunk --form remote)" main` and
+  rebase this distill branch onto `$(nexus trunk)` before the Phase 2 survey, so slug convergence
+  sees any distillation that merged since the close (or warn if the branch base is behind and
+  cannot fast-forward).
 - Use the **range-head-reachability** merge precondition, not the `epic.md`-presence proxy
   (Phase 0.4).
 
@@ -320,7 +322,7 @@ artifacts (a close just prepared it — the close record, backlog append, and le
     range head:
 
     ```bash
-    TRUNK="$(git rev-parse -q --verify origin/main || git rev-parse -q --verify main)"
+    TRUNK="$(git rev-parse -q --verify "$(nexus trunk)" || git rev-parse -q --verify main)"
     git merge-base --is-ancestor <range.head> "$TRUNK" && echo merged || echo not-merged
     ```
 
@@ -328,7 +330,7 @@ artifacts (a close just prepared it — the close record, backlog append, and le
     entries only**:
 
     ```bash
-    TRUNK="$(git rev-parse -q --verify origin/main || git rev-parse -q --verify main)"
+    TRUNK="$(git rev-parse -q --verify "$(nexus trunk)" || git rev-parse -q --verify main)"
     git cat-file -e "${TRUNK}:<entry-path>/epic.md" 2>/dev/null && echo merged || echo not-merged
     ```
 
@@ -372,7 +374,7 @@ artifacts (a close just prepared it — the close record, backlog append, and le
       consequences, then ask via **`AskUserQuestion`** — never proceed silently:
         - **"Merge the feature PR first, then re-run (Recommended)"** → stop. Tell the user to merge
           the entry's feature PR to the trunk (and `git fetch` first if it merged remotely but the
-          local `origin/main` is stale), then re-run `/nxs.distill`.
+          local trunk ref is stale), then re-run `/nxs.distill`.
         - **"Proceed on the current branch"** → continue with a recorded waiver. For every
           not-merged entry: Phase 1 skips the degenerate priority 1 and derives the diff from the
           recorded `range:` (priority 2); Phase 4 cuts the branch from the current HEAD, not the

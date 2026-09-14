@@ -141,9 +141,9 @@ single-repo and hub mode only.
     ```
 
     It prints `{ wtPath, range: { repo, base, head } }`. The branch is cut from the trunk
-    (post-merge `origin/main`), so `wtPath` holds the merged code. `range` is the
-    merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for Phase 3 and the
-    Phase 4 stamp.**
+    (post-merge, at the trunk ref `nexus trunk` names), so `wtPath` holds the merged code. `range`
+    is the merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for Phase 3
+    and the Phase 4 stamp.**
 
     **Multi-PR case (epic #213, story #503) — when the epic shipped as several story pull requests,
     step 3 above does not apply.** Determine this from the same merge-state check Phase 1.2 runs
@@ -178,8 +178,8 @@ single-repo and hub mode only.
 
     On exit 1, the diagnostic names either an unresolvable range (the same hard stop as an unmerged
     pull request above) or a trunk missing a stamped head. **For the trunk case specifically**, tell
-    the lead the local trunk is behind a recent merge: re-run after `git fetch origin main` catches
-    it up — never proceed on a stale one.
+    the lead the local trunk is behind a recent merge: re-run once the fetch the diagnostic names
+    has brought it up to date — never proceed on a stale one.
 
     On success it prints `{ wtPath, ranges: [{ repo, base, head, pr }, ...] }` — plural, one entry per
     pull request, in the given order. **Keep every one of these SHAs for Phase 3 and the Phase 4
@@ -535,7 +535,7 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
 1. **Compute the branch diff** against the base it forked from:
 
     ```bash
-    BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)"
+    BASE="$(git merge-base HEAD "$(nexus trunk)" 2>/dev/null || git merge-base HEAD main)"
     EXCLUDE="$(nexus excluded-stores)"
     git diff --stat "$BASE"...HEAD -- . $EXCLUDE
     git diff "$BASE"...HEAD -- . $EXCLUDE
@@ -551,8 +551,9 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
     Keep `$BASE` and `$HEAD_SHA` — Phase 4 stamps them into the close record's `range:` block,
     and the stamped range MUST be the exact range this diff used.
 
-    **In `--pr` mode, do NOT use `merge-base HEAD origin/main`** — the distill branch was cut from
-    `origin/main`, so that diff is empty and would detect **zero** deviations (a false-clean close).
+    **In `--pr` mode, do NOT use `merge-base HEAD "$(nexus trunk)"`** — the distill branch was cut
+    from the trunk ref, so that diff is empty and would detect **zero** deviations (a false-clean
+    close).
     Instead take `$BASE` = the Phase 0.5 `range.base` and `$HEAD_SHA` = `range.head`, and compute the
     diff inside the worktree — `git -C <wtPath> diff "$BASE"..."$HEAD_SHA" -- . $EXCLUDE` — using this one diff for
     **both** the deviation detection below and the Phase 4 range stamp.

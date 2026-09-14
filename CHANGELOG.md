@@ -5,6 +5,26 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.48.0
+
+- `analyze`, `close` and `distill` now read the trunk and the pull request from the repository the
+  work is contributed to, not from the checkout's `origin`. A lead who works from a fork has an
+  `origin` naming their own copy: it carries no `pull/<N>/head` ref for a pull request opened
+  against the canonical repository, and its `main` can be far behind the merge. Before this release
+  `analyze --pr` failed to fetch the pull request's head in such a checkout, `close --pr` cut the
+  distill branch from the fork's stale `main`, and the close record stamped the fork as the
+  repository the work landed in. The rule is now: read `upstream` when the checkout declares that
+  remote, else `origin`. Pushes are unchanged and still go to `origin` — the lead pushes the distill
+  branch to their own fork.
+- `analyze` and `close` also name that repository when they ask GitHub about the pull request.
+  Left to itself `gh` picks a base repository from the remotes it finds, so in a fork checkout its
+  answer and the fetch's answer could be two different repositories, where one pull-request number
+  means two different pull requests.
+- Stages that resolve the trunk in shell ask the toolkit for it (`nexus trunk`, and `nexus trunk
+  --form remote` for the remote alone) instead of writing `origin/main` out, so the stage bodies
+  and the `--pr` machinery cannot answer the question differently. A checkout with no `upstream`
+  remote behaves exactly as it did before.
+
 ## 0.47.0
 
 - `epic`'s approval digest no longer drops the assumptions and out-of-scope items the drafting model

@@ -58,9 +58,30 @@ describe("deriveRepoIdentity", () => {
         });
     });
 
-    it("falls back to the first remote when there is no origin", () => {
+    it("prefers upstream over origin, because origin is the lead's fork", () => {
         const repo = makeRepo();
-        sh(repo, "git", "remote", "add", "upstream", "git@github.com:acme/fork.git");
+        sh(repo, "git", "remote", "add", "origin", "git@github.com:lead/web-app.git");
+        sh(repo, "git", "remote", "add", "upstream", "git@github.com:acme/web-app.git");
+
+        expect(deriveRepoIdentity(repo)).toEqual({
+            identity: "github.com/acme/web-app",
+            source: "upstream",
+        });
+    });
+
+    it("derives identity from an upstream remote when there is no origin", () => {
+        const repo = makeRepo();
+        sh(repo, "git", "remote", "add", "upstream", "git@github.com:acme/web-app.git");
+
+        expect(deriveRepoIdentity(repo)).toEqual({
+            identity: "github.com/acme/web-app",
+            source: "upstream",
+        });
+    });
+
+    it("falls back to the first remote when neither upstream nor origin is declared", () => {
+        const repo = makeRepo();
+        sh(repo, "git", "remote", "add", "fork", "git@github.com:acme/fork.git");
 
         expect(deriveRepoIdentity(repo)).toEqual({
             identity: "github.com/acme/fork",

@@ -12,6 +12,27 @@ function ghRunner(result: Partial<RunResult>): Runner {
     };
 }
 
+/**
+ * A Runner that also answers the remote queries, so `resolvePr` sees a fork checkout:
+ * `origin` is the lead's own copy and `upstream` is where the pull request lives.
+ */
+function forkRunner(calls: string[][], result: Partial<RunResult>): Runner {
+    return (cmd, args) => {
+        calls.push([cmd, ...args]);
+        if (cmd === "git" && args[0] === "remote" && args.length === 1) {
+            return { status: 0, stdout: "origin\nupstream\n", stderr: "" };
+        }
+        if (cmd === "git" && args[0] === "remote" && args[1] === "get-url") {
+            const url = args[2] === "upstream" ? "https://github.com/acme/docs.git" : "https://github.com/lead/docs.git";
+            return { status: 0, stdout: `${url}\n`, stderr: "" };
+        }
+        if (cmd === "gh" && args[0] === "pr" && args[1] === "view") {
+            return { status: 0, stdout: "", stderr: "", ...result };
+        }
+        return { status: 1, stdout: "", stderr: `unexpected ${cmd} ${args.join(" ")}` };
+    };
+}
+
 const MERGED = JSON.stringify({
     state: "MERGED",
     mergedAt: "2026-07-20T10:00:00Z",
@@ -108,5 +129,34 @@ describe("resolvePr — commit messages, where a per-story PR states its scope",
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.pr.commitMessages).toEqual([]);
+    });
+});
+
+describe("which repository gh is asked about", () => {
+    it("names the upstream repository, not the fork gh would otherwise guess at", () => {
+        const calls: string[][] = [];
+        const r = resolvePr(forkRunner(calls, { stdout: MERGED }), "/repo", 7, { requireMerged: true });
+
+        expect(r.ok).toBe(true);
+        const ghCall = calls.find((c) => c[0] === "gh");
+        expect(ghCall).toBeDefined();
+        expect(ghCall).toContain("--repo");
+        expect(ghCall?.[(ghCall.indexOf("--repo")) + 1]).toBe("github.com/acme/docs");
+    });
+
+    it("leaves gh to resolve the repository when no remote names one", () => {
+        const calls: string[][] = [];
+        const runner: Runner = (cmd, args) => {
+            calls.push([cmd, ...args]);
+            if (cmd === "gh" && args[0] === "pr" && args[1] === "view") {
+                return { status: 0, stdout: MERGED, stderr: "" };
+            }
+            return { status: 1, stdout: "", stderr: "no remotes" };
+        };
+
+        const r = resolvePr(runner, "/repo", 7, { requireMerged: true });
+
+        expect(r.ok).toBe(true);
+        expect(calls.find((c) => c[0] === "gh")).not.toContain("--repo");
     });
 });

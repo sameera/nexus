@@ -55,6 +55,7 @@ import { deriveRange } from "@nexus/pr-worktree/range";
 import { fetchPrHead, readRange } from "@nexus/pr-worktree/range-read";
 import { deriveRangeList, type RangeListItem } from "@nexus/pr-worktree/range-list";
 import { verifyTrunkContainsHeads } from "@nexus/pr-worktree/trunk-check";
+import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { renderDiagnostic as renderPrWorktreeDiagnostic } from "@nexus/pr-worktree/render";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/pr-worktree/worktree";
 import { renderVerifyResult } from "@nexus/prose-verify/render";
@@ -411,6 +412,19 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runExcludedStores(argv, io)),
     },
+    trunk: {
+        summary: "Print the trunk every stage reads — its remote-tracking ref, or just the remote.",
+        usage: [
+            "  nexus trunk [--form ref|remote]",
+            "      Print the trunk the pipeline reads. --form ref (default) prints the",
+            "      remote-tracking ref — upstream/main when the checkout declares an `upstream`",
+            "      remote, else origin/main; --form remote prints the remote name alone, for a",
+            "      `git fetch <remote> main`. A lead usually works from a fork, where `origin` is",
+            "      their own copy and the merges land in the repository `upstream` names, so ask",
+            "      here rather than writing a remote out.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runTrunk(argv, io)),
+    },
     workbook: {
         summary: "Make a learner's workbook, render its lessons, and teach one lesson per sitting.",
         usage: [
@@ -548,6 +562,33 @@ function runExcludedStores(argv: string[], io: CliIo): number {
     }
     io.stderr(`unknown form '${form}' for excluded-stores (expected pathspec, paths or reasons)\n${USAGE}`);
     return 2;
+}
+
+/**
+ * `nexus trunk` — the readable face of the one canonical-remote rule, for component bodies.
+ *
+ * The stages resolve the trunk in shell (`git rev-parse --verify "$(nexus trunk)"`), and the
+ * `--pr` libraries resolve it in TypeScript through the same `canonicalRemote`. Asking the
+ * toolkit keeps those two from drifting into different answers in a fork checkout, where the
+ * difference is a whole repository.
+ */
+function runTrunk(argv: string[], io: CliIo): number {
+    let form = "ref";
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--form") form = argv[++i] ?? "";
+        else {
+            io.stderr(`unknown argument for trunk: ${argv[i]}\n${USAGE}`);
+            return 2;
+        }
+    }
+    if (form !== "ref" && form !== "remote") {
+        io.stderr(`unknown form '${form}' for trunk (expected ref or remote)\n${USAGE}`);
+        return 2;
+    }
+    const repoRoot: string = git(closeMigrationRunner, io.cwd, "rev-parse", "--show-toplevel") ?? io.cwd;
+    const remote: string = canonicalRemote(closeMigrationRunner, repoRoot);
+    io.stdout(form === "remote" ? remote : `${remote}/main`);
+    return 0;
 }
 
 /** Where the vendored payload lives when running as a distributed artifact. */
@@ -1640,17 +1681,19 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
                 return 1;
             }
 
-            // Resolve the trunk exactly the way `openCloseWorktree` is about to (best-effort refresh,
-            // falling back to the local ref offline) — duplicated rather than exported from
-            // worktree.ts, because this resolution must happen and be verified BEFORE the worktree is
-            // opened, while `openCloseWorktree` only ever resolves it internally, after it has already
-            // decided to create or reuse one.
-            closeMigrationRunner("git", ["fetch", "origin", "main"], { cwd: repoRoot });
+            // Resolve the trunk exactly the way `openCloseWorktree` is about to (canonical remote,
+            // best-effort refresh, falling back to the local ref offline) — duplicated rather than
+            // exported from worktree.ts, because this resolution must happen and be verified BEFORE
+            // the worktree is opened, while `openCloseWorktree` only ever resolves it internally,
+            // after it has already decided to create or reuse one.
+            const trunkRemote: string = canonicalRemote(closeMigrationRunner, repoRoot);
+            const trunkRef = `${trunkRemote}/main`;
+            closeMigrationRunner("git", ["fetch", trunkRemote, "main"], { cwd: repoRoot });
             const trunk =
-                git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "origin/main") ??
+                git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", trunkRef) ??
                 git(closeMigrationRunner, repoRoot, "rev-parse", "--verify", "main");
             if (trunk === null) {
-                io.stderr(renderPrWorktreeDiagnostic({ problem: "git-failed", message: `neither origin/main nor main resolves in ${repoRoot}.` }));
+                io.stderr(renderPrWorktreeDiagnostic({ problem: "git-failed", message: `neither ${trunkRef} nor main resolves in ${repoRoot}.` }));
                 return 1;
             }
 
@@ -1659,6 +1702,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
                 repoRoot,
                 trunk,
                 list.ranges.map((r: RangeListItem) => ({ pr: r.pr, head: r.head })),
+                { remote: trunkRemote },
             );
             if (!verified.ok) {
                 io.stderr(renderPrWorktreeDiagnostic(verified.error));

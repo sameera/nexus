@@ -12,6 +12,7 @@
  * way; only the working tree differs, and the derivation reads no working tree.
  */
 
+import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { resolveRole } from "./identity.js";
 import { resolvePr } from "./pr.js";
@@ -31,9 +32,14 @@ export type ReadRangeResult =
  * Fetch the PR head into the shared object store so the range derivation can verify against it.
  * Best-effort by contract: a deleted branch leaves it undefined, and the derivation then refuses
  * the ambiguous case rather than guessing.
+ *
+ * The ref is fetched from the canonical remote — `upstream` when declared, else `origin` — the
+ * same remote `openAnalyzeWorktree` uses. In a fork checkout `origin` has no `pull/<N>/head` at
+ * all, so reading it there would silently downgrade every range to the ambiguous case.
  */
 export function fetchPrHead(run: Runner, repoRoot: string, prNumber: number): string | undefined {
-    const fetched = run("git", ["fetch", "origin", `pull/${prNumber}/head`], { cwd: repoRoot });
+    const remote = canonicalRemote(run, repoRoot);
+    const fetched = run("git", ["fetch", remote, `pull/${prNumber}/head`], { cwd: repoRoot });
     if (fetched.status !== 0) return undefined;
     return git(run, repoRoot, "rev-parse", "--verify", "FETCH_HEAD") ?? undefined;
 }

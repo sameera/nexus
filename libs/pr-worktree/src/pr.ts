@@ -5,8 +5,16 @@
  * flows need comes from a single call; the result is a flat typed record so the
  * CLI can emit it as JSON and the specs never re-shape `gh` output. Pure over the
  * injected Runner — specs feed canned `gh` stdout, no network.
+ *
+ * The call names the repository explicitly, resolved by the same `upstream`-then-`origin`
+ * rule the git fetches use. Left to itself `gh` picks a base repository from the remotes it
+ * finds, and in a fork checkout its pick and the fetch's can be two different repositories —
+ * where one PR number means two different pull requests. A checkout whose remotes name no
+ * forge repository (a local mirror, an acceptance fixture) passes no `--repo` and keeps gh's
+ * own resolution.
  */
 
+import { canonicalRepoRef } from "@nexus/workspace/canonical-remote";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -62,7 +70,10 @@ export function resolvePr(
     prNumber: number,
     opts: { requireMerged: boolean },
 ): ResolvePrResult {
-    const r = run("gh", ["pr", "view", String(prNumber), "--json", GH_FIELDS], { cwd });
+    const repoRef: string | null = canonicalRepoRef(run, cwd);
+    const args: string[] = ["pr", "view", String(prNumber), "--json", GH_FIELDS];
+    if (repoRef !== null) args.push("--repo", repoRef);
+    const r = run("gh", args, { cwd });
     if (r.status !== 0) {
         const msg = r.stderr.trim();
         const problem = /not found|no pull requests|could not resolve|no such/i.test(msg)
