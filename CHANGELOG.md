@@ -14,6 +14,11 @@ behaviour says so.
   pinned keeps its sources; a handoff slice or a scaffold is never pinned, and a plan carrying sources
   on one is refused. Every learner slice of the epic is pinned together or none is, and a re-approval
   of the plan keeps sources already pinned.
+- Pinned sources are checked against what already exists, so a lesson's grounding is traceable: the
+  section must be a heading the decision record carries; when that section states a refuted
+  alternative the sources must name it and what it lost on, and when it states none they must omit
+  it rather than hold a placeholder; the exemplar must be one file present in the repository. Any
+  mismatch refuses the whole pin and writes nothing.
 
 ## 0.45.0
 

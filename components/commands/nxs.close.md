@@ -755,7 +755,14 @@ searching the repository again.
         - story: <story issue number>
           section: <heading of the record section stating the invariant the story implements>
           exemplar: <one repository-relative file that demonstrates that invariant>
+          refuted:              # only when that section states a refuted alternative — omit otherwise
+              alternative: <the refuted alternative, as the section words it>
+              lost_on: <what it lost on>
     ```
+
+   The verb checks each entry against the record and the tree: the section must be a heading the
+   record carries, a refuted alternative must be named exactly when that section states one, and the
+   exemplar must be one file in the codebase. Never write a placeholder for a missing alternative.
 
 3. Run `nexus workbook pin <slug> --epic <N> --sources <file>`. A record that is not approved yet
    pins nothing and is not an error. A slice already pinned keeps its sources. A non-zero exit

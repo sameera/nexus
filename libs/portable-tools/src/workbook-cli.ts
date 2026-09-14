@@ -857,7 +857,11 @@ function runPin(repoRoot: string, slug: string, flags: Flags, io: WorkbookCliIo,
     }
     const authored: AuthoredSources[] =
         record === null || !record.approved || flags.sources === undefined ? [] : parseAuthoredSources(fs.readFileSync(path.resolve(io.cwd, flags.sources), "utf8"));
-    const result: PinningResult = pinSources({ plan, epic, record, authored });
+    const isFile = (relative: string): boolean => {
+        const full: string = path.resolve(repoRoot, relative);
+        return full.startsWith(path.resolve(repoRoot) + path.sep) && fs.existsSync(full) && fs.statSync(full).isFile();
+    };
+    const result: PinningResult = pinSources({ plan, epic, record, authored, isFile });
     if (!result.ok) {
         io.stderr(result.report);
         return 1;
