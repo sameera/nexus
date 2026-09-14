@@ -234,6 +234,12 @@ describe("the two gate conventions", () => {
 
     it("keeps the inversion at story granularity, so a sub-story item is still opt-out", () => {
         expect(flat).toMatch(/Only stories are opt-in/);
+        expect(flat).toMatch(/A model-added acceptance criterion on a story that \*is\* being filed is filed on a plain approval/);
+    });
+
+    it("files an inferred assumption or out-of-scope item on a plain approval, because the smallest usable version was drawn inside them", () => {
+        expect(flat).toMatch(/An assumption or an out-of-scope item is filed on a plain approval, even when inferred/);
+        expect(flat).toMatch(/boundary the smallest usable version \(§7\) was drawn inside/);
     });
 
     it("states that this file governs where a drafting stage's own wording disagrees with it", () => {
@@ -272,9 +278,16 @@ describe("the approval digest", () => {
     });
 
     it("inverts at story granularity only, keeping sub-story items opt-out", () => {
-        expect(epic).toContain("### Removals — applied unless you name them");
+        expect(epic).toContain("### Inferred criteria — filed unless you name them");
+        expect(epic).not.toMatch(/applies every listed removal/);
         expect(epic).toMatch(/inversion is at story granularity only/i);
         expect(epic).toMatch(/file with no criteria at all/);
+    });
+
+    it("calls out every inferred assumption and out-of-scope item and files it unless the reviewer names it", () => {
+        expect(epic).toContain("### Boundaries — filed unless you name them");
+        expect(epic).toMatch(/files every inferred criterion and every boundary/i);
+        expect(epic).toMatch(/every inferred criterion and every boundary the reviewer named/i);
     });
 
     it("discards what the reviewer does not take rather than banking it", () => {
@@ -303,8 +316,8 @@ describe("the approval digest", () => {
         expect(epic).toMatch(/re-derive what the story set determined/i);
     });
 
-    it("numbers only the two groups a selection can act on", () => {
-        expect(epic).toMatch(/Only the two acted-on groups are numbered/);
+    it("numbers only the three groups a selection can act on", () => {
+        expect(epic).toMatch(/Only the three acted-on groups are numbered/);
         expect(epic).toMatch(/a number against it\s+would name an action the selection has no meaning for/);
     });
 

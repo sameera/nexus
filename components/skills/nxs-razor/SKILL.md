@@ -234,11 +234,20 @@ Within each group the order follows the ordering block (§10) — **what each it
 ranking by predicted value**. Ranking additions by usefulness would have the drafting model scoring
 its own additions, which §9 forbids for the same reason.
 
-**Only stories are opt-in.** A model-added acceptance criterion, assumption or out-of-scope item on a
-story that *is* being filed stays **opt-out** and is listed for removal. A story is a unit of scope
-and can stand alone; a criterion is a statement about scope already being filed and cannot. Making
-criteria opt-in would let an asked-for story file with no criteria at all, which is unverifiable —
-and §5 admits no minimum-count rule to patch that.
+**Only stories are opt-in.** A model-added acceptance criterion on a story that *is* being filed is
+filed on a plain approval — it is **opt-out**, listed so the reviewer can remove it by naming its
+number. A story is a unit of scope and can stand alone; a criterion is a statement about scope
+already being filed and cannot. Making criteria opt-in would let an asked-for story file with no
+criteria at all, which is unverifiable — and §5 admits no minimum-count rule to patch that.
+
+**An assumption or an out-of-scope item is filed on a plain approval, even when inferred.** Neither
+adds scope. An assumption states a condition the stories were sized under; an out-of-scope item names
+something the epic will not do. Together they are the boundary the smallest usable version (§7) was
+drawn inside. Removing one does not make the epic smaller. It hides why the epic is the size it is,
+and a later reader fills the gap with scope nobody approved. So each inferred one is **called out**
+in its own numbered group, and it leaves the filed body only if the reviewer names its number. The
+call-out is the point: an inferred boundary is a decision the lead never stated, and the gate is where
+they either accept it or strike it.
 
 **At least one story is always filed.** A selection leaving none is a revise, not an approval.
 

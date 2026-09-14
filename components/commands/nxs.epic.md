@@ -743,7 +743,7 @@ nexus razor-offer --draft "${DRAFT_DIR}/epic.md"
 
 It prints every story the `## Smallest Usable Version` line excludes — asked-for first, then
 model-added, each group in the order the `## Implementation Order` block unlocks it — with the stable
-number and the blockers each carries. Transcribe those numbers; the removals below continue the same
+number and the blockers each carries. Transcribe those numbers; the groups below continue the same
 sequence from the last one it printed.
 
 ```markdown
@@ -763,23 +763,30 @@ sequence from the last one it printed.
 
 2. **<Story Title>** (<size>) · waits on: <…> — <one line>
 
-### Removals — applied unless you name them
+### Inferred criteria — filed unless you name them
 
 **<A story in the filed set>**
 
 3. <an inferred acceptance criterion, verbatim minus its label>
 
-**Epic-level**
+### Boundaries — filed unless you name them
 
-4. <an inferred assumption>
-5. <an inferred out-of-scope item>
+*The smallest usable version was drawn inside these. The lead did not state them.*
+
+**Assumptions**
+
+4. <an inferred assumption, verbatim minus its label>
+
+**Out of scope**
+
+5. <an inferred out-of-scope item, verbatim minus its label>
 ```
 
-**Only the two acted-on groups are numbered.** *Additions* and *Removals* share one stably numbered
-list, and **one typed selection covers both directions**: a number in *Additions* adds that story, a
-number in *Removals* deletes that item. What a plain approval files is rendered as plain bullets and
-carries no numbers at all — it is what the reviewer gets by typing nothing, so a number against it
-would name an action the selection has no meaning for.
+**Only the three acted-on groups are numbered.** *Additions*, *Inferred criteria* and *Boundaries*
+share one stably numbered list, and **one typed selection covers both directions**: a number in
+*Additions* adds that story, and a number in *Inferred criteria* or *Boundaries* deletes that item. What a plain approval files is rendered as plain bullets and carries no numbers at all —
+it is what the reviewer gets by typing nothing, so a number against it would name an action the
+selection has no meaning for.
 
 The offer list holds **every story the `## Smallest Usable Version` line excludes**. The stories the
 lead asked for sort **first** and are rendered **asked-for**, each carrying its story-level asked
@@ -789,10 +796,16 @@ words, and this is the one place the reviewer can reject it. Within each group t
 additions by usefulness would have the drafting model scoring its own additions, which the razor
 forbids elsewhere for the same reason.
 
-**The inversion is at story granularity only.** A model-added acceptance criterion, assumption or
-out-of-scope item on a story that *is* being filed stays opt-out and is listed under *Removals*: a
-story can stand alone, a criterion about a story already being filed cannot, and making criteria
-opt-in would let an asked-for story file with no criteria at all.
+**The inversion is at story granularity only.** A model-added acceptance criterion on a story that
+*is* being filed stays opt-out: a plain approval files it, and it is listed under *Inferred criteria*
+so the reviewer can strike it. A story can stand alone, a criterion about a story already being filed
+cannot, and making criteria opt-in would let an asked-for story file with no criteria at all.
+
+**Every inferred assumption and out-of-scope item is listed under *Boundaries*, and a plain approval
+files it** (nxs-razor §8). These are the conditions and exclusions the smallest usable version was
+sized inside. Dropping them does not shrink the epic; it hides the reasoning, and leaves an epic that
+reads wider than the one the reviewer approved. An asked-for one is not listed — the lead stated it —
+and is filed as part of the digest body above.
 
 If the gate reported a mechanism observation, show it beside its story here — it is not an addition
 and not a removal, it is a thing to look at.
@@ -800,10 +813,10 @@ and not a removal, it is a thing to look at.
 Then ask for the decision via **`AskUserQuestion`** (per the interaction convention) — do not
 emit a free-text prompt line. Three options:
 
-- **approve** — file the smallest usable version, and nothing else. Adds nothing; applies every
-  listed removal.
-- **approve with changes** — the same, after adding the stories the reviewer names and keeping the
-  removals they name back.
+- **approve** — file the smallest usable version, and nothing else. Adds no story; files every
+  inferred criterion and every boundary.
+- **approve with changes** — the same, after adding the stories the reviewer names and deleting the
+  inferred criteria and boundaries they name.
 - **revise** — stop; edit the `epic.md` draft in session scratch, then re-run with `/nxs.epic --resume`.
 
 **Do NOT create any issue without an explicit approval** (an `AskUserQuestion` selection of one of
@@ -859,9 +872,9 @@ is added or removed after something is filed.
     approve. Nothing has been edited at this point, so there is nothing to undo.
 
 4. **Apply the selection.** Delete the `### Story` section of every story outside the filed set, and
-   delete the lines of every listed removal the reviewer did not name back. Delete each dropped
-   story's row from the `## Implementation Order` block too, so the block describes the filed set.
-   No surviving story waits on a deleted one — step 3 refused the set otherwise — so **no cascade
+   delete the lines of every inferred criterion and every boundary the reviewer named. Delete each
+   dropped story's row from the `## Implementation Order` block too, so the block describes the filed
+   set. No surviving story waits on a deleted one — step 3 refused the set otherwise — so **no cascade
    follows and no edge is re-parented**.
 5. **Re-derive what the story set determined — one step, in one place.** Run it whenever the filed
    story set **differs from the drafted one, in either direction**: an addition and a removal both

@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.47.0
+
+- `epic`'s approval digest no longer drops the assumptions and out-of-scope items the drafting model
+  inferred. They are the boundary the smallest usable version was drawn inside, so a plain approval
+  now files them, and the digest calls each one out in a numbered **Boundaries** group. Naming a
+  number deletes that item before filing. Before this release a plain approval deleted every
+  inferred assumption and exclusion, and an epic could file with both sections empty.
+- `epic`'s approval digest now files the acceptance criteria the drafting model inferred on a plain
+  approval, as the razor always stated. They are listed under **Inferred criteria**, and naming a
+  number deletes that criterion. Before this release a plain approval deleted them all, so a filed
+  story could be left with one criterion or none.
+
 ## 0.46.0
 
 - `/nxs.decision-record` gains Phase 4 step 8: when step 6 closes the record and a committed workbook
