@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { approve, committedPlan, gate, io, planned, type Captured, type Planned } from "./plan-commit-fixtures.js";
@@ -6,6 +8,7 @@ import { runWorkbookCli } from "./workbook-cli.js";
 import { type PlanSliceRecord } from "./workbook-plan.js";
 import { sliceId } from "./workbook-plan.js";
 import { writtenLessonFiles } from "./workbook-store.js";
+import { type RunResult, type Runner } from "@nexus/workspace/run";
 
 /** The decision record #100's stories are implemented against, as `gh` returns it. */
 const RECORD_BODY: string = [
@@ -131,6 +134,51 @@ describe("a stub gains its pinned sources once its epic's decision record is app
         const reapproved = gate(p, "--approve");
         expect(reapproved.code, reapproved.captured.err.join("\n")).toBe(0);
         expect(slice(p, "story-11").sources?.section).toBe("Approval pins against the live issue graph");
+    });
+
+    it("pins nothing and raises no error when the epic's decision record was closed as not planned", () => {
+        const p: Planned = approvedWithRecord("closed");
+        p.fake.reasons = { 150: "not_planned" };
+        const before: string = fs.readFileSync(path.join(p.repo, ".nexus", "workbook", "alpha", "plan.yml"), "utf8");
+        const { code, captured } = pin(p, 100, writeSources(p, BOTH_STORIES));
+        expect(code, captured.err.join("\n")).toBe(0);
+        expect(fs.readFileSync(path.join(p.repo, ".nexus", "workbook", "alpha", "plan.yml"), "utf8")).toBe(before);
+    });
+
+    it("pins from a checkout whose epic sits in its committed queue entry, as a --pr close leaves it", () => {
+        const p: Planned = approvedWithRecord("closed");
+        const queued: string = path.join(p.repo, ".nexus", "queue", "epic-100");
+        fs.mkdirSync(queued, { recursive: true });
+        fs.renameSync(path.join(p.repo, ".nexus", "tmp", "epic-100", "epic.md"), path.join(queued, "epic.md"));
+        const { code, captured } = pin(p, 100, writeSources(p, BOTH_STORIES));
+        expect(code, captured.err.join("\n")).toBe(0);
+        expect(slice(p, "story-11").sources?.section).toBe("Approval pins against the live issue graph");
+    });
+
+    it("reads the epic and its decision record from the hub when the workbook lives in a workspace member", () => {
+        const p: Planned = approvedWithRecord("closed");
+        const parent: string = fs.mkdtempSync(path.join(os.tmpdir(), "pin-workspace-"));
+        const hub: string = path.join(parent, "docs-hub");
+        const member: string = path.join(parent, "web-app");
+        fs.mkdirSync(path.join(hub, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(hub, ".nexus", "config", "workspace.yml"), "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\nmembers:\n  - name: web-app\n    remote: git@github.com:acme/web-app.git\n");
+        execFileSync("git", ["init", "-q", "-b", "main"], { cwd: hub });
+        fs.cpSync(p.repo, member, { recursive: true });
+        fs.mkdirSync(path.join(member, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(member, ".nexus", "config", "hub.yml"), "hub:\n  name: docs-hub\n  remote: git@github.com:acme/docs-hub.git\n");
+        fs.mkdirSync(path.join(hub, ".nexus", "tmp"), { recursive: true });
+        fs.renameSync(path.join(member, ".nexus", "tmp", "epic-100"), path.join(hub, ".nexus", "tmp", "epic-100"));
+        const ghCwds: string[] = [];
+        const run: Runner = (cmd, args, opts): RunResult => {
+            if (cmd === "gh" && args[0] === "api") ghCwds.push(opts.cwd);
+            return p.run(cmd, args, opts);
+        };
+        const captured: Captured = io(member);
+        const code: number = runWorkbookCli(["pin", "alpha", "--root", member, "--epic", "100", "--sources", writeSources({ ...p, repo: member }, BOTH_STORIES)], captured, run);
+        expect(code, captured.err.join("\n")).toBe(0);
+        expect(ghCwds).toEqual([hub]);
+        expect(slice({ ...p, repo: member }, "story-11").sources?.section).toBe("Approval pins against the live issue graph");
+        fs.rmSync(parent, { recursive: true, force: true });
     });
 
     it("asks for the epic to be resolved first when it has not been", () => {

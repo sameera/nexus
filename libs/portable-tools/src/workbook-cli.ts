@@ -60,6 +60,7 @@ import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath } from "@nexus/epic-resolve/write";
 import { parseAuthoredSources, pinSources, type AuthoredSources, type DecisionRecordState, type PinningResult } from "./source-pinning.js";
 import { resolveWorkspace } from "@nexus/workspace/resolve";
+import { type FetchRecordResult, fetchRecord } from "@nexus/record-digest/fetch";
 
 /** The subverbs `nexus workbook` dispatches. */
 export const WORKBOOK_SUBVERBS: readonly string[] = [
@@ -814,23 +815,31 @@ function changeMark(repoRoot: string, roadmap: Roadmap, draft: PlanDraft, flags:
  * The decision record of an epic this session already resolved, read live. The record's number comes
  * from the epic the resolver materialized — the one reconstruction every stage shares — and its approval
  * and body come from the issue graph now, so a record approved after the resolve still counts.
+ *
+ * The epic and its record belong to the pipeline, not the workbook: in a workspace they live in the hub
+ * while the workbook lives in a member, so both are read from the hub. The epic is found where a close
+ * leaves it — the gitignored `.nexus/tmp/` entry, or the committed `.nexus/queue/` entry a `--pr` close
+ * or an old-contract epic carries. Approval is the record fetch's own reading, so a record closed as not
+ * planned is a withdrawn design and pins nothing.
  */
 function resolvedRecord(repoRoot: string, epic: number, io: WorkbookCliIo, run: Runner): { found: boolean; record: DecisionRecordState | null } {
-    const materialized: string = defaultOutPath(repoRoot, epic);
-    if (!fs.existsSync(materialized)) {
-        io.stderr(`epic #${epic} has not been resolved in this checkout. Run 'nexus epic-resolve --epic ${epic}' first — nothing was pinned.`);
+    const resolved = resolveWorkspace(repoRoot);
+    const pipelineRoot: string = resolved.ok && resolved.workspace.mode === "workspace" ? resolved.workspace.hubRoot : repoRoot;
+    const materialized: string | undefined = [defaultOutPath(pipelineRoot, epic), path.join(pipelineRoot, ".nexus", "queue", `epic-${epic}`, "epic.md")].find((file) => fs.existsSync(file));
+    if (materialized === undefined) {
+        io.stderr(`epic #${epic} has not been resolved in ${pipelineRoot}. Run 'nexus epic-resolve --epic ${epic}' first — nothing was pinned.`);
         return { found: false, record: null };
     }
     const front: RegExpMatchArray | null = fs.readFileSync(materialized, "utf8").match(/^---\n([\s\S]*?)\n---/);
     const meta: Record<string, unknown> = ((front === null ? null : parse(front[1])) as Record<string, unknown> | null) ?? {};
     const number: number = Number(String(meta["record"] ?? "").replace(/^#/, ""));
     if (!Number.isInteger(number) || number <= 0) return { found: true, record: null };
-    const live: LiveStory | null = ghIssueReader(repoRoot, run)(number);
-    if (live === null) {
+    const fetched: FetchRecordResult = fetchRecord(run, pipelineRoot, number);
+    if (!fetched.ok) {
         io.stderr(`decision record #${number} for epic #${epic} could not be read, so its approval is unknown — nothing was pinned.`);
         return { found: false, record: null };
     }
-    return { found: true, record: { number, approved: live.closed, body: live.body } };
+    return { found: true, record: { number, approved: fetched.record.approved, body: fetched.record.body } };
 }
 
 /**

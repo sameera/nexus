@@ -10,7 +10,10 @@ behaviour says so.
 - `/nxs.close` gains Phase 6.5: when a committed workbook plan teaches the epic being closed, the
   stage pins each learner slice's **sources** with `nexus workbook pin <slug> --epic <n> --sources
   <file>` — the decision-record section stating the invariant the slice's story implements, and one
-  exemplar file. A record that is not approved yet pins nothing and is not an error; a slice already
+  exemplar file. The verb finds the epic in its `.nexus/tmp/` or committed `.nexus/queue/` entry, so
+  it runs inside a `--pr` close's worktree, and in a workspace it reads the epic and its record from
+  the hub. A record that is not approved yet, or one closed as not planned, pins nothing and is not
+  an error; a slice already
   pinned keeps its sources; a handoff slice or a scaffold is never pinned, and a plan carrying sources
   on one is refused. Every learner slice of the epic is pinned together or none is, and a re-approval
   of the plan keeps sources already pinned.
