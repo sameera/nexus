@@ -44,10 +44,11 @@ export interface PinnedSources {
     /** The one file in the codebase that demonstrates that invariant, relative to the repository root. */
     exemplar: string;
     /**
-     * The alternative the record refuted for that invariant, and what it lost on. Present exactly when
-     * the record's section states one, so a reader never meets a placeholder for an alternative nobody refuted.
+     * The alternative the record refuted for that invariant, the heading of the decision that states it,
+     * and what it lost on. Absent when the record states none, so a reader never meets a placeholder for an
+     * alternative nobody refuted.
      */
-    refuted?: { alternative: string; lostOn: string };
+    refuted?: { decision: string; alternative: string; lostOn: string };
 }
 
 /**
@@ -301,7 +302,13 @@ function readSources(raw: unknown, learnerBuilds: boolean, at: string): PinnedSo
         exemplar: text(record["exemplar"], "sources.exemplar", at),
         ...(refuted === null
             ? {}
-            : { refuted: { alternative: text(refuted["alternative"], "sources.refuted.alternative", at), lostOn: text(refuted["lost_on"], "sources.refuted.lost_on", at) } }),
+            : {
+                  refuted: {
+                      decision: text(refuted["decision"], "sources.refuted.decision", at),
+                      alternative: text(refuted["alternative"], "sources.refuted.alternative", at),
+                      lostOn: text(refuted["lost_on"], "sources.refuted.lost_on", at),
+                  },
+              }),
     };
 }
 
@@ -419,7 +426,7 @@ export function renderWorkbookPlan(plan: WorkbookPlan): string {
                           sources: {
                               section: slice.sources.section,
                               exemplar: slice.sources.exemplar,
-                              ...(slice.sources.refuted === undefined ? {} : { refuted: { alternative: slice.sources.refuted.alternative, lost_on: slice.sources.refuted.lostOn } }),
+                              ...(slice.sources.refuted === undefined ? {} : { refuted: { decision: slice.sources.refuted.decision, alternative: slice.sources.refuted.alternative, lost_on: slice.sources.refuted.lostOn } }),
                           },
                       }),
             };

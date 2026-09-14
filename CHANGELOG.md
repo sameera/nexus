@@ -7,21 +7,24 @@ behaviour says so.
 
 ## 0.46.0
 
-- `/nxs.close` gains Phase 6.5: when a committed workbook plan teaches the epic being closed, the
-  stage pins each learner slice's **sources** with `nexus workbook pin <slug> --epic <n> --sources
-  <file>` — the decision-record section stating the invariant the slice's story implements, and one
-  exemplar file. The verb finds the epic in its `.nexus/tmp/` or committed `.nexus/queue/` entry, so
-  it runs inside a `--pr` close's worktree, and in a workspace it reads the epic and its record from
-  the hub. A record that is not approved yet, or one closed as not planned, pins nothing and is not
-  an error; a slice already
+- `/nxs.decision-record` gains Phase 4 step 8: when step 6 closes the record and a committed workbook
+  plan teaches the epic, the stage pins each learner slice's **sources** with `nexus workbook pin
+  <slug> --epic <n> --sources <file>`. Sources name the record section stating the invariant the
+  slice's story implements, and one exemplar file already in the tree. Pinning at approval puts the
+  sources in place before any lesson in the epic is written. A Phase 4.5 re-close runs the same step.
+  A record left open for review pins nothing, and the report tells the lead to run the step once it
+  is closed. In a workspace the verb reads the epic and its record from the hub. A record that is not
+  approved yet, or one closed as not planned, pins nothing and is not an error; a slice already
   pinned keeps its sources; a handoff slice or a scaffold is never pinned, and a plan carrying sources
   on one is refused. Every learner slice of the epic is pinned together or none is, and a re-approval
   of the plan keeps sources already pinned.
 - Pinned sources are checked against what already exists, so a lesson's grounding is traceable: the
-  section must be a heading the decision record carries; when that section states a refuted
-  alternative the sources must name it and what it lost on, and when it states none they must omit
-  it rather than hold a placeholder; the exemplar must be one file present in the repository. Any
-  mismatch refuses the whole pin and writes nothing.
+  section must be a heading the decision record carries that holds no other section. A refuted
+  alternative names the decision heading that states it — an invariant under Constraints & Invariants
+  takes its alternative from a Key Decisions entry — and must be one that decision states, with what
+  it lost on. It is owed whenever the named section itself states one, and when the record states
+  none it is omitted rather than held as a placeholder. The exemplar must be one file present in the
+  repository. Any mismatch refuses the whole pin and writes nothing.
 
 ## 0.45.0
 
