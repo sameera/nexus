@@ -19,6 +19,11 @@
       "import": "./src/identity.ts",
       "default": "./src/identity.ts"
     },
+    "./canonical-remote": {
+      "types": "./src/canonical-remote.ts",
+      "import": "./src/canonical-remote.ts",
+      "default": "./src/canonical-remote.ts"
+    },
     "./close-role": {
       "types": "./src/close-role.ts",
       "import": "./src/close-role.ts",

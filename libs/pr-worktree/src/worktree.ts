@@ -2,9 +2,16 @@
  * Git-worktree lifecycle for the --pr flow.
  *
  * analyze runs its conformance read against a detached worktree at the PR head
- * (fetched via `pull/<N>/head`, so forks work); close runs its phases in a
- * worktree on a fresh `distill/*` branch cut from the trunk, which distill later
- * continues in. All worktrees live under one deterministic directory per repo so a
+ * (fetched via `pull/<N>/head`, so a pull request from a fork works); close runs
+ * its phases in a worktree on a fresh `distill/*` branch cut from the trunk, which
+ * distill later continues in.
+ *
+ * Both reads name the remote the canonical repository is at — `upstream` when the
+ * checkout declares one, else `origin` (see `@nexus/workspace/canonical-remote`).
+ * A lead who works from a fork has an `origin` that carries neither the pull
+ * request's `pull/<N>/head` ref nor the trunk the merge landed on.
+ *
+ * All worktrees live under one deterministic directory per repo so a
  * re-run (aborted checkpoint, transient gh failure) reuses the same path instead
  * of colliding. Removal is force + prune and is always run from the MAIN worktree,
  * so a caller standing inside the target can still remove it.
@@ -19,6 +26,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
+import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { type Runner, git } from "./run.js";
 
@@ -198,9 +206,10 @@ export function openAnalyzeWorktree(run: Runner, repoRoot: string, prNumber: num
     const prepared = prepareWorktreeDir(run, repoRoot);
     if (!prepared.ok) return prepared;
 
-    const fetch = run("git", ["fetch", "origin", `pull/${prNumber}/head`], { cwd: repoRoot });
+    const remote = canonicalRemote(run, repoRoot);
+    const fetch = run("git", ["fetch", remote, `pull/${prNumber}/head`], { cwd: repoRoot });
     if (fetch.status !== 0) {
-        return fail("git-failed", `git fetch origin pull/${prNumber}/head failed: ${fetch.stderr.trim()}`);
+        return fail("git-failed", `git fetch ${remote} pull/${prNumber}/head failed: ${fetch.stderr.trim()}`);
     }
     const fetchHead = git(run, repoRoot, "rev-parse", "--verify", "FETCH_HEAD");
     if (fetchHead === null) {
@@ -231,23 +240,28 @@ export function openAnalyzeWorktree(run: Runner, repoRoot: string, prNumber: num
 /**
  * Close: a worktree on `branch`, cut from the trunk (post-merge state). Idempotent
  * — reuses the worktree/branch if a prior run created them.
+ *
+ * `trunkRef` defaults to the canonical remote's `main`, so a fork checkout cuts from
+ * the repository the merge actually landed on rather than from its own copy.
  */
 export function openCloseWorktree(
     run: Runner,
     repoRoot: string,
     branch: string,
-    trunkRef = "origin/main",
+    trunkRef?: string,
 ): WorktreeResult {
     const prepared = prepareWorktreeDir(run, repoRoot);
     if (!prepared.ok) return prepared;
 
     // Best-effort refresh of the trunk; offline falls back to the local ref below.
-    run("git", ["fetch", "origin", "main"], { cwd: repoRoot });
+    const remote = canonicalRemote(run, repoRoot);
+    run("git", ["fetch", remote, "main"], { cwd: repoRoot });
+    const ref: string = trunkRef ?? `${remote}/main`;
     const trunk =
-        git(run, repoRoot, "rev-parse", "--verify", trunkRef) ??
+        git(run, repoRoot, "rev-parse", "--verify", ref) ??
         git(run, repoRoot, "rev-parse", "--verify", "main");
     if (trunk === null) {
-        return fail("git-failed", `neither ${trunkRef} nor main resolves in ${repoRoot}.`);
+        return fail("git-failed", `neither ${ref} nor main resolves in ${repoRoot}.`);
     }
 
     const wtPath = path.join(prepared.dir, branchSlug(branch));

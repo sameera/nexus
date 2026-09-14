@@ -11,6 +11,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { canonicalRemoteUrl } from "@nexus/workspace/canonical-remote";
 import { normalizeRemote } from "@nexus/workspace/remote";
 import { type ResolvedMember, resolveWorkspace } from "@nexus/workspace/resolve";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
@@ -89,8 +90,11 @@ export function resolveAnalyzeTarget(
         const hasManifest = fs.existsSync(path.join(repoRoot, ".nexus", "config", "workspace.yml"));
         const hasPointer = fs.existsSync(path.join(repoRoot, ".nexus", "config", "hub.yml"));
         const role: AnalyzeTarget["role"] = hasManifest ? "hub" : hasPointer ? "member" : "single-repo";
-        const origin = git(run, repoRoot, "remote", "get-url", "origin");
-        const identity = origin ? normalizeRemote(origin) : path.basename(repoRoot);
+        // The canonical remote, not `origin`: a lead working from a fork has an `origin` naming
+        // their own copy, and the PR being analyzed was opened against the repository `upstream`
+        // names.
+        const remoteUrl = canonicalRemoteUrl(run, repoRoot);
+        const identity = remoteUrl ? normalizeRemote(remoteUrl) : path.basename(repoRoot);
         return { ok: true, target: { repoRoot, repoIdentity: identity, role } };
     }
 

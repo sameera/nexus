@@ -294,7 +294,7 @@ Determine what was actually built for this epic. Use, in order of availability:
 1. **The branch diff.** Compare the current branch against the base it forked from:
 
     ```bash
-    BASE="$(git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main)"
+    BASE="$(git merge-base HEAD "$(nexus trunk)" 2>/dev/null || git merge-base HEAD main)"
     EXCLUDE="$(nexus excluded-stores)"
     git diff --stat "$BASE"...HEAD -- . $EXCLUDE
     git diff "$BASE"...HEAD -- . $EXCLUDE

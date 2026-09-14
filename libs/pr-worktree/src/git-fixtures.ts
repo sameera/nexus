@@ -122,3 +122,38 @@ export function buildRepoWithOrigin(parent: string): { repo: string; origin: str
     sh(repo, "git", "push", "-q", "-u", "origin", "main");
     return { repo, origin, mainSha };
 }
+
+/**
+ * A fork checkout: `origin` is the lead's own copy, `upstream` is the repository the pull
+ * requests and the merged trunk live in. The two are deliberately out of step — `upstream`
+ * carries an extra trunk commit the fork never got — so a read that goes to the wrong remote
+ * is visible as a wrong commit rather than as a passing test.
+ */
+export function buildForkWithUpstream(parent: string): {
+    repo: string;
+    origin: string;
+    upstream: string;
+    forkMainSha: string;
+    upstreamMainSha: string;
+} {
+    const origin = path.join(parent, "fork.git");
+    fs.mkdirSync(origin, { recursive: true });
+    sh(origin, "git", "init", "-q", "--bare", "-b", "main");
+    const upstream = path.join(parent, "upstream.git");
+    fs.mkdirSync(upstream, { recursive: true });
+    sh(upstream, "git", "init", "-q", "--bare", "-b", "main");
+
+    const repo = path.join(parent, "fork-work");
+    initRepo(repo, origin);
+    sh(repo, "git", "remote", "add", "upstream", upstream);
+    const forkMainSha = writeCommit(repo, "base.txt", "base\n", "C0");
+    sh(repo, "git", "push", "-q", "-u", "origin", "main");
+    sh(repo, "git", "push", "-q", "upstream", "main");
+
+    // One more trunk commit lands upstream and is never pushed to the fork.
+    const upstreamMainSha = writeCommit(repo, "trunk.txt", "trunk\n", "C1");
+    sh(repo, "git", "push", "-q", "upstream", "main");
+    sh(repo, "git", "reset", "-q", "--hard", forkMainSha);
+
+    return { repo, origin, upstream, forkMainSha, upstreamMainSha };
+}

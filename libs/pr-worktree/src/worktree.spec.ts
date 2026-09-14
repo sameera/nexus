@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
 import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "./worktree.js";
 import { defaultRunner, git } from "./run.js";
-import { buildRepoWithOrigin, makeParent, sh } from "./git-fixtures.js";
+import { buildForkWithUpstream, buildRepoWithOrigin, makeParent, sh } from "./git-fixtures.js";
 
 const tracked: string[] = [];
 const worktrees: Array<{ repo: string; path: string }> = [];
@@ -72,5 +72,39 @@ describe("removeWorktree", () => {
         expect(fs.existsSync(r.wtPath)).toBe(false);
         const rm2 = removeWorktree(defaultRunner, repo, r.wtPath);
         expect(rm2.ok).toBe(true);
+    });
+});
+
+describe("a fork checkout, where origin is the lead's own copy", () => {
+    it("fetches the PR head from upstream, which is the only remote that has it", () => {
+        const { repo, upstream } = buildForkWithUpstream(makeParent(tracked));
+        // The pull request exists on the canonical repository only; the fork has no such ref.
+        sh(repo, "git", "checkout", "-q", "-b", "feature");
+        fs.writeFileSync(`${repo}/pr.txt`, "pr\n");
+        sh(repo, "git", "add", "-A");
+        sh(repo, "git", "commit", "-qm", "PR work");
+        const prSha = git(defaultRunner, repo, "rev-parse", "HEAD");
+        sh(repo, "git", "push", "-q", "upstream", "feature:refs/pull/7/head");
+        sh(repo, "git", "checkout", "-q", "main");
+        sh(repo, "git", "branch", "-qD", "feature");
+        expect(upstream).toBeTruthy();
+
+        const r = openAnalyzeWorktree(defaultRunner, repo, 7);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        worktrees.push({ repo, path: r.wtPath });
+        expect(r.head).toBe(prSha);
+        expect(git(defaultRunner, r.wtPath, "rev-parse", "HEAD")).toBe(prSha);
+    });
+
+    it("cuts the distill branch from the upstream trunk, not the fork's stale main", () => {
+        const { repo, forkMainSha, upstreamMainSha } = buildForkWithUpstream(makeParent(tracked));
+        expect(forkMainSha).not.toBe(upstreamMainSha);
+
+        const r = openCloseWorktree(defaultRunner, repo, "distill/2026-09-14-fork");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        worktrees.push({ repo, path: r.wtPath });
+        expect(git(defaultRunner, r.wtPath, "rev-parse", "HEAD")).toBe(upstreamMainSha);
     });
 });

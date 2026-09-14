@@ -1140,3 +1140,55 @@ describe("nexus razor-offer (epic #576)", () => {
         expect(io.out.join("\n")).toContain("nothing to offer");
     });
 });
+
+describe("nexus trunk", () => {
+    function repoWithRemotes(remotes: Array<[string, string]>): string {
+        const dir: string = makeTmpDir("cli-trunk-");
+        execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
+        for (const [name, url] of remotes) execFileSync("git", ["remote", "add", name, url], { cwd: dir });
+        return dir;
+    }
+
+    it("names the upstream trunk in a fork checkout, where origin is the lead's own copy", async () => {
+        const io: CapturedIo = makeIo(
+            repoWithRemotes([
+                ["origin", "https://github.com/lead/docs.git"],
+                ["upstream", "https://github.com/acme/docs.git"],
+            ]),
+        );
+
+        expect(await runNexusCli(["trunk"], io)).toBe(0);
+        expect(io.out).toEqual(["upstream/main"]);
+    });
+
+    it("names the remote alone, for a git fetch", async () => {
+        const io: CapturedIo = makeIo(
+            repoWithRemotes([
+                ["origin", "https://github.com/lead/docs.git"],
+                ["upstream", "https://github.com/acme/docs.git"],
+            ]),
+        );
+
+        expect(await runNexusCli(["trunk", "--form", "remote"], io)).toBe(0);
+        expect(io.out).toEqual(["upstream"]);
+    });
+
+    it("falls back to origin when the checkout declares no upstream", async () => {
+        const io: CapturedIo = makeIo(repoWithRemotes([["origin", "https://github.com/acme/docs.git"]]));
+
+        expect(await runNexusCli(["trunk"], io)).toBe(0);
+        expect(io.out).toEqual(["origin/main"]);
+    });
+
+    it("rejects an unknown form, naming it", async () => {
+        const io: CapturedIo = makeIo(repoWithRemotes([["origin", "https://github.com/acme/docs.git"]]));
+
+        expect(await runNexusCli(["trunk", "--form", "branch"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("branch");
+    });
+
+    it("is a registered verb", () => {
+        expect(VERB_NAMES).toContain("trunk");
+        expect(DISPATCH_NAMES).toContain("trunk");
+    });
+});

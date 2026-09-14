@@ -114,7 +114,7 @@ Then, in every path above:
 - **Verify the head has reached the trunk**, before anything is written:
 
     ```bash
-    TRUNK="$(git rev-parse -q --verify origin/main || git rev-parse -q --verify main)"
+    TRUNK="$(git rev-parse -q --verify "$(nexus trunk)" || git rev-parse -q --verify main)"
     git merge-base --is-ancestor <head> "$TRUNK" && echo landed || echo not-landed
     ```
 

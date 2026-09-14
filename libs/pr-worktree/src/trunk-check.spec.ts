@@ -62,6 +62,29 @@ describe("verifyTrunkContainsHeads", () => {
         expect(calls).toHaveLength(2);
     });
 
+    it("names the remote the trunk is actually read from in its remedy", () => {
+        const parent = makeParent(tracked);
+        const repo = `${parent}/repo`;
+        initRepo(repo);
+        const c0 = writeCommit(repo, "a.txt", "a\n", "C0");
+        sh(repo, "git", "checkout", "-q", "-b", "never-merged", c0);
+        const strandedHead = writeCommit(repo, "stray.txt", "stray\n", "STRAY");
+        sh(repo, "git", "checkout", "-q", "main");
+        const trunk = sh(repo, "git", "rev-parse", "HEAD");
+
+        const forked = verifyTrunkContainsHeads(defaultRunner, repo, trunk, [{ pr: 2, head: strandedHead }], {
+            remote: "upstream",
+        });
+        const plain = verifyTrunkContainsHeads(defaultRunner, repo, trunk, [{ pr: 2, head: strandedHead }]);
+
+        expect(forked.ok).toBe(false);
+        if (forked.ok) return;
+        expect(forked.error.message).toContain("git fetch upstream main");
+        expect(plain.ok).toBe(false);
+        if (plain.ok) return;
+        expect(plain.error.message).toContain("git fetch origin main");
+    });
+
     it("is trivially ok for an empty item list", () => {
         const parent = makeParent(tracked);
         const repo = `${parent}/repo`;
