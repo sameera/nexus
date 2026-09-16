@@ -232,9 +232,12 @@ The check reads; it writes nothing to the store. Nothing is published before the
 **When a promoted stub proves oversized.** If Phase 3's rollup shows the stub cannot become a single epic, run the Phase 2 gate after all and emit fresh stub issues (Phase 2b) — then close the original **as not planned** with a comment naming its successors. Never close it as completed: nothing was delivered.
 
 ```bash
-gh issue comment <n> --body "Larger than one epic on planning. Re-decomposed into #<a>, #<b>, #<c>."
-gh issue close <n> --reason "not planned"
+gh issue comment <n> $REPO_ARG --body "Larger than one epic on planning. Re-decomposed into #<a>, #<b>, #<c>."
+gh issue close <n> $REPO_ARG --reason "not planned"
 ```
+
+`$REPO_ARG` is `-R <repo>` for the resolved `epic-repo` (empty when that resolves to nothing) — the
+stub and every successor it names live in the same repository, so one resolution covers both calls.
 
 ## Phase 1 — Resolve the feature container
 
@@ -1003,12 +1006,17 @@ story becomes one GitHub issue, child of the epic issue.
     The skill reads `epic` (title) and `type` from frontmatter, **embeds the raw planning
     frontmatter onto the issue as a hidden `nexus:epic-meta` block** (so the resolver can rebuild the
     full `epic.md` field shape from the issue number alone), creates the issue, and writes
-    `link: "#<n>"` back into the file it was given — here, `epic.filing.md`. Set `EPIC` = that number.
+    `link: "#<n>"` back into the file it was given — here, `epic.filing.md` — **and, when the epic
+    was filed into a repository other than this checkout, `issues_repo: "<owner>/<repo>"` beside
+    it**, so the draft's otherwise-bare issue references (`link`, and every `#N` a later run copies
+    from it) have a declared home the moment they leave this file (`nxs-issue-reference` skill). Set
+    `EPIC` = that number.
 
-    **Then copy that `link: "#<n>"` line into `${DRAFT_DIR}/epic.md`'s frontmatter.** The derived
-    file is rebuilt from `epic.md` on every run, so a number recorded only on it is lost the moment
-    the run is repeated and the next run files a second epic issue. Recording it on the labelled
-    draft is what makes the idempotency check at the top of this step true.
+    **Then copy that `link: "#<n>"` line — and the `issues_repo:` line, when present — into
+    `${DRAFT_DIR}/epic.md`'s frontmatter.** The derived file is rebuilt from `epic.md` on every run,
+    so a number recorded only on it is lost the moment the run is repeated and the next run files a
+    second epic issue. Recording it on the labelled draft is what makes the idempotency check at the
+    top of this step true.
 
     It also applies the **needs-design** label from the epic's `complexity` rollup (#139): **M or
     larger** carries it, **S** does not, and an absent rollup errs toward carrying it. That label is
@@ -1130,8 +1138,13 @@ story becomes one GitHub issue, child of the epic issue.
 6. **Write the feature nav index.** Now that the issue exists, write `<feature-path>/README.md`
    with an `## Epics` entry that links **directly to the epic issue `#<EPIC>`** — no draft, no later
    update. The entry must be a clickable **markdown link** to the issue, not a bare `#<EPIC>` ref
-   (a bare ref does not resolve in a repo `.md` file). Resolve the issue URL from the `gh` CLI
-   (`gh issue view <EPIC> --json url -q .url`, or `gh repo view --json url -q .url` + `/issues/<EPIC>`).
+   (a bare ref does not resolve in a repo `.md` file). Resolve the issue URL from the `gh` CLI —
+   `gh issue view <EPIC> $REPO_ARG --json url -q .url`, where `$REPO_ARG` is `-R <repo>` for the
+   `nexus config resolve epic-repo` value this epic was filed into (empty when that resolves to
+   nothing). Only if that call itself fails, fall back to `gh repo view $REPO_ARG --json url -q
+   .url` + `/issues/<EPIC>` with the same `$REPO_ARG` — never a bare `gh repo view`, which answers
+   for the current repo and builds a URL into the wrong repository whenever the epic was filed
+   elsewhere.
    If the README does not exist (new feature), create it from the skeleton below using the name +
    one-line statement recorded in Phase 1. If it exists (a multi-epic feature), append the new entry
    to `## Epics`. The capability statement is a durable read surface and carries the same style as
@@ -1368,6 +1381,13 @@ Notes on the shape (vs. the pre-refactor epic):
   is created and so has no issue numbers to use. It is not the shape of a materialized epic: once the
   issues exist, the resolver identifies each story as `### Story #<issue>:` and the sequence table
   keys on `#<issue>`. Nothing downstream ever refers to a filed story by position.
+- **The story headings, the sequence table, `link` and `record` all stay bare in every materialized
+  epic, in a workspace or not.** The epic's own `issues_repo:` frontmatter (present whenever the
+  epic was filed into a repository other than the resolving checkout) is what gives them a
+  declared home; qualifying them here as well would break the parse contract the line above states
+  and every downstream reader (`/nxs.close` §1.1, the epic-verdicts reader) holds on those exact
+  bare forms. A stage copying one of these numbers onto a different surface qualifies it *there*,
+  per the **`nxs-issue-reference`** skill — never inside `epic.md` itself.
 
 ---
 

@@ -165,6 +165,42 @@ describe("resolveEpic — the structured resolution beside the rendered document
     });
 });
 
+describe("resolveEpic — issuesRepo (cross-repo issue references)", () => {
+    it("surfaces the repository slug it already reads via repo view, on the structured result", () => {
+        const r = resolveEpic(makeGhRunner({ ...graph(), slug: "geo-nexus/docs" }), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.resolved.issuesRepo).toBe("geo-nexus/docs");
+    });
+
+    it("emits that same slug as issues_repo in the rendered markdown", () => {
+        const r = resolveEpic(makeGhRunner({ ...graph(), slug: "geo-nexus/docs" }), "/repo", 115);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.markdown).toContain('issues_repo: "geo-nexus/docs"');
+    });
+
+    it("makes no extra gh call to resolve it — the slug is the one repo view already fetched", () => {
+        let repoViewCalls = 0;
+        const base = makeGhRunner(graph());
+        const counting: typeof base = (cmd, args, opts) => {
+            if (cmd === "gh" && args[0] === "repo" && args[1] === "view") repoViewCalls++;
+            return base(cmd, args, opts);
+        };
+        const r = resolveEpic(counting, "/repo", 115);
+        expect(r.ok).toBe(true);
+        expect(repoViewCalls).toBe(1);
+    });
+
+    it("omits issues_repo for a single-repo checkout, even though the repository slug resolves — no noise where there is no ambiguity", () => {
+        const r = resolveEpic(makeGhRunner({ ...graph(), slug: "geo-nexus/docs" }), "/repo", 115, { singleRepo: true });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.resolved.issuesRepo).toBeNull();
+        expect(r.markdown).not.toContain("issues_repo");
+    });
+});
+
 describe("resolveEpic — AC2: byte-identical idempotency", () => {
     it("produces identical markdown on two runs over the same graph", () => {
         const a = resolveEpic(makeGhRunner(graph()), "/repo", 115);

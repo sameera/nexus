@@ -65,6 +65,65 @@ describe("serializeEpic — frontmatter", () => {
     });
 });
 
+describe("serializeEpic — issues_repo (cross-repo issue references)", () => {
+    it("omits issues_repo entirely when the epic's repository was not resolved — byte-identical to before", () => {
+        const md = serializeEpic(input());
+        expect(md).not.toContain("issues_repo");
+    });
+
+    it("emits issues_repo beside link, on the bare-issue frontmatter path", () => {
+        const md = serializeEpic(input({ epic: { number: 115, title: "Sample", body: EPIC_BODY, issuesRepo: "geo-nexus/docs" } }));
+        expect(md).toContain('link: "#115"');
+        expect(md).toContain('issues_repo: "geo-nexus/docs"');
+        const linkAt = md.indexOf('link: "#115"');
+        const repoAt = md.indexOf("issues_repo:");
+        expect(repoAt).toBeGreaterThan(linkAt);
+    });
+
+    it("emits issues_repo on the round-tripped raw-meta-frontmatter path too", () => {
+        const raw = 'feature: "MRW"\nlink: ""';
+        const md = serializeEpic(
+            input({ epic: { number: 115, title: "Sample", body: EPIC_BODY, rawFrontmatter: raw, issuesRepo: "geo-nexus/docs" } }),
+        );
+        expect(md).toContain('feature: "MRW"');
+        expect(md).toContain('link: "#115"');
+        expect(md).toContain('issues_repo: "geo-nexus/docs"');
+    });
+
+    it("never duplicates issues_repo when the round-tripped frontmatter already carried one", () => {
+        const raw = 'feature: "MRW"\nissues_repo: "stale/repo"\nlink: ""';
+        const md = serializeEpic(
+            input({ epic: { number: 115, title: "Sample", body: EPIC_BODY, rawFrontmatter: raw, issuesRepo: "geo-nexus/docs" } }),
+        );
+        expect(md.match(/issues_repo:/g)?.length).toBe(1);
+        expect(md).toContain('issues_repo: "geo-nexus/docs"');
+        expect(md).not.toContain("stale/repo");
+    });
+
+    it("leaves the story headings and the sequence table bare regardless of issuesRepo — the parse contract", () => {
+        const md = serializeEpic(input({ epic: { number: 115, title: "Sample", body: EPIC_BODY, issuesRepo: "geo-nexus/docs" } }));
+        expect(md).toContain("### Story #116: First story");
+        expect(md).toContain("### Story #117: Second story");
+        expect(md).toContain("| #116 | none |");
+        expect(md).toContain("| #117 | #116 |");
+        expect(md).not.toMatch(/### Story geo-nexus\/docs#/);
+        expect(md).not.toMatch(/\| geo-nexus\/docs#/);
+    });
+
+    it("emits issues_repo before the record fields, when the epic has both", () => {
+        const md = serializeEpic(
+            input({
+                epic: { number: 115, title: "Sample", body: EPIC_BODY, issuesRepo: "geo-nexus/docs" },
+                record: { number: 141, state: "closed" },
+            }),
+        );
+        const repoAt = md.indexOf("issues_repo:");
+        const recordAt = md.indexOf('record: "#141"');
+        expect(repoAt).toBeGreaterThan(-1);
+        expect(recordAt).toBeGreaterThan(repoAt);
+    });
+});
+
 describe("serializeEpic — section placement", () => {
     it("inserts ## User Stories after Personas and before Assumptions", () => {
         const md = serializeEpic(input());

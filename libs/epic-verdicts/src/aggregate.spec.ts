@@ -63,6 +63,21 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         expect(r.receipt.stories.map((s) => s.story)).toEqual([496, 497]);
     });
 
+    it("qualifies the derived receipt's epic reference when issuesRepo is given and differs from the code repo (concept \"Provenance Reference\")", () => {
+        const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
+        const r = resolveEpicVerdicts(run, {
+            epic: 212,
+            stories: [496],
+            candidatesByStory: { 496: [candidate(501)] },
+            issuesRepo: "geo-nexus/docs",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.state).toBe("aggregate");
+        if (r.state !== "aggregate") return;
+        expect(r.receipt.epic).toBe("geo-nexus/docs#212");
+    });
+
     it("stops as partial and names the story with no verdict, without deriving a receipt, when some stories do carry one", () => {
         const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
         const r = resolveEpicVerdicts(run, {

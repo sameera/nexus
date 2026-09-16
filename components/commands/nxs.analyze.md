@@ -175,11 +175,16 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
 
     ```bash
     ISSUES_REPO="$(nexus config resolve epic-repo --root "<root>")"
+    STORY_REPO="$(nexus config resolve story-repo --root "<root>")"
     REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
     NEEDS_DESIGN="$(nexus config resolve needs-design-label --root "<root>")"
     ```
 
     `<root>` is the repo root, or `$wtPath` in `--pr` mode (the config lives inside the worktree).
+    `$ISSUES_REPO` and `$STORY_REPO` are also the repositories the epic/record and the story
+    numbers this run reports resolve against. Load the **`nxs-issue-reference`** skill before
+    writing any of them into the Phase 3 summary or the receipt: it states when a reference stays
+    bare and when it is qualified `owner/repo#N`.
 
 2. Read the two live facts off the issue graph: the epic's labels
    (`gh issue view <epic-issue> $REPO_ARG --json labels`) and its record sub-issue — the resolver
@@ -397,12 +402,12 @@ implementation went meaningfully beyond its ACs. Informational unless it breaks 
 Return a concise summary:
 
 ```
-Conformance: <epic title> (<queue-entry-or-path>)  ·  epic #<link>
-Mode: full (record #<record> @ <RECORD_HASH>) | downgraded (epic has no decision record)
+Conformance: <epic title> (<queue-entry-or-path>)  ·  epic <epic-ref>
+Mode: full (record <record-ref> @ <RECORD_HASH>) | downgraded (epic has no decision record)
 Surface: <N> files changed, <N> stories (<M> closed / <O> open)
 
 Per-story AC conformance:
-  STORY <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted
+  STORY <story-ref> <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted
 
 Invariant violations:   <decision-record invariant → file:line that breaks it, ...>  (full mode)
 Success metrics:         <metric → measurable? plausibly-moved?>
@@ -412,12 +417,18 @@ Notes:                   <stories still open → close before /nxs.close, ...>  
 Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
 ```
 
+`<epic-ref>`, `<record-ref>` and every `<story-ref>` are written under the **`nxs-issue-reference`**
+skill loaded in Phase 0.5: bare when this summary is published into `$ISSUES_REPO` (local mode),
+qualified `owner/repo#N` when it is published anywhere else — a `--pr` review posted on the code
+repository, most of all. `$ISSUES_REPO` names where the epic and the record live; a `<story-ref>`
+qualifies against `$STORY_REPO` instead, when that resolves to a different repository.
+
 **Open story issues are a note, never a finding.** They carry no severity, count nothing towards the
-receipt's `findings:` tally, and never block. State them on the `Notes:` line — "stories #a, #b are
-still open; close them before `/nxs.close`" — and omit the line entirely when every story is closed.
-An open sub-issue is `/nxs.close`'s hard block (its §1.1), not this gate's: here the question is
-whether the code does what the planning said, and the code is readable from the diff whether or not
-the issue has been closed yet.
+receipt's `findings:` tally, and never block. State them on the `Notes:` line — "stories <story-refs>
+are still open; close them before `/nxs.close`" — and omit the line entirely when every story is
+closed. An open sub-issue is `/nxs.close`'s hard block (its §1.1), not this gate's: here the question
+is whether the code does what the planning said, and the code is readable from the diff whether or
+not the issue has been closed yet.
 
 **Severity gate:** critical or high findings should **block close** — the code does not yet satisfy
 the epic. Fix the implementation (or, if the epic's intent changed during build, amend `epic.md` and
@@ -442,18 +453,25 @@ Write it to **`analyze-receipt.md`** beside the resolved `epic.md`, overwriting 
 
 ```markdown
 ---
-epic: "<link>"                        # e.g. "#11"
+epic: "<epic-ref>"                    # e.g. "#11", or "geo-nexus/docs#11" when $ISSUES_REPO differs from this repo
 nexus_version: <VERSION>              # the toolkit that wrote this receipt (`nexus version`); omit if unresolved
 date: <YYYY-MM-DD>
 head: <git rev-parse --short HEAD>    # the commit the analysis read
 mode: full | downgraded
-record: "#<record>"                   # full mode only — the decision record this checked against
+record: "<record-ref>"                # full mode only — the decision record this checked against
 record_hash: <RECORD_HASH>            # full mode only — the FULL digest, never truncated
 findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
 ---
 
 <the summary block above, verbatim>
 ```
+
+`epic` and `record` carry their qualifier directly, per the **`nxs-issue-reference`** skill, rather
+than a separate `issues_repo:` key: this file already carries a per-story `repo:` (the code
+repository) in the aggregate shape below, so a second bare repo declaration next to those rows
+would read as if it belonged with them. Qualify `epic`/`record` themselves whenever `$ISSUES_REPO`
+is non-empty and differs from the checkout this file was written in; omit the qualifier (bare
+`#N`) otherwise, unchanged from before this field existed.
 
 `nexus_version` is the **writer stamp** (story #306): the release that wrote this receipt, taken
 from `nexus version`. It is a fact about the writer, never a gate — a reader that finds no stamp
@@ -483,15 +501,16 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     `````markdown
     <!-- nexus:analyze-receipt -->
     ```yaml
-    epic: "<link>"
+    epic: "<epic-ref>"
     nexus_version: <VERSION>             # the toolkit that wrote this block; omit if unresolved
+    issues_repo: <ISSUES_REPO>           # where epic/record/stories live; OMIT when it equals `repo` below
     repo: <repoIdentity>                 # the target repo actually read — the member, not the hub
-    stories: [<n>, ...]                  # the story issue number(s) this verdict covers
+    stories: [<n>, ...]                  # the story issue number(s) this verdict covers, in issues_repo (or repo, when issues_repo is omitted)
     pr: <N>
     date: <YYYY-MM-DD>
     head: <full 40-hex analyzedHead>     # the commit actually analyzed
     mode: full | downgraded
-    record: "#<record>"                  # full mode only — the record this checked against
+    record: "<record-ref>"               # full mode only — the record this checked against
     record_hash: <RECORD_HASH>           # full mode only — the FULL digest, never truncated
     findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
     ```
@@ -499,25 +518,40 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
 
     `repo` is the `repoIdentity` the `open` step printed (epic #211): it names what was actually
     read, so a reader never has to assume "this repository" when the PR could belong to any
-    declared member. `stories` is the sorted list `nexus pr-worktree stories` resolved — never
-    re-derived by a reader, and never re-derived across runs: a story pull request analyzed more
-    than once still carries only its own story numbers. Stamp the **full**, un-abbreviated repo
-    identity and every covered story number; never truncate either.
+    declared member — the **code** repository the analyzed pull request lives in. `issues_repo` is
+    the different question: the repository `epic`, `record` and `stories` resolve against — the
+    checkout's own `$ISSUES_REPO`. The two are the same repository for most single-repo and hub
+    runs, and **`issues_repo` is omitted whenever it equals `repo`** — a reader that finds no
+    `issues_repo` key resolves the epic numbers against `repo`, exactly as a block predating this
+    key already means. Stamp `epic-ref` and `record-ref` under the **`nxs-issue-reference`** skill:
+    bare when they name `issues_repo` (or `repo`, when `issues_repo` is omitted), qualified
+    `owner/repo#N` when they name neither — which, since this block is always published on a pull
+    request in `repo`, is exactly the case where `issues_repo` is present and differs from `repo`.
+    `stories` is the sorted list `nexus pr-worktree stories` resolved — never re-derived by a
+    reader, and never re-derived across runs: a story pull request analyzed more than once still
+    carries only its own story numbers. It stays a bare number list: its repository is
+    `issues_repo` (or `repo`), declared once, immediately above. Stamp the **full**, un-abbreviated
+    repo identity and every covered story number; never truncate either.
 
 2. Publish it as a **PR review**, so the verdict lands in the merge box:
 
     ```bash
     # clean — no critical/high findings:
-    gh pr review <N> --approve --body-file "<scratch>/analyze-review.md"
+    gh pr review <N> -R <repoIdentity> --approve --body-file "<scratch>/analyze-review.md"
     # critical or high present:
-    gh pr review <N> --request-changes --body-file "<scratch>/analyze-review.md"
+    gh pr review <N> -R <repoIdentity> --request-changes --body-file "<scratch>/analyze-review.md"
     ```
+
+    Every call carries `-R <repoIdentity>` (the same value the machine block stamps as `repo`):
+    left to itself `gh` picks a base repository from the worktree's remotes, which is exactly the
+    ambiguity 0.48.0 fixed for the pull-request **reads** in this same flow — the review is a
+    write on the same pull request and needs the same repository named explicitly.
 
     **Fallback:** GitHub forbids reviewing your own PR. If the review call fails because the lead
     authored the PR, post the same body as a comment and say so in your summary:
 
     ```bash
-    gh pr comment <N> --body-file "<scratch>/analyze-review.md"
+    gh pr comment <N> -R <repoIdentity> --body-file "<scratch>/analyze-review.md"
     ```
 
 3. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.

@@ -17,7 +17,7 @@ import { CAPABILITY, type ArgsOutcome, type EpicArgs, epicUsage, parseEpicArgs }
 import { type GhRunner, ensureLabel } from "../gh.js";
 import { type Outcome, Platform, extractIssueNumber } from "../story-filer/platform.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
-import { withLink } from "./link.js";
+import { withIssuesRepo, withLink } from "./link.js";
 import { lookupIssueTypeId, setIssueType } from "../gh.js";
 import { EpicPlatform, throwingRunner } from "./platform.js";
 import { type ProjectPlan, planProject } from "./projects.js";
@@ -182,7 +182,14 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
     out.line("📝 Updating epic frontmatter with link...");
     const linked = withLink(content, issueNumber);
     if (linked.content === null) out.error("Could not find frontmatter boundaries");
-    else fs.writeFileSync(ready.draft, linked.content, "utf8");
+    else {
+        // Same write, same critical section: the epic was filed into config.epicRepo (or the
+        // current repo, when that resolves to null), so the draft's link is only fully
+        // recoverable alongside the repository it names — otherwise a bare `link: "#492"` in a
+        // workspace has no declared home once this file is read anywhere else.
+        const withHome = withIssuesRepo(linked.content, config.epicRepo);
+        fs.writeFileSync(ready.draft, withHome.content ?? linked.content, "utf8");
+    }
 
     // Every step from here is decoration: a failure warns and the run still exits zero.
     // The gate is made and applied the same way on both paths.

@@ -28,6 +28,8 @@ export interface ResolveEpicVerdictsInput {
     candidatesByStory: Record<number, StoryPrCandidate[]>;
     /** Stories marked as shipping without their own pull request — excluded from coverage. */
     excludedStories?: number[];
+    /** The repository the epic issue lives in, passed through to {@link buildEpicReceipt}. */
+    issuesRepo?: string | null;
 }
 
 export type ResolveEpicVerdictsResult =
@@ -69,5 +71,6 @@ export function resolveEpicVerdicts(run: Runner, input: ResolveEpicVerdictsInput
 
     if (present.length === 0) return { ok: true, state: "none" };
     if (missing.length > 0) return { ok: true, state: "partial", missing, present };
-    return { ok: true, state: "aggregate", receipt: buildEpicReceipt(input.epic, verdicts, excluded), verdicts, changeSetVerdicts };
+    const receipt = buildEpicReceipt(input.epic, verdicts, excluded, { issuesRepo: input.issuesRepo });
+    return { ok: true, state: "aggregate", receipt, verdicts, changeSetVerdicts };
 }

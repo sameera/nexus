@@ -44,6 +44,14 @@ describe("writeEpicReceipt / readEpicReceipt — the per-story receipt, at the #
         expect(read?.excluded).toEqual(RECEIPT.excluded);
     });
 
+    it("round-trips an epic reference written in the qualified cross-repo form, unchanged (concept \"Provenance Reference\")", () => {
+        const dir = tmpDir();
+        const qualified: EpicReceipt = { ...RECEIPT, epic: "geo-nexus/docs#212" };
+        const out = writeEpicReceipt(dir, qualified, { date: "2026-09-08" });
+        const read = readEpicReceipt(out);
+        expect(read?.epic).toBe("geo-nexus/docs#212");
+    });
+
     it("returns null for a file with no per-story stories list — a single-PR receipt from #171, not this shape", () => {
         const dir = tmpDir();
         const p = path.join(dir, "analyze-receipt.md");

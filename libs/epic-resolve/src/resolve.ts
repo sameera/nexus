@@ -63,6 +63,12 @@ export interface ResolvedEpic {
     stories: EpicStory[];
     /** story issue number → the issue numbers it is blocked_by, withdrawn blockers already dropped. */
     blockedBy: Map<number, number[]>;
+    /**
+     * The `owner/repo` this epic (and its stories) were actually read from — the same slug
+     * `resolveRepoSlug` already fetches, never a separately re-resolved value. Null only when
+     * that fetch itself failed, which is a fail-closed condition the caller already handles.
+     */
+    issuesRepo: string | null;
 }
 
 export type ResolveEpicResult =
@@ -77,6 +83,15 @@ export interface ResolveEpicOptions {
      * they already know are epics.
      */
     requireEpic?: boolean;
+    /**
+     * Suppress `issuesRepo` (and the `issues_repo:` frontmatter field it drives) even though the
+     * repository slug resolves. A single-repo checkout has no ambiguity for the field to resolve
+     * — "the current repo" is already what every reference means — so naming it there is noise
+     * with no decision behind it. The caller states this (the CLI derives it from the workspace
+     * resolver, `resolveWorkspace(...).mode === "single-repo"`) rather than the resolver
+     * inferring it, which would need a filesystem read this otherwise fs-free module does not make.
+     */
+    singleRepo?: boolean;
 }
 
 /**
@@ -240,12 +255,13 @@ export function resolveEpic(
     // Ascending issue number, matching the order the serializer renders in, so the structured
     // result and the markdown never disagree about which story comes first.
     stories.sort((a, b) => a.number - b.number);
+    const issuesRepo = opts.singleRepo ? null : `${slug.slug.owner}/${slug.slug.repo}`;
     return {
         ok: true,
         record,
-        resolved: { number: epic.issue.number, title: epic.issue.title, stories, blockedBy },
+        resolved: { number: epic.issue.number, title: epic.issue.title, stories, blockedBy, issuesRepo },
         markdown: serializeEpic({
-            epic: { number: epic.issue.number, title: epic.issue.title, body, rawFrontmatter },
+            epic: { number: epic.issue.number, title: epic.issue.title, body, rawFrontmatter, issuesRepo },
             stories,
             blockedBy,
             record,

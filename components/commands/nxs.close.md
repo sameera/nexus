@@ -258,6 +258,10 @@ REPO_ARG=""; [ -n "$ISSUES_REPO" ] && REPO_ARG="-R $ISSUES_REPO"
 - **Every `gh issue …` / `gh api …` call below that addresses the epic issue or a story issue MUST
   include `$REPO_ARG`.** For the sub-issues GraphQL query, take `owner`/`repo` from `$ISSUES_REPO` when
   set, otherwise the current repo.
+- Load the **`nxs-issue-reference`** skill before writing any epic, record, or stub issue number
+  into the close comment, the close record, or a terminal report. The close comment is posted on
+  the epic issue itself — that surface *is* `$ISSUES_REPO` — so most numbers in it stay bare; only
+  a number naming a different repository, such as a story pull request, is ever qualified there.
 
 ## 1.1 Every sub-issue of the epic is closed (hard block)
 
@@ -295,15 +299,19 @@ having no bypass is its one virtue, and detaching a stray sub-issue is a one-sec
 3. **If any sub-issue is `OPEN`**, block and report the open ones **with their kind**, then stop:
 
     ```
-    Cannot close epic #<epic-issue>: <N> open sub-issue(s).
+    Cannot close epic <epic-ref>: <N> open sub-issue(s).
 
-      #<n> [story]           — <title>
-      #<n> [decision record] — <title>   ← unapproved: closing it IS the approval
-      #<n> [other]           — <title>   ← detach it from the epic or close it
+      <ref> [story]           — <title>
+      <ref> [decision record] — <title>   ← unapproved: closing it IS the approval
+      <ref> [other]           — <title>   ← detach it from the epic or close it
 
     Close (or reopen and complete) each before closing the epic. This command never closes a
     sub-issue itself — not a story, and not the record.
     ```
+
+    This is a terminal report, so every `<epic-ref>`/`<ref>` is written under the
+    **`nxs-issue-reference`** skill's terminal-context rule: qualified whenever `$ISSUES_REPO`
+    resolves non-empty.
 
 Only when **all** sub-issues are closed do you continue. If the epic has no sub-issues at all, warn
 and continue (a manually managed epic).
@@ -345,13 +353,17 @@ if the user opts to analyze first, nothing later in this command should have run
    there is no option to proceed past an unmerged pull request:
 
     ```
-    Cannot close epic #<epic-issue>: <N> story pull request(s) not yet merged.
+    Cannot close epic <epic-ref>: <N> story pull request(s) not yet merged.
 
-      #<pr> (story #<story>, <repo>) — <state>
+      #<pr> (story <story-ref>, <repo>) — <state>
       …
 
     Merge each pull request before closing the epic. This command never merges a pull request itself.
     ```
+
+    `<epic-ref>` and `<story-ref>` qualify under the terminal-context rule when `$ISSUES_REPO` is
+    non-empty; `#<pr>` stays bare — its own `<repo>` column already names where it lives, the same
+    disambiguation a qualifier would add.
 
    Only once `allMerged` is `true` do you re-check currency with the same shared helper that derived
    it — never re-derive it yourself:
@@ -412,9 +424,13 @@ if the user opts to analyze first, nothing later in this command should have run
     nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
-    A different digest means the record was revised after the analysis. (A receipt with no record
-    keys came from a degraded-mode run over an epic with no record; there is no record axis to
-    evaluate.)
+    `<record>` here is the **bare** record issue number Phase 1.0 already resolved, never the
+    receipt's own `record`/`record-ref` string taken whole: that string may be qualified
+    (`owner/repo#N`, under the **`nxs-issue-reference`** skill) when the receipt was published
+    outside `$ISSUES_REPO`, and `--issue` takes a number, not a reference. `$ISSUES_REPO` alone
+    supplies `--repo`. A different digest means the record was revised after the analysis. (A
+    receipt with no record keys came from a degraded-mode run over an epic with no record; there
+    is no record axis to evaluate.)
 
    Classify the state:
     - **clean** — receipt found, no critical/high findings, **current on both axes**:
@@ -623,6 +639,11 @@ Fill the seeded template and write it into the queue entry.
       reference** (`#<record>`) plus the **full** approved-body digest from the digest program.
       Never a queue path: the drain deletes queue paths, which is the exact failure this epic
       exists to fix. Omit both keys when the epic legitimately has no record.
+    - `issues_repo` — the resolved `$ISSUES_REPO` from Phase 1.0, written whether or not the
+      template carries the placeholder (the same rule `nexus_version` follows). Omit the key when
+      `$ISSUES_REPO` resolves to nothing — the epic lives in the current repo, never pinned. This
+      is the repository `epic` and `record` above resolve against; `range[].repo` above is the
+      **code** repository and is not compared against it.
     - `range` — **unconditional, every mode**: exactly one list entry with `repo` = the Phase 1.3
       preflight's repo identity, `base` = `$BASE`, `head` = `$HEAD_SHA` (Phase 3) — **full commit
       SHAs**, never `HEAD` or a branch name. The list shape is deliberate: a future cross-repo
@@ -955,6 +976,10 @@ gh issue close <epic-issue> $REPO_ARG --reason completed
 `$REPO_ARG` is the resolved issues-repo from Phase 1.0 — the epic issue lives there, not necessarily in
 the repo close runs from, so both the comment and the close must carry it.
 
+This comment is posted on the epic issue itself, in `$ISSUES_REPO` — so under the
+**`nxs-issue-reference`** skill, every issue number in it stays bare. Only a number naming a
+*different* repository — a story's pull request — is ever qualified here.
+
 The comment body has this shape:
 
 `````markdown
@@ -980,8 +1005,16 @@ the durable surface must show the epic closed on a waiver -->
 
 <!-- nexus:close-record -->
 ```yaml
-epic: "#<epic-issue>"
+epic: "#<epic-issue>"            # bare — this block lives on that issue, in $ISSUES_REPO
 nexus_version: <VERSION>         # the toolkit that wrote this block (`nexus version`); omit if unresolved
+issues_repo: <ISSUES_REPO>       # where `epic`/`record`/stub numbers live — the Phase 1.0 value,
+                                 # not re-resolved by a later reader. Stamp it whenever $ISSUES_REPO
+                                 # is non-empty, even though the numbers above are bare on this
+                                 # comment's own surface: a later reader of this block — most of all
+                                 # /nxs.distill's GitHub recovery (#174) — may run from a different
+                                 # checkout, whose own config could resolve epic-repo differently.
+                                 # Omit only when $ISSUES_REPO is empty (the epic lives in the
+                                 # current repo, unchanged from before this key existed).
 date: <YYYY-MM-DD>
 record: "#<record>"              # omit when the epic has no record
 record_hash: <RECORD_HASH>       # full digest, never truncated; omit with `record`
@@ -1031,8 +1064,8 @@ release is unresolved rather than writing a version that is not true.
 ```
 EPIC CLOSED: <Epic Title>
 
-GitHub epic issue: #<epic-issue> — closed
-Record amendment:  #<record> — <N> superseding decision(s) posted
+GitHub epic issue: <epic-ref> — closed
+Record amendment:  <record-ref> — <N> superseding decision(s) posted
                             | none (implementation conformed)
                             | NOT POSTED — <gh error>; <N> superseding decision(s) stand in the
                               close record's Deviation Rationale. Close not blocked.
@@ -1040,7 +1073,7 @@ Close record:      ${QDIR}/close-record.md
                    (issue-sourced local: ephemeral hand-off under .nexus/tmp/ — /nxs.distill
                     consumes it; the durable copy is the epic issue's close comment)
                    | (old-contract: committed; distiller consumes it post-merge)
-Deferred scope:    filed as <N> epic stub issue(s): #<n>, #<n>, …
+Deferred scope:    filed as <N> epic stub issue(s): <stub-refs>
                    whole backlog: <backlog-query>
 Process lesson:    <docs-root>/delivery/lessons/<date>-<slug>.md
 Scratch mined:     ${SDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays in the
@@ -1049,6 +1082,11 @@ Scratch mined:     ${SDIR}/*/ — <N> stub(s) across <K> engineer dir(s); stays 
 Key decisions captured: <count>
 Deviations recorded:    <count>
 ```
+
+This is a terminal report to the lead, so `<epic-ref>`, `<record-ref>` and every `<stub-refs>` entry
+qualify under the **`nxs-issue-reference`** skill whenever `$ISSUES_REPO` resolves non-empty — unlike
+the close comment above, a terminal report has no ambient repository a reader resolves a bare number
+against.
 
 (On the Scratch-mined line, use "none" when no per-user dir was present.)
 

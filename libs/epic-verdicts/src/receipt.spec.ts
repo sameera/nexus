@@ -53,3 +53,20 @@ describe("buildEpicReceipt — findings summed per distinct verdict, never per s
         expect(receipt.epic).toBe("#212");
     });
 });
+
+describe("buildEpicReceipt — issuesRepo (cross-repo issue references)", () => {
+    it("stamps the epic reference bare when no issuesRepo is given — unchanged from before", () => {
+        const receipt = buildEpicReceipt(212, [verdict({ story: 496, pr: 501 })]);
+        expect(receipt.epic).toBe("#212");
+    });
+
+    it("qualifies the epic reference when issuesRepo differs from the pull request's own repo", () => {
+        const receipt = buildEpicReceipt(212, [verdict({ story: 496, pr: 501 })], [], { issuesRepo: "geo-nexus/docs" });
+        expect(receipt.epic).toBe("geo-nexus/docs#212");
+    });
+
+    it("stamps bare when issuesRepo matches the code repo every verdict already carries", () => {
+        const receipt = buildEpicReceipt(212, [verdict({ story: 496, pr: 501 })], [], { issuesRepo: "acme/widget" });
+        expect(receipt.epic).toBe("#212");
+    });
+});

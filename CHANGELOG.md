@@ -5,6 +5,27 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.49.0
+
+- `epic`, `decision-record`, `analyze` and `close` now write a cross-repository issue reference in
+  the qualified `owner/repo#N` form on any surface published outside the repository the issue lives
+  in. In a multi-repo workspace the issues live in the repository `epic-repo` names while the code
+  and the pull requests live in a member. Before this release an `analyze --pr` review posted on a
+  member's pull request said "epic #114", and `#114` resolved to an unrelated issue in the member
+  repository. A reference written onto a surface in its own repository — the close comment on the
+  epic issue, a story body — stays bare, because qualifying it there would add noise and no
+  information.
+- The materialized `epic.md`, the analyze receipt and the close record now declare the repository
+  their bare numbers resolve against. `epic.md` and the close record carry an `issues_repo:`
+  frontmatter key, and the analyze and close machine blocks carry an `issues_repo:` field beside the
+  existing `repo:` field, which names the code repository. Both keys are omitted when the two
+  repositories are the same, so a single-repo project's artifacts are unchanged. A reader that finds
+  no key resolves the numbers against the repository it already knows, exactly as before.
+- `analyze --pr` now names the target repository when it publishes its review or its comment. A
+  member-qualified `--pr owner/repo#N` previously let `gh` pick a base repository from the
+  checkout's remotes, which is the same failure the previous release fixed for the pull-request
+  reads.
+
 ## 0.48.0
 
 - `analyze`, `close` and `distill` now read the trunk and the pull request from the repository the

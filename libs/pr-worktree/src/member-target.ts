@@ -12,6 +12,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { canonicalRemoteUrl } from "@nexus/workspace/canonical-remote";
+import { QUALIFIED_ISSUE_REF_RE } from "@nexus/workspace/issue-ref";
 import { normalizeRemote } from "@nexus/workspace/remote";
 import { type ResolvedMember, resolveWorkspace } from "@nexus/workspace/resolve";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
@@ -24,7 +25,6 @@ export interface ParsedPrReference {
 }
 
 const BARE_RE = /^(\d+)$/;
-const QUALIFIED_RE = /^([^/\s#]+)\/([^/\s#]+)#(\d+)$/;
 const URL_RE = /^https?:\/\/[^/\s]+\/([^/\s]+)\/([^/\s]+)\/pull\/(\d+)\/?$/i;
 
 /** Parse a `--pr` argument into its optional repository qualifier and PR number. */
@@ -34,7 +34,7 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
     const bare = BARE_RE.exec(trimmed);
     if (bare) return { repo: null, number: Number(bare[1]) };
 
-    const qualified = QUALIFIED_RE.exec(trimmed);
+    const qualified = QUALIFIED_ISSUE_REF_RE.exec(trimmed);
     if (qualified) return { repo: `${qualified[1]}/${qualified[2]}`.toLowerCase(), number: Number(qualified[3]) };
 
     const url = URL_RE.exec(trimmed);
