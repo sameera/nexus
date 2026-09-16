@@ -31,11 +31,13 @@ B-MINING ANNOTATIONS (per 0006 — DOCUMENTATION ONLY)
 -->
 ---
 title: "Decision Record: {{EPIC_TITLE}}"
-epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, e.g. #42
+epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, bare (e.g. #42) — in {{ISSUES_REPO}}
 feature: "{{FEATURE_NAME}}"
 rating: {{S|M|L|XL}}            # selects the C5 required-section tier
 concepts: []                    # reading-list: concept slugs this design read (consumed in B3)
 date: {{YYYY-MM-DD}}
+issues_repo: {{ISSUES_REPO}}    # owner/repo the epic issue above lives in. OMIT when it resolves
+                                # to nothing (the epic lives in the current repo, never pinned).
 ---
 
 # Decision Record: {{EPIC_TITLE}}

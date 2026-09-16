@@ -61,6 +61,24 @@ describe("the first run persists what it decided", () => {
     });
 });
 
+describe("filing into a configured epic-repo also records the home for its bare issue refs", () => {
+    it("writes issues_repo beside link when the epic is filed into a repository other than this checkout (concept \"Provenance Reference\")", () => {
+        const root: string = checkoutWith({ classification: "labels", project: "none", "epic-repo": "geo-nexus/docs" });
+        const file: string = writeDraft(root, draft());
+        expect(fileEpic(root, file).code).toBe(0);
+        const written: string = fs.readFileSync(file, "utf8");
+        expect(written).toContain('link: "#7"');
+        expect(written).toContain('issues_repo: "geo-nexus/docs"');
+    });
+
+    it("writes no issues_repo when no epic-repo is configured — single-repo stays unchanged", () => {
+        const root: string = checkoutWith({ classification: "labels", project: "none" });
+        const file: string = writeDraft(root, draft());
+        expect(fileEpic(root, file).code).toBe(0);
+        expect(fs.readFileSync(file, "utf8")).not.toContain("issues_repo");
+    });
+});
+
 describe("the second run reads the block instead of re-probing", () => {
     it("makes no discovery query and no issue-type probe, and rewrites nothing", () => {
         const { root, file } = repoWithNoGithubBlock();

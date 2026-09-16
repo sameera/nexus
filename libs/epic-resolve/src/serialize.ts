@@ -22,7 +22,7 @@
  * recoverable-only fields (`epic` title + `link`); nothing is ever fabricated.
  */
 
-import { withLink } from "./meta.js";
+import { withField, withLink } from "./meta.js";
 
 export interface EpicHeader {
     number: number;
@@ -30,6 +30,16 @@ export interface EpicHeader {
     body: string;
     /** Raw planning frontmatter lifted from the issue's meta block, or null when there is none. */
     rawFrontmatter?: string | null;
+    /**
+     * The `owner/repo` the epic issue (and so its stories) live in, as the resolver actually read
+     * them — never a separately re-resolved value. Null/absent when unresolved, which omits the
+     * frontmatter key entirely rather than emitting a placeholder (concept "Provenance
+     * Reference"). Every reference inside the document — `link`, `record`, the story headings,
+     * the sequence table — stays bare regardless: this key is the one declared home they all
+     * resolve against, and a stage copying one of them onto another repository's surface
+     * qualifies it there, not here.
+     */
+    issuesRepo?: string | null;
 }
 
 export interface EpicStory {
@@ -112,10 +122,19 @@ function renderFrontmatter(epic: EpicHeader, record: EpicRecord | null): string 
     // placeholder — so an epic without one serializes exactly as it did before epic #139.
     const recordFields: string[] =
         record === null ? [] : [`record: "#${record.number}"`, `record_state: ${record.state}`];
+    // issues_repo is likewise emitted only when resolved, so an epic whose repository was never
+    // established (or a single-repo checkout, where it always matches "here") serializes exactly
+    // as it did before this field existed.
+    const issuesRepoField = epic.issuesRepo ? JSON.stringify(epic.issuesRepo) : null;
     if (epic.rawFrontmatter != null && epic.rawFrontmatter.trim().length > 0) {
-        return ["---", withLink(epic.rawFrontmatter, epic.number), ...recordFields, "---"].join("\n");
+        const withMeta = withLink(epic.rawFrontmatter, epic.number);
+        const withHome = issuesRepoField ? withField(withMeta, "issues_repo", issuesRepoField) : withMeta;
+        return ["---", withHome, ...recordFields, "---"].join("\n");
     }
-    return ["---", `epic: ${JSON.stringify(epic.title)}`, `link: "#${epic.number}"`, ...recordFields, "---"].join("\n");
+    const homeField: string[] = issuesRepoField ? [`issues_repo: ${issuesRepoField}`] : [];
+    return ["---", `epic: ${JSON.stringify(epic.title)}`, `link: "#${epic.number}"`, ...homeField, ...recordFields, "---"].join(
+        "\n",
+    );
 }
 
 function renderUserStories(stories: EpicStory[]): string {

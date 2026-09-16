@@ -84,6 +84,26 @@ describe("resolveStoryVerdict — trust and recency across a story's candidate p
         expect(r.candidates).toEqual([501]);
     });
 
+    it("accepts a receipt whose epic is written in the qualified cross-repo form (concept \"Provenance Reference\")", () => {
+        const run = ghRunner({
+            501: { state: "OPEN", head: "a".repeat(40), base: "b".repeat(40), reviews: [{ body: block({ epic: "geo-nexus/docs#212" }), submittedAt: "2026-09-01T00:00:00Z" }] },
+        });
+        const r = resolveStoryVerdict(run, { epic: 212, story: 496, candidates: [{ pr: 501, repo: SLUG, cwd: "/repo" }] });
+        expect(r.ok).toBe(true);
+        if (!r.ok || !r.found) return;
+        expect(r.verdict.pr).toBe(501);
+    });
+
+    it("still rejects a qualified receipt that names a different epic number", () => {
+        const run = ghRunner({
+            501: { state: "OPEN", head: "a".repeat(40), base: "b".repeat(40), reviews: [{ body: block({ epic: "geo-nexus/docs#999" }), submittedAt: "2026-09-01T00:00:00Z" }] },
+        });
+        const r = resolveStoryVerdict(run, { epic: 212, story: 496, candidates: [{ pr: 501, repo: SLUG, cwd: "/repo" }] });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.found).toBe(false);
+    });
+
     it("rejects a receipt that stamps a different epic", () => {
         const run = ghRunner({
             501: { state: "OPEN", head: "a".repeat(40), base: "b".repeat(40), reviews: [{ body: block({ epic: "#999" }), submittedAt: "2026-09-01T00:00:00Z" }] },

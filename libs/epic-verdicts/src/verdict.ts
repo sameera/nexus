@@ -14,6 +14,7 @@
 
 import { type AnalyzeReceipt, RECEIPT_MARKER, parseReceiptBlock } from "@nexus/pr-acceptance/verify";
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
+import { issueRefsMatch } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -82,8 +83,6 @@ export interface ResolveStoryVerdictInput {
  * verdict for the same story after its code already shipped).
  */
 export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput): ResolveStoryVerdictResult {
-    const epicRef = `#${input.epic}`;
-
     // Newest matching receipt per candidate pull request — a PR may carry more than one matching
     // review/comment over time (repeated analyze runs), so only its own latest represents it.
     const perCandidate = new Map<string, { at: string; verdict: StoryVerdict }>();
@@ -111,7 +110,10 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
         for (const found of collect(doc)) {
             const receipt = parseReceiptBlock(found.body);
             if (receipt === null) continue;
-            if (receipt.epic !== epicRef) continue;
+            // Accepts both the bare and the fully-qualified provenance form (concept
+            //  "Provenance Reference"), so a receipt an analyze run wrote against a
+            //  qualified epic reference is not silently dropped here.
+            if (!issueRefsMatch(receipt.epic, `#${input.epic}`)) continue;
             if (!receipt.stories.includes(input.story)) continue;
             if (receipt.repo !== null && receipt.repo.toLowerCase() !== expectedRepo) continue;
 

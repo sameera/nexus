@@ -379,6 +379,32 @@ describe("parseReceiptBlock", () => {
         expect(r?.record).toBeNull();
         expect(r?.recordHash).toBeNull();
     });
+
+    it("reads issuesRepo when the epic/record numbers live in a different repository than the analyzed pull request (concept \"Provenance Reference\")", () => {
+        const withIssuesRepo = [
+            RECEIPT_MARKER,
+            "```yaml",
+            'epic: "geo-nexus/docs#212"',
+            "issues_repo: geo-nexus/docs",
+            "repo: github.com/geo-nexus/giccp",
+            "pr: 665",
+            "date: 2026-09-15",
+            `head: ${"a".repeat(40)}`,
+            "mode: full",
+            'record: "geo-nexus/docs#141"',
+            "findings: { critical: 0, high: 0, medium: 0, low: 0 }",
+            "```",
+        ].join("\n");
+        const r = parseReceiptBlock(withIssuesRepo);
+        expect(r?.issuesRepo).toBe("geo-nexus/docs");
+        expect(r?.epic).toBe("geo-nexus/docs#212");
+        expect(r?.record).toBe("geo-nexus/docs#141");
+    });
+
+    it("reads issuesRepo as null when the block predates it, or when it was omitted because the two repos match", () => {
+        const r = parseReceiptBlock(block("d".repeat(40)));
+        expect(r?.issuesRepo).toBeNull();
+    });
 });
 
 describe("verifyReceipt", () => {

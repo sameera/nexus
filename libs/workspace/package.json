@@ -59,6 +59,11 @@
       "import": "./src/target-root.ts",
       "default": "./src/target-root.ts"
     },
+    "./issue-ref": {
+      "types": "./src/issue-ref.ts",
+      "import": "./src/issue-ref.ts",
+      "default": "./src/issue-ref.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

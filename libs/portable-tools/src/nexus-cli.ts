@@ -1116,14 +1116,27 @@ async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
 
-    const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: flags.requireEpic });
+    // Whether this checkout declares a workspace at all, so a single-repo project's epic.md
+    // never carries an `issues_repo:` line naming a repository that was never ambiguous.
+    const workspaceCheck: ResolveResult = resolveWorkspace(flags.root);
+    const singleRepo = workspaceCheck.ok && workspaceCheck.workspace.mode === "single-repo";
+
+    const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: flags.requireEpic, singleRepo });
     if (!resolved.ok) {
         io.stderr(renderEpicResolveDiagnostic(resolved.error));
         return 1;
     }
 
     const outPath: string = writeMaterializedEpic(root, flags.epic, resolved.markdown, flags.out);
-    io.stdout(JSON.stringify({ epic: flags.epic, targetRoot: root, outPath, record: resolved.record }));
+    io.stdout(
+        JSON.stringify({
+            epic: flags.epic,
+            targetRoot: root,
+            outPath,
+            issuesRepo: resolved.resolved.issuesRepo,
+            record: resolved.record,
+        }),
+    );
     return 0;
 }
 
@@ -1228,6 +1241,7 @@ function resolveEpicVerdictsForCli(
         stories,
         candidatesByStory,
         excludedStories,
+        issuesRepo: resolved.resolved.issuesRepo,
     });
     return { ok: true, result };
 }

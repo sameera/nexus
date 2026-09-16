@@ -263,6 +263,12 @@ export function verifyRange(run: Runner, cwd: string, input: RangeVerifyInput): 
 export const RECEIPT_MARKER = "<!-- nexus:analyze-receipt -->";
 
 export interface AnalyzeReceipt {
+    /**
+     * The epic issue this receipt was analyzed against. Bare (`#N`) when the receipt was
+     * published into the same repository the epic lives in, fully qualified (`owner/repo#N`)
+     * otherwise (concept "Provenance Reference"). Compare with {@link @nexus/workspace/issue-ref!issueRefsMatch}
+     * rather than string equality, so a reader is never broken by which form a writer chose.
+     */
     epic: string;
     /**
      * The writer stamp (story #306): the toolkit release that wrote the receipt, or null for a
@@ -285,10 +291,20 @@ export interface AnalyzeReceipt {
     repo: string | null;
     /** The story issue number(s) this verdict covers. Empty when the receipt predates story scoping. */
     stories: number[];
-    /** The decision record this verdict checked against (full mode), or null in degraded mode. */
+    /**
+     * The decision record this verdict checked against (full mode), or null in degraded mode.
+     * Bare or fully qualified, on the same terms as `epic` above.
+     */
     record: string | null;
     /** The record's full digest at analysis time, or null in degraded mode. */
     recordHash: string | null;
+    /**
+     * The repository `epic`, `record` and `stories` resolve against, when it differs from
+     * `repo` (epic #211's code-repo stamp). Null when the two are the same repository — the
+     * single-repo case, and the writer's default — or for a receipt written before this field
+     * existed; either way a reader falls back to resolving those numbers against `repo`.
+     */
+    issuesRepo: string | null;
 }
 
 export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
@@ -321,6 +337,7 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
         stories,
         record: fields.get("record")?.trim() || null,
         recordHash: fields.get("record_hash")?.trim() || null,
+        issuesRepo: fields.get("issues_repo")?.trim() || null,
     };
 }
 

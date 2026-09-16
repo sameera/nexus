@@ -30,6 +30,7 @@ import {
     type KindClassification,
 } from "@nexus/epic-resolve/classify";
 import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts, type RepoSlug } from "@nexus/epic-resolve/gh";
+import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type PrWorktreeDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -86,7 +87,7 @@ const SCOPE_REF_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|implement(?:s|e
  * author controls cannot direct a query at a repository the workspace did not declare.
  */
 function namesIssuesRepo(qualifier: string, slug: RepoSlug): boolean {
-    return qualifier.toLowerCase() === `${slug.owner}/${slug.repo}`.toLowerCase();
+    return sameRepo(qualifier, `${slug.owner}/${slug.repo}`);
 }
 
 /** A same-repository body reference that claimed nothing — a near miss worth printing. */

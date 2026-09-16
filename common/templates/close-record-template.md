@@ -34,18 +34,28 @@ FILLING RULES
 -->
 ---
 title: "Close Record: {{EPIC_TITLE}}"
-epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, e.g. #42
+epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, bare (e.g. #42) — this entry's own home
+                                # is {{ISSUES_REPO}}, so every reference in it resolves against that
+                                # repo unless declared otherwise (see nxs-issue-reference skill).
 feature: "{{FEATURE_NAME}}"     # one-direction pointer: entry → parent feature
 date: {{YYYY-MM-DD}}
 nexus_version: {{NEXUS_VERSION}} # WRITER STAMP — the toolkit release that wrote this record, from
                                 # `nexus version`. Omit the key when the release is unresolved; an
                                 # absent stamp reads as an unknown writer, which is never an error.
+issues_repo: {{ISSUES_REPO}}    # owner/repo the epic/record numbers above live in. OMIT this key
+                                # when it resolves to nothing (the epic lives in the current repo,
+                                # unchanged from before this key existed) — never write it empty.
 analyze: {{ANALYZE_STATUS}}     # conformance gate: "ran <date> @ <sha>" or the recorded waiver
 record: {{RECORD_ISSUE_REF}}    # the decision record this epic was built against, e.g. #141 — an
                                 # ISSUE REFERENCE, never a queue path (the drain deletes queue paths).
+                                # Bare, in {{ISSUES_REPO}} — same rule as `epic` above.
                                 # Omit both record keys when the epic legitimately has no record.
 record_hash: {{RECORD_HASH}}    # the FULL canonical digest of the approved record body, never truncated
-range:                          # exact diff range of the landed change — one entry per touched repo
+range:                          # exact diff range of the landed change — one entry per touched repo.
+                                # `range[].repo` is the CODE repository the change landed in — a
+                                # different repository than `issues_repo` above whenever the epic
+                                # was filed into a separate issues repo; in a single-repo project
+                                # the two name the same repository and `issues_repo` is omitted.
   - repo: {{REPO_IDENTITY}}     # normalized code-repo identity (host/owner/repo), from the close preflight
     base: {{BASE_SHA}}          # FULL commit SHA of the merge-base the branch forked from — never a ref
     head: {{HEAD_SHA}}          # FULL commit SHA of the branch head the close-from-diff pass diffed — never HEAD/main

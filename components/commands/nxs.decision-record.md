@@ -172,6 +172,11 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
     `$REPO_ARG`**, and it is the only form used: a second spelling of the same argument is a second
     thing to keep in sync.
 
+    Load the **`nxs-issue-reference`** skill before writing any epic, record or story issue number
+    into the record body or a terminal report — the record is filed as a sub-issue of the epic, in
+    `$ISSUES_REPO`, so most such numbers stay bare there; a story citation qualifies only when
+    `$STORY_REPO` (`nexus config resolve story-repo`) names a different repository.
+
 2. Read the epic issue's labels and its record sub-issue (the resolver already reported the latter
    as `record` in its JSON output / the materialized frontmatter's `record` + `record_state`):
 
@@ -396,8 +401,9 @@ and that body is the artifact the record hash is taken over. So:
   recomputed upstream) would produce false staleness and block a close for no reason.
 - Start the body at the `# Decision Record: <epic title>` heading.
 - **Old-contract epics only** (the committed-entry path) keep the template's frontmatter, exactly as
-  today — `rating` = the epic's `complexity`, `epic` = the epic issue ref, `feature`/`title`/`date`,
-  and `concepts:` carried over from the epic.
+  today — `rating` = the epic's `complexity`, `epic` = the epic issue ref (bare — this entry's own
+  `issues_repo`, when the epic was filed into one, names what it resolves against),
+  `feature`/`title`/`date`, and `concepts:` carried over from the epic.
 
 **Refer to each asset by its local path, exactly as declared** (when `ASSETS` is set), inside the
 decision it illustrates, as a Markdown image or link whose target is the declared path:
@@ -636,6 +642,7 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
        one entry per story the learner builds in this epic. Handoff slices and scaffolds get none:
 
         ```yaml
+        issues_repo: <ISSUES_REPO>   # where the story numbers below live; omit when it resolves to nothing
         sources:
             - story: <story issue number>
               section: <heading of the one record section stating the invariant the story implements>

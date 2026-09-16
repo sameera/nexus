@@ -155,7 +155,10 @@ $ARGUMENTS
         - the **rationale** — the Key Decisions + Deviation Rationale prose, verbatim;
         - the **record reference and full approved-body hash**, the **conformance verdict**, and
           the **full-SHA landed `range:`** — parsed from the marker-anchored machine block, never
-          recomputed (the stamped range is by contract the exact range the close diffed).
+          recomputed (the stamped range is by contract the exact range the close diffed);
+        - the **`issues_repo:`** field, when the block carries one — carry it into the rebuilt
+          entry unchanged, so the later record-resolution step (above) prefers this recovered
+          checkout's stamped value over re-resolving `epic-repo` fresh from wherever recovery runs.
 
        Rebuild `close-record.md` from these at `.nexus/tmp/epic-<n>/close-record.md`, beside the
        re-derived `epic.md`. The rebuilt entry then flows through the ordinary pipeline unchanged —
@@ -207,17 +210,24 @@ in **continuation mode**:
     1. **The record sub-issue** when the close record names one (`record: "#<n>"`) — fetch the body
        and **verify it against the hash stamped at close**, through the one digest program. Resolve
        the repo the record lives in once, through the shared publishing resolver (never by parsing
-       `settings.yml`), exactly as `/nxs.close` Phase 1.0 does. **Write the fetched body to a file**,
+       `settings.yml`), exactly as `/nxs.close` Phase 1.0 does — **unless the close record's own
+       `issues_repo:` frontmatter names one**, in which case use that stamped value instead of
+       re-resolving: this drain may run from a checkout whose `epic-repo` resolves differently than
+       the checkout that closed the epic did, and the stamped value is the one the close comment's
+       own `record`/`epic` numbers actually resolve against. **Write the fetched body to a file**,
        `<scratch>/<entry-slug>/record-body.md` — Phase 4.6 grounds an abstraction in that file as a
        readable path, so a body captured only in context is grounding nothing:
 
         ```bash
-        ISSUES_REPO="$(nexus config resolve epic-repo --root .)"
+        ISSUES_REPO="${STAMPED_ISSUES_REPO:-$(nexus config resolve epic-repo --root .)}"
         mkdir -p "<scratch>/<entry-slug>"
         gh issue view <record> ${ISSUES_REPO:+-R $ISSUES_REPO} --json body --jq .body \
           > "<scratch>/<entry-slug>/record-body.md"                                    # the why
         nexus record-digest --issue <record> ${ISSUES_REPO:+--repo $ISSUES_REPO}
         ```
+
+        `STAMPED_ISSUES_REPO` is `close-record.md`'s own `issues_repo:` value when the entry carries
+        one, empty otherwise — present only on an entry closed after this key existed.
 
         - **Hashes equal** → this is provably the rationale that was approved and analysed. Use the
           fetched body as the *why* — it is the entry's ***why* file**, at the path above — and read
