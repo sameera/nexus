@@ -30,7 +30,6 @@ describe("each phase is its own entry point", () => {
 describe("a planning session holds no lesson-writing reference", () => {
     it("declares none of them", () => {
         const lessonOnly: string[] = lesson.references.filter((r) => !SHARED_REFERENCES.includes(r));
-        expect(lessonOnly.length).toBeGreaterThan(0);
         for (const reference of lessonOnly) expect(planning.references).not.toContain(reference);
     });
 
@@ -71,11 +70,12 @@ describe("the whole declaration, checked in one pass", () => {
     });
 
     it("reports a planning body that declares a lesson-writing reference", () => {
+        const lessonOnly: PhaseEntryPoint = { ...lesson, references: [...lesson.references, "nxs-lesson-only"] };
         const problems: string[] = phaseReferenceProblems(ROOT, {
-            planning: { ...planning, references: [...planning.references, ...lesson.references] },
-            lesson,
+            planning: { ...planning, references: [...planning.references, "nxs-lesson-only"] },
+            lesson: lessonOnly,
         });
-        expect(problems.join("\n")).toContain("nxs-prose-style");
+        expect(problems.join("\n")).toContain("nxs-lesson-only");
     });
 
     it("reports a lesson-writing body that names a planning reference, because naming one is loading it", () => {

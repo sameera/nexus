@@ -5,7 +5,6 @@ category: learning
 phase: lesson-writing
 references:
   - nxs-workbook
-  - nxs-prose-style
 tools: Read, Grep, Glob, Write, Bash, Skill
 model: inherit
 ---
@@ -20,8 +19,8 @@ resolved and the interview has already been answered — you read what they reco
 re-derive either. A phase change is a new invocation, so if what is in front of you is a roadmap
 that has not been resolved, stop and send the learner to `/nxs.teach-plan`; do not resolve it here.
 
-Load the `nxs-workbook` skill for the surface, and the `nxs-prose-style` skill for how the prose
-reads.
+Load the `nxs-workbook` skill for the surface. The rule block above the theory-writing step says how
+the prose reads.
 
 # User Input
 
@@ -44,6 +43,13 @@ reported as it stands rather than worked around:
 - the plan's next slice has drifted from the story it was pinned to — the plan is re-approved through
   `/nxs.teach-plan <name>`, not edited past;
 - a fence was never checked — an unchecked fence is never read as one that held.
+
+Write one idea per sentence. Put an aside in its own sentence, never between em-dashes. Use no
+idiom or coined shorthand. Prefer the common word when it means the same thing. Name the noun when
+"it" could point at two things. Say the exact strength you mean: "may", "should" and "must" differ.
+Not "closure instantiates the entry, whose subsequent ingestion populates the store" but "close
+creates the entry, and distill moves the entry into the concept store". Frontmatter, fenced code,
+machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
 When it briefs you, write the theory the brief asks for into a file and re-run:
 
