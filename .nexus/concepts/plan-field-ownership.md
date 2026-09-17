@@ -1,8 +1,8 @@
 ---
 title: "Plan Field Ownership"
 aliases: ["field owner", "fixed field list", "no placeholder", "absent until its owner acts", "declared commands", "pinning test written on arrival"]
-touches: ["teaching-plan", "plan-approval-gate", "return-verification", "just-in-time-lesson"]
-last_updated_by: "#458"
+touches: ["teaching-plan", "plan-approval-gate", "return-verification", "just-in-time-lesson", "pinned-sources"]
+last_updated_by: "#459"
 status: active
 verification: verified
 ---
@@ -35,9 +35,14 @@ The plan is built field by field from a fixed list rather than copied from the d
 - [plan-approval-gate](plan-approval-gate.md) — the step that fills the approval-owned fields and refuses a first approval with no declared commands.
 - [return-verification](return-verification.md) — runs the reviewer's declared suite and grading commands, and probes the tests the session wrote.
 - [just-in-time-lesson](just-in-time-lesson.md) — the arrival that writes a slice's pinning test, alongside the lesson that shows its text.
+- [pinned-sources](pinned-sources.md) — the field the design stage owns, filled when the epic's decision record is approved.
 
 ## Decision Log
 
 ### 2026-09-13 — #458 — Each field has one owner, and the plan is built from a fixed list rather than a stripped copy
 
 The shipped session refuses a slice missing a lesson name, a branch or a pinning test, and no planning pass produced any of them, so this epic had to say who fills each in. Approval fills what is already known — the live pinned states, the names derived from each slice's identity, each slice's epic, the edges and the repository. The reviewer declares the two commands, because a green light is worth exactly what the command behind it is worth and inferring one was already refused. The session writes each pinning test on arrival, which amends the earlier rule that a session has exactly one generative step: a handoff arrival now writes test text too. Nothing is ever a placeholder, so a field whose owner has not acted is simply absent and the reader requires it only where the session has reached. The plan is assembled from a fixed list of fields rather than copied from the draft and stripped, because the draft carries the learner's own phrases for the gate. Refuted alternative: copy the draft and remove the known personal fields, which is less upkeep — a new planning field reaches the plan with no change. It lost because it fails open, and a leak of the learner's words into a committed file cannot be undone. Refuted alternative: generate every pinning test at approval, which leaves the plan whole at approval and needs no step on arrival; it lost because it is speculative generation at the scale of the roadmap, at a gate where nobody reviews prose.
+
+### 2026-09-17 — #459 — Reciprocal link from pinned-sources
+
+A plan slice gained one more field, the sources its lesson is written from. Neither approval nor the session could own the field, because the material comes from a decision record that exists only after the slice's epic is designed. So the design stage owns the field and fills it when the record is approved. Until then the field is absent, which follows the existing no-placeholder rule. Refuted alternative: have close fill the field. It lost because close waits for every story to merge, and a lesson is written before its story is built. The body here is unchanged because it sits at the word cap. The pinned-sources page states the ownership rule in full.

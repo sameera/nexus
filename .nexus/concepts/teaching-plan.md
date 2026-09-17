@@ -1,8 +1,8 @@
 ---
 title: "Teaching Plan"
 aliases: ["plan of slices", "slice", "pinned story state", "declared suite command", "grading command", "control test", "handoff slice", "lesson stub", "committed plan", "dependency edges", "per-slice epic"]
-touches: ["workbook-store", "teaching-session", "plan-drift-gate", "just-in-time-lesson", "return-verification", "handoff-prompt", "plan-draft", "scaffold-slice", "slice-identity", "plan-approval-gate", "plan-field-ownership", "plan-re-approval", "workbook-home-page"]
-last_updated_by: "#458"
+touches: ["workbook-store", "teaching-session", "plan-drift-gate", "just-in-time-lesson", "return-verification", "handoff-prompt", "plan-draft", "scaffold-slice", "slice-identity", "plan-approval-gate", "plan-field-ownership", "plan-re-approval", "workbook-home-page", "pinned-sources"]
+last_updated_by: "#459"
 status: active
 verification: verified
 ---
@@ -15,7 +15,7 @@ One file describes everything a workbook teaches from: the order of the slices, 
 
 Two committed documents describing one plan can disagree, with nothing in a position to notice, so the pinned state lives beside the order rather than in a document of its own.
 
-A slice the learner does not build names no lesson at all, and never enters the reading order: a lesson for it would be a stub that never becomes a page, and the navigation would advertise a lesson that will never exist.
+A handoff slice or scaffold carrying sources is refused. A slice the learner does not build names no lesson at all, and never enters the reading order: a lesson for it would be a stub that never becomes a page, and the navigation would advertise a lesson that will never exist.
 
 Nothing infers the commands. A green light is worth exactly what the command behind it is worth, and an inferred command that runs only part of the suite makes the gate decorative while still looking like a gate. The plan may also declare one control test, written to pass in this repository's own stack, proving the grading command can run a single test file on its own.
 
@@ -44,6 +44,7 @@ Nothing infers the commands. A green light is worth exactly what the command beh
 - [plan-field-ownership](plan-field-ownership.md) — who fills each field here, and why a field whose owner has not acted is absent rather than a placeholder.
 - [plan-re-approval](plan-re-approval.md) — the pass that replaces this file after a story drifts, carrying the taught slices forward unchanged.
 - [workbook-home-page](workbook-home-page.md) — the page drawn from the dependency edges this file records, which is why approval writes them here.
+- [pinned-sources](pinned-sources.md) — the lesson material a learner slice here carries once its epic's record is approved.
 
 ## Decision Log
 
@@ -62,3 +63,7 @@ The draft now admits a slice with no story. This committed contract was delibera
 ### 2026-09-13 — #458 — The committed contract admits scaffolds and split parts, records each slice's epic and edges, and is written by the gate
 
 The contract was deliberately left refusing a slice with no story, because admitting one meant deciding what a scaffold's branch, pinning test and lesson are — and that decision belonged to approval. Approval is now built, so the contract admits both storyless scaffolds and the parts of a split story. Three things were added to a slice beside them: the epic its story belonged to at approval, which is what a handoff prompt names; the slices it depends on, which are the only source of the edges the home page draws; and the right to carry no pinning test at all until the session reaches the slice. A story with no description now pins an empty body rather than being refused, because an empty description is that story's real state and refusing it would block a legitimate roadmap over a field nobody chose. The plan-wide epic became a fallback rather than what a prompt names, kept only so hand-written single-epic plans keep reading. Refuted alternative: refuse any slice without its own epic, which is simpler to reason about; it lost because it breaks every single-epic plan written before this change. This entry also records the reciprocal links from slice-identity, plan-approval-gate, plan-field-ownership, plan-re-approval and workbook-home-page, each of which names this file as the contract it writes, reads or is filed against.
+
+### 2026-09-17 — #459 — A learner slice may carry pinned sources
+
+The contract gained an optional sources field on a slice, so the material a lesson is written from lives beside the order and not in a second document. The reader refuses sources on a handoff slice or a scaffold, because neither builds a story with a record to pin from. Refuted alternative: a separate sources file beside the plan. It lost because two committed files describing one plan can disagree without anyone noticing. This entry also records the reciprocal link from pinned-sources.

@@ -1,8 +1,8 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "aggregated-epic-receipt"]
-last_updated_by: "#212"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "aggregated-epic-receipt", "pinned-sources"]
+last_updated_by: "#459"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 - [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, matched byte-for-byte against its script form.
 - [writer-stamp](writer-stamp.md) — sits beside this digest, outside the bytes it covers, so stamping changes no hash and this rule needed no exception.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — compares each story verdict's stamped digest against the record's current digest, one story at a time.
+- [pinned-sources](pinned-sources.md) — reuses this record fetch's approval reading, so a record closed as not planned pins nothing.
 
 ## Decision Log
 
@@ -62,3 +63,7 @@ The writer stamp is placed outside the bytes this digest covers, so the canonica
 ### 2026-09-10 — #212 — Reciprocal link from aggregated-epic-receipt
 
 Mechanical reciprocity fan-out: the record-staleness axis is now evaluated once per story verdict rather than once per epic. Each verdict's stamped digest is compared against the record's current digest, so a record revised part way through an epic marks only the stories analyzed before the revision.
+
+### 2026-09-17 — #459 — Reciprocal link from pinned-sources
+
+Source pinning reads a record's approval through the same fetch this digest uses, and does not add a second reading of the issue state. Two approval rules could drift apart, and one of them would then pin sources from a withdrawn record.
