@@ -1,8 +1,8 @@
 ---
 title: "Plan Re-Approval"
 aliases: ["re-approval", "taught prefix", "carried slice", "re-plan after drift", "carried forward unchanged", "identifier rename refusal"]
-touches: ["plan-approval-gate", "plan-rewrite", "plan-drift-gate", "teaching-plan"]
-last_updated_by: "#458"
+touches: ["plan-approval-gate", "plan-rewrite", "plan-drift-gate", "teaching-plan", "pinned-sources"]
+last_updated_by: "#459"
 status: active
 verification: verified
 ---
@@ -35,9 +35,14 @@ A carried slice keeps its identity, its order, its concepts, its lesson, its bra
 - [plan-rewrite](plan-rewrite.md) — keeps the taught part first and unchanged, and plans only the slices that follow it.
 - [plan-drift-gate](plan-drift-gate.md) — the stop that sends a learner here, and which re-approval is the only way past.
 - [teaching-plan](teaching-plan.md) — the approved plan a re-approval reads the taught part from and replaces whole.
+- [pinned-sources](pinned-sources.md) — sources pinned from an approved record, which a re-approval keeps on every slice that stays a learner slice.
 
 ## Decision Log
 
 ### 2026-09-13 — #458 — Re-approval fixes the taught part and plans only the rest, and a carried slice's edges are recomputed
 
 A story changing used to end a workbook: the drift gate stopped the session with an instruction to re-approve the plan, and nothing a learner could follow did that. Re-approval now runs the same chain and gate, with the taught part — every slice up to the last written lesson — carried forward unchanged. This makes the rewrite read the taught part of the approved plan, which amends the earlier rule that it reads only the stubs and the checked lists; the taught part is also exempt from the ordering rule, because a new dependency edge pointing into lessons already taught cannot move those lessons. Two deviations from the approved design were taken while building it. A carried slice's dependency edges are recomputed rather than frozen, because the committed plan is the only source of the edges the home page draws and a frozen edge would draw to a slice the re-plan moved. A pinning test written for a slice past the carried prefix also survives the rebuild, because a handoff writes the next story slice's test before its lesson and the return probe fences with that text; rebuilding the slice would drop the test and make the session ask for a second one. Refuted alternative: re-pin only, with no re-plan, which is smaller and cannot disturb a lesson; it lost because the drifted story's concepts are stale by definition. Refuted alternative: re-plan everything and keep whatever lessons still match, which gives the best order for the remaining work; it lost because a taught concept can be handed to another slice, so lessons end up duplicated or skipped.
+
+### 2026-09-17 — #459 — Reciprocal link from pinned-sources
+
+A slice may now carry sources pinned from its epic's approved decision record. A re-plan reads the issue graph and the roadmap, and neither can change the record those sources came from, so re-approval keeps them on any slice that is still a learner slice. A slice that becomes a handoff slice loses them, because a handoff slice teaches nothing. Refuted alternative: drop sources on re-plan and pin again. It lost because a lesson may already be written from the earlier sources, and a slice left bare would be taught from the repository search that pinning replaces. The body here is unchanged because it sits at the word cap. The pinned-sources page states the rule in full.

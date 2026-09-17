@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 135 active concepts. Each links to its full page
+Orientation map of the concept store — 136 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -14,8 +14,8 @@ Orientation map of the concept store — 135 active concepts. Each links to its 
 - [Epic Approval Gate](../.nexus/concepts/epic-approval-gate.md) — The epic stage files the epic and its story issues together, gated by a single decision-grade digest the human approves.
 - [Approvable Decision Record](../.nexus/concepts/decision-record.md) — An epic's decision record — the architectural why the design stage produces — lives as a sub-issue of the epic issue: one copy, born durable, addressable by the provenance reference form.
 - [Publishing Config Resolution](../.nexus/concepts/publishing-config-resolution.md) — Publishing config resolution replaces every discovered-by-failure GitHub-publishing decision with one declared configuration block, resolved by a single shared resolver every publishing consumer goes through.
-- [Verb Reachability](../.nexus/concepts/verb-reachability.md) — A capability becomes reachable by name, a verb on one named executable, exactly when a Nexus component body invokes it.
 - [Teaching Plan](../.nexus/concepts/teaching-plan.md) — One file describes everything a workbook teaches from: the order of the slices, what each one builds, whether the learner builds it or a coding agent does, and everything the session needs to teach it.
+- [Verb Reachability](../.nexus/concepts/verb-reachability.md) — A capability becomes reachable by name, a verb on one named executable, exactly when a Nexus component body invokes it.
 - [Committed Queue](../.nexus/concepts/committed-queue.md) — The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts.
 - [Conformance Gate](../.nexus/concepts/conformance-gate.md) — Analyze checks the implemented code against the acceptance criteria in scope and the decision record's invariants, then proves it ran by leaving a receipt.
 - [The Scope Razor](../.nexus/concepts/scope-razor.md) — The scope razor is the axis every other planning gate was missing: not how big the work is or whether a criterion can be tested, but whether anyone asked for the scope in the first place.
@@ -32,6 +32,7 @@ Orientation map of the concept store — 135 active concepts. Each links to its 
 - [Fix Lane](../.nexus/concepts/fix-lane.md) — The fix lane records why a small change that has already landed mattered, taking one GitHub reference as input.
 - [Plan Draft](../.nexus/concepts/plan-draft.md) — A planning pass writes the plan's slices as stubs into an uncommitted draft beside the resolved roadmap, never into the committed workbook.
 - [Portable Tooling](../.nexus/concepts/portable-tooling.md) — Portable tooling is the offline form of distillation's deterministic steps — the concept validator, the atlas generator, and a hub diff-derivation tool — built to run on a bare Node.js runtime.
+- [Canonical Record Digest](../.nexus/concepts/record-digest.md) — One digest implementation computes the canonical hash of a decision-record body, and every stage that stamps or verifies the value invokes it.
 - [Release Identity](../.nexus/concepts/release-identity.md) — One semantic version identifies the whole release — the executable and the component payload together — because they ship as one artifact and cannot be at different versions.
 - [Toolkit Location](../.nexus/concepts/toolkit-location.md) — Nexus ships one executable, and every invocation names it and a dispatch name rather than encoding where it lives.
 - [Addition Gate](../.nexus/concepts/addition-gate.md) — At the planning gate a plain approval files the smallest usable version and nothing else.
@@ -43,7 +44,6 @@ Orientation map of the concept store — 135 active concepts. Each links to its 
 - [Nexus Setup CLI](../.nexus/concepts/nexus-setup-cli.md) — The Nexus Setup CLI is the portable `nexus` command owning Nexus's *structural* half: placing a component set onto an account, declaring or growing a multi-repo workspace, and seeding one repository's templates.
 - [Pipeline Store Exclusion](../.nexus/concepts/pipeline-store-exclusion.md) — Some folders under the Nexus root are surfaces the pipeline writes or teaches from, never behaviour it reads back, so every stage that derives a diff withholds all of them.
 - [Pre-Epic Discovery](../.nexus/concepts/pre-epic-discovery.md) — Pre-epic discovery is the stage that runs before an epic is planned, and only when the initiative is underspecified, meaning the split itself hangs on decisions nobody has made.
-- [Canonical Record Digest](../.nexus/concepts/record-digest.md) — One digest implementation computes the canonical hash of a decision-record body, and every stage that stamps or verifies the value invokes it.
 - [Shipped Payload](../.nexus/concepts/shipped-payload.md) — The payload is a stated set of files rather than whatever happens to be on disk, so its fingerprint means something and nothing incidental reaches an adopter.
 - [Teaching Session](../.nexus/concepts/teaching-session.md) — A learner opens a workbook by running a session, and one session teaches one lesson.
 - [Application Shell](../.nexus/concepts/application-shell.md) — The application shell is the persistent full-height frame that wraps the Claude Code session in Nexus Prime: a fixed-height top strip over a dominant terminal region, with ephemeral surfaces overlaid on top.
@@ -77,6 +77,9 @@ Orientation map of the concept store — 135 active concepts. Each links to its 
 - [Grep-Native Retrieval](../.nexus/concepts/grep-native-retrieval.md) — The knowledge store is retrieved by plain text search: search, list, and read.
 - [Handoff Prompt](../.nexus/concepts/handoff-prompt.md) — A slice the plan marks as not the learner's to build is handed to a separate coding-agent session rather than taught.
 - [Issue Asset Store](../.nexus/concepts/issue-asset-store.md) — A team names one repository — or one unprotected branch of one — that its filing stages publish issue graphics into.
+- [Pinned Lesson Sources](../.nexus/concepts/pinned-sources.md) — Each slice the learner builds carries the material its lesson is written from: one decision-record section, one exemplar file in the codebase, and the refuted alternative that section's decision states.
+- [Plan Field Ownership](../.nexus/concepts/plan-field-ownership.md) — Every field of the committed plan has exactly one owner.
+- [Plan Re-Approval](../.nexus/concepts/plan-re-approval.md) — A session that stopped because a story changed sends the learner back through the same planning chain and the same gate.
 - [Provenance Reference](../.nexus/concepts/provenance-reference.md) — A provenance reference links a concept page or a log entry back to the issue that originated it, so an agent can hop from a compressed page to the full context it distilled away.
 - [Range-Entry Diff Derivation](../.nexus/concepts/range-entry-diff.md) — Range-entry diff derivation turns the range list a close stamped into the change sets a drain reads.
 - [Scaffold Slice](../.nexus/concepts/scaffold-slice.md) — A scaffold is a teaching step the rewrite inserts before a slice that assumes a concept no permitted order of the real work could introduce in time.
@@ -96,8 +99,6 @@ Orientation map of the concept store — 135 active concepts. Each links to its 
 - [Issue Kind Classification](../.nexus/concepts/issue-kind-classification.md) — An issue's kind is read from the marker its repository declares for that kind.
 - [Offline Page](../.nexus/concepts/offline-page.md) — A workbook page is opened by double-clicking it.
 - [Overlay Coordination](../.nexus/concepts/overlay-coordination.md) — Overlay coordination is the single shell-owned state that tracks which ephemeral surfaces are open and derives the terminal's recede from it.
-- [Plan Field Ownership](../.nexus/concepts/plan-field-ownership.md) — Every field of the committed plan has exactly one owner.
-- [Plan Re-Approval](../.nexus/concepts/plan-re-approval.md) — A session that stopped because a story changed sends the learner back through the same planning chain and the same gate.
 - [Prior Knowledge Declaration](../.nexus/concepts/prior-knowledge-declaration.md) — The interview records, in the learner's own words, what they already know.
 - [Prose Translation](../.nexus/concepts/prose-translation.md) — Nexus's plain-language rules are split by who can execute each rule.
 - [Release Gate](../.nexus/concepts/release-gate.md) — The tag and the public publish are blocked while any shipped component body reaches a toolkit capability by an in-repository path the payload does not carry.
