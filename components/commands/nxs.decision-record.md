@@ -1,6 +1,6 @@
 ---
 name: nxs.decision-record
-description: Add the architectural decision record to a planned epic — the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch; with `--revise` it reopens an approved record, records what it supersedes, updates it, and re-closes it. Next stage is implementation, then /nxs.analyze validates conformance.
+description: Add the architectural decision record to a planned epic: the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch; with `--revise` it reopens an approved record, records what it supersedes, updates it, and re-closes it. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash, Task, Skill, AskUserQuestion
 model: inherit
@@ -8,24 +8,24 @@ model: inherit
 
 # Role
 
-Produce the **decision record** for one planned epic: the focused architectural "why" that the
-distiller later mines (the rationale). It must give design coverage for every story in the epic —
-coverage is verified here (Phase 3), not by a downstream gate. It is human prose, tiered by
-complexity, and its home is a **sub-issue of the epic issue** — one copy, born durable, addressable
-by the issue-reference form the knowledge store already uses for provenance.
+Produce the **decision record** for one planned epic. The record is the focused architectural "why"
+that the distiller later mines. It must give design coverage for every story in the epic. Coverage
+is verified here (Phase 3), not by a downstream gate. The record is human prose, tiered by
+complexity. Its home is a **sub-issue of the epic issue**: one copy, durable from the start,
+addressable by the issue-reference form the knowledge store already uses for provenance.
 
-**Approval is a native act:** closing that sub-issue. Nexus writes no approval field, so the
-approving account and the approval time come from the issue timeline, and an unapproved record
-visibly blocks every stage downstream of it.
+**Approval is a native act:** closing that sub-issue. Nexus writes no approval field. The approving
+account and the approval time come from the issue timeline, and an unapproved record visibly blocks
+every stage downstream of it.
 
-**The design spans the whole epic, not a single story.** One record covers the epic; its decisions and
-invariants must hold across every story (that is what coverage means). The **story** is the unit of
-*implementation* and of the GitHub issue (0009) — there is no task layer below it — but it is not the
-unit of design. Read all stories together and design for the epic.
+**The design spans the whole epic, not a single story.** One record covers the epic. Its decisions
+and invariants must hold across every story; that is what coverage means. The **story** is the unit
+of *implementation* and of the GitHub issue (0009), and there is no task layer below it. The story is
+not the unit of design. Read all stories together and design for the epic.
 
 You delegate the analysis to the `nxs-architect` agent, then format its output into the seeded
-decision-record template and file it as the record sub-issue (or, for an old-contract epic that has
-a committed queue entry, write it into that entry as before).
+decision-record template and file it as the record sub-issue. For an old-contract epic that has a
+committed queue entry, write the record into that entry as before.
 
 # User Input
 
@@ -33,104 +33,104 @@ a committed queue entry, write it into that entry as before).
 $ARGUMENTS
 ```
 
-`$ARGUMENTS` may name a queue entry, an `epic.md`, or its directory. Empty is the normal case —
+`$ARGUMENTS` may name a queue entry, an `epic.md`, or its directory. Empty is the normal case:
 resolve the entry from the current branch in Phase 0.
 
-**Import mode — `--from <path>`.** If `$ARGUMENTS` contains `--from <path>` (string-matched, like
-`/nxs.epic --resume`), the decision record is derived from the **existing design doc** at `<path>` —
-a developer HLD, a plan, or any out-of-band design write — instead of a fresh from-scratch analysis.
-This is the supported bridge for work designed outside the pipeline (CLAUDE.md: "a developer HLD …
-enters Nexus only via the lead's `/nxs.decision-record --from` at approval"): the doc supplies the *why*, the
-queued `epic.md` still supplies the scope the record must cover. Strip the `--from <path>` token
-before resolving the entry path from the rest of `$ARGUMENTS`.
+**Import mode (`--from <path>`).** If `$ARGUMENTS` contains `--from <path>` (string-matched, like
+`/nxs.epic --resume`), the decision record is derived from the **existing design doc** at `<path>`
+instead of a fresh from-scratch analysis. That doc may be a developer HLD, a plan, or any
+out-of-band design write. This is the supported bridge for work designed outside the pipeline
+(CLAUDE.md: "a developer HLD … enters Nexus only via the lead's `/nxs.decision-record --from` at
+approval"). The doc supplies the *why*; the queued `epic.md` still supplies the scope the record must
+cover. Strip the `--from <path>` token before resolving the entry path from the rest of `$ARGUMENTS`.
 
-**Revision mode — `--revise`.** If `$ARGUMENTS` contains `--revise` (string-matched), the epic's
+**Revision mode (`--revise`).** If `$ARGUMENTS` contains `--revise` (string-matched), the epic's
 **approved** record is being changed rather than written for the first time. The token selects
-**which filing path Phase 4 takes — it does not select where the run starts.** Run Phase 0.2's
-**resolution** steps 1–2 as usual (they establish `$REPO_ARG` and the label names every later `gh`
-call needs) but skip its step-3 **gate** — that gate answers "does this epic warrant a record", and a
-revision already presupposes the answer. Then run **Phase 0.4** (it runs on every path, revision
-included) and **Phases 1–3** to produce the new body, and file it through **Phase 4.5**, which reopens
-the record, records what is being superseded, updates the body, and re-closes it. Strip the token
-before resolving the entry path. Without an existing closed record there is nothing to revise — say so
-and run the normal path instead.
+**which filing path Phase 4 takes**. It does not select where the run starts. Run Phase 0.2's
+**resolution** steps 1–2 as usual, because they establish `$REPO_ARG` and the label names every
+later `gh` call needs. Skip its step-3 **gate**: that gate answers "does this epic warrant a
+record", and a revision already presupposes the answer. Then run **Phase 0.4** (it runs on every
+path, revision included) and **Phases 1–3** to produce the new body. File the body through
+**Phase 4.5**, which reopens the record, records what is being superseded, updates the body, and
+re-closes it. Strip the token before resolving the entry path. Without an existing closed record
+there is nothing to revise: say so and run the normal path instead.
 
-**Assets — `--assets <path>[,<path>…]`.** Any filing path, `--revise` included, may carry local
-files — the diagram a decision was made against, a sketch of the chosen shape — that the record
-sub-issue should show. The flag is repeatable and its value comma-separated; strip every `--assets`
-token and its value before resolving the rest of `$ARGUMENTS`, and keep the paths **exactly as
-written**. Load the **`nxs-assets`** skill before handling it. Run the intake step as soon as Phase
-0 has resolved the epic and **before Phase 1's analysis**, naming every declared path:
+**Assets (`--assets <path>[,<path>…]`).** Any filing path, `--revise` included, may carry local
+files that the record sub-issue should show, such as the diagram a decision was made against or a
+sketch of the chosen shape. The flag is repeatable and its value comma-separated. Strip every
+`--assets` token and its value before resolving the rest of `$ARGUMENTS`, and keep the paths
+**exactly as written**. Load the **`nxs-assets`** skill before handling it. Run the intake step as
+soon as Phase 0 has resolved the epic and **before Phase 1's analysis**, naming every declared path:
 
 ```bash
 nexus assets check --asset <path> [--asset <path> ...]
 ```
 
-- **Non-zero exit → stop and report the diagnostic verbatim** — a missing path, two assets sharing
+- **Non-zero exit → stop and report the diagnostic verbatim**: a missing path, two assets sharing
   a file name, a malformed `asset-store` value, or a store GitHub cannot read. Nothing has been
   drafted and nothing has been published.
 - **`{ "state": "unsupported", … }`** → the repository declares no asset store. Say so once on the
-  console — *assets are unsupported for this repository: no asset-store is declared* — set
+  console (*assets are unsupported for this repository: no asset-store is declared*), set
   `ASSETS = none`, and continue **exactly as without the flag**: the record is drafted and filed
   with no asset references, and the files are written nowhere else instead.
 - **`{ "state": "declared", repo, branch, visibility, assets }`** → record `ASSETS` (the paths, in
   the order given), `ASSET_STORE` and `ASSET_VISIBILITY`. The visibility is read here once, for the
-  Phase 3.5 checkpoint's store line only; it never selects how an asset is referenced.
+  Phase 3.5 checkpoint's store line only. It never selects how an asset is referenced.
 
-An asset is a **picture of a decision, never a substitute for its why**: the body stays
+An asset is a **picture of a decision, never a substitute for its why**. The body stays
 decisions-and-rationale prose, and every decision still carries its rationale in words.
 
 ## Interaction convention — actionable choice gates
 
-Every point where this command asks the user to choose — the multi-entry epic selection in Phase 0
-and the open-clarification gate in Phase 2 — is presented through the **`AskUserQuestion`** tool, not
-a free-text prompt the user has to read and type a reply to. Render any context first as ordinary markdown, then call
-`AskUserQuestion` with one option per choice (a short label plus a one-line description of its
-effect). This renders one selectable option per line in both the VS Code extension and the terminal.
-The user can always pick "Other" for a custom answer.
+Every point where this command asks the user to choose (the multi-entry epic selection in Phase 0
+and the open-clarification gate in Phase 2) is presented through the **`AskUserQuestion`** tool,
+not a free-text prompt. Render any context first as ordinary markdown, then call `AskUserQuestion`
+with one option per choice (a short label plus a one-line description of its effect). One option
+renders per line in both the VS Code extension and the terminal. The user can always pick "Other"
+for a custom answer.
 
 ## Prose convention — human-facing artifacts
 
 Two content rules apply to every human-facing artifact this command drafts. Write concrete, not
 abstract: "there are two copies of the record; one can go stale", never "state duplication risks
 divergence". Add nothing: every sentence carries a fact, a decision or a consequence. The six form
-rules sit in a rule block directly above the step that writes the draft, where you are about to
-write. Draft plainly the first time. There is no translation pass, no pre-translation copy and no
-verify step on an artifact this command authored. File the drafted file verbatim.
+rules sit in a rule block directly above the step that writes the draft. Draft plainly the first
+time. There is no translation pass, no pre-translation copy and no verify step on an artifact this
+command authored. File the drafted file verbatim.
 
 Run the phases in order.
 
 ## Phase 0 — Resolve the epic (dual-read: committed entry, else resolve from the issue)
 
-The epic and its story issues already exist (filed by `/nxs.epic`). Obtain the epic — either from a
-committed queue entry (an old-contract epic, including #114 itself) or, when nothing was committed at
-planning (#114), by resolving its issue number through the resolver. `/nxs.decision-record` **reads** the epic;
-it never hard-fails with "queue entry not found" just because planning committed nothing.
+The epic and its story issues already exist (filed by `/nxs.epic`). Obtain the epic from a committed
+queue entry (an old-contract epic, including #114 itself). When nothing was committed at planning
+(#114), resolve its issue number through the resolver instead. `/nxs.decision-record` **reads** the
+epic; it never hard-fails with "queue entry not found" just because planning committed nothing.
 
-1. **Explicit path** — if `$ARGUMENTS` points at a queue entry / `epic.md` / its directory, use that.
+1. **Explicit path**: if `$ARGUMENTS` points at a queue entry / `epic.md` / its directory, use that.
    Record `QDIR` = that directory and skip to step 4.
-2. **Committed entry (transitional)** — else glob:
+2. **Committed entry (transitional)**: otherwise glob:
 
     ```bash
     ls -d .nexus/queue/*/epic.md 2>/dev/null   # an entry is a dir carrying epic.md
     ```
 
     A `.nexus/queue/epic-<n>/` holding only per-user decision scratch (`--revise` on an epic already
-    in implementation) is **not** a committed entry — hence the `epic.md` requirement.
+    in implementation) is **not** a committed entry, which is why `epic.md` is required.
 
     - **≥1 entry** → today's behavior: **1** → use it; **>1** → read each `epic.md` title and ask
       which via `AskUserQuestion` (label = epic title, description = queue path + complexity). Record
-      `QDIR`. This is the path #114's own entry (and any other old-contract epic) takes — the resolver
-      path (invariant 14) governs epics planned after the migration.
+      `QDIR`. This is the path #114's own entry (and any other old-contract epic) takes. The resolver
+      path (invariant 14) applies to epics planned after the migration.
     - **0 entries** → go to step 3.
-3. **Resolve from the issue number** — no committed entry exists, so reconstruct the epic (invariant
+3. **Resolve from the issue number**: no committed entry exists, so reconstruct the epic (invariant
    11: zero reads of a committed planning file; the story set + success metrics come from the live
    GitHub issue state at resolve time):
-    - **Epic issue number (invariant 12):** the explicit `#<n>` / `<n>` in `$ARGUMENTS` if given; else
-      derive it from the current branch's linked issue — the issue its open PR closes, then that
-      issue's **parent epic** (`gh pr view --json ...` for the branch's PR and its closing issue; or
-      the `#<n>` in the branch name). If you cannot determine it unambiguously, ask the user for the
-      epic issue number and stop until answered.
+    - **Epic issue number (invariant 12):** the explicit `#<n>` / `<n>` in `$ARGUMENTS` if given.
+      Otherwise derive it from the current branch's linked issue: the issue its open PR closes, then
+      that issue's **parent epic** (`gh pr view --json ...` for the branch's PR and its closing issue;
+      or the `#<n>` in the branch name). If you cannot determine it unambiguously, ask the user for
+      the epic issue number and stop until answered.
     - **Materialize:**
 
         ```bash
@@ -138,23 +138,23 @@ it never hard-fails with "queue entry not found" just because planning committed
         ```
 
       On a non-zero exit, report the diagnostic (`epic-resolve <problem>: <message>`) and stop. On
-      success it prints `{ epic, targetRoot, outPath, record }`; record `QDIR` = the directory of
-      `outPath` (a materialized `epic.md` under the gitignored `.nexus/tmp/`) and keep `record` —
-      the epic's decision-record sub-issue (`{ number, state }`), or `null` when it has none.
+      success it prints `{ epic, targetRoot, outPath, record }`. Record `QDIR` = the directory of
+      `outPath` (a materialized `epic.md` under the gitignored `.nexus/tmp/`) and keep `record`,
+      which is the epic's decision-record sub-issue (`{ number, state }`), or `null` when it has none.
 4. `QDIR` **must** contain `epic.md`. If it does not, ERROR. Stop.
 
 **Decision-record home.** On the **committed-entry** path (an old-contract epic), `QDIR` is the
 committed queue entry and the record is committed there as today. On the **resolver** path the
-record's home is a **sub-issue of the epic issue** (#139) — see Phase 4 — and **no
-`decision-record.md` is written anywhere** for such an epic.
+record's home is a **sub-issue of the epic issue** (#139); see Phase 4. On that path
+**no `decision-record.md` is written anywhere**.
 
 ## Phase 0.2 — Does this epic warrant a decision record?
 
 Not every epic needs one. The answer is read from the **issue graph**, never remembered: the
 **needs-design** label on the epic issue is the claim, and the record sub-issue is the artifact.
-That is what makes an epic filed by hand outside Nexus — no label, no record — work for free.
+That is what makes an epic filed by hand outside Nexus, with no label and no record, work for free.
 
-1. Resolve the target repo and the label names **through the shared publishing resolver** — never by
+1. Resolve the target repo and the label names **through the shared publishing resolver**, never by
    parsing `settings.yml` yourself. The epic issue may live in a repo other than the one this
    command runs in, exactly as `/nxs.close` Phase 1.0 resolves it:
 
@@ -167,17 +167,16 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
     ```
 
     `<root>` is the repo root. An empty `ISSUES_REPO` means the epic lives in the current repo and
-    `REPO_ARG` stays empty. **Every `gh` call below — `issue`, `label`, `api` — carries
-    `$REPO_ARG`**, and it is the only form used: a second spelling of the same argument is a second
-    thing to keep in sync.
+    `REPO_ARG` stays empty. **Every `gh` call below (`issue`, `label`, `api`) carries
+    `$REPO_ARG`**, and it is the only form used.
 
     Load the **`nxs-issue-reference`** skill before writing any epic, record or story issue number
-    into the record body or a terminal report — the record is filed as a sub-issue of the epic, in
-    `$ISSUES_REPO`, so most such numbers stay bare there; a story citation qualifies only when
+    into the record body or a terminal report. The record is filed as a sub-issue of the epic, in
+    `$ISSUES_REPO`, so most such numbers stay bare there. A story citation qualifies only when
     `$STORY_REPO` (`nexus config resolve story-repo`) names a different repository.
 
-2. Read the epic issue's labels and its record sub-issue (the resolver already reported the latter
-   as `record` in its JSON output / the materialized frontmatter's `record` + `record_state`):
+2. Read the epic issue's labels and its record sub-issue. The resolver already reported the sub-issue
+   as `record` in its JSON output / the materialized frontmatter's `record` + `record_state`:
 
     ```bash
     gh issue view <epic-issue> $REPO_ARG --json labels --jq '[.labels[].name]'
@@ -186,12 +185,12 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
 3. **Decide the run's shape:**
 
     - **Record sub-issue already exists** → this is a re-run or a revision. **Continue to Phase 1**
-      as normal — the body a re-run files still comes from Phases 1–3. Phase 4 step 2 then targets
-      the existing sub-issue; a second record is never filed. A record that is already **closed** is
-      approved and frozen — changing it is **Phase 4.5**, whose first act is the reopen.
+      as normal; the body a re-run files still comes from Phases 1–3. Phase 4 step 2 then targets
+      the existing sub-issue, and a second record is never filed. A record that is already
+      **closed** is approved and frozen. Changing it is **Phase 4.5**, whose first act is the reopen.
     - **`needs-design` present, no record sub-issue** → the normal path. Continue to Phase 1.
     - **Neither present** (an S epic, or a hand-filed epic) → the epic claims no design is needed.
-      Confirm with the lead via `AskUserQuestion` — **"Proceed without a record (Recommended)"** vs
+      Confirm with the lead via `AskUserQuestion`: **"Proceed without a record (Recommended)"** vs
       **"Design it anyway"**. On the first, stop and report that the epic proceeds without a decision
       record (file nothing, change no label). On the second, continue to Phase 1 and let Phase 4
       apply the labels as usual.
@@ -200,7 +199,7 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
    (or the lead's judgement at the Phase 2 / Phase 3.5 gates) concludes that no record is warranted:
 
     - file **no** sub-issue and write **no** record file;
-    - remove the needs-design label from the epic issue —
+    - remove the needs-design label from the epic issue:
 
         ```bash
         gh issue edit <epic-issue> $REPO_ARG --remove-label "$NEEDS_DESIGN"
@@ -208,17 +207,17 @@ That is what makes an epic filed by hand outside Nexus — no label, no record �
 
     - report plainly that **the epic proceeds without a decision record**, and stop.
 
-    This is the only deliberate way to reach "this epic legitimately has no record" — which is also
+    This is the only deliberate way to reach "this epic legitimately has no record". That is also
     the only state in which `/nxs.analyze` may run in its degraded no-invariant mode.
 
 ## Phase 0.4 — Read the discovery gists off the epic issue
 
 An epic that came from a `/nxs.discover` discovery carries the decisions that discovery resolved, as
-comments on the epic issue written when the discovery graduated. Read them **before** analysing, so
-the record is designed on top of what was already settled instead of re-deriving it.
+comments on the epic issue written when the discovery was promoted. Read them **before** analysing,
+so the record is designed on top of what was already settled instead of re-deriving it.
 
 This is the **only** change discovery makes to this command. It runs on every path (normal, import,
-and revision) and needs no flag — the epic issue either carries marked comments or it does not.
+and revision) and needs no flag: the epic issue either carries marked comments or it does not.
 
 1. Fetch the epic issue's comments and keep **only** the ones whose body contains the marker
    `<!-- nexus:discovery-gists -->`:
@@ -228,8 +227,7 @@ and revision) and needs no flag — the epic issue either carries marked comment
         --jq '[.comments[] | select(.body | contains("<!-- nexus:discovery-gists -->")) | .body]'
     ```
 
-    `$REPO_ARG` is the resolved issues-repo from Phase 0.2 — the epic issue may not live in the repo
-    this command runs from.
+    `$REPO_ARG` is the resolved issues-repo from Phase 0.2.
 
 2. **No marked comment** → this epic did not come from a discovery. Continue exactly as today: no
    new prompt, no new question, and **no empty section** anywhere in the record. Skip the rest of
@@ -237,64 +235,60 @@ and revision) and needs no flag — the epic issue either carries marked comment
 
 3. Otherwise keep the collected gists as **`DISCOVERY_GISTS`** for Phase 1.
 
-**Only marked comments are read.** An epic issue accumulates ordinary discussion, and feeding all of
-it to the architect degrades the input. Capturing an out-of-band decision comment in the general case
-is worth solving on its own terms and is not solved here.
+**Only marked comments are read.** Feeding an epic issue's ordinary discussion to the architect
+degrades the input. Capturing an out-of-band decision comment in general is not solved here.
 
-**This command never edits or removes those comments.** It reads them and nothing else. They are the
-copy that survived promotion rewriting the stub body, and they are the only durable carrier of the
+**This command never edits or removes those comments.** They are the only durable carrier of the
 discovery's reasoning once the discovery folder is gone.
 
 ## Phase 0.5 — Load the design doc (import mode only)
 
-**Skip without `--from`.** With `--from <path>`, read the design doc at `<path>` (it lives outside
-the queue — a docs-space HLD, or a machine-local plan). If it does not exist or is empty, ERROR and
-stop — import mode has nothing to import. Keep its content as **`IMPORT_DOC`** for Phase 1. The doc
-is the authoritative *why* source; the from-scratch architect analysis is replaced by a
-**doc-derivation** pass (Phase 1). The doc may contain code, file paths, and type names — those are
-**stripped** when deriving the record (the record is decisions-and-rationale prose only; §template
-rule: no file paths / type names / API specs).
+**Skip without `--from`.** With `--from <path>`, read the design doc at `<path>`. It lives outside
+the queue, as a docs-space HLD or a machine-local plan. If it does not exist or is empty, ERROR and
+stop, because import mode has nothing to import. Keep its content as **`IMPORT_DOC`** for Phase 1.
+The doc is the authoritative *why* source; the from-scratch architect analysis is replaced by a
+**doc-derivation** pass (Phase 1). The doc may contain code, file paths, and type names. Those are
+**stripped** when deriving the record, because the record is decisions-and-rationale prose only
+(§template rule: no file paths / type names / API specs).
 
 ## Phase 1 — Architectural analysis (delegate to nxs-architect)
 
-**Resolve the docs root first** (the architect reads context under it; it never resolves for itself).
-Run the docs-root read-out:
+**Resolve the docs root first**. The architect reads context under it and never resolves it for
+itself. Run the docs-root read-out:
 
 ```bash
 nexus workspace docs-root
 ```
 
 Capture the printed line as **`<docs-root>`** (`docs` for single-repo/member, `.` for a repo-root hub,
-or the override). **On a non-zero exit, stop and report the diagnostic** — never pass a fake `docs`
-value nor treat failure as "context absent".
+or the override). **On a non-zero exit, stop and report the diagnostic**. Never pass a fake `docs`
+value, and never treat failure as "context absent".
 
-Invoke `nxs-architect` in **decision-record mode**. The architect produces the decision *content* — the
-"why", not a 16-section document.
+Invoke `nxs-architect` in **decision-record mode**. The architect produces the decision *content*:
+the "why", not a 16-section document.
 
 **Import mode (`--from`):** pass `IMPORT_DOC` (Phase 0.5) as the FIRST, authoritative input and tell
-the architect to **derive** the record from it — extract the decisions, the refuted viable
+the architect to **derive** the record from it: extract the decisions, the refuted viable
 alternatives, the invariants, and the BLOCKER/ADDRESS risks the doc already states, rather than
 re-designing from scratch. Fresh reasoning is used only to (a) abstract any code / file paths / type
 names in the doc into domain prose and (b) verify story coverage. Any decision the doc states without
-a *why*, any choice it made without recording the viable alternative it beat, or any doc claim that
-needs human ratification becomes an **Open Clarification** (the Phase 2 gate) — import never silently
+a *why*, any choice made without recording the viable alternative it beat, or any doc claim that
+needs human ratification becomes an **Open Clarification** (the Phase 2 gate). Import never silently
 invents a rationale the doc did not contain.
 
 **Discovery gists (`DISCOVERY_GISTS` from Phase 0.4, when present):** pass them as an
 **authoritative input** alongside the epic and its stories, and tell the architect that these
-decisions are **already settled** — its job is to design on top of them, not to re-decide them.
+decisions are **already settled**. Its job is to design on top of them, not to re-decide them.
 
 They **do not replace the analysis**. The architect still designs the epic from scratch and the
-coverage requirement below still applies to every story. This is why the gists do **not** go through
-`--from`: import mode treats its document as *the* design and derives the record from it, whereas a
-gist decides *what* to build and at what scope. A gist settles almost nothing about how the epic is
-built and carries no invariants, which is the part of a record the conformance gate later checks
-against — so routing them through import mode would skip the design work on the grounds that the
-scope work was done.
+coverage requirement below still applies to every story. The gists do **not** go through `--from`.
+Import mode treats its document as *the* design, but a gist decides *what* to build and at what
+scope. A gist carries no invariants and settles almost nothing about how the epic is built, and that
+is the part of a record the conformance gate later checks against.
 
 A gist that **states a decision without its reasoning** becomes an **Open Clarification** for the
-human, exactly as an unexplained decision in an imported design doc does today. Never invent the
-missing *why*.
+human, exactly as an unexplained decision in an imported design doc does. Never invent the missing
+*why*.
 
 ```
 Invoke: nxs-architect
@@ -334,7 +328,7 @@ Where a story needs a design split, describe it as an edit to that story's scope
 
 ## Phase 2 — Resolve open clarifications (MANDATORY STOP)
 
-The architect may return `⚠️ NEEDS CLARIFICATION` items — design questions only the human can
+The architect may return `⚠️ NEEDS CLARIFICATION` items: design questions only the human can
 answer. **Every one must be answered before the record is written.** They are a hard gate, not a
 section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
 
@@ -344,12 +338,12 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
    context as markdown, then call the tool with one option per plausible answer (the architect's
    proposed default first, labelled "(Recommended)"). The user can always pick "Other" for a custom
    reply.
-4. Fold each answer into the decision-record content — into the affected decision, invariant, or
+4. Fold each answer into the decision-record content: into the affected decision, invariant, or
    approach. An answer that changes a story's scope is reflected as an **edit to that story**
    (the design-split rule), not a new open question.
 5. **Write gate:** the written record's `## Open Clarifications` section must be **empty**. If the
    `AskUserQuestion` UI is dismissed or skipped without answers, **stop and report that the gate is
-   still open** — do not fall back to writing the unresolved markers into the file, and do not
+   still open**. Do not fall back to writing the unresolved markers into the file, and do not
    proceed to Phase 4.
 
 ## Phase 3 — Format into the decision-record template
@@ -364,13 +358,14 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
 1. Read the seeded project template: `.nexus/config/templates/decision-record-template.md` (the
    project copy, not the `common/templates/` master).
 2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup (0009)
-   and selects the **C5 required-section whitelist** — apply it explicitly, not as a heuristic. If
-   `complexity` is absent (a hand-filed epic resolved from an issue with no `nexus:epic-meta` block),
-   default to **L** — require all sections rather than risk under-documenting:
+   and selects the **C5 required-section whitelist**. Apply the whitelist explicitly, not as a
+   heuristic. If `complexity` is absent (a hand-filed epic resolved from an issue with no
+   `nexus:epic-meta` block), default to **L**: require all sections rather than risk
+   under-documenting.
 
     | `complexity` | Required sections |
     | --- | --- |
-    | **S** or **M** | **Key Decisions** + **Constraints & Invariants** only. All other sections optional — omit if empty; do not force-fill. |
+    | **S** or **M** | **Key Decisions** + **Constraints & Invariants** only. All other sections optional: omit if empty; do not force-fill. |
     | **L** or **XL** | **All** template sections required. A required section left empty needs a stated reason. |
 
 3. Fill the template from the architect's output.
@@ -383,7 +378,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       this run is checked against that file and nothing else.
     - **Label every invariant and every risk** inline, `[asked: "…"]` with a fragment quoted from
       `source.md`, or `[inferred]`. The vocabulary has two values. Decisions and refuted alternatives
-      are not labelled — a refuted alternative is the model's own by construction, so the label would
+      are not labelled; a refuted alternative is the model's own by construction, so the label would
       discriminate nothing.
     - **Check the draft**, and fix what blocks before going on:
 
@@ -392,48 +387,49 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         ```
 
       This stage has no gate agent and gains none. It runs the same checker the epic gate runs, over
-      its own draft, which is what makes "the same rules" true rather than asserted.
+      its own draft.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or
    invariant. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
 
-**The record body is pure human prose** — on the issue-sourced path it becomes a GitHub issue body,
+**The record body is pure human prose**. On the issue-sourced path it becomes a GitHub issue body,
 and that body is the artifact the record hash is taken over. So:
 
 - **No frontmatter and no hidden machine comment.** Strip the template's frontmatter entirely. Every
-  field it carried is recoverable elsewhere — the epic from the native parent relationship, the
+  field it carried is recoverable elsewhere: the epic from the native parent relationship, the
   complexity rating and concept list from the epic issue, the date and the approving account from the
   issue timeline. Anything in the body that churns for a non-design reason (a re-run date, a rating
   recomputed upstream) would produce false staleness and block a close for no reason.
 - Start the body at the `# Decision Record: <epic title>` heading.
 - **Old-contract epics only** (the committed-entry path) keep the template's frontmatter, exactly as
-  today — `rating` = the epic's `complexity`, `epic` = the epic issue ref (bare — this entry's own
-  `issues_repo`, when the epic was filed into one, names what it resolves against),
-  `feature`/`title`/`date`, and `concepts:` carried over from the epic.
+  today: `rating` = the epic's `complexity`; `epic` = the epic issue ref, bare, because this entry's
+  own `issues_repo`, when the epic was filed into one, names what it resolves against;
+  `feature`/`title`/`date`; and `concepts:` carried over from the epic.
 
 **Refer to each asset by its local path, exactly as declared** (when `ASSETS` is set), inside the
 decision it illustrates, as a Markdown image or link whose target is the declared path:
 `![the chosen flow](diagrams/flow.png)`. Write the path verbatim; the Phase 3.6 rewrite matches it
 exactly. **Nothing is published while drafting.** The approver judges a draft that names files on
-the lead's machine, so declining at the checkpoint costs nothing and leaves the store unchanged. A
-declared asset the draft never mentions is not published either — it is reported and skipped.
+the lead's machine, so declining at the checkpoint leaves the store unchanged. A declared asset the
+draft never mentions is not published either. It is reported and skipped.
 
 ## Phase 3.5 — Pre-filing checkpoint (MANDATORY STOP)
 
-The gate this command already refers to, now with a phase behind it. It runs **before every path
-that creates or updates the record sub-issue**, including `--revise`. The record body is durable the
-instant it is filed and frozen the instant it is approved, so a cut after filing is either an edit
-to a published body or a reopen — both worse than not filing it.
+This checkpoint runs **before every path that creates or updates the record sub-issue**, including
+`--revise`. The record body is durable the instant it is filed and frozen the instant it is
+approved, so a cut after filing is either an edit to a published body or a reopen. Both are worse
+than not filing it.
 
 **First, judge viability.** You are formatting a record the **architect** wrote; you are not the
 architect. Read each refuted alternative and ask whether its stated reason for losing names a
-**trade-off** — what the alternative was better at, and what it gave up. Where it names none, report
+**trade-off**: what the alternative was better at, and what it gave up. Where it names none, report
 that alternative as a **non-blocking observation**, prefixed with the razor's marker `⚠️ razor:`
 (nxs-razor §4). It blocks nothing, it is rendered here and nowhere else, and it is **never written
-into the draft body** — and because the marker is one asserted string, a render that did leak into
-the body is caught at Phase 3.6 rather than trusted not to happen.
+into the draft body**. A render that did leak into the body is caught at Phase 3.6, because the
+marker is one asserted string.
 
-**Then render the cut list** (nxs-razor §8 — this gate's convention is **removal**; a refuted alternative is not scope, so there is nothing here to add to), directly above the choice:
+**Then render the cut list** (nxs-razor §8), directly above the choice. This gate's convention is
+**removal**; a refuted alternative is not scope, so there is nothing here to add to.
 
 ```markdown
 ### Refuted alternatives
@@ -459,22 +455,22 @@ there:
 ```
 
 When the store is public and the issues repository is private (`nexus config resolve issues-repo`,
-or the current repository when it resolves to nothing), add a warning under it — the files will be
-world-readable while the record is not. **Warn; do not refuse** — the team chose the store
+or the current repository when it resolves to nothing), add a warning under it: the files will be
+world-readable while the record is not. **Warn; do not refuse**, because the team chose the store
 deliberately. When the store is private and the issues repository is public, note that a reader
 outside the team sees a broken image where a member sees the diagram.
 
 Then ask via **`AskUserQuestion`** (per the interaction convention). Four options:
 
-- **approve as drafted** — file the record as it stands.
-- **approve with cuts** — the same, after removing the alternatives the reviewer names.
-- **revise** — return to Phase 1 for the decisions the reviewer names.
-- **no record** — the epic proceeds without one (the Phase 0.2 step-4 exit: file nothing, remove the
+- **approve as drafted**: file the record as it stands.
+- **approve with cuts**: the same, after removing the alternatives the reviewer names.
+- **revise**: return to Phase 1 for the decisions the reviewer names.
+- **no record**: the epic proceeds without one (the Phase 0.2 step-4 exit: file nothing, remove the
   needs-design label, stop).
 
 `approve with cuts` takes a typed list of the numbers. Delete those alternatives from the labelled
 draft **before Phase 3.6 derives the filing body**, so they are gone before any issue is
-created or updated. **Naming nothing is identical to plain approval** — no re-render and no second
+created or updated. **Naming nothing is identical to plain approval**: no re-render and no second
 confirmation. A cut naming an alternative in a body that is already filed and approved is refused
 with the reason: an approved record is frozen and changes only through Phase 4.5's reopen path.
 
@@ -487,10 +483,10 @@ and the publish itself is the first thing Phase 3.6 does after the labels come o
 The labelled draft is not what is filed. Once the checkpoint is answered and any cut is applied,
 strip every label from `<scratch>/record-body.labelled.md` into `<scratch>/record-body.md`.
 
-**Then publish the assets and rewrite their references (when `ASSETS` is set)** — the first side
-effect after the checkpoint, on the derived body, before the assertion and before any issue is
-created or edited. `<feature-slug>` is the last segment of the epic's `feature_path` (the resolved
-`epic.md` frontmatter carries it):
+**Then publish the assets and rewrite their references (when `ASSETS` is set)**. This is the first
+side effect after the checkpoint. It runs on the derived body, before the assertion and before any
+issue is created or edited. `<feature-slug>` is the last segment of the epic's `feature_path` (the
+resolved `epic.md` frontmatter carries it):
 
 ```bash
 nexus assets rewrite --body "<scratch>/record-body.md" \
@@ -498,51 +494,50 @@ nexus assets rewrite --body "<scratch>/record-body.md" \
     --feature "<feature-slug>"
 ```
 
-It publishes every asset the body references — one commit per file, in declared order, with no
-clone — and replaces each local path with the reference its reader renders: an image inline, any
+It publishes every asset the body references, one commit per file, in declared order, with no
+clone. It replaces each local path with the reference its reader renders: an image inline, any
 other file a link at the pinned commit. **A non-zero exit stops the run: file nothing.** Anything it
 had already published is harmless and unreferenced. An `unreferenced` entry is a declared file the
 body never mentions: report it in Phase 5; nothing is written for it.
 
-**Then assert that no drafting-time token — and no declared local path — survived:**
+**Then assert that no drafting-time token and no declared local path survived:**
 
 ```bash
 nexus razor-check --draft "<scratch>/record-body.md" --assert-clean \
     [--asset-path <path> ...]     # one per declared asset, when ASSETS is set
 ```
 
-A non-zero exit stops the run — **file nothing**. The record body is the artifact the record hash is
+A non-zero exit stops the run: **file nothing**. The record body is the artifact the record hash is
 taken over, so a label surviving into it would report a design that did not change as changed. The
-same assertion covers the checkpoint's other promise: it fails on a surviving template placeholder
-token (`{{…}}`), on a surviving observation marker (`⚠️ razor:`) and — given this run's
-`--asset-path`s, matched exactly — on a local asset path the rewrite missed, so none of them reaches
-the filed body.
+same assertion fails on a surviving template placeholder token (`{{…}}`), on a surviving
+observation marker (`⚠️ razor:`), and on a local asset path the rewrite missed, given this run's
+`--asset-path`s, matched exactly. So none of them reaches the filed body.
 
 This is a phase of its own rather than a step of Phase 3 because it runs **after** the Phase 3.5
-checkpoint: the body has to be derived from the draft the reviewer actually approved, cuts included.
+checkpoint, so the body is derived from the draft the reviewer actually approved, cuts included.
 
 
 ## Phase 4 — File the record as a sub-issue of the epic
 
 **Phase 4 and Phase 4.5 are filing steps, never entry points.** Every path reaches them through
-Phases 1–3.6 — including the Phase 3.5 checkpoint, which no filing path skips: the body they write (`<scratch>/record-body.md`) is produced by Phase 3.6 from the Phase 1
-analysis and is coverage-verified there. Phase 0.2 and the `--revise` token select *which* filing
-path is taken — file a new sub-issue, edit an open one, or reopen an approved one — never whether
-1–3.6 run. If `<scratch>/record-body.md` was not written by this run's Phase 3.6, stop: there is no new
-body to file, and filing a stale one would overwrite a live record.
+Phases 1–3.6, including the Phase 3.5 checkpoint, which no filing path skips. The body they write
+(`<scratch>/record-body.md`) is produced by Phase 3.6 from the Phase 1 analysis and is
+coverage-verified there. Phase 0.2 and the `--revise` token select *which* filing path is taken
+(file a new sub-issue, edit an open one, or reopen an approved one), never whether 1–3.6 run. If
+`<scratch>/record-body.md` was not written by this run's Phase 3.6, stop: there is no new body to
+file, and filing a stale one would overwrite a live record.
 
 **Old-contract path (a committed queue entry):** write the filled template to
 `${QDIR}/decision-record.md` exactly as today and skip the rest of this phase. Both paths coexist;
 in-flight entries clear on their own.
 
 **Issue-sourced path (the norm):** the record's durable home is a **sub-issue of the epic issue**,
-carrying the record as its body — one copy, born durable, addressable by the same issue-reference
-form the knowledge store already uses for provenance. **Write no `decision-record.md` anywhere** —
-not into a committed queue entry, not into the gitignored scratch path.
+carrying the record as its body. **Write no `decision-record.md` anywhere**: not into a committed
+queue entry, not into the gitignored scratch path.
 
 Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 
-1. **Write the body to a scratch file** (`<scratch>/record-body.md`) — prose only, per Phase 3.6
+1. **Write the body to a scratch file** (`<scratch>/record-body.md`), prose only, per Phase 3.6
    and the *Prose convention*, before any step below files or edits an issue.
 
 2. **Existing record? Target it, never file a second one.** From Phase 0.2 you already know whether
@@ -550,11 +545,11 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
     - **Open record** → update it in place: `gh issue edit <record> $REPO_ARG --body-file
       "<scratch>/record-body.md"`. Then go to step 5.
     - **Closed (approved) record** → its body is **frozen**. Do not edit it here. A body change is
-      reachable only through the reopen that starts **Phase 4.5** — go there.
+      reachable only through the reopen that starts **Phase 4.5**; go there.
     - **No record** → continue to step 3.
 
 3. **Create the sub-issue.** Its classification must match what the repo declares, resolved through
-   the shared publishing resolver — `classification` selects label-vs-type, and the marker names
+   the shared publishing resolver: `classification` selects label-vs-type, and the marker names
    come from the same resolver (Phase 0.2 already read `$RECORD_LABEL`):
 
     ```bash
@@ -562,8 +557,8 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
     RECORD_TYPE="$(nexus config resolve record-type --root "<root>")"
     ```
 
-    **`labels` and `legacy-auto` modes** — create the label before applying it, so a repository that
-    has never seen it never fails a run half-way and never leaves the epic mislabelled:
+    **`labels` and `legacy-auto` modes**: create the label before applying it, so a repository that
+    has never seen it does not fail half-way and leave the epic mislabelled:
 
     ```bash
     gh label create "$RECORD_LABEL" --color 5319E7 \
@@ -572,20 +567,20 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
         --body-file "<scratch>/record-body.md" --label "$RECORD_LABEL")"
     ```
 
-    **`types` mode** — the resolved record issue type replaces the label; do **not** pass
+    **`types` mode**: the resolved record issue type replaces the label; do **not** pass
     `--label`. Create the issue without a marker, then apply `$RECORD_TYPE` with the `updateIssue`
-    GraphQL mutation — the same two-step the epic and story creation skills use:
+    GraphQL mutation, the same two-step the epic and story creation skills use:
 
     ```bash
     RECORD_URL="$(gh issue create $REPO_ARG --title "Decision Record: <epic title>" \
         --body-file "<scratch>/record-body.md")"
     ```
 
-    In both modes `gh issue create` prints the issue **URL**; take its trailing path segment as the
-    issue number and record it as `RECORD` (`RECORD="${RECORD_URL##*/}"`) — the rest of this command
+    In both modes `gh issue create` prints the issue **URL**. Take its trailing path segment as the
+    issue number and record it as `RECORD` (`RECORD="${RECORD_URL##*/}"`); the rest of this command
     reports and addresses the record as `#$RECORD`. If the type application fails in `types` mode
     (the repo has no such issue type), fall back to the label form above rather than filing an
-    unmarked record — an unmarked sub-issue reads back as a **story** to the resolver.
+    unmarked record, because an unmarked sub-issue reads back as a **story** to the resolver.
 
 4. **Link it as a sub-issue of the epic** (the native parent relationship, not a comment):
 
@@ -599,22 +594,20 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 
     An "already linked" error on a re-run is success, not failure.
 
-5. **Move the epic's labels** — the pair reads as a state machine on the epic issue, so the
-   in-progress label is applied at design **completion**, not at filing (a label applied at filing
-   would say nothing about whether design had happened). Create any label before applying it:
+5. **Move the epic's labels**. The pair reads as a state machine on the epic issue, so the
+   in-progress label is applied at design **completion**, not at filing. Create any label before
+   applying it:
 
     ```bash
     gh label create "$IN_PROGRESS" --color 0E8A16 --description "Design filed; approval is the close of the record sub-issue" --force $REPO_ARG
     gh issue edit <epic-issue> $REPO_ARG --remove-label "$NEEDS_DESIGN" --add-label "$IN_PROGRESS"
     ```
 
-    The label says the **record exists**, not that it is approved — this step runs before the step-6
+    The label says the **record exists**, not that it is approved. This step runs before the step-6
     approval gate, and "Leave open for review" is a legitimate outcome. Approval lives in exactly one
-    place, the record sub-issue's state, and nothing here may imply otherwise: a label that read
-    "design approved" would assert approval the epic has not got, which is the precise confusion this
-    epic exists to remove.
+    place, the record sub-issue's state, and nothing here may imply otherwise.
 
-6. **Approval gate (`AskUserQuestion`).** Approval is the **close of the record sub-issue** — Nexus
+6. **Approval gate (`AskUserQuestion`).** Approval is the **close of the record sub-issue**. Nexus
    writes no approval field, label, or status anywhere, and the issue timeline supplies the approving
    account and the approval time for free. Ask:
 
@@ -623,21 +616,21 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
       The lead (or a reviewer) closes it on GitHub later; that is **the same act**, so both paths
       converge with no second approval mechanism.
 
-    Never close it as *not planned* to mean approval — a not-planned closure is a **withdrawn**
+    Never close it as *not planned* to mean approval. A not-planned closure is a **withdrawn**
     design and blocks exactly as an open record does.
 
-7. **Report the record's identity.** Read the canonical digest through the one digest program — never
+7. **Report the record's identity.** Read the canonical digest through the one digest program, never
    an ad-hoc shell hash:
 
     ```bash
     nexus record-digest --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
-8. **Pin workbook sources** — only when step 6 closed the record, and only when a workbook teaches
+8. **Pin workbook sources**, only when step 6 closed the record, and only when a workbook teaches
    this epic. A workbook plan's slices carry their concepts from the day the plan was approved, but not
-   the material a lesson is written from. That material is this record, and approval is the first
-   moment it is fixed. Pin it now, so every lesson in this epic — written when the learner arrives,
-   before they build the story — opens named sources instead of searching the repository again.
+   the material a lesson is written from. That material is this record, fixed at approval. Pin it
+   now, so every lesson in this epic (written when the learner arrives, before they build the story)
+   opens named sources instead of searching the repository again.
 
     1. List the committed plans: `.nexus/workbook/*/plan.yml` in this checkout, or in each member
        checkout when this is a workspace hub. **Skip this step** when no plan names `epic: <N>` on a
@@ -659,13 +652,12 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
                   lost_on: <what it lost on>
         ```
 
-       The story is not built yet: the learner builds it after its lesson. So the exemplar is a file
-       already in the tree that shows the invariant — the codebase as the record was approved against,
-       never the story's own implementation. The verb checks each entry against the record and the
-       tree. The section and the decision must each be a heading the record carries that holds no
-       other section. A refuted alternative must be one that decision states, and it is owed whenever
-       the named section itself states one. The exemplar must be one file in the codebase. Never write
-       a placeholder for a missing alternative.
+       The story is not built yet; the learner builds it after its lesson. So the exemplar is a file
+       already in the tree that shows the invariant, never the story's own implementation. The verb
+       checks each entry against the record and the tree. The section and the decision must each be
+       a heading the record carries that holds no other section. A refuted alternative must be one
+       that decision states, and it is owed whenever the named section itself states one. The
+       exemplar must be one file in the codebase. Never write a placeholder for a missing alternative.
 
     4. Run `nexus workbook pin <slug> --epic <N> --sources <file>`, adding `--repo <member>` from a
        hub. The verb reads the epic and the record from the hub while the plan stays in the member. A
@@ -684,23 +676,22 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
 
 Reached when the epic's record sub-issue is **closed** and the design must change (Phase 4 step 2,
 or an explicit `--revise`). This is the **only** path that edits an approved body. Like Phase 4 it is
-a filing step: Phases 1–3 have already run and `<scratch>/record-body.md` holds the new body — step 3
-below only publishes it. `$RECORD` is the record sub-issue Phase 0 already reported (the resolver's
-`record`, or Phase 0.2 step 2), and `$REPO_ARG` comes from Phase 0.2 step 1.
+a filing step: Phases 1–3 have already run and `<scratch>/record-body.md` holds the new body, and
+step 3 below only publishes it. `$RECORD` is the record sub-issue Phase 0 already reported (the
+resolver's `record`, or Phase 0.2 step 2), and `$REPO_ARG` comes from Phase 0.2 step 1.
 
 **A revision may carry new assets** (`--revise … --assets <path>…`). They went through the same
 intake and the same Phase 3.6 publish-and-rewrite as a first filing, so the new body already
 carries their references. Each is a **new commit** in the store, even when it reuses a file name
-from the earlier record — the endpoint updates the path with a fresh commit and the earlier commit
-stays — so every reference in the superseded body, embedded verbatim in the comment below, still
-resolves to exactly what the earlier approver saw. No new machinery exists for this; it follows from
-the reference pinning the commit, not a branch.
+from the earlier record: the endpoint updates the path with a fresh commit and the earlier commit
+stays. So every reference in the superseded body, embedded verbatim in the comment below, still
+resolves to exactly what the earlier approver saw, because each reference pins a commit, not a
+branch.
 
 The freeze is what makes the record hash mean anything: if a closed body could change, "approved"
-would name a moving target and every downstream stamp would be unfalsifiable. Reopening is therefore
-not ceremony — it is the only way to make the body editable, and it re-fires the conformance and
-close blocks automatically until the record is approved again. No separate invalidation mechanism
-exists or is needed.
+would name a moving target and every downstream stamp would be unfalsifiable. Reopening is the only
+way to make the body editable, and it re-fires the conformance and close blocks until the record is
+approved again. No separate invalidation mechanism exists or is needed.
 
 Run these four acts **in order**, and do not skip one:
 
@@ -716,7 +707,7 @@ Run these four acts **in order**, and do not skip one:
     Keep the printed `digest` as `SUPERSEDED_HASH`.
 
 2. **Comment the supersession.** The reconstructability requirement is "from the comment trail
-   alone" — GitHub's own edit history is not reliably retrievable by tooling — so the comment must
+   alone", and GitHub's own edit history is not reliably retrievable by tooling. So the comment must
    **embed the superseded body verbatim**, not merely describe it. Write the comment to a scratch
    file and post it with `--body-file` (never inline, so the prose is not shell-escaped):
 
@@ -737,7 +728,7 @@ Run these four acts **in order**, and do not skip one:
     ````
 
     Draft `<scratch>/revision-comment.md` under the *Prose convention*, like any other body. The
-    embedded superseded body sits in a fenced block, which stays byte-identical.
+    embedded superseded body sits in a fenced block, which stays identical byte for byte.
 
     ```bash
     gh issue comment $RECORD $REPO_ARG --body-file "<scratch>/revision-comment.md"
@@ -746,15 +737,15 @@ Run these four acts **in order**, and do not skip one:
     Ask the lead for the *what changed* and *why* through `AskUserQuestion` if they are not already
     evident from this run's analysis. A revision comment without them is not a record of anything.
 
-3. **Update the body** to the new record (Phase 3 prose rules apply unchanged — no frontmatter, no
-   machine comment):
+3. **Update the body** to the new record. Phase 3 prose rules apply unchanged: no frontmatter, no
+   machine comment.
 
     ```bash
     gh issue edit $RECORD $REPO_ARG --body-file "<scratch>/record-body.md"
     ```
 
-4. **Re-close it** — the approval act, exactly as in Phase 4 step 6, and subject to the same gate:
-   approve now (`gh issue close $RECORD $REPO_ARG --reason completed`) or leave it open for a
+4. **Re-close it**: the approval act, exactly as in Phase 4 step 6, and subject to the same gate.
+   Approve now (`gh issue close $RECORD $REPO_ARG --reason completed`) or leave it open for a
    reviewer to close. While it is open, conformance and close stay blocked.
 
 5. **Confirm the new identity.** Recompute the digest through the same program:
@@ -763,31 +754,30 @@ Run these four acts **in order**, and do not skip one:
     nexus record-digest --issue $RECORD ${ISSUES_REPO:+--repo $ISSUES_REPO}
     ```
 
-    It **must differ** from `SUPERSEDED_HASH` — that difference is what makes any receipt stamped
+    It **must differ** from `SUPERSEDED_HASH`. That difference is what makes any receipt stamped
     against the earlier body detectably out of date. If the two are equal, the body did not actually
     change: say so, and do not claim a revision happened.
 
-6. **Pin workbook sources** — when step 4 re-closed the record, run Phase 4 step 8 unchanged. Slices
-   pinned against the earlier body keep their sources: a lesson may already be written from them. Only
-   slices not yet pinned are pinned, from the revised body.
+6. **Pin workbook sources**: when step 4 re-closed the record, run Phase 4 step 8 unchanged. Slices
+   pinned against the earlier body keep their sources, because a lesson may already be written from
+   them. Only slices not yet pinned are pinned, from the revised body.
 
 Report the revision: the record reference, the superseded hash, the new hash, and the record's
-state. Every earlier approved state stays recoverable from the comment trail alone, revision by
-revision.
+state.
 
 **If the epic was already closed**, say so in the report and name the consequence: its committed
-`close-record.md` stamped the superseded hash, so `/nxs.distill` will hard-error that entry — there
-is deliberately no drain-side waiver. Recovery is the named procedure `/nxs.close` § **"Recovery —
-re-stamp a closed entry whose record was revised after close"**: re-approve (done above), re-stamp
-`record_hash`, rewrite the close record's Key Decisions / Deviation Rationale if the design and not
-just the wording moved, then re-run the drain.
+`close-record.md` stamped the superseded hash, so `/nxs.distill` will hard-error that entry. There
+is deliberately no drain-side waiver. Recovery is the named procedure `/nxs.close` §
+**"Recovery — re-stamp a closed entry whose record was revised after close"**: re-approve (done
+above), re-stamp `record_hash`, rewrite the close record's Key Decisions / Deviation Rationale if
+the design and not just the wording moved, then re-run the drain.
 
 ## Phase 5 — Report
 
 Report concisely:
 
-- The record: **issue reference** (`#<record>`) and its state — approved (closed) or open awaiting
-  approval — plus the canonical digest from step 7. On the old-contract path, the file path instead.
+- The record: **issue reference** (`#<record>`) and its state, approved (closed) or open awaiting
+  approval, plus the canonical digest from step 7. On the old-contract path, the file path instead.
 - The epic it covers (title + issue ref), its `complexity` rating, and its labels now
   (`needs-design` removed, `in-progress` applied).
 - Sections **filled** vs. **tiered out** under C5 (e.g. "S epic → Key Decisions + Invariants; other
@@ -797,8 +787,8 @@ Report concisely:
 - Story coverage: confirm every user story is addressed.
 - Workbook sources (when a workbook teaches this epic): the slices pinned and the `plan.yml` to commit;
   or, for a record left open, that pinning waits for its close and the lead runs Phase 4 step 8 then.
-- Next step: implement the stories, then `/nxs.analyze` — which **will not run** while the record is
-  unapproved, so an open record must be closed before conformance can be checked.
+- Next step: implement the stories, then `/nxs.analyze`. That stage **will not run** while the
+  record is unapproved, so an open record must be closed before conformance can be checked.
 
 # Usage
 
@@ -814,48 +804,45 @@ Report concisely:
 
 # Constraints
 
-- **No 16-section HLD, no per-task LLD, no task index, no `story_ref`** — the story is the
+- **No 16-section HLD, no per-task LLD, no task index, no `story_ref`**: the story is the
   implementation unit (0009) and `/nxs.tasks` is cut (0010). A design split is an edit to an existing
   story, not a new task.
 - **Human prose only.** System A emits no machine artifact; the distiller (System B) derives the
   ConceptDelta later from the record + close record and the diff (0006). On the issue-sourced path
-  the body carries **no frontmatter and no hidden machine comment** — it is the hashed artifact, and
-  anything in it that churns for a non-design reason would report a design that did not change as
-  changed.
+  the body carries **no frontmatter and no hidden machine comment**, because the body is the hashed
+  artifact.
 - **One record per epic, and exactly one copy of it.** A re-run targets the existing record
-  sub-issue and never files a second one; for an issue-sourced epic **no `decision-record.md` is
-  written anywhere** — not into a committed queue entry, not into the gitignored scratch path.
+  sub-issue and never files a second one. For an issue-sourced epic **no `decision-record.md` is
+  written anywhere**: not into a committed queue entry, not into the gitignored scratch path.
 - **A closed record's body is frozen.** Every path here except Phase 4.5 leaves an approved body
   untouched; a body change is reachable only through the reopen that phase begins with. Reopening
-  re-fires the conformance and close blocks until the record is approved again — that is the whole
-  invalidation mechanism, and there is no second one.
+  re-fires the conformance and close blocks until the record is approved again, and there is no
+  second invalidation mechanism.
 - **A revision's comment carries the superseded body verbatim**, its hash, and the reason it was
-  superseded, dated — so every previously approved state is reconstructible from the comment trail
-  alone. The platform's own edit history is not reliably retrievable by tooling, so describing the
-  change instead of embedding it would lose the state. If the body could
-  change while closed, "approved" would name a moving target and every downstream stamp would be
-  unfalsifiable.
+  superseded, dated. So every previously approved state is reconstructible from the comment trail
+  alone. Describing the change instead of embedding it would lose the state, because the platform's
+  own edit history is not reliably retrievable by tooling.
 - **Never write `docs/`.** `docs/` is permanent human artifacts only (0005). An old-contract epic's
   record stays in its committed queue entry, as today.
 - **An asset is a picture of a decision, never a substitute for its why.** With `--assets` the
-  body still carries every rationale in prose; the files are published to the declared store only
+  body still carries every rationale in prose. The files are published to the declared store only
   after the Phase 3.5 checkpoint is answered with an approval, each reference pins the commit that
-  published it, and no local path reaches the record — the Phase 3.6 assertion fails the run on one.
+  published it, and no local path reaches the record; the Phase 3.6 assertion fails the run on one.
   A repository with no declared store files the record without them and says so once.
 - **Labels are created before they are applied**, and this stage writes only the **epic's** labels
-  and its **record sub-issue** — it never touches a story issue.
+  and its **record sub-issue**. It never touches a story issue.
 - **Approval is the close of the record sub-issue.** Never write an approval field, an `approved`
   label, or a status anywhere, and never infer approval from any other signal. Nexus applies no
   permission check of its own: whoever can close the sub-issue is the approver, and the timeline
   records who and when.
 - **Discovery gists are an input, never a substitute.** The marked comments on the epic issue are
-  read as authoritative decisions the discovery already settled, and the command still runs its own
-  architectural analysis and still checks story coverage. It **never edits or removes** those
-  comments, and it reads **only** the marked ones. An epic with no marked comment behaves exactly as
-  it did before: no new prompt, no empty section.
+  read as decisions the discovery already settled, and the command still runs its own architectural
+  analysis and still checks story coverage. It **never edits or removes** those comments, and it
+  reads **only** the marked ones. An epic with no marked comment behaves exactly as before: no new
+  prompt, no empty section.
 - **`--from` imports a design doc; it does not copy it.** The doc is the authoritative *why*
   source, but the record it produces is still abstracted domain prose (no code / file paths / type
-  names) covering every story, and every decision still carries its *why* — a doc that states a
+  names) covering every story, and every decision still carries its *why*. A doc that states a
   choice without a rationale, or without the viable alternative it beat, raises an Open Clarification
   rather than shipping an unsupported entry. The source doc stays where it lives; only the record is
   filed.
