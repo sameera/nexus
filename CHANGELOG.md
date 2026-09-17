@@ -14,6 +14,12 @@ behaviour says so.
   A lead sees the same artifacts drafted under the same rules, stated where the model is about to
   write instead of in a file loaded at the top of the stage. The two content rules, write concrete and
   add nothing, stay in each stage's prose convention.
+- The `epic`, `decision-record`, `distill`, `discover` and `teach` command bodies, and the razor
+  skill they load, are rewritten in the plain register they ask for: no em-dash asides and none of
+  the coined words the removed skill forbade, and each file is shorter than before. No stage decides,
+  gates or refuses anything differently. Every heading, gate name, command line and counted limit
+  reads as before. A lead should see the same stages draft plainer artifacts, because the largest
+  text in the model's context is now an example of the wanted style instead of a counter-example.
 
 ## 0.49.0
 

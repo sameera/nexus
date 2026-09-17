@@ -1,6 +1,6 @@
 ---
 name: nxs.discover
-description: Run pre-epic discovery on a foggy initiative as a multi-session loop over a committed store. Starts a discovery by naming its destination and writing one decision ticket per open decision, resumes it one decision at a time, and closes it when the resolutions conclude that no build follows. Writes nothing to GitHub — a discovery that does conclude a build graduates through /nxs.epic --discovery.
+description: Run pre-epic discovery on a foggy initiative as a multi-session loop over a committed store. Starts a discovery by naming its destination and writing one decision ticket per open decision, resumes it one decision at a time, and closes it when the resolutions conclude that no build follows. Writes nothing to GitHub; a discovery that does conclude a build is promoted through /nxs.epic --discovery.
 category: planning
 tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill, AskUserQuestion
 model: inherit
@@ -9,9 +9,9 @@ model: inherit
 # Role
 
 Act as a delivery lead running discovery. Turn an underspecified initiative into a set of open
-decisions, resolve them one at a time, and stop when every functional goal is sharp enough to be
-filed as an epic stub. You resolve decisions; you do not plan work, size epics, or file issues.
-Issues appear later, when `/nxs.epic` consumes the finished discovery.
+decisions. Resolve them one at a time. Stop when every functional goal is sharp enough to be filed
+as an epic stub. You resolve decisions; you do not plan work, size epics, or file issues. Issues
+appear later, when `/nxs.epic` consumes the finished discovery.
 
 # User Input
 
@@ -19,63 +19,65 @@ Issues appear later, when `/nxs.epic` consumes the finished discovery.
 $ARGUMENTS
 ```
 
-The flag selects the action; it is never inferred from the shape of the argument:
+The flag selects the action. It is never inferred from the shape of the argument:
 
-- **intent text** — a natural-language description of a foggy initiative → **start** a discovery.
-- **`--resume <folder>`** — work one open decision of an existing discovery.
-- **`--close <folder>`** — end a discovery whose resolutions concluded that no build follows.
+- **intent text**: a natural-language description of a foggy initiative. This selects **start**:
+  open a discovery.
+- **`--resume <folder>`**: work one open decision of an existing discovery.
+- **`--close <folder>`**: end a discovery whose resolutions concluded that no build follows.
 
-Empty input is an error: ask for an initiative description, or for `--resume` / `--close` with a
+Empty input is an error. Ask for an initiative description, or for `--resume` / `--close` with a
 discovery folder, and stop.
 
 # What this command does (read once)
 
 - **Discovery is the stage before the epic stage.** Nexus's right-size gate measures size only. An
-  initiative can be *oversized* (big but clear — `/nxs.epic` decomposes it) or *underspecified*
-  (foggy — the split itself hangs on decisions nobody has made). Pre-slicing a foggy initiative into
-  work-shaped stubs is speculative over-generation. This command answers the foggy case instead.
+  initiative can be *oversized* (big but clear; `/nxs.epic` decomposes it) or *underspecified*
+  (foggy; the split itself hangs on decisions nobody has made). Pre-slicing a foggy initiative into
+  work-shaped stubs is speculative over-generation. This command handles the foggy case instead.
 - **The destination is fixed and it is Nexus's own contract.** A discovery is done when every
   functional goal is sharp enough to be stated as an epic stub of size M or smaller. Nothing else
-  ends it. The destination is immutable for the life of a discovery — if it changes, close the
+  ends it. The destination is immutable for the life of a discovery. If it changes, close the
   discovery and start another.
 - **The unit is the decision ticket.** A ticket is a question whose resolution is a decision. It is
   never a slice of build work. One decision is resolved per session.
 - **The store is committed, in a directory of its own outside the queue.** Committing is what makes
-  a discovery shareable: push it to a fork, hand it to a domain expert, pull their work back. Sharing needs no
-  machinery beyond ordinary git operations — no review gate, no approval command, and no rule about
-  who may start, resume, or graduate a discovery.
+  a discovery shareable: push it to a fork, hand it to a domain expert, pull their work back.
+  Sharing needs only ordinary git operations. There is no review gate, no approval command, and no
+  rule about who may start, resume, or promote a discovery.
 - **This command writes nothing to GitHub.** No issue, no comment, no label, at any point in a
   discovery's life. Every GitHub write for a discovery happens in `/nxs.epic`, which is also where
-  graduation lives. That keeps one code path emitting every stub in the system.
+  promotion lives. That keeps one code path emitting every stub in the system.
 - **It commits, and it never pushes.** Each session commits its own work and reports the commit.
-  Pushing, opening a pull request, and merging are the user's, so this command stays out of each
+  Pushing, opening a pull request, and merging belong to the user, so this command stays out of each
   repository's branch-protection and review policy.
 
 ## Interaction convention — actionable choice gates
 
-Every explicit-choice point in this command — the destination confirmation, the feature
-confirmation, and the resume-or-new choice when a discovery already exists — is presented through
-the **`AskUserQuestion`** tool, **not** as a free-text prompt the user has to read and type a reply
-to. Render any context first as ordinary markdown, then call `AskUserQuestion` with **one option per
-choice**, using the canonical verb named at that gate as the option label and putting the action's
-effect in the option description. The user can always pick "Other" to give a custom answer.
+Every explicit-choice point in this command is presented through the **`AskUserQuestion`** tool,
+**not** as a free-text prompt the user has to read and type a reply to. Those points are the
+destination confirmation, the feature confirmation, and the resume-or-new choice when a discovery
+already exists. Render any context first as ordinary markdown. Then call `AskUserQuestion` with
+**one option per choice**, using the canonical verb named at that gate as the option label and
+putting the action's effect in the option description. The user can always pick "Other" to give a
+custom answer.
 
 ## Prose convention — human-facing artifacts
 
 Two content rules apply to every human-facing artifact this command drafts. Write concrete, not
 abstract: "there are two copies of the record; one can go stale", never "state duplication risks
 divergence". Add nothing: every sentence carries a fact, a decision or a consequence. The six form
-rules sit in a rule block directly above the step that writes the draft, where you are about to
-write. Draft plainly the first time. There is no translation pass, no pre-translation copy and no
-verify step on an artifact this command authored. Write the drafted file verbatim.
+rules sit in a rule block directly above the step that writes the draft. Draft plainly the first
+time. There is no translation pass, no pre-translation copy and no verify step on an artifact this
+command authored. Write the drafted file verbatim.
 
 ## Vocabulary
 
-Every artifact this command writes — discovery docs, ticket files, prompts, reports — uses Nexus
-vocabulary only. The nouns are **discovery**, **destination**, **decision ticket**, **resolution**,
-**functional goal**, and **epic stub**. Do not write "map", "frontier", "charting", or
-"wayfinding" anywhere. The fog sharpness test may be described as fog in prose — a suspicion is
-foggy until it can be stated precisely — but fog is a description, not a named artifact.
+Every artifact this command writes uses Nexus vocabulary only. That covers discovery docs, ticket
+files, prompts, and reports. The nouns are **discovery**, **destination**, **decision ticket**,
+**resolution**, **functional goal**, and **epic stub**. Do not write "map", "frontier", "charting",
+or "wayfinding" anywhere. The sharpness test may be described as fog in prose: a suspicion is foggy
+until it can be stated precisely. Fog is a description, not a named artifact.
 
 ---
 
@@ -90,27 +92,27 @@ A discovery lives in one committed folder:
 ```
 
 - `<slug>` is kebab-case, derived from the intent.
-- `<key>` is a short unique key — 8 lowercase hex characters, the shape existing queue entries
-  already use. It exists because a discovery has no issue number to be named by (nothing is filed at
-  start), and because two contributors may independently start on the same intent; a slug alone
-  would silently merge two different discoveries into one folder.
+- `<key>` is a short unique key: 8 lowercase hex characters, the shape existing queue entries
+  already use. A discovery has no issue number to be named by, because nothing is filed at start,
+  and two contributors may start on the same intent; a slug alone would merge two discoveries into
+  one folder.
 - **Discovery folders live under `.nexus/discovery/`, never under `.nexus/queue/`.** The queue is a
-  close-time drain buffer holding only closed, drainable entries; a discovery runs before the epic
-  stage, is never closed, and is never drained. Location alone is what keeps a discovery out of the
-  distiller's scan, the `/nxs.analyze` resolution, and the `/nxs.decision-record` resolution — those
-  stages read the queue, and a discovery is not in it.
+  close-time drain buffer holding only closed, drainable entries. A discovery runs before the epic
+  stage, is never closed, and is never drained. Location alone keeps a discovery out of the
+  distiller's scan, the `/nxs.analyze` resolution, and the `/nxs.decision-record` resolution,
+  because those stages read the queue and a discovery is not in it.
 - **`.nexus/discovery/**` is excluded from the distiller's behavioral diff analysis**, alongside
-  `.nexus/queue/**`, so discovery prose can never become a concept delta. That exclusion is
-  load-bearing, not incidental.
+  `.nexus/queue/**`, so discovery prose can never become a concept delta. That exclusion is relied
+  on, not incidental.
 
 **Nothing durable may link into this folder.** No issue body, comment, document, concept page, or
-report may carry a path into it, because the folder is removed when the discovery ends and the link
-would break at exactly the moment a reader needs it. Anything that must outlive the discovery is
-**copied in full** into a durable artifact — a reference is never sufficient.
+report may carry a path into it. The folder is removed when the discovery ends, so the link would
+break at exactly the moment a reader needs it. Anything that must outlive the discovery is **copied
+in full** into a durable artifact. A reference is never sufficient.
 
-The store lives in the checkout the command runs in, and it never migrates. Nothing drains a
-discovery folder, so there is no hub migration for one. Hub and multi-repository workspaces are
-untested this iteration — not blocked.
+The store lives in the checkout the command runs in, and it never migrates. A discovery folder is
+never drained, so there is no hub migration for one. Hub and multi-repository workspaces are
+untested this iteration, not blocked.
 
 ---
 
@@ -121,28 +123,28 @@ any gate leaves no trace.
 
 ## Phase 0 — Resolve the action and the docs root
 
-1. If `$ARGUMENTS` contains `--resume` or `--close` (string-matched), this is not a start — run that
+1. If `$ARGUMENTS` contains `--resume` or `--close` (string-matched), this is not a start. Run that
    action instead. Otherwise the whole of `$ARGUMENTS` is the **intent**: the natural-language
    description of the initiative.
-2. Resolve the docs root exactly as `/nxs.epic` does — the single-value view over the workspace
-   resolver:
+2. Resolve the docs root exactly as `/nxs.epic` does, through the single-value view over the
+   workspace resolver:
 
     ```bash
     nexus workspace docs-root
     ```
 
-    Capture the printed line as **`<docs-root>`**. **On a non-zero exit, stop and report
-    the diagnostic** — never fall back to a literal `docs/`. Apply the empty-prefix rule when
-    building a path under it: on a hub whose docs root is `.`, the taxonomy hangs off the repo root
+    Capture the printed line as **`<docs-root>`**. **On a non-zero exit, stop and report the
+    diagnostic**. Never fall back to a literal `docs/`. Apply the empty-prefix rule when building a
+    path under it: on a hub whose docs root is `.`, the taxonomy hangs off the repo root
     (`features/<slug>/…`), and no path ever carries a `./` prefix or a segment named `.`.
 3. Read `<docs-root>/product/context.md` if present, to calibrate the destination against the
    product's actual strategy and personas.
 
 ## Phase 1 — Name the destination (MANDATORY STOP)
 
-The destination is named **first**, before any folder, ticket, or file exists. It is what every later
-ruling is relative to: a question is in scope because answering it moves the initiative toward the
-destination, and work is out of scope because it lies beyond it.
+The destination is named **first**, before any folder, ticket, or file exists. Every later ruling is
+relative to it: a question is in scope because answering it moves the initiative toward the
+destination, and work is out of scope because it lies beyond the destination.
 
 The destination is pinned to Nexus's contract and is **not** open-ended. State it in this shape:
 
@@ -167,15 +169,15 @@ Render that as markdown, then ask via **`AskUserQuestion`**:
 
 ## Phase 2 — Confirm the feature (MANDATORY STOP)
 
-Every stub this discovery eventually produces belongs to a feature. Confirm it **once**, here, and
-record it in the discovery doc. It is the default for every stub at graduation, overridable per stub
-there.
+Every stub this discovery eventually produces belongs to a feature. Confirm the feature **once**,
+here, and record it in the discovery doc. It is the default for every stub at promotion, and it can
+be overridden per stub there.
 
-Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent, and let
+Derive a feature **name** (Title Case) and **slug** (kebab-case) from the intent. Let
 `<feature-path>` be `<docs-root>/features/<slug>` (empty-prefix rule applied). If the user already
 referenced a feature container, use that one. Then present one confirmation through
-`AskUserQuestion` — "This discovery's goals will land under feature **<Name>** (`<feature-path>/`).
-Accept, or give a different name?" — and take the user's correction if any.
+`AskUserQuestion`: "This discovery's goals will land under feature **<Name>** (`<feature-path>/`).
+Accept, or give a different name?" Take the user's correction if any.
 
 Do **not** create the feature directory. Discovery writes nothing outside its own folder, and
 `/nxs.epic` creates the container when it files.
@@ -188,12 +190,11 @@ Derive the kebab-case `<slug>` from the intent, then list the committed store:
 ls -d .nexus/discovery/discover-<slug>-* 2>/dev/null
 ```
 
-Because the store is committed, this also sees discoveries other people started and shared — so a
-second contributor typing the same intent is offered the existing one instead of silently forking a
-parallel discovery.
+Because the store is committed, this listing also sees discoveries other people shared, so a second
+contributor typing the same intent is offered the existing one instead of forking a parallel one.
 
-- **No match** → continue to Phase 4.
-- **One or more matches** → read each one's `## Destination`, render them, and ask via
+- **No match**: continue to Phase 4.
+- **One or more matches**: read each one's `## Destination`, render them, and ask via
   `AskUserQuestion` **before creating anything**:
 
     | Option | Action |
@@ -210,7 +211,7 @@ Not "closure instantiates the entry, whose subsequent ingestion populates the st
 creates the entry, and distill moves the entry into the concept store". Frontmatter, fenced code,
 machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
-Generate `<key>` — 8 lowercase hex characters — and create the folder:
+Generate `<key>` (8 lowercase hex characters) and create the folder:
 
 ```bash
 mkdir -p .nexus/discovery/discover-<slug>-<key>
@@ -221,9 +222,9 @@ accepted destination, the confirmed feature, an **empty** resolved-decisions ind
 specified"** section holding the in-scope fog, and an **"Out of scope"** section.
 
 **No open ticket is listed in the doc.** Open tickets are found by listing the ticket files, so the
-doc never carries a second copy of the ticket set that could fall out of step with it.
+doc never carries a second copy of the ticket set that could fall out of step.
 
-**Write the folder under `.nexus/discovery/`, never under `.nexus/queue/`** — see "The store".
+**Write the folder under `.nexus/discovery/`, never under `.nexus/queue/`**; see "The store".
 Location is what keeps a discovery out of reach of the rest of the pipeline.
 
 Draft `discovery.md` under the *Prose convention* and write it into the folder.
@@ -231,7 +232,7 @@ Draft `discovery.md` under the *Prose convention* and write it into the folder.
 ## Phase 5 — Write the decision tickets
 
 Split the initiative's unknowns by the one test that matters: **can the question be stated precisely
-now?** That is not the same as whether it can be answered now — a question can be sharp and
+now?** That is not the same as whether it can be answered now. A question can be sharp and
 completely open.
 
 1. **A question that can be stated precisely** becomes its own ticket file beside the discovery doc,
@@ -239,7 +240,7 @@ completely open.
 
     | Type | Resolves through | Use when |
     |------|------------------|----------|
-    | `research` | The `Explore` and `nxs-architect` agents | The answer is discoverable from the code, the docs, or the field — away from the keyboard. |
+    | `research` | The `Explore` and `nxs-architect` agents | The answer is discoverable from the code, the docs, or the field, away from the keyboard. |
     | `interview` | `nxs-pm` and the `nxs-setup` interview pattern | Only a human holds the answer. |
     | `council` | The two perspective agents, synthesised under the council's mandate | The trade-off is genuinely contested between product and architecture. |
     | `task` | Ordinary work in the session | Unblocking legwork stands between you and a statable question. |
@@ -248,25 +249,24 @@ completely open.
     `council` ticket.
 
     **Flag a ticket whose question decides what a person sees.** Set its frontmatter `surface:` to a
-    short name for that surface — `team channel post`, `preview turn`, `settings screen`. Leave the
-    field out otherwise. The flag routes the ticket to a sketch when it is resolved (Phase R2); it
-    is not a fifth type, it does not change how the ticket resolves, and it is set here rather than
-    read out of the resolution later, so the test is applied once to a question instead of
-    re-argued against every ruling's prose.
+    short name for that surface, such as `team channel post`, `preview turn`, or `settings screen`.
+    Leave the field out otherwise. The flag routes the ticket to a sketch when it is resolved (Phase
+    R2); it is not a fifth type, and it does not change how the ticket resolves. It is set here, not
+    read out of the resolution later, so the test is applied once per question.
 
     **No sketch is drawn here.** Start resolves no ticket, so a drawing made at start would show a
     decision nobody has taken.
 
 2. **A suspicion that cannot yet be phrased sharply** goes into the discovery doc's **"Not yet
-   specified"** section, and **no ticket is created for it**. It graduates into a ticket later, when
-   a resolution makes it precisely statable.
+   specified"** section, and **no ticket is created for it**. It becomes a ticket later, when a
+   resolution makes it precisely statable.
 
 3. **Work already ruled beyond the destination** goes into **"Out of scope"**. Entries there never
-   graduate.
+   become tickets.
 
 4. **Wire the blocking edges in a second pass**, once every ticket file exists and has a name to be
    referred to. Set each ticket's frontmatter `blocked_by` to the list of ticket filenames that must
-   resolve first, or `none`. Do not invent ordering to look tidy — a ticket is blocked only when its
+   resolve first, or `none`. Do not invent ordering to look tidy. A ticket is blocked only when its
    question cannot be *stated* or *answered* until another resolves.
 
 Prefer the fewest tickets that cover the fog. A ticket per paragraph of the intent is padding.
@@ -275,7 +275,7 @@ Draft each ticket under the *Prose convention* and write it beside the discovery
 
 ## Phase 6 — Commit
 
-Commit the folder — the discovery doc and every ticket file — as one commit, and report it:
+Commit the folder, meaning the discovery doc and every ticket file, as one commit, and report it:
 
 ```bash
 git add .nexus/discovery/discover-<slug>-<key>
@@ -287,9 +287,9 @@ discovery is an ordinary `git push`.
 
 ## Phase 7 — Fire the research agents, then stop
 
-For each `research`-typed ticket that is unblocked, fire its agent now (`Explore` for locating and
-reading, `nxs-architect` for feasibility and trade-off analysis) so the work happens while the lead
-is away from the keyboard.
+For each `research`-typed ticket that is unblocked, fire its agent now: `Explore` for locating and
+reading, `nxs-architect` for feasibility and trade-off analysis. The work then happens while the
+lead is away from the keyboard.
 
 **Start resolves no ticket.** An agent's output is evidence, recorded on the ticket by the session
 that reads it. It is never a resolution: a fact is not a decision, and only a session marks a ticket
@@ -299,7 +299,7 @@ Report:
 
 - The destination, in the accepted words.
 - The feature this discovery's goals will land under.
-- The ticket count by type, naming each ticket **by title** — never by a bare filename.
+- The ticket count by type, naming each ticket **by title**, never by a bare filename.
 - What went to "Not yet specified" and what went to "Out of scope".
 - The commit, and that nothing was pushed and nothing was written to GitHub.
 - Next step: `/nxs.discover --resume <folder>` to work one decision.
@@ -308,10 +308,10 @@ Report:
 
 # Action: resume — work one open decision
 
-A resume session claims exactly one open decision ticket, resolves it, records the resolution,
-graduates whatever fog the resolution made sharp, commits, and stops. **One decision is resolved per
-session.** That is the granularity a reader wants, because each commit is then one decision and its
-reasoning, and the commit history reads as the decision history.
+A resume session claims exactly one open decision ticket, resolves it, records the resolution, turns
+whatever fog the resolution made sharp into tickets, commits, and stops. **One decision is resolved
+per session.** Each commit is then one decision and its reasoning, so the commit history reads as
+the decision history.
 
 Run the phases in order.
 
@@ -319,7 +319,7 @@ Run the phases in order.
 
 1. `--resume <folder>` takes the discovery folder. If the argument is omitted and exactly one
    discovery folder exists under `.nexus/discovery/`, use it. If several exist, render each one's
-   destination and ask which via `AskUserQuestion`. If none exists, say so and stop — there is
+   destination and ask which via `AskUserQuestion`. If none exists, say so and stop; there is
    nothing to resume.
 2. Read `discovery.md`. A discovery whose `status` is `closed` cannot be resumed; report that and
    stop.
@@ -331,12 +331,12 @@ Read the frontmatter of every `ticket-*.md` in the folder. A ticket is **claimab
 hold:
 
 - its `status` is `open`;
-- it is **unblocked** — every ticket named in its `blocked_by` has `status: resolved`;
+- it is **unblocked**: every ticket named in its `blocked_by` has `status: resolved`;
 - it is **unclaimed**, or its `claimed_at` is older than the staleness threshold of **24 hours**
   while its `status` is still `open`.
 
-Select one claimable ticket — prefer the one that unblocks the most others, then the oldest. If the
-user named a ticket, use that one; **it is claimed the same way**, and a user-named ticket that is
+Select one claimable ticket. Prefer the one that unblocks the most others, then the oldest. If the
+user named a ticket, use that one; **it is claimed the same way**. A user-named ticket that is
 blocked or freshly claimed by someone else is refused with the reason, not taken anyway.
 
 Then write the claim into that ticket's frontmatter **before any work begins**:
@@ -346,57 +346,57 @@ claimed_by: <github-login>
 claimed_at: <ISO-8601 timestamp>
 ```
 
-The claim is **not a boolean** — it records who and when, because both are what the next contributor
-needs. Resolve the owner the way the in-flight decision-stub rule resolves it:
+The claim is **not a boolean**. It records who and when, because the next contributor needs both.
+Resolve the owner the way the in-flight decision-stub rule resolves it:
 
 ```bash
 gh api user --jq .login      # fall back to a slug of `git config user.name`
 ```
 
-**Taking over a stale claim** is allowed and is **recorded**, so the trail survives: overwrite
+**Taking over a stale claim** is allowed and is **recorded**, so the trail survives. Overwrite
 `claimed_by` / `claimed_at` and append one line to the ticket body under a `## Claim history`
-heading — `Taken over from <previous owner> (claimed <previous timestamp>) on <date>.`
+heading: `Taken over from <previous owner> (claimed <previous timestamp>) on <date>.`
 
 **The claim's scope is one working tree.** It exists because parallel agent sessions can work one
-discovery in one tree, where git gives them no protection at all. It does not coordinate people: two
+discovery in one tree, where git gives them no protection. It does not coordinate people. Two
 contributors working in two clones never see each other's claims, and a **merge conflict**, not a
-claim, is what tells them they collided. Staleness matters for the same reason — a claim can arrive
-in a pull someone else made and simply sit there.
+claim, is what tells them they collided. Staleness matters for the same reason: a claim can arrive
+in a pull someone else made and sit there.
 
 If nothing is claimable, report why (all resolved, or every open ticket blocked or freshly claimed),
 name the blocking tickets **by title**, and stop.
 
 ## Phase R2 — Resolve it through existing machinery
 
-Route by the ticket's `type`. Every route is machinery that already exists — this stage adds no
-agent and no skill.
+Route by the ticket's `type`. Every route is machinery that already exists. This stage adds no agent
+and no skill.
 
-- **`research`** → invoke `Explore` for locating and reading, and `nxs-architect` for feasibility and
+- **`research`**: invoke `Explore` for locating and reading, and `nxs-architect` for feasibility and
   trade-off analysis. Give each the question verbatim and the destination as its boundary.
-- **`interview`** → invoke `nxs-pm` for the framing and the questions worth asking, then run the
+- **`interview`**: invoke `nxs-pm` for the framing and the questions worth asking. Then run the
   exchange with the human using the `nxs-setup` interview pattern: at most a handful of strategic
   questions, one at a time, through `AskUserQuestion`. **An interview ticket resolves only through
-  the live exchange. Never supply the human's side of it** — not as a guess, not as a "likely
-  answer", not as a default the human is invited to correct. If the human is not available, leave the
-  ticket claimed, say so, and stop.
-- **`council`** → run the two perspective agents **yourself**, `nxs-pm` and `nxs-architect`, and
+  the live exchange. Never supply the human's side of it**, not as a guess, not as a "likely
+  answer", and not as a default the human is invited to correct. If the human is not available,
+  leave the ticket claimed, say so, and stop.
+- **`council`**: run the two perspective agents **yourself**, `nxs-pm` and `nxs-architect`, and
   synthesise their output under the council's synthesis mandate: lead with the decision, add value
-  beyond summarising, and name what each perspective gave up. Do **not** hand off to `/nxs.council` —
-  a slash command cannot invoke another slash command, and the handoff would leave the ticket claimed
-  across a session boundary with the outcome pasted back by hand.
-- **`task`** → do the unblocking legwork in this session, then state the question it made statable.
+  beyond summarising, and name what each perspective gave up. Do **not** hand off to `/nxs.council`.
+  A slash command cannot invoke another slash command, and the handoff would leave the ticket
+  claimed across a session boundary with the outcome pasted back by hand.
+- **`task`**: do the unblocking legwork in this session, then state the question it made statable.
 
 ### Sketch a surface ticket before ruling on it
 
-A claimed ticket carrying `surface:` gets a **sketch pass**: it runs after the route above has
-produced its evidence and **before the ruling is written**. A ticket without the field skips this
-entirely. If the work makes it clear that an unflagged ticket does decide what a person sees, set
-`surface:` now and run the pass — the flag is a routing field, not a claim about who wrote it.
+A claimed ticket carrying `surface:` gets a **sketch pass**. The pass runs after the route above has
+produced its evidence and **before the ruling is written**. A ticket without the field skips the
+pass entirely. If the work makes it clear that an unflagged ticket does decide what a person sees,
+set `surface:` now and run the pass. The flag is a routing field, not a claim about who wrote it.
 
 Draft **two or three ASCII wireframes** of that surface, one per candidate answer to the ticket's
-question, and put each one in an `AskUserQuestion` option's `preview` field so the lead rules on the
+question. Put each one in an `AskUserQuestion` option's `preview` field, so the lead rules on the
 drawing rather than on a description of it. The option label is the answer that drawing embodies.
-The lead's pick is the ruling; "Other" is a correction to take, not a fourth drawing to render.
+The lead's pick is the ruling. "Other" is a correction to take, not a fourth drawing to render.
 
 A wireframe is drawn under four rules:
 
@@ -409,14 +409,14 @@ A wireframe is drawn under four rules:
 - **No colour, no shading, no icon.** A drawing that needs any of them is drawing more than the
   ruling.
 
-The sketch is a decision instrument, not a rendering. It is drawn before the ruling because a
-drawing made afterwards illustrates a decision already taken — the speculative over-generation the
-razor cuts — and because prose and picture are then two copies of one ruling, and the picture is the
-copy nobody redraws when the resolution is revised.
+The sketch is a decision instrument, not a rendering, and it is drawn before the ruling. A drawing
+made afterwards illustrates a decision already taken, which is the speculative over-generation the
+razor cuts. Prose and picture are then two copies of one ruling, and the picture is the copy nobody
+redraws when the resolution is revised.
 
 **Never write the sketch to a file of its own**, in any format. The discovery folder is removed when
-the discovery ends; a drawing in a file cannot be copied into an issue body the way the resolution's
-words are; and no gate the lead reads in a terminal can display one. ASCII inside the ticket is the
+the discovery ends. A drawing in a file cannot be copied into an issue body the way the resolution's
+words are, and no gate the lead reads in a terminal can display one. ASCII inside the ticket is the
 form that travels.
 
 Like an interview, this pass needs the human. If the lead is not available, leave the ticket
@@ -424,8 +424,8 @@ claimed, say so, and stop.
 
 **An agent's output is evidence, never a resolution.** Record it on the ticket under an
 `## Evidence` heading, attributed to the agent that produced it. Only the session marks a ticket
-resolved and writes its index gist, because a fact is not a decision and closing a ticket on evidence
-alone would record as decided something nobody decided.
+resolved and writes its index gist. A fact is not a decision, and closing a ticket on evidence alone
+would record as decided something nobody decided.
 
 ## Phase R3 — Record the resolution
 
@@ -449,10 +449,10 @@ The chosen wireframe is written **inside the `Decided:` clause**, indented under
 else. `/nxs.epic` copies that clause onto every stub the decision hangs on, in full; a drawing under
 a heading of its own is not part of what travels, so it would be destroyed with the folder.
 
-**Exactly one sketch is recorded** — the variant the lead picked. A rejected variant is described in
-words on the refuted-alternative line, because a second drawing states the same thing the sentence
-does and no reader ever needs the shape of an option that lost. A ticket with no `surface:` records
-no block at all: no fenced block, **no empty heading**, nothing to say a drawing was considered.
+**Exactly one sketch is recorded**: the variant the lead picked. A rejected variant is described in
+words on the refuted-alternative line, because a second drawing states what the sentence does and
+no reader needs the shape of an option that lost. A ticket with no `surface:` records no block at
+all: no fenced block, **no empty heading**, nothing to say a drawing was considered.
 
 Set the ticket's `status: resolved` in frontmatter.
 
@@ -463,19 +463,19 @@ Then append **exactly one** line to `discovery.md`'s `## Resolved decisions` ind
 ```
 
 The index is **append-only and order-insensitive**: append at the end, never sort it, never rewrite
-an existing line. That is what lets two clones appending different resolutions merge cleanly. It must
-stay **reconstructible from the ticket files**, so a botched merge costs a rebuild and nothing more —
-which is exactly why the line is a gist and the ticket file remains the only store of the detail
-until graduation copies it onto the stubs.
+an existing line. Two clones appending different resolutions then merge cleanly. The line is a gist
+so the index stays **reconstructible from the ticket files**, and a botched merge costs a rebuild
+and nothing more. The ticket file remains the only store of the detail until promotion copies it
+onto the stubs.
 
 ## Phase R4 — Graduate the fog the resolution sharpened
 
 Re-read `## Not yet specified` against the resolution just recorded.
 
-1. **Fog the resolution made precisely statable** graduates: write a new typed ticket file for it —
-   flagged with `surface:` by the same test Phase 5 applies — then, in a second pass once every new
-   file exists, wire its `blocked_by`, and **remove the entry from "Not yet specified"**. The test
-   is unchanged: can the question be stated precisely now, not can it be answered now.
+1. **Fog the resolution made precisely statable** becomes a ticket: write a new typed ticket file
+   for it, flagged with `surface:` by the same test Phase 5 applies. Then, in a second pass once
+   every new file exists, wire its `blocked_by`, and **remove the entry from "Not yet specified"**.
+   The test is unchanged: can the question be stated precisely now, not can it be answered now.
 2. **Work the resolution ruled beyond the destination** moves to `## Out of scope`. Entries there
    **never graduate**.
 3. Everything else stays where it is.
@@ -484,7 +484,7 @@ If the resolution sharpened nothing, this phase writes nothing. That is a normal
 
 ## Phase R5 — Commit one decision, report, and stop
 
-Commit the claim, the resolution, the index line, and any graduated tickets as **one commit**:
+Commit the claim, the resolution, the index line, and any new tickets as **one commit**:
 
 ```bash
 git add .nexus/discovery/discover-<slug>-<key>
@@ -494,18 +494,19 @@ git commit -m "discover: resolve <ticket title>"
 **Never push, open a pull request, or merge.**
 
 Then **stop**. One decision is resolved per session. Research-typed tickets fired earlier may still
-be running in parallel — that is fine, they resolve nothing.
+be running in parallel. That is fine; they resolve nothing.
 
 Report:
 
 - The ticket resolved, **by title**, and the decision in one sentence.
 - For a surface ticket: the surface that was sketched, and the answer the chosen drawing embodies.
 - Any takeover that was recorded.
-- What graduated out of "Not yet specified" and what moved to "Out of scope", each **by title**.
+- What moved out of "Not yet specified" into a ticket, and what moved to "Out of scope", each **by
+  title**.
 - What remains open, **by title**, and what is still blocked and by which ticket.
 - The commit, and that nothing was pushed.
 - Next step: `/nxs.discover --resume <folder>` again while open tickets remain. When none remain and
-  "Not yet specified" is empty, the discovery is done — graduate it with `/nxs.epic`, or end it with
+  "Not yet specified" is empty, the discovery is done. Promote it with `/nxs.epic`, or end it with
   `/nxs.discover --close <folder>` if the resolutions concluded that no build follows.
 
 ---
@@ -513,17 +514,17 @@ Report:
 # Action: close — end a discovery that concluded no build follows
 
 This is the **terminal act for one outcome only**: every decision is resolved, and the resolutions
-concluded that **no build follows**. It is the outcome `/nxs.epic` never sees, because no epic and no
-stub is ever filed, so without this action it would have no home at all — and there are no stubs on
+concluded that **no build follows**. `/nxs.epic` never sees this outcome, because no epic and no
+stub is ever filed. Without this action the outcome would have no home, and there are no stubs on
 this path to carry the reasoning.
 
-**A discovery that concluded a build does follow is not closed here.** It graduates:
+**A discovery that concluded a build does follow is not closed here.** It is promoted through
 `/nxs.epic --discovery <folder>`. Do not force a stub to make the discovery closable.
 
 ## Phase C0 — Confirm the outcome (MANDATORY STOP)
 
 1. `--close <folder>` takes the discovery folder. Read `discovery.md` and every ticket file.
-2. Every ticket must have `status: resolved`. If any is open, report it **by title** and stop — an
+2. Every ticket must have `status: resolved`. If any is open, report it **by title** and stop. An
    unresolved question is not a no-build conclusion.
 3. Render the destination, the full resolved-decisions index, and the conclusion you have drawn from
    the resolutions in one or two sentences: **why no build follows**. Then ask via
@@ -532,7 +533,7 @@ this path to carry the reasoning.
     | Option | Action |
     |--------|--------|
     | **close** | Write the lessons note and remove the folder, in one commit. Irreversible in the tree, recoverable from the log. |
-    | **graduate** | Stop instead, and run `/nxs.epic --discovery <folder>` — a build does follow. |
+    | **graduate** | Stop instead, and run `/nxs.epic --discovery <folder>`, because a build does follow. |
 
     **Do not remove anything without an explicit `close`.**
 
@@ -579,13 +580,13 @@ A ticket that carries a wireframe carries it into the note **verbatim**, ruled l
 note is the only artifact that outlives this discovery, and a drawing described in prose is a
 drawing nobody has.
 
-Carry the index **in full** — one entry per index line, none dropped, none merged — and **drop the
+Carry the index **in full**, one entry per index line, none dropped, none merged, and **drop the
 `Detail:` clause**: the ticket file it names stops existing in the next step, so copying it would
-leave the only durable artifact pointing at nothing. This is why each entry carries the ticket's
+leave the only durable artifact pointing at nothing. Each entry therefore carries the ticket's
 **Why** and **refuted alternative** as well: the index line alone is a gist that leans on a ticket
-file to hold the reasoning, and there is no ticket file after this commit. It is the same full gist
-form `/nxs.epic` copies onto a stub at graduation, for the same reason — anything that must outlive
-the discovery is copied in full into a durable artifact, and a reference is never sufficient.
+file for the reasoning, and there is no ticket file after this commit. It is the same full gist form
+`/nxs.epic` copies onto a stub at graduation, for the same reason: anything that must outlive the
+discovery is copied in full into a durable artifact, and a reference is never sufficient.
 
 ## Phase C2 — Mark the doc closed, remove the folder, commit
 
@@ -637,9 +638,10 @@ status: open | closed
 ```
 
 The **resolved-decisions index** is append-only and order-insensitive, so two clones appending
-different resolutions merge cleanly. It must stay reconstructible from the ticket files, so a botched
-merge costs a rebuild and nothing more. Each resolved ticket contributes **exactly one** line to it;
-the ticket file remains the only store of the detail until graduation copies it onto the stubs.
+different resolutions merge cleanly. It must stay reconstructible from the ticket files, so a
+botched merge costs a rebuild and nothing more. Each resolved ticket contributes **exactly one**
+line to it. The ticket file remains the only store of the detail until promotion copies it onto the
+stubs.
 
 ## A decision ticket — `ticket-<nn>-<ticket-slug>.md`
 
@@ -671,12 +673,12 @@ claimed_at:            # ISO-8601, set with claimed_by
 
 The frontmatter is the **entire control surface**: the type, the blocking edges, the surface flag,
 the claim, and the status. The body holds the question and, later, its resolution. Each field has a
-one-to-one GitHub equivalent — the type is a label, the blocking edges are native dependency edges, the claim is an
-assignee, the status is open or closed — so migrating this store to an issue-backed one later is a
-translation rather than a redesign.
+GitHub equivalent: the type is a label, the blocking edges are native dependency edges, the claim is
+an assignee, and the status is open or closed. So migrating this store to an issue-backed one later
+is a translation, not a redesign.
 
 One file per ticket is also the **merge unit**. Two clones resolving two different tickets touch two
-different files and conflict nowhere except the shared index, where both sides are appending.
+different files. They conflict nowhere except the shared index, where both sides are appending.
 
 ---
 
@@ -688,7 +690,7 @@ different files and conflict nowhere except the shared index, where both sides a
 /nxs.discover --close <folder>       # end a discovery whose resolutions concluded no build follows
 ```
 
-A discovery whose resolutions **do** conclude a build graduates instead, through the one command
+A discovery whose resolutions **do** conclude a build is promoted instead, through the one command
 that files issues: `/nxs.epic --discovery <folder>`.
 
 # Constraints
@@ -701,20 +703,21 @@ that files issues: `/nxs.epic --discovery <folder>`.
 - **No durable link into the store.** Copy in full instead; the folder is removed when the discovery
   ends.
 - **The razor applies to what a discovery drafts.** Load the **`nxs-razor`** skill. Materialize the
-  run's source text beside the discovery — the initiative as the lead described it — and label the
-  discovery document's not-yet-specified and out-of-scope entries, and each ticket's question, in the
-  same two-valued form: `[asked: "…"]` with a fragment quoted from that source, or `[inferred]`.
-  **Resolutions are never labelled** — a resolution is a decision made in session and is inferred by
-  construction, so labelling it would be uniform noise. For the same reason **a wireframe carries no
-  label**: it is part of the resolution it sits in. Run the same checker the epic gate runs
-  (`nexus razor-check --draft <the drafted file> --source <the materialized source>`) and fix what
-  blocks. Nothing here reaches the issue tracker, and no durable link enters the discovery folder.
+  run's source text beside the discovery. That text is the initiative as the lead described it.
+  Label the discovery document's not-yet-specified and out-of-scope entries, and each ticket's
+  question, in the same two-valued form: `[asked: "…"]` with a fragment quoted from that source, or
+  `[inferred]`. **Resolutions are never labelled**. A resolution is a decision made in session and
+  is inferred by construction, so labelling it would be uniform noise. For the same reason **a
+  wireframe carries no label**: it is part of the resolution it sits in. Run the same checker the
+  epic gate runs (`nexus razor-check --draft <the drafted file> --source <the materialized source>`)
+  and fix what blocks. Nothing here reaches the issue tracker, and no durable link enters the
+  discovery folder.
 - **A ticket that decides what a person sees is ruled on against a drawing.** The drawing is ASCII,
   it is offered as competing variants **before** the ruling, and the chosen one is recorded inside
-  the resolution's `Decided` clause. It is never a file of its own in any format, because the folder
-  is removed when the discovery ends, an image cannot be copied into an issue body the way words
-  are, and the lead reads this gate in a terminal.
-- **A decision ticket is a question whose resolution is a decision** — never a slice of build work.
+  the resolution's `Decided` clause. It is never a file of its own in any format: the folder is
+  removed when the discovery ends, an image cannot be copied into an issue body the way words are,
+  and the lead reads this gate in a terminal.
+- **A decision ticket is a question whose resolution is a decision**, never a slice of build work.
   If a ticket reads like something an engineer would implement, it is not a ticket.
 - **The destination is immutable.** Changing it invalidates rulings that were made against the old
   boundary and never re-validated. Close the discovery and start another instead.
@@ -730,6 +733,6 @@ that files issues: `/nxs.epic --discovery <folder>`.
 - **An interview-typed ticket resolves only through live human exchange.** The agent never supplies
   the human's side of it.
 - **The folder is removed by exactly two acts:** closing a discovery with no build, or a human
-  removing it after graduation. No stage is taught to drain it, and `/nxs.epic` never removes it.
+  removing it after promotion. No stage is taught to drain it, and `/nxs.epic` never removes it.
 - **Closing with no build writes its lessons note in the same commit that removes the folder.**
 - **Human-facing output names a ticket by its title**, never by a bare filename.
