@@ -30,11 +30,16 @@ describe("each phase is its own entry point", () => {
 describe("a planning session holds no lesson-writing reference", () => {
     it("declares none of them", () => {
         const lessonOnly: string[] = lesson.references.filter((r) => !SHARED_REFERENCES.includes(r));
+        // The lesson phase owns no reference of its own today (nxs-prose-style, its only one, is
+        // removed). This equality is the tripwire: the day the lesson phase declares one again,
+        // this fails and the loop below starts checking planning against it.
+        expect(lessonOnly).toEqual([]);
         for (const reference of lessonOnly) expect(planning.references).not.toContain(reference);
     });
 
     it("names none of them anywhere in its body, because naming one is loading it", () => {
         const lessonOnly: string[] = lesson.references.filter((r) => !SHARED_REFERENCES.includes(r));
+        expect(lessonOnly).toEqual([]);
         for (const reference of lessonOnly) expect(planning.body).not.toContain(reference);
     });
 });
