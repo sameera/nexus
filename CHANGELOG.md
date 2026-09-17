@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.50.0
+
+- `epic`, `decision-record`, `distill`, `discover` and `teach` no longer load the `nxs-prose-style`
+  skill, and the skill is removed from the package. Each of those five stages now carries one short
+  rule block directly above the step that writes a human-facing artifact. The block states the six
+  plain-language form rules, one before-and-after sentence pair, and the text the rules never touch.
+  A lead sees the same artifacts drafted under the same rules, stated where the model is about to
+  write instead of in a file loaded at the top of the stage. The two content rules, write concrete and
+  add nothing, stay in each stage's prose convention.
+
 ## 0.49.0
 
 - `epic`, `decision-record`, `analyze` and `close` now write a cross-repository issue reference in

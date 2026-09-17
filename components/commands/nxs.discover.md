@@ -62,13 +62,12 @@ effect in the option description. The user can always pick "Other" to give a cus
 
 ## Prose convention — human-facing artifacts
 
-Before drafting any human-facing artifact, load the **`nxs-prose-style`** skill. It holds the six
-form rules, and where a restatement here disagrees with that file, that file governs. Two content
-rules are yours and are not in it. Write concrete, not abstract: "there are two copies of the
-record; one can go stale", never "state duplication risks divergence". Add nothing: every sentence
-carries a fact, a decision or a consequence. Draft plainly the first time. There is no translation
-pass, no pre-translation copy and no verify step on an artifact this command authored. Write the
-drafted file verbatim.
+Two content rules apply to every human-facing artifact this command drafts. Write concrete, not
+abstract: "there are two copies of the record; one can go stale", never "state duplication risks
+divergence". Add nothing: every sentence carries a fact, a decision or a consequence. The six form
+rules sit in a rule block directly above the step that writes the draft, where you are about to
+write. Draft plainly the first time. There is no translation pass, no pre-translation copy and no
+verify step on an artifact this command authored. Write the drafted file verbatim.
 
 ## Vocabulary
 
@@ -203,6 +202,13 @@ parallel discovery.
     | **new** | Start a separate discovery under a fresh key. Both folders then exist side by side. |
 
 ## Phase 4 — Create the folder and the discovery doc
+
+Write one idea per sentence. Put an aside in its own sentence, never between em-dashes. Use no
+idiom or coined shorthand. Prefer the common word when it means the same thing. Name the noun when
+"it" could point at two things. Say the exact strength you mean: "may", "should" and "must" differ.
+Not "closure instantiates the entry, whose subsequent ingestion populates the store" but "close
+creates the entry, and distill moves the entry into the concept store". Frontmatter, fenced code,
+machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
 Generate `<key>` — 8 lowercase hex characters — and create the folder:
 

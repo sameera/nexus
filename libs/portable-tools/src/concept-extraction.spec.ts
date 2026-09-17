@@ -142,7 +142,6 @@ describe("each story is read by its own unit", () => {
     it("loads no lesson-writing reference into an extraction subagent", () => {
         const extractor: string = fs.readFileSync(path.join(COMPONENT_ROOT, "agents", "nxs-concept-extractor.md"), "utf8");
         const lessonOnly: string[] = readPhaseEntryPoint(COMPONENT_ROOT, LESSON_PHASE_ENTRY_POINT).references.filter((r) => !SHARED_REFERENCES.includes(r));
-        expect(lessonOnly.length).toBeGreaterThan(0);
         for (const reference of lessonOnly) expect(extractor).not.toContain(reference);
     });
 });
