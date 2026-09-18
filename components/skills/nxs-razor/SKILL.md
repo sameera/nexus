@@ -9,7 +9,7 @@ Other gates in this pipeline measure effort or testability. None asks whether an
 scope. The razor is that missing axis, and this file is its **one normative home** (epic #284).
 Three drafting stages load it: `/nxs.epic`, `/nxs.decision-record` and `/nxs.discover`. Each of
 their templates restates only the short phrase that bounds the heading it sits beside.
-**Where a restatement and this file disagree, this file governs.**
+**Where a restatement and this file disagree, this file wins.**
 
 This is a guidance skill. It loads into the context that is *writing*, because the razor has to
 shape the draft as it is written. A rule that applies only to a finished draft belongs in an agent
@@ -190,7 +190,7 @@ either already lives in `nexus razor-check`; the rest is prose one stage generat
 it parses. **They no longer share a convention.** One offers addition and the other removal,
 because a refuted alternative is not scope and there is nothing at that gate to add it to.
 
-**This page governs where a stage's own wording disagrees with it**, here as everywhere else in this
+**This page wins where a stage's own wording disagrees with it**, here as everywhere else in this
 file. A stage's restatement of either convention is a pointer, never a source.
 
 ### The shared shape
