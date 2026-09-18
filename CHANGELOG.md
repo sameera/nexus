@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.56.0
+
+- `/nxs.epic` and `/nxs.decision-record` now build an HTML mockup's reference from a renderer a team
+  names, so a reviewer following that link in a filed issue opens the mockup as a page instead of
+  reading its markup. The team declares one address template carrying a `{url}` slot, and the
+  filing stage substitutes the asset's commit-pinned address into that slot verbatim. Every other
+  asset — and HTML in a repository that names no renderer — keeps exactly the reference it had
+  before. A named template that is not an absolute web address, or that carries no slot, stops the
+  stage at intake, before the draft exists.
+
 ## 0.55.0
 
 - `/nxs.epic` now deletes its own run folder (`nexus planning-dir remove`) once every issue it will

@@ -64,6 +64,12 @@ export const GITHUB_KEYS: readonly GithubKey[] = [
     // bytes. A team property rather than an invocation flag, so one lead cannot push a large binary
     // into a store the team can never prune. The built-in is the stated 5 MB default.
     { githubKey: "asset-size-cap", normalized: "assetSizeCap", builtin: "5242880" },
+    // The renderer an HTML asset's reference is built through (epic #613). One address template with
+    // one slot for the asset's pinned address. Deliberately without a built-in: an absent template
+    // means "no renderer", exactly as an absent store means assets are unsupported, and a built-in
+    // would send every team's mockup addresses to a service nobody nominated. The shape check lives
+    // beside the store's, in `asset-store.ts`.
+    { githubKey: "asset-renderer", normalized: "assetRenderer" },
 ];
 
 /** The catalogue row for a github-block key, or undefined when the catalogue declares none. */

@@ -35,21 +35,14 @@ function repoWith(settings: string): string {
 
 describe("an image renders inline from the blob address with the raw flag", () => {
     it.each(["flow.png", "mock.JPG", "sketch.jpeg", "anim.gif", "icon.svg", "photo.webp", "old.bmp"])("%s", (filename: string) => {
-        const reference = assetReference(published(filename));
+        const reference = assetReference(published(filename), null);
         expect(reference.kind).toBe("image");
         expect(reference.url).toBe(`https://github.com/acme/assets/blob/abc123/features/issue-assets/${filename}?raw=true`);
         expect(reference.markdown).toBe(`![${filename}](${reference.url})`);
     });
 
-    it("takes the same form whatever the store's visibility: the builder has no visibility input", () => {
-        const forPublic = assetReference(published("flow.png"));
-        const forPrivate = assetReference(published("flow.png"));
-        expect(forPrivate).toEqual(forPublic);
-        expect(assetReference.length).toBeLessThanOrEqual(2);
-    });
-
     it("uses a given label as the alt text", () => {
-        expect(assetReference(published("flow.png"), "The filing flow").markdown).toBe(
+        expect(assetReference(published("flow.png"), null, "The filing flow").markdown).toBe(
             "![The filing flow](https://github.com/acme/assets/blob/abc123/features/issue-assets/flow.png?raw=true)",
         );
     });
@@ -57,7 +50,7 @@ describe("an image renders inline from the blob address with the raw flag", () =
 
 describe("every other file is a link to the published version at the pinned commit", () => {
     it.each(["mockup.html", "notes.pdf", "flow.drawio", "spec.md", "archive.zip", "noext"])("%s", (filename: string) => {
-        const reference = assetReference(published(filename));
+        const reference = assetReference(published(filename), null);
         expect(reference.kind).toBe("file");
         expect(reference.url).toBe(`https://github.com/acme/assets/blob/abc123/features/issue-assets/${filename}`);
         expect(reference.url).not.toContain("?raw=true");
