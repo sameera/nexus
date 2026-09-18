@@ -21,3 +21,15 @@
 - **Choice:** A declared `content-length` over the cap refuses and cancels the body; a response with no declared length is read with a running total that abandons it the moment it passes the cap.
 - **Why:** Invariant 10 asks that the cap be checked before the body is held in memory, and a store that declares no length would otherwise escape the cap entirely.
 - **Refuted alternative:** Trust the declared length alone — rejected because it is the store's value, and invariant 10 says the cap is the renderer's own.
+
+## 2026-09-18 — The designated address binds the listener only, never the handler
+
+- **Choice:** `NEXUS_RENDERER_ADDRESS` (`host:port`, either part omittable) is read into the listener's bind address, defaulting to `127.0.0.1:8787`. The handler never sees it.
+- **Why:** Invariant 9 says the handler builds no absolute address of its own and is correct at whatever address it is reached at, so the designation has to stop at the listener.
+- **Refuted alternative:** A single base-URL setting the handler also reads, so it could build links — rejected because the handler would then be wrong at any other address.
+
+## 2026-09-18 — The deliverable's shape is measured by bundling it in a test
+
+- **Choice:** A test bundles `handler.ts` with esbuild and asserts one output file, no `node_modules` input, no `node:http` and no `createServer`, then imports the bundle and answers two requests through it. A `bundle` target produces the same artifact.
+- **Why:** The third acceptance criterion asks for the deliverable to be measured, and the only measurement that cannot drift is building it and looking at what came out.
+- **Refuted alternative:** Assert the shape by reading the import graph in source — cheaper, but it would pass on a graph a bundler still pulls a dependency into.

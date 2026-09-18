@@ -4,5 +4,13 @@
   "sourceRoot": "apps/renderer/src",
   "projectType": "application",
   "tags": [],
-  "targets": {}
+  "targets": {
+    "bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/renderer",
+        "command": "esbuild src/handler.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/handler.mjs"
+      }
+    }
+  }
 }
