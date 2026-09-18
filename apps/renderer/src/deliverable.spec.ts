@@ -59,7 +59,17 @@ describe("what the renderer delivers", () => {
             const bodies = ["<p>first</p>", "<p>second</p>"];
             const fetch: FetchLike = async () =>
                 new Response(bodies.shift() ?? "<p>exhausted</p>", { status: 200 });
-            const dependencies = { config: { stores: ["acme/assets"], sizeCap: 1024 }, fetch };
+            const dependencies = {
+                config: { stores: ["acme/assets"], sizeCap: 1024 },
+                fetch,
+                auth: {
+                    clientId: "Iv1.rendererapp",
+                    sealingKey: new Uint8Array(32).fill(2),
+                    exchange: async () => null,
+                    nonce: () => "the-random-value",
+                    now: () => Date.now(),
+                },
+            };
             const request = () =>
                 new Request(
                     `https://renderer.example/?url=${encodeURIComponent(

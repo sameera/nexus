@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { type AuthDependencies } from "./auth.js";
 import { type RendererConfig } from "./config.js";
 import { handleRequest } from "./handler.js";
 
@@ -7,6 +8,14 @@ const COMMIT = "a".repeat(40);
 const OTHER_COMMIT = "b".repeat(40);
 
 const CONFIG: RendererConfig = { stores: ["acme/assets"], sizeCap: 1024 };
+
+const AUTH: AuthDependencies = {
+    clientId: "Iv1.rendererapp",
+    sealingKey: new Uint8Array(32).fill(1),
+    exchange: async () => null,
+    nonce: () => "the-random-value",
+    now: () => 1_700_000_000_000,
+};
 
 function pinned(commit = COMMIT, path = "features/issue-assets/flow.html"): string {
     return `https://github.com/acme/assets/blob/${commit}/${path}`;
@@ -35,7 +44,7 @@ describe("the renderer serves a pinned mockup as a rendered page", () => {
     it("returns the published file as a document the browser renders", async () => {
         const fetch = upstream({ [COMMIT]: "<!doctype html><h1>A mockup</h1>" });
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         expect(response.status).toBe(200);
         expect(response.headers.get("content-type")).toMatch(/^text\/html/);
@@ -45,10 +54,11 @@ describe("the renderer serves a pinned mockup as a rendered page", () => {
     it("asks the store for the file at exactly the commit the address pinned", async () => {
         const fetch = upstream({ [COMMIT]: "<p>then</p>", [OTHER_COMMIT]: "<p>now</p>" });
 
-        const earlier = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const earlier = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
         const later = await handleRequest(mockupRequest(pinned(OTHER_COMMIT)), {
             config: CONFIG,
             fetch,
+            auth: AUTH,
         });
 
         expect(await earlier.text()).toBe("<p>then</p>");
@@ -60,7 +70,7 @@ describe("the renderer serves a pinned mockup as a rendered page", () => {
 
         const raw = await handleRequest(
             new Request(`https://renderer.example/?url=${pinned()}`),
-            { config: CONFIG, fetch },
+            { config: CONFIG, fetch, auth: AUTH },
         );
 
         expect(raw.status).toBe(200);
@@ -70,10 +80,10 @@ describe("the renderer serves a pinned mockup as a rendered page", () => {
     it("answers the same however it was reached, building no address of its own", async () => {
         const fetch = upstream({ [COMMIT]: "<p>ok</p>" });
 
-        const first = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const first = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
         const second = await handleRequest(
             new Request(`http://localhost:8787/?url=${encodeURIComponent(pinned())}`),
-            { config: CONFIG, fetch },
+            { config: CONFIG, fetch, auth: AUTH },
         );
 
         expect(await second.text()).toBe(await first.text());
@@ -83,8 +93,8 @@ describe("the renderer serves a pinned mockup as a rendered page", () => {
     it("keeps nothing between requests, asking the store again each time", async () => {
         const fetch = upstream({ [COMMIT]: "<p>ok</p>" });
 
-        await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
-        await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
+        await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         expect(fetch).toHaveBeenCalledTimes(2);
     });
@@ -94,7 +104,7 @@ describe("the served mockup is isolated from the renderer", () => {
     it("places the mockup on an origin of its own, with no same-origin privilege", async () => {
         const fetch = upstream({ [COMMIT]: "<script>document.cookie</script>" });
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         const policy = response.headers.get("content-security-policy") ?? "";
         expect(policy).toMatch(/\bsandbox\b/);
@@ -105,7 +115,7 @@ describe("the served mockup is isolated from the renderer", () => {
     it("carries the sandbox on a refusal page too", async () => {
         const fetch = upstream({});
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         expect(response.status).toBe(404);
         expect(response.headers.get("content-security-policy") ?? "").toMatch(/\bsandbox\b/);
@@ -116,7 +126,7 @@ describe("the served mockup is isolated from the renderer", () => {
 
         const response = await handleRequest(
             mockupRequest(pinned(), { headers: { origin: "null" } }),
-            { config: CONFIG, fetch },
+            { config: CONFIG, fetch, auth: AUTH },
         );
 
         expect(response.status).toBe(403);
@@ -130,7 +140,7 @@ describe("the served mockup is isolated from the renderer", () => {
             mockupRequest(pinned(), {
                 headers: { cookie: "session=secret", authorization: "Bearer secret" },
             }),
-            { config: CONFIG, fetch },
+            { config: CONFIG, fetch, auth: AUTH },
         );
 
         const sent = new Headers((fetch.mock.calls[0][1] as RequestInit).headers);
@@ -146,6 +156,7 @@ describe("what the renderer refuses", () => {
         const response = await handleRequest(new Request("https://renderer.example/"), {
             config: CONFIG,
             fetch,
+            auth: AUTH,
         });
 
         expect(response.status).toBe(400);
@@ -157,7 +168,7 @@ describe("what the renderer refuses", () => {
 
         const response = await handleRequest(
             mockupRequest(`https://github.com/attacker/pages/blob/${COMMIT}/a.html`),
-            { config: CONFIG, fetch },
+            { config: CONFIG, fetch, auth: AUTH },
         );
 
         expect(response.status).toBe(403);
@@ -169,7 +180,7 @@ describe("what the renderer refuses", () => {
 
         const response = await handleRequest(
             mockupRequest("https://github.com/acme/assets/blob/main/a.html"),
-            { config: CONFIG, fetch },
+            { config: CONFIG, fetch, auth: AUTH },
         );
 
         expect(response.status).toBe(400);
@@ -182,6 +193,7 @@ describe("what the renderer refuses", () => {
         const response = await handleRequest(mockupRequest(pinned(COMMIT, "a.png")), {
             config: CONFIG,
             fetch,
+            auth: AUTH,
         });
 
         expect(response.status).toBe(400);
@@ -192,6 +204,7 @@ describe("what the renderer refuses", () => {
         const response = await handleRequest(mockupRequest(pinned()), {
             config: CONFIG,
             fetch: upstream({}),
+            auth: AUTH,
         });
 
         expect(response.status).toBe(404);
@@ -213,7 +226,7 @@ describe("what the renderer refuses", () => {
                 ),
         );
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         expect(response.status).toBe(413);
         expect(cancelled).toBe(true);
@@ -224,7 +237,7 @@ describe("what the renderer refuses", () => {
             async () => new Response("x".repeat(4096), { status: 200 }),
         );
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         expect(response.status).toBe(413);
     });
@@ -232,7 +245,7 @@ describe("what the renderer refuses", () => {
     it("refuses when the store itself answers with an error", async () => {
         const fetch = vi.fn(async () => new Response("boom", { status: 500 }));
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         expect(response.status).toBe(502);
     });
@@ -242,7 +255,7 @@ describe("what the renderer refuses", () => {
 
         const response = await handleRequest(
             mockupRequest("https://github.com/acme/<script>alert(1)</script>/blob/main/a.html"),
-            { config: CONFIG, fetch },
+            { config: CONFIG, fetch, auth: AUTH },
         );
 
         const body = await response.text();
@@ -255,7 +268,7 @@ describe("what the renderer caches", () => {
     it("marks a mockup served from a public store as unchanging", async () => {
         const fetch = upstream({ [COMMIT]: "<p>ok</p>" });
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         const cache = response.headers.get("cache-control") ?? "";
         expect(cache).toMatch(/\bpublic\b/);
@@ -265,7 +278,7 @@ describe("what the renderer caches", () => {
     it("lets nothing cache a refusal", async () => {
         const fetch = upstream({});
 
-        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch });
+        const response = await handleRequest(mockupRequest(pinned()), { config: CONFIG, fetch, auth: AUTH });
 
         expect(response.headers.get("cache-control") ?? "").toMatch(/no-store/);
     });

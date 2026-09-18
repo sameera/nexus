@@ -10,6 +10,19 @@ const COMMIT = "c".repeat(40);
 const DEPENDENCIES = {
     config: { stores: ["acme/assets"], sizeCap: 1024 },
     fetch: async () => new Response("<h1>A mockup</h1>", { status: 200 }),
+    auth: {
+        clientId: "Iv1.rendererapp",
+        sealingKey: new Uint8Array(32).fill(4),
+        exchange: async () => null,
+        nonce: () => "the-random-value",
+        now: () => Date.now(),
+    },
+};
+
+const SIGN_IN = {
+    NEXUS_RENDERER_CLIENT_ID: "Iv1.rendererapp",
+    NEXUS_RENDERER_CLIENT_SECRET: "the-secret",
+    NEXUS_RENDERER_SESSION_KEY: Buffer.alloc(32, 6).toString("base64"),
 };
 
 /** A port nothing is listening on, so the designation under test is the one that matters. */
@@ -62,6 +75,7 @@ describe("the listener a developer runs", () => {
         const port = await freePort();
         const listener = await startFromEnvironment(
             {
+                ...SIGN_IN,
                 NEXUS_RENDERER_ADDRESS: `127.0.0.1:${port}`,
                 NEXUS_RENDERER_STORES: "acme/assets",
             },
@@ -79,5 +93,20 @@ describe("the listener a developer runs", () => {
         } finally {
             await listener.close();
         }
+    });
+});
+
+describe("an instance with no sealing key", () => {
+    it("refuses to start rather than sealing sessions with a value of its own", async () => {
+        await expect(
+            startFromEnvironment(
+                {
+                    NEXUS_RENDERER_CLIENT_ID: SIGN_IN.NEXUS_RENDERER_CLIENT_ID,
+                    NEXUS_RENDERER_CLIENT_SECRET: SIGN_IN.NEXUS_RENDERER_CLIENT_SECRET,
+                    NEXUS_RENDERER_STORES: "acme/assets",
+                },
+                DEPENDENCIES.fetch,
+            ),
+        ).rejects.toThrow(/NEXUS_RENDERER_SESSION_KEY/);
     });
 });

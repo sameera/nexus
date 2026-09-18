@@ -4,8 +4,17 @@ import {
     DEFAULT_ADDRESS,
     DEFAULT_SIZE_CAP,
     addressFromEnvironment,
+    authFromEnvironment,
     configFromEnvironment,
 } from "./config.js";
+
+const KEY = Buffer.alloc(32, 5).toString("base64");
+
+const SIGN_IN = {
+    NEXUS_RENDERER_CLIENT_ID: "Iv1.rendererapp",
+    NEXUS_RENDERER_CLIENT_SECRET: "the-secret",
+    NEXUS_RENDERER_SESSION_KEY: KEY,
+};
 
 describe("configFromEnvironment", () => {
     it("takes the served stores from the environment", () => {
@@ -70,5 +79,36 @@ describe("addressFromEnvironment", () => {
             host: "0.0.0.0",
             port: DEFAULT_ADDRESS.port,
         });
+    });
+});
+
+describe("what an instance needs before it can sign a reader in", () => {
+    it("takes the GitHub App and the sealing key the environment hands it", () => {
+        const auth = authFromEnvironment(SIGN_IN);
+
+        expect(auth.clientId).toBe("Iv1.rendererapp");
+        expect(auth.clientSecret).toBe("the-secret");
+        expect(auth.sealingKey).toHaveLength(32);
+    });
+
+    it("refuses to start with no sealing key rather than falling back to one of its own", () => {
+        expect(() =>
+            authFromEnvironment({ ...SIGN_IN, NEXUS_RENDERER_SESSION_KEY: undefined }),
+        ).toThrow(/NEXUS_RENDERER_SESSION_KEY/);
+    });
+
+    it("refuses to start on a sealing key that is not the length it seals with", () => {
+        expect(() =>
+            authFromEnvironment({ ...SIGN_IN, NEXUS_RENDERER_SESSION_KEY: "dG9vLXNob3J0" }),
+        ).toThrow(/NEXUS_RENDERER_SESSION_KEY/);
+    });
+
+    it("refuses to start when no GitHub App is named", () => {
+        expect(() =>
+            authFromEnvironment({ ...SIGN_IN, NEXUS_RENDERER_CLIENT_ID: "  " }),
+        ).toThrow(/NEXUS_RENDERER_CLIENT_ID/);
+        expect(() =>
+            authFromEnvironment({ ...SIGN_IN, NEXUS_RENDERER_CLIENT_SECRET: undefined }),
+        ).toThrow(/NEXUS_RENDERER_CLIENT_SECRET/);
     });
 });
