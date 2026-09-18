@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.52.0
+
+- `/nxs.epic`'s approval digest, its resume report and its revise report now all name the
+  repository-relative path to the run's full draft (`${DRAFT_DIR}/epic.md`) beside what they show,
+  instead of pointing at an unnamed "session scratch". The digest is a condensation; naming the full
+  draft beside it lets the reviewer check the condensation instead of trusting it, and a `revise`
+  or a resume both read back the exact path just reported.
+
 ## 0.51.0
 
 - `/nxs.epic` now drafts an epic into a per-run folder inside the checkout, under the gitignored
