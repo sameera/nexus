@@ -308,7 +308,7 @@ Inputs to read:
 
 Produce, as human prose (no machine block, no file paths / type names / API or schema specs):
 - A 2–3 sentence summary of what is built and the shape of the chosen approach.
-- The chosen approach in a few sentences (diagram only if it carries real weight).
+- The chosen approach in a few sentences (diagram only if load-bearing).
 - KEY DECISIONS (core): one entry per real decision — what was decided, why, and the
   refuted VIABLE alternative + why it lost. Guardrail (C1/G2): include an alternative only
   if a competent engineer might genuinely have chosen it and it lost on a real trade-off —
