@@ -26,6 +26,15 @@ function scratchRepo(): string {
     return repo;
 }
 
+describe("planningDirPath — Story #641 AC1: never drainable", () => {
+    it("never sits directly under .nexus/tmp/, the shape nxs.distill's scan looks for", () => {
+        const planning = planningDirPath("/repo", "nxs-epic-onboarding");
+        const scratchRoot = path.join("/repo", ".nexus", "tmp");
+        expect(path.dirname(planning)).not.toBe(scratchRoot);
+        expect(path.dirname(path.dirname(planning))).toBe(scratchRoot);
+    });
+});
+
 describe("planningDirPath", () => {
     it("keys the path on the run name under a planning namespace nested inside .nexus/tmp", () => {
         expect(planningDirPath("/repo", "nxs-epic-onboarding")).toBe(

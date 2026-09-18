@@ -75,6 +75,14 @@ $ARGUMENTS
    and a fix or intake directory missing either file is skipped exactly as an epic directory missing
    either file is.
 
+   **A planning draft is never one of these, by construction.** `/nxs.epic` writes its per-run
+   folder one level deeper, under `.nexus/tmp/planning/<run-name>/` (decision record #646), never
+   directly under `.nexus/tmp/`. It carries no `close-record.md`, and its own `epic.md` (when the
+   run drafted a full epic rather than stubs) has no `entry_kind:` this scan would recognise either.
+   Either property alone already keeps it off this list; do **not** teach this scan to recurse into
+   `.nexus/tmp/planning/` to "catch" a planning draft — there is nothing there for it to catch, and
+   recursing would risk aging or warning about a draft an unrelated planning run still has open.
+
    **The kind set is closed: `epic`, `fix`, and `intake`, and nothing else** (record #504,
    invariant 6). **A `fix-<n>` directory is a fix entry** (#263), written by `/nxs.fix` for a small
    change that has already landed. **An `intake-<n>` directory is an intake entry** (#483), written
