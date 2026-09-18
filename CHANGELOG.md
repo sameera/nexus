@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.57.0
+
+- `/nxs.epic` and `/nxs.decision-record` now tell the lead which form an HTML mockup's link will
+  take **before** approval: the approval digest carries the renderer the intake answer resolved, so
+  a lead who wanted the other form can abort, configure and re-run rather than discover it on an
+  issue that is already filed. After publishing, the stage says on the console which form it
+  actually filed, so falling back to the plain link is never silent. A repository that names no
+  renderer files exactly the bodies it filed before. A private store with a renderer named is a
+  warning the lead decides on — a renderer cannot read a private store yet — never a refusal.
+
 ## 0.56.0
 
 - `/nxs.epic` and `/nxs.decision-record` now build an HTML mockup's reference from a renderer a team

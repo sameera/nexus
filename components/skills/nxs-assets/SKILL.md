@@ -68,8 +68,8 @@ nexus assets publish --file <local-path> --feature <slug> [--root <dir>] [--json
 # Intake, before a draft is written: every path exists, no two share a file name, the store
 # resolves and its visibility is read once. Publishes nothing.
 nexus assets check --asset <path> [--asset <path> ...] [--root <dir>]
-# {"state":"declared","repo":"acme/assets","branch":null,"visibility":"private","assets":[{"path":"assets/flow.png","filename":"flow.png","kind":"image"}]}
-# {"state":"unsupported","assets":[...]}          ← no store: the stage drafts without asset references
+# {"state":"declared","repo":"acme/assets","branch":null,"visibility":"private","renderer":null,"assets":[{"path":"assets/flow.png","filename":"flow.png","kind":"image"}]}
+# {"state":"unsupported","renderer":null,"assets":[...]}   ← no store: the stage drafts without asset references
 
 # After approval, on the derived filing body: publish every asset a body references, in declared
 # order, and replace each local path with the reference its reader renders.
@@ -86,10 +86,18 @@ nexus razor-check --draft <file> --assert-clean --asset-path <path> [--asset-pat
    said once on the console and the run continues with no asset references at all.
 2. **Draft** with each asset named by its **local path, exactly as declared**, as a Markdown image
    or link target (`![the flow](assets/flow.png)`). Nothing is published.
-3. **Digest** names the store and its visibility. A public store under a private issues repository
-   is a warning the lead decides on, never a refusal.
+3. **Digest** names the store, its visibility and the `renderer` the intake answer carried, so the
+   lead reads **before approving** which form HTML references will take: the renderer's address when
+   `renderer` is a template, the plain link when it is `null`. A filed reference is frozen, so a
+   lead who wanted the other form aborts here, configures and re-runs. A public store under a
+   private issues repository is a warning the lead decides on, never a refusal — and so is a
+   **private store with a renderer configured**, which cannot be read by a renderer until epic #614
+   lands.
 4. **After approval**, on the derived filing body and before the clean-body assertion: `rewrite`,
-   then `razor-check --assert-clean --asset-path …`. Every asset is published before the first issue
+   then `razor-check --assert-clean --asset-path …`. A run that published an HTML asset states on
+   the console which form it filed — `assets renderer:` naming the template, or `assets
+   renderer-absent:` saying the plain link was filed. The fallback is never silent, and a run that
+   published no HTML asset says nothing about renderers. Every asset is published before the first issue
    is created or edited; a revise at the gate leaves the store untouched.
 
 A declared path is matched **exactly and as a whole token** in both the rewrite and the assertion,
@@ -112,6 +120,9 @@ so a body's own repository-relative paths are never findings, and the published 
   address as much as in a plain link (decision record #627).
 - A reference is frozen when the issue is filed. Changing `asset-renderer` affects only the issues
   filed afterwards; no stage rewrites a body already filed.
+- The choice between the renderer's address and the plain link turns on whether a renderer is
+  configured, and never on the store's visibility. Visibility feeds the approval digest and nothing
+  else.
 - Only the pinned public address is ever substituted into the template — never a credential, a token,
   or an expiring raw address.
 - One commit per file, in the order the caller publishes them. A partial failure leaves earlier files
