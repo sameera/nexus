@@ -1,8 +1,8 @@
 ---
 title: "Lesson Renderer"
 aliases: ["workbook renderer", "lesson page", "closed markup channel", "all-or-nothing render", "provenance banner", "quoted code in a lesson"]
-touches: ["workbook-store", "widget-seam", "offline-page", "learner-folder", "reading-surface-tokens", "portable-tooling", "just-in-time-lesson", "generated-page-check", "workbook-home-page", "component-refusal"]
-last_updated_by: "#480"
+touches: ["workbook-store", "widget-seam", "offline-page", "learner-folder", "reading-surface-tokens", "portable-tooling", "just-in-time-lesson", "generated-page-check", "workbook-home-page", "component-refusal", "reference-page"]
+last_updated_by: "#481"
 status: active
 verification: verified
 ---
@@ -36,6 +36,7 @@ A lesson containing markup fails the render, and the failure names the file. The
 - [generated-page-check](generated-page-check.md) — split from this page: what answers drift between a committed page and the lesson it came from.
 - [workbook-home-page](workbook-home-page.md) — one more page this render produces, from the committed plan rather than from an authored lesson.
 - [component-refusal](component-refusal.md) — the code fields this render's markup check now skips, because a component escapes and shows their values as code itself.
+- [reference-page](reference-page.md) — one more page this render builds, from its own authored prose, and links to from the warm-up of each lesson that drilled its concept.
 
 ## Decision Log
 
@@ -54,3 +55,7 @@ Mechanical reciprocity fan-out: the render now produces a home page from the com
 ### 2026-09-13 — #480 — Reciprocal link from component-refusal
 
 Mechanical reciprocity fan-out: a component can now name fields of its own declaration that carry code, and this render's markup check skips exactly those fields' values, reading every other key and scalar in the declaration as before. Nothing else about the closed markup channel changes: code fences remain the only other exemption, and a widget declaration's content otherwise still counts as markup.
+
+### 2026-09-18 — #481 — Reciprocal link from reference-page
+
+Mechanical reciprocity fan-out: this render now also builds reference pages, in the same all-or-nothing pass as the lessons and with the same shared chrome. It links a lesson to the page on the concept that lesson drilled, only when that page is in the same render. A lesson whose page name would take the reserved form reference pages use is now refused by name. The closed markup channel is unchanged: an authored reference file carrying markup fails the render exactly as a lesson does.
