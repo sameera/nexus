@@ -35,6 +35,13 @@ export function workbookRoot(repoRoot: string, slug: string): string {
 /** The authored lessons' folder inside one workbook. Prose in, pages out beside it. */
 export const LESSONS_DIRNAME: string = "lessons";
 
+/**
+ * The authored reference pages' folder inside one workbook (epic #481): one file per concept a second
+ * drill earned a page for. It sits beside the lessons rather than inside them, because a reference
+ * page is no step in the teaching order the plan and the lessons agree on (record #659).
+ */
+export const REFERENCE_DIRNAME: string = "reference";
+
 export interface CreatedWorkbook {
     /** Absolute path of the created workbook folder. */
     root: string;
@@ -135,6 +142,27 @@ export function readLessons(repoRoot: string, slug: string): LessonSource[] {
     return order.filter((file) => present.includes(file)).map(read);
 }
 
+/** Absolute path of one workbook's authored reference pages. */
+export function referenceDir(repoRoot: string, slug: string): string {
+    return path.join(workbookRoot(repoRoot, slug), REFERENCE_DIRNAME);
+}
+
+/**
+ * The authored reference pages of one workbook, sorted by file name so reading them is deterministic.
+ * Each is named by its path inside the workbook, which is how a refusal names it. The plan names none
+ * of them, and no lesson agreement applies: an absent folder is a workbook with no page earned yet.
+ */
+export function readReferences(repoRoot: string, slug: string): LessonSource[] {
+    const dir: string = referenceDir(repoRoot, slug);
+    if (!fs.existsSync(dir)) return [];
+    return fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter((e) => e.isFile() && e.name.endsWith(".md"))
+        .map((e) => e.name)
+        .sort()
+        .map((file) => ({ file: `${REFERENCE_DIRNAME}/${file}`, source: fs.readFileSync(path.join(dir, file), "utf8") }));
+}
+
 /** The lesson files this workbook actually holds, sorted, so reading them is deterministic. */
 export function writtenLessonFiles(repoRoot: string, slug: string): string[] {
     const dir: string = lessonsDir(repoRoot, slug);
@@ -215,6 +243,7 @@ export function planRenderOptions(repoRoot: string, slug: string, plan: Workbook
         lessons: order.filter((file) => present.includes(file)).map((file) => ({ file, source: fs.readFileSync(path.join(lessonsDir(repoRoot, slug), file), "utf8") })),
         stubs: planStubs(plan, present).map((stub) => stub.label),
         home: homeEntries(plan, present),
+        references: readReferences(repoRoot, slug),
     };
 }
 

@@ -23,7 +23,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
-import { chooseDrill, conceptsToRevisit, type HintCounts, type LessonConceptHistory } from "./drill-selection.js";
+import { chooseDrill, conceptsToRevisit, earnedConcepts, earnedReference, type HintCounts, type LessonConceptHistory } from "./drill-selection.js";
 import {
     interpretReturn,
     proveProbe,
@@ -53,8 +53,27 @@ import {
 } from "./lesson-writer.js";
 import { gateNextLesson, type DriftFinding, type IssueReader, type LessonGate, type TeachingPlan } from "./teaching-plan.js";
 import { sliceId, sliceLabel, toTeachingPlan, type PlanSliceRecord, type WorkbookPlan } from "./workbook-plan.js";
-import { parseLesson, pageNameFor, renderWorkbookInto, type Lesson, type LessonSource } from "./workbook-render.js";
-import { lessonsDir, planRenderOptions, readLessons, readWorkbookPlan, workbookRoot, writeWorkbookPlan } from "./workbook-store.js";
+import {
+    REFERENCE_PAGE_PREFIX,
+    REFERENCE_WORD_BUDGET,
+    parseLesson,
+    parseReference,
+    pageNameFor,
+    referencePageNameFor,
+    renderWorkbookInto,
+    type Lesson,
+    type LessonSource,
+} from "./workbook-render.js";
+import {
+    lessonsDir,
+    planRenderOptions,
+    readLessons,
+    readReferences,
+    readWorkbookPlan,
+    referenceDir,
+    workbookRoot,
+    writeWorkbookPlan,
+} from "./workbook-store.js";
 
 /** The learner record the drill's ranking reads: how many hints were taken, by concept. */
 export const HINT_LOG_FILENAME: string = "hints.json";
@@ -143,6 +162,42 @@ function readHints(repoRoot: string, skipped: string[]): HintCounts {
         );
         return {};
     }
+}
+
+/**
+ * The concepts this workbook already holds a reference page for. A file the render would refuse is
+ * skipped here rather than failing the session: the render names it, and a concept it fails to cover
+ * is simply still owed.
+ */
+function conceptsWithPages(repoRoot: string, slug: string): Set<string> {
+    const covered: Set<string> = new Set();
+    for (const source of readReferences(repoRoot, slug)) {
+        try {
+            covered.add(parseReference(source).concept);
+        } catch {
+            // Reported by the render, which refuses it by name.
+        }
+    }
+    return covered;
+}
+
+/**
+ * The authored source of a reference page on this concept: the one concept it covers, and the
+ * prose. Checked as the render will check it before anything is written, so a page the render would
+ * refuse never leaves a lesson written with no render behind it.
+ */
+function referenceSource(concept: string, prose: string): LessonSource {
+    const source: LessonSource = {
+        file: `reference/${referenceFileFor(concept)}`,
+        source: `---\nconcept: ${JSON.stringify(concept)}\n---\n\n${prose.trim()}\n`,
+    };
+    parseReference(source);
+    return source;
+}
+
+/** The authored file a reference page on this concept is written to, named from its concept. */
+function referenceFileFor(concept: string): string {
+    return referencePageNameFor(concept).slice(REFERENCE_PAGE_PREFIX.length).replace(/\.html$/, ".md");
 }
 
 /** The story a handoff record names, as a number. Handoff records carry it as the learner wrote it. */
@@ -249,6 +304,7 @@ function briefFor(
     slice: PlanSliceRecord,
     drill: string | null,
     revisit: readonly string[] = [],
+    earned: LessonBrief["earned"] = null,
 ): LessonBrief {
     return {
         ...(slice.story === undefined ? {} : { story: slice.story }),
@@ -259,6 +315,7 @@ function briefFor(
         concepts: slice.concepts,
         drill,
         revisit,
+        earned,
         exercise:
             slice.story === undefined || slice.pinningTest === null
                 ? null
@@ -271,6 +328,17 @@ function briefFor(
                   },
         ...(needsTest(slice) ? { writeTest: testRequest(plan, slice) } : {}),
     };
+}
+
+/** What a brief asks for on the concept this sitting's drill earned a reference page for. */
+function earnedReport(earned: LessonBrief["earned"]): string {
+    if (earned === null) return "";
+    if (earned.written) return ` ${earned.concept} has been drilled again, and its reference page is already written.`;
+    return (
+        ` ${earned.concept} is drilled here a second time, so it has earned a reference page: its prose, at most ` +
+        `${REFERENCE_WORD_BUDGET} words restating only what a lesson already taught, goes under 'reference'. ` +
+        `The lesson is written without it if it does not come.`
+    );
 }
 
 /**
@@ -307,6 +375,17 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     const parsed: Lesson[] = written.map(parseLesson);
     const history: LessonConceptHistory[] = parsed.map(conceptsOf);
     const teaching: TeachingPlan = toTeachingPlan(plan);
+
+    // A page an earlier sitting earned and nobody wrote is named on every run, so the backlog stays
+    // visible rather than silent (record #659, invariant 6).
+    const withPages: Set<string> = conceptsWithPages(repoRoot, slug);
+    const owed: string[] = earnedConcepts(history).filter((concept) => !withPages.has(concept));
+    if (owed.length > 0) {
+        notes.push(
+            `${owed.join(", ")} ${owed.length === 1 ? "has" : "have"} earned a reference page, drilled a second time ` +
+            `in an earlier lesson, and none is written yet.`,
+        );
+    }
     const { state, open } = handoffState(repoRoot, slug);
 
     // 3. The suite gate. It runs before the probe, and its result gates everything (invariants 8, 10).
@@ -574,7 +653,11 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
     const hints: HintCounts = readHints(repoRoot, skipped);
     const drill: string | null = chooseDrill(history, hints);
     const revisit: string[] = conceptsToRevisit(history, hints);
-    let brief: LessonBrief = briefFor(plan, slice, drill, revisit);
+    // A drill on a concept an earlier lesson already drilled earns it a reference page. Counted over
+    // the committed lessons alone; the hints above only ranked the drill (record #659, invariant 4).
+    const earnedConcept: string | null = earnedReference(history, drill);
+    const earned: LessonBrief["earned"] = earnedConcept === null ? null : { concept: earnedConcept, written: withPages.has(earnedConcept) };
+    let brief: LessonBrief = briefFor(plan, slice, drill, revisit, earned);
 
     // 7. The one generative step. Without the prose the chain hands out the brief and stops; with
     // it, the lesson is written, the workbook re-rendered, and the exercise handed over.
@@ -590,7 +673,8 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
                     (revisit.length === 0
                         ? "."
                         : `, and a question and answer on ${revisit.join(", ")} — asked about again ` +
-                          `because the last lesson took a hint on ${revisit.length === 1 ? "it" : "them"}.`),
+                          `because the last lesson took a hint on ${revisit.length === 1 ? "it" : "them"}.`) +
+                    earnedReport(earned),
             },
             drift: gate.findings,
             skipped,
@@ -610,17 +694,38 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
         }
         const index: number = plan.slices.indexOf(slice);
         pinned = withPinningTests(plan, authored);
-        brief = briefFor(pinned, pinned.slices[index], drill, revisit);
+        brief = briefFor(pinned, pinned.slices[index], drill, revisit, earned);
     }
     // Composed before anything is written, so a lesson that cannot be composed records no test either.
     const lesson: string = composeLesson(brief, inputs.prose);
+    // Earning a page and writing it are two events: prose that did not come back leaves the page owed
+    // and the lesson written (record #659). Prose that did is checked before anything is written.
+    const authoredReference: string = inputs.prose.reference?.trim() ?? "";
+    const reference: LessonSource | null =
+        earned === null || earned.written || authoredReference === "" ? null : referenceSource(earned.concept, authoredReference);
+    if (reference !== null && earned !== null && fs.existsSync(path.join(referenceDir(repoRoot, slug), referenceFileFor(earned.concept)))) {
+        // Another concept's page already holds the file this one would be written to; overwriting it
+        // would lose that page, so nothing is written and the collision is named instead.
+        throw new Error(
+            `the reference page on ${earned.concept} would be written to ${reference.file}, which already holds a ` +
+            `page on another concept. Rename one of the two files by hand and re-run.`,
+        );
+    }
     if (pinned !== null) {
         plan = pinned;
         writeWorkbookPlan(repoRoot, slug, plan);
     }
     fs.mkdirSync(lessonsDir(repoRoot, slug), { recursive: true });
     fs.writeFileSync(path.join(lessonsDir(repoRoot, slug), slice.lesson), lesson);
+    if (reference !== null && earned !== null) {
+        fs.mkdirSync(referenceDir(repoRoot, slug), { recursive: true });
+        fs.writeFileSync(path.join(referenceDir(repoRoot, slug), referenceFileFor(earned.concept)), reference.source);
+    }
     render(repoRoot, slug, plan);
+    const referencePage: string | null =
+        earned === null || (!earned.written && reference === null)
+            ? null
+            : path.join(workbookRoot(repoRoot, slug), referencePageNameFor(earned.concept));
     return {
         outcome: {
             kind: "written",
@@ -629,6 +734,13 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
             page: pagePath(repoRoot, slug, slice.lesson),
             report:
                 `Wrote the lesson for ${sliceLabel(slice)} and opened it at ${pagePath(repoRoot, slug, slice.lesson)}.` +
+                (earned === null
+                    ? ""
+                    : referencePage === null
+                      ? ` ${earned.concept} has earned a reference page, drilled a second time, and none is written yet — ` +
+                        `the next session names it again.`
+                      : ` ${earned.concept} has earned a reference page, drilled a second time; it is at ${referencePage}, ` +
+                        `and the warm-up of every lesson that drilled it links there.`) +
                 (brief.exercise === null ? "" : `\n\n${renderExerciseSection(brief.exercise)}`),
         },
         drift: gate.findings,

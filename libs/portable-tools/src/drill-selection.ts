@@ -92,3 +92,31 @@ export function conceptsToRevisit(history: readonly LessonConceptHistory[], hint
         .filter((concept) => (hints[concept] ?? 0) > 0)
         .sort((a, b) => (hints[b] ?? 0) - (hints[a] ?? 0) || byName(a, b));
 }
+
+/**
+ * The concept this sitting's drill earns a reference page for, or null (epic #481, record #659).
+ *
+ * A concept earns a page exactly when the drill just chosen was already recorded as drilled by an
+ * earlier written lesson. Only a drill counts: an introduction is not a drill, and a concept asked
+ * about again after a hint is not one either. The answer is a function of the committed lessons
+ * alone, so nothing personal is read or written to reach it, and the render can re-derive it.
+ */
+export function earnedReference(history: readonly LessonConceptHistory[], drill: string | null): string | null {
+    if (drill === null) return null;
+    return history.some((lesson) => lesson.drilled.includes(drill)) ? drill : null;
+}
+
+/**
+ * Every concept an earlier sitting earned a reference page for: each one two or more written lessons
+ * drilled. Sorted by name, so a report naming them is the same on every run.
+ */
+export function earnedConcepts(history: readonly LessonConceptHistory[]): string[] {
+    const drills: Map<string, number> = new Map();
+    for (const lesson of history) {
+        for (const concept of new Set(lesson.drilled)) drills.set(concept, (drills.get(concept) ?? 0) + 1);
+    }
+    return [...drills.entries()]
+        .filter(([, count]) => count >= 2)
+        .map(([concept]) => concept)
+        .sort(byName);
+}

@@ -75,6 +75,19 @@ never rewrites it: the lesson shows that text and the fence probe runs it. Befor
 the session asks for two tests: the handed-off slice's and the next story slice's. Write both the
 same way and re-run.
 
+**A reference page is written when the brief asks for one.** The brief names a concept that has
+earned a page when this sitting drills it a second time. Put the page's prose in the same file's
+front matter:
+
+```yaml
+reference: |
+    <at most five hundred words on that one concept>
+```
+
+Restate only what the lessons already taught about that concept. Add nothing new. The lesson is
+written without the page if you leave it out, and the next session names the concept again. Write a
+page only for the concept the brief names, never for the other concepts still waiting for one.
+
 # After the lesson
 
 The session renders the page and the workbook's home page, which lists every slice in order with

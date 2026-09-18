@@ -216,6 +216,13 @@ export interface LessonBrief {
      */
     revisit: readonly string[];
     /**
+     * The concept this sitting's drill earned a reference page for — the drill chose a concept an
+     * earlier lesson already drilled — and whether its page is already written. Null when the drill
+     * earned nothing. The prose is asked for only when the page is not written, and a lesson is
+     * written whether or not the prose comes back (epic #481, record #659).
+     */
+    earned: { concept: string; written: boolean } | null;
+    /**
      * Null on a scaffold: it builds nothing, so it has no branch, no pinning test and no exercise. Null
      * too on a story slice whose pinning test has not been written yet — see `writeTest`.
      */
@@ -268,6 +275,12 @@ export interface AuthoredProse {
     revisit?: readonly RevisitProse[];
     /** The pinning tests the brief asked for, each filed under its slice's identity. */
     pinningTests?: readonly AuthoredPinningTest[];
+    /**
+     * The reference page's prose on the concept the brief named as earned, when it asked for one. It
+     * restates only what a lesson already taught, in at most one printed page. Optional: an absent
+     * page never holds back the lesson.
+     */
+    reference?: string;
 }
 
 /**
