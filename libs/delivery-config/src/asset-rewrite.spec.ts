@@ -82,6 +82,7 @@ describe("the intake check, before the draft is written", () => {
             repo: "acme/assets",
             branch: null,
             visibility: "private",
+            renderer: null,
             assets: [
                 { path: "assets/flow.png", filename: "flow.png", kind: "image" },
                 { path: "assets/mock.html", filename: "mock.html", kind: "file" },
@@ -119,7 +120,10 @@ describe("the intake check, before the draft is written", () => {
 
 describe("rewriting a body", () => {
     const asset = { declared: "assets/flow.png", file: "/x/assets/flow.png", filename: "flow.png", kind: "image" as const };
-    const reference = assetReference({ path: "features/f/flow.png", commit: "c1", url: "https://github.com/acme/assets/blob/c1/features/f/flow.png", filename: "flow.png" });
+    const reference = assetReference(
+        { path: "features/f/flow.png", commit: "c1", url: "https://github.com/acme/assets/blob/c1/features/f/flow.png", filename: "flow.png" },
+        null,
+    );
 
     it("keeps the author's alt text when the path sits in an image target", () => {
         expect(rewriteAssetPath("See ![the flow](assets/flow.png) here.", asset, reference)).toBe(
@@ -161,6 +165,7 @@ describe("the post-approval rewrite", () => {
             feature: "issue-assets",
             store: STORE,
             sizeCap: 1024,
+            renderer: null,
             run: store.run,
         });
         expect(outcome.ok).toBe(true);

@@ -7,12 +7,15 @@
 
 import * as path from "node:path";
 import { publishAsset, type PublishResult } from "./asset-publish.js";
-import { type AssetReference, assetReference } from "./asset-reference.js";
+import { type AssetReference, assetReference, isHtmlAsset } from "./asset-reference.js";
 import { type AssetListCheck, checkAssetList, publishAndRewrite, type RewriteOutcome } from "./asset-rewrite.js";
 import {
+    ASSET_RENDERER_KEY,
+    type AssetRendererResolution,
     type AssetSizeCapResolution,
     type AssetStore,
     type AssetStoreResolution,
+    resolveAssetRenderer,
     resolveAssetSizeCap,
     resolveAssetStore,
 } from "./asset-store.js";
@@ -99,6 +102,19 @@ function requireStore(root: string, io: ToolkitIo): AssetStore | number {
     return resolution.store;
 }
 
+/**
+ * The configured HTML renderer template, or null when the team configured none. A declared template
+ * that cannot work stops the run by name — at intake, before any draft exists (epic #613).
+ */
+function requireRenderer(root: string, io: ToolkitIo): { template: string | null } | null {
+    const resolution: AssetRendererResolution = resolveAssetRenderer(root);
+    if (resolution.kind === "malformed") {
+        io.stderr(`assets malformed-renderer: ${resolution.message}`);
+        return null;
+    }
+    return { template: resolution.kind === "declared" ? resolution.template : null };
+}
+
 function requireSizeCap(root: string, io: ToolkitIo): number | null {
     const cap: AssetSizeCapResolution = resolveAssetSizeCap(root);
     if (cap.kind === "malformed") {
@@ -125,13 +141,15 @@ export function runAssetsPublish(args: string[], io: ToolkitIo, run: GhRunner = 
     if (typeof store === "number") return store;
     const sizeCap: number | null = requireSizeCap(resolvedRoot, io);
     if (sizeCap === null) return 1;
+    const renderer = requireRenderer(resolvedRoot, io);
+    if (renderer === null) return 1;
 
     const result: PublishResult = publishAsset({ file: path.resolve(io.cwd, file), feature, store, sizeCap, run });
     if (!result.ok) {
         io.stderr(`assets ${result.problem}: ${result.message}`);
         return 1;
     }
-    const reference: AssetReference = assetReference(result.asset);
+    const reference: AssetReference = assetReference(result.asset, renderer.template);
     io.stdout(json ? JSON.stringify({ ...result.asset, ...reference }) : reference.url);
     return 0;
 }
@@ -204,14 +222,17 @@ export function runAssetsCheck(args: string[], io: ToolkitIo, run: GhRunner = cl
         return 1;
     }
     const assets = list.assets.map((asset) => ({ path: asset.declared, filename: asset.filename, kind: asset.kind }));
-    const resolution: AssetStoreResolution = resolveAssetStore(path.resolve(io.cwd, root ?? "."));
+    const resolvedRoot: string = path.resolve(io.cwd, root ?? ".");
+    const renderer = requireRenderer(resolvedRoot, io);
+    if (renderer === null) return 1;
+    const resolution: AssetStoreResolution = resolveAssetStore(resolvedRoot);
     if (resolution.kind === "malformed") {
         io.stderr(`assets malformed-store: ${resolution.message}`);
         return 1;
     }
     if (resolution.kind === "unsupported") {
         io.stderr(`assets unsupported: ${UNSUPPORTED_MESSAGE}`);
-        io.stdout(JSON.stringify({ state: "unsupported", assets }));
+        io.stdout(JSON.stringify({ state: "unsupported", renderer: renderer.template, assets }));
         return 0;
     }
     const visibility: VisibilityResult = readStoreVisibility(resolution.store, run);
@@ -219,12 +240,19 @@ export function runAssetsCheck(args: string[], io: ToolkitIo, run: GhRunner = cl
         io.stderr(`assets store-unreadable: ${visibility.message}`);
         return 1;
     }
+    if (visibility.visibility === "private" && renderer.template !== null) {
+        io.stderr(
+            `assets renderer-private-store: the store ${resolution.store.repo} is private, so a renderer cannot read it ` +
+                "until epic #614 lands — filing continues, and an HTML reference filed now may not resolve for a reviewer",
+        );
+    }
     io.stdout(
         JSON.stringify({
             state: "declared",
             repo: resolution.store.repo,
             branch: resolution.store.branch,
             visibility: visibility.visibility,
+            renderer: renderer.template,
             assets,
         }),
     );
@@ -256,12 +284,15 @@ export function runAssetsRewrite(args: string[], io: ToolkitIo, run: GhRunner = 
     if (typeof store === "number") return store;
     const sizeCap: number | null = requireSizeCap(resolvedRoot, io);
     if (sizeCap === null) return 1;
+    const renderer = requireRenderer(resolvedRoot, io);
+    if (renderer === null) return 1;
     const outcome: RewriteOutcome = publishAndRewrite({
         bodies: bodies.map((body) => path.resolve(io.cwd, body)),
         assets: list.assets,
         feature,
         store,
         sizeCap,
+        renderer: renderer.template,
         run,
     });
     if (!outcome.ok) {
@@ -270,6 +301,14 @@ export function runAssetsRewrite(args: string[], io: ToolkitIo, run: GhRunner = 
             io.stderr(`  already published, harmless and unreferenced: ${outcome.summary.published.map((p) => p.path).join(", ")}`);
         }
         return 1;
+    }
+    const html: string[] = outcome.summary.published.filter((entry) => isHtmlAsset(entry.path)).map((entry) => path.basename(entry.path));
+    if (html.length > 0) {
+        io.stderr(
+            renderer.template === null
+                ? `assets renderer-absent: no ${ASSET_RENDERER_KEY} is configured — the plain link was filed for: ${html.join(", ")}`
+                : `assets renderer: HTML references were built from ${ASSET_RENDERER_KEY} '${renderer.template}' for: ${html.join(", ")}`,
+        );
     }
     for (const unreferenced of outcome.summary.unreferenced) {
         io.stderr(`assets unreferenced: ${unreferenced} is declared but no body mentions it — not published`);

@@ -101,6 +101,8 @@ export interface RewriteRequest {
     feature: string;
     store: AssetStore;
     sizeCap: number;
+    /** The configured HTML renderer template, or null when the team configured none (epic #613). */
+    renderer: string | null;
     run: GhRunner;
 }
 
@@ -152,7 +154,7 @@ export function publishAndRewrite(request: RewriteRequest): RewriteOutcome {
         });
         if (!result.ok) return { ok: false, problem: "publish", message: result.message, summary };
         const published: PublishedAsset = result.asset;
-        const reference: AssetReference = assetReference(published);
+        const reference: AssetReference = assetReference(published, request.renderer);
         references.set(asset.declared, reference);
         summary.published.push({
             declared: asset.declared,

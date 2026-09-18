@@ -119,6 +119,10 @@ const GITHUB_DEFAULT_KEYS = [
     // declared once for the whole workspace.
     "asset-store",
     "asset-size-cap",
+    // Epic #613: the renderer template an HTML asset's reference is built through. Registered here
+    // for the same reason as the store — a key absent from this allowlist cannot be declared on a
+    // hub at all, and a workspace names one renderer for every member.
+    "asset-renderer",
 ];
 /** The hub-role default docs root when no explicit override is given: the repo root. */
 const DEFAULT_HUB_DOCS_ROOT = ".";

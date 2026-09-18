@@ -5,7 +5,7 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.56.0
+## 0.58.0
 
 - `/nxs.teach` now earns a **reference page** for a concept the session drills a second time. The
   brief and the session's report name the concept, and the prose file may carry the page under a
@@ -18,6 +18,26 @@ behaviour says so.
 - A printed workbook page no longer clips a long line of code. On paper a code block now wraps
   instead of scrolling, so every committed workbook re-renders once and `nexus workbook check`
   reports its pages as changed until it does.
+
+## 0.57.0
+
+- `/nxs.epic` and `/nxs.decision-record` now tell the lead which form an HTML mockup's link will
+  take **before** approval: the approval digest carries the renderer the intake answer resolved, so
+  a lead who wanted the other form can abort, configure and re-run rather than discover it on an
+  issue that is already filed. After publishing, the stage says on the console which form it
+  actually filed, so falling back to the plain link is never silent. A repository that names no
+  renderer files exactly the bodies it filed before. A private store with a renderer named is a
+  warning the lead decides on — a renderer cannot read a private store yet — never a refusal.
+
+## 0.56.0
+
+- `/nxs.epic` and `/nxs.decision-record` now build an HTML mockup's reference from a renderer a team
+  names, so a reviewer following that link in a filed issue opens the mockup as a page instead of
+  reading its markup. The team declares one address template carrying a `{url}` slot, and the
+  filing stage substitutes the asset's commit-pinned address into that slot verbatim. Every other
+  asset — and HTML in a repository that names no renderer — keeps exactly the reference it had
+  before. A named template that is not an absolute web address, or that carries no slot, stops the
+  stage at intake, before the draft exists.
 
 ## 0.55.0
 
