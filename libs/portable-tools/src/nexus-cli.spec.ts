@@ -84,6 +84,7 @@ describe("verb dispatch", () => {
         const help: string = io.out.join("\n");
         expect(help).toContain("nexus abs-doc-path");
         expect(help).toContain("nexus epic-resolve");
+        expect(help).toContain("nexus planning-dir");
         expect(help).toContain("nexus record-digest");
     });
 
@@ -103,6 +104,7 @@ describe("verb dispatch", () => {
                 "workspace",
                 "abs-doc-path",
                 "epic-resolve",
+                "planning-dir",
                 "record-digest",
                 "pr-worktree",
                 "close-migration",
@@ -130,6 +132,9 @@ describe("verb dispatch", () => {
                 "pr-worktree open",
                 "pr-worktree range",
                 "pr-worktree remove",
+                "planning-dir ensure",
+                "planning-dir list",
+                "planning-dir remove",
                 // The retired migration verb dispatches no subverbs any more (epic #215): every
                 // subcommand hits the same retirement marker, so it appears bare.
                 "close-migration",
@@ -225,6 +230,57 @@ describe("nexus epic-resolve (registration only — network path covered by the 
         const io: CapturedIo = makeIo(makeTmpDir("cli-epic-resolve-"));
         expect(await runNexusCli(["epic-resolve"], io)).toBe(2);
         expect(io.err.join("\n")).toContain("--epic");
+    });
+});
+
+describe("nexus planning-dir (story #639, decision record #646)", () => {
+    it("exits 2 with a usage diagnostic when no subverb is given", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-planning-dir-"));
+        expect(await runNexusCli(["planning-dir"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("usage");
+    });
+
+    it("ensure creates the run folder and prints its path", async () => {
+        const root = makeTmpDir("cli-planning-dir-");
+        const io: CapturedIo = makeIo(root);
+        expect(await runNexusCli(["planning-dir", "ensure", "--name", "nxs-epic-onboarding"], io)).toBe(0);
+        const printed = JSON.parse(io.out.join(""));
+        expect(printed.path).toBe(path.join(root, ".nexus", "tmp", "planning", "nxs-epic-onboarding"));
+        expect(fs.existsSync(printed.path)).toBe(true);
+    });
+
+    it("ensure exits 2 with a usage diagnostic when --name is missing", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-planning-dir-"));
+        expect(await runNexusCli(["planning-dir", "ensure"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--name");
+    });
+
+    it("list prints every run folder under the planning namespace", async () => {
+        const root = makeTmpDir("cli-planning-dir-");
+        const io: CapturedIo = makeIo(root);
+        await runNexusCli(["planning-dir", "ensure", "--name", "nxs-epic-a"], io);
+        await runNexusCli(["planning-dir", "ensure", "--name", "nxs-epic-b"], io);
+        io.out.length = 0;
+        expect(await runNexusCli(["planning-dir", "list"], io)).toBe(0);
+        const printed = JSON.parse(io.out.join(""));
+        expect(printed.dirs.sort()).toEqual(["nxs-epic-a", "nxs-epic-b"]);
+    });
+
+    it("remove deletes the named run folder and reports removed: true", async () => {
+        const root = makeTmpDir("cli-planning-dir-");
+        const io: CapturedIo = makeIo(root);
+        await runNexusCli(["planning-dir", "ensure", "--name", "nxs-epic-onboarding"], io);
+        io.out.length = 0;
+        expect(await runNexusCli(["planning-dir", "remove", "--name", "nxs-epic-onboarding"], io)).toBe(0);
+        const printed = JSON.parse(io.out.join(""));
+        expect(printed.removed).toBe(true);
+        expect(fs.existsSync(printed.path)).toBe(false);
+    });
+
+    it("remove exits 1 with a named diagnostic on an unsafe name, and removes nothing", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-planning-dir-"));
+        expect(await runNexusCli(["planning-dir", "remove", "--name", "../escaped"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("planning-dir");
     });
 });
 

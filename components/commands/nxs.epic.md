@@ -32,7 +32,7 @@ Empty input is an error: ask the user for a capability description (or a stub's 
 # What this command does (read once)
 
 - **No feature brief precondition.** It takes intent directly. The feature container is an _output_: if one is not already in context, infer a name, confirm it once, and scaffold it. No human pre-authors a brief before planning.
-- **Nothing is committed at planning. GitHub issues are the source of truth (#114).** The epic is drafted only to **session scratch**; the epic gate runs on that draft; at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer created here. It is created at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage rebuilds the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label (#185), so the feature tree carries no re-triage queue at all.
+- **Nothing is committed at planning. GitHub issues are the source of truth (#114).** The epic is drafted only into the run's own folder under the gitignored `.nexus/tmp/planning/` (decision record #646), readable inside the checkout the lead already has open; the epic gate runs on that draft; at approval the epic and its story issues are **filed**, committing **nothing** to `.nexus/queue/`. The queue entry is no longer created here. It is created at close (`/nxs.close`), so the queue holds only closed, drainable entries. Every later stage rebuilds the epic from its issue number via the resolver (`nxs-epic-resolve`), not from a committed planning file. The feature folder under `<docs-root>/features/<name>/` (the docs root resolved in Phase 0) still holds the durable nav index. It holds no backlog file: deferred scope is an open issue carrying the unplanned label (#185), so the feature tree carries no re-triage queue at all.
 - **Underspecified scope is referred to discovery, not answered with stubs.** The right-size phase tests sharpness before it measures size. An intent whose functional goals cannot be stated stops there and recommends `/nxs.discover`, with an explicit override. Big-but-clear is a different problem and keeps the decomposition path below.
 - **Oversized scope decomposes to stubs.** The right-sizing gate is kept. A `> M` scope, with consent, files one **stub issue** per functional goal. A stub is an epic identified but not yet planned; it carries the epic classification plus the unplanned label. The full epic for each is deferred to a later `/nxs.epic <issue-number>` promotion.
 - **A finished discovery is promoted here.** `/nxs.discover` resolves decisions and writes nothing to GitHub; `--discovery <folder>` turns those resolved decisions into issues through the same emission path everything else uses. That is what makes "a discovery-produced stub is accepted unchanged by promotion" true by construction rather than by a third copy of the stub contract.
@@ -102,7 +102,13 @@ nexus assets check --asset <path> [--asset <path> ...]
 
 The check reads; it writes nothing to the store. Nothing is published before the Phase 5 gate.
 
-1. **Resume check.** Look in your **session scratch** for a pending epic draft: a working folder (e.g. `nxs-epic-<slug>/epic.md`) written by a prior run of this command whose frontmatter has **no `link`** (an epic drafted but not yet filed as issues). If one exists, report it and ask whether to **resume** its approval gate or start a new epic. Resume → load that draft, **recover its asset state** (below), and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one pending draft exists, resume it without asking. Otherwise continue. (There is no committed queue entry to resume, because nothing is committed at planning. A draft abandoned mid-session is simply never filed, and needs no cleanup.)
+1. **Resume check.** List every run folder this checkout is currently holding:
+
+    ```bash
+    nexus planning-dir list
+    ```
+
+    For each name it returns, read `<repo-relative path>/epic.md` if present. A folder whose `epic.md` frontmatter has **no `link`** is an epic drafted but not yet filed as issues. If one exists, report its path and ask whether to **resume** its approval gate or start a new epic. Resume → set `RUN_DIR` to that folder's path, load its draft, **recover its asset state** (below), and skip to Phase 5. If `$ARGUMENTS` is `--resume` and exactly one such folder exists, resume it without asking. Otherwise continue. (There is no committed queue entry to resume, because nothing is committed at planning. A draft abandoned mid-run is simply never filed, and needs no cleanup: it is untracked, and Phase 6 only ever deletes the run folder it itself created.)
 
    **Recovering asset state on resume.** `ASSETS`, `ASSET_STORE` and `ASSET_VISIBILITY` live in the context of the run that drafted; a resumed run has none of them. Phase 6 runs the rewrite and the `--asset-path` assertion only when `ASSETS` is set, so a resume that skipped this step would file the draft's local paths into the issues. Look for `assets.json` in the draft's folder, the intake result Phase 4 stores beside `epic.md`:
    - **Present** → re-run the intake step with the `path` of every entry in its `assets` list, in order (`nexus assets check --asset <path> [--asset <path> ...]`), and handle its result exactly as the assets intake above does: a non-zero exit stops the run and reports the diagnostic (a file moved since the draft was written is a `missing-asset`), `unsupported` sets `ASSETS = none`, `declared` sets the three values. The store is read again; nothing is published.
@@ -150,6 +156,18 @@ The container must exist before writing: the feature nav index (written at filin
     - Let **`<feature-path>`** be the resolved container: `<docs-root>/features/<slug>` (empty-prefix rule: `features/<slug>` on a repo-root hub). This exact string is what you record in `feature_path` and derive `README.md` from.
     - Present a single confirmation: _"I'll plan this under feature **<Name>** (`<feature-path>/`). Accept, or give a different name?"_ One prompt, cheap. Accept the user's correction if any.
     - Ensure the directory exists (`mkdir -p <feature-path>`); the draft's `feature_path` needs it. **Do not write `README.md` here.** The feature nav index is written only once the epic is filed as a GitHub issue (Phase 6), so it links directly to the issue rather than a draft that must be updated later. Record the feature **name** and a **one-line capability statement** for that later write.
+
+**Establish the run folder (`RUN_DIR`), once, before the right-size gate decides whether this run drafts an epic or a set of stubs.** Everything the run will file from — the draft, the materialized source text, the derived filing body, and, on the decomposition path, the stub work items — lives in this one folder, and its name is fixed for the life of the run:
+
+- **Promotion mode** → `RUN_NAME = <PROMOTE>` (the stub's own issue number).
+- **Discovery mode** → `RUN_NAME = <the discovery folder's slug>` (the last path segment of `DISCOVERY`).
+- **Intent mode** → `RUN_NAME = <feature-slug>` (the slug this step just resolved or confirmed).
+
+```bash
+nexus planning-dir ensure --name "nxs-epic-${RUN_NAME}"
+```
+
+It creates (or, on a resume, reuses) the folder and prints `{ path }`. Capture that as **`RUN_DIR`**. It is repository-relative, under the gitignored `.nexus/tmp/planning/`, never renamed once created, and every later phase in this run reads and writes inside it and nowhere else.
 
 ## Phase 2 — Right-size gate (MANDATORY STOP) — skip in promotion mode
 
@@ -392,14 +410,15 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
 4. **Roll up the epic complexity (0009).** Derive `complexity` from the sized stories (dominant story size + story count + cross-story integration) and set `complexity_drivers` to match. **If the rollup exceeds M**, stop and return to the Phase 2 gate (present the L/XL/XXL options; stubs are the expected path) before writing anything.
 5. Write the epic document (structure below). Resolve any remaining clarifications with the user before finalizing (use the clarification format in the guidelines).
 
-## Phase 4 — Write the draft to session scratch (commit nothing)
+## Phase 4 — Write the draft to the run folder (commit nothing)
 
-The epic is drafted **only to session scratch**, never to `.nexus/queue/` and never under `docs/`. Nothing is committed at planning (#114); the committed queue entry is created at close.
+The epic is drafted **only into `RUN_DIR`** (established in Phase 1), never to `.nexus/queue/` and never under `docs/`. Nothing is committed at planning (#114); the committed queue entry is created at close.
 
 ```bash
-DRAFT_DIR="<your-session-scratch>/nxs-epic-${EPIC_SLUG}"
-mkdir -p "$DRAFT_DIR"
+DRAFT_DIR="$RUN_DIR"
 ```
+
+`DRAFT_DIR` is `RUN_DIR` itself, not a folder nested inside it: the whole run — the draft, its source text, its derived filing body and (on the decomposition path) its stub work items — sits beside itself in one place a reviewer can open (decision record #646, story #642).
 
 **Store the assets intake result beside the draft** (when `--assets` was passed): write the JSON the intake step printed (`declared` or `unsupported`, with its `assets` list) verbatim to `${DRAFT_DIR}/assets.json`. A resumed run (Phase 0 step 1) recovers `ASSETS`, `ASSET_STORE` and `ASSET_VISIBILITY` from it after a `revise`. It is session scratch like the draft: it is never copied into `epic.filing.md` and never reaches an issue. **Do not put the declared paths in the draft's frontmatter**: the frontmatter is embedded onto the epic issue as its meta block, and the Phase 6 assertion scans every line of the filing body, frontmatter included.
 

@@ -44,6 +44,11 @@
       "import": "./src/write.ts",
       "default": "./src/write.ts"
     },
+    "./planning-dir": {
+      "types": "./src/planning-dir.ts",
+      "import": "./src/planning-dir.ts",
+      "default": "./src/planning-dir.ts"
+    },
     "./meta": {
       "types": "./src/meta.ts",
       "import": "./src/meta.ts",

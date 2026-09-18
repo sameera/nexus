@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.51.0
+
+- `/nxs.epic` now drafts an epic into a per-run folder inside the checkout, under the gitignored
+  `.nexus/tmp/planning/`, instead of the invoking harness's own session temp directory. A lead can
+  now open the full draft in the same editor that already has the checkout open, and a resume check
+  finds a pending draft by listing that folder (`nexus planning-dir list`) rather than reaching
+  outside the repository. The new `nexus planning-dir` command (`ensure` / `list` / `remove`) is the
+  deterministic tool layer decision record #646 asks for: every phase of one run agrees on the same
+  path, and removal runs behind a guard that refuses any name that is not a plain folder under the
+  planning namespace.
+
 ## 0.50.0
 
 - `epic`, `decision-record`, `distill`, `discover` and `teach` no longer load the `nxs-prose-style`

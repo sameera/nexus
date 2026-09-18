@@ -34,6 +34,7 @@ import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/epic-resolve/planning-dir";
 import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
@@ -131,6 +132,9 @@ export interface VerbEntry {
 
 const WORKSPACE_SUBVERBS: readonly string[] = ["init", "status", "docs-root", "add-repo", "github-defaults"];
 const PR_WORKTREE_SUBVERBS: readonly string[] = ["preflight", "open", "range", "remove", "stories"];
+
+/** The subverbs `nexus planning-dir` dispatches (story #639, decision record #646). */
+const PLANNING_DIR_SUBVERBS: readonly string[] = ["ensure", "list", "remove"];
 
 /**
  * The configuration resolver's own commands, read from the table that dispatches them (story #396)
@@ -241,6 +245,19 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Resolve epic issue #N and write the materialized epic.md.",
         ].join("\n"),
         run: runEpicResolve,
+    },
+    "planning-dir": {
+        summary: "Manage /nxs.epic's per-run planning folder under the gitignored scratch area.",
+        usage: [
+            "  nexus planning-dir ensure --name <name> [--root <startDir>]",
+            "      Create (or reuse) the run's planning folder and print { path }.",
+            "  nexus planning-dir list [--root <startDir>]",
+            "      Print { dirs } — every run folder currently under the planning namespace.",
+            "  nexus planning-dir remove --name <name> [--root <startDir>]",
+            "      Remove the named run folder and nothing else. Prints { path, removed }.",
+        ].join("\n"),
+        subverbs: PLANNING_DIR_SUBVERBS,
+        run: runPlanningDir,
     },
     "epic-verdicts": {
         summary: "Derive one epic receipt from the story verdicts already published on their pull requests.",
@@ -1137,6 +1154,59 @@ async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
             record: resolved.record,
         }),
     );
+    return 0;
+}
+
+interface PlanningDirFlags {
+    name?: string;
+    root: string;
+}
+
+function parsePlanningDirFlags(argv: string[], cwd: string): PlanningDirFlags {
+    const flags: PlanningDirFlags = { root: cwd };
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--name") flags.name = argv[++i];
+        else if (a === "--root") flags.root = argv[++i];
+    }
+    return flags;
+}
+
+/**
+ * `nexus planning-dir` — the deterministic tool layer decision record #646 requires around the
+ * planning run folder's path and its removal, so several phases of `/nxs.epic` agree on the same
+ * path and a recursive delete inside the lead's checkout runs behind a guard written in code.
+ */
+async function runPlanningDir(argv: string[], io: CliIo): Promise<number> {
+    const sub = argv[0];
+    if (!PLANNING_DIR_SUBVERBS.includes(sub)) {
+        io.stderr("usage: nexus planning-dir <ensure|list|remove> --name <name> [--root <startDir>]");
+        return 2;
+    }
+    const flags: PlanningDirFlags = parsePlanningDirFlags(argv.slice(1), io.cwd);
+
+    if (sub === "list") {
+        io.stdout(JSON.stringify({ dirs: listPlanningDirs(flags.root) }));
+        return 0;
+    }
+
+    if (flags.name === undefined) {
+        io.stderr(`usage: nexus planning-dir ${sub} --name <name> [--root <startDir>]`);
+        return 2;
+    }
+
+    if (sub === "ensure") {
+        io.stdout(JSON.stringify({ path: ensurePlanningDir(flags.root, flags.name) }));
+        return 0;
+    }
+
+    // sub === "remove"
+    const result = removePlanningDir(flags.root, flags.name);
+    if (!result.ok) {
+        io.stderr(`planning-dir ${result.error}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ path: result.path, removed: result.removed }));
     return 0;
 }
 
