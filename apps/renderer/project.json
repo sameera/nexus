@@ -11,6 +11,13 @@
         "cwd": "apps/renderer",
         "command": "esbuild src/handler.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/handler.mjs"
       }
+    },
+    "bundle-lambda": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "apps/renderer",
+        "command": "esbuild src/lambda.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/lambda/index.mjs"
+      }
     }
   }
 }
