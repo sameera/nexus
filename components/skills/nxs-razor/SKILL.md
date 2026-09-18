@@ -44,7 +44,8 @@ issue. See §4.
 ## 2. The run's source text is materialized once, before any item is labelled
 
 Before labelling anything, write the text the run was given, **verbatim**, into one file beside the
-draft, in the same session-scratch folder:
+draft, in the same run folder (`RUN_DIR`) — a folder **inside the checkout**, under the gitignored
+`.nexus/tmp/planning/<run-name>/`:
 
     ${DRAFT_DIR}/source.md
 
@@ -64,8 +65,8 @@ location, so it cannot see what the lead typed. Typed intent has no durable home
 to re-fetch in the mode that needs it most. And a stub body edited between drafting and the gate
 would let the gate check against a source the draft was never written from.
 
-`source.md` is session scratch. It is never committed, never enters the queue, and is never written
-under the documentation tree. It may contain anything the lead typed, including a pasted credential,
+`source.md` lives in `RUN_DIR`, inside the checkout. It is never committed, never enters the queue,
+and is never written under the documentation tree. It may contain anything the lead typed, including a pasted credential,
 so **no part of it is ever posted to an issue, a comment or a report.**
 
 ## 3. What makes a citation hold

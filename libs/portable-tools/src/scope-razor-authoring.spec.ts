@@ -64,6 +64,17 @@ describe("the razor skill", () => {
     it("gives the observation marker one asserted sentinel rather than a bare warning symbol", () => {
         expect(read(RAZOR)).toContain("⚠️ razor:");
     });
+
+    it("locates the materialized source text inside the checkout's run folder, not harness session scratch", () => {
+        // Decision record #646 moved DRAFT_DIR to RUN_DIR, a folder *inside* the checkout under the
+        // gitignored .nexus/tmp/planning/<run-name>/ (libs/epic-resolve/src/planning-dir.ts). The
+        // razor is the higher-precedence text nxs.epic.md defers to on disagreement, so a stale claim
+        // that source.md lives in harness session scratch would contradict the shipped location.
+        const body: string = read(RAZOR);
+        expect(body).not.toMatch(/harness session (scratch|temp)/i);
+        expect(body).toMatch(/RUN_DIR/);
+        expect(body).toMatch(/inside the checkout/i);
+    });
 });
 
 describe("the epic drafting stage", () => {
