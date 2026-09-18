@@ -307,7 +307,7 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
     nexus config resolve unplanned-label
     ```
 
-2. **Write one transient work-item per stub** to a session scratch folder (never committed, never under `<feature-path>`), named `STORY-STUB-<NN>.md`. No `parent:` key, because a stub is never a sub-issue of anything:
+2. **Write one transient work-item per stub** into `RUN_DIR` (never committed, never under `<feature-path>`), named `STORY-STUB-<NN>.md`. No `parent:` key, because a stub is never a sub-issue of anything:
 
     ```markdown
     ---
@@ -352,7 +352,7 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 4. **File the batch** through the shared filer, classified as an **epic** rather than a story:
 
     ```bash
-    nexus create-story "<scratch-folder>" \
+    nexus create-story "${RUN_DIR}" \
         --classification-label "<epic-label>" \
         --classification-type "<epic-type>"
     ```
@@ -361,7 +361,7 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 
     Discard the transient files only after a `✅ Complete` run.
 
-5. **Post the marked gist comment (discovery mode only).** This is the **one** addition the discovery entry mode makes to the emission path above; that path files issues and writes no comments. For each stub, write `GIST_BODY_<NN>` (**the same text already in the body, unedited**) to a scratch file under the marker, and post it:
+5. **Post the marked gist comment (discovery mode only).** This is the **one** addition the discovery entry mode makes to the emission path above; that path files issues and writes no comments. For each stub, write `GIST_BODY_<NN>` (**the same text already in the body, unedited**) to a file in `RUN_DIR` under the marker, and post it:
 
     ```markdown
     ## Decisions this goal hangs on
@@ -372,7 +372,7 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
     ```
 
     ```bash
-    gh issue comment <stub-issue> --body-file "<scratch>/gist-<NN>.md"
+    gh issue comment <stub-issue> --body-file "${RUN_DIR}/gist-<NN>.md"
     ```
 
     The gist is written twice because the two copies do different jobs. The **body** copy is the one promotion consumes, because promotion seeds its draft from the stub's body. The **comment** copy is the one that **survives**, because promotion rewrites that body wholesale; anything left only in the body is destroyed at exactly the moment the reasoning matters most. The duplication cannot drift, because **neither copy is ever edited again**. The hidden marker is what turns the surviving copy from an archive into an input: `/nxs.decision-record` finds it by that marker when it later designs the promoted epic.
@@ -684,7 +684,7 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 
    Use it wherever a story must name a sibling, in `blocked_by` **and in body prose** (`extends STORY-<EPIC>.<SEQ>`). Step 4's pass 3 rewrites every prose ref to `#<issue>` once the numbers exist, so the ref never reaches a reader. Never hand-write a `#<n>` for a story in this batch: the number is not knowable at authoring time, and a guess points at an unrelated issue.
 
-3. **Write transient story work-items** to the scratchpad, one `STORY-<EPIC>.<SEQ>.md` per story, with the frontmatter the creation skill consumes and the story body as the issue body.
+3. **Write transient story work-items** into `RUN_DIR`, one `STORY-<EPIC>.<SEQ>.md` per story, with the frontmatter the creation skill consumes and the story body as the issue body.
 
    Each body is a **verbatim transcription** of that story's section in the derived `${DRAFT_DIR}/epic.filing.md`. Copy the prose across; do not re-draft it. Transcribing from the labelled `epic.md` would carry a provenance label onto a story issue, which is the one leak the derived body exists to prevent. The epic was approved at the Phase 5 digest on that wording, so a sentence rewritten here would reach the issue unapproved. Only the asset rewrite at the top of this phase and the ref rewrite in step 4's pass 3 (`STORY-<EPIC>.<SEQ>` → `#<issue>`) may change a body after approval:
 
@@ -714,7 +714,7 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
     **Then assert every work-item, before step 4 files any of them:**
 
     ```bash
-    for item in "<scratch-folder>"/STORY-*.md; do
+    for item in "${RUN_DIR}"/STORY-*.md; do
         nexus razor-check --draft "$item" --assert-clean [--asset-path <path> ...] || exit 1
     done
     ```
@@ -726,7 +726,7 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 4. **Create the story issues:**
 
     ```bash
-    nexus create-story "<scratch-folder>"
+    nexus create-story "${RUN_DIR}"
     ```
 
     The skill runs three passes. Pass 1 creates each issue (clean title), links it as a sub-issue of `#<EPIC>`, and adds it to the project, recording each `ref → issue` mapping. Pass 2 wires the **native GitHub `blocked_by` dependencies** from each story's `blocked_by` refs. Pass 3 rewrites every `STORY-<EPIC>.<SEQ>` left in a story **body**, and in the epic issue's own body, to the `#<issue>` it now resolves to, so no ref survives filing as dead text. A prose ref naming a story outside this batch fails the run closed; fix it in the source `STORY-*.md` and re-run.
@@ -766,7 +766,7 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 6b. **Post the marked gist comment on the epic issue (discovery mode only).** A discovery that right-sized to M or smaller is planned here as one epic and files **no stub**, so there is no stub body to carry its reasoning. Write the resolved decisions onto the epic issue in the same full gist form and under the same marker Phase 2b step 5 uses, so the reasoning still outlives the folder and still reaches `/nxs.decision-record`:
 
     ```bash
-    gh issue comment <EPIC> --body-file "<scratch>/gist-epic.md"
+    gh issue comment <EPIC> --body-file "${RUN_DIR}/gist-epic.md"
     ```
 
     Anything that must outlive a discovery is copied in full into a durable artifact. A reference is never sufficient, because the folder is removed once the discovery ends.
