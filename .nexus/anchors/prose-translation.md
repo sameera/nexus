@@ -1,6 +1,6 @@
 ---
 concept: prose-translation
-source_sha: 7a4a3d2dadd41db52cfe94b605c9cc0758a4d2af
+source_sha: 1adcd30adaa8ac4aefe20247f21326db41e9abfa
 generated: 2026-09-17
 ---
 
