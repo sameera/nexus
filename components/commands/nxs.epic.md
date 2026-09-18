@@ -359,7 +359,7 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
 
     The filer upserts every label it will apply **before** creating anything, so a repository that has never seen the unplanned label still files cleanly. If a label can be neither created nor found, the filer reports the gap and creates nothing (grant the token label scope, then re-run). Pass 2 wires the native `blocked_by` edges between the stubs. With `github.project: none` no project is touched. The run is resumable and idempotent: on `⚠️ INCOMPLETE`, re-run the exact same command.
 
-    Discard the transient files only after a `✅ Complete` run.
+    Discard the transient work-items only after a `✅ Complete` run; step 6 below removes the whole run folder they and everything else in it sit in.
 
 5. **Post the marked gist comment (discovery mode only).** This is the **one** addition the discovery entry mode makes to the emission path above; that path files issues and writes no comments. For each stub, write `GIST_BODY_<NN>` (**the same text already in the body, unedited**) to a file in `RUN_DIR` under the marker, and post it:
 
@@ -376,6 +376,14 @@ The `stubs` choice at the Phase 2 gate is the consent for this filing; nothing i
     ```
 
     The gist is written twice because the two copies do different jobs. The **body** copy is the one promotion consumes, because promotion seeds its draft from the stub's body. The **comment** copy is the one that **survives**, because promotion rewrites that body wholesale; anything left only in the body is destroyed at exactly the moment the reasoning matters most. The duplication cannot drift, because **neither copy is ever edited again**. The hidden marker is what turns the surviving copy from an archive into an input: `/nxs.decision-record` finds it by that marker when it later designs the promoted epic.
+
+6. **Delete the run folder, now that every stub is filed.** Step 4 finished `✅ Complete` (and, in discovery mode, step 5's gist comments all posted): every issue this run will ever file now exists on GitHub, so the folder that held the working copies has nothing left to hold.
+
+    ```bash
+    nexus planning-dir remove --name "nxs-epic-${RUN_NAME}"
+    ```
+
+    **Skip this step** on anything short of that: an `⚠️ INCOMPLETE` filing, or a discovery-mode gist post that failed. The folder stays exactly as it is, so the same run can be repeated against it (decision record #646) — a repeated `nexus create-story` skips what its ledger already shows created and files only the remainder.
 
 Then **stop**. Report the created issue numbers with their goals, and tell the user to promote one with `/nxs.epic <issue-number>`. Do **not** create a queue entry, a feature `README.md`, or a full epic issue this run.
 
@@ -807,7 +815,15 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 
 9. **The deferral floor: a deferral that carries one story defers nothing further.** When this run is planning a stub whose `## Meta` **`deferred:` line counts one story** (`deferred: 1 story`, the singular form step 8's template writes for a count of one), file its remainder into the epic and **skip step 8 entirely**. It **defers nothing further**, whatever the necessity answer says. The request makes deferral recursive, and without a floor the tail of an initiative recedes indefinitely, each round deferring a remainder that is never built. The floor is checkable at the moment it matters and needs no history.
 
-A **promotion** needs no follow-up here: the stub issue *is* the epic issue now. Phase 6 populated it in place and removed the unplanned label. Nothing was created and nothing was closed, so every reference written when the scope was deferred still points at the right issue.
+10. **Delete the run folder, now that filing is complete.** The epic issue exists (step 1), every story issue exists (step 4 ended `✅ Complete`), and the deferral stub, if this run was going to file one, exists too (step 8, or step 9's floor said none was owed). Everything `${DRAFT_DIR}/epic.md` and `${DRAFT_DIR}/epic.filing.md` held now exists on GitHub instead:
+
+    ```bash
+    nexus planning-dir remove --name "nxs-epic-${RUN_NAME}"
+    ```
+
+    **Skip this step** on anything short of a complete filing: step 4 printed `⚠️ INCOMPLETE`, or step 8's stub creation failed partway. Leave `RUN_DIR` exactly as it is, so a re-run of this same command finishes the filing instead of starting over — the idempotency checks in steps 1, 4 and 8 all depend on the files a re-run needs still being there.
+
+A **promotion** needs no follow-up here beyond step 10: the stub issue *is* the epic issue now. Phase 6 populated it in place and removed the unplanned label. Nothing was created and nothing was closed, so every reference written when the scope was deferred still points at the right issue.
 
 ## Phase 7 — Report completion
 

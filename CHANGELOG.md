@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.55.0
+
+- `/nxs.epic` now deletes its own run folder (`nexus planning-dir remove`) once every issue it will
+  file exists on GitHub — the epic and every story issue on the full-epic path, every stub issue on
+  the decomposition path — so a checkout no longer accumulates drafts of work that already shipped
+  as issues. Any ending short of a complete filing (an `⚠️ INCOMPLETE` create-story run, a failed
+  stub or gist post) leaves the folder untouched, so the same run can be repeated against it exactly
+  as it could before this release.
+
 ## 0.54.0
 
 - `/nxs.epic`'s decomposition path (Phase 2b) and story-filing path (Phase 6) now write every
