@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff"]
-last_updated_by: "#215"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder"]
+last_updated_by: "#638"
 status: active
 verification: verified
 ---
@@ -53,6 +53,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [intake-lane](intake-lane.md) — the third producer of drainable entries; the drain verifies its pull-request fingerprint before reading its why.
 - [multi-pr-close](multi-pr-close.md) — the writer of the stamped range list.
 - [range-entry-diff](range-entry-diff.md) — the reader that turns a stamped range list into one change set per pull request, in landed order.
+- [planning-run-folder](planning-run-folder.md) — a planning draft sitting under the same scratch area; neither its shape nor a close record matches what this scan looks for, so it is never listed, aged or drained.
 
 ## Decision Log
 
@@ -163,3 +164,7 @@ Two reporting rules that had been one came apart once a range could hold several
 ### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
 
 Mechanical reciprocity fan-out: entries no longer reach the drain by migration, so the edge is removed. The drain's own staged deletion is now the only shipped path that removes a committed queue entry, pinned by a guard over the tree.
+
+### 2026-09-17 — #638 — Reciprocal link from planning-run-folder
+
+Mechanical reciprocity fan-out: a planning draft now lives under the same gitignored scratch area this drain scans, one level deeper and carrying no close record, so the drain never lists, ages or drains it. Nothing this drain does changes.
