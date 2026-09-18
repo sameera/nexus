@@ -465,7 +465,7 @@ Fold the findings into Phase 5:
 
 ## Phase 5 — Approval digest (MANDATORY STOP)
 
-Present a **decision-grade digest** for approval: the read-surface, not the full file. The full `epic.md` stays in session scratch as drill-down. This is the human checkpoint. A reviewer approves the epic *and* its story breakdown here, in one screen, instead of glossing a long document.
+Present a **decision-grade digest** for approval: the read-surface, not the full file. The full `epic.md` stays at `${DRAFT_DIR}/epic.md` as drill-down — **report that path** immediately above the digest, so the reviewer can open the full stories in the checkout before deciding rather than trusting the condensation. This is the human checkpoint. A reviewer approves the epic *and* its story breakdown here, in one screen, instead of glossing a long document.
 
 **Open questions gate (MANDATORY STOP).** If `## Open Questions` carries any `[NEEDS CLARIFICATION]` items, issue creation is **blocked**. Present each item using the clarification format (Guidelines), then ask via **`AskUserQuestion`** (per the interaction convention) how to unblock:
 
@@ -576,13 +576,13 @@ Then ask for the decision via **`AskUserQuestion`** (per the interaction convent
 
 - "**approve** — file the smallest usable version, and nothing else." Adds no story; files every inferred criterion and every boundary.
 - "**approve with changes** — the same, after adding the stories the reviewer names and deleting the inferred criteria and boundaries they name."
-- "**revise** — stop." Edit the `epic.md` draft in session scratch, then re-run with `/nxs.epic --resume`.
+- "**revise** — stop." Edit the `${DRAFT_DIR}/epic.md` draft, then re-run with `/nxs.epic --resume`.
 
 **Do NOT create any issue without an explicit approval** (an `AskUserQuestion` selection of one of the two approve options, or an "Other" answer that clearly means approve). The store line is part of what is approved: a public store under a private issues repository is a **warning the lead decides on**, never a refusal. The team chose the store deliberately, and a refusal would block an open-source project with a private planning repository.
 
 - `approve` → apply the step below with the filed set equal to the smallest usable version.
 - `approve with changes` → take the numbers (typed as a list, e.g. `2, 4`), apply the step below, then Phase 6. **An empty selection is identical to a plain approval**: the smallest usable version, no re-render and no second confirmation.
-- `revise` → stop. Leave the scratch draft intact for editing; report how to resume. Nothing is committed, so there is nothing to clean up, and **nothing has been published to the store**: assets are published only in Phase 6, after approval, so a revise leaves the store unchanged. Leave `${DRAFT_DIR}/assets.json` beside the draft: the resumed run recovers the declared assets from it, so the rewrite and the `--asset-path` assertion run on the resumed filing too.
+- `revise` → stop. Leave `RUN_DIR` intact for editing; **report `${DRAFT_DIR}/epic.md`'s path again** as the file to edit and the one `/nxs.epic --resume` reads. Nothing is committed, so there is nothing to clean up, and **nothing has been published to the store**: assets are published only in Phase 6, after approval, so a revise leaves the store unchanged. Leave `${DRAFT_DIR}/assets.json` beside the draft: the resumed run recovers the declared assets from it, so the rewrite and the `--asset-path` assertion run on the resumed filing too.
 
 **Scope the reviewer does not take is treated by where it came from.** A model-added story nobody took is discarded and leaves no trace anywhere: no issue, no note, no later triage. An **asked-for** story nobody took is **deferred, not dropped**: Phase 6 step 8 files it as one epic stub the lead can plan later under this same gate, so deferring costs them nothing and forgets nothing.
 
