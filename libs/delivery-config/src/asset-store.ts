@@ -91,3 +91,57 @@ export function resolveAssetSizeCap(start: string): AssetSizeCapResolution {
     }
     return { kind: "declared", bytes: Number(declared) };
 }
+
+/** The github-block key the HTML renderer template is declared under (epic #613). */
+export const ASSET_RENDERER_KEY = "asset-renderer";
+
+/** The one slot a renderer template carries; the asset's pinned address is substituted for it. */
+export const RENDERER_SLOT = "{url}";
+
+export type AssetRendererResolution =
+    /** A usable template: an absolute http(s) address carrying the slot. */
+    | { kind: "declared"; template: string }
+    /** No layer declares a template: there is no renderer, and HTML keeps the plain link. */
+    | { kind: "none" }
+    /** A template is declared but cannot work. The run stops on it, at intake. */
+    | { kind: "malformed"; value: string; message: string };
+
+/** The message a declared-but-unusable template is stopped with — it names the key and the value. */
+export function malformedRendererMessage(value: string, reason: string): string {
+    return `${ASSET_RENDERER_KEY} '${value}' ${reason}`;
+}
+
+/** Whether a template is an absolute http or https address (invariant 8). */
+function isAbsoluteWebAddress(value: string): boolean {
+    try {
+        const scheme: string = new URL(value).protocol;
+        return scheme === "http:" || scheme === "https:";
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Resolve the HTML renderer template declared at (or above) `start`, through the same precedence
+ * chain and hub layer the store uses. The shape check lives here for the same reason the store's
+ * does: the generic resolver prints declared strings and knows no per-key shape.
+ */
+export function resolveAssetRenderer(start: string): AssetRendererResolution {
+    const declared: string = unquote(resolvePublishingKey(start, ASSET_RENDERER_KEY));
+    if (declared === "") return { kind: "none" };
+    if (!isAbsoluteWebAddress(declared)) {
+        return {
+            kind: "malformed",
+            value: declared,
+            message: malformedRendererMessage(declared, "is not an absolute http or https address"),
+        };
+    }
+    if (!declared.includes(RENDERER_SLOT)) {
+        return {
+            kind: "malformed",
+            value: declared,
+            message: malformedRendererMessage(declared, `carries no ${RENDERER_SLOT} slot for the asset's pinned address`),
+        };
+    }
+    return { kind: "declared", template: declared };
+}
