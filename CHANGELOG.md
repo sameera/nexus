@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.54.0
+
+- `/nxs.epic`'s decomposition path (Phase 2b) and story-filing path (Phase 6) now write every
+  transient work-item — the stub bodies, the discovery gist files, and the per-story issue
+  work-items — into the run's own `RUN_DIR`, the same folder the draft and its source text already
+  live in, instead of a separately named scratch location. Everything one run will ever file from
+  is now readable from one place, before and after it is sent (decision record #646).
+
 ## 0.53.0
 
 - `/nxs.setup` now appends a `.nexus/tmp/` line to `.gitignore` when one is not already present,
