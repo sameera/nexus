@@ -1,8 +1,8 @@
 ---
 title: "Teaching Session"
 aliases: ["workbook session", "session chain", "one sitting", "gated chain", "session brief", "one lesson per session", "walks the plan by position", "pinning test on arrival"]
-touches: ["teaching-plan", "plan-drift-gate", "cold-drill", "just-in-time-lesson", "handoff-prompt", "return-verification", "workbook-handoff", "slice-identity"]
-last_updated_by: "#458"
+touches: ["teaching-plan", "plan-drift-gate", "cold-drill", "just-in-time-lesson", "handoff-prompt", "return-verification", "workbook-handoff", "slice-identity", "reference-page"]
+last_updated_by: "#481"
 status: active
 verification: verified
 ---
@@ -39,6 +39,7 @@ The session moves no version-control state. It writes files under the workbook a
 - [return-verification](return-verification.md) — the suite and fence checks the chain runs before it teaches again after a pause.
 - [workbook-handoff](workbook-handoff.md) — the pause record the chain reads on arrival and resolves after a verified return.
 - [slice-identity](slice-identity.md) — the name the chain asks each slice by when it decides whether that slice is behind the learner.
+- [reference-page](reference-page.md) — the page a second drill earns, which the chain names in its brief and checks before writing anything.
 
 ## Decision Log
 
@@ -49,3 +50,7 @@ The session's guarantees are facts about a repository, and an agent asserting su
 ### 2026-09-13 — #458 — The chain walks the plan by position, remembers a slice by its lesson, and gained a second generative step
 
 The chain keyed every slice by its story, which worked only while the plan held one whole story per slice. It now walks the plan in order and asks each slice, by that slice's own identity, whether it is behind the learner: a learner slice once its lesson is written and its exercise finished, a scaffold once its lesson is written, a handoff once its handoff is resolved. A scaffold is taught rather than refused for naming no story. The rule that exactly one step produces prose is retired: a slice's pinning test is now written when the learner arrives at the slice, so a learner arrival writes the test with the lesson and a handoff arrival writes two tests — the handed-off slice's, which the return probe runs, and the next story slice's, which it fences — before the prompt. Both are recorded in the plan once and never rewritten, which is why the session now writes the committed plan as well as the lessons. The surviving half of the retired invariant, that this text comes from outside the chain and is handed back on a second run, is stated above. This entry also records the reciprocal link from slice-identity.
+
+### 2026-09-18 — #481 — Reciprocal link from reference-page
+
+Mechanical reciprocity fan-out: when the drill the chain picks was already drilled by an earlier lesson, the brief and the report now name that concept as having earned a reference page, and every run names the pages still owed. Prose for the page is optional, so a sitting still writes one lesson whether or not it comes back. Prose that would fail the render stops the sitting before anything is written, which keeps the chain's rule that a sitting leaves the tree consistent.

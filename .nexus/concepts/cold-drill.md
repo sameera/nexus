@@ -1,8 +1,8 @@
 ---
 title: "Cold Drill"
 aliases: ["spaced recall", "opening drill", "concept history", "hint ranking", "overdue concept", "eligible concept"]
-touches: ["teaching-session", "just-in-time-lesson", "learner-folder", "widget-seam"]
-last_updated_by: "#407"
+touches: ["teaching-session", "just-in-time-lesson", "learner-folder", "widget-seam", "reference-page"]
+last_updated_by: "#481"
 status: active
 verification: verified
 ---
@@ -35,9 +35,14 @@ The drill appears as an exercise on the page rather than as a question in the se
 - [just-in-time-lesson](just-in-time-lesson.md) — the lesson the drill opens, which also asks again about concepts the drill may not carry.
 - [learner-folder](learner-folder.md) — where the hint counts live, the one personal signal that ranks an already-eligible concept.
 - [widget-seam](widget-seam.md) — the component the drill is built from, which withholds the answer until the learner asks.
+- [reference-page](reference-page.md) — the concept a second drill earns a short page for, counted over this same drill history.
 
 ## Decision Log
 
 ### 2026-09-07 — #407 — Hints rank the drill, and coldness only makes a concept eligible
 
 Coldness decides eligibility and hints decide the pick, which is what the story asks for: among concepts far enough back to be worth asking about, the learner is asked about the one they took more hints on. Ranking by coldness first honoured that only in the narrow case where two concepts were last mentioned in the same lesson. The history is read from the committed lessons rather than a personal record, so a teammate's checkout carries it and an empty learner folder changes nothing. Refuted alternative: keep coldness first and amend the story and the decision record to match the code. It is defensible as a spacing policy, but a scope edit to an approved story, made from the build, is the plan approver's act and not the implementer's.
+
+### 2026-09-18 — #481 — Reciprocal link from reference-page
+
+Mechanical reciprocity fan-out: a concept this drill picks for a second time, having already been drilled by an earlier written lesson, now earns a reference page. The earning is counted over the same drill history this page reads from the committed lessons, so it adds no personal record. How the drill is chosen is unchanged; hints still only rank a concept that coldness already made eligible.

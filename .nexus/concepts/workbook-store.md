@@ -1,8 +1,8 @@
 ---
 title: "Workbook Store"
 aliases: ["workbook", "workbook folder", "lessons folder", "teaching plan", "workbook placement"]
-touches: ["pipeline-store-exclusion", "learner-folder", "lesson-renderer", "workspace-resolution", "teaching-plan", "workbook-home-page"]
-last_updated_by: "#458"
+touches: ["pipeline-store-exclusion", "learner-folder", "lesson-renderer", "workspace-resolution", "teaching-plan", "workbook-home-page", "reference-page"]
+last_updated_by: "#481"
 status: active
 verification: verified
 ---
@@ -33,6 +33,7 @@ The store is created on first use and holds one folder per workbook. Inside a wo
 - [workspace-resolution](workspace-resolution.md) — the one resolver that says which member checkout a workbook belongs in.
 - [teaching-plan](teaching-plan.md) — the plan of slices this store holds, which makes an unwritten lesson a stub rather than a mismatch.
 - [workbook-home-page](workbook-home-page.md) — the page written at the workbook's root beside the lesson pages, from the plan this store holds.
+- [reference-page](reference-page.md) — the authored prose of reference pages, one file per concept, in its own folder beside the lessons and never named in the plan.
 
 ## Decision Log
 
@@ -47,3 +48,7 @@ The refusal that fired when the plan named a lesson the folder did not hold assu
 ### 2026-09-13 — #458 — Reciprocal link from workbook-home-page
 
 Mechanical reciprocity fan-out: the home page is written at a workbook's root beside the lesson pages, from the plan this store holds. The store's own rules are unchanged by it. Approval writes the plan and the pages together or not at all — the plan is staged beside its target and the previous pages are held while the new ones are written, so a failed render leaves both exactly as they were — which is the same all-or-nothing guarantee the render already gave, now spanning the plan as well.
+
+### 2026-09-18 — #481 — Reciprocal link from reference-page
+
+Mechanical reciprocity fan-out: a workbook now holds a folder of authored reference pages beside the lessons folder. The plan names none of them, because a reference page is not a step in the teaching order, so the agreement between the plan and the lessons is unchanged. A workbook with no such folder has earned no page yet.
