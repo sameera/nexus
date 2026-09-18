@@ -5,6 +5,12 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
+import {
+    DEFAULT_ADDRESS,
+    addressFromEnvironment,
+    configFromEnvironment,
+    type ListenerAddress,
+} from "./config.js";
 import { handleRequest, type HandlerDependencies } from "./handler.js";
 
 export interface Listener {
@@ -13,12 +19,12 @@ export interface Listener {
 }
 
 export interface ListenerOptions extends HandlerDependencies {
-    readonly host?: string;
-    readonly port?: number;
+    /** Where to bind. Omitted, the listener starts at the stated default. */
+    readonly address?: ListenerAddress;
 }
 
 export async function startListener(options: ListenerOptions): Promise<Listener> {
-    const { host = "127.0.0.1", port = 0 } = options;
+    const { host, port } = options.address ?? DEFAULT_ADDRESS;
     const server = createServer((request, response) => {
         void answer(request, response, options);
     });
@@ -56,4 +62,16 @@ function closed(server: Server): Promise<void> {
     return new Promise((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
     );
+}
+
+/** Starts the listener from the environment alone: the whole of what running it takes. */
+export function startFromEnvironment(
+    env: Record<string, string | undefined>,
+    fetcher: HandlerDependencies["fetch"] = (input, init) => fetch(input, init),
+): Promise<Listener> {
+    return startListener({
+        address: addressFromEnvironment(env),
+        config: configFromEnvironment(env),
+        fetch: fetcher,
+    });
 }

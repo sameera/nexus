@@ -10,8 +10,36 @@ export interface RendererConfig {
     readonly sizeCap: number;
 }
 
+/** Where the local listener binds when the team designates nothing. */
+export const DEFAULT_ADDRESS: ListenerAddress = { host: "127.0.0.1", port: 8787 };
+
 /** The size cap an instance uses when its environment names none. */
 export const DEFAULT_SIZE_CAP = 5_242_880;
+
+export interface ListenerAddress {
+    readonly host: string;
+    readonly port: number;
+}
+
+/**
+ * The address the team designates for the local listener. The handler never reads a hostname
+ * of its own — this binds the listener, and nothing else.
+ */
+export function addressFromEnvironment(
+    env: Record<string, string | undefined>,
+): ListenerAddress {
+    const designated = (env.NEXUS_RENDERER_ADDRESS ?? "").trim();
+    if (designated.length === 0) return DEFAULT_ADDRESS;
+
+    const separator = designated.lastIndexOf(":");
+    const host = separator === -1 ? designated : designated.slice(0, separator);
+    const port = separator === -1 ? undefined : designated.slice(separator + 1);
+
+    return {
+        host: host.length > 0 ? host : DEFAULT_ADDRESS.host,
+        port: positiveInteger(port) ?? DEFAULT_ADDRESS.port,
+    };
+}
 
 export function configFromEnvironment(env: Record<string, string | undefined>): RendererConfig {
     return {
