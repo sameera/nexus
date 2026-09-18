@@ -1,8 +1,8 @@
 ---
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "offer list at the digest", "waits on line"]
-touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store"]
-last_updated_by: "#594"
+touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store", "planning-run-folder"]
+last_updated_by: "#638"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ The epic stage files the epic and its story issues together, gated by a single d
 
 ## How It Works
 
-The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners with what each waits on, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story for the approved set, sequences them from the draft's ordering block, and writes the feature navigation index linking to the filed issue. Filing declares the design warrant. Under issue-sourced planning, it commits nothing at planning. The draft stays in session scratch. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics, and the gate's consent covers that irreversible filing. The gate reads the drafted wording, with no translation step before it. Each story body is a verbatim transcription of the derived filing body; only the reference rewrite to an issue number may change a body afterwards. The gate runs the scope razor's checker, and a blocking finding stops the digest. The digest carries a numbered offer list, and one typed selection both adds stories and keeps back removals. Issues are filed from a derived body, not the labelled draft.
+The epic stage takes a capability description directly, with no separate brief. It produces a right-sized epic and presents a digest: the feature line, the epic prose, the stories as sized one-liners with what each waits on, and the assumptions and out-of-scope boundary. Approval is the single forcing function; open questions must be resolved first. On approval, the stage files the epic issue and one issue per story for the approved set, sequences them from the draft's ordering block, and writes the feature navigation index linking to the filed issue. Filing declares the design warrant. Under issue-sourced planning, it commits nothing; the draft lives in the run's own folder. Filing is issue-first, and a re-run reuses the already-filed epic issue. Scope too large for one epic decomposes into backlog stub issues instead of several fully generated epics, and the gate's consent covers that irreversible filing. The gate reads the drafted wording, with no translation step before it. Each story body is a verbatim transcription of the derived filing body; only the reference rewrite to an issue number may change a body afterwards. The gate runs the scope razor's checker, and a blocking finding stops the digest. The digest carries a numbered offer list, and one typed selection both adds stories and keeps back removals. Issues are filed from a derived body, not the labelled draft.
 
 ## Key Invariants
 
@@ -47,6 +47,8 @@ The epic stage takes a capability description directly, with no separate brief. 
 - [citation-check](citation-check.md) — the evidence rule behind every `asked` label this gate renders and checks.
 - [razor-enforcement](razor-enforcement.md) — the shared checker this gate invokes, and the source of the observations its digest carries.
 - [issue-asset-store](issue-asset-store.md) — approval here also publishes this run's files, so the digest names the store and its visibility; a revise publishes nothing.
+- [planning-run-folder](planning-run-folder.md) — where the draft lives, named before the right-size gate, and the path this gate reports beside its digest.
+
 ## Decision Log
 
 ### 2026-06-29 — bootstrap — 0010: file epic and stories at one approval digest
@@ -96,3 +98,7 @@ Approving cost one keystroke and cutting cost reading a numbered list, so the re
 ### 2026-09-13 — #594 — Reciprocal link from issue-asset-store
 
 The asset store declares an interaction with this concept, so the edge is mirrored here. No behaviour of this concept changed; follow the link for what the store does.
+
+### 2026-09-17 — #638 — The draft moves into the checkout's own scratch folder
+
+The draft used to live in the harness's session scratch, outside the checkout, so a reviewer stopped at the gate had no practical way to open a full story before deciding. It now lives in the run's own folder under the repository's gitignored scratch area, and the digest names that folder's path beside it. See [planning-run-folder](planning-run-folder.md) for the folder's own rules.
