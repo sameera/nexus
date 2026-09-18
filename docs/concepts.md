@@ -4,7 +4,7 @@
 
 # Concept Atlas
 
-Orientation map of the concept store — 137 active concepts. Each links to its full page
+Orientation map of the concept store — 142 active concepts. Each links to its full page
 (behavior, invariants, decision history); code locations live in the matching
 `.nexus/anchors/<slug>.md` sidecar.
 
@@ -63,6 +63,7 @@ Orientation map of the concept store — 137 active concepts. Each links to its 
 - [Draft-Time Ordering Block](../.nexus/concepts/draft-ordering-block.md) — A drafted epic carries one block naming what each story waits on, keyed on story titles.
 - [Taxonomy Drift Advisory](../.nexus/concepts/drift-advisory.md) — The drift advisory is a deterministic, non-blocking step of the drain that reads the concept link graph and each page's filing and reports taxonomy decay as text in the distillation-PR body.
 - [Inert Declaration Removal](../.nexus/concepts/inert-declaration-removal.md) — When a dependency leaves a release, every declaration that described it is deleted rather than emptied, nulled, or softened to an advisory.
+- [Issue Asset Store](../.nexus/concepts/issue-asset-store.md) — A team names one repository — or one unprotected branch of one — that its filing stages publish issue graphics into.
 - [Plan Approval Gate](../.nexus/concepts/plan-approval-gate.md) — A plan draft becomes the committed plan at one human checkpoint, and that checkpoint covers the whole roadmap however many epics it spans.
 - [PR Flow Worktree](../.nexus/concepts/pr-worktree.md) — The pull-request post-merge flow runs its stages in an isolated worktree, not the lead's own checkout.
 - [Resumable Batch Filing](../.nexus/concepts/resumable-batch-filing.md) — Filing a folder of work items into issues is a batch that is always safe to re-run.
@@ -76,7 +77,6 @@ Orientation map of the concept store — 137 active concepts. Each links to its 
 - [Forcing-Function Razor](../.nexus/concepts/forcing-function-razor.md) — Every artifact must exist to force a decision a human must make, or it is cut scaffolding.
 - [Grep-Native Retrieval](../.nexus/concepts/grep-native-retrieval.md) — The knowledge store is retrieved by plain text search: search, list, and read.
 - [Handoff Prompt](../.nexus/concepts/handoff-prompt.md) — A slice the plan marks as not the learner's to build is handed to a separate coding-agent session rather than taught.
-- [Issue Asset Store](../.nexus/concepts/issue-asset-store.md) — A team names one repository — or one unprotected branch of one — that its filing stages publish issue graphics into.
 - [Pinned Lesson Sources](../.nexus/concepts/pinned-sources.md) — Each slice the learner builds carries the material its lesson is written from: one decision-record section, one exemplar file in the codebase, and the refuted alternative that section's decision states.
 - [Plan Field Ownership](../.nexus/concepts/plan-field-ownership.md) — Every field of the committed plan has exactly one owner.
 - [Plan Re-Approval](../.nexus/concepts/plan-re-approval.md) — A session that stopped because a story changed sends the learner back through the same planning chain and the same gate.
@@ -111,11 +111,13 @@ Orientation map of the concept store — 137 active concepts. Each links to its 
 - [Append-Only Decision Log](../.nexus/concepts/append-only-decision-log.md) — Every concept page carries a Decision Log — the append-only, immutable record of why the concept is the way it is.
 - [Artifact Peek Drawer](../.nexus/concepts/artifact-peek-drawer.md) — The artifact peek drawer is a dismissible slide-over that renders an artifact file so the user can peek at what Claude wrote without leaving the terminal.
 - [Authored Component Root](../.nexus/concepts/authored-component-root.md) — The directory a repository authors its components in is not the directory the harness loads.
+- [Borrowed Reader Access](../.nexus/concepts/borrowed-reader-access.md) — The renderer answers no question about who may see a mockup.
 - [Checkout-Only Path Gate](../.nexus/concepts/checkout-only-path-gate.md) — No shipped component body may send a stage to a location that resolves only inside the Nexus source checkout.
 - [Command Input](../.nexus/concepts/command-input.md) — The terminal region's prompt line is a real, multi-line, plain-text command input, replacing the earlier static glyph and fake caret.
 - [Component Migration](../.nexus/concepts/component-migration.md) — A repository that still carries a committed component set is emptied of it by a gated verb — never automatically, and never as a side effect of another command.
 - [Component Mirror](../.nexus/concepts/component-mirror.md) — One convergent operation places a component payload at a component root and drops the Nexus-owned files that payload no longer carries; it is the only thing in Nexus that writes or deletes a component.
 - [Concept Vocabulary Merge](../.nexus/concepts/concept-vocabulary-merge.md) — Extraction units run independently, so none can know what another called the same idea.
+- [Cookie-Carried Session](../.nexus/concepts/cookie-carried-session.md) — The reader's credential is sealed into a cookie in the reader's own browser and kept nowhere else.
 - [Epic Issue Filing](../.nexus/concepts/epic-issue-filing.md) — Filing a single epic is a create-or-promote operation, never inferred from remote state: creation makes a new issue and promotion edits an existing one in place, clearing its unplanned marker.
 - [Finding Severity](../.nexus/concepts/finding-severity.md) — Concept validation reports two classes of finding: blocking ones that fail the run, and advisories that never do.
 - [Fog Referral Gate](../.nexus/concepts/fog-referral-gate.md) — The epic stage tests whether an intent's functional goals can be stated at all, before it measures how big they are.
@@ -133,9 +135,11 @@ Orientation map of the concept store — 137 active concepts. Each links to its 
 - [Domain Taxonomy](../.nexus/concepts/domain-taxonomy.md) — Domain taxonomy is a curated, two-level grouping for concept pages — domains and optional subdomains — authored in a registry that lives beside the atlas.
 - [Generated Page Check](../.nexus/concepts/generated-page-check.md) — The pages a workbook renders are committed, so a reviewer meets the change that produced them rather than a build artifact nobody sees.
 - [Issue Absence as a Fact](../.nexus/concepts/issue-absence-fact.md) — A number that names no issue is a fact the lookup reports, not a failure it raises.
+- [Navigation-Marked Credential](../.nexus/concepts/navigation-marked-credential.md) — An endpoint of the renderer reads a reader's credential only when the browser's own markers say the request is a top-level document navigation.
 - [Parsons Problem](../.nexus/concepts/parsons-problem.md) — A Parsons problem shows the learner a function's or test's lines in shuffled order and asks them to put the lines into the order that makes it work.
 - [Prime Server Runtime](../.nexus/concepts/prime-server-runtime.md) — Prime runs as a server-rendered app fronted by a custom Node server that owns its underlying HTTP server outright, rather than a fully-managed serve binary.
 - [PTY Bridge](../.nexus/concepts/pty-bridge.md) — The PTY bridge is the server-side half of Prime's in-browser terminal: a WebSocket endpoint on the Prime server's own origin that spawns one login shell in a pseudo-terminal per connection and streams its input and output.
+- [Rebuilt Return Address](../.nexus/concepts/rebuilt-return-address.md) — The renderer never redirects a reader to an address taken from a request.
 - [Registry Seeding](../.nexus/concepts/registry-seeding.md) — Registry seeding is a one-time adoption tool for a store that has no domain registry yet.
 - [Release Changelog](../.nexus/concepts/release-changelog.md) — Once the components leave every repository, an adopter no longer sees a component change in their own diff, and the changelog is what replaces that review surface.
 - [Remote Identity Normalization](../.nexus/concepts/remote-identity-normalization.md) — A single git remote can be written many equivalent ways — as a secure-shell address or a web address, with or without a trailing suffix, with an upper- or lower-cased host.
@@ -145,6 +149,7 @@ Orientation map of the concept store — 137 active concepts. Each links to its 
 - [Trace Stepper](../.nexus/concepts/trace-stepper.md) — The trace stepper walks a learner through a code snippet one step at a time, showing the state beside the line each step names.
 - [Bare-Name Guard](../.nexus/concepts/bare-name-guard.md) — The bare-name guard is the security boundary of workspace resolution: a name declared in a workspace artifact may only be a bare directory segment, and the hub's optional docs-root override may only be a non-escaping repo-relative path.
 - [Markdown Editor](../.nexus/concepts/markdown-editor.md) — The Markdown Editor is Prime's shared in-repo editing library: a rich Markdown-editing surface plus a distinct plain-text, submit-capable mode built for command entry.
+- [Non-Disclosing Refusal](../.nexus/concepts/non-disclosing-refusal.md) — A mockup the renderer will not serve gets one answer, whether the file is missing or the reader simply cannot reach it.
 - [Same-Origin Shell Guard](../.nexus/concepts/same-origin-shell-guard.md) — The same-origin shell guard is the sole security boundary of the PTY bridge's unauthenticated shell: it rejects any WebSocket handshake whose stated origin does not match the host the request itself was addressed to, before any shell is spawned.
 
 ## Standalone
