@@ -13,7 +13,7 @@ import {
     type AuthDependencies,
 } from "./auth.js";
 import { type RendererConfig } from "./config.js";
-import { refuse, sandboxedHtml } from "./refusal.js";
+import { refuse, sandboxedHtml, type RefusalKind } from "./refusal.js";
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -36,6 +36,22 @@ const UNCACHEABLE = "no-store";
 /** What GitHub answers a reader it will not hand the file to, whether or not it exists. */
 function turnedAway(status: number): boolean {
     return status === 401 || status === 403 || status === 404;
+}
+
+/** How GitHub says the renderer itself was never installed on a store it was asked about. */
+const NOT_INSTALLED = /not accessible by integration/i;
+
+/**
+ * One answer covers "no such file" and "not yours" alike, because GitHub conflates them for a
+ * private repository and telling them apart would turn a leaked link into a way to probe what
+ * a private store contains. A store the renderer is not installed on is told apart, because
+ * that is a fact about the store and not about the reader.
+ */
+async function turnedAwayBecause(upstream: Response): Promise<RefusalKind> {
+    if (upstream.status !== 403) return "unreadable";
+
+    const said = await upstream.text().catch(() => "");
+    return NOT_INSTALLED.test(said) ? "store-not-set-up" : "unreadable";
 }
 
 export async function handleRequest(
@@ -74,7 +90,7 @@ export async function handleRequest(
         // uncredentialed request is the only signal that a sign-in is what this reader needs.
         // A request that already carried a session is refused finally, so no loop is possible.
         if (session === null && isNavigation(request)) return beginSignIn(address, auth);
-        return refuse("not-found");
+        return refuse(await turnedAwayBecause(upstream));
     }
     if (!upstream.ok) return refuse("store-unreachable");
 
