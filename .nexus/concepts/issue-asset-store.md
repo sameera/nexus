@@ -1,8 +1,8 @@
 ---
 title: "Issue Asset Store"
 aliases: ["asset store", "issue assets", "pinned asset reference", "asset size cap", "assets unsupported", "publish an asset"]
-touches: ["publishing-config-resolution", "settings-key-catalogue", "epic-approval-gate", "decision-record", "derived-filing-body"]
-last_updated_by: "#594"
+touches: ["publishing-config-resolution", "settings-key-catalogue", "epic-approval-gate", "decision-record", "derived-filing-body", "borrowed-reader-access"]
+last_updated_by: "#614"
 status: active
 verification: verified
 ---
@@ -34,9 +34,14 @@ Publication goes through the hosting platform's file-contents call rather than a
 - [epic-approval-gate](epic-approval-gate.md) — the gate whose approval publishes this run's files and whose digest names the store and its visibility; a revise there publishes nothing.
 - [decision-record](decision-record.md) — the other stage that carries assets, gated the same way at its own checkpoint; a revision's new files are new commits, so a superseded body still resolves.
 - [derived-filing-body](derived-filing-body.md) — where each local path is replaced by its published reference, and where a survivor fails the run before any issue exists.
+- [borrowed-reader-access](borrowed-reader-access.md) — a private store's mockups are read under each reader's own access at view time, which is where visibility is answered now that a reference form never depends on it.
 
 ## Decision Log
 
 ### 2026-09-13 — #594 — Durable asset store for filed issues
 
 Nexus files issues from the command line and the hosting platform offers no way to attach a file to an issue from there, so a diagram only reached the issue when a documentation pull request merged days later. A store the filing stages write to directly closes that gap on the day the issue is filed, and immutability comes from the commit each publish creates rather than from naming discipline, so file names need no coordination across epics. Refuted alternative: defaulting the store to the issues repository, which would need no configuration at all — it loses because the epic's premise is that the issues repository sits behind a protected branch, so the default would fail exactly the teams it was meant to serve.
+
+### 2026-09-18 — #614 — Reciprocal link from borrowed-reader-access
+
+Mechanical reciprocity fan-out: the renderer now reads a store as the reader who opened the mockup, so a store this concept deliberately never records the visibility of is answered for, per reader and per request, at the moment it is viewed. Nothing about publishing or about a reference's shape changed.
