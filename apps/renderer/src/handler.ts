@@ -26,6 +26,13 @@ export interface HandlerDependencies {
 /** A mockup at a fixed commit cannot change, so it is cacheable for as long as anything keeps it. */
 const IMMUTABLE = "public, max-age=31536000, immutable";
 
+/**
+ * A shared cache keys on the address and not on the reader, so anything a credential was
+ * involved in fetching must not be stored: otherwise a second reader is served the first
+ * reader's content without this renderer being asked at all.
+ */
+const UNCACHEABLE = "no-store";
+
 /** What GitHub answers a reader it will not hand the file to, whether or not it exists. */
 function turnedAway(status: number): boolean {
     return status === 401 || status === 403 || status === 404;
@@ -55,7 +62,11 @@ export async function handleRequest(
     // that ever goes upstream is the token this reader's own sign-in produced.
     const session = sessionOf(request, auth);
     const upstream = await fetch(contentsAddress(address), {
-        headers: { accept: "application/vnd.github.raw", "user-agent": "nexus-renderer" },
+        headers: {
+            accept: "application/vnd.github.raw",
+            "user-agent": "nexus-renderer",
+            ...(session === null ? {} : { authorization: `Bearer ${session.token}` }),
+        },
     });
 
     if (turnedAway(upstream.status)) {
@@ -76,7 +87,11 @@ export async function handleRequest(
     const body = await readCapped(upstream, config.sizeCap);
     if (body === null) return refuse("too-large");
 
-    return sandboxedHtml(new TextDecoder().decode(body), 200, IMMUTABLE);
+    return sandboxedHtml(
+        new TextDecoder().decode(body),
+        200,
+        session === null ? IMMUTABLE : UNCACHEABLE,
+    );
 }
 
 /**
