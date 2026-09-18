@@ -11,7 +11,10 @@ export type RefusalKind =
     | "not-found"
     | "too-large"
     | "opaque-origin"
-    | "store-unreachable";
+    | "store-unreachable"
+    | "not-a-navigation"
+    | "sign-in-not-begun"
+    | "sign-in-unavailable";
 
 interface Refusal {
     readonly status: number;
@@ -30,6 +33,12 @@ const REFUSALS: Record<RefusalKind, Refusal> = {
     "too-large": { status: 413, reason: "That file is larger than this renderer serves." },
     "opaque-origin": { status: 403, reason: "This renderer answers no cross-origin request." },
     "store-unreachable": { status: 502, reason: "The store could not be read." },
+    "not-a-navigation": {
+        status: 403,
+        reason: "This renderer answers only a page a reader opened.",
+    },
+    "sign-in-not-begun": { status: 400, reason: "No sign-in of yours is waiting to finish." },
+    "sign-in-unavailable": { status: 502, reason: "The sign-in could not be completed." },
 };
 
 /**

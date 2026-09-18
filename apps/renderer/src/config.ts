@@ -16,6 +16,39 @@ export const DEFAULT_ADDRESS: ListenerAddress = { host: "127.0.0.1", port: 8787 
 /** The size cap an instance uses when its environment names none. */
 export const DEFAULT_SIZE_CAP = 5_242_880;
 
+/**
+ * What an instance needs before it can sign a reader in. The sealing key has no built-in
+ * value and no fallback: an instance given none refuses to start rather than running with a
+ * default that would make every session forgeable (invariant 13).
+ */
+export interface AuthSettings {
+    readonly clientId: string;
+    readonly clientSecret: string;
+    readonly sealingKey: Uint8Array;
+}
+
+const SEALING_KEY_BYTES = 32;
+
+export function authFromEnvironment(env: Record<string, string | undefined>): AuthSettings {
+    const clientId = (env.NEXUS_RENDERER_CLIENT_ID ?? "").trim();
+    const clientSecret = (env.NEXUS_RENDERER_CLIENT_SECRET ?? "").trim();
+    const declared = (env.NEXUS_RENDERER_SESSION_KEY ?? "").trim();
+
+    if (clientId.length === 0) throw new Error("NEXUS_RENDERER_CLIENT_ID names no GitHub App.");
+    if (clientSecret.length === 0) {
+        throw new Error("NEXUS_RENDERER_CLIENT_SECRET names no GitHub App secret.");
+    }
+
+    const sealingKey = new Uint8Array(Buffer.from(declared, "base64"));
+    if (declared.length === 0 || sealingKey.length !== SEALING_KEY_BYTES) {
+        throw new Error(
+            `NEXUS_RENDERER_SESSION_KEY must be ${SEALING_KEY_BYTES} bytes, base64-encoded.`,
+        );
+    }
+
+    return { clientId, clientSecret, sealingKey };
+}
+
 export interface ListenerAddress {
     readonly host: string;
     readonly port: number;

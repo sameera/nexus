@@ -4,6 +4,14 @@
  * end to end without a network and without a process.
  */
 import { parsePinnedAddress, type PinnedAddress } from "./address.js";
+import {
+    CALLBACK_PATH,
+    beginSignIn,
+    completeSignIn,
+    isNavigation,
+    sessionOf,
+    type AuthDependencies,
+} from "./auth.js";
 import { type RendererConfig } from "./config.js";
 import { refuse, sandboxedHtml } from "./refusal.js";
 
@@ -12,19 +20,27 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 export interface HandlerDependencies {
     readonly config: RendererConfig;
     readonly fetch: FetchLike;
+    readonly auth: AuthDependencies;
 }
 
 /** A mockup at a fixed commit cannot change, so it is cacheable for as long as anything keeps it. */
 const IMMUTABLE = "public, max-age=31536000, immutable";
 
+/** What GitHub answers a reader it will not hand the file to, whether or not it exists. */
+function turnedAway(status: number): boolean {
+    return status === 401 || status === 403 || status === 404;
+}
+
 export async function handleRequest(
     request: Request,
-    { config, fetch }: HandlerDependencies,
+    { config, fetch, auth }: HandlerDependencies,
 ): Promise<Response> {
     // A document the renderer sandboxed presents an opaque origin. Refusing it here is what
     // keeps a mockup from calling back into the renderer at all, so no endpoint of the
     // renderer's ever sees a request a mockup's markup sent.
     if (request.headers.get("origin") === "null") return refuse("opaque-origin");
+
+    if (new URL(request.url).pathname === CALLBACK_PATH) return completeSignIn(request, auth);
 
     const value = new URL(request.url).searchParams.get("url");
     if (value === null || value.trim().length === 0) return refuse("no-address");
@@ -35,12 +51,20 @@ export async function handleRequest(
     const address = parsed.address;
     if (!config.stores.includes(address.store)) return refuse("store-not-served");
 
-    // No credential is sent, and none the reader's browser attached is forwarded.
+    // No cookie or credential the reader's browser attached is forwarded: the only credential
+    // that ever goes upstream is the token this reader's own sign-in produced.
+    const session = sessionOf(request, auth);
     const upstream = await fetch(contentsAddress(address), {
         headers: { accept: "application/vnd.github.raw", "user-agent": "nexus-renderer" },
     });
 
-    if (upstream.status === 404) return refuse("not-found");
+    if (turnedAway(upstream.status)) {
+        // The renderer holds no statement of any store's visibility: GitHub's refusal of an
+        // uncredentialed request is the only signal that a sign-in is what this reader needs.
+        // A request that already carried a session is refused finally, so no loop is possible.
+        if (session === null && isNavigation(request)) return beginSignIn(address, auth);
+        return refuse("not-found");
+    }
     if (!upstream.ok) return refuse("store-unreachable");
 
     const declared = upstream.headers.get("content-length");
