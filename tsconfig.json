@@ -40,6 +40,9 @@
       "path": "./apps/prime"
     },
     {
+      "path": "./apps/renderer"
+    },
+    {
       "path": "./libs/prose-verify"
     }
   ]

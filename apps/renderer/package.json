@@ -1,0 +1,19 @@
+{
+  "name": "renderer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./handler": {
+      "types": "./src/handler.ts",
+      "import": "./src/handler.ts",
+      "default": "./src/handler.ts"
+    },
+    "./config": {
+      "types": "./src/config.ts",
+      "import": "./src/config.ts",
+      "default": "./src/config.ts"
+    },
+    "./package.json": "./package.json"
+  }
+}
