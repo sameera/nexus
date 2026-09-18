@@ -91,6 +91,27 @@ describe("a lesson author turns prose into pages", () => {
         expect(page.navigation).toEqual(["The renderer", "The workbook store"]);
     });
 
+    it("renders an authored reference page beside the lessons, and checks it for drift", () => {
+        const repo = initRepo();
+        const io = makeIo(repo);
+        expect(runWorkbookCli(["create", "rdl"], io)).toBe(0);
+        const dir = path.join(workbookRoot(repo, "rdl"), LESSONS_DIRNAME);
+        fs.writeFileSync(path.join(dir, "one.md"), "---\ntitle: One\nconcepts: [drift]\n---\n\nDrift.\n");
+        fs.writeFileSync(path.join(dir, "two.md"), "---\ntitle: Two\ndrill: drift\n---\n\n## Warm-up\n\nA question.\n");
+        const references = path.join(workbookRoot(repo, "rdl"), "reference");
+        fs.mkdirSync(references, { recursive: true });
+        fs.writeFileSync(path.join(references, "drift.md"), "---\nconcept: drift\n---\n\nDrift, in short.\n");
+
+        expect(runWorkbookCli(["render", "rdl"], io)).toBe(0);
+        expect(runWorkbookCli(["check", "rdl"], io)).toBe(0);
+
+        const two = readPage(fs.readFileSync(path.join(workbookRoot(repo, "rdl"), "two.html"), "utf8"));
+        const link = two.links.find((l) => l.label.includes("drift"));
+        expect(link).toBeDefined();
+        const reference = readPage(fs.readFileSync(path.join(workbookRoot(repo, "rdl"), link!.href.replace(/^\.\//, "")), "utf8"));
+        expect(reference.visibleText).toContain("Drift, in short.");
+    });
+
     it("names the lesson that failed and leaves no page to read", () => {
         const { repo, io } = makeWorkbookWithLessons();
         authorLesson(repo, "rdl", "bad.md", "Bad", "A <div>card</div> in the prose.");
@@ -392,6 +413,14 @@ describe("a teaching session writes the one lesson the learner is up to", () => 
             theory: "\nTheory.\n",
             pinningTests: [{ slice: "story-12", file: "tests/drift.spec.ts", text: "it('pins #12', () => {});\n" }],
         });
+    });
+
+    it("takes the reference page's prose from the prose file's front matter", () => {
+        const repo = initRepo();
+        const file = path.join(repo, "prose.md");
+        fs.writeFileSync(file, ["---", "reference: |", "  Drift, restated in short.", "---", "", "Theory.", ""].join("\n"));
+
+        expect(readProse(file)).toEqual({ theory: "\nTheory.\n", reference: "Drift, restated in short.\n" });
     });
 
     it("takes a prose file with no front matter as the theory half alone", () => {

@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.56.0
+
+- `/nxs.teach` now earns a **reference page** for a concept the session drills a second time. The
+  brief and the session's report name the concept, and the prose file may carry the page under a
+  `reference` key. The lesson is still written when the page is left out, and every later session
+  names the concept again until its page exists. The page renders beside the lessons from the
+  workbook's `reference/` folder, and each lesson that drilled the concept links to it from its
+  warm-up. The render refuses a reference file that names other than one concept, covers a concept
+  no written lesson taught or another file already covers, or runs past five hundred words
+  (epic #481, decision record #659).
+- A printed workbook page no longer clips a long line of code. On paper a code block now wraps
+  instead of scrolling, so every committed workbook re-renders once and `nexus workbook check`
+  reports its pages as changed until it does.
+
 ## 0.55.0
 
 - `/nxs.epic` now deletes its own run folder (`nexus planning-dir remove`) once every issue it will

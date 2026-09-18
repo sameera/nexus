@@ -27,6 +27,7 @@ import {
     lessonsDir,
     planRenderOptions,
     readLessons,
+    readReferences,
     readWorkbookPlan,
     workbookRoot,
     writePlanWithPages,
@@ -245,8 +246,9 @@ export function ghIssueReader(repoRoot: string, run: Runner): IssueReader {
 /**
  * Read the prose an agent wrote: the theory half, with the drill's question and answer in front
  * matter when the brief asked for a drill, and a `revisit` list carrying one question and answer
- * per concept the brief asked to come back to. The chain chose the concepts; this file carries only
- * what an agent contributes.
+ * per concept the brief asked to come back to, and a `reference` block carrying the reference page's
+ * prose when the brief named a concept that earned one. The chain chose the concepts; this file
+ * carries only what an agent contributes.
  */
 export function readProse(file: string): AuthoredProse {
     const source: string = fs.readFileSync(file, "utf8");
@@ -259,12 +261,14 @@ export function readProse(file: string): AuthoredProse {
     const answer: unknown = front["answer"];
     const revisit: RevisitProse[] = readRevisits(front["revisit"]);
     const pinningTests: AuthoredPinningTest[] = readPinningTests(front["pinning_tests"]);
+    const reference: unknown = front["reference"];
     const theory: string = lines.slice(end + 2).join("\n");
     return {
         theory,
         ...(typeof question === "string" && typeof answer === "string" ? { drill: { question, answer } } : {}),
         ...(revisit.length === 0 ? {} : { revisit }),
         ...(pinningTests.length === 0 ? {} : { pinningTests }),
+        ...(typeof reference === "string" && reference.trim() !== "" ? { reference } : {}),
     };
 }
 
@@ -322,6 +326,10 @@ function reportSession(result: SessionResult, io: WorkbookCliIo): number {
     }
     if (result.outcome.kind === "brief") {
         io.stdout(`Write the theory into a file and re-run with --prose <file>. The lesson goes to ${result.outcome.brief.lesson}.`);
+        const earned = result.outcome.brief.earned;
+        if (earned !== null && !earned.written) {
+            io.stdout(`The reference page on ${earned.concept} goes in that file's front matter under 'reference'.`);
+        }
         const request = result.outcome.brief.writeTest;
         if (request !== undefined) {
             io.stdout(`The slice has no pinning test yet: put it in that file's front matter under 'pinning_tests' as ${request.slice}, with its file and text.`);
@@ -929,7 +937,10 @@ export function runWorkbookCli(argv: string[], io: WorkbookCliIo, run: Runner = 
             // A teaching plan renders from the plan and the lessons together, so its home page exists
             // even before any lesson is written; a workbook with no plan renders its lessons alone.
             const taught: WorkbookPlan | null = readWorkbookPlan(repoRoot, slug);
-            const options: RenderOptions = taught === null ? { lessons: readLessons(repoRoot, slug) } : planRenderOptions(repoRoot, slug, taught);
+            const options: RenderOptions =
+                taught === null
+                    ? { lessons: readLessons(repoRoot, slug), references: readReferences(repoRoot, slug) }
+                    : planRenderOptions(repoRoot, slug, taught);
             const lessons: readonly LessonSource[] = options.lessons;
             if (lessons.length === 0 && taught === null) {
                 io.stderr(`${lessonsDir(repoRoot, slug)} holds no authored lesson, so there is nothing to ${sub}.`);

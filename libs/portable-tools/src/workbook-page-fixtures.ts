@@ -168,10 +168,28 @@ interface PrintRule {
     declarations: Record<string, string>;
 }
 
+/** A piece of content a rule in force when printing keeps off the paper, and how. */
+export interface WithheldContent {
+    /** The content, as a reader would read it. */
+    content: string;
+    /** `hidden` — not displayed or not visible; `bounded` — its height is capped; `clipped` — cut off sideways. */
+    by: "hidden" | "bounded" | "clipped";
+}
+
 /** Everything the stylesheet says about what a page looks like on paper. */
 export interface PrintedPage {
     /** True when the text is on the paper. */
     shows(text: string): boolean;
+    /**
+     * Every element carrying content that a rule in force when printing hides, bounds or clips
+     * horizontally — the page's own rules and its print rules alike. Controls, their announcements
+     * and navigation chrome are no content: printing may drop them.
+     *
+     * A parsed page has no layout engine, so an empty answer proves that no rule in force can clip or
+     * hide content. It does not prove that a printer placed every line on the sheet (record #659,
+     * invariant 16).
+     */
+    withheld(): WithheldContent[];
     /** The reading-surface values in force when printing — the ink, the paper and everything else. */
     colours: Record<string, string>;
 }
@@ -208,6 +226,115 @@ function printRules(css: string): PrintRule[] {
         }
     }
     return rules;
+}
+
+/** Strip comments, so a comment mentioning a brace or a rule is never read as one. */
+function withoutComments(css: string): string {
+    return css.replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
+/** Read the rules in one block of CSS text that holds no nested block. */
+function readRules(block: string): PrintRule[] {
+    const rules: PrintRule[] = [];
+    for (const match of block.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+        const declarations: Record<string, string> = {};
+        for (const declaration of match[2].split(";")) {
+            const [property, ...value] = declaration.split(":");
+            if (value.length === 0) continue;
+            declarations[property.trim()] = value.join(":").trim();
+        }
+        rules.push({ selectors: match[1].split(",").map((s) => s.trim()).filter((s) => s !== ""), declarations });
+    }
+    return rules;
+}
+
+/**
+ * Every rule in force when the page is printed, in source order: the rules outside any at-rule, and
+ * the rules inside a print query. Rules under any other query — a screen width, a colour scheme — are
+ * left out, because the printer is not that medium.
+ */
+function rulesInForceWhenPrinting(css: string): PrintRule[] {
+    const text: string = withoutComments(css);
+    const rules: PrintRule[] = [];
+    let plain: string = "";
+    for (let i = 0; i < text.length; ) {
+        if (text.startsWith("@", i)) {
+            const open: number = text.indexOf("{", i);
+            if (open === -1) break;
+            const query: string = text.slice(i, open);
+            let depth = 1;
+            let j = open + 1;
+            for (; j < text.length && depth > 0; j++) {
+                if (text[j] === "{") depth += 1;
+                else if (text[j] === "}") depth -= 1;
+            }
+            rules.push(...readRules(plain));
+            plain = "";
+            if (/^@media\b/.test(query) && /\bprint\b/.test(query)) rules.push(...readRules(text.slice(open + 1, j - 1)));
+            i = j;
+            continue;
+        }
+        plain += text[i];
+        i += 1;
+    }
+    rules.push(...readRules(plain));
+    return rules;
+}
+
+/** True for a control, a control's announcement or navigation chrome — what printing may drop. */
+function isControlOrChrome(element: Element): boolean {
+    return element.closest("button, input, select, textarea, nav, [aria-live]") !== null;
+}
+
+/** The element's own text that is content rather than a control's label or chrome. */
+function contentOf(element: Element): string {
+    const clone: Element = element.cloneNode(true) as Element;
+    for (const control of clone.querySelectorAll("button, input, select, textarea, nav, [aria-live]")) control.remove();
+    return normalise(clone.textContent ?? "");
+}
+
+/** The value a property takes on this element under these rules: later wins, unless an earlier one is important. */
+function valueOf(element: Element, rules: readonly PrintRule[], property: string): string | null {
+    let value: string | null = null;
+    let important = false;
+    for (const rule of rules) {
+        const declared: string | undefined = rule.declarations[property];
+        if (declared === undefined) continue;
+        const matches: boolean = rule.selectors.some((selector) => {
+            try {
+                return element.matches(selector);
+            } catch {
+                return false;
+            }
+        });
+        if (!matches) continue;
+        const isImportant: boolean = declared.includes("!important");
+        if (important && !isImportant) continue;
+        value = declared.replace("!important", "").trim();
+        important = isImportant;
+    }
+    return value;
+}
+
+/** How a rule in force keeps this element's content off the paper, or null when none does. */
+function withholdingOf(element: Element, rules: readonly PrintRule[]): WithheldContent["by"] | null {
+    const display: string | null = valueOf(element, rules, "display");
+    if (display === "none" || (display === null && element.hasAttribute("hidden"))) return "hidden";
+    const visibility: string | null = valueOf(element, rules, "visibility");
+    if (visibility === "hidden" || visibility === "collapse") return "hidden";
+    for (const property of ["height", "max-height"]) {
+        const bound: string | null = valueOf(element, rules, property);
+        if (bound !== null && !["auto", "none", "initial", "unset", "fit-content", "max-content"].includes(bound)) return "bounded";
+    }
+    for (const property of ["overflow", "overflow-x"]) {
+        const overflow: string | null = valueOf(element, rules, property);
+        if (overflow !== null && overflow.split(/\s+/)[0] !== "visible") return "clipped";
+    }
+    const clip: string | null = valueOf(element, rules, "clip");
+    if (clip !== null && clip !== "auto") return "clipped";
+    const clipPath: string | null = valueOf(element, rules, "clip-path");
+    if (clipPath !== null && clipPath !== "none") return "clipped";
+    return null;
 }
 
 /**
@@ -259,5 +386,17 @@ export function printPage(html: string, css: string): PrintedPage {
             return false;
         },
         colours,
+        withheld(): WithheldContent[] {
+            const inForce: PrintRule[] = rulesInForceWhenPrinting(css);
+            const found: WithheldContent[] = [];
+            for (const element of doc.body.querySelectorAll("*")) {
+                if (isControlOrChrome(element)) continue;
+                const content: string = contentOf(element);
+                if (content === "") continue;
+                const by: WithheldContent["by"] | null = withholdingOf(element, inForce);
+                if (by !== null) found.push({ content, by });
+            }
+            return found;
+        },
     };
 }

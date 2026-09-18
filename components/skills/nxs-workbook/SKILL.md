@@ -41,6 +41,23 @@ nexus workbook pin <name> --epic <n> --sources <f>  # pin each learner slice's s
 Add `--root <dir>` to point at another checkout, and `--repo <member>` to name the member repository
 when you run from a hub.
 
+## Reference pages
+
+A **reference page** is a short page about one concept. A concept earns one when a session drills it
+a second time. The count comes from the committed lessons alone, and nothing personal is read or
+written to reach it. The page is authored prose in the workbook's `reference/` folder, one file per
+concept, and the render turns it into a page. The lesson that drilled the concept links to the page
+once the page exists.
+
+The render refuses a file that names other than one concept, a concept no written lesson taught, a
+concept another file already covers, and prose over five hundred words. It cannot check meaning, so
+one rule is yours: **a reference page restates only what a lesson already taught, and adds nothing
+new.** Write it shorter than the lesson, never broader.
+
+Printing is checked by applying the print rules to the rendered page. That proves no rule in force
+hides, bounds or clips content. It does not prove that a printer placed every line on the sheet,
+because a parsed page has no layout. Read a green print check as that and nothing more.
+
 ## What is code's and what is yours
 
 Code owns every fact about the repository: the interview slate and its ceiling, the once-per-roadmap

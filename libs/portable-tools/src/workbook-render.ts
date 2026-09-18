@@ -47,7 +47,28 @@ export const HOME_PAGE_NAME: string = "index.html";
 /** The stylesheet written once per workbook and referenced by every page. */
 export const STYLESHEET_NAME: string = "workbook.css";
 
-export type RenderProblem = "markup-in-lesson" | "malformed-front-matter" | "missing-title";
+/**
+ * The form every reference page's name takes (epic #481, record #659): the prefix and the concept's
+ * slug. No lesson may render to a name of this form, and no concept slug can produce the home page's
+ * name, so a reference page can never render over a lesson or a reserved page (invariant 12).
+ */
+export const REFERENCE_PAGE_PREFIX: string = "ref--";
+
+/**
+ * One printed page, as a budget on the authored source rather than a bound on the rendered page:
+ * a page that fits by being cut off fails the other half of the same story (record #659).
+ */
+export const REFERENCE_WORD_BUDGET: number = 500;
+
+export type RenderProblem =
+    | "markup-in-lesson"
+    | "malformed-front-matter"
+    | "missing-title"
+    | "reserved-page-name"
+    | "reference-concept"
+    | "untaught-concept"
+    | "duplicate-reference"
+    | "reference-too-long";
 
 export class LessonRenderError extends Error {
     readonly problem: RenderProblem;
@@ -122,8 +143,8 @@ function refuseMarkup(lesson: LessonSource, widgets: WidgetRegistry | undefined)
     );
 }
 
-/** Split front matter from prose, and refuse a lesson that is not readable as either. */
-export function parseLesson(lesson: LessonSource, widgets?: WidgetRegistry): Lesson {
+/** Split front matter from prose, and refuse a file that is not readable as either. */
+function splitFrontMatter(lesson: LessonSource, widgets: WidgetRegistry | undefined): { frontMatter: Record<string, unknown>; body: string } {
     refuseMarkup(lesson, widgets);
     const lines: string[] = lesson.source.split("\n");
     if (lines[0]?.trim() !== "---") {
@@ -140,12 +161,67 @@ export function parseLesson(lesson: LessonSource, widgets?: WidgetRegistry): Les
         const detail: string = e instanceof Error ? e.message : String(e);
         throw new LessonRenderError("malformed-front-matter", lesson.file, detail);
     }
-    const frontMatter: Record<string, unknown> = (doc as Record<string, unknown> | null) ?? {};
+    return { frontMatter: (doc as Record<string, unknown> | null) ?? {}, body: lines.slice(end + 2).join("\n") };
+}
+
+/** Split front matter from prose, and refuse a lesson that is not readable as either. */
+export function parseLesson(lesson: LessonSource, widgets?: WidgetRegistry): Lesson {
+    const { frontMatter, body } = splitFrontMatter(lesson, widgets);
     const title: unknown = frontMatter["title"];
     if (typeof title !== "string" || title.trim() === "") {
         throw new LessonRenderError("missing-title", lesson.file, "front matter declares no 'title'");
     }
-    return { file: lesson.file, title, frontMatter, body: lines.slice(end + 2).join("\n") };
+    return { file: lesson.file, title, frontMatter, body };
+}
+
+/** One authored reference page: the one concept it covers, and the prose restating it. */
+export interface ReferencePage {
+    file: string;
+    concept: string;
+    body: string;
+}
+
+/** The words of authored prose, as the reference page's budget counts them. */
+function wordCount(prose: string): number {
+    return prose.split(/\s+/).filter((word) => word !== "").length;
+}
+
+/**
+ * Read one authored reference file, refusing what can be refused from the file alone: markup, a
+ * declaration that names other than exactly one concept, and prose past one printed page's budget.
+ * Whether the concept was taught, and whether another file already covers it, need the rest of the
+ * workbook and are refused by the render (record #659, invariants 7, 10, 11).
+ */
+export function parseReference(reference: LessonSource, widgets?: WidgetRegistry): ReferencePage {
+    const { frontMatter, body } = splitFrontMatter(reference, widgets);
+    const declared: unknown = frontMatter["concept"];
+    if (typeof declared !== "string" || declared.trim() === "") {
+        throw new LessonRenderError(
+            "reference-concept",
+            reference.file,
+            `a reference page covers exactly one concept, named as a single 'concept' in its front matter; ` +
+            `this one names ${declared === undefined ? "none" : JSON.stringify(declared)}.`,
+        );
+    }
+    const words: number = wordCount(body);
+    if (words > REFERENCE_WORD_BUDGET) {
+        throw new LessonRenderError(
+            "reference-too-long",
+            reference.file,
+            `the prose runs to ${words} words, and a reference page is at most ${REFERENCE_WORD_BUDGET} so it ` +
+            `fits on one printed page. Shorten the prose; the page is never cut to fit.`,
+        );
+    }
+    return { file: reference.file, concept: declared.trim(), body };
+}
+
+/** The page a reference on this concept renders to: the reserved prefix and the concept's slug. */
+export function referencePageNameFor(concept: string): string {
+    const slug: string = concept
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    return `${REFERENCE_PAGE_PREFIX}${slug === "" ? "concept" : slug}.html`;
 }
 
 /** Inline prose: emphasis, code spans and links, over already-escaped text. */
@@ -420,6 +496,9 @@ export function renderStylesheet(): string {
         "    }",
         "    .workbook-nav { display: none; }",
         "    .lesson { max-width: none; padding: 0; }",
+        "    /* A code block scrolls on screen; paper cannot scroll, so its lines wrap rather than",
+        "     * being clipped at the sheet's edge. */",
+        "    .lesson pre { overflow-x: visible; white-space: pre-wrap; overflow-wrap: anywhere; }",
         "}",
         renderWidgetStyles(),
     ].join("\n");
@@ -452,6 +531,12 @@ export interface RenderOptions {
     stubs?: readonly string[];
     /** Every slice of the plan, in plan order, for the home page. Absent on a workbook with no teaching plan. */
     home?: readonly HomeEntry[];
+    /**
+     * The authored reference pages (epic #481): one file per concept a second drill earned a page for.
+     * They render in the same all-or-nothing render as the lessons, and are no part of the teaching
+     * order, so the navigation and the home page never list them.
+     */
+    references?: readonly LessonSource[];
 }
 
 /** One slice as the home page shows it. */
@@ -506,6 +591,68 @@ function renderHome(entries: readonly HomeEntry[]): RenderedFile {
     };
 }
 
+/**
+ * The way from a lesson to the reference page on the concept its warm-up drilled. It is resolved
+ * here, at render time, rather than when the lesson is composed: the lesson is always written
+ * before the page it points at, so a page written later becomes reachable from every lesson that
+ * ever drilled its concept the next time the workbook renders. A concept with no page gets no link
+ * at all — a page that does not exist is never presented as a link (record #659, invariant 13).
+ */
+function withReferenceLink(content: string, lesson: Lesson, pages: ReadonlyMap<string, string>): string {
+    const drilled: unknown = lesson.frontMatter["drill"];
+    if (typeof drilled !== "string") return content;
+    const page: string | undefined = pages.get(drilled.trim());
+    if (page === undefined) return content;
+    const link: string =
+        `<p class="reference-link">For later: <a href="./${escapeText(page)}">the reference page on ` +
+        `${escapeText(drilled.trim())}</a>.</p>`;
+    const warmUp: number = content.indexOf("<h2>Warm-up</h2>");
+    if (warmUp === -1) return `${link}\n${content}`;
+    const next: number = content.indexOf("<h2>", warmUp + 1);
+    if (next === -1) return `${content}\n${link}`;
+    return `${content.slice(0, next)}${link}\n${content.slice(next)}`;
+}
+
+/**
+ * Read every reference file and refuse what needs the whole workbook to see: a concept no written
+ * lesson of this workbook introduced or drilled, and a concept another file already covers (record
+ * #659, invariant 10). A page restates what a lesson taught, so the taught-concept refusal is also
+ * what keeps a page from being written before the lessons it shortens.
+ */
+function readReferences(options: RenderOptions, lessons: readonly Lesson[]): ReferencePage[] {
+    const taught: Set<string> = new Set();
+    for (const lesson of lessons) {
+        const concepts: unknown = lesson.frontMatter["concepts"];
+        if (Array.isArray(concepts)) for (const concept of concepts) taught.add(String(concept).trim());
+        const drilled: unknown = lesson.frontMatter["drill"];
+        if (typeof drilled === "string") taught.add(drilled.trim());
+    }
+    const covered: Map<string, string> = new Map();
+    const names: Map<string, string> = new Map();
+    return (options.references ?? []).map((source) => {
+        const reference: ReferencePage = parseReference(source, options.widgets);
+        if (!taught.has(reference.concept)) {
+            throw new LessonRenderError(
+                "untaught-concept",
+                reference.file,
+                `the page covers ${reference.concept}, which no written lesson of this workbook introduced or ` +
+                `drilled. A reference page restates what a lesson already taught, so it follows that lesson.`,
+            );
+        }
+        const earlier: string | undefined = covered.get(reference.concept) ?? names.get(referencePageNameFor(reference.concept));
+        if (earlier !== undefined) {
+            throw new LessonRenderError(
+                "duplicate-reference",
+                reference.file,
+                `${earlier} already covers ${reference.concept}; a concept has one reference page.`,
+            );
+        }
+        covered.set(reference.concept, reference.file);
+        names.set(referencePageNameFor(reference.concept), reference.file);
+        return reference;
+    });
+}
+
 /** The page name a lesson renders to: its own name with the markdown suffix replaced. */
 export function pageNameFor(lessonFile: string): string {
     return `${path.basename(lessonFile).replace(/\.mdx?$/, "")}.html`;
@@ -519,6 +666,17 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
     // Parse every lesson before rendering any page: the navigation names them all, and a lesson
     // that fails must fail the whole render rather than half of it.
     const lessons: Lesson[] = options.lessons.map((lesson) => parseLesson(lesson, options.widgets));
+    for (const lesson of lessons) {
+        if (pageNameFor(lesson.file).startsWith(REFERENCE_PAGE_PREFIX)) {
+            throw new LessonRenderError(
+                "reserved-page-name",
+                lesson.file,
+                `a lesson may not render to a name beginning ${REFERENCE_PAGE_PREFIX}, which reference pages are given.`,
+            );
+        }
+    }
+    const references: ReferencePage[] = readReferences(options, lessons);
+    const referencePages: Map<string, string> = new Map(references.map((r) => [r.concept, referencePageNameFor(r.concept)]));
     const plan: { page: string; title: string }[] = lessons.map((l) => ({
         page: pageNameFor(l.file),
         title: l.title,
@@ -532,12 +690,31 @@ export function renderWorkbook(options: RenderOptions): RenderedFile[] {
                 title: lesson.title,
                 provenance: renderProvenance(lesson),
                 nav: renderNav(plan, page, options.stubs ?? []),
-                content: renderMarkdown(lesson.body, options.blockHook ?? makeWidgetSeam(lesson.file, options.widgets)),
+                content: withReferenceLink(
+                    renderMarkdown(lesson.body, options.blockHook ?? makeWidgetSeam(lesson.file, options.widgets)),
+                    lesson,
+                    referencePages,
+                ),
                 lead: options.lead?.(lesson),
                 trail: renderProvenanceNote(lesson),
                 scripts: [`<script src="./${SCRIPT_NAME}"></script>`, options.scripts?.(lesson) ?? ""]
                     .filter((part) => part !== "")
                     .join("\n"),
+            }),
+        });
+    }
+    for (const reference of references) {
+        // The same chrome as a lesson page, so a learner can get back; printing drops it (invariant 14).
+        const source: Lesson = { file: reference.file, title: `Reference: ${reference.concept}`, frontMatter: {}, body: reference.body };
+        pages.push({
+            name: referencePageNameFor(reference.concept),
+            contents: renderPageShell({
+                title: source.title,
+                provenance: renderProvenance(source),
+                nav: renderNav(plan, "", options.stubs ?? []),
+                content: renderMarkdown(reference.body, options.blockHook ?? makeWidgetSeam(reference.file, options.widgets)),
+                trail: renderProvenanceNote(source),
+                scripts: `<script src="./${SCRIPT_NAME}"></script>`,
             }),
         });
     }
