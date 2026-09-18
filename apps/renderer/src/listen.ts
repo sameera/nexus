@@ -5,16 +5,8 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 
-import { randomUUID } from "node:crypto";
-
-import {
-    DEFAULT_ADDRESS,
-    addressFromEnvironment,
-    authFromEnvironment,
-    configFromEnvironment,
-    type ListenerAddress,
-} from "./config.js";
-import { tokenExchange } from "./exchange.js";
+import { DEFAULT_ADDRESS, addressFromEnvironment, type ListenerAddress } from "./config.js";
+import { defaultFetch, dependenciesFromEnvironment } from "./environment.js";
 import { handleRequest, type HandlerDependencies } from "./handler.js";
 
 export interface Listener {
@@ -75,20 +67,10 @@ function closed(server: Server): Promise<void> {
 /** Starts the listener from the environment alone: the whole of what running it takes. */
 export async function startFromEnvironment(
     env: Record<string, string | undefined>,
-    fetcher: HandlerDependencies["fetch"] = (input, init) => fetch(input, init),
+    fetcher: HandlerDependencies["fetch"] = defaultFetch,
 ): Promise<Listener> {
-    const { clientId, clientSecret, sealingKey } = authFromEnvironment(env);
-
     return await startListener({
         address: addressFromEnvironment(env),
-        config: configFromEnvironment(env),
-        fetch: fetcher,
-        auth: {
-            clientId,
-            sealingKey,
-            exchange: tokenExchange(fetcher, clientId, clientSecret),
-            nonce: () => randomUUID(),
-            now: () => Date.now(),
-        },
+        ...dependenciesFromEnvironment(env, fetcher),
     });
 }
