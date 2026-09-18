@@ -2,14 +2,14 @@
 title: "Prose Translation"
 aliases: ["prose translator", "form rules", "content rules", "translator agent", "density finding", "resident prose convention", "grounding substitution", "plain-language rules"]
 touches: ["prose-verification", "forcing-function-razor", "distiller", "epic-approval-gate"]
-last_updated_by: "#442"
+last_updated_by: "#634"
 status: active
 verification: verified
 ---
 
 # Prose Translation
 
-Nexus's plain-language rules are split by who can execute each rule. The six form rules are: one idea per sentence, no em-dash asides, no idioms, prefer common words, name the noun, and say the exact strength you mean. These six rules run in a cheap translator that rewrites one drafted file in place and returns a receipt instead of the prose. Two content rules, write concrete and add nothing, stay with the author. Grounding an abstraction requires the analysis that the sentence does not carry.
+Nexus's plain-language rules split by who executes each rule. The six form rules, one idea per sentence, no em-dash asides, no idioms, the common word over the rare one, naming the noun, and the exact strength meant, sit in one short rule block placed directly above the drafting step in each of five stages: epic, decision-record, discover, distill and teach. The two content rules, write concrete and add nothing, stay with the author, who grounds an abstraction from the epic and the decision record when one is at hand.
 
 ## How It Works
 
@@ -26,7 +26,7 @@ Distillation is the single exception. Those runs are handed the epic and the dec
 3. The receipt carries section names, counts and findings. The only artifact text it may carry is a bounded quotation inside one finding.
 4. Density the translator cannot resolve is reported as a line pointer, never rewritten and never guessed.
 5. Only a distillation run receives source material. Every grounding substitution copies a contiguous span from a named source and is listed in the receipt.
-6. The prose guidance resident in any one stage is at most fifteen lines. A translation point restates no mechanics.
+6. The rule block sits directly in each of the five drafting stages, above the step that writes a human-facing artifact, capped at one hundred words. No separate skill carries it, and the five copies must match.
 7. What is filed, committed or posted is the translated file or a verbatim transcription of it.
 
 ## Integration Points
@@ -45,3 +45,7 @@ The retired prose skill cost roughly a sixth of a run's tokens, because the rule
 ### 2026-09-06 — #442 — The form rules moved into the drafting context
 
 The six form rules left the translator and became a style guide the drafting stage loads before it writes. The epic, decision-record, discovery and distillation stages now draft plain prose the first time, so the translate-then-verify pass is gone, and with it the pre-translation copy, the check that gated a stage-authored artifact, and the ignore rule the setup stage added for those copies. The translator was retired because it re-read the artifact and its sources on every run. That exchange cost more tokens and more time than moving the six rules out of the drafting context saved. The deterministic check survives for the case this guide does not cover, which is rewriting text the pipeline did not author.
+
+### 2026-09-17 — #634 — The style guide becomes an inline rule block
+
+The nxs-prose-style skill that carried the six form rules as a file loaded at the top of a stage is deleted. Each of the five drafting stages now carries the same rule block, one before-and-after sentence pair, and the list of text the rules never touch, directly above the step that writes its draft. The five stage files and the razor skill were also rewritten in the plain register the rules ask for, so the largest text in the model's context stopped arguing against them. Refuted alternative: keep the skill as the single statement and put only a pointer at the drafting step. It lost because a pointer carries no rule text at the moment of writing, so the rules stayed read early and outweighed by the surrounding prose.

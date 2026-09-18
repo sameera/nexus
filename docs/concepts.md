@@ -100,7 +100,7 @@ Orientation map of the concept store — 136 active concepts. Each links to its 
 - [Offline Page](../.nexus/concepts/offline-page.md) — A workbook page is opened by double-clicking it.
 - [Overlay Coordination](../.nexus/concepts/overlay-coordination.md) — Overlay coordination is the single shell-owned state that tracks which ephemeral surfaces are open and derives the terminal's recede from it.
 - [Prior Knowledge Declaration](../.nexus/concepts/prior-knowledge-declaration.md) — The interview records, in the learner's own words, what they already know.
-- [Prose Translation](../.nexus/concepts/prose-translation.md) — Nexus's plain-language rules are split by who can execute each rule.
+- [Prose Translation](../.nexus/concepts/prose-translation.md) — Nexus's plain-language rules split by who executes each rule.
 - [Release Gate](../.nexus/concepts/release-gate.md) — The tag and the public publish are blocked while any shipped component body reaches a toolkit capability by an in-repository path the payload does not carry.
 - [Return Verification](../.nexus/concepts/return-verification.md) — A learner returning from a pause comes back to a repository somebody else has been writing in, so the session verifies it before teaching again.
 - [Scratch Capture](../.nexus/concepts/scratch-capture.md) — Scratch capture is the committed per-user surface inside an epic's queue entry where an engineer's agent records decision stubs and working notes at the moment of choosing.
