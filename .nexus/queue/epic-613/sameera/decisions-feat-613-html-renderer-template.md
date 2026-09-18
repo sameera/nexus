@@ -21,3 +21,15 @@
 - **Choice:** `check`, `publish` and `rewrite` each stop on a malformed template.
 - **Why:** The record puts the stop at intake, but `publish` and `rewrite` are reachable directly; letting them build an address from a value intake would have rejected would file exactly the broken reference the stop exists to prevent.
 - **Refuted alternative:** Validate only in `check` — smaller, but it makes the guarantee depend on the caller running intake first.
+
+## 2026-09-18 — The intake answer carries `renderer` in both of its shapes
+
+- **Choice:** `check` prints `renderer` on the unsupported answer as well as the declared one.
+- **Why:** The gate's job is to state the form before approval; a repository that declares a renderer but no store still tells the lead something true, and a field that appears only sometimes is one the digest has to branch on.
+- **Refuted alternative:** Add `renderer` to the declared answer alone — smaller diff, but it makes "no field" mean both "no renderer" and "no store".
+
+## 2026-09-18 — The post-publish statement names the HTML files it applies to
+
+- **Choice:** One console line naming the form and listing the HTML file names published, fired only when the run published at least one HTML asset.
+- **Why:** The lead reads the line after the fact to confirm what was filed, and the file names are what they would check on the issue; the record requires silence on a run with no HTML.
+- **Refuted alternative:** One line per HTML asset — it reads the same for one file and is noise for five.

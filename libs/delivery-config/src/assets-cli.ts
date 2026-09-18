@@ -7,9 +7,10 @@
 
 import * as path from "node:path";
 import { publishAsset, type PublishResult } from "./asset-publish.js";
-import { type AssetReference, assetReference } from "./asset-reference.js";
+import { type AssetReference, assetReference, isHtmlAsset } from "./asset-reference.js";
 import { type AssetListCheck, checkAssetList, publishAndRewrite, type RewriteOutcome } from "./asset-rewrite.js";
 import {
+    ASSET_RENDERER_KEY,
     type AssetRendererResolution,
     type AssetSizeCapResolution,
     type AssetStore,
@@ -231,7 +232,7 @@ export function runAssetsCheck(args: string[], io: ToolkitIo, run: GhRunner = cl
     }
     if (resolution.kind === "unsupported") {
         io.stderr(`assets unsupported: ${UNSUPPORTED_MESSAGE}`);
-        io.stdout(JSON.stringify({ state: "unsupported", assets }));
+        io.stdout(JSON.stringify({ state: "unsupported", renderer: renderer.template, assets }));
         return 0;
     }
     const visibility: VisibilityResult = readStoreVisibility(resolution.store, run);
@@ -239,12 +240,19 @@ export function runAssetsCheck(args: string[], io: ToolkitIo, run: GhRunner = cl
         io.stderr(`assets store-unreadable: ${visibility.message}`);
         return 1;
     }
+    if (visibility.visibility === "private" && renderer.template !== null) {
+        io.stderr(
+            `assets renderer-private-store: the store ${resolution.store.repo} is private, so a renderer cannot read it ` +
+                "until epic #614 lands — filing continues, and an HTML reference filed now may not resolve for a reviewer",
+        );
+    }
     io.stdout(
         JSON.stringify({
             state: "declared",
             repo: resolution.store.repo,
             branch: resolution.store.branch,
             visibility: visibility.visibility,
+            renderer: renderer.template,
             assets,
         }),
     );
@@ -293,6 +301,14 @@ export function runAssetsRewrite(args: string[], io: ToolkitIo, run: GhRunner = 
             io.stderr(`  already published, harmless and unreferenced: ${outcome.summary.published.map((p) => p.path).join(", ")}`);
         }
         return 1;
+    }
+    const html: string[] = outcome.summary.published.filter((entry) => isHtmlAsset(entry.path)).map((entry) => path.basename(entry.path));
+    if (html.length > 0) {
+        io.stderr(
+            renderer.template === null
+                ? `assets renderer-absent: no ${ASSET_RENDERER_KEY} is configured — the plain link was filed for: ${html.join(", ")}`
+                : `assets renderer: HTML references were built from ${ASSET_RENDERER_KEY} '${renderer.template}' for: ${html.join(", ")}`,
+        );
     }
     for (const unreferenced of outcome.summary.unreferenced) {
         io.stderr(`assets unreferenced: ${unreferenced} is declared but no body mentions it — not published`);

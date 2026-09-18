@@ -82,6 +82,7 @@ describe("the intake check, before the draft is written", () => {
             repo: "acme/assets",
             branch: null,
             visibility: "private",
+            renderer: null,
             assets: [
                 { path: "assets/flow.png", filename: "flow.png", kind: "image" },
                 { path: "assets/mock.html", filename: "mock.html", kind: "file" },
