@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.53.0
+
+- `/nxs.setup` now appends a `.nexus/tmp/` line to `.gitignore` when one is not already present,
+  idempotently. Planning drafts and materialized epics both assume that exclusion; making it true
+  once at setup replaces every planning run re-checking it for itself.
+- `/nxs.distill`'s drain scan now states explicitly that a planning run's folder
+  (`.nexus/tmp/planning/<run-name>/`, decision record #646) is never a drainable entry and is never
+  recursed into — it sits one level deeper than the `<kind>-<n>/` shape the scan looks for and
+  carries no close record. No behaviour changed; the scan already skipped it by construction, and
+  this is the explicit guard against a future change accidentally teaching it to recurse there.
+- `/nxs.epic`'s Phase 4 notes on the source text and the assets-intake result now describe them as
+  staying inside the run's own folder rather than "session scratch", matching the folder's new home.
+
 ## 0.52.0
 
 - `/nxs.epic`'s approval digest, its resume report and its revise report now all name the
