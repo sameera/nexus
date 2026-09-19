@@ -300,16 +300,16 @@ Determine what was actually built for this epic. Use, in order of availability:
 
     ```bash
     BASE="$(git merge-base HEAD "$(nexus trunk)" 2>/dev/null || git merge-base HEAD main)"
-    EXCLUDE="$(nexus excluded-stores)"
-    git diff --stat "$BASE"...HEAD -- . $EXCLUDE
-    git diff "$BASE"...HEAD -- . $EXCLUDE
+    git diff --stat "$BASE"...HEAD -- . $(nexus excluded-stores)
+    git diff "$BASE"...HEAD -- . $(nexus excluded-stores)
     ```
 
     If the epic was implemented across several merges, this is the cumulative change set.
 
     **In `--pr` mode**, skip the `merge-base` line: run inside `wtPath`, set `BASE` to the
-    preflight `base`, and diff against the worktree head — `git -C <wtPath> diff "$BASE"...HEAD -- . $EXCLUDE`
-    — which is exactly the PR's change set.
+    preflight `base`, and diff against the worktree head —
+    `git -C <wtPath> diff "$BASE"...HEAD -- . $(nexus excluded-stores)` — which is exactly the PR's
+    change set.
 
     **The exclusion is not optional and its paths are not yours to write.** The pipeline stores are
     surfaces Nexus writes and teaches from, never behaviour it reads back, so a conformance verdict
@@ -317,6 +317,11 @@ Determine what was actually built for this epic. Use, in order of availability:
     prints it with the reason each store is a member); it is stated in exactly one place, and this
     body restating it could drift from the code (record #450, invariants 4-5). Each store is withheld
     entire — never a slice of one.
+
+    **Substitute `$(nexus excluded-stores)` inline on the `git diff` line — never capture it into a
+    variable first.** zsh does not word-split an unquoted parameter expansion, so git would receive
+    one nonsense pathspec, withhold nothing, and still exit 0: the verdict would then be drawn from
+    a diff carrying pipeline-store churn, with nothing saying so.
 
 2. **The story issues.** For each story, read its issue state and any closing commits/PRs:
 

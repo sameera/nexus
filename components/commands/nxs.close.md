@@ -552,17 +552,22 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
 
     ```bash
     BASE="$(git merge-base HEAD "$(nexus trunk)" 2>/dev/null || git merge-base HEAD main)"
-    EXCLUDE="$(nexus excluded-stores)"
-    git diff --stat "$BASE"...HEAD -- . $EXCLUDE
-    git diff "$BASE"...HEAD -- . $EXCLUDE
+    git diff --stat "$BASE"...HEAD -- . $(nexus excluded-stores)
+    git diff "$BASE"...HEAD -- . $(nexus excluded-stores)
     HEAD_SHA="$(git rev-parse HEAD)"   # full SHA; $BASE is already one (merge-base emits full SHAs)
     ```
 
-    **`$EXCLUDE` withholds the pipeline stores, and this body never lists them.** They are surfaces
-    Nexus writes and teaches from, never behaviour it reads back, so no deviation may be derived
-    from one. `nexus excluded-stores --form reasons` prints the set with each member's reason. The
-    set has exactly one definition (record #450, invariant 4) — restating it here would give the
-    build two statements that can silently disagree. Each store is withheld entire.
+    **The trailing `$(nexus excluded-stores)` withholds the pipeline stores, and this body never
+    lists them.** They are surfaces Nexus writes and teaches from, never behaviour it reads back,
+    so no deviation may be derived from one. `nexus excluded-stores --form reasons` prints the set
+    with each member's reason. The set has exactly one definition (record #450, invariant 4) —
+    restating it here would give the build two statements that can silently disagree. Each store is
+    withheld entire.
+
+    **Substitute the call inline on the `git diff` line — never capture it into a variable first.**
+    zsh does not word-split an unquoted parameter expansion, so git would receive one nonsense
+    pathspec, withhold nothing, and still exit 0: queue and discovery churn would then reach the
+    close record as deviations, with nothing saying so.
 
     Keep `$BASE` and `$HEAD_SHA` — Phase 4 stamps them into the close record's `range:` block,
     and the stamped range MUST be the exact range this diff used.
@@ -571,8 +576,9 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
     from the trunk ref, so that diff is empty and would detect **zero** deviations (a false-clean
     close).
     Instead take `$BASE` = the Phase 0.5 `range.base` and `$HEAD_SHA` = `range.head`, and compute the
-    diff inside the worktree — `git -C <wtPath> diff "$BASE"..."$HEAD_SHA" -- . $EXCLUDE` — using this one diff for
-    **both** the deviation detection below and the Phase 4 range stamp.
+    diff inside the worktree —
+    `git -C <wtPath> diff "$BASE"..."$HEAD_SHA" -- . $(nexus excluded-stores)` — using this one diff
+    for **both** the deviation detection below and the Phase 4 range stamp.
 
 2. **Auto-derive the *what*** from the diff — the behavioral changes, the files touched. This is
    code-derivable, so you derive it; **you do not ask the human to write it**.

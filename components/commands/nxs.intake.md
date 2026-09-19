@@ -70,14 +70,18 @@ refuses and Phase 3 never runs.
 # Phase 3 — Refuse a diff with nothing to record
 
 ```bash
-EXCLUDE="$(nexus excluded-stores)"
-git diff --stat <base>..<head> -- . $EXCLUDE
+git diff --stat <base>..<head> -- . $(nexus excluded-stores)
 ```
 
 **Pipeline stores are withheld from this diff**, on the same terms `/nxs.close` and `/nxs.distill`
 already withhold them (`nexus excluded-stores --form reasons` names the set and why). If the
 withheld diff is empty, **stop and write nothing**: there is no shipped behaviour to record, and an
 intake entry over nothing would be a page write with no source.
+
+Substitute `$(nexus excluded-stores)` inline on the `git diff` line, here and in Phase 4 — never
+capture it into a variable first. zsh does not word-split an unquoted parameter expansion, so git
+would receive one nonsense pathspec, withhold nothing, and still exit 0: the refusal above would
+pass a change whose only content is pipeline-store edits.
 
 # Phase 4 — Read the reasoning sources
 
@@ -89,7 +93,7 @@ flag, a reference or a filing decision, and you never check out or execute pull 
    ask the developer to describe the change:
 
     ```bash
-    git diff <base>..<head> -- . $EXCLUDE
+    git diff <base>..<head> -- . $(nexus excluded-stores)
     ```
 
 2. **Read why** from three sources, in this priority when more than one addresses the same

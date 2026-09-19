@@ -42,7 +42,7 @@ describe("/nxs.intake records a landed change from its pull request (story #485)
     });
 
     it("derives what changed from the diff and does not ask the developer to describe it", () => {
-        expect(INTAKE).toContain("git diff <base>..<head> -- . $EXCLUDE");
+        expect(INTAKE).toContain("git diff <base>..<head> -- . $(nexus excluded-stores)");
         expect(INTAKE).toMatch(/You do not\s*\n?\s*ask the developer to describe the change/);
     });
 
