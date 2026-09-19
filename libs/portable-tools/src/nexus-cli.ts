@@ -19,7 +19,6 @@
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
  *   nexus workspace add-repo           add one member to an existing workspace (STORY-60.04)
  *   nexus workspace github-defaults    print the hub's github-publishing defaults as JSON (STORY-121.05)
- *   nexus workbook <sub>               make, render, read and teach a learner's workbook (epics #405, #407)
  */
 
 import * as fs from "node:fs";
@@ -99,7 +98,6 @@ import {
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
-import { WORKBOOK_SUBVERBS, runWorkbookCli } from "@nexus/teaching/workbook-cli";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -442,40 +440,6 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      here rather than writing a remote out.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runTrunk(argv, io)),
-    },
-    workbook: {
-        summary: "Make a learner's workbook, render its lessons, and teach one lesson per sitting.",
-        usage: [
-            "  nexus workbook create <slug> [--root <dir>] [--repo <member>]",
-            "  nexus workbook render <slug> [--root <dir>] [--repo <member>]",
-            "  nexus workbook check <slug> [--root <dir>] [--repo <member>]",
-            "  nexus workbook session <slug> [--root <dir>] [--repo <member>]",
-            "  nexus workbook teach <slug> [--prose <file>] [--root <dir>] [--repo <member>]",
-            "  nexus workbook extract <name> [--story <n> [--list <file>]] [--root <dir>]",
-            "  nexus workbook vocabulary <name> [--root <dir>]",
-            "  nexus workbook draft <name> --merge <file> [--root <dir>]",
-            "  nexus workbook handoff <slug> --story <story> [--note <why>] [--root <dir>]",
-            "  nexus workbook resolve <slug> <handoff-id> [--root <dir>]",
-            "  nexus workbook pin <slug> --epic <n> [--sources <file>] [--root <dir>]",
-            "      Create makes the committed workbook folder and ensures the one rule that",
-            "      excludes the learner folder. Render turns every authored lesson under",
-            "      lessons/ into a page beside it — the whole workbook or none of it. Check",
-            "      re-renders and compares, so a committed page that was edited by hand or left",
-            "      behind by a changed lesson fails rather than being read as current. Session is",
-            "      what opening a workbook means: it lists every outstanding handoff and resumes",
-            "      at the story that was handed off. Teach runs the teaching session: it sweeps",
-            "      the probe's scratch path, runs the declared suite, verifies the fence on a",
-            "      return, checks the next slice against the state it was pinned to, chooses the",
-            "      drill, and then hands out a brief — re-run it with --prose <file> and it writes",
-            "      that one lesson and opens it. Extract, vocabulary and draft are the planning",
-            "      pass over a resolved roadmap: extract checks one story's concept list,",
-            "      vocabulary lists every proposed identifier for the merge, and draft writes the",
-            "      plan's stubs as an uncommitted draft only once every story has a checked list.",
-            "      In a workspace a workbook lives in the member repository whose roadmap it",
-            "      teaches; --repo names it from the hub.",
-        ].join("\n"),
-        subverbs: WORKBOOK_SUBVERBS,
-        run: (argv, io) => Promise.resolve(runWorkbookCli(argv, io)),
     },
     "drift-advisory": {
         summary: "Report concept pages whose domain filing looks stale.",

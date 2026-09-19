@@ -13,5 +13,4 @@ generated: 2026-09-17
 - `components/commands/nxs.decision-record.md` — the inline rule block above the record-formatting step, and the same rule applied to the supersession comment on a revision (#634)
 - `components/commands/nxs.discover.md` — the inline rule block above the drafting step for the discovery document and each ticket, written straight into the committed store (#634)
 - `components/commands/nxs.distill.md` — the inline rule block above the concept-delta drafting step, plus the grounding variant: an abstraction that cannot be stated concretely is grounded from the epic and the resolved why file, or left as it stands (#634)
-- `components/commands/nxsx.teach.md` — the inline rule block above the lesson-drafting step (#634)
 - `libs/portable-tools/src/plain-register-block.spec.ts` — the conformance test pinning the five stages' rule-block copies identical, under the one-hundred-word cap, and naming no component removed from the package (#634)

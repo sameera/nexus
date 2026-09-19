@@ -11,7 +11,6 @@ import {
     excludePathspecs,
     isExcludedStorePath,
 } from "./pipeline-stores";
-import { createWorkbook, workbookStoreRoot } from "@nexus/teaching/workbook-store";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const COMMANDS_DIR: string = path.join(REPO_ROOT, "components", "commands");
@@ -55,46 +54,6 @@ function write(dir: string, rel: string, body: string): void {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, body);
 }
-
-describe("a workbook is created as a committed folder outside the queue", () => {
-    it("puts the workbook in the store beside the queue, not inside it", () => {
-        const repo = makeDir();
-        initRepo(repo);
-
-        const workbook = createWorkbook(repo, "roadmap-driven-learning");
-
-        expect(fs.existsSync(workbook.root)).toBe(true);
-        expect(workbook.relativePath).toBe(`${WORKBOOK_STORE_PATH}/roadmap-driven-learning`);
-        expect(workbook.relativePath.startsWith(".nexus/queue")).toBe(false);
-        expect(path.dirname(workbook.root)).toBe(workbookStoreRoot(repo));
-    });
-
-    it("leaves the workbook committable — git does not ignore it", () => {
-        const repo = makeDir();
-        initRepo(repo);
-        const workbook = createWorkbook(repo, "roadmap-driven-learning");
-        write(repo, `${workbook.relativePath}/lesson.html`, "<p>lesson</p>\n");
-
-        commitAll(repo, "add workbook");
-
-        const tracked = sh(repo, "git", "ls-files").split("\n");
-        expect(tracked).toContain(`${workbook.relativePath}/lesson.html`);
-    });
-
-    it("holds more than one workbook, because a repository may teach more than one roadmap", () => {
-        const repo = makeDir();
-        initRepo(repo);
-
-        const first = createWorkbook(repo, "one");
-        const second = createWorkbook(repo, "two");
-        const again = createWorkbook(repo, "one");
-
-        expect(first.created).toBe(true);
-        expect(second.created).toBe(true);
-        expect(again.created).toBe(false);
-        expect(fs.readdirSync(workbookStoreRoot(repo)).sort()).toEqual(["one", "two"]);
-    });
-});
 
 describe("the excluded-store set has exactly one definition", () => {
     it("names the workbook store alongside the queue and the discovery store", () => {
@@ -168,8 +127,10 @@ describe("a derived behavioural diff withholds the workbook and nothing else", (
         write(member, "libs/app/src/thing.ts", "export const before = 1;\n");
         const base = commitAll(member, "base");
 
-        const workbook = createWorkbook(member, "rdl");
-        write(member, `${workbook.relativePath}/lesson.html`, "<p>generated markup</p>\n");
+        // Written by path, not through the teaching library: the workbook belongs to a package
+        // this one no longer ships, and what is under test here is that the exclusion holds over
+        // whatever a repository has put in that directory.
+        write(member, `${WORKBOOK_STORE_PATH}/rdl/lesson.html`, "<p>generated markup</p>\n");
         write(member, "libs/app/src/thing.ts", "export const before = 2;\n");
         const head = commitAll(member, "workbook page plus application source");
 

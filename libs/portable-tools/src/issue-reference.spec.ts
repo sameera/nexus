@@ -122,13 +122,17 @@ describe("/nxs.epic keeps the materialized epic.md's own references bare and fix
     });
 });
 
-describe("/nxs.decision-record loads the shared skill and declares issues_repo on its local artifacts", () => {
-    it("loads nxs-issue-reference rather than restating the rule", () => {
+describe("/nxs.decision-record loads the shared skill rather than restating the rule", () => {
+    it("loads nxs-issue-reference", () => {
         expect(RECORD).toContain("nxs-issue-reference");
         expect(RECORD).toMatch(/load the \*\*`nxs-issue-reference`\*\* skill/i);
     });
 
-    it("declares issues_repo on the workbook sources file it writes under .nexus/tmp/", () => {
-        expect(RECORD).toContain("issues_repo: <ISSUES_REPO>   # where the story numbers below live");
+    // The stage used to write one local artifact carrying story numbers — the workbook sources file
+    // it pinned from at approval — and that file had to declare which repository those numbers lived
+    // in. Pinning is the teaching stage's step now (epic #677), and this stage writes no local
+    // artifact naming a story, so there is nothing left here for the declaration to sit on.
+    it("writes no local artifact carrying a story number, so it declares no repository for one", () => {
+        expect(RECORD).not.toContain("issues_repo: <ISSUES_REPO>");
     });
 });

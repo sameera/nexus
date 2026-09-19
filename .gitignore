@@ -19,6 +19,7 @@ vite.config.*.timestamp*
 vitest.config.*.timestamp*
 
 **/test-output/vitest/coverage
+coverage/
 *.tsbuildinfo
 
 # pre-translation copies made by the prose convention (deleted on a passing verify;
