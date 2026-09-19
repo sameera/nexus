@@ -399,7 +399,25 @@ export function validateAnchor(file: string, findings: Finding[]): void {
     }
 }
 
-export function validatePage(file: string, base: string | null, repoRoot: string, findings: Finding[], validDomainPaths: Set<string> | null = null): void {
+/**
+ * The pages the store holds, by slug, for the directory a page sits in. Supplied by the CLI and
+ * absent everywhere else: a caller validating one page in isolation has no store to resolve an
+ * edge against, and a check that silently resolved against an empty store would condemn every
+ * edge on the page.
+ */
+export function pagesInStore(dir: string): Set<string> {
+    if (!fs.existsSync(dir)) {
+        return new Set<string>();
+    }
+    return new Set<string>(
+        fs
+            .readdirSync(dir)
+            .filter((name: string) => name.endsWith(".md") && name !== "README.md")
+            .map((name: string) => path.basename(name, ".md")),
+    );
+}
+
+export function validatePage(file: string, base: string | null, repoRoot: string, findings: Finding[], validDomainPaths: Set<string> | null = null, storePages: Set<string> | null = null): void {
     const content: string = fs.readFileSync(file, "utf8");
     const lines: string[] = content.split("\n");
 
@@ -516,6 +534,18 @@ export function validatePage(file: string, base: string | null, repoRoot: string
             findings.push({ file, severity: "advisory", message: `Integration Points: ${bullets.length} bullets, over the ${DEGREE_ADVISORY}-bullet high-degree advisory — a hub worth reviewing, never a reason to split or to drop an edge` });
         }
     }
+    // A declared edge whose other end is gone (#672). The equality check below pairs `touches:`
+    // with the page's own bullets, and a dead edge satisfies it on both sides — the page that left
+    // the store takes no bullet with it. So the target is resolved where its link resolves: beside
+    // the page, as `<slug>.md`.
+    if (Array.isArray(touches) && storePages !== null) {
+        for (const t of touches) {
+            if (!storePages.has(t)) {
+                findings.push({ file, message: `touches: "${t}" names a page that is not in the store — the edge is dead, so drop it or restore ${t}.md` });
+            }
+        }
+    }
+
     if (Array.isArray(touches) && integration !== null) {
         const linked: string[] = [];
         for (const line of integration) {
@@ -866,6 +896,21 @@ export function runCli(argv: string[]): number {
     const statuses: Map<string, string> =
         options.appendOnlyLog && options.base !== null ? gitStatusMap(options.base, repoRoot) : new Map();
 
+    // One read per directory, not one per page: the distiller validates a handful of changed pages
+    // out of a store of well over a hundred, and every one of them resolves its edges against the
+    // same directory listing.
+    const storeByDir = new Map<string, Set<string>>();
+    const storePagesFor = (dir: string): Set<string> => {
+        const key: string = path.resolve(dir);
+        const known: Set<string> | undefined = storeByDir.get(key);
+        if (known !== undefined) {
+            return known;
+        }
+        const pages: Set<string> = pagesInStore(key);
+        storeByDir.set(key, pages);
+        return pages;
+    };
+
     for (const file of files) {
         // Invariant 6: the registry is validated by its own grammar, never as a concept page.
         if (hasRegistry && path.resolve(file) === path.resolve(regPath)) {
@@ -885,7 +930,7 @@ export function runCli(argv: string[]): number {
             checkAppendOnlyLog(file, options.base, repoRoot, statuses, findings);
         }
         if (fs.existsSync(file)) {
-            validatePage(file, options.base, repoRoot, findings, validDomainPaths);
+            validatePage(file, options.base, repoRoot, findings, validDomainPaths, storePagesFor(path.dirname(file)));
         } else {
             findings.push({ file, message: "file not found" });
         }

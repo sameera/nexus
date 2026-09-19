@@ -2,27 +2,32 @@
 title: "Theme Tokens"
 aliases: ["theming", "dual theme", "light and dark mode", "semantic tokens"]
 touches: [reading-surface-tokens]
-last_updated_by: "#669"
+last_updated_by: "#673"
 status: active
 verification: verified
 ---
 
 # Theme Tokens
 
-Theme tokens give one semantic colour vocabulary backed by two value sets, dark and light, selected by a single mode flag on the shell root. Every region consumes the semantic tokens and never a raw colour value, so a single mode flip re-resolves the whole shell with zero per-region branching. The shell it dresses now lives in a separate repository. What this repository still asserts is the shared reading subset the workbook reads.
+Theme tokens are one semantic colour vocabulary backed by two value sets, dark and light, chosen by a single mode flag at the root of whatever surface reads them. A consumer names the role it wants and never a colour, so one flag re-resolves the whole surface and nothing below the root asks which mode is on.
 
 ## How It Works
 
-A semantic palette of surface tiers, chrome, ink tiers, accent, state, and gate-surface colours is defined as named tokens whose values are redefined under a root mode selector. The active mode is set once at the shell root; each token resolves through inheritance, so a region written once renders correctly in either mode. The user-facing switch flips the mode at runtime and persists the explicit choice in local browser storage; on first load with no prior choice the shell follows the operating-system colour-scheme preference, defaulting to dark when none is expressed. Crucially, the two mockups differ well beyond their top-level variables: roughly two dozen colours defined elsewhere also flip between modes — surface tints, gradient opacities, badge and violation fills, borders, the scrollbar thumb, hover backgrounds, and the inks on the accent and state glyphs — and all are lifted into both value sets as tokens.
+A token names a role: the page background, the ink tiers from body text down to the quietest label, the accent at rest and in use, rules, code surfaces. Every name appears in both value sets, so a name that resolves in one mode resolves in the other. A value that does not flip is declared once outside both sets, so the pair holds only what actually changes.
+
+The two sets are emitted against the same root, one as the default and one behind the mode flag. A surface that sets the flag gets the second set by inheritance, with no question asked at any point of use. Dark is what a root that selects nothing resolves to; light is the deliberate choice.
+
+The vocabulary is defined here and rendered as bytes, which is what lets a surface embed it instead of depending on the application it first grew in. Which part is shared with a second surface belongs to the reading subset, not here.
 
 ## Key Invariants
 
-1. There is exactly one token source of truth: no region emits a literal colour, radius, or font value that the theme already defines.
-2. The theme mode is applied only at the shell root; every region resolves the active mode through token inheritance with no per-region theme conditional.
-3. Both value sets cover every cross-mode colour divergence between the two mockups, including the values that flip outside the top-level block and the inks on accent and state glyphs.
-4. After a mode switch, every region renders in the new mode with none left in the prior mode.
-5. An explicit mode choice is persisted and restored on reload; with no prior choice the shell follows the operating-system preference and falls back to dark.
-6. The server render and first client render use the default mode; the persisted or operating-system choice is reconciled only in a post-mount effect, so first load may show a one-frame flash.
+1. There is one source for a themed value: no consumer emits a literal colour the vocabulary already names.
+2. A token names a role and never an appearance, so one name stays correct in both modes.
+3. Every name is defined in both value sets, and a value that does not flip is declared once outside them.
+4. The mode is chosen once, at the surface's root, and every region resolves it by inheritance with no per-region conditional.
+5. A root that selects no mode resolves to dark.
+6. ~~An explicit mode choice is persisted and restored on reload; with no prior choice the shell follows the operating-system preference and falls back to dark.~~ Persisting a choice was the application's, and it left.
+7. ~~The server render and first client render use the default mode; the persisted or operating-system choice is reconciled only in a post-mount effect, so first load may show a one-frame flash.~~ Likewise: nothing here renders twice.
 
 ## Integration Points
 
@@ -45,3 +50,7 @@ Mechanical reciprocity fan-out: the reading subset of this vocabulary — backgr
 ### 2026-09-18 — #669 — The page stays whole here while its subject moves to sameera/prime
 
 Prime's theme and the workbook's reading tokens were one concept, and half of it left this repository. The page is kept whole rather than split, because a split would leave two pages asserting one thing. Its dead edge to application-shell was dropped by hand when that page left. What this repository can still verify is the single shared definition the workbook reads, which reading-surface-tokens holds. Rewriting the vocabulary itself away from Prime is deferred to its own stub, so the body above still describes a shell maintained in sameera/prime. Refuted alternative: split the page into a Prime half and a workbook half, which loses on what stays here being one shared definition rather than two concepts.
+
+### 2026-09-18 — #673 — The vocabulary is stated as itself, not as the departed shell's
+
+The definition opened as Prime's — two mockups, a scrollbar thumb, a persisted switch, a one-frame flash on first load — and that opening propagated into the generated atlas, where it described a shell this repository does not hold. What survives Prime's departure is the vocabulary itself: roles rather than colours, two value sets under one flag at the root, and the rule that no consumer writes a literal. The page now says that, and the two invariants that were the application's own behaviour are struck rather than deleted, because a struck invariant records that it was once held and by whom. Refuted alternative: leave the body and let the reading subset's page carry the whole story, which loses on the atlas continuing to introduce the concept as a shell that is not here.

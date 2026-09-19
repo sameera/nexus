@@ -10,6 +10,7 @@ import {
     isAnchorFile,
     isBlocking,
     parseArgs,
+    pagesInStore,
     parseFrontmatter,
     gitStatusMap,
     registryPath,
@@ -374,6 +375,7 @@ describe("anchor routing", () => {
     it("the default no-files scan still reads only the concepts dir (unchanged)", () => {
         const dir = makeTmpDir();
         writeFile(dir, "alpha.md", page());
+        writeFile(dir, "beta.md", edgelessPage("Beta"));
         expect(runCli(["--concepts-dir", dir])).toBe(0);
     });
 });
@@ -847,6 +849,7 @@ describe("severity and exit status (#223)", () => {
     it("exits zero when the only findings are advisories, and marks them as such", () => {
         const dir = makeTmpDir();
         writeFile(dir, "concepts/alpha.md", pageWithOwnContent(100, [`- [beta](beta.md) — ${"word ".repeat(30).trim()}.`]));
+        writeFile(dir, "concepts/beta.md", edgelessPage("Beta"));
         const result = runInDir(dir);
         expect(result.code).toBe(0);
         expect(result.err).toContain("ADVISORY");
@@ -856,10 +859,94 @@ describe("severity and exit status (#223)", () => {
     it("exits non-zero and distinguishes the two classes when a blocking finding is present", () => {
         const dir = makeTmpDir();
         writeFile(dir, "concepts/alpha.md", pageWithOwnContent(100, [`- [beta](beta.md) — ${"word ".repeat(41).trim()}.`]));
+        writeFile(dir, "concepts/beta.md", edgelessPage("Beta"));
         const result = runInDir(dir);
         expect(result.code).toBe(1);
         expect(result.err).toContain("BLOCKING");
         expect(result.err).toMatch(/1 blocking finding\(s\)/);
+    });
+});
+
+/** A valid page with no edges at all — the neighbour a store needs present, and nothing more. */
+function edgelessPage(title: string, extraFrontmatter = ""): string {
+    return page({
+        frontmatter: `title: "${title}"\naliases: []\ntouches: []\nlast_updated_by: "bootstrap"\nstatus: active\nverification: verified${extraFrontmatter}`,
+        h1: `# ${title}`,
+        lead: `${title} does the thing well.`,
+        sections: `## How It Works
+
+${title} behaves predictably under load.
+
+## Key Invariants
+
+1. ${title} never breaks.
+
+## Integration Points
+
+## Decision Log
+
+### 2026-07-04 — #1 — Seed
+Why it exists.
+`,
+    });
+}
+
+describe("a dangling touches target (#672)", () => {
+    it("reports an edge whose page is not in the store, and blocks on it", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page());
+        const findings: Finding[] = [];
+        validatePage(file, null, dir, findings, null, pagesInStore(dir));
+        const dangling: Finding | undefined = findings.find((f) => f.message.includes("names a page that is not in the store"));
+        expect(dangling?.message).toContain('"beta"');
+        expect(dangling?.message).toContain("beta.md");
+        expect(isBlocking(dangling as Finding)).toBe(true);
+    });
+
+    it("says nothing when the page the edge names is there", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page());
+        writeFile(dir, "beta.md", edgelessPage("Beta"));
+        const findings: Finding[] = [];
+        validatePage(file, null, dir, findings, null, pagesInStore(dir));
+        expect(findings.filter((f) => f.severity !== "advisory")).toEqual([]);
+    });
+
+    it("leaves the edge alone when no store was supplied — one page in isolation has none", () => {
+        const dir = makeTmpDir();
+        const file = writeFile(dir, "alpha.md", page());
+        expect(validate(file).some((f) => f.message.includes("not in the store"))).toBe(false);
+    });
+
+    it("names the dead edge and fails the run when the distiller validates just the changed page", () => {
+        const dir = makeTmpDir();
+        writeFile(dir, "concepts/alpha.md", page());
+        const out: string[] = [];
+        const err: string[] = [];
+        const log = console.log;
+        const error = console.error;
+        console.log = (m: string) => void out.push(m);
+        console.error = (m: string) => void err.push(m);
+        let code: number;
+        try {
+            code = validateWithCwd(dir, () => runCli(["--concepts-dir", "concepts", "concepts/alpha.md"]));
+        } finally {
+            console.log = log;
+            console.error = error;
+        }
+        expect(code).toBe(1);
+        expect(err.join("\n")).toContain("names a page that is not in the store");
+        expect(err.join("\n")).toContain("BLOCKING");
+    });
+
+    it("passes the whole live store, which has no dead edge in it", () => {
+        const conceptsDir: string = path.join(REPO_ROOT, ".nexus", "concepts");
+        const pages: Set<string> = pagesInStore(conceptsDir);
+        const findings: Finding[] = [];
+        for (const name of fs.readdirSync(conceptsDir).filter((n) => n.endsWith(".md") && n !== "README.md")) {
+            validatePage(path.join(conceptsDir, name), null, REPO_ROOT, findings, null, pages);
+        }
+        expect(findings.filter((f) => f.message.includes("not in the store"))).toEqual([]);
     });
 });
 
@@ -1062,6 +1149,7 @@ describe("runCli", () => {
     it("returns 0 for a clean concepts directory", () => {
         const dir = makeTmpDir();
         writeFile(dir, "alpha.md", page());
+        writeFile(dir, "beta.md", edgelessPage("Beta"));
         expect(runCli(["--concepts-dir", dir])).toBe(0);
     });
 
@@ -1247,6 +1335,7 @@ describe("runCli — domain filing (STORY-89.02)", () => {
         fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
         fs.mkdirSync(".nexus/concepts", { recursive: true });
         fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page({ frontmatter: FM_WITH_DOMAIN }));
+        fs.writeFileSync(path.join(".nexus", "concepts", "beta.md"), edgelessPage("Beta", "\ndomain: connectors"));
         expect(runCli([])).toBe(0);
     });
 
@@ -1275,6 +1364,7 @@ describe("runCli — domain filing (STORY-89.02)", () => {
         fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
         fs.mkdirSync(".nexus/concepts", { recursive: true });
         fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page());
+        fs.writeFileSync(path.join(".nexus", "concepts", "beta.md"), edgelessPage("Beta"));
         const errors: string[] = [];
         const originalError = console.error;
         console.error = (msg: string) => errors.push(msg);
@@ -1294,6 +1384,7 @@ describe("runCli — domain filing (STORY-89.02)", () => {
         fs.writeFileSync(path.join("docs", "domains.md"), REGISTRY_WELL_FORMED);
         fs.mkdirSync(".nexus/concepts", { recursive: true });
         fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page({ frontmatter: FM_WITH_DOMAIN }));
+        fs.writeFileSync(path.join(".nexus", "concepts", "beta.md"), edgelessPage("Beta", "\ndomain: connectors"));
         expect(runCli([])).toBe(0);
     });
 
@@ -1301,6 +1392,7 @@ describe("runCli — domain filing (STORY-89.02)", () => {
         chdirTmp();
         fs.mkdirSync(".nexus/concepts", { recursive: true });
         fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page());
+        fs.writeFileSync(path.join(".nexus", "concepts", "beta.md"), edgelessPage("Beta"));
         const errors: string[] = [];
         const originalError = console.error;
         console.error = (msg: string) => errors.push(msg);
@@ -1407,6 +1499,7 @@ describe("domain registry (epic #89, STORY-89.01)", () => {
         chdirTmp();
         fs.mkdirSync(".nexus/concepts", { recursive: true });
         fs.writeFileSync(path.join(".nexus", "concepts", "alpha.md"), page());
+        fs.writeFileSync(path.join(".nexus", "concepts", "beta.md"), edgelessPage("Beta"));
         const errors: string[] = [];
         const originalError = console.error;
         console.error = (msg: string) => errors.push(msg);
@@ -1446,14 +1539,16 @@ describe("CLI (subprocess)", () => {
     it("exits 0 and prints the validated count for a clean directory", () => {
         const dir = makeTmpDir();
         writeFile(dir, "alpha.md", page());
+        writeFile(dir, "beta.md", edgelessPage("Beta"));
         const result = runViaTsx(["--concepts-dir", dir]);
         expect(result.status).toBe(0);
-        expect(result.stdout).toContain("OK: 1 page(s) validated.");
+        expect(result.stdout).toContain("OK: 2 page(s) validated.");
     });
 
     it("exits 1 and prints the finding count for a directory with findings", () => {
         const dir = makeTmpDir();
         writeFile(dir, "alpha.md", page({ h1: "# Mismatched Title" }));
+        writeFile(dir, "beta.md", edgelessPage("Beta"));
         const result = runViaTsx(["--concepts-dir", dir]);
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("1 blocking finding(s) and 0 advisory(ies) across");
@@ -1472,6 +1567,9 @@ describe("append-only-log mode (story #265)", () => {
     function stagedChange(content: string, next: string | null, name = "alpha.md"): { dir: string; base: string; file: string } {
         const dir: string = makeGitRepo();
         const file: string = writeFile(dir, path.join(".nexus", "concepts", name), content);
+        // The page's own edge has to land somewhere: a store whose only page names a neighbour
+        // that was never written is a dead edge, and the validator now says so.
+        writeFile(dir, path.join(".nexus", "concepts", "beta.md"), edgelessPage("Beta"));
         const base: string = commitAll(dir, "base");
         if (next === null) {
             fs.rmSync(file);

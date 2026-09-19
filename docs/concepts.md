@@ -141,7 +141,7 @@ Orientation map of the concept store — 133 active concepts. Each links to its 
 - [Trace Stepper](../.nexus/concepts/trace-stepper.md) — The trace stepper walks a learner through a code snippet one step at a time, showing the state beside the line each step names.
 - [Bare-Name Guard](../.nexus/concepts/bare-name-guard.md) — The bare-name guard is the security boundary of workspace resolution: a name declared in a workspace artifact may only be a bare directory segment, and the hub's optional docs-root override may only be a non-escaping repo-relative path.
 - [Non-Disclosing Refusal](../.nexus/concepts/non-disclosing-refusal.md) — A mockup the renderer will not serve gets one answer, whether the file is missing or the reader simply cannot reach it.
-- [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens give one semantic colour vocabulary backed by two value sets, dark and light, selected by a single mode flag on the shell root.
+- [Theme Tokens](../.nexus/concepts/theme-tokens.md) — Theme tokens are one semantic colour vocabulary backed by two value sets, dark and light, chosen by a single mode flag at the root of whatever surface reads them.
 
 ## Standalone
 

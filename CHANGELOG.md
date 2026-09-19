@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.59.0
+
+- `distill` now refuses a concept page whose `touches:` names a page the store does not hold. A
+  dead edge used to pass the validator silently — the page that left took no bullet with it, so the
+  edge matched itself on both sides — and a drain could publish one without anything saying so. The
+  check runs both on the whole store and on the handful of changed pages a drain validates, and it
+  blocks: drop the edge, or restore the page it names.
+
 ## 0.58.0
 
 - `/nxs.teach` now earns a **reference page** for a concept the session drills a second time. The
