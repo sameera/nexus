@@ -1,21 +1,4 @@
 labels:
-    - name: frontend
-      color: "0075ca"
-      purpose: React components, routing, UI/UX, client-side state
-      use_for:
-          - React component development
-          - react-router-dom routes and navigation
-          - Tailwind styling and layout
-          - Client-side state and hooks
-
-    - name: terminal
-      color: "5319e7"
-      purpose: The wterm-based in-browser terminal and the Claude Code session it hosts
-      use_for:
-          - wterm embedding and configuration
-          - Terminal I/O, rendering, and resize handling
-          - Claude Code process lifecycle inside the terminal
-
     - name: pipeline
       color: "1d76db"
       purpose: Orchestration of the Nexus stages (nxs.*) and the human-decision gates between them
@@ -52,5 +35,5 @@ labels:
 usage_guidelines:
     - Issues can have multiple labels when they span categories.
     - Choose the label that best represents the primary work area.
-    - Use frontend, terminal, pipeline, infrastructure for the primary work surface.
+    - Use pipeline or infrastructure for the primary work surface.
     - Use performance or testing as secondary labels when relevant.

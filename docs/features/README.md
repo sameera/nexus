@@ -35,9 +35,7 @@ nexus config backlog-query --form exclude
 
 | Feature                                                                    | What it covers                                                                   |
 | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [Application Shell](application-shell/README.md)                           | The persistent frame and ephemeral surfaces wrapping the Claude Code session.     |
 | [Artifact Prose Style](artifact-prose-style/README.md)                     | Plain-language rules for every human-facing artifact, at a resident cost worth paying. |
-| [Command Input](command-input/README.md)                                   | An editable, multi-line command prompt in the terminal region.                    |
 | [Concept Domain Taxonomy](concept-domains/README.md)                       | A curated domain taxonomy for the concept atlas, replacing derived headings.      |
 | [Concept Store Capacity](concept-store-capacity/README.md)                 | Keeping concept pages cheap to load and their touches graph growable.             |
 | [Component Distribution](component-distribution/README.md)                 | Packaging, installing, and addressing Nexus components outside the target repo.   |
@@ -51,8 +49,6 @@ nexus config backlog-query --form exclude
 | [Queue Scratch Capture](queue-scratch-capture/README.md)                   | In-flight decision scratch as committed per-user subdirs in the queue entry.      |
 | [Roadmap-Driven Learning](roadmap-driven-learning/README.md)               | Turning a planned roadmap into hands-on lessons, theory placed just before each exercise. |
 | [Scope Discipline](scope-discipline/README.md)                             | Keeping planning artifacts to the scope someone actually asked for.              |
-| [Server Platform](server-platform/README.md)                               | The server/runtime foundation the shell and terminal features sit on.             |
-| [Terminal Integration](terminal-integration/README.md)                     | A local PTY-over-WebSocket bridge and a real terminal mounted in Prime.           |
 
 A feature folder appears here once it has an epic; the folder itself is created at that feature's
 first epic filing.
