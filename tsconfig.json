@@ -7,9 +7,6 @@
       "path": "./libs/origin"
     },
     {
-      "path": "./libs/editor"
-    },
-    {
       "path": "./libs/workspace"
     },
     {
@@ -35,9 +32,6 @@
     },
     {
       "path": "./libs/release-identity"
-    },
-    {
-      "path": "./apps/prime"
     },
     {
       "path": "./apps/renderer"

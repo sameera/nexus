@@ -178,9 +178,7 @@ Two ways a working link goes away without you touching it:
 1. Edit under `components/`.
 2. Re-pin the release fingerprint, which hashes the payload the release would ship:
    `pnpm nexus:pin-bundles`.
-3. Run the suite: `npx nx run-many -t test --exclude=prime`. (`prime` is excluded because its
-   `node-pty` dependency is a native addon that needs a matching prebuild or a C++ toolchain;
-   build it on its own with `pnpm prime:build`.)
+3. Run the suite: `npx nx run-many -t test --all`.
 
 Two standing checks are worth knowing about before they fail on you:
 

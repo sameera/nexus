@@ -46,7 +46,7 @@ among them, or you decide in the open that it changes nothing a lead experiences
 ## 3. Re-pin and verify
 
     pnpm nexus:pin-bundles
-    npx nx run-many -t test --all --exclude=prime
+    npx nx run-many -t test --all
 
 The first command rebuilds the executable, recomputes the payload hash and rewrites the
 fingerprint pin and its payload manifest. It copies nothing into any repository. The test run is
