@@ -14,4 +14,4 @@ generated: 2026-09-17
 - `libs/portable-tools/src/workbook-cli.ts` — the pin subverb: live record approval read from the pipeline root, the sources file, and the plan write
 - `libs/portable-tools/src/workbook-plan.ts` — the optional sources field, its reader refusals on handoff and scaffold slices, and its writer
 - `components/commands/nxs.decision-record.md` — the design-stage step that pins workbook sources when the record closes, and again on a revision's re-close
-- `components/skills/nxs-workbook/SKILL.md` — the pin verb listed among the workbook verbs both teaching phases share
+- `components/skills/nxsx-workbook/SKILL.md` — the pin verb listed among the workbook verbs both teaching phases share

@@ -13,4 +13,4 @@ generated: 2026-09-13
 - `libs/portable-tools/src/workbook-plan.ts` — the home entries built from the plan and the lessons, and the refusal of a lesson that would render over the page (#592)
 - `libs/portable-tools/src/workbook-store.ts` — the one options builder every render path takes, over the committed plan and the lessons present (#592)
 - `libs/portable-tools/src/workbook-home.spec.ts` — asserts the page as a learner meets it: written lessons linked, stubs not, handoffs and scaffolds marked, edges shown (#592)
-- `components/commands/nxs.teach.md` — the instruction to point the learner at the home page for the road ahead (#592)
+- `components/commands/nxsx.teach.md` — the instruction to point the learner at the home page for the road ahead (#592)

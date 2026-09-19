@@ -22,19 +22,19 @@ import * as path from "node:path";
 import { parse } from "yaml";
 
 /** The adopter-facing entry point for each phase, named by its command file's stem. */
-export const PLANNING_PHASE_ENTRY_POINT: string = "nxs.teach-plan";
-export const LESSON_PHASE_ENTRY_POINT: string = "nxs.teach";
+export const PLANNING_PHASE_ENTRY_POINT: string = "nxsx.teach-plan";
+export const LESSON_PHASE_ENTRY_POINT: string = "nxsx.teach";
 
 /**
  * What both phases need, declared here rather than inferred from the two sets overlapping. Inferring
  * it would make a body that wrongly declares the other phase's reference look like a body sharing
  * one, which is the failure this check exists to catch.
  */
-export const SHARED_REFERENCES: readonly string[] = ["nxs-workbook"];
+export const SHARED_REFERENCES: readonly string[] = ["nxsx-workbook"];
 
 /** One phase's entry point: the phase it declares, the references it names, and its whole body. */
 export interface PhaseEntryPoint {
-    /** The command's file stem, e.g. "nxs.teach-plan". */
+    /** The command's file stem, e.g. "nxsx.teach-plan". */
     command: string;
     /** The phase the body declares it runs. */
     phase: string;

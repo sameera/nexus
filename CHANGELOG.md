@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.61.0
+
+- The teaching stage is now invoked as `/nxsx.teach` and `/nxsx.teach-plan`, and its skill and
+  subagent are `nxsx-workbook` and `nxsx-concept-extractor`. Nothing about the stage changed; the
+  names did, because the stage is leaving for a package of its own (epic #677) and `uninstall` and
+  `migrate-components` match on the `nxs.`/`nxs-` prefix. Under a prefix of its own, a separately
+  shipped teaching package survives both. Upgrading is one `nexus install`: the old four names are
+  swept and the new four are placed. A workbook, a plan and a lesson page are untouched — only the
+  words you type to start a sitting change.
+- A package's install now sweeps the files its own record claims, whatever they are named. The
+  sweep built its candidate set from the Nexus prefix *before* it consulted the record, so a
+  component under any other prefix was never a removal candidate for anyone — including the package
+  that placed it, which is the only thing entitled to clear it. A second package could add
+  components and never retire one. Nexus's own sweep is unchanged, and still leaves another
+  package's files alone.
+
 ## 0.60.0
 
 - `analyze`, `close` and `intake` now withhold the pipeline stores from the diffs they derive when

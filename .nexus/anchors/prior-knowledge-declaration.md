@@ -14,4 +14,4 @@ generated: 2026-09-12
 - `libs/portable-tools/src/plan-draft.ts` — the removed concepts beside their phrases, and the unmatched phrases, as the draft carries them (#563)
 - `libs/portable-tools/src/workbook-cli.ts` — reads the declaration file, reuses the recorded mapping, and reports the phrases that matched nothing (#563)
 - `libs/portable-tools/src/plan-rewrite.spec.ts` — pins the refused slot, the refused phrase and identifier, the folded alias, and reuse on a later rewrite (#563)
-- `components/commands/nxs.teach-plan.md` — the session instructions for matching the learner's words and passing the declaration once (#563)
+- `components/commands/nxsx.teach-plan.md` — the session instructions for matching the learner's words and passing the declaration once (#563)

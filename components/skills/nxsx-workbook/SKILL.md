@@ -1,5 +1,5 @@
 ---
-name: nxs-workbook
+name: nxsx-workbook
 description: The workbook surface both teaching phases share — where a workbook lives, what the learner folder is and why nothing writes to it unguarded, and the nexus workbook verbs that resolve a roadmap, run the interview, render pages and teach one lesson. Load it from either phase; neither phase restates it.
 ---
 

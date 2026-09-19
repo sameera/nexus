@@ -1,10 +1,10 @@
 ---
-name: nxs.teach-plan
+name: nxsx.teach-plan
 description: The planning phase of the teaching stage. Resolves a roadmap from an epic issue or a backlog query, creates the workbook it will be taught in, runs the one bounded interview that establishes what the learner already knows and what they came to learn, then reads each story once through its own extraction subagent, writes the plan's stubs as an uncommitted draft, orders that draft and rewrites it so each concept is taught once, then shows the reviewer the approval gate and, on approval, writes the committed plan. Plans the roadmap; writes no lesson.
 category: learning
 phase: planning
 references:
-  - nxs-workbook
+  - nxsx-workbook
   - nxs-epic-resolve
 tools: Read, Grep, Glob, Bash, Task, Skill, AskUserQuestion
 model: inherit
@@ -23,7 +23,7 @@ ordered a roadmap while holding the material a lesson is written from would be h
 rest of its life. Crossing into the next phase is therefore a **new invocation**, never a branch
 inside this one.
 
-Load the `nxs-workbook` skill for the surface, and the `nxs-epic-resolve` skill for what the shared
+Load the `nxsx-workbook` skill for the surface, and the `nxs-epic-resolve` skill for what the shared
 resolver does and refuses.
 
 # User Input
@@ -95,7 +95,7 @@ learner is asked anything.**
 # Phase 3 — Extract each story's concepts
 
 A session that held every story's text could not plan a roadmap of any size, so each story is read
-once, by its own `nxs-concept-extractor` subagent, and all that reaches you is the short list it
+once, by its own `nxsx-concept-extractor` subagent, and all that reaches you is the short list it
 hands back.
 
 ```bash
@@ -106,7 +106,7 @@ This prints the story numbers still to extract — every story on a first run; o
 ones whose list failed or whose text has changed. It stops before any subagent starts when the
 roadmap has no interview; report that and stop.
 
-Start one `nxs-concept-extractor` subagent per listed story, in parallel. Give each **only** the
+Start one `nxsx-concept-extractor` subagent per listed story, in parallel. Give each **only** the
 roadmap name and its story number — never a prompt built from the story's text, and never anything you
 read about the story. Its list reaches you only through the toolkit's check. A subagent that reports
 a refused list has produced no readable list for that story: do not repair the list or write one
@@ -303,5 +303,5 @@ to 7). A refused re-approval leaves the approved plan, its lessons and its pages
 
 Report the roadmap's story count, the interview's outcome, the draft's learner and handoff counts, and
 what the reviewer decided at the gate. A handoff mark builds nothing: write no handoff prompt and start
-no coding-agent session here. Lesson writing is `/nxs.teach <name>` — a fresh invocation, which is what
+no coding-agent session here. Lesson writing is `/nxsx.teach <name>` — a fresh invocation, which is what
 lets it load the references this phase does not.
