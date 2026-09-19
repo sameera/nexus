@@ -1,7 +1,7 @@
 ---
 title: "Theme Tokens"
 aliases: ["theming", "dual theme", "light and dark mode", "semantic tokens"]
-touches: [application-shell, reading-surface-tokens]
+touches: [reading-surface-tokens]
 last_updated_by: "#405"
 status: active
 verification: verified
@@ -26,7 +26,6 @@ A semantic palette of surface tiers, chrome, ink tiers, accent, state, and gate-
 
 ## Integration Points
 
-- [application-shell](application-shell.md) — the shell root applies the active mode that every region inherits.
 - [reading-surface-tokens](reading-surface-tokens.md) — the reading subset of this vocabulary, lifted out so a second surface can share it.
 
 ## Decision Log
