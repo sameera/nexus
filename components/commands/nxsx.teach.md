@@ -1,10 +1,10 @@
 ---
-name: nxs.teach
+name: nxsx.teach
 description: The lesson-writing phase of the teaching stage. One sitting checks the fences, writes the theory for the slice the learner has reached, and renders it to a page. Resolves no roadmap and asks no interview question.
 category: learning
 phase: lesson-writing
 references:
-  - nxs-workbook
+  - nxsx-workbook
 tools: Read, Grep, Glob, Write, Bash, Skill
 model: inherit
 ---
@@ -16,9 +16,9 @@ slice the learner has reached, written on arrival.
 
 This body names the lesson-writing references and none of the planning ones. The roadmap is
 resolved and the interview answered; read what they recorded and re-derive neither. A phase change
-is a new invocation. An unresolved roadmap goes back to `/nxs.teach-plan`; never resolve it here.
+is a new invocation. An unresolved roadmap goes back to `/nxsx.teach-plan`; never resolve it here.
 
-Load the `nxs-workbook` skill for the surface.
+Load the `nxsx-workbook` skill for the surface.
 
 # User Input
 
@@ -39,7 +39,7 @@ one:
 
 - the suite is red, or the previous slice never integrated: the learner has work to finish first;
 - the plan's next slice has drifted from its story: re-approve the plan through
-  `/nxs.teach-plan <name>`; never edit past it;
+  `/nxsx.teach-plan <name>`; never edit past it;
 - a fence was never checked: an unchecked fence never counts as one that held.
 
 Write one idea per sentence. Put an aside in its own sentence, never between em-dashes. Use no

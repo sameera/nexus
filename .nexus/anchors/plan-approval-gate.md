@@ -14,4 +14,4 @@ generated: 2026-09-13
 - `libs/portable-tools/src/plan-commit.ts` — the fingerprint of what was printed, and the same coverage refusal run again before anything is written (#592)
 - `libs/portable-tools/src/plan-rewrite.ts` — the fresh coverage check the refusal recomputes from the draft's own slices (#592)
 - `libs/portable-tools/src/workbook-cli.ts` — the gate subverb: printing, the mark and clear flags, the recorded overrides, and the approve path (#592)
-- `components/commands/nxs.teach-plan.md` — the phase that shows the digest word for word and collects approve, change marks or decline (#592)
+- `components/commands/nxsx.teach-plan.md` — the phase that shows the digest word for word and collects approve, change marks or decline (#592)

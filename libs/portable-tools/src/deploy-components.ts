@@ -23,13 +23,16 @@
  *   "delete every component this account has"; expressing removal as a mirror of an empty directory
  *   would make those two states indistinguishable at this boundary.
  *
- * One shape epic #677 adds: **a package sweeps what it placed, not what carries the prefix**. The
- * namespace is shared by design — a stage a second package ships is still invoked as `/nxs.<name>`
- * — so scoping the sweep by prefix would have each package delete the other's files on every
- * install. Each install records the paths it placed, under the name of the package that placed
- * them, and no package removes a path another package's record claims. A root with no record yet
- * is the state every existing install is in: the sweep is unscoped there, exactly as before, and
- * the record it writes is what scopes the next one.
+ * One shape epic #677 adds: **a package sweeps what it placed, not what carries the prefix**. Each
+ * install records the paths it placed, under the name of the package that placed them; no package
+ * removes a path another package's record claims, and a package's own record makes a path a
+ * removal candidate whatever it is named. Both halves are needed, and they fail in opposite
+ * directions. Without the first, two packages under one prefix delete each other's files on every
+ * install. Without the second, a package shipping under a prefix of its own — which is what the
+ * teaching stage now does — could add components and never retire one, because the candidate set
+ * was built from the Nexus prefix before the record was consulted and never offered those files to
+ * anyone. A root with no record yet is the state every install predating the record is in: the
+ * sweep is unscoped there, exactly as before, and the record it writes is what scopes the next one.
  */
 
 import * as fs from "node:fs";
@@ -145,6 +148,22 @@ function isRealDirectory(candidate: string): boolean {
     }
 }
 
+/** True for a path that really is there — a pointer counts as itself, never as what it names. */
+function pathExists(candidate: string): boolean {
+    try {
+        fs.lstatSync(candidate);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** True for a component-root-relative path sitting inside one of the three managed subtrees. */
+function isUnderManagedSubtree(rel: string): boolean {
+    const segments: string[] = rel.split("/");
+    return segments.length > 1 && COMPONENT_SUBTREES.includes(segments[0]);
+}
+
 function walkFiles(dir: string, base: string, out: string[]): void {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const abs: string = path.join(dir, entry.name);
@@ -229,8 +248,15 @@ export function deployComponents(payload: ComponentPayload, componentRoot: strin
         }
     }
 
-    // Convergence: drop Nexus-namespaced files the managed set no longer carries.
-    const candidates: string[] = [];
+    // Convergence: drop the files the managed set no longer carries. Two things make a file a
+    // candidate, and the second is not a narrowing of the first. The Nexus prefix answers for a root
+    // that predates the record — there the sweep has nothing else to go on. The package's own record
+    // answers for everything it placed, WHATEVER the file is named: a package shipping components
+    // under a namespace of its own (epic #677) places no Nexus-prefixed file at all, so a candidate
+    // set built from the prefix alone would never offer those files to the sweep — not to Nexus,
+    // which must not have them, and not to the package that placed them, which is the only thing
+    // that can clear them.
+    const candidateSet = new Set<string>();
     for (const subtree of COMPONENT_SUBTREES) {
         const subtreeRoot: string = path.join(componentRoot, subtree);
         if (!isRealDirectory(subtreeRoot)) {
@@ -240,17 +266,28 @@ export function deployComponents(payload: ComponentPayload, componentRoot: strin
         walkFiles(subtreeRoot, componentRoot, existing);
         for (const rel of existing) {
             if (isNexusNamespacedPath(rel)) {
-                candidates.push(rel);
+                candidateSet.add(rel);
             }
+        }
+    }
+    if (mine !== null) {
+        for (const rel of mine) {
+            // Still only the managed subtrees, and still only a file that is really there: the
+            // record is a claim about what was placed, not a licence to delete an arbitrary path.
+            if (!isUnderManagedSubtree(rel) || !pathExists(path.join(componentRoot, ...rel.split("/")))) {
+                continue;
+            }
+            candidateSet.add(rel);
         }
     }
     if (options.includeRootLevel === true && fs.existsSync(componentRoot)) {
         for (const entry of fs.readdirSync(componentRoot, { withFileTypes: true })) {
             if (!entry.isDirectory() && isNexusNamespaced(entry.name)) {
-                candidates.push(entry.name);
+                candidateSet.add(entry.name);
             }
         }
     }
+    const candidates: string[] = Array.from(candidateSet);
 
     const removed: string[] = [];
     const retained: string[] = [];

@@ -140,7 +140,7 @@ describe("each story is read by its own unit", () => {
     });
 
     it("loads no lesson-writing reference into an extraction subagent", () => {
-        const extractor: string = fs.readFileSync(path.join(COMPONENT_ROOT, "agents", "nxs-concept-extractor.md"), "utf8");
+        const extractor: string = fs.readFileSync(path.join(COMPONENT_ROOT, "agents", "nxsx-concept-extractor.md"), "utf8");
         const lessonOnly: string[] = readPhaseEntryPoint(COMPONENT_ROOT, LESSON_PHASE_ENTRY_POINT).references.filter((r) => !SHARED_REFERENCES.includes(r));
         // The lesson phase owns no reference of its own today (nxs-prose-style, its only one, is
         // removed). This equality is the tripwire: the day it declares one again, this fails and

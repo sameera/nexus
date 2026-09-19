@@ -16,7 +16,7 @@ import { authoredComponentRoot } from "./vendor-components.js";
 const ROOT: string = authoredComponentRoot(import.meta.dirname);
 
 /** The five stages that draft a human-facing artifact and carry the block. */
-const DRAFTING_STAGES: readonly string[] = ["nxs.epic", "nxs.decision-record", "nxs.distill", "nxs.discover", "nxs.teach"];
+const DRAFTING_STAGES: readonly string[] = ["nxs.epic", "nxs.decision-record", "nxs.distill", "nxs.discover", "nxsx.teach"];
 
 /** The first and last sentences of the block, which are how a copy is located in a body. */
 const BLOCK_OPENS: string = "Write one idea per sentence.";

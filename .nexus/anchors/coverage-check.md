@@ -14,4 +14,4 @@ generated: 2026-09-13
 - `libs/portable-tools/src/plan-draft.ts` — the verdict and its gaps, as the draft carries them
 - `libs/portable-tools/src/workbook-cli.ts` — joins a handed-off story's checked list to kept identifiers, writes the plan, and fails on a gap
 - `libs/portable-tools/src/plan-rewrite.spec.ts` — pins every gap named, the declared and background cases, and the plan written when coverage fails
-- `components/commands/nxs.teach-plan.md` — the instruction to report a refusal as it stands and stop (#592)
+- `components/commands/nxsx.teach-plan.md` — the instruction to report a refusal as it stands and stop (#592)

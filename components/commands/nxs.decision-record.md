@@ -666,7 +666,7 @@ Do not proceed while any open clarification is unresolved (the Phase 2 gate).
     5. The changed `plan.yml` is a committed file: name it in the Phase 5 report for the lead to commit.
 
     **When the record is left open for review**, nothing pins in this run. Say so in the Phase 5 report:
-    once the record is closed on GitHub, the lead runs steps 8.1–8.5 by hand, before `/nxs.teach`
+    once the record is closed on GitHub, the lead runs steps 8.1–8.5 by hand, before `/nxsx.teach`
     reaches this epic.
 
 **Never** write anything under `docs/` (permanent human artifacts only), and never emit a

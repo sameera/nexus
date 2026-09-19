@@ -134,7 +134,7 @@ For teams that deliver through pull requests, the tail of the pipeline runs agai
 A roadmap that has already been planned can also be *taught*. This runs as two commands, not one,
 and the split is deliberate.
 
-`/nxs.teach-plan <name> --epic <n>` — or `--query "<expression>"` for a programme of epics — works
+`/nxsx.teach-plan <name> --epic <n>` — or `--query "<expression>"` for a programme of epics — works
 out which stories the learner will work through. It resolves them from the issue graph through the
 same resolver every other stage uses, refuses anything that is not a planned epic before it asks
 anything, and then runs **one bounded interview**: at most five questions, established once per
@@ -147,7 +147,7 @@ plan a roadmap of any size. A concept two stories share carries one identifier, 
 uncommitted draft of the plan, one stub per story, written only when every story produced a readable
 list. The draft is approved into the committed plan before anything is taught from it.
 
-`/nxs.teach <name>` writes one lesson per sitting, for the slice the learner has arrived at.
+`/nxsx.teach <name>` writes one lesson per sitting, for the slice the learner has arrived at.
 
 They are separate commands because a session's references only ever accumulate. A session that
 planned a roadmap while holding the material a lesson is written from would keep holding it, so the

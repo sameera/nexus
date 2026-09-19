@@ -14,4 +14,4 @@ generated: 2026-09-12
 - `libs/portable-tools/src/plan-draft.ts` — the merged vocabulary as the draft carries it, each entry with its gloss and the names folded into it (#563)
 - `libs/portable-tools/src/plan-rewrite.ts` — reads a folded name as the kept identifier when applying a declaration (#563)
 - `libs/portable-tools/src/workbook-cli.ts` — prints every proposed identifier with its glosses, the only material the merge step reads (#563)
-- `components/commands/nxs.teach-plan.md` — the merge phase, where the session groups names and names the one kept (#563)
+- `components/commands/nxsx.teach-plan.md` — the merge phase, where the session groups names and names the one kept (#563)

@@ -12,5 +12,5 @@ generated: 2026-09-12
 - `libs/portable-tools/src/concept-extraction.ts` — the check of shape, identifier form and size, the kept lists, and the story-text digest each list is held against (#551)
 - `libs/portable-tools/src/concept-extraction.spec.ts` — pins one story per unit, the refusal cut to size, the explicit-nothing rule, and re-extraction of only the changed story (#551)
 - `libs/portable-tools/src/workbook-cli.ts` — the seam: the stories still to extract, one story's text for its unit, the list to check, and the handed-off lists the coverage check reads (#563)
-- `components/agents/nxs-concept-extractor.md` — the extraction unit itself, started with a roadmap name and one story number (#551)
-- `components/commands/nxs.teach-plan.md` — the planning phase that starts one unit per story and holds only the lists they hand back (#563)
+- `components/agents/nxsx-concept-extractor.md` — the extraction unit itself, started with a roadmap name and one story number (#551)
+- `components/commands/nxsx.teach-plan.md` — the planning phase that starts one unit per story and holds only the lists they hand back (#563)

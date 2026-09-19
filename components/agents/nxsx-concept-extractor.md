@@ -1,6 +1,6 @@
 ---
-name: nxs-concept-extractor
-description: Reads one roadmap story for the teaching stage's planning phase and hands back the concepts it introduces and assumes, through the toolkit's check. Started by /nxs.teach-plan with a roadmap name and one story number; reads no other story, no decision record, no diff and no code.
+name: nxsx-concept-extractor
+description: Reads one roadmap story for the teaching stage's planning phase and hands back the concepts it introduces and assumes, through the toolkit's check. Started by /nxsx.teach-plan with a roadmap name and one story number; reads no other story, no decision record, no diff and no code.
 category: learning
 tools: Bash
 model: inherit
