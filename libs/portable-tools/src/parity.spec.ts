@@ -82,6 +82,59 @@ afterEach(() => {
     tmpDirs = [];
 });
 
+/**
+ * A throwaway copy of the workspace's TypeScript sources, for the one case that has to edit a
+ * library and watch the edit take effect. Editing the real file races every other spec: vitest runs
+ * spec files in parallel, and anything that bundles `nexus-cli.ts` during the window bakes the
+ * doctored value into its bundle. So the edit lands in a copy instead — every library's source
+ * tree and package manifest, with the `@nexus` scope re-pointed at the copy by a `node_modules`
+ * directory built beside it, and every third-party package the checkout already installed linked in next to it, so
+ * the copied dispatcher resolves exactly what the real one resolves.
+ */
+function copyWorkspaceSources(prefix: string): string {
+    const root: string = makeTmpDir(prefix);
+    const libsDir: string = path.join(REPO_ROOT, "libs");
+    const nodeModules: string = path.join(root, "node_modules");
+    const scoped: string = path.join(nodeModules, "@nexus");
+    fs.mkdirSync(scoped, { recursive: true });
+
+    for (const pkg of fs.readdirSync(libsDir)) {
+        const from: string = path.join(libsDir, pkg);
+        if (!fs.existsSync(path.join(from, "package.json"))) {
+            continue;
+        }
+        const to: string = path.join(root, "libs", pkg);
+        fs.mkdirSync(to, { recursive: true });
+        fs.cpSync(path.join(from, "src"), path.join(to, "src"), { recursive: true });
+        fs.copyFileSync(path.join(from, "package.json"), path.join(to, "package.json"));
+        fs.symlinkSync(to, path.join(scoped, pkg));
+        linkInstalledPackages(path.join(from, "node_modules"), nodeModules);
+    }
+    linkInstalledPackages(path.join(REPO_ROOT, "node_modules"), nodeModules);
+    return root;
+}
+
+/**
+ * Link the third-party packages `dir` holds into `into`, first one wins. `@nexus` is never linked:
+ * the copy's own scope is what must answer for a workspace library, or the edit resolves back to
+ * the checkout and the case proves nothing.
+ */
+function linkInstalledPackages(dir: string, into: string): void {
+    if (!fs.existsSync(dir)) {
+        return;
+    }
+    for (const entry of fs.readdirSync(dir)) {
+        if (entry === "@nexus" || entry.startsWith(".")) {
+            continue;
+        }
+        const link: string = path.join(into, entry);
+        if (fs.existsSync(link)) {
+            continue;
+        }
+        fs.symlinkSync(fs.realpathSync(path.join(dir, entry)), link);
+    }
+}
+
 /** Writes a bundle's code (fresh, or a doctored override) to a temp `.mjs` and returns its path. */
 function writeBundle(name: string, codeOverride?: string): string {
     const dir: string = makeTmpDir(`parity-bundle-${name}-`);
@@ -451,29 +504,37 @@ describe("source run vs built executable (story #276)", () => {
 
     // AC3 — editing a capability in libs/ takes effect on the very next `tsx` run, no rebuild.
     // Structurally guaranteed by `tsx` (it transpiles-and-runs fresh, no cache), but demonstrated
-    // concretely rather than merely asserted: edit a real library's exported behaviour on disk,
-    // rerun the verb through the source-run command shape, and observe the edit take effect —
-    // against the SAME `nexus-cli.ts` process invocation path exercised above.
+    // concretely rather than merely asserted: run the verb, edit a library's exported behaviour on
+    // disk, rerun it, and observe the second run answer differently — against the SAME
+    // `nexus-cli.ts` process invocation path exercised above.
+    //
+    // The edit lands in a copy of the workspace, never in the checkout. A spec that rewrites a real
+    // source file is only safe while nothing else reads it, and nothing here enforces that: the
+    // suite bundles `nexus-cli.ts` from several specs at once, and any of them running inside the
+    // window used to bake the doctored value into its bundle and fail on it.
     it("AC3 — an edit to a libs/ capability takes effect on the next source run, with no build step", () => {
-        const libFile: string = path.join(LIB_ROOT, "..", "abs-doc-path", "src", "settings.ts");
-        const original: string = fs.readFileSync(libFile, "utf8");
+        const workspace: string = copyWorkspaceSources("parity-source-run-ac3-workspace-");
+        const cliSrc: string = path.join(workspace, "libs", "portable-tools", "src", "nexus-cli.ts");
+        const libFile: string = path.join(workspace, "libs", "abs-doc-path", "src", "settings.ts");
+        const repo: string = makeTmpDir("parity-source-run-ac3-");
+        fs.mkdirSync(path.join(repo, ".git"));
+
+        const before: RunResult = runSource(cliSrc, ["abs-doc-path", "docs/a.md"], repo);
+        expect(before.status).toBe(0);
+        expect(before.stdout).toContain("{username|orgname}/{reponame}");
+
         const marker = "https://example.invalid/AC3-MARKER/";
+        const original: string = fs.readFileSync(libFile, "utf8");
         const edited: string = original.replace(
             'export const DEFAULT_DOC_ROOT = "https://github.com/{username|orgname}/{reponame}/blob/main/docs";',
             `export const DEFAULT_DOC_ROOT = "${marker}";`,
         );
         expect(edited).not.toBe(original);
+        fs.writeFileSync(libFile, edited);
 
-        const repo: string = makeTmpDir("parity-source-run-ac3-");
-        fs.mkdirSync(path.join(repo, ".git"));
-        try {
-            fs.writeFileSync(libFile, edited);
-            const source: RunResult = runSource(NEXUS_CLI_SRC, ["abs-doc-path", "docs/a.md"], repo);
-            expect(source.status).toBe(0);
-            expect(source.stdout).toContain(marker);
-        } finally {
-            fs.writeFileSync(libFile, original);
-        }
+        const after: RunResult = runSource(cliSrc, ["abs-doc-path", "docs/a.md"], repo);
+        expect(after.status).toBe(0);
+        expect(after.stdout).toContain(marker);
     });
 });
 
