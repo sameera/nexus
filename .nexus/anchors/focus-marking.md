@@ -9,9 +9,9 @@ generated: 2026-09-13
 
 # Code Anchors: Focus Marking
 
-- `libs/portable-tools/src/concept-extraction.ts` — the verdict check, the whole-roadmap case decided in code, the reviewer's overrides applied over it, and the filed reason (#592)
-- `libs/portable-tools/src/slice-marks.spec.ts` — pins one mark per slice, the no-focus case, the override that outlives a re-plan, and that a handoff builds nothing (#592)
-- `libs/portable-tools/src/interview.ts` — the recorded focus, in the learner's own words, that every verdict is judged against
-- `libs/portable-tools/src/learner-store.ts` — the guarded write a verdict's reason passes through, and the record kind it is filed under
-- `libs/portable-tools/src/workbook-cli.ts` — records a mark override, rebuilds the draft under it, and reports a focus that matched no story (#592)
-- `libs/portable-tools/src/plan-rewrite.ts` — orders the learner slices and places each handoff by its mark
+- `libs/teaching/src/concept-extraction.ts` — the verdict check, the whole-roadmap case decided in code, the reviewer's overrides applied over it, and the filed reason (#592)
+- `libs/teaching/src/slice-marks.spec.ts` — pins one mark per slice, the no-focus case, the override that outlives a re-plan, and that a handoff builds nothing (#592)
+- `libs/teaching/src/interview.ts` — the recorded focus, in the learner's own words, that every verdict is judged against
+- `libs/teaching/src/learner-store.ts` — the guarded write a verdict's reason passes through, and the record kind it is filed under
+- `libs/teaching/src/workbook-cli.ts` — records a mark override, rebuilds the draft under it, and reports a focus that matched no story (#592)
+- `libs/teaching/src/plan-rewrite.ts` — orders the learner slices and places each handoff by its mark

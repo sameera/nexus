@@ -92,7 +92,7 @@ describe("renderExerciseSection", () => {
     const facts: ExerciseFacts = {
         story: 460,
         branch: "feat/407-session-teaches-one-lesson",
-        pinningTest: "libs/portable-tools/src/drill-selection.spec.ts",
+        pinningTest: "libs/teaching/src/drill-selection.spec.ts",
         pinningTestText: 'it("offers no drill in a first session", () => {\n    const met: Array<string> = [];\n});\n',
         gradingCommand: "npx nx test @nexus/portable-tools",
     };
@@ -106,7 +106,7 @@ describe("renderExerciseSection", () => {
         const section = renderExerciseSection(facts);
         expect(section).toContain("#460");
         expect(section).toContain("feat/407-session-teaches-one-lesson");
-        expect(section).toContain("libs/portable-tools/src/drill-selection.spec.ts");
+        expect(section).toContain("libs/teaching/src/drill-selection.spec.ts");
         expect(section).toContain("npx nx test @nexus/portable-tools");
     });
 

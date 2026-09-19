@@ -21,7 +21,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
-import { WORKBOOK_STORE_PATH } from "./pipeline-stores.js";
+import { WORKBOOK_STORE_PATH } from "./workbook-location.js";
 import { workbookStoreRoot } from "./workbook-store.js";
 
 /** The learner folder's name, directly beneath the workbook store. */

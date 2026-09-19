@@ -9,7 +9,7 @@ generated: 2026-09-18
 
 # Code Anchors: Cold Drill
 
-- `libs/portable-tools/src/drill-selection.ts` — eligibility by coldness, ranking by hints then by how overdue a concept is then by name, the concepts a lesson comes back to, and the second drill that earns a reference page.
-- `libs/portable-tools/src/drill-selection.spec.ts` — pins the exclusion of the last lesson's concepts, the hint ranking, the deterministic tie-break, and the first session with no history.
-- `libs/portable-tools/src/teaching-session.ts` — builds the concept history from the written lessons and reads the hint counts.
-- `libs/portable-tools/src/lesson-writer.ts` — renders the chosen drill as a predict-then-reveal exercise at the top of the lesson.
+- `libs/teaching/src/drill-selection.ts` — eligibility by coldness, ranking by hints then by how overdue a concept is then by name, the concepts a lesson comes back to, and the second drill that earns a reference page.
+- `libs/teaching/src/drill-selection.spec.ts` — pins the exclusion of the last lesson's concepts, the hint ranking, the deterministic tie-break, and the first session with no history.
+- `libs/teaching/src/teaching-session.ts` — builds the concept history from the written lessons and reads the hint counts.
+- `libs/teaching/src/lesson-writer.ts` — renders the chosen drill as a predict-then-reveal exercise at the top of the lesson.

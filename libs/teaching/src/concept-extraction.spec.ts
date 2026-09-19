@@ -8,10 +8,11 @@ import { recordInterview } from "./interview.js";
 import { LEARNER_IGNORE_RULE } from "./learner-store.js";
 import { LESSON_PHASE_ENTRY_POINT, SHARED_REFERENCES, readPhaseEntryPoint } from "./phase-references.js";
 import { planDraftPath, readPlanDraft } from "./plan-draft.js";
+import { teachingComponentRoot } from "./teaching-components.js";
 import { writeRoadmap, type Roadmap } from "./roadmap.js";
 import { runWorkbookCli } from "./workbook-cli.js";
 
-const COMPONENT_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..", "components");
+const COMPONENT_ROOT: string = teachingComponentRoot(import.meta.dirname);
 
 let tmpDirs: string[] = [];
 function initRepo(): string {

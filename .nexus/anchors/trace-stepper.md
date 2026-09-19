@@ -9,5 +9,5 @@ generated: 2026-09-13
 
 # Code Anchors: Trace Stepper
 
-- `libs/portable-tools/src/trace-stepper.ts` — the precomputed steps, the line-marking and question-gating render, the forward-only step script, and the full trace printed for an untouched exercise.
-- `libs/portable-tools/src/trace-stepper.spec.ts` — covers the marked first line and its state, stepping to the line the next step names, a question blocking the step until checked, and the full trace on an untouched, printed page.
+- `libs/teaching/src/trace-stepper.ts` — the precomputed steps, the line-marking and question-gating render, the forward-only step script, and the full trace printed for an untouched exercise.
+- `libs/teaching/src/trace-stepper.spec.ts` — covers the marked first line and its state, stepping to the line the next step names, a question blocking the step until checked, and the full trace on an untouched, printed page.

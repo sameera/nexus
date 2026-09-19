@@ -9,7 +9,7 @@ generated: 2026-09-13
 
 # Code Anchors: Generated Page Check
 
-- `libs/portable-tools/src/workbook-render.ts` — the byte comparison between a committed page and a fresh render, and the changed, missing and extra findings it returns.
-- `libs/portable-tools/src/workbook-store.ts` — the one options builder the check takes, so it compares exactly what every other render path writes (#592)
-- `libs/portable-tools/src/workbook-cli.ts` — the check subverb, which now covers a workbook with a plan and no lesson yet, and repairs nothing (#592)
-- `libs/portable-tools/src/workbook-cli.spec.ts` — covers the check reporting changed, missing and extra pages, and leaving the tree untouched.
+- `libs/teaching/src/workbook-render.ts` — the byte comparison between a committed page and a fresh render, and the changed, missing and extra findings it returns.
+- `libs/teaching/src/workbook-store.ts` — the one options builder the check takes, so it compares exactly what every other render path writes (#592)
+- `libs/teaching/src/workbook-cli.ts` — the check subverb, which now covers a workbook with a plan and no lesson yet, and repairs nothing (#592)
+- `libs/teaching/src/workbook-cli.spec.ts` — covers the check reporting changed, missing and extra pages, and leaving the tree untouched.

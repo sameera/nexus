@@ -9,6 +9,6 @@ generated: 2026-09-13
 
 # Code Anchors: Plan Drift Gate
 
-- `libs/portable-tools/src/teaching-plan.ts` — the comparison of pinned against live state, each story read once however many slices name it, and the scaffold that never drifts (#592)
-- `libs/portable-tools/src/teaching-plan.spec.ts` — covers a closed story, a rewritten story, an unreadable story, and a plan whose stories all still match.
-- `libs/portable-tools/src/teaching-session.ts` — supplies the live reader and turns a blocking finding into the session's drift outcome.
+- `libs/teaching/src/teaching-plan.ts` — the comparison of pinned against live state, each story read once however many slices name it, and the scaffold that never drifts (#592)
+- `libs/teaching/src/teaching-plan.spec.ts` — covers a closed story, a rewritten story, an unreadable story, and a plan whose stories all still match.
+- `libs/teaching/src/teaching-session.ts` — supplies the live reader and turns a blocking finding into the session's drift outcome.

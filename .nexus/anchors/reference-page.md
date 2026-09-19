@@ -9,11 +9,11 @@ generated: 2026-09-18
 
 # Code Anchors: Reference Page
 
-- `libs/portable-tools/src/drill-selection.ts` — decides whether this sitting's drill earns a page, and lists every concept two or more written lessons drilled.
-- `libs/portable-tools/src/teaching-session.ts` — names the earned concept in the brief and the report, names owed pages on every run, checks returned prose before writing, and refuses a file-name collision.
-- `libs/portable-tools/src/lesson-writer.ts` — the brief's earned concept and whether its page is written, and the optional reference prose handed back.
-- `libs/portable-tools/src/workbook-render.ts` — the reserved page name, the five-hundred-word budget, the one-concept, taught-concept and duplicate refusals, the render-time warm-up link, and the page shell.
-- `libs/portable-tools/src/workbook-store.ts` — the authored reference folder beside the lessons, read in file-name order and handed to the render.
-- `libs/portable-tools/src/workbook-cli.ts` — reads the reference prose from the prose file's front matter and tells the author where it goes.
-- `libs/portable-tools/src/reference-pages.spec.ts` — pins earning on a second drill only, the link from the drilling lesson, every refusal, and a printed page with nothing withheld.
-- `libs/portable-tools/src/workbook-cli.spec.ts` — covers the teach subverb naming where the reference prose goes.
+- `libs/teaching/src/drill-selection.ts` — decides whether this sitting's drill earns a page, and lists every concept two or more written lessons drilled.
+- `libs/teaching/src/teaching-session.ts` — names the earned concept in the brief and the report, names owed pages on every run, checks returned prose before writing, and refuses a file-name collision.
+- `libs/teaching/src/lesson-writer.ts` — the brief's earned concept and whether its page is written, and the optional reference prose handed back.
+- `libs/teaching/src/workbook-render.ts` — the reserved page name, the five-hundred-word budget, the one-concept, taught-concept and duplicate refusals, the render-time warm-up link, and the page shell.
+- `libs/teaching/src/workbook-store.ts` — the authored reference folder beside the lessons, read in file-name order and handed to the render.
+- `libs/teaching/src/workbook-cli.ts` — reads the reference prose from the prose file's front matter and tells the author where it goes.
+- `libs/teaching/src/reference-pages.spec.ts` — pins earning on a second drill only, the link from the drilling lesson, every refusal, and a printed page with nothing withheld.
+- `libs/teaching/src/workbook-cli.spec.ts` — covers the teach subverb naming where the reference prose goes.

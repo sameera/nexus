@@ -99,7 +99,7 @@ import {
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
-import { WORKBOOK_SUBVERBS, runWorkbookCli } from "./workbook-cli.js";
+import { WORKBOOK_SUBVERBS, runWorkbookCli } from "@nexus/teaching/workbook-cli";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 

@@ -20,4 +20,4 @@ generated: 2026-09-17
 - `libs/portable-tools/src/writer-stamp.ts` — the writer field placed beside this digest rather than inside the bytes it covers, which is why the canonicalisation rule needed no exception.
 - `libs/epic-verdicts/src/currency.ts` — the per-story record axis: each verdict's stamped digest is compared against the record's current digest, and a verdict stamping no record at all is stale once the epic has an approved one (#521)
 - `libs/epic-verdicts/src/currency.spec.ts` — pins the superseded-digest case, the unstamped-verdict case, and the epic that carries no record at all (#521)
-- `libs/portable-tools/src/workbook-cli.ts` — the pin verb that reads a record's approval through this fetch
+- `libs/teaching/src/workbook-cli.ts` — the pin verb that reads a record's approval through this fetch

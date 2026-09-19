@@ -9,9 +9,9 @@ generated: 2026-09-18
 
 # Code Anchors: Workbook Store
 
-- `libs/portable-tools/src/workbook-store.ts` — the store's layout including the authored reference folder, the plan replaced whole in one rename, and the write that lands the plan and its pages together or not at all.
-- `libs/portable-tools/src/workbook-placement.ts` — where a workbook belongs: the hub refusal naming the declared members, and the member resolution from the running checkout or an explicit name.
-- `libs/portable-tools/src/workbook-placement.spec.ts` — covers the hub refusal, the member resolution from either direction, and the single-repo case.
+- `libs/teaching/src/workbook-store.ts` — the store's layout including the authored reference folder, the plan replaced whole in one rename, and the write that lands the plan and its pages together or not at all.
+- `libs/teaching/src/workbook-placement.ts` — where a workbook belongs: the hub refusal naming the declared members, and the member resolution from the running checkout or an explicit name.
+- `libs/teaching/src/workbook-placement.spec.ts` — covers the hub refusal, the member resolution from either direction, and the single-repo case.
 - `libs/portable-tools/src/pipeline-stores.spec.ts` — pins that the store is committed, sits outside the queue, holds more than one workbook, and never reaches a derived behavioural diff.
-- `libs/portable-tools/src/workbook-cli.ts` — the workbook create subverb, the one caller that makes a workbook and ensures the learner-folder rule.
-- `libs/portable-tools/src/workbook-store.spec.ts` — covers the stub tolerated under a plan of slices, the lesson the plan does not name still failing, and the written-lesson listing.
+- `libs/teaching/src/workbook-cli.ts` — the workbook create subverb, the one caller that makes a workbook and ensures the learner-folder rule.
+- `libs/teaching/src/workbook-store.spec.ts` — covers the stub tolerated under a plan of slices, the lesson the plan does not name still failing, and the written-lesson listing.

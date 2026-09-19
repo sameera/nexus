@@ -9,7 +9,7 @@ generated: 2026-09-13
 
 # Code Anchors: Handoff Prompt
 
-- `libs/portable-tools/src/handoff-prompt.ts` — the prompt text, the sibling list that names each story once and no scaffold, and the quotation markers that grow until the quoted text cannot forge them (#592)
-- `libs/portable-tools/src/handoff-prompt.spec.ts` — pins every element the prompt must name, the per-slice epic, the marker growth, and the rules stated after the quotation closes (#592)
-- `libs/portable-tools/src/teaching-session.ts` — reaches a handoff slice, writes both pinning tests, then writes the prompt naming that slice's recorded epic (#592)
-- `libs/portable-tools/src/handoff-stubs.spec.ts` — pins that the sibling list is worked out here from the plan, so the planning draft writes none of its own
+- `libs/teaching/src/handoff-prompt.ts` — the prompt text, the sibling list that names each story once and no scaffold, and the quotation markers that grow until the quoted text cannot forge them (#592)
+- `libs/teaching/src/handoff-prompt.spec.ts` — pins every element the prompt must name, the per-slice epic, the marker growth, and the rules stated after the quotation closes (#592)
+- `libs/teaching/src/teaching-session.ts` — reaches a handoff slice, writes both pinning tests, then writes the prompt naming that slice's recorded epic (#592)
+- `libs/teaching/src/handoff-stubs.spec.ts` — pins that the sibling list is worked out here from the plan, so the planning draft writes none of its own

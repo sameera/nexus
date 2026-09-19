@@ -9,6 +9,6 @@ generated: 2026-09-13
 
 # Code Anchors: Component Refusal
 
-- `libs/portable-tools/src/workbook-widgets.ts` — the contract's `refuse` and `codeFields` fields, the whole-render failure on a refusal, and `declarationMarkupText`, which removes a code field's values before the markup check reads a declaration.
-- `libs/portable-tools/src/workbook-render.ts` — `withoutCodeFences`, which now excludes a widget declaration's code-field values from what the lesson's markup check reads.
-- `libs/portable-tools/src/workbook-widgets.spec.ts` — covers a refusing declaration failing the whole render, and a declared code field's value passing the markup check unread.
+- `libs/teaching/src/workbook-widgets.ts` — the contract's `refuse` and `codeFields` fields, the whole-render failure on a refusal, and `declarationMarkupText`, which removes a code field's values before the markup check reads a declaration.
+- `libs/teaching/src/workbook-render.ts` — `withoutCodeFences`, which now excludes a widget declaration's code-field values from what the lesson's markup check reads.
+- `libs/teaching/src/workbook-widgets.spec.ts` — covers a refusing declaration failing the whole render, and a declared code field's value passing the markup check unread.

@@ -7,9 +7,9 @@ import {
     phaseReferenceProblems,
     type PhaseEntryPoint,
 } from "./phase-references.js";
-import { authoredComponentRoot } from "./vendor-components.js";
+import { teachingComponentRoot } from "./teaching-components.js";
 
-const ROOT: string = authoredComponentRoot(import.meta.dirname);
+const ROOT: string = teachingComponentRoot(import.meta.dirname);
 
 const planning: PhaseEntryPoint = readPhaseEntryPoint(ROOT, PLANNING_PHASE_ENTRY_POINT);
 const lesson: PhaseEntryPoint = readPhaseEntryPoint(ROOT, LESSON_PHASE_ENTRY_POINT);

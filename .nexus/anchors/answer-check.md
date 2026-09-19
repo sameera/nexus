@@ -9,7 +9,7 @@ generated: 2026-09-13
 
 # Code Anchors: Answer Check
 
-- `libs/portable-tools/src/answer-check.ts` — the checkable answer: rendered parts and expected copy, the spacing-tolerant match, the check/clear/reset script, and the print-hiding styles.
-- `libs/portable-tools/src/fill-the-signature.ts` — the smallest consumer: one typed part, checked against one expected signature.
-- `libs/portable-tools/src/fill-the-signature.spec.ts` — covers the prompt and empty field visible, the check with no network, the spacing-tolerant match, print showing both halves untouched, and nothing surviving a reopen.
-- `libs/portable-tools/src/workbook-learner-fixtures.ts` — the spec-only harness that runs the shipped script in a browser-like window and hands a spec the actions a learner takes and what they would see; not imported by anything shipped.
+- `libs/teaching/src/answer-check.ts` — the checkable answer: rendered parts and expected copy, the spacing-tolerant match, the check/clear/reset script, and the print-hiding styles.
+- `libs/teaching/src/fill-the-signature.ts` — the smallest consumer: one typed part, checked against one expected signature.
+- `libs/teaching/src/fill-the-signature.spec.ts` — covers the prompt and empty field visible, the check with no network, the spacing-tolerant match, print showing both halves untouched, and nothing surviving a reopen.
+- `libs/teaching/src/workbook-learner-fixtures.ts` — the spec-only harness that runs the shipped script in a browser-like window and hands a spec the actions a learner takes and what they would see; not imported by anything shipped.

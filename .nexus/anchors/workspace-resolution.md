@@ -33,7 +33,7 @@ generated: 2026-09-11
 - `libs/workspace/src/pointer.spec.ts` — member-side resolution and diagnostics.
 - `libs/workspace/src/status.spec.ts` — read-out rendering across the three cases, including the docs root.
 - `libs/portable-tools/src/cross-ref-docs-root.spec.ts` — subprocess coverage of the doc-link builder's docs-root strip and URL-agreement behavior in both layouts.
-- `libs/portable-tools/src/workbook-placement.ts` — a consumer that asks this resolver which member checkout a workbook belongs in and refuses the hub, re-deriving no workspace shape.
+- `libs/teaching/src/workbook-placement.ts` — a consumer that asks this resolver which member checkout a workbook belongs in and refuses the hub, re-deriving no workspace shape.
 - `libs/portable-tools/src/derive-entry-diff.ts` — a consumer that asks this resolver for the checkout of every repository a range entry names, and falls back to the checkout's own identity where no workspace is declared.
 - `libs/workspace/src/close-role.ts` — close's role gate, reporting which of the three checkout roles a close runs in and the repo's own identity, with no hub location.
 - `libs/workspace/src/close-role.spec.ts` — covers the three role values and the not-a-git-repo diagnostic.

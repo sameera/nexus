@@ -9,9 +9,9 @@ generated: 2026-09-12
 
 # Code Anchors: Concept Vocabulary Merge
 
-- `libs/portable-tools/src/concept-extraction.ts` — identifier normalization, the proposed vocabulary, and the merge that refuses an unmapped, invented or split name (#551)
-- `libs/portable-tools/src/concept-extraction.spec.ts` — pins spelling and case settled in code, the merge applied to every list, and the folded-away names kept as aliases (#551)
-- `libs/portable-tools/src/plan-draft.ts` — the merged vocabulary as the draft carries it, each entry with its gloss and the names folded into it (#563)
-- `libs/portable-tools/src/plan-rewrite.ts` — reads a folded name as the kept identifier when applying a declaration (#563)
-- `libs/portable-tools/src/workbook-cli.ts` — prints every proposed identifier with its glosses, the only material the merge step reads (#563)
+- `libs/teaching/src/concept-extraction.ts` — identifier normalization, the proposed vocabulary, and the merge that refuses an unmapped, invented or split name (#551)
+- `libs/teaching/src/concept-extraction.spec.ts` — pins spelling and case settled in code, the merge applied to every list, and the folded-away names kept as aliases (#551)
+- `libs/teaching/src/plan-draft.ts` — the merged vocabulary as the draft carries it, each entry with its gloss and the names folded into it (#563)
+- `libs/teaching/src/plan-rewrite.ts` — reads a folded name as the kept identifier when applying a declaration (#563)
+- `libs/teaching/src/workbook-cli.ts` — prints every proposed identifier with its glosses, the only material the merge step reads (#563)
 - `components/commands/nxsx.teach-plan.md` — the merge phase, where the session groups names and names the one kept (#563)

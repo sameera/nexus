@@ -9,7 +9,7 @@ generated: 2026-09-13
 
 # Code Anchors: Return Verification
 
-- `libs/portable-tools/src/fence-probe.ts` — the suite run, the scratch sweep, the probe over one materialized test, the control test proof, and the verdict combining suite and fence.
-- `libs/portable-tools/src/fence-probe.spec.ts` — covers the red suite blocking first, the breach, the unchecked fence, and the scratch path left clean after every run.
-- `libs/portable-tools/src/teaching-session.ts` — runs the two probes on a return, skips a scaffold when it picks the slice to fence, and marks a pause verified only after both checks pass (#592)
-- `libs/portable-tools/src/handoffs.ts` — records whether a pause was resolved by a check or asserted by hand.
+- `libs/teaching/src/fence-probe.ts` — the suite run, the scratch sweep, the probe over one materialized test, the control test proof, and the verdict combining suite and fence.
+- `libs/teaching/src/fence-probe.spec.ts` — covers the red suite blocking first, the breach, the unchecked fence, and the scratch path left clean after every run.
+- `libs/teaching/src/teaching-session.ts` — runs the two probes on a return, skips a scaffold when it picks the slice to fence, and marks a pause verified only after both checks pass (#592)
+- `libs/teaching/src/handoffs.ts` — records whether a pause was resolved by a check or asserted by hand.

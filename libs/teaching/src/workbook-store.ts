@@ -19,7 +19,7 @@ import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { ensureLearnerIgnored } from "./learner-store.js";
 import { assertWorkbookHome } from "./workbook-placement.js";
 import { PLAN_FILENAME, homeEntries, parsePlan, planStubs, renderWorkbookPlan, type WorkbookPlan } from "./workbook-plan.js";
-import { NEXUS_ROOT_DIRNAME, WORKBOOK_STORE_DIRNAME, WORKBOOK_STORE_PATH } from "./pipeline-stores.js";
+import { NEXUS_ROOT_DIRNAME, WORKBOOK_STORE_DIRNAME, WORKBOOK_STORE_PATH } from "./workbook-location.js";
 import { clearWorkbookOutput, writeWorkbook, type LessonSource, type RenderOptions, type RenderedFile } from "./workbook-render.js";
 
 /** Absolute path of the workbook store inside a checkout. */

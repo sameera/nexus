@@ -9,9 +9,9 @@ generated: 2026-09-17
 
 # Code Anchors: Plan Field Ownership
 
-- `libs/portable-tools/src/plan-commit.ts` — the fixed field list every committed slice is built from, and the refusals for absent commands and an unreadable repository (#592)
-- `libs/portable-tools/src/workbook-plan.ts` — the reader that accepts an absent pinning test, an absent epic on a scaffold, and the declared command document (#592)
-- `libs/portable-tools/src/teaching-session.ts` — the arrival that records a pinning test into the plan, once, and refuses one naming a path outside the repository (#592)
-- `libs/portable-tools/src/workbook-cli.ts` — the declared commands file, and the authored pinning tests read from the prose front matter (#592)
-- `libs/portable-tools/src/plan-commit.spec.ts` — pins each field's owner, the absent-not-placeholder rule, and that no interview answer reaches the plan (#592)
-- `libs/portable-tools/src/source-pinning.ts` — the design stage's ownership of the sources field, filled only from an approved record
+- `libs/teaching/src/plan-commit.ts` — the fixed field list every committed slice is built from, and the refusals for absent commands and an unreadable repository (#592)
+- `libs/teaching/src/workbook-plan.ts` — the reader that accepts an absent pinning test, an absent epic on a scaffold, and the declared command document (#592)
+- `libs/teaching/src/teaching-session.ts` — the arrival that records a pinning test into the plan, once, and refuses one naming a path outside the repository (#592)
+- `libs/teaching/src/workbook-cli.ts` — the declared commands file, and the authored pinning tests read from the prose front matter (#592)
+- `libs/teaching/src/plan-commit.spec.ts` — pins each field's owner, the absent-not-placeholder rule, and that no interview answer reaches the plan (#592)
+- `libs/teaching/src/source-pinning.ts` — the design stage's ownership of the sources field, filled only from an approved record

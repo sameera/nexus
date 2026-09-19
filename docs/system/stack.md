@@ -32,7 +32,11 @@ for release.
   filing stages publish, bundled with `esbuild` for either a long-running listener
   (`src/listen.ts`) or a Lambda Function URL (`src/lambda.ts`).
 - `libs/portable-tools/` — the CLI itself: concept-store validation, the atlas generator, the release
-  packer, the component installer, and the teaching-workbook renderer.
+  packer and the component installer.
+- `libs/teaching/` — the teaching stage: the roadmap and plan surface, the workbook store and its
+  renderer, the drill widgets and the `nexus workbook` verb. It is reached through exactly one
+  import from the CLI, and depends on nothing in `libs/portable-tools/`, because it is leaving for a
+  repository of its own (epic #677).
 - `libs/delivery-config/`, `libs/epic-resolve/`, `libs/epic-verdicts/`, `libs/pr-acceptance/`,
   `libs/pr-worktree/`, `libs/record-digest/`, `libs/scope-razor/`, `libs/workspace/`,
   `libs/abs-doc-path/`, `libs/prose-verify/`, `libs/release-identity/` — the stage-facing libraries,

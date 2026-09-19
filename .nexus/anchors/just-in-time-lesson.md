@@ -9,6 +9,6 @@ generated: 2026-09-13
 
 # Code Anchors: Just-In-Time Lesson
 
-- `libs/portable-tools/src/lesson-writer.ts` — arrival resolution over the plan, the exercise section a scaffold has none of, the pinning test an arrival is asked for, and the lesson assembly that refuses missing prose (#592)
-- `libs/portable-tools/src/lesson-writer.spec.ts` — pins one lesson ahead, the idempotent re-open, the exercise's named facts, and the scaffold lesson written without one (#592)
-- `libs/portable-tools/src/teaching-session.ts` — decides a slice is finished from the pinning test present in the tree, records the test it asked for, and writes the one lesson (#592)
+- `libs/teaching/src/lesson-writer.ts` — arrival resolution over the plan, the exercise section a scaffold has none of, the pinning test an arrival is asked for, and the lesson assembly that refuses missing prose (#592)
+- `libs/teaching/src/lesson-writer.spec.ts` — pins one lesson ahead, the idempotent re-open, the exercise's named facts, and the scaffold lesson written without one (#592)
+- `libs/teaching/src/teaching-session.ts` — decides a slice is finished from the pinning test present in the tree, records the test it asked for, and writes the one lesson (#592)
