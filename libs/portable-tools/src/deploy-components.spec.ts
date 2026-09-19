@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { deployComponents, EMPTY_PAYLOAD, payloadDirectory } from "./deploy-components";
+import { deployComponents, EMPTY_PAYLOAD, INSTALL_LEDGER_FILE, payloadDirectory, readInstallLedger } from "./deploy-components";
 
 let tmpDirs: string[] = [];
 
@@ -153,5 +153,117 @@ describe("deployComponents", () => {
     it("fails with a named error when the payload directory is missing", () => {
         const repo: string = makeTmpDir("deploy-target-");
         expect(() => deployComponents(payloadDirectory(path.join(repo, "no-such-payload")), path.join(repo, ".claude"))).toThrowError(/payload/i);
+    });
+});
+
+/**
+ * Two packages, one component root (epic #677's blocker). The mirror's sweep is "every
+ * Nexus-namespaced file the payload no longer carries", and the namespace is shared by design — a
+ * teaching stage a second package ships is still invoked as `/nxs.teach`. So the sweep cannot be
+ * scoped by the prefix; it is scoped by what each package recorded placing, and a package never
+ * removes a path another package's record claims.
+ */
+describe("two packages sharing one component root", () => {
+    /** A second package's payload: one command and one skill, under the same namespace. */
+    function makeOtherPayload(): string {
+        const dir: string = makeTmpDir("deploy-other-payload-");
+        fs.mkdirSync(path.join(dir, "commands"), { recursive: true });
+        fs.mkdirSync(path.join(dir, "skills", "nxs-workbook"), { recursive: true });
+        fs.writeFileSync(path.join(dir, "commands", "nxs.teach.md"), "teach v1\n");
+        fs.writeFileSync(path.join(dir, "skills", "nxs-workbook", "SKILL.md"), "workbook v1\n");
+        return dir;
+    }
+
+    const NEXUS = "@sameeraperera/nexus";
+    const TEACH = "@sameeraperera/nexus-teach";
+
+    it("leaves the other package's files in place when one of them installs", () => {
+        const root: string = makeTmpDir("deploy-root-");
+        deployComponents(payloadDirectory(makePayload()), root, { owner: NEXUS });
+        deployComponents(payloadDirectory(makeOtherPayload()), root, { owner: TEACH });
+
+        const again = deployComponents(payloadDirectory(makePayload()), root, { owner: NEXUS });
+
+        expect(fs.existsSync(path.join(root, "commands", "nxs.teach.md"))).toBe(true);
+        expect(fs.existsSync(path.join(root, "skills", "nxs-workbook", "SKILL.md"))).toBe(true);
+        expect(again.removed).toEqual([]);
+        expect(again.claimedByOthers).toEqual([]);
+    });
+
+    it("still drops its own file that the new payload no longer carries", () => {
+        const root: string = makeTmpDir("deploy-root-");
+        const payload: string = makePayload();
+        deployComponents(payloadDirectory(payload), root, { owner: NEXUS });
+        deployComponents(payloadDirectory(makeOtherPayload()), root, { owner: TEACH });
+
+        fs.rmSync(path.join(payload, "agents", "nxs-pm.md"));
+        const result = deployComponents(payloadDirectory(payload), root, { owner: NEXUS });
+
+        expect(result.removed).toEqual(["agents/nxs-pm.md"]);
+        expect(fs.existsSync(path.join(root, "commands", "nxs.teach.md"))).toBe(true);
+    });
+
+    it("removes only its own files when one package is uninstalled", () => {
+        const root: string = makeTmpDir("deploy-root-");
+        deployComponents(payloadDirectory(makePayload()), root, { owner: NEXUS });
+        deployComponents(payloadDirectory(makeOtherPayload()), root, { owner: TEACH });
+
+        const result = deployComponents(EMPTY_PAYLOAD, root, { owner: NEXUS });
+
+        expect(result.removed).toEqual(["agents/nxs-pm.md", "commands/nxs.epic.md", "skills/nxs-setup/SKILL.md"]);
+        expect(fs.existsSync(path.join(root, "commands", "nxs.teach.md"))).toBe(true);
+        expect(readInstallLedger(root)[NEXUS]).toBeUndefined();
+        expect(readInstallLedger(root)[TEACH]).toEqual(["commands/nxs.teach.md", "skills/nxs-workbook/SKILL.md"]);
+    });
+
+    it("adopts what it finds when the root predates the record, and records it", () => {
+        const root: string = makeTmpDir("deploy-root-");
+        // An install from before the record existed: files on disk, no ledger.
+        deployComponents(payloadDirectory(makePayload()), root);
+        expect(fs.existsSync(path.join(root, INSTALL_LEDGER_FILE))).toBe(false);
+
+        const payload: string = makePayload();
+        fs.rmSync(path.join(payload, "agents", "nxs-pm.md"));
+        const result = deployComponents(payloadDirectory(payload), root, { owner: NEXUS });
+
+        expect(result.removed).toEqual(["agents/nxs-pm.md"]);
+        expect(readInstallLedger(root)[NEXUS]).toEqual(["commands/nxs.epic.md", "skills/nxs-setup/SKILL.md"]);
+    });
+
+    it("names a path both packages ship, and overwrites without claiming it alone", () => {
+        const root: string = makeTmpDir("deploy-root-");
+        const shared: string = makeTmpDir("deploy-shared-payload-");
+        fs.mkdirSync(path.join(shared, "commands"), { recursive: true });
+        fs.writeFileSync(path.join(shared, "commands", "nxs.epic.md"), "epic from the other package\n");
+
+        deployComponents(payloadDirectory(makePayload()), root, { owner: NEXUS });
+        const result = deployComponents(payloadDirectory(shared), root, { owner: TEACH });
+
+        expect(result.written).toEqual(["commands/nxs.epic.md"]);
+        expect(result.claimedByOthers).toEqual(["commands/nxs.epic.md"]);
+        expect(fs.readFileSync(path.join(root, "commands", "nxs.epic.md"), "utf8")).toBe("epic from the other package\n");
+    });
+
+    it("sweeps every namespaced file when no owner is named, which is what migration asks for", () => {
+        const root: string = makeTmpDir("deploy-root-");
+        deployComponents(payloadDirectory(makePayload()), root, { owner: NEXUS });
+        deployComponents(payloadDirectory(makeOtherPayload()), root, { owner: TEACH });
+
+        const result = deployComponents(EMPTY_PAYLOAD, root);
+
+        expect(result.removed).toContain("commands/nxs.teach.md");
+        expect(result.removed).toContain("commands/nxs.epic.md");
+    });
+
+    it("converges: a second run with the same payload changes nothing", () => {
+        const root: string = makeTmpDir("deploy-root-");
+        deployComponents(payloadDirectory(makePayload()), root, { owner: NEXUS });
+        deployComponents(payloadDirectory(makeOtherPayload()), root, { owner: TEACH });
+        const first = snapshot(root);
+
+        deployComponents(payloadDirectory(makePayload()), root, { owner: NEXUS });
+        deployComponents(payloadDirectory(makeOtherPayload()), root, { owner: TEACH });
+
+        expect(snapshot(root)).toEqual(first);
     });
 });
