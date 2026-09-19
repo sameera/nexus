@@ -49,3 +49,9 @@ Mechanical reciprocity fan-out: the epic's combined code is a union of per-pull-
 ### 2026-09-10 — #214 — Reciprocal link from range-entry-diff
 
 Mechanical reciprocity fan-out: the drain's reader now emits one change set per range entry instead of one per repository, and each of those change sets withholds the whole set through this single definition. The set itself and its membership are unchanged.
+
+### 2026-09-19 — #686 — The set only withholds anything when it is substituted on the diff line itself
+
+Invariant 1 held, and the derived diff was still unfiltered for some of the people running it. Three bodies asked the toolkit for the set, put the answer into a shell variable, and passed the variable to the diff. Bash splits an unquoted variable into the several paths it holds, and zsh does not, so on zsh the tool received one nonsense path, withheld nothing, and still reported success. The failure direction is open and silent: a conformance verdict and a close record's deviation rationale could each be drawn from a diff carrying queue and discovery churn, and the refusal that stops a landed-change entry with nothing to record would pass a change whose only content was pipeline-store edits. Nothing would have said so. No verdict and no close record had in fact been drawn from an unfiltered diff when this was caught.
+
+The bodies now substitute the call on the diff line itself rather than through a variable, and a test reads every command body and fails on the captured form, so a body written later cannot adopt it unnoticed. That test covers the intake body too, which reads the set as the three named here do.
