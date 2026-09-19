@@ -1,93 +1,78 @@
 ---
-stack: Nexus Prime Technology Stack
-version: 1.1.0
-last_updated: 2026-07-04
+stack: Nexus Technology Stack
+version: 2.0.0
+last_updated: 2026-09-18
 ---
 
 # Technology Stack
 
-Nexus Prime is a **React terminal emulator** that runs Claude Code inside an in-browser
-terminal and drives the Nexus pipeline through it. Prime runs as a React Router 8
-framework-mode app fronted by a custom Node server: the server owns its underlying HTTP
-server (rather than the fully-managed `@react-router/serve` binary) specifically so it has
-a free WebSocket-upgrade path — the seam the PTY Bridge (issue #11) mounts its WebSocket
-endpoint on. App chrome server-renders; the terminal region stays client-only (a real
-terminal library isn't wired in yet).
+Nexus is a **spec-driven delivery pipeline** delivered as two things from one repository: a set of
+Claude components (commands, agents, skills) authored under `components/`, and a portable Node CLI
+(`nexus`) that installs them, resolves workspaces and runs the deterministic checks the pipeline
+stages depend on. There is no user interface — the pipeline is driven from an agent session and from
+GitHub issues, which are the planning surface.
 
-## Frontend
+## Language and runtime
 
-- **Framework**: React 19
-- **Language**: TypeScript ~5.9 (strict mode, see `tsconfig.base.json`)
-- **Routing / framework**: React Router 8 (framework mode, SSR for chrome)
-- **Terminal**: [`wterm`](https://github.com/vercel-labs/wterm/) — the in-browser terminal the
-  app embeds (integration is the work to build)
-- **Rich text**: [Lexical](https://lexical.dev) 0.38 via the `@nexus/editor` workspace lib
-  (`libs/editor`) — the primary Markdown editor/viewer. Single public export,
-  `<MarkdownEditor>`, round-trips Markdown (string in → string out) with an `edit`/`view` mode.
-  Styling comes from the host app's Tailwind design tokens; needs `lucide-react` for the table
-  toolbar icon.
-- **Styling**: Tailwind CSS 3.4 (+ PostCSS, Autoprefixer)
-- **Build Tool**: Vite 8
+- **Language**: TypeScript ~5.9, strict, `nodenext` modules (see `tsconfig.base.json`)
+- **Runtime**: Node >=22.22.0, pinned via `.nvmrc` and `engines`
+- **Platforms**: darwin and linux (`os` in the root manifest)
 
-## Backend
+## Published artifact
 
-A custom Node server (`apps/prime/server.ts`), built on Express and React Router's
-`createRequestHandler`. It owns the underlying `http.Server` in both dev (Vite middleware
-mode) and prod (the built server bundle), leaving the `upgrade` event free for a
-WebSocket endpoint to mount on the same origin — currently proven by a stub handshake
-(`apps/prime/server/http-server.spec.ts`); the PTY Bridge epic (#11) replaces the stub with
-the real endpoint.
+`@sameeraperera/nexus` ships one binary, `nexus` → `dist/nexus.mjs`. The package `files` allowlist is
+`dist`-only, so the component payload never appears in its own diff — its fingerprint is pinned
+instead, by `pnpm nexus:pin-bundles`, and `pnpm nexus:build-release` produces the payload the release
+would ship. `tsx` runs the CLI entry points from source during development; `esbuild` bundles them
+for release.
 
-## Database
+## Applications and libraries
 
-Not applicable.
+- `apps/renderer/` — the issue-asset renderer. A small Node service that serves the mockups the
+  filing stages publish, bundled with `esbuild` for either a long-running listener
+  (`src/listen.ts`) or a Lambda Function URL (`src/lambda.ts`).
+- `libs/portable-tools/` — the CLI itself: concept-store validation, the atlas generator, the release
+  packer, the component installer, and the teaching-workbook renderer.
+- `libs/delivery-config/`, `libs/epic-resolve/`, `libs/epic-verdicts/`, `libs/pr-acceptance/`,
+  `libs/pr-worktree/`, `libs/record-digest/`, `libs/scope-razor/`, `libs/workspace/`,
+  `libs/abs-doc-path/`, `libs/prose-verify/`, `libs/release-identity/` — the stage-facing libraries,
+  one concern each.
+- `libs/origin/` — the archived earlier generations of the pipeline, kept for provenance.
+
+Libraries are **source-consumed**: their package `exports` point straight at `src/`, so consumers
+import the TypeScript source and their own bundler compiles it. There is no per-library build step or
+`dist/` output.
 
 ## Infrastructure
 
-- **Monorepo**: Nx 22.7. `prime`'s build/dev/preview targets are explicit
-  `nx:run-commands` in `apps/prime/project.json` (no Nx plugin understands RR8 framework
-  mode); its `test` target still comes from `@nx/vitest` inference. Shared libraries under
-  `libs/*` are **source-consumed**: their package `exports` point straight at `src/index.ts`,
-  so consumers import the TypeScript source and their own bundler compiles it — no per-lib
-  build step or `dist/` output. `lint` and `typecheck` targets are inferred by the
-  `@nx/eslint` and `@nx/js/typescript` plugins (no executor config in the lib).
-- **CI/CD**: none configured yet
+- **Monorepo**: Nx 23. `lint` and `typecheck` targets are inferred by the `@nx/eslint` and
+  `@nx/js/typescript` plugins; `test` by `@nx/vitest`. Only `apps/renderer` declares explicit
+  `nx:run-commands` targets, for its two bundles.
+- **CI/CD**: none configured yet.
 
 ## Development
 
-- **Package Manager**: pnpm (workspaces; `pnpm-workspace.yaml` globs `apps/*`)
-- **Code Quality**: ESLint 9 (flat config, `@nx/eslint-plugin`), Prettier 3
-- **Testing**: Vitest 4 (unit, jsdom) + Playwright (e2e)
-- **Node**: >=22.22.0, pinned via `.nvmrc` / `engines` (RR8's floor)
-
-## Workspace layout
-
-- `apps/prime/` — the terminal-emulator app (RR8 root `apps/prime/app/root.tsx`, home route
-  `apps/prime/app/routes/home.tsx`, server entry `apps/prime/server.ts`)
-- `apps/prime-e2e/` — Playwright e2e suite
-- `libs/editor/` — `@nexus/editor`, the Lexical Markdown editor/viewer (public export
-  `MarkdownEditor`; source-consumed, see `libs/editor/README.md`)
-- `libs/origin/` — `origin` shared lib
+- **Package manager**: pnpm (workspaces; `pnpm-workspace.yaml` globs `libs/*` and `apps/*`)
+- **Code quality**: ESLint 9 (flat config, `@nx/eslint-plugin`), Prettier 3
+- **Testing**: Vitest 4. Node environment throughout, except the teaching-workbook specs, which
+  render HTML and use `jsdom`.
 
 ## Commands
 
-Run from repo root:
+Run from the repository root:
 
 ```sh
-npx nx dev prime          # custom server in dev mode, Vite middleware (port 4200)
-npx nx build prime        # react-router build (build/client + build/server)
-npx nx preview prime      # build, then serve it via the custom server in prod mode
-npx nx test prime         # vitest unit tests
-npx nx e2e prime-e2e      # playwright e2e
-npx nx lint prime         # eslint
-npx nx typecheck prime    # tsc
-npx nx show project prime # list all targets
+npx nx run-many -t test --all       # the whole suite
+npx nx run-many -t lint --all
+npx nx run-many -t typecheck --all
 
-npx nx lint @nexus/editor      # eslint the editor lib
-npx nx typecheck @nexus/editor # tsc --build (emitDeclarationOnly)
+pnpm nexus:validate-concepts        # the concept store's invariants
+pnpm nexus:check-atlas              # docs/concepts.md matches the store
+pnpm nexus:pin-bundles              # re-pin the release fingerprint
+pnpm nexus:build-release            # build the payload a release would ship
 ```
 
 ## Related
 
-- [Product context](../product/context.md) — who Prime is for, anti-goals, guiding principles.
-</content>
+- [Release procedure](../delivery/release-procedure.md) — how a version is cut.
+- `CONTRIBUTING.md` — the authored component tree and the maintainer's loop.

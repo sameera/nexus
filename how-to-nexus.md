@@ -166,7 +166,7 @@ The portable `nexus` CLI manages all of it: `nexus install` installs or refreshe
 
 Nexus is actively evolving. The direction, so you can tell drift from design:
 
-- **Nexus Prime** — a browser-based harness that runs the real Claude Code session in an embedded terminal and makes the pipeline visible around it: which stage you're in, which decision gate is next, what's waiting in the hub queue. Prime's first principle is experiential fidelity: it wraps the live session, it never reduces it to summarized output. Pipeline discipline through gates, not nags.
+- **Nexus Prime** — a browser-based harness that runs the real Claude Code session in an embedded terminal and makes the pipeline visible around it: which stage you're in, which decision gate is next, what's waiting in the hub queue. Prime's first principle is experiential fidelity: it wraps the live session, it never reduces it to summarized output. Pipeline discipline through gates, not nags. It is built in its own repository, [`sameera/prime`](https://github.com/sameera/prime).
 - **Deeper PR-native delivery** — the post-merge flow extending to member repos, per-story analyze runs from the hub against member PRs, and epics that close over several story PRs.
 - **A thinner, more portable toolchain** — the GitHub transaction layer moving out of the planning prompts into the CLI, and a one-time per-engineer install with zero per-repo effort.
 
