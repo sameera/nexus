@@ -131,28 +131,12 @@ For teams that deliver through pull requests, the tail of the pipeline runs agai
 
 ## Learning from a Roadmap
 
-A roadmap that has already been planned can also be *taught*. This runs as two commands, not one,
-and the split is deliberate.
+A roadmap that has already been planned can also be *taught*: its stories become the hands-on
+exercises of a workbook, and the theory each one needs is written immediately before it.
 
-`/nxsx.teach-plan <name> --epic <n>` — or `--query "<expression>"` for a programme of epics — works
-out which stories the learner will work through. It resolves them from the issue graph through the
-same resolver every other stage uses, refuses anything that is not a planned epic before it asks
-anything, and then runs **one bounded interview**: at most five questions, established once per
-roadmap, covering both what the learner already knows and what they came here to learn. The answers
-are personal records and stay out of the commit.
-
-The same command then reads each story **once**, in its own extraction subagent, and plans from the
-short concept lists those hand back rather than from the stories themselves — which is what lets it
-plan a roadmap of any size. A concept two stories share carries one identifier, and the result is an
-uncommitted draft of the plan, one stub per story, written only when every story produced a readable
-list. The draft is approved into the committed plan before anything is taught from it.
-
-`/nxsx.teach <name>` writes one lesson per sitting, for the slice the learner has arrived at.
-
-They are separate commands because a session's references only ever accumulate. A session that
-planned a roadmap while holding the material a lesson is written from would keep holding it, so the
-phase boundary is the invocation boundary: each command names its own references and neither names
-the other's.
+That stage is no longer part of Nexus. It ships as its own package, with its own executable and its
+own two commands, and it installs beside Nexus into the same component root. It still needs Nexus —
+it resolves roadmaps out of Nexus epic issues and reads the delivery config — so install both.
 
 ## Multi-Repo Workspaces
 

@@ -21,9 +21,6 @@
       "path": "../workspace/tsconfig.lib.json"
     },
     {
-      "path": "../teaching/tsconfig.lib.json"
-    },
-    {
       "path": "../release-identity/tsconfig.lib.json"
     },
     {

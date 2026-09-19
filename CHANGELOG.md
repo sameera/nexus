@@ -7,26 +7,36 @@ behaviour says so.
 
 ## 0.61.0
 
-- The teaching stage is now invoked as `/nxsx.teach` and `/nxsx.teach-plan`, and its skill and
-  subagent are `nxsx-workbook` and `nxsx-concept-extractor`. Nothing about the stage changed; the
-  names did, because the stage is leaving for a package of its own (epic #677) and `uninstall` and
-  `migrate-components` match on the `nxs.`/`nxs-` prefix. Under a prefix of its own, a separately
-  shipped teaching package survives both. Upgrading is one `nexus install`: the old four names are
-  swept and the new four are placed. A workbook, a plan and a lesson page are untouched — only the
-  words you type to start a sitting change.
-- The package now publishes the sources of the five libraries a second Nexus-ecosystem package
-  builds against — workspace resolution, the delivery config, epic resolution, the record digest
-  and the release identity — under `@sameeraperera/nexus/lib/<library>/<module>`. Nothing about an
-  existing install changes: the executable is still one self-contained bundle, and these sources are
-  a build-time surface for another package, never a runtime dependency. It exists so the teaching
-  stage can leave for a package of its own without a second copy of Nexus's workspace and epic
-  resolution going out of step with this one.
+- **The teaching stage leaves Nexus.** `/nxs.teach` and `/nxs.teach-plan`, the `nxs-workbook` skill,
+  the `nxs-concept-extractor` subagent and the `nexus workbook` verb are no longer part of this
+  package. They ship as `@sameeraperera/nexus-teach`, which installs beside Nexus into the same
+  component root, under its own `nxsx` prefix: `/nxsx.teach`, `/nxsx.teach-plan`, `nxsx-workbook`,
+  `nxsx-concept-extractor`, and the `nxsx` executable.
+
+  If you teach a roadmap, install that package and use the new names; the surface is otherwise
+  unchanged, and a workbook, a plan and a lesson page written under the old names are read as they
+  are, with nothing to migrate. If you do not, `nexus install` simply places four fewer components.
+  Either way the concept slugs the stage was written under still resolve here, as retired entries
+  saying where the concept went.
+
+  One stage changes what it does. `/nxs.decision-record` no longer pins a workbook's sources when it
+  closes a record — it does not drive a verb it no longer ships. It reports that the record is closed
+  and available to pin from, and the pinning is the teaching stage's own step.
+
 - A package's install now sweeps the files its own record claims, whatever they are named. The
   sweep built its candidate set from the Nexus prefix *before* it consulted the record, so a
   component under any other prefix was never a removal candidate for anyone — including the package
   that placed it, which is the only thing entitled to clear it. A second package could add
   components and never retire one. Nexus's own sweep is unchanged, and still leaves another
   package's files alone.
+
+- The package now publishes the sources of the five libraries a second Nexus-ecosystem package
+  builds against — workspace resolution, the delivery config, epic resolution, the record digest
+  and the release identity — under `@sameeraperera/nexus/lib/<library>/<module>`. Nothing about an
+  existing install changes: the executable is still one self-contained bundle, and these sources are
+  a build-time surface for another package, never a runtime dependency. It exists so the teaching
+  stage can ship separately without a second copy of Nexus's workspace and epic resolution going out
+  of step with this one.
 
 ## 0.60.0
 
