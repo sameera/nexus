@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.60.0
+
+- `analyze`, `close` and `intake` now withhold the pipeline stores from the diffs they derive when
+  the lead's shell is zsh. Each captured the exclusion list into a shell variable first, and zsh
+  does not word-split an unquoted variable, so git received one nonsense pathspec, withheld
+  nothing, and still exited 0. The failure was silent and it failed open: queue and discovery churn
+  reached the close record and the conformance verdict, and a change whose only content was
+  pipeline-store edits passed `intake`'s "nothing to record" refusal instead of being stopped by
+  it. A lead on bash sees no change, and `distill` was already correct.
+
 ## 0.59.0
 
 - `distill` now refuses a concept page whose `touches:` names a page the store does not hold. A

@@ -43,6 +43,13 @@ function commitAll(dir: string, msg: string): string {
     sh(dir, "git", "commit", "-qm", msg);
     return sh(dir, "git", "rev-parse", "HEAD");
 }
+/** Every command body in the authored tree, so a new one cannot adopt the broken form unnoticed. */
+function allCommandBodies(): string[] {
+    return fs
+        .readdirSync(COMMANDS_DIR)
+        .filter((name) => name.endsWith(".md"))
+        .sort();
+}
 function write(dir: string, rel: string, body: string): void {
     const file = path.join(dir, rel);
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -115,7 +122,7 @@ describe("the excluded-store set has exactly one definition", () => {
 });
 
 describe("the command bodies derive their exclusions from that one definition", () => {
-    const bodies: readonly string[] = ["nxs.analyze.md", "nxs.close.md", "nxs.distill.md"];
+    const bodies: readonly string[] = ["nxs.analyze.md", "nxs.close.md", "nxs.distill.md", "nxs.intake.md"];
 
     it.each(bodies)("%s asks the executable for the set rather than listing it", (name) => {
         const body = fs.readFileSync(path.join(COMMANDS_DIR, name), "utf8");
@@ -128,6 +135,19 @@ describe("the command bodies derive their exclusions from that one definition", 
             .split("\n")
             .filter((line) => /exclud/i.test(line) && EXCLUDED_STORE_PATHS.some((s) => line.includes(s)));
         expect(restatements).toEqual([]);
+    });
+
+    // The set reaches git as several pathspecs only when the substitution is written inline on the
+    // `git diff` line. Captured into a variable first, it survives bash — which word-splits an
+    // unquoted parameter expansion — and silently collapses under zsh, which does not: git gets one
+    // nonsense pathspec, withholds nothing, and still exits 0. The failure direction is open and
+    // silent, so no body may use the two-step form.
+    it.each(allCommandBodies())("%s substitutes the set inline rather than through a variable", (name) => {
+        const body = fs.readFileSync(path.join(COMMANDS_DIR, name), "utf8");
+        const captures = body
+            .split("\n")
+            .filter((line) => /[A-Za-z_][A-Za-z0-9_]*=\s*"?\$\(\s*nexus excluded-stores/.test(line));
+        expect(captures).toEqual([]);
     });
 });
 
