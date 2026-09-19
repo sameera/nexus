@@ -12,6 +12,13 @@ behaviour says so.
   edge matched itself on both sides — and a drain could publish one without anything saying so. The
   check runs both on the whole store and on the handful of changed pages a drain validates, and it
   blocks: drop the edge, or restore the page it names.
+- `setup`'s install and uninstall verbs now share a component root with other packages instead of
+  owning it. Each install records the files it placed, and removes only those; a file another
+  installed package placed is left alone, and uninstall clears this package's set rather than
+  every file carrying the namespace. An install that overwrites a file another package also ships
+  says which ones, and that whichever package installed last is the body that runs. An install
+  location that has no record yet — every one that exists today — behaves exactly as before, and
+  the record it writes is what scopes the next run.
 
 ## 0.58.0
 

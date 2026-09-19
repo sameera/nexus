@@ -97,7 +97,7 @@ import {
     type SeedTemplatesResult,
 } from "./seed-templates.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
-import { releaseVersion } from "@nexus/release-identity/release";
+import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
 import { WORKBOOK_SUBVERBS, runWorkbookCli } from "./workbook-cli.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
@@ -749,7 +749,10 @@ async function runInstall(argv: string[], io: CliIo): Promise<number> {
     let result: DeployResult;
     try {
         ensureInstallLocation(location.path);
-        result = deployComponents(payloadDirectory(payloadDir), location.path, { mode: pointing ? "pointer" : "copy" });
+        result = deployComponents(payloadDirectory(payloadDir), location.path, {
+            mode: pointing ? "pointer" : "copy",
+            owner: RELEASE_PACKAGE_NAME,
+        });
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
@@ -758,10 +761,29 @@ async function runInstall(argv: string[], io: CliIo): Promise<number> {
         `installed ${result.written.length} component ${pointing ? "pointer(s)" : "file(s)"} at ${location.path}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
     );
+    for (const line of collisionNoticeLines(result.claimedByOthers)) {
+        io.stdout(line);
+    }
     for (const line of allowlistNoticeLines()) {
         io.stdout(line);
     }
     return 0;
+}
+
+/**
+ * A path this package just wrote that another installed package also claims. The mirror cannot
+ * resolve it — both packages ship the file, and whichever installs last is what runs — so the
+ * install says which paths are in that state rather than leaving the winner to be discovered.
+ */
+function collisionNoticeLines(claimed: string[]): string[] {
+    if (claimed.length === 0) {
+        return [];
+    }
+    return [
+        `${claimed.length} of these file(s) are also shipped by another installed package, and this install overwrote them:`,
+        ...claimed.map((rel) => `  ${rel}`),
+        "Whichever package installs last is the body that runs. Reinstall the other package to put its own back.",
+    ];
 }
 
 /**
@@ -791,7 +813,7 @@ async function runUninstall(argv: string[], io: CliIo): Promise<number> {
 
     let result: DeployResult;
     try {
-        result = deployComponents(EMPTY_PAYLOAD, location.path);
+        result = deployComponents(EMPTY_PAYLOAD, location.path, { owner: RELEASE_PACKAGE_NAME });
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
