@@ -9,10 +9,10 @@ generated: 2026-09-17
 
 # Code Anchors: Teaching Plan
 
-- `libs/portable-tools/src/workbook-plan.ts` — the plan of slices: scaffolds and split parts, the per-slice epic, the dependency edges, the optional pinning test, and the plan writer (#592)
-- `libs/portable-tools/src/workbook-plan.spec.ts` — pins the required fields, the handoff slice that names no lesson, the stub list, and the scaffold the reader now accepts (#592)
-- `libs/portable-tools/src/plan-commit.ts` — the step that writes this file, field by field, from the draft the gate approved (#592)
-- `libs/portable-tools/src/teaching-plan.ts` — the slice shape the session compares against, including the state each story was pinned to, and the storyless slice it skips
-- `libs/portable-tools/src/workbook-store.ts` — reads the plan out of the workbook and tells a plan of slices from a plain list of lessons.
-- `libs/portable-tools/src/plan-draft.ts` — the stub form that adopts these field names, and the fields it adds that the readers here ignore
-- `libs/portable-tools/src/workbook-plan.ts` — the optional pinned sources on a learner slice, refused on a handoff slice or a scaffold
+- `libs/teaching/src/workbook-plan.ts` — the plan of slices: scaffolds and split parts, the per-slice epic, the dependency edges, the optional pinning test, and the plan writer (#592)
+- `libs/teaching/src/workbook-plan.spec.ts` — pins the required fields, the handoff slice that names no lesson, the stub list, and the scaffold the reader now accepts (#592)
+- `libs/teaching/src/plan-commit.ts` — the step that writes this file, field by field, from the draft the gate approved (#592)
+- `libs/teaching/src/teaching-plan.ts` — the slice shape the session compares against, including the state each story was pinned to, and the storyless slice it skips
+- `libs/teaching/src/workbook-store.ts` — reads the plan out of the workbook and tells a plan of slices from a plain list of lessons.
+- `libs/teaching/src/plan-draft.ts` — the stub form that adopts these field names, and the fields it adds that the readers here ignore
+- `libs/teaching/src/workbook-plan.ts` — the optional pinned sources on a learner slice, refused on a handoff slice or a scaffold

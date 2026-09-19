@@ -9,8 +9,8 @@ generated: 2026-09-18
 
 # Code Anchors: Lesson Renderer
 
-- `libs/portable-tools/src/workbook-render.ts` — the renderer: the markup refusal that exempts plain code-fence content, run-length fence closing, front-matter parsing, the fixed markdown subset, the one page shell, the navigation with its unwritten stubs, the home page, reference pages and the reserved name, and the all-or-nothing entry point.
-- `libs/portable-tools/src/workbook-render.spec.ts` — asserts the rendered page as a reader meets it, including the markup refusal, a lesson quoting a test that contains a fence, a stub shown as not yet written, and chrome identity across lessons.
-- `libs/portable-tools/src/workbook-page-fixtures.ts` — the one module that knows the emitted markup, parsing a page and returning what a reader perceives so no spec names a tag.
-- `libs/portable-tools/src/workbook-cli.ts` — the render subverb, which renders from the plan, the lessons and the reference pages together.
-- `libs/portable-tools/src/workbook-cli.spec.ts` — covers a failed render leaving nothing behind.
+- `libs/teaching/src/workbook-render.ts` — the renderer: the markup refusal that exempts plain code-fence content, run-length fence closing, front-matter parsing, the fixed markdown subset, the one page shell, the navigation with its unwritten stubs, the home page, reference pages and the reserved name, and the all-or-nothing entry point.
+- `libs/teaching/src/workbook-render.spec.ts` — asserts the rendered page as a reader meets it, including the markup refusal, a lesson quoting a test that contains a fence, a stub shown as not yet written, and chrome identity across lessons.
+- `libs/teaching/src/workbook-page-fixtures.ts` — the one module that knows the emitted markup, parsing a page and returning what a reader perceives so no spec names a tag.
+- `libs/teaching/src/workbook-cli.ts` — the render subverb, which renders from the plan, the lessons and the reference pages together.
+- `libs/teaching/src/workbook-cli.spec.ts` — covers a failed render leaving nothing behind.

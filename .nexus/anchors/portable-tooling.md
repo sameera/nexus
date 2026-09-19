@@ -46,5 +46,5 @@ generated: 2026-09-07
 - `libs/portable-tools/src/pack-release.ts` — the staging step that carries this artifact into the published package's release tree, alongside the payload.
 - `libs/portable-tools/src/entry-point.ts` — the shared realpath direct-run test the artifact's entry points now use, so an installed run behaves as a checkout run does.
 - `libs/portable-tools/src/parity.spec.ts` — also the host of the component-invocation gate, which runs beside the parity and fingerprint checks on this same required source-repo gate.
-- `libs/portable-tools/src/workbook-cli.ts` — the `workbook` verb on this same executable: create, render, check, session, handoff and resolve.
-- `libs/portable-tools/src/workbook-render.ts` — the renderer carried inside the executable, which writes the workbook's script and stylesheet out beside the pages and never bundles.
+- `libs/teaching/src/workbook-cli.ts` — the `workbook` verb on this same executable: create, render, check, session, handoff and resolve.
+- `libs/teaching/src/workbook-render.ts` — the renderer carried inside the executable, which writes the workbook's script and stylesheet out beside the pages and never bundles.

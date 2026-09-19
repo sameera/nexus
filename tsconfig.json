@@ -19,6 +19,9 @@
       "path": "./libs/epic-resolve"
     },
     {
+      "path": "./libs/teaching"
+    },
+    {
       "path": "./libs/portable-tools"
     },
     {

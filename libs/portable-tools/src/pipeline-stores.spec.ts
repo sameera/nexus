@@ -11,7 +11,7 @@ import {
     excludePathspecs,
     isExcludedStorePath,
 } from "./pipeline-stores";
-import { createWorkbook, workbookStoreRoot } from "./workbook-store";
+import { createWorkbook, workbookStoreRoot } from "@nexus/teaching/workbook-store";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const COMMANDS_DIR: string = path.join(REPO_ROOT, "components", "commands");

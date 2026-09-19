@@ -9,7 +9,7 @@ generated: 2026-09-13
 
 # Code Anchors: Plan Rewrite
 
-- `libs/portable-tools/src/plan-rewrite.ts` — the fixed pass sequence, the taught part set aside and kept first, greedy ordering with ownership, splitting, handoff placement, and continued part numbers (#592)
-- `libs/portable-tools/src/plan-rewrite.spec.ts` — pins one owner per concept, the ordering and its tie-break, splitting at the limit, handoff placement, and a rewrite run twice
-- `libs/portable-tools/src/workbook-cli.ts` — the rewrite verb, which reads the draft, the roadmap edges and the taught part of any approved plan (#592)
+- `libs/teaching/src/plan-rewrite.ts` — the fixed pass sequence, the taught part set aside and kept first, greedy ordering with ownership, splitting, handoff placement, and continued part numbers (#592)
+- `libs/teaching/src/plan-rewrite.spec.ts` — pins one owner per concept, the ordering and its tie-break, splitting at the limit, handoff placement, and a rewrite run twice
+- `libs/teaching/src/workbook-cli.ts` — the rewrite verb, which reads the draft, the roadmap edges and the taught part of any approved plan (#592)
 - `components/commands/nxsx.teach-plan.md` — the rewrite phase the planning session runs after the draft is written

@@ -9,8 +9,8 @@ generated: 2026-09-13
 
 # Code Anchors: Scaffold Slice
 
-- `libs/portable-tools/src/plan-rewrite.ts` — the reachability decision, the next-introducer rule for conflicting needs, and emitting a scaffold during ordering
-- `libs/portable-tools/src/workbook-plan.ts` — the committed scaffold the reader now accepts: no story, no epic, no branch, no pinning test (#592)
-- `libs/portable-tools/src/plan-draft.ts` — the scaffold stub: one concept, no story, no part, a learner mark and a recorded need
-- `libs/portable-tools/src/plan-rewrite.spec.ts` — pins the scaffold restraint, the background concept, and the handed-off concept never scaffolded
-- `libs/portable-tools/src/teaching-plan.ts` — the slice shape that lets a scaffold carry no story and no pinned state
+- `libs/teaching/src/plan-rewrite.ts` — the reachability decision, the next-introducer rule for conflicting needs, and emitting a scaffold during ordering
+- `libs/teaching/src/workbook-plan.ts` — the committed scaffold the reader now accepts: no story, no epic, no branch, no pinning test (#592)
+- `libs/teaching/src/plan-draft.ts` — the scaffold stub: one concept, no story, no part, a learner mark and a recorded need
+- `libs/teaching/src/plan-rewrite.spec.ts` — pins the scaffold restraint, the background concept, and the handed-off concept never scaffolded
+- `libs/teaching/src/teaching-plan.ts` — the slice shape that lets a scaffold carry no story and no pinned state

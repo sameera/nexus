@@ -9,9 +9,9 @@ generated: 2026-09-12
 
 # Code Anchors: Prior Knowledge Declaration
 
-- `libs/portable-tools/src/plan-rewrite.ts` — applies the declaration: slot eligibility, the verbatim phrase check, the vocabulary refusal, and the unmatched set (#563)
-- `libs/portable-tools/src/interview.ts` — the slots that record prior knowledge, the only ones a declaration is read from (#563)
-- `libs/portable-tools/src/plan-draft.ts` — the removed concepts beside their phrases, and the unmatched phrases, as the draft carries them (#563)
-- `libs/portable-tools/src/workbook-cli.ts` — reads the declaration file, reuses the recorded mapping, and reports the phrases that matched nothing (#563)
-- `libs/portable-tools/src/plan-rewrite.spec.ts` — pins the refused slot, the refused phrase and identifier, the folded alias, and reuse on a later rewrite (#563)
+- `libs/teaching/src/plan-rewrite.ts` — applies the declaration: slot eligibility, the verbatim phrase check, the vocabulary refusal, and the unmatched set (#563)
+- `libs/teaching/src/interview.ts` — the slots that record prior knowledge, the only ones a declaration is read from (#563)
+- `libs/teaching/src/plan-draft.ts` — the removed concepts beside their phrases, and the unmatched phrases, as the draft carries them (#563)
+- `libs/teaching/src/workbook-cli.ts` — reads the declaration file, reuses the recorded mapping, and reports the phrases that matched nothing (#563)
+- `libs/teaching/src/plan-rewrite.spec.ts` — pins the refused slot, the refused phrase and identifier, the folded alias, and reuse on a later rewrite (#563)
 - `components/commands/nxsx.teach-plan.md` — the session instructions for matching the learner's words and passing the declaration once (#563)

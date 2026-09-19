@@ -9,5 +9,5 @@ generated: 2026-09-13
 
 # Code Anchors: Parsons Problem
 
-- `libs/portable-tools/src/parsons-problem.ts` — the seeded, never-solved shuffle and its whitespace-stripped rotation guard, the earlier/later move controls, and the moving half of the workbook's script.
-- `libs/portable-tools/src/parsons-problem.spec.ts` — covers the shuffled starting order, a swap losing or duplicating no line, the settled-order check, and every line and the expected order on an untouched, printed page.
+- `libs/teaching/src/parsons-problem.ts` — the seeded, never-solved shuffle and its whitespace-stripped rotation guard, the earlier/later move controls, and the moving half of the workbook's script.
+- `libs/teaching/src/parsons-problem.spec.ts` — covers the shuffled starting order, a swap losing or duplicating no line, the settled-order check, and every line and the expected order on an untouched, printed page.

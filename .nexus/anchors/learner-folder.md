@@ -9,8 +9,8 @@ generated: 2026-09-11
 
 # Code Anchors: Learner Folder
 
-- `libs/portable-tools/src/learner-store.ts` — the learner folder: the record kinds, the one ignore rule, the git-asked ignore question, the per-write guard on both writing and appending, and the refusal that names the missing rule (#551)
-- `libs/portable-tools/src/learner-store.spec.ts` — covers the guard on a first write and on an append, the rule being ensured at creation, and the refusal's reason.
-- `libs/portable-tools/src/teaching-session.ts` — the total reads of this folder: an absent hint log is an empty history, and an unreadable one is reported and skipped.
-- `libs/portable-tools/src/handoff-prompt.ts` — writes the handoff prompt here, through the same guard as every other personal record.
-- `libs/portable-tools/src/concept-extraction.ts` — files the reason a slice was handed off here, through that same guard (#551)
+- `libs/teaching/src/learner-store.ts` — the learner folder: the record kinds, the one ignore rule, the git-asked ignore question, the per-write guard on both writing and appending, and the refusal that names the missing rule (#551)
+- `libs/teaching/src/learner-store.spec.ts` — covers the guard on a first write and on an append, the rule being ensured at creation, and the refusal's reason.
+- `libs/teaching/src/teaching-session.ts` — the total reads of this folder: an absent hint log is an empty history, and an unreadable one is reported and skipped.
+- `libs/teaching/src/handoff-prompt.ts` — writes the handoff prompt here, through the same guard as every other personal record.
+- `libs/teaching/src/concept-extraction.ts` — files the reason a slice was handed off here, through that same guard (#551)

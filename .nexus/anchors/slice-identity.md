@@ -9,8 +9,8 @@ generated: 2026-09-13
 
 # Code Anchors: Slice Identity
 
-- `libs/portable-tools/src/workbook-plan.ts` — a slice's identity token, the lesson name derived from it, and how a slice is labelled to a reader (#592)
-- `libs/portable-tools/src/plan-commit.ts` — the branch derived per story and prefixed with the workbook, shared by every part (#592)
-- `libs/portable-tools/src/lesson-writer.ts` — arrival keyed on the lesson file rather than the story, and the scaffold that is done once its lesson exists (#592)
-- `libs/portable-tools/src/teaching-session.ts` — the walk by position that asks each slice, by its own identity, whether it is behind the learner (#592)
-- `libs/portable-tools/src/teaching-session.spec.ts` — pins the second part of a split story taught next, and a scaffold taught rather than refused (#592)
+- `libs/teaching/src/workbook-plan.ts` — a slice's identity token, the lesson name derived from it, and how a slice is labelled to a reader (#592)
+- `libs/teaching/src/plan-commit.ts` — the branch derived per story and prefixed with the workbook, shared by every part (#592)
+- `libs/teaching/src/lesson-writer.ts` — arrival keyed on the lesson file rather than the story, and the scaffold that is done once its lesson exists (#592)
+- `libs/teaching/src/teaching-session.ts` — the walk by position that asks each slice, by its own identity, whether it is behind the learner (#592)
+- `libs/teaching/src/teaching-session.spec.ts` — pins the second part of a split story taught next, and a scaffold taught rather than refused (#592)

@@ -70,7 +70,7 @@ export const LIGHT_VALUES: Readonly<Record<string, string>> = {
 
 /** The banner every generated copy of this definition carries. */
 export const READING_TOKENS_BANNER: string =
-    "/* Generated from libs/portable-tools/src/reading-tokens.ts — do not edit by hand.\n" +
+    "/* Generated from libs/teaching/src/reading-tokens.ts — do not edit by hand.\n" +
     " * The one definition of the reading surface, shared by the application and every workbook\n" +
     " * page, so neither carries a colour or a type stack the other could drift from. */";
 

@@ -9,9 +9,9 @@ generated: 2026-09-13
 
 # Code Anchors: Plan Draft
 
-- `libs/portable-tools/src/plan-draft.ts` — the stub contract, split parts and scaffold stubs, the declared set and verdict, the draft's location, and the whole-file replacement
-- `libs/portable-tools/src/plan-draft.spec.ts` — pins the fields a stub may carry, several parts for one story, and the draft left untouched when a stub is refused
-- `libs/portable-tools/src/handoff-stubs.spec.ts` — pins the handoff stub carrying its story and mark alone, and the sibling list the draft does not write
-- `libs/portable-tools/src/concept-extraction.ts` — the one step that writes every stub, now under the reviewer's recorded mark overrides (#592)
-- `libs/portable-tools/src/plan-rewrite.ts` — the rewrite that reads this draft and replaces it whole
-- `libs/portable-tools/src/workbook-cli.ts` — the draft write, the merge record kept beside it, and the derived records a rebuild at the gate reuses (#592)
+- `libs/teaching/src/plan-draft.ts` — the stub contract, split parts and scaffold stubs, the declared set and verdict, the draft's location, and the whole-file replacement
+- `libs/teaching/src/plan-draft.spec.ts` — pins the fields a stub may carry, several parts for one story, and the draft left untouched when a stub is refused
+- `libs/teaching/src/handoff-stubs.spec.ts` — pins the handoff stub carrying its story and mark alone, and the sibling list the draft does not write
+- `libs/teaching/src/concept-extraction.ts` — the one step that writes every stub, now under the reviewer's recorded mark overrides (#592)
+- `libs/teaching/src/plan-rewrite.ts` — the rewrite that reads this draft and replaces it whole
+- `libs/teaching/src/workbook-cli.ts` — the draft write, the merge record kept beside it, and the derived records a rebuild at the gate reuses (#592)

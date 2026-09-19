@@ -14,6 +14,7 @@
     "@nexus/pr-worktree": "workspace:*",
     "@nexus/record-digest": "workspace:*",
     "@nexus/release-identity": "workspace:*",
+    "@nexus/teaching": "workspace:*",
     "@nexus/workspace": "workspace:*",
     "yaml": "^2.9.0"
   }

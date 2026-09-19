@@ -289,6 +289,9 @@ importers:
       '@nexus/release-identity':
         specifier: workspace:*
         version: link:../release-identity
+      '@nexus/teaching':
+        specifier: workspace:*
+        version: link:../teaching
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace
@@ -328,6 +331,28 @@ importers:
   libs/release-identity: {}
 
   libs/scope-razor: {}
+
+  libs/teaching:
+    dependencies:
+      '@nexus/delivery-config':
+        specifier: workspace:*
+        version: link:../delivery-config
+      '@nexus/epic-resolve':
+        specifier: workspace:*
+        version: link:../epic-resolve
+      '@nexus/record-digest':
+        specifier: workspace:*
+        version: link:../record-digest
+      '@nexus/workspace':
+        specifier: workspace:*
+        version: link:../workspace
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+    devDependencies:
+      jsdom:
+        specifier: ^27.1.0
+        version: 27.4.0(supports-color@8.1.1)
 
   libs/workspace:
     dependencies:

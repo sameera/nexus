@@ -9,9 +9,9 @@ generated: 2026-09-13
 
 # Code Anchors: Coverage Check
 
-- `libs/portable-tools/src/plan-rewrite.ts` — the last pass over the finished plan, and the fresh recheck the gate runs over a draft's own slices (#592)
-- `libs/portable-tools/src/plan-approval.ts` — the refusal in code: no verdict, a verdict naming a gap, or a recorded verdict a fresh check contradicts (#592)
-- `libs/portable-tools/src/plan-draft.ts` — the verdict and its gaps, as the draft carries them
-- `libs/portable-tools/src/workbook-cli.ts` — joins a handed-off story's checked list to kept identifiers, writes the plan, and fails on a gap
-- `libs/portable-tools/src/plan-rewrite.spec.ts` — pins every gap named, the declared and background cases, and the plan written when coverage fails
+- `libs/teaching/src/plan-rewrite.ts` — the last pass over the finished plan, and the fresh recheck the gate runs over a draft's own slices (#592)
+- `libs/teaching/src/plan-approval.ts` — the refusal in code: no verdict, a verdict naming a gap, or a recorded verdict a fresh check contradicts (#592)
+- `libs/teaching/src/plan-draft.ts` — the verdict and its gaps, as the draft carries them
+- `libs/teaching/src/workbook-cli.ts` — joins a handed-off story's checked list to kept identifiers, writes the plan, and fails on a gap
+- `libs/teaching/src/plan-rewrite.spec.ts` — pins every gap named, the declared and background cases, and the plan written when coverage fails
 - `components/commands/nxsx.teach-plan.md` — the instruction to report a refusal as it stands and stop (#592)

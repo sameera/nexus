@@ -9,4 +9,4 @@ generated: 2026-09-18
 
 # Code Anchors: Theme Tokens
 
-- `libs/portable-tools/src/reading-tokens.ts` — the reading subset lifted out of the application into one shared definition both surfaces read.
+- `libs/teaching/src/reading-tokens.ts` — the reading subset lifted out of the application into one shared definition both surfaces read.

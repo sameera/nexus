@@ -9,8 +9,8 @@ generated: 2026-09-18
 
 # Code Anchors: Teaching Session
 
-- `libs/portable-tools/src/teaching-session.ts` — the fixed chain, walking by position: the probe sweep, arrival by lesson, the suite gate, the return checks, the drift gate, the drill, the reference page it earns, and the tests an arrival writes.
-- `libs/portable-tools/src/teaching-session.spec.ts` — pins each outcome of the chain, the same-verdict-twice guarantee, the split part taught next, and the scaffold taught (#592)
-- `libs/portable-tools/src/workbook-store.ts` — the whole-file plan replacement the session makes when it records a pinning test (#592)
-- `libs/portable-tools/src/workbook-cli.ts` — the teach subverb, the two-call split, and the prose file carrying theory, pinning tests and reference prose.
-- `libs/portable-tools/src/workbook-cli.spec.ts` — covers the brief handed out on the first call and the lesson written on the second.
+- `libs/teaching/src/teaching-session.ts` — the fixed chain, walking by position: the probe sweep, arrival by lesson, the suite gate, the return checks, the drift gate, the drill, the reference page it earns, and the tests an arrival writes.
+- `libs/teaching/src/teaching-session.spec.ts` — pins each outcome of the chain, the same-verdict-twice guarantee, the split part taught next, and the scaffold taught (#592)
+- `libs/teaching/src/workbook-store.ts` — the whole-file plan replacement the session makes when it records a pinning test (#592)
+- `libs/teaching/src/workbook-cli.ts` — the teach subverb, the two-call split, and the prose file carrying theory, pinning tests and reference prose.
+- `libs/teaching/src/workbook-cli.spec.ts` — covers the brief handed out on the first call and the lesson written on the second.

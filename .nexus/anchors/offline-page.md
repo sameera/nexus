@@ -9,7 +9,7 @@ generated: 2026-09-18
 
 # Code Anchors: Offline Page
 
-- `libs/portable-tools/src/workbook-offline.spec.ts` — the offline assertions: every asset resolves locally, no remote request or font, the script is not a module, and printing drops the navigation.
-- `libs/portable-tools/src/workbook-render.ts` — the page shell's relative asset references, the classic script tag, the home page's in-page anchor links, and the print rule that wraps a code block on paper.
-- `libs/portable-tools/src/workbook-page-fixtures.ts` — applies the screen and print rules together to a rendered page and reports any content a rule hides, bounds or clips.
-- `libs/portable-tools/src/reference-pages.spec.ts` — asserts a printed reference page withholds nothing and drops the navigation.
+- `libs/teaching/src/workbook-offline.spec.ts` — the offline assertions: every asset resolves locally, no remote request or font, the script is not a module, and printing drops the navigation.
+- `libs/teaching/src/workbook-render.ts` — the page shell's relative asset references, the classic script tag, the home page's in-page anchor links, and the print rule that wraps a code block on paper.
+- `libs/teaching/src/workbook-page-fixtures.ts` — applies the screen and print rules together to a rendered page and reports any content a rule hides, bounds or clips.
+- `libs/teaching/src/reference-pages.spec.ts` — asserts a printed reference page withholds nothing and drops the navigation.

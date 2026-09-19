@@ -9,8 +9,8 @@ generated: 2026-09-17
 
 # Code Anchors: Plan Re-Approval
 
-- `libs/portable-tools/src/plan-commit.ts` — the taught prefix, the stubs it becomes, the identifier-rename refusal, and the refreshed pin on a carried slice (#592)
-- `libs/portable-tools/src/plan-rewrite.ts` — setting the taught part aside, counting its concepts as introduced, and continuing a partly taught story's part numbers (#592)
-- `libs/portable-tools/src/plan-reapproval.spec.ts` — pins every written lesson unchanged across a re-approval, the refused rename, and the commands reused rather than redeclared (#592)
-- `libs/portable-tools/src/workbook-cli.ts` — the taught part read from the approved plan and handed to the rewrite (#592)
-- `libs/portable-tools/src/plan-commit.ts` — keeps pinned sources on a re-planned slice while it stays one the learner builds
+- `libs/teaching/src/plan-commit.ts` — the taught prefix, the stubs it becomes, the identifier-rename refusal, and the refreshed pin on a carried slice (#592)
+- `libs/teaching/src/plan-rewrite.ts` — setting the taught part aside, counting its concepts as introduced, and continuing a partly taught story's part numbers (#592)
+- `libs/teaching/src/plan-reapproval.spec.ts` — pins every written lesson unchanged across a re-approval, the refused rename, and the commands reused rather than redeclared (#592)
+- `libs/teaching/src/workbook-cli.ts` — the taught part read from the approved plan and handed to the rewrite (#592)
+- `libs/teaching/src/plan-commit.ts` — keeps pinned sources on a re-planned slice while it stays one the learner builds

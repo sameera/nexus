@@ -16,7 +16,7 @@ import {
     readLearnerRecord,
     writeLearnerRecord,
 } from "./learner-store";
-import { WORKBOOK_STORE_PATH } from "./pipeline-stores";
+import { WORKBOOK_STORE_PATH } from "./workbook-location";
 import { LESSONS_DIRNAME, createWorkbook, openWorkbook } from "./workbook-store";
 
 let tmpDirs: string[] = [];

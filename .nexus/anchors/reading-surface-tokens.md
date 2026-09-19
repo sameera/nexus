@@ -9,5 +9,5 @@ generated: 2026-09-18
 
 # Code Anchors: Reading Surface Tokens
 
-- `libs/portable-tools/src/reading-tokens.ts` — the shared definition: the reading subset with a role per token, the mode-invariant values, the two mode value sets, and the CSS both consumers read.
-- `libs/portable-tools/src/workbook-render.spec.ts` — pins the print exception: no literal in the screen rules, and every print literal assigning a shared token name.
+- `libs/teaching/src/reading-tokens.ts` — the shared definition: the reading subset with a role per token, the mode-invariant values, the two mode value sets, and the CSS both consumers read.
+- `libs/teaching/src/workbook-render.spec.ts` — pins the print exception: no literal in the screen rules, and every print literal assigning a shared token name.
