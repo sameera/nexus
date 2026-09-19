@@ -2,30 +2,32 @@
 title: "Plan Draft"
 aliases: ["plan stub", "uncommitted draft", "draft of slices", "stub contract", "assumed concepts", "several slices per story", "draft verdict"]
 touches: ["teaching-plan", "story-concept-extraction", "concept-vocabulary-merge", "focus-marking", "plan-rewrite", "prior-knowledge-declaration", "scaffold-slice", "coverage-check", "plan-approval-gate"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Plan Draft
 
-A planning pass writes the plan's slices as stubs into an uncommitted draft beside the resolved roadmap, never into the committed workbook. A stub declares its story, or the concept a scaffold teaches, whether the learner builds it, and the concepts it introduces and assumes. Approval turns the draft into the committed plan and leaves the draft in place.
+Plan Draft is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Both readers of the shipped plan refuse a slice missing the state its story was pinned to, a branch and a pinning test, and refuse a learner slice missing a lesson. A stub has none of those, because approval is where they are set. A stub written into the committed plan would therefore break every render, drift check and session from the end of planning until approval. Filling them with invented values instead was refused: the session would hand a learner a made-up branch and run a probe against text nobody wrote.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-The stub uses the shipped plan's own names for the story, the mark and the introduced concepts rather than defining a second contract. Beside them it adds the concepts the slice assumes, because the shipped field already means introduced and an assumed concept placed in it would read as freshly taught. Anything else offered as a stub field is refused rather than carried.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. Stubs are an uncommitted draft beside the resolved roadmap; nothing is written into the committed workbook or the issue graph.
-2. ~~A stub declares its story, its mark and its concepts; anything else offered as a stub field is refused.~~ A stub declares its story or scaffold concept, its mark, its part when split, and its concepts; nothing else.
-3. A stub carries no lesson prose, no pinned story state, no sources, no branch and no pinning test.
-4. ~~Introduced concepts use the shipped plan's own field, and the concepts a slice assumes are the one thing a stub adds beside them.~~
-5. No concept is both introduced and assumed by one slice.
-6. ~~One story is one slice at this stage, and the draft keeps the roadmap's dependency order.~~ A story is one slice or consecutive parts from one; a slice with no story is a scaffold.
-7. The draft is written only when every story has a checked list, and then as one replacement of the whole file.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -52,3 +54,13 @@ The rule that one story is one slice was enforced in code, so it was replaced ra
 ### 2026-09-13 — #458 — The draft survives approval, because it holds the judgements a rebuild reuses
 
 Approval was expected to consume the draft. It does not: the draft stays where it is, and beside it now sit three derived records — the concept merge the draft was built from, the reviewer's mark overrides, and a fingerprint of the digest the gate last printed. A mark change at the gate rebuilds the draft from the checked lists under all three rather than asking the learner-word match again, which is what makes changing a mark and changing it back give the same draft. Discarding the draft at approval was refused for that reason: the rebuild would either put removed concepts back silently or ask the learner a question they already answered. None of these records is committed, and the learner's quoted phrases stay in the draft and reach no committed file. This entry also records the reciprocal link from plan-approval-gate.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

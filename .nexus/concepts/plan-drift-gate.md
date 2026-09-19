@@ -2,32 +2,32 @@
 title: "Plan Drift Gate"
 aliases: ["drift check", "pinned versus live", "re-scoped story", "unverifiable story", "drift report", "closed story stops its lesson"]
 touches: ["teaching-plan", "teaching-session", "plan-re-approval"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Plan Drift Gate
 
-A learner follows a plan approved at one moment and a repository that keeps changing. Before a lesson is written, the story that lesson teaches is compared against the state the plan pinned for it, and a story that has since closed or been rewritten stops its own lesson. A story whose current state could not be read is reported as unverifiable, which is never treated as unchanged.
+Plan Drift Gate is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The comparison covers the story's title and description, with whitespace normalized, and nothing else. Labels, assignees and comments do not trip it, because the reader of this signal is a learner in mid-flow and a check that fires on incidental churn is a check they learn to skip past.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-The report names the story and what about that story changed, quoting the old value and the new one. Telling a learner only that something changed leaves them to compare the two by hand, which is the work the report exists to save. Story text is data, so it is quoted and displayed, never executed and never expanded into a command.
-
-A story is read once however many slices name it; a scaffold never drifts. Drift on a slice other than the one about to be taught is reported and the session teaches on. Only the next slice's own drift stops it, so a plan whose later stories have moved does not block a lesson those stories have nothing to do with. The live state is handed to the comparison rather than fetched by it, which keeps the comparison a pure function of two inputs and makes the unverifiable case assertable.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. No lesson is written for a story that has drifted from the state the plan pinned.
-2. No lesson is written for a story whose live state could not be read; unverifiable is never treated as unchanged.
-3. Only drift on the story about to be taught blocks; drift found elsewhere in the plan is reported and the session teaches on.
-4. A drift report names the story and what about that story changed.
-5. The comparison covers the story's title and description only, with whitespace normalized.
-6. Story text is data: it is quoted and displayed, never executed and never expanded into a command.
-7. The live state is supplied to the comparison, which fetches nothing itself.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -44,3 +44,13 @@ The check compares only the story's title and description because the reader is 
 ### 2026-09-13 — #458 — A story is read once however many slices name it, a scaffold never drifts, and re-approval is the way out
 
 A split story now has several slices pinning one story, so the check read that story once per slice and reported the same drift several times. It now reads each story once and finds each story's drift once; only the slice about to be taught still blocks. A scaffold pins nothing, because it builds no story, so it is never drift-checked and drift never blocks it. The stop this check produces also became something a learner can act on: it told them the plan was re-approved, and until this epic nothing did that. Re-approval now runs the same planning chain and the same gate, carries every slice up to the last written lesson forward unchanged, and pins the changed story to its current state, so a changed story costs the learner nothing they have already been taught. This entry also records the reciprocal link from plan-re-approval.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

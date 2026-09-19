@@ -2,32 +2,32 @@
 title: "Concept Vocabulary Merge"
 aliases: ["one identifier per concept", "synonym merge", "proposed identifier", "concept gloss", "merged vocabulary", "folded-away name"]
 touches: ["story-concept-extraction", "plan-draft", "prior-knowledge-declaration"]
-last_updated_by: "#457"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Concept Vocabulary Merge
 
-Extraction units run independently, so none can know what another called the same idea. Code settles how an identifier is written, and the planning session — reading every proposed identifier with its one-line gloss and no story text — decides which names are one concept. Code applies that decision, so a concept two stories need carries one identifier in both.
+Concept Vocabulary Merge is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Settling spelling and case in code catches names that differ only in how they are written; it cannot catch a synonym. A missed synonym means one idea is taught twice and nothing notices, so the judgement is put where every list is visible at once. The lists are small, and a gloss lets two names be compared without reading either story.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-Every proposed identifier is placed in exactly one group, singletons included, so a deliberate singleton reads differently from a name nobody looked at. The merge combines only: a name no list proposed, a name left out, or a name placed in two groups refuses the write entirely.
-
-The mapping lands on the stubs, not on the checked lists. Each list keeps the name its own unit proposed, and the kept vocabulary leads from a folded-away name to the one now used. Rewriting the lists would invalidate the digest each is kept against, forcing every story to be read again on every merge.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. After the merge, a concept carries one identifier in every list that names it.
-2. The merge only combines proposed identifiers; it never invents or splits a concept.
-3. Every proposed identifier belongs to exactly one group, singletons included.
-4. An identifier is a plain lower-case hyphenated token, and one a reader would take for true, false or null is refused.
-5. A checked list keeps the names its own unit proposed; the kept vocabulary leads from a folded-away name to the identifier now used.
-6. A concept a merge leaves both introduced and assumed by one story stays introduced.
-7. The merge covers every story, handed-off ones included, and runs before any mark removes concepts from a stub.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -44,3 +44,13 @@ Units run independently, so divergent names are certain and normalization in cod
 ### 2026-09-12 — #457 — Reciprocal link from prior-knowledge-declaration
 
 The merged vocabulary now has a second reader. The declaration match is made against these glosses, and a match naming a folded-away name is read as the identifier the merge kept.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

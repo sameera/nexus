@@ -2,32 +2,32 @@
 title: "Teaching Plan"
 aliases: ["plan of slices", "slice", "pinned story state", "declared suite command", "grading command", "control test", "handoff slice", "lesson stub", "committed plan", "dependency edges", "per-slice epic"]
 touches: ["workbook-store", "teaching-session", "plan-drift-gate", "just-in-time-lesson", "return-verification", "handoff-prompt", "plan-draft", "scaffold-slice", "slice-identity", "plan-approval-gate", "plan-field-ownership", "plan-re-approval", "workbook-home-page", "pinned-sources"]
-last_updated_by: "#459"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Teaching Plan
 
-One file describes everything a workbook teaches from: the order of the slices, what each one builds, whether the learner builds it or a coding agent does, and everything the session needs to teach it. The same file declares the commands that run the suite and grade one exercise, because nothing infers them. A slice whose lesson is not yet written is a stub, which under just-in-time writing is the normal state.
+Teaching Plan is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Two committed documents describing one plan can disagree, with nothing in a position to notice, so the pinned state lives beside the order rather than in a document of its own.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-A handoff slice or scaffold carrying sources is refused. A slice the learner does not build names no lesson at all, and never enters the reading order: a lesson for it would be a stub that never becomes a page, and the navigation would advertise a lesson that will never exist.
-
-Nothing infers the commands. A green light is worth exactly what the command behind it is worth, and an inferred command that runs only part of the suite makes the gate decorative while still looking like a gate. The plan may also declare one control test, written to pass in this repository's own stack, proving the grading command can run a single test file on its own.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. ~~One file holds the order, the story, the learner-or-handoff mark, the pinned state, the concepts, the branch and the pinning test.~~ One file holds the order and, for each slice, everything that slice is taught from.
-2. The pinned state lives beside the order, never in a second document.
-3. A slice the learner does not build names no lesson, and it never enters the workbook's reading order.
-4. The workbook declares the command that runs its suite and the command that grades one exercise; nothing infers either.
-5. The grading command is given the test file to run as its last argument.
-6. A slice whose lesson is not yet written is a stub, and the navigation names it as not yet written rather than linking to a page that does not exist.
-7. ~~The plan is written by hand, so it works before the stage that produces it exists.~~ The approval gate writes the plan, and a hand-written one still reads.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -67,3 +67,13 @@ The contract was deliberately left refusing a slice with no story, because admit
 ### 2026-09-17 — #459 — A learner slice may carry pinned sources
 
 The contract gained an optional sources field on a slice, so the material a lesson is written from lives beside the order and not in a second document. The reader refuses sources on a handoff slice or a scaffold, because neither builds a story with a record to pin from. Refuted alternative: a separate sources file beside the plan. It lost because two committed files describing one plan can disagree without anyone noticing. This entry also records the reciprocal link from pinned-sources.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

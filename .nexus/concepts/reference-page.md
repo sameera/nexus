@@ -2,28 +2,32 @@
 title: "Reference Page"
 aliases: ["earned page", "second drill", "compressed page", "owed reference page", "reference prose", "returning learner page"]
 touches: ["cold-drill", "teaching-session", "lesson-renderer", "workbook-store", "offline-page"]
-last_updated_by: "#481"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Reference Page
 
-A concept earns a short page of its own when a session drills it a second time. The page restates, in at most five hundred words, what a lesson already taught, so a returning learner can refresh one concept without rereading the lesson that introduced it. Whether a concept has earned a page is counted over the drills the committed lessons record, so nothing about the learner is stored to decide it.
+Reference Page is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-After the session picks the drill, it checks whether an earlier written lesson already drilled that concept. If one did, the brief names the concept and asks for the page's prose. An introduction is not a drill, and neither is a question asked again after a hint. The prose is optional. Without it the lesson is still written, and every later session names the concept as still owed. Returned prose the render would refuse stops the sitting before anything is written, and so does a page that would take the file of another concept's page. The page sits in its own authored folder outside the teaching plan, so the navigation and the home page never list it. The render gives it lesson chrome under a reserved name and links to it from the warm-up of every lesson that drilled its concept. The link is made at render time, so a page written later is reachable from every earlier lesson.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A concept earns a page exactly when the drill just chosen was already drilled by an earlier written lesson. A concept met only once earns none.
-2. Earning is counted from the committed lessons alone, and nothing records which pages a learner has opened.
-3. A missing page never blocks a lesson. Prose that would fail the render stops the sitting before anything is written.
-4. The render refuses a page that names other than one concept, names a concept no written lesson taught, covers a concept another page covers, or runs past five hundred words.
-5. No lesson may render under the reserved name reference pages take.
-6. A lesson links to a page only when that page is in the same render, so no link is ever dead.
-7. Whether the prose restates only what a lesson taught is an authoring rule, and no code checks it.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -38,3 +42,13 @@ After the session picks the drill, it checks whether an earlier written lesson a
 ### 2026-09-18 — #481 — A second drill earns a page, and the page is linked at render time
 
 A concept that matters a second time was introduced several lessons back, and rereading a whole lesson to recover one idea costs more than the idea is worth. Earning is counted over the drill history the committed lessons already carry, so a teammate's checkout sees the same earned set and an empty learner folder changes nothing. Earning a page and writing it are separate events, so a missing page never holds back the lesson the learner came for. The build went one step past the record: prose the render would refuse now stops the sitting, because the render is all-or-nothing and writing that prose would leave the new lesson with no page. The link is resolved at render time because the lesson is always written before the page it points at. Refuted alternative: keep a per-learner tally of drills in the learner folder. It survives a re-plan that rewrites lessons, but the folder is ignored and personal, so no other checkout would see the tally, and it is the personal record this epic rules out.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

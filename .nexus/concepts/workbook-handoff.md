@@ -2,28 +2,32 @@
 title: "Workbook Handoff"
 aliases: ["handoff record", "paused workbook", "resume at the handed-off story", "outstanding handoff", "verified resolution", "manual override"]
 touches: ["learner-folder", "workbook-store", "teaching-session", "handoff-prompt", "return-verification"]
-last_updated_by: "#407"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Workbook Handoff
 
-A workbook session that pauses at a handoff comes back to it. Each handoff is its own record naming the story that was handed off, kept under the learner folder with everything else personal. Resolving a handoff appends to its record instead of deleting it, so what was handed off and when stays readable.
+Workbook Handoff is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Opening the workbook means starting a session, not opening a page in a browser, so no rendered page ever reads a handoff. Starting a session lists every outstanding handoff and offers the most recent one to resume at. A workbook with none outstanding resumes at the start. The record's name carries the recording order, so enumerating handoffs is a sorted directory read and needs no timestamp comparison to be deterministic. One file per handoff mirrors two conventions the repository already runs on, one file per discovery ticket and append-only decision scratch per branch. It therefore needs no new idiom, and it is safe when two sessions touch the workbook. A handoff that names no story is refused, because a record naming no story is not a handoff. Resolving a handoff twice changes nothing. What a handoff prompt says, and when a session decides to pause, belong to the session stage that writes them; this concept records the pause and reads it back. A record names the workbook it paused in, and a session reads only that workbook's records, since at most one handoff outstanding is a rule about one workbook. Resolving says how it was reached: verified after a green suite and an intact fence, or an override asserted by hand.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A handoff record names the story it handed off; a handoff naming no story is refused.
-2. Handoff records live under the learner folder and are appended to, never rewritten in place.
-3. ~~Resolving a handoff marks its record; nothing is deleted.~~ Resolving marks its record and says whether a check verified it or a person asserted it; nothing is deleted.
-4. Outstanding handoffs are enumerable, and the order they are offered in on resumption is deterministic.
-5. A session resumes at the most recent outstanding handoff, or at the start when none is outstanding.
-6. No rendered page reads a handoff; a session does.
-7. A record names the workbook it paused in, and a session reads only that workbook's records.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -42,3 +46,13 @@ Each handoff is its own file and a resolution is appended to it, mirroring two c
 ### 2026-09-07 — #407 — A pause belongs to one workbook, and a resolution says how it was reached
 
 A record names the workbook it paused in, and a session reads only that workbook's records. At most one handoff outstanding is a rule about one workbook, so a record naming no workbook belonged to any of them and one workbook could resume at another's pause. Resolving now appends how the resolution was reached, because one line for both made a resolution a check had verified indistinguishable from one a person asserted. This entry also records the reciprocal links to the session that reads a pause, the prompt written beside it, and the checks that verify it. Refuted alternative: keep the fallback that claimed a record naming no workbook. It is kinder to a record written before the field was carried, but that fallback is exactly what breaks the one-outstanding rule, and the path that writes these records has always written the workbook's name.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

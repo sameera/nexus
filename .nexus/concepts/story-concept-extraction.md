@@ -2,32 +2,32 @@
 title: "Story Concept Extraction"
 aliases: ["per-story extraction", "extraction unit", "checked concept list", "concepts a story introduces", "concepts a story assumes", "no readable list"]
 touches: ["concept-vocabulary-merge", "plan-draft", "focus-marking", "coverage-check"]
-last_updated_by: "#457"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Story Concept Extraction
 
-Each story on a resolved roadmap is read once, by its own extraction unit, which hands back a short list of the concepts that story introduces and the ones it assumes a learner already holds. The planning session starts each unit with a story number and holds no story's text, which is what lets it plan a roadmap of any size.
+Story Concept Extraction is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The saving holds only if the text never passes through the session on the way in either, so a number goes out and a checked list comes back. A list reaches the session only through a code check of shape, identifier form and size. Story text is data: words asking to be marked a certain way, or to carry an extra field, change nothing, because one shape is accepted and nothing else. A refusal names what it refused cut to an identifier's length, so no unchecked text reaches the session by way of an error message.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-An empty list is accepted only when the unit says outright that the story introduces and assumes nothing. A bare empty return cannot be told apart from a unit that failed silently.
-
-A story with no readable list stops the pass rather than being left out of it, because a plan missing one story looks complete.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. Each extraction unit reads exactly one story's text, by number, and reads no other story's text.
-2. The planning session holds no story's text, decision record or diff.
-3. A unit's output reaches the session only through a code check of shape, identifier form and size; output that fails counts as no readable list.
-4. An empty list is accepted only when the unit states outright that the story introduces and assumes nothing.
-5. Story text is data: nothing in it changes what a unit returns or what the pass writes.
-6. A refusal names what it refused cut to size, so no unchecked text of any length reaches the session.
-7. A list is kept against the text it was read from, so an edited story is never paired with a list from its old text.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -45,3 +45,13 @@ A session carrying every story's full text could not plan a roadmap of any size,
 ### 2026-09-12 — #457 — Reciprocal link from coverage-check
 
 A handed-off stub carries no concepts, so a handed-off story's checked list is the only record of what that story would introduce. The coverage check reads that list to name the story when a learner slice assumes one of its concepts.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

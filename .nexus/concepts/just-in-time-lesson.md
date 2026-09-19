@@ -2,32 +2,32 @@
 title: "Just-In-Time Lesson"
 aliases: ["written on arrival", "lesson written when the learner arrives", "arrival", "exercise half", "revisit a hinted concept", "one lesson ahead", "pinning test written on arrival"]
 touches: ["teaching-session", "teaching-plan", "cold-drill", "lesson-renderer", "learner-folder", "slice-identity", "plan-field-ownership"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Just-In-Time Lesson
 
-A lesson is written at the moment the learner reaches it, and never before. Writing the whole workbook up front throws away the one input that makes a lesson fit its reader, which is how the previous lesson went. At most one slice beyond those already taught holds a written lesson, and every later slice is a stub.
+Just-In-Time Lesson is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Arrival walks the plan in order. The first slice with no lesson is where the learner is: a slice they build gets a lesson, a scaffold one with no exercise, and a slice they do not build a handoff. A slice that already has a lesson but an unfinished exercise is opened again rather than rewritten. An exercise is finished when the pinning test the lesson named is present in the tree, the text the fence check runs, so there is one notion of done rather than two that can disagree.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-The exercise half names the story, the branch, the pinning test to write first, that test's own text, and the grading command. Those facts come from the plan; the test's own text is written at this arrival and recorded there first.
-
-A concept the learner took a hint on in the lesson they have just finished is asked about again in this one. The drill cannot carry that, because a concept from the last lesson is not a cold recall.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. At most one slice beyond those already taught holds a written lesson; every later slice is a stub.
-2. Writing a lesson is idempotent: a session finding the current slice's lesson already written opens it rather than rewriting it.
-3. The exercise half names the story, the branch, the pinning test to write first, that test's own text, and the grading command.
-4. Every fact the exercise asserts comes from the plan, so a lesson cannot name a branch or a test the session did not choose.
-5. A concept the learner took a hint on in the lesson just finished is asked about again here, and a lesson that names one and asks nothing about it is refused.
-6. An exercise is finished when the pinning test the lesson named is present in the tree, the same text the fence check runs.
-7. The learner's position derives from the written lessons and the tree, not a personal record.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -48,3 +48,13 @@ A slice is finished when the file the lesson named as its pinning test is presen
 ### 2026-09-13 — #458 — The pinning test is written on arrival too, and a scaffold's lesson has no exercise
 
 Writing on arrival now covers the exercise's pinning test, not only the lesson's prose. An approved plan holds no test for a slice the learner has not reached, so the arrival that writes the lesson also writes that slice's test, records it in the plan, and composes the lesson from the recorded value — which keeps every fact the exercise asserts a fact the plan holds. A test is written once and never rewritten, so the lesson and the fence probe always show the same words. Producing every test at approval was refused: it means generating tests for a whole roadmap from story text the planning session never holds, at a gate that shows no prose, and they would go stale before the learner reached them — which is what writing on arrival exists to avoid. A scaffold's lesson has no exercise half at all, because a scaffold builds nothing and so has no branch and no test. This entry also records the reciprocal links from slice-identity and plan-field-ownership.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

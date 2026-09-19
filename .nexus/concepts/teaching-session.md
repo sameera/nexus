@@ -2,32 +2,32 @@
 title: "Teaching Session"
 aliases: ["workbook session", "session chain", "one sitting", "gated chain", "session brief", "one lesson per session", "walks the plan by position", "pinning test on arrival"]
 touches: ["teaching-plan", "plan-drift-gate", "cold-drill", "just-in-time-lesson", "handoff-prompt", "return-verification", "workbook-handoff", "slice-identity", "reference-page"]
-last_updated_by: "#481"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Teaching Session
 
-A learner opens a workbook by running a session, and one session teaches one lesson. The session is a fixed chain of checks decided in code: it clears the probe's scratch space, works out where the learner is, runs the suite, verifies any pause it is returning from, checks the next slice against the state the plan pinned, and chooses a drill. It then writes one lesson, or hands the slice to a coding agent and pauses.
+Teaching Session is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Everything the session guarantees is a fact about a repository. A fact an agent asserts cannot be verified and cannot be repeated, so the order of the checks is fixed in code and every step produces a fact a test can assert. A second run over an unchanged repository reaches the same verdict and hands out the same brief.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-Judgment enters as a lesson's prose and as the pinning tests an arrival writes. The chain stops at each, handing out a brief naming the slice, its concepts, the drill and any exercise. What comes back on a second run re-runs the whole chain rather than trusting a verdict carried across the two. The toolkit therefore needs no notion of an agent.
-
-The session moves no version-control state. It writes files under the workbook and the learner folder, and it names the branch the learner works on. It creates, switches, merges, commits and pushes nothing, because the checks it runs on return must verify a tree it did not itself change.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. The order of the checks is fixed in code, and every step produces a fact a test can assert.
-2. A second run over an unchanged repository reaches the same verdict, picks the same drill and places the lesson in the same slice.
-3. ~~Exactly one step produces prose; that prose is written outside the chain and handed back on a second run.~~
-4. The second run re-runs every check rather than trusting a verdict carried from the first.
-5. The session creates, switches, merges, commits and pushes nothing.
-6. Every read of the learner folder is total: an absent record is an empty history, and a record that cannot be read is reported and skipped rather than failing the session.
-7. A check that passed says so, so a learner can tell it from a check that never ran.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -54,3 +54,13 @@ The chain keyed every slice by its story, which worked only while the plan held 
 ### 2026-09-18 — #481 — Reciprocal link from reference-page
 
 Mechanical reciprocity fan-out: when the drill the chain picks was already drilled by an earlier lesson, the brief and the report now name that concept as having earned a reference page, and every run names the pages still owed. Prose for the page is optional, so a sitting still writes one lesson whether or not it comes back. Prose that would fail the render stops the sitting before anything is written, which keeps the chain's rule that a sitting leaves the tree consistent.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

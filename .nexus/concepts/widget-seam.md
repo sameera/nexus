@@ -2,28 +2,32 @@
 title: "Widget Seam"
 aliases: ["widget declaration", "component library", "inert widget", "interactive exercise", "widget manifest", "predict-then-reveal", "lead region", "always-visible region"]
 touches: ["lesson-renderer", "offline-page", "cold-drill", "component-refusal"]
-last_updated_by: "#480"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Widget Seam
 
-A lesson declares an interactive widget where it belongs in the prose, as a fenced block that stays ordinary markdown. The declaration is inert: it names a component and its data, and the renderer resolves it against one shared library at render time. The library shipped empty and now holds its first component, predict-then-reveal, which shows a question and withholds the answer until the learner asks.
+Widget Seam is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Position matters for a teaching aid, so a declaration held in front matter alone would need a second mechanism to put the widget back where it belongs. Keeping the declaration valid markdown means the lesson still reads in every other surface that already displays markdown. A custom directive syntax was refuted: it is shorter and reads as prose, but it is a non-standard dialect, so every other viewer of the lesson would display it as noise, which undercuts the reason for keeping the authored file plain. Resolution is a lookup in the manifest the runtime declares. Rendering never bundles and never runs the runtime, which keeps the render fast and its failure cheap, at the price that adding a component needs a toolkit release. A name the library does not hold fails the whole render rather than one page, so a page with a hole in it is impossible rather than unlikely. A widget's content is in the page at render time, and interaction only changes what is visible. A component may also declare a lead region, placed before the reveal control and never hidden. The control is a button, and a button is excluded from print, so content carried only by its label would vanish from a printed page nobody touched.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A widget declaration stays ordinary markdown and names a component and its data.
-2. A declaration resolves against one shared library at render time, by lookup rather than by running the runtime.
-3. A name the library does not hold fails the whole render, names the missing component, and leaves no output behind.
-4. A widget's content exists in the page at render time; interaction only changes what is visible.
-5. An untouched widget's content is on the paper when the page is printed.
-6. One library is shared by every lesson in every workbook.
-7. A component's always-visible content goes in the lead region, never on the reveal control's label.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -45,3 +49,13 @@ The library gained predict-then-reveal, the component the opening drill is built
 ### 2026-09-13 — #480 — Split: the refusal and code-field contract additions moved to component-refusal
 
 Three more components need two additions to the component contract: a way to say a declaration has nothing to check, and a way to name which of a component's own fields carry code. Both belong to this page's own contract, but adding them here took the page over its own-content cap, so they moved to their own page rather than compressing what already stood here. A task asking how a declaration resolves against the library needs neither addition; a task asking why a bad declaration fails, or why a snippet reads as code and not markup, needs nothing about position, resolution or the lead region. This entry carries no other change: the seam's own resolution, failure and printing rules stand exactly as decided at #405 and #407.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

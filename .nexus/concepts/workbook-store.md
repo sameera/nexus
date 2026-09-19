@@ -2,28 +2,32 @@
 title: "Workbook Store"
 aliases: ["workbook", "workbook folder", "lessons folder", "teaching plan", "workbook placement"]
 touches: ["pipeline-store-exclusion", "learner-folder", "lesson-renderer", "workspace-resolution", "teaching-plan", "workbook-home-page", "reference-page"]
-last_updated_by: "#481"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Workbook Store
 
-A workbook is a committed folder a learner opens, holding the authored lessons and the pages rendered from them. It sits beside the queue and the discovery store under the same hidden root, so all three share one location convention and one exclusion family. A repository may hold one workbook per roadmap, and in a workspace with a hub and members a workbook belongs to the member repository whose roadmap it teaches.
+Workbook Store is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The store is created on first use and holds one folder per workbook. Inside a workbook the authored lessons sit in their own folder, and the pages render beside them at the workbook's root. An optional plan names the lessons in teaching order. Without a plan the order is the lessons' file names, which is deterministic but says nothing about teaching. A lesson the plan does not name fails the render. A plan naming a lesson the folder lacks fails too, unless the plan describes slices, where an unwritten lesson is a stub. Ordering by a file-name prefix alone was refuted, because renaming a lesson to move it would change its page's address. Placement is enforced in code rather than documented. Creating a workbook refuses a hub checkout and names the members it could have meant, and it resolves the member from the checkout it ran in, or from an explicit name when run from the hub. Creating a workbook also ensures the ignore rule that covers the learner folder, because the store is created on first use while ignore rules are seeded at setup.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. The workbook store is committed and sits outside the queue.
-2. No workbook path appears in any diff a Nexus stage derives.
-3. A workbook lives in the member repository whose roadmap it teaches; creating one in a hub checkout is refused, and the refusal names the members it could have meant.
-4. The store holds many workbooks, because a repository may teach more than one roadmap.
-5. ~~A plan and the lessons folder must name the same lessons, or the workbook does not render.~~ A lesson the plan does not name never renders; a plan of slices tolerates one not yet written.
-6. Without a plan the teaching order is the lessons' file names.
-7. Creating a workbook ensures the ignore rule covering the learner folder rather than assuming setup did.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -52,3 +56,13 @@ Mechanical reciprocity fan-out: the home page is written at a workbook's root be
 ### 2026-09-18 — #481 — Reciprocal link from reference-page
 
 Mechanical reciprocity fan-out: a workbook now holds a folder of authored reference pages beside the lessons folder. The plan names none of them, because a reference page is not a step in the teaching order, so the agreement between the plan and the lessons is unchanged. A workbook with no such folder has earned no page yet.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

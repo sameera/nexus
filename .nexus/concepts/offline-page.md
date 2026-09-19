@@ -2,28 +2,32 @@
 title: "Offline Page"
 aliases: ["opened from disk", "no server", "file-url page", "classic script", "printed lesson", "workbook page assets", "print completeness"]
 touches: ["lesson-renderer", "widget-seam", "reading-surface-tokens", "workbook-home-page", "reference-page"]
-last_updated_by: "#481"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Offline Page
 
-A workbook page is opened by double-clicking it. No process is started and no request leaves the machine, so a learner reads a lesson with no network and nothing running. Everything the page needs is a file beside it, reached by a relative path.
+Offline Page is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-A page opened directly from disk cannot load a module script and cannot fetch anything, so the script is loaded as a classic script and no asset is remote. A design relying on either would fail the offline requirement late and obscurely. Requiring nothing to be started also means a learner with no network and no running toolkit can still read a lesson. Serving the workbook from a local process the learner starts was refuted: module scripts, fetching and per-request rendering would all become available, which would ease later interactive components, but the learner must start something before reading, and the published toolkit would gain a server, a larger surface than this needs. Printing drops the navigation chrome, so the paper carries the lesson and nothing else. Printing also renders ink on white whatever the screen theme is, because a dark reading surface printed is unreadable, which would fail the paper requirement outright. A print rule may recolour, drop controls and chrome, and reveal content a control was hiding, and nothing else. A code block scrolls sideways on screen and wraps on paper, because paper cannot scroll. Completeness is checked by applying every rule in force when printing to a rendered page, with no layout engine.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. Every asset a page needs is a local file reached by a relative path.
-2. No page makes a network request, loads a remote font, depends on a module loader, or depends on a process being started.
-3. A page is read by opening it. Nothing is served and nothing is started.
-4. Printing renders ink on white whatever the screen theme is, and drops the navigation chrome.
-5. A page's content is complete when it is written, so nothing a learner reads arrives later.
-6. No print rule hides an element carrying content, bounds its height, or clips it sideways.
-7. The print check proves that no rule in force hides or clips content, and never that a printer placed every line on paper.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -46,3 +50,13 @@ Mechanical reciprocity fan-out: the workbook's home page is opened from disk und
 ### 2026-09-18 — #481 — Nothing on paper is hidden or clipped, and the limit of the check is stated
 
 A printed reference page must carry all of its content, and fitting on one sheet must never be reached by cutting content off. The one rule that could clip content on paper was the screen rule letting a code block scroll sideways. On paper a code block now wraps, because making its overflow visible alone would still run a long line off the sheet. The check reads the screen rules and the print rules together, since a check of the print rules alone would have missed that screen rule. It treats controls, live regions and navigation as droppable. The check has no layout engine, so its limit is written into the invariant and into the workbook skill, and nobody reads a passing check as a measured guarantee. The print change alters every rendered page, so a workbook rendered before it shows as changed in the drift check until it is rendered once more. This entry also records the reciprocal link from reference-page. Refuted alternative: print each page in a browser and read the text back. It is the only form that sees real pagination, but the workbook's checks run without a browser, and comparing printed text is slow and tends to fail when the browser changes rather than when a page regresses.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.
