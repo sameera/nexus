@@ -2,7 +2,7 @@
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
 touches: ["distiller", "nexus-pipeline", "scratch-capture", "workspace-resolution", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry", "pre-epic-discovery", "pipeline-store-exclusion"]
-last_updated_by: "#215"
+last_updated_by: "#669"
 status: active
 verification: verified
 ---
@@ -20,7 +20,7 @@ The folder is the directory scratch capture already created during implementatio
 1. One committed folder per epic, named for the epic's issue number, holds that epic's human planning artifacts; an old-contract slug-named entry is read as-is.
 2. The queue is committed, never ignored; every entry on the trunk carries a close record.
 3. Presence equals unconsumed here, with no separate state file; the ephemeral counterpart derives the same fact from the trunk store instead.
-4. An entry is drained only after its epic merges; abandoned epics never distill.
+4. ~~An entry is drained only after its epic merges; abandoned epics never distill.~~ An entry is drained only after its epic merges, and only in the repository whose issues it names; abandoned epics never distill, and an entry whose code moves to another repository moves with it.
 5. ~~A drained entry is deleted but stays recoverable through history.~~ The merge of the drain's own pull request is the only shipped path that removes an entry, pinned by a guard over the whole tree against a counted waiver list; a drained entry stays recoverable through history.
 6. Everything drained passed a human gate; the per-user scratch riding inside is hint-only, never read.
 7. An entry is an epic entry or a single-file decision memo, drained diff-less into logs.
@@ -93,3 +93,7 @@ Mechanical reciprocity fan-out: the queue was already withheld from the distille
 ### 2026-09-11 — #215 — The drain's own merge is the only remover, with no exception
 
 A second remover existed: the member close relocated an entry into the hub and then committed its deletion in the member repository, on whatever branch the lead happened to be standing on. Retiring that path removed it, and the replacement was deliberately built to copy and verify without removing anything, so the rule holds as an absolute rather than as a rule with one carve-out. A guard now walks the shipped tree for anything that deletes under this queue and pins the result against a waiver list holding exactly one entry, so a convenience cleanup added later fails the build rather than quietly becoming a second remover. Entries no longer arrive here by migration, and a leftover copy in a member checkout is reported by the workspace status read-out rather than collected by any command. Refuted alternative: keep the gated removal so relocation is a true move and nothing is left behind. That is what relocation ordinarily means and it leaves one copy in one place, but it keeps a second remover alive in the shipped toolkit, which is the exact property this change exists to establish.
+
+### 2026-09-18 — #669 — In-flight entries travel with the code they plan
+
+Two unclosed entries holding Prime's terminal work moved to sameera/prime with the code. Left here they would name issues that now live in another repository, so no drain could ever resolve them and no close could ever be run against them. This was a repository split done by hand, not a shipped command, so the rule that the drain's own merge is the only remover in the toolkit is untouched. Refuted alternative: close the two epics as not planned and re-plan them in the new repository, which reaches the same place but discards one approved epic and one approved decision record to save a directory move.

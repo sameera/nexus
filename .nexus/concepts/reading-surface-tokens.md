@@ -2,14 +2,14 @@
 title: "Reading Surface Tokens"
 aliases: ["shared reading definition", "reading subset", "lifted tokens", "one palette two surfaces", "print token exception"]
 touches: ["theme-tokens", "offline-page", "lesson-renderer"]
-last_updated_by: "#405"
+last_updated_by: "#669"
 status: active
 verification: verified
 ---
 
 # Reading Surface Tokens
 
-The colour and typography values a reading surface needs are defined in one place that both the application and the workbook read. The workbook declares none of its own, which is only possible while a shared definition exists, because a library cannot depend on an application. Only the reading subset is shared; application chrome stays with the application.
+The colour and typography values a reading surface needs are defined in one place that every reading surface reads, including one that now lives in a separate repository. The workbook declares none of its own, which is only possible while a shared definition exists, because a library cannot depend on an application. Only the reading subset is shared; application chrome stays with the application.
 
 ## How It Works
 
@@ -21,7 +21,7 @@ The shared subset is background, ink levels, accent, rules, code surfaces, type 
 2. Only the reading subset is shared. Application chrome values stay with the application.
 3. The workbook declares no colour or typography value of its own for the screen surface.
 4. Print is the single exception: it assigns literal values, every one of them onto a shared token name and confined to the print rules, and a test fails when a literal appears outside them.
-5. Both consumers read the same rendered values rather than two matched copies.
+5. ~~Both consumers read the same rendered values rather than two matched copies.~~ The second consumer now lives in a separate repository. What is pinned here is that the workbook restates no value; the parity between the two surfaces is unpinned until it is filed at the other end.
 
 ## Integration Points
 
@@ -34,3 +34,7 @@ The shared subset is background, ink levels, accent, rules, code surfaces, type 
 ### 2026-09-07 — #405 — The reading subset is lifted, and print is the one place literals live
 
 A second reading surface can only declare none of its own values while a shared definition exists, because a library cannot depend on an application, so the reading subset was lifted rather than copied. Restricting the lift to that subset stops the shared definition becoming a home for application chrome. Refuted alternative: a small palette for the workbook, hand-matched to the application's, which decouples the two but drifts within a release or two. Print deviates from the record's invariant that the workbook declares no value of its own. Print must be ink on white whatever the screen theme is, and the shared definition carries no print set, so literals are unavoidable somewhere. They are confined to the print rules and assigned only onto shared token names, pinned by a test, so the invariant holds for the screen surface it was written about and yields to the print requirement.
+
+### 2026-09-18 — #669 — The second consumer left, so parity is now unpinned here
+
+The one test that read Prime's stylesheet directly was removed when Prime moved to sameera/prime. It was the single place a pipeline test depended on an application tree, and the invariant it guarded became cross-repository the moment the tree left. Its sibling assertion is untouched: the workbook still declares no colour or typography of its own, so the shared definition is still pinned as the single source for everything that remains here. Filing the parity invariant at the other end is deferred to its own stub. Refuted alternative: keep the assertion and read the departed tree over a checked-out sibling, which preserves the check but makes a library test depend on another repository being present on disk.

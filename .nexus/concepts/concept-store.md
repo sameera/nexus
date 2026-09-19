@@ -2,7 +2,7 @@
 title: "Concept Store"
 aliases: ["machine knowledge store", "concept pages", "concept page schema", "knowledge base"]
 touches: ["two-store-split", "gold-plating", "grep-native-retrieval", "append-only-decision-log", "provenance-reference", "distiller", "code-anchors", "domain-taxonomy", "concept-page-capacity"]
-last_updated_by: "#220"
+last_updated_by: "#669"
 status: active
 verification: verified
 ---
@@ -19,9 +19,9 @@ Each page leads with a stand-alone summary, then behavior in domain terms, the c
 
 1. One concept per file; the slug is the filename and the page's only key — no separate identifier field.
 2. ~~The body is capped; an over-cap page is split into two, never grown.~~ A page's own content is capped; overflow of that region splits the page, and neighbour-list length never does.
-3. One slug maps to exactly one active page, enforced at write time.
+3. ~~One slug maps to exactly one active page, enforced at write time.~~ One slug maps to exactly one active page, enforced at write time. A touches target's existence is asserted and never checked, so a page may point at a page that no longer exists.
 4. ~~There is no generated index; listing and reading pages serves discovery.~~
-5. Deprecated concepts move to the archive so active search stays signal-dense.
+5. ~~Deprecated concepts move to the archive so active search stays signal-dense.~~ Deprecated concepts move to the archive so active search stays signal-dense. A page whose subject leaves the repository leaves as a file instead, keeping its decision log.
 6. Pages carry behavior in domain terms only — no code, file paths, type names, or speculative claims.
 7. No retrieval index exists — listing and reading serves machine discovery; the derived human atlas is regenerated on every drain and is never a retrieval surface.
 
@@ -54,3 +54,7 @@ Domain taxonomy governs how this store's derived atlas groups pages, replacing t
 ### 2026-08-04 — #220 — The cap counts a page's own content
 
 The cap's denominator was re-cut without changing the number: it now measures the page's own content and excludes the neighbour list, which is bounded per entry instead — so the schema's split-don't-grow rule applies to a concept's breadth and never to its popularity. The store had grown from fourteen pages to forty-eight while the cap stayed still, and the pages sitting on it were the best-connected ones rather than the broadest, which made dropping a real interaction the cheapest way to stay legal. The capacity rules moved onto their own page rather than growing this one, per the store's own discipline. Refuted alternative: raise the number instead of re-cutting what it measures — it buys the same headroom for one round, but it leaves popularity and breadth sharing one budget, so the same pressure returns as the store keeps growing.
+
+### 2026-09-18 — #669 — Ten pages left as files, and one edge was left pointing nowhere
+
+Ten concept pages describing Prime moved to sameera/prime as files rather than being rewritten there. The append-only decision log is the part of a page with value, and a rewrite loses every entry. The move was safe because the cluster was closed: measured, the ten touched only each other and theme-tokens, so no reciprocity repair was needed on either side. Refuted alternative: write the ten pages fresh in the new repository, which produces cleaner prose but discards every recorded why. The move also showed that a page may keep a neighbour edge to a page that no longer exists. theme-tokens was left pointing at the departed application-shell, the validator passed it, and the edge was found and dropped by hand. Closing that gap is deferred to its own stub.

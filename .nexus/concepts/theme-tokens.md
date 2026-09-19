@@ -2,14 +2,14 @@
 title: "Theme Tokens"
 aliases: ["theming", "dual theme", "light and dark mode", "semantic tokens"]
 touches: [reading-surface-tokens]
-last_updated_by: "#405"
+last_updated_by: "#669"
 status: active
 verification: verified
 ---
 
 # Theme Tokens
 
-Theme tokens give Prime one semantic colour vocabulary backed by two value sets — dark and light — selected by a single mode flag on the shell root. Every region consumes the semantic tokens and never a raw colour value, so a single mode flip re-resolves the whole shell with zero per-region branching. Both value sets cover every cross-mode colour divergence between the two design mockups, not only the top-level ones.
+Theme tokens give one semantic colour vocabulary backed by two value sets, dark and light, selected by a single mode flag on the shell root. Every region consumes the semantic tokens and never a raw colour value, so a single mode flip re-resolves the whole shell with zero per-region branching. The shell it dresses now lives in a separate repository. What this repository still asserts is the shared reading subset the workbook reads.
 
 ## How It Works
 
@@ -41,3 +41,7 @@ The theme store's synchronous browser-storage and media-query read crashes under
 ### 2026-09-07 — #405 — Reciprocal link from reading-surface-tokens
 
 Mechanical reciprocity fan-out: the reading subset of this vocabulary — background, ink levels, accent, rules, code surfaces, type stacks and radius — was lifted into one definition the application now imports rather than declares. Application chrome values stay here. The single-source-of-truth invariant is unchanged in force; the source of truth for the reading subset moved out of the application so a library that cannot depend on it can read the same values.
+
+### 2026-09-18 — #669 — The page stays whole here while its subject moves to sameera/prime
+
+Prime's theme and the workbook's reading tokens were one concept, and half of it left this repository. The page is kept whole rather than split, because a split would leave two pages asserting one thing. Its dead edge to application-shell was dropped by hand when that page left. What this repository can still verify is the single shared definition the workbook reads, which reading-surface-tokens holds. Rewriting the vocabulary itself away from Prime is deferred to its own stub, so the body above still describes a shell maintained in sameera/prime. Refuted alternative: split the page into a Prime half and a workbook half, which loses on what stays here being one shared definition rather than two concepts.
