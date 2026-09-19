@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ENTRY_POINTS } from "./build-bundles";
 import { BIN_NAMES, buildReleaseTree } from "./pack-release";
 import { hashPayload, isIgnoredPayloadEntry, listPayloadFiles, PAYLOAD_IGNORE, PAYLOAD_KEY } from "./release-payload";
+import { listSharedLibraryFiles } from "./shared-library-payload";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const PIN_PATH: string = path.resolve(__dirname, "..", "bundle-fingerprint.json");
@@ -74,7 +75,14 @@ describe("the shipped payload carries nothing incidental (AC1)", () => {
         };
         walk(outDir, "");
         const bundles: string[] = Object.keys(ENTRY_POINTS).map((name) => `${name}.mjs`);
-        expect(onDisk.sort()).toEqual([...bundles, ...listPayloadFiles(REPO_ROOT).map((f) => f.staged)].sort());
+        // Three stated parts, not two: the executables, the component payload, and the library
+        // sources a second Nexus-ecosystem package builds against (goal #690).
+        const stated: string[] = [
+            ...bundles,
+            ...listPayloadFiles(REPO_ROOT).map((f) => f.staged),
+            ...listSharedLibraryFiles(REPO_ROOT).map((f) => f.staged),
+        ];
+        expect(onDisk.sort()).toEqual(stated.sort());
     });
 });
 

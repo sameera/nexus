@@ -274,7 +274,8 @@ describe("a concept the learner declared they already know is never introduced",
 });
 
 describe("slices order to introduce the fewest new concepts per step", () => {
-    function order(draft: PlanDraft, edges: StoryEdges[]): number[] {
+    // A scaffold carries no story, so the ordering a caller reads back is not all numbers.
+    function order(draft: PlanDraft, edges: StoryEdges[]): (number | undefined)[] {
         return rewritePlan(draft, { edges }).slices.map((stub) => stub.story);
     }
 
@@ -308,7 +309,7 @@ describe("slices order to introduce the fewest new concepts per step", () => {
             { story: 13, blockedBy: [12] },
             { story: 14, blockedBy: [] },
         ];
-        const placed: number[] = order(draft, edges);
+        const placed: (number | undefined)[] = order(draft, edges);
         // #13 is blocked by #11 through the handoff, so it follows it however cheap it is.
         expect(placed.indexOf(13)).toBeGreaterThan(placed.indexOf(11));
         // A handoff never precedes what blocks it either.
@@ -460,7 +461,7 @@ describe("a slice that would teach more than one step can hold is split", () => 
 
     it("keeps the parts consecutive, inside the span the original slice held", () => {
         const draft: PlanDraft = { slices: [learner(11, many), learner(12, ["z"])], vocabulary: VOCABULARY };
-        const placed: number[] = rewritePlan(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] }).slices.map((s) => s.story);
+        const placed: (number | undefined)[] = rewritePlan(draft, { edges: [{ story: 11, blockedBy: [] }, { story: 12, blockedBy: [11] }] }).slices.map((s) => s.story);
         expect(placed).toEqual([11, 11, 12]);
     });
 

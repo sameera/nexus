@@ -12,13 +12,13 @@
   "exclude": ["src/**/*.spec.ts", "src/git-fixtures.ts", "vitest.config.mts"],
   "references": [
     {
-      "path": "../delivery-config/tsconfig.lib.json"
+      "path": "../epic-resolve/tsconfig.lib.json"
     },
     {
       "path": "../workspace/tsconfig.lib.json"
     },
     {
-      "path": "../close-migration/tsconfig.lib.json"
+      "path": "../delivery-config/tsconfig.lib.json"
     }
   ]
 }

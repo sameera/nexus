@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { checkPlanDrift, gateNextLesson, type IssueReader, type LiveStory, type TeachingPlan } from "./teaching-plan.js";
 
-const PLAN: TeachingPlan = {
+// `satisfies` rather than an annotation: the annotation widened every slice to `PlanSlice`, whose
+// `pinned` is optional because a scaffold has none, and every assertion below then read as though
+// this fixture might be a scaffold. The literal's own type says it is not.
+const PLAN = {
     slices: [
         { story: 460, learnerBuilds: true, pinned: { title: "A re-scoped or closed story stops before its lesson is taught", body: "Original body." } },
         { story: 461, learnerBuilds: true, pinned: { title: "Predict-then-reveal", body: "Original body." } },
     ],
-};
+} satisfies TeachingPlan;
 
 function readerOf(live: Record<number, LiveStory | null>): IssueReader {
     return (story) => (story in live ? live[story] : null);
@@ -142,12 +145,12 @@ describe("gateNextLesson", () => {
 });
 
 describe("a story that was already closed when the plan was pinned", () => {
-    const SHIPPED: TeachingPlan = {
+    const SHIPPED = {
         slices: [
             { story: 460, learnerBuilds: true, pinned: { title: "Already shipped", body: "Original body.", closed: true } },
             { story: 461, learnerBuilds: true, pinned: { title: "Still open", body: "Original body." } },
         ],
-    };
+    } satisfies TeachingPlan;
 
     it("is teachable, because closure before the pin is not movement", () => {
         const findings = checkPlanDrift(SHIPPED, (story) => ({

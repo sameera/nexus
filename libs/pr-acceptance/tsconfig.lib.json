@@ -9,10 +9,14 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts", "src/harness-fixtures.ts", "vitest.config.mts"],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "src/harness-fixtures.ts",
+    "vitest.config.mts"
+  ],
   "references": [
     {
-      "path": "../close-migration/tsconfig.lib.json"
+      "path": "../workspace/tsconfig.lib.json"
     },
     {
       "path": "../pr-worktree/tsconfig.lib.json"

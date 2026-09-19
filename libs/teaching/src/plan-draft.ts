@@ -94,8 +94,12 @@ export interface DeclaredConcept {
 /** One concept a learner slice assumes that the plan put out of its reach. */
 export interface CoverageGap {
     concept: string;
-    /** The learner slice that assumes it. */
-    story: number;
+    /**
+     * The learner slice that assumes it. Absent on a scaffold, which teaches one concept and builds
+     * no story — the refusal report already says "a slice" for that case, and typing the field as
+     * always-present said otherwise.
+     */
+    story?: number;
     /** The handed-off story that introduces it, when the focus boundary is what put it out of reach. */
     handedOff?: number;
 }

@@ -6,18 +6,10 @@
     "tsBuildInfoFile": "dist/tsconfig.lib.tsbuildinfo",
     "emitDeclarationOnly": true,
     "forceConsistentCasingInFileNames": true,
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "src/**/*.spec.ts",
-    "src/**/*-fixtures.ts",
-    "vitest.config.mts"
-  ],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.spec.ts", "src/**/*-fixtures.ts", "vitest.config.mts"],
   "references": [
     {
       "path": "../scope-razor/tsconfig.lib.json"
@@ -26,31 +18,31 @@
       "path": "../prose-verify/tsconfig.lib.json"
     },
     {
-      "path": "../pr-worktree/tsconfig.lib.json"
+      "path": "../workspace/tsconfig.lib.json"
     },
     {
-      "path": "../record-digest/tsconfig.lib.json"
+      "path": "../teaching/tsconfig.lib.json"
     },
     {
       "path": "../release-identity/tsconfig.lib.json"
     },
     {
-      "path": "../epic-resolve/tsconfig.lib.json"
+      "path": "../record-digest/tsconfig.lib.json"
     },
     {
-      "path": "../abs-doc-path/tsconfig.lib.json"
+      "path": "../pr-worktree/tsconfig.lib.json"
+    },
+    {
+      "path": "../epic-verdicts/tsconfig.lib.json"
+    },
+    {
+      "path": "../epic-resolve/tsconfig.lib.json"
     },
     {
       "path": "../delivery-config/tsconfig.lib.json"
     },
     {
-      "path": "../close-migration/tsconfig.lib.json"
-    },
-    {
-      "path": "../workspace/tsconfig.lib.json"
-    },
-    {
-      "path": "../teaching/tsconfig.lib.json"
+      "path": "../abs-doc-path/tsconfig.lib.json"
     }
   ]
 }

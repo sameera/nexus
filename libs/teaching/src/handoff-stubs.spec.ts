@@ -132,7 +132,7 @@ describe("a handoff slice is given no lesson", () => {
         expect(draftText(repo)).not.toContain("lesson");
         const plan: WorkbookPlan = approve(draftText(repo));
         expect(plan.slices.find((s) => s.story === 32)?.lesson).toBe("");
-        expect(planStubs(plan, []).map((stub) => stub.story)).not.toContain(32);
+        expect(planStubs(plan, []).map((stub) => ("story" in stub ? stub.story : undefined))).not.toContain(32);
     });
 });
 

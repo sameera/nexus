@@ -372,7 +372,9 @@ export function runTeachingSession(inputs: SessionInputs): SessionResult {
 
     // 2. Resolve the learner's position from the lessons already written — the session's memory.
     const written: LessonSource[] = readLessons(repoRoot, slug);
-    const parsed: Lesson[] = written.map(parseLesson);
+    // Called through an arrow, not passed by reference: `parseLesson` takes an optional second
+    // argument and `map` would hand it the index.
+    const parsed: Lesson[] = written.map((lesson) => parseLesson(lesson));
     const history: LessonConceptHistory[] = parsed.map(conceptsOf);
     const teaching: TeachingPlan = toTeachingPlan(plan);
 
