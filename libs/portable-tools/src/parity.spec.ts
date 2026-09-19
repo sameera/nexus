@@ -574,6 +574,7 @@ describe("validator parity over the corpus", () => {
             "`status` must be",
             "exceeds the 400-word cap",
             "has no Integration Points bullet",
+            "names a page that is not in the store",
         ]) {
             expect(source.stderr).toContain(marker);
         }
