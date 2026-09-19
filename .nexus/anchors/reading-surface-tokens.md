@@ -10,6 +10,4 @@ generated: 2026-09-07
 # Code Anchors: Reading Surface Tokens
 
 - `libs/portable-tools/src/reading-tokens.ts` — the shared definition: the reading subset with a role per token, the mode-invariant values, the two mode value sets, and the CSS both consumers read.
-- `apps/prime/app/reading-tokens.css` — the generated file the application imports instead of declaring the reading subset itself.
-- `apps/prime/app/app.css` — the application's remaining chrome tokens, now importing the shared reading values rather than restating them.
 - `libs/portable-tools/src/workbook-render.spec.ts` — pins the print exception: no literal in the screen rules, and every print literal assigning a shared token name.

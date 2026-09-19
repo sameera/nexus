@@ -9,8 +9,4 @@ generated: 2026-09-07
 
 # Code Anchors: Theme Tokens
 
-- `apps/prime/app/app.css` — the semantic token definitions and the two mode value sets under the root selector, including the cross-mode colours that flip outside the top-level block.
-- `apps/prime/app/layout/theme.tsx` — the runtime theme mode: a fixed default on the server and first client render, post-mount reconciliation of the stored or operating-system choice, the toggle, and local-storage persistence.
-- `apps/prime/tailwind.config.cjs` — maps the utility colour theme onto the semantic tokens.
 - `libs/portable-tools/src/reading-tokens.ts` — the reading subset lifted out of the application into one shared definition both surfaces read.
-- `apps/prime/app/reading-tokens.css` — the generated file the application imports in place of declaring the reading subset itself.

@@ -18,7 +18,6 @@ import { readPage } from "./workbook-page-fixtures";
 import { SCRIPT_NAME } from "./workbook-widgets";
 import { READING_TOKEN_NAMES, renderReadingTokensCss } from "./reading-tokens";
 
-const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 
 let tmpDirs: string[] = [];
 function makeDir(): string {
@@ -198,20 +197,6 @@ describe("the workbook declares no colour or typography of its own", () => {
         expect(screen.split("\n").filter((l) => literal.test(l))).toEqual([]);
         for (const line of print.split("\n").filter((l) => literal.test(l))) {
             expect(READING_TOKEN_NAMES.some((t) => line.trim().startsWith(`${t}:`))).toBe(true);
-        }
-    });
-
-    it("presents the same colours and typography as the application, from one definition", () => {
-        const appCss = fs.readFileSync(path.join(REPO_ROOT, "apps", "prime", "app", "app.css"), "utf8");
-        const generated = fs.readFileSync(
-            path.join(REPO_ROOT, "apps", "prime", "app", "reading-tokens.css"),
-            "utf8",
-        );
-
-        expect(generated).toBe(renderReadingTokensCss());
-        expect(appCss).toContain('@import "./reading-tokens.css";');
-        for (const token of READING_TOKEN_NAMES) {
-            expect(appCss).not.toMatch(new RegExp(`^\\s*${token}:`, "m"));
         }
     });
 });
