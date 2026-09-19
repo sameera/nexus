@@ -2,28 +2,32 @@
 title: "Trace Stepper"
 aliases: ["trace stepper", "step gating", "predict before step"]
 touches: ["answer-check", "component-refusal"]
-last_updated_by: "#480"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Trace Stepper
 
-The trace stepper walks a learner through a code snippet one step at a time, showing the state beside the line each step names. A step that carries a question blocks stepping forward until the learner checks their answer, right or wrong, before the state at that step is shown. Every line and every step's state is written into the page at render time, so stepping only changes what is visible.
+Trace Stepper is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Every step names a line number and the state after that line has run, so a trace can follow a loop or a branch instead of only a straight line, and stepping forward always moves the mark to the exact line the next step names rather than merely to the next line down. The first step never carries a question, because the page opens on that step before any check could have happened. A step's question is its own checkable answer, checked by the shared mechanism and nothing this component adds; the stepper only asks whether that check has happened, never what the check compared. Stepping is blocked until the current step's question, if it has one, has been checked, and once checked the learner can step forward whether the answer was right or wrong. Stepping only ever moves forward. An untouched trace stepper prints every line of the snippet, the state at every step, and every question's expected answer, because nothing here is computed when the page is read.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. Every step's line and state are written into the page at render time; stepping only changes what is visible.
-2. Stepping moves the mark to the exact line the next step names.
-3. A step carrying a question blocks stepping forward until that question has been checked, right or wrong.
-4. The first step never carries a question.
-5. Stepping only moves forward.
-6. A step's question is checked by the shared checking mechanism; the stepper only asks whether the check happened.
-7. An untouched trace stepper prints every line, every step's state, and every question's expected answer.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -35,3 +39,13 @@ Every step names a line number and the state after that line has run, so a trace
 ### 2026-09-13 — #480 — A step's question belongs to that step and gates on being checked, not on being right
 
 Decision record #616 amends story #519's acceptance criteria: stepping forward moves the mark to the line the next step names, not merely one line further, so a trace can follow a loop or a branch. A question belongs to the step it asks about and is visible while the learner is one step before it, and stepping past it is blocked until it has been checked, right or wrong, rather than until the learner gets it right; a learner who cannot get a question right would otherwise be trapped unable to continue. Refuted alternative: keeping every passed question and its result visible beneath the snippet as the learner advances. It would give the learner a running record of their answers, but it shows one visible question at a time and computes nothing beyond what the current step needs, and a running record is state this component does not otherwise keep.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

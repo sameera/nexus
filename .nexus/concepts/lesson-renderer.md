@@ -2,27 +2,32 @@
 title: "Lesson Renderer"
 aliases: ["workbook renderer", "lesson page", "closed markup channel", "all-or-nothing render", "provenance banner", "quoted code in a lesson"]
 touches: ["workbook-store", "widget-seam", "offline-page", "learner-folder", "reading-surface-tokens", "portable-tooling", "just-in-time-lesson", "generated-page-check", "workbook-home-page", "component-refusal", "reference-page"]
-last_updated_by: "#481"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Lesson Renderer
 
-An authored lesson is prose and front matter, and the toolkit turns it into a page. Markup is mechanical and costs several times the tokens the prose it wraps costs, on every lesson anyone writes, so moving it into code pays that cost once and makes the output testable, identical across pages, and unable to drift. The channel through which markup could reach a page is closed rather than discouraged.
+Lesson Renderer is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-A lesson containing markup fails the render, and the failure names the file. The check runs on the authored source before any conversion, so no markup reaches a page through an accident of ordering. A plain code fence's content is exempt, because it is escaped and shown as code: text a reader sees, not a channel markup reaches the page through. A widget declaration's content still counts. A fence closes only on a backtick run at least as long as the opening one, so a lesson can quote a test containing a fence. An authoring format permitting components with markup inline was refuted: it is more expressive, but once an authored file may contain markup, generating markup becomes the cheapest thing an agent can do. Chrome comes from one place every page shares, so two lessons authored months apart cannot differ in anything but their prose. The render is all-or-nothing. Pages are built in memory and written only once every lesson has rendered, and a failed render also clears what an earlier render left behind.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. ~~No authored lesson can put markup into a page; a lesson that tries fails the render, and the failure names the lesson.~~ No authored lesson can put markup into a page outside a plain code fence, whose content is escaped and shown as code; the render fails and names the lesson.
-2. Identical inputs render byte-identical output, and page chrome is generated from one source every page shares.
-3. A failed render leaves no output behind, not even an earlier render's.
-4. Every generated page carries its provenance statement as the first content in the file, so a reviewer meets it before any markup.
-5. One stylesheet and one script are written per workbook; every page references them rather than carrying a copy.
-6. Renderer behaviour is asserted as a learner perceives a page, never through the internal shape of the emitted markup.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -59,3 +64,13 @@ Mechanical reciprocity fan-out: a component can now name fields of its own decla
 ### 2026-09-18 — #481 — Reciprocal link from reference-page
 
 Mechanical reciprocity fan-out: this render now also builds reference pages, in the same all-or-nothing pass as the lessons and with the same shared chrome. It links a lesson to the page on the concept that lesson drilled, only when that page is in the same render. A lesson whose page name would take the reserved form reference pages use is now refused by name. The closed markup channel is unchanged: an authored reference file carrying markup fails the render exactly as a lesson does.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

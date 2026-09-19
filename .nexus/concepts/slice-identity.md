@@ -2,32 +2,32 @@
 title: "Slice Identity"
 aliases: ["slice name", "story and part", "scaffold concept as identity", "a slice is remembered by its lesson", "branch per story", "position is not identity"]
 touches: ["teaching-plan", "teaching-session", "scaffold-slice", "just-in-time-lesson", "plan-rewrite"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Slice Identity
 
-A slice is named by its story and which part of that story it is, or — when it builds nothing on the roadmap — by the one concept it teaches. That name is what the slice's lesson, its branch and the dependency edges onto it are derived from, never its position in the plan. A re-plan that shifts every later position therefore leaves each written lesson still attached to the slice it was written for.
+Slice Identity is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Position moves whenever a plan is planned again, because one new scaffold pushes every later slice along. A lesson named from position would be cut off from its slice at the next approval, so the name comes from the identity instead.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-Whether a slice is behind the learner is read from that slice's own lesson, not from a key on its story. A story split into parts has one lesson per part, so a story key makes the second part invisible and moves the learner on before they build it. A scaffold has no story to key on at all. The committed plan already forbids two slices teaching into one lesson, so the lesson is the key that exists.
-
-One branch serves a story and is shared by every part of it, prefixed with the workbook so it cannot collide with the team's own branch. Parts build one story in sequence, so a branch per part would leave the learner cutting each part's branch from the part before by hand.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A slice's identity is its story and its part, or the one concept a scaffold teaches — never its position.
-2. Every teaching slice has its own lesson, named from its identity, and no session writes into a lesson that already exists.
-3. Whether a slice is behind the learner is read from that slice's own lesson, never from another slice's.
-4. A slice's branch is derived from its story, so every part of a split story shares one branch.
-5. A branch name is prefixed with the workbook, so it cannot collide with the team's own branch for that story.
-6. A scaffold has no branch, and writing its lesson is the only fact that puts it behind the learner.
-7. Dependency edges between slices are recorded by identity, so a re-plan cannot silently re-point one by position.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -42,3 +42,13 @@ One branch serves a story and is shared by every part of it, prefixed with the w
 ### 2026-09-13 — #458 — A slice is remembered through its own lesson, and its name comes from its identity rather than its position
 
 Keying a slice by its story was already wrong in two ways once the plan admitted splits and scaffolds: a story key skips the second part of a split story, and a scaffold has no story to key on. A slice's identity was already fixed as its story plus its part, or a scaffold's concept, and the committed plan's uniqueness rule was already keyed on the lesson — so the lesson file became the key, and written lessons and finished exercises are tracked through it. Handoff records stay keyed by story, because a handoff is never split. Lesson names and branches derive from the identity for the same reason: position changes at every re-plan, and a position-named lesson would be orphaned from its slice at the next approval. One branch per story, shared by its parts, follows from the parts building one story in sequence. Refuted alternative: keep the story as the key and add a part counter per story. It contains the change better — every reader keyed on story keeps working with a small edit — but a scaffold still needs a second rule, and the counter is new state that has to live somewhere: in the learner folder it breaks the rule that the committed lessons are the session's memory, and in the plan it duplicates what position already says. Refuted alternative: a branch per part, which keeps each exercise's diff separate; it lost because part two builds on part one, so the learner would manage a chain of branches by hand.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

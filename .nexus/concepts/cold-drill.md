@@ -2,32 +2,32 @@
 title: "Cold Drill"
 aliases: ["spaced recall", "opening drill", "concept history", "hint ranking", "overdue concept", "eligible concept"]
 touches: ["teaching-session", "just-in-time-lesson", "learner-folder", "widget-seam", "reference-page"]
-last_updated_by: "#481"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Cold Drill
 
-A session opens by asking about a concept the learner met a while back, before it teaches anything new. Which concepts they have met, when they met them, and which have already been drilled all come from the lessons already written, so the history is committed and a teammate's checkout holds it. The learner's own folder contributes exactly one signal on top of that: how many hints they took on a concept.
+Cold Drill is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Coldness decides which concepts are eligible, and hints decide which eligible concept is picked. A concept whose most recent mention is the lesson the learner has just finished is not a cold recall, so it is never the drill. Among the concepts that are cold enough, the one the learner took most hints on wins, because that is the one they are struggling with. Ties go to the concept whose last mention is furthest back, then to the concept's name, so the same history and the same hint counts always produce the same pick.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-A first session behaves correctly without a special case, because an empty concept history and an empty hint log are inputs the ranking already handles. A hint log that cannot be read is reported and skipped rather than failing the session, and the ranking falls back to the most overdue concept.
-
-The drill appears as an exercise on the page rather than as a question in the session's transcript. The page reads offline and prints; a transcript does neither.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A drill is never on a concept the learner met in the lesson they have just finished.
-2. Coldness decides which concepts are eligible; hints taken decide which eligible concept is picked.
-3. Ties go to the concept whose last mention is furthest back, then to its name, so the pick is deterministic.
-4. A learner who has met no concept yet is offered no drill, and the session goes straight to the lesson.
-5. The concept history comes from the written lessons, never from a personal record.
-6. A hint log that cannot be read is reported and skipped, and the ranking falls back to the most overdue concept.
-7. The drill appears on the page as an exercise, never only in the session's transcript.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -46,3 +46,13 @@ Coldness decides eligibility and hints decide the pick, which is what the story 
 ### 2026-09-18 — #481 — Reciprocal link from reference-page
 
 Mechanical reciprocity fan-out: a concept this drill picks for a second time, having already been drilled by an earlier written lesson, now earns a reference page. The earning is counted over the same drill history this page reads from the committed lessons, so it adds no personal record. How the drill is chosen is unchanged; hints still only rank a concept that coldness already made eligible.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

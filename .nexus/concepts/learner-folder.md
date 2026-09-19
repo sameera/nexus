@@ -2,28 +2,32 @@
 title: "Learner Folder"
 aliases: ["learner store", "personal records", "one ignore rule", "learner ignore guard", "per-learner state"]
 touches: ["workbook-store", "workbook-handoff", "lesson-renderer", "cold-drill", "just-in-time-lesson", "handoff-prompt", "focus-marking"]
-last_updated_by: "#456"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Learner Folder
 
-Everything a workbook retains about one person lives under a single folder inside the workbook store: the concept ledger, progress, learning records, the hint log, the handoffs and why a slice was handed off. One ignore rule covers that folder however many workbooks the store holds, so excluding a person's stumbles is a single line rather than an audit. Nothing writes a personal record until git confirms the target path is ignored.
+Learner Folder is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The folder is a direct child of the store rather than of each workbook, so a second workbook needs no second ignore rule. A workbook is committed, so the team shares it, and what the workbook retains about a person would be committed by the same act. The failure is asymmetric: a missing rule commits a person's stumbles to a shared repository, and git history makes that effectively irreversible. So the guard is a question put to git rather than a text match on one ignore file. Asking git also works when the rule lives in a nested or a global ignore file, which matching text in one file would miss. The question is asked per write, not per session, because a rule removed between two writes must stop the second one. Appending to a record goes through the same guard as creating one, because a record already existing is not the answer: the rule that excluded it may have gone since. When the answer is no the write refuses and names the missing rule.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. Every record the workbook retains about a person lives under one learner folder inside the store, and no personal record exists outside it.
-2. One ignore rule covers the learner folder however many workbooks the store holds.
-3. Nothing writes a personal record until git confirms the target path is ignored; when it is not ignored the write refuses and says why.
-4. The check is per write. Appending to an existing record asks the same question a first write asks.
-5. No learner record is an input to a lesson page.
-6. A workbook checked out with an empty learner folder reads normally.
-7. A record is personal because of what it holds, not where it would land: the reason a slice was handed off is filed here, not left in derived scratch.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -48,3 +52,13 @@ The teaching session's stages read and write here, so the edges are recorded on 
 ### 2026-09-11 — #456 — A handoff verdict's reason is a personal record, not derived scratch
 
 The planning pass that marks a slice records one line saying why, and that line is about the learner rather than about the code, so it belongs here rather than beside the plan. The draft it was judged for is already excluded from the commit, which made leaving it there look safe — but being excluded from a commit is not what makes a record personal, and the reason would then sit outside the guard every other personal record passes. The proposal the reason arrived in is removed once it has been read, so this folder is the only place it is kept. Refuted alternative: discard the reason once the mark is set, which is simplest and keeps the pass from writing anything personal at all. It lost because the reviewer who approves the marks would then have nothing saying why a slice was handed off, which is the one thing that makes a wrong mark visible.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

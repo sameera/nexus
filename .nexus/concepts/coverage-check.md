@@ -2,32 +2,32 @@
 title: "Coverage Check"
 aliases: ["coverage verdict", "coverage gap", "clean verdict", "focus boundary gap", "gap names the handed-off story", "plan with gaps"]
 touches: ["plan-rewrite", "plan-draft", "scaffold-slice", "prior-knowledge-declaration", "focus-marking", "story-concept-extraction", "plan-approval-gate"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Coverage Check
 
-The last pass of the rewrite checks the finished plan and names every gap, not only the first. A gap is a learner slice assuming a concept that no earlier learner slice introduces and the learner did not declare. The plan is written whatever the verdict and carries it, but a plan with any gap does not go to approval.
+Coverage Check is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-A gap is a bug in the plan, and the check catches it before any lesson is written. Two readings are deliberately not gaps. A concept no story on the roadmap introduces is background the plan teaches for itself. A concept an earlier learner slice already introduced is covered, whatever order produced that.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-When the missing concept is one only a handed-off story would introduce, the gap names that story. Such a gap says the focus boundary is in the wrong place, because a learner slice assumes something the plan decided the learner will not build. A handed-off stub carries no concepts, so the check reads that story's checked list and joins it to the kept identifiers through the names the merge folded away.
-
-Scaffolds already remove most late-introduction gaps. The check still looks for them, so it holds for whatever sequence it is handed. A verdict that is not clean makes the command fail after writing the plan, so the planning session stops in code rather than on instruction. The gate then refuses the draft a second time, and recomputes the verdict rather than trusting the one recorded, because the draft is a file an agent can write.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. The check runs last, over the finished plan, and names every gap.
-2. A learner slice assuming a concept that no earlier learner slice introduces, and the learner did not declare, is a gap.
-3. A concept no story on the roadmap introduces is not a gap.
-4. A gap whose concept only a handed-off story introduces names that story.
-5. The plan is written whatever the verdict, and the verdict travels with it.
-6. ~~A plan whose verdict is not clean stops the planning pass before approval.~~ A plan whose verdict is not clean, absent, or contradicted by a fresh check stops the planning pass and is refused again at the gate.
-7. The check reads no story text; a handed-off story's concepts come from its checked list.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -48,3 +48,13 @@ A gap is diagnosed by reading the plan, because the reviewer needs to see which 
 ### 2026-09-13 — #458 — The refusal is code that recomputes, at the gate and again at the write
 
 A recorded verdict was the only thing standing between a plan with a gap and a reviewer, and the draft is a file an agent can write — so a hand-set clean verdict was the cheapest way around the gate. The refusal now recomputes coverage over the draft's own slices, in the step that prints the gate and again in the step that writes the approval, and refuses three cases the same way: no verdict at all, a verdict naming a gap, and a recorded verdict a fresh check contradicts. Every gap is named, and nothing in the committed workbook is written. Refuted alternative: trust the recorded verdict alone, which is simpler and keeps one source of truth; it lost because a code refusal that a hand edit defeats is an instruction with extra steps. This entry also records the reciprocal link from plan-approval-gate.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

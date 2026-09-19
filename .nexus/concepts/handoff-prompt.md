@@ -2,32 +2,32 @@
 title: "Handoff Prompt"
 aliases: ["fenced brief", "coding agent handoff", "sibling slices to leave alone", "quoted story text", "prompt fence", "slice not the learner's to build"]
 touches: ["teaching-session", "workbook-handoff", "teaching-plan", "learner-folder", "focus-marking"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Handoff Prompt
 
-A slice the plan marks as not the learner's to build is handed to a separate coding-agent session rather than taught. The session writes a prompt naming the repository, the branch, the epic, the one story to build, the sibling slices to leave alone, and the two epic-level commands not to run. It gives that prompt to the learner and pauses.
+Handoff Prompt is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The two commands are named because the epic is not finished when one slice is, and an agent that closed it would end the milestone before the learner finished.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-The story's own words are quoted, because a number alone is not something an agent can build from. The prompt is read by an agent that acts on what it reads, so the quotation is delimited by markers the quoted text cannot forge: they grow until they do not occur in the text they enclose. The rules are stated outside the quotation and come after it closes, so the last words the prompt says are its own. Text imitating a marker stays inside the quotation, where it restates nothing.
-
-The words quoted are the state the plan pinned, not a live read, so the prompt needs no network and renders identically twice. It is a personal record under the learner folder and never a page, so it can never appear as drift against the rendered lessons. Stories in one epic share files, so every other story is a sibling and a scaffold never is.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A prompt names exactly one story to build, and also names the repository, the branch, its slice's recorded epic, the sibling slices to leave alone, and the two epic-level commands not to run.
-2. ~~The sibling slices are every other slice in the plan.~~ Each is named once.
-3. Story text quoted inside a prompt is delimited by markers the quoted text cannot forge, and no rule of the handoff is stated inside the quotation.
-4. The prompt's own rules come after the quotation closes, so the last words are the prompt's own.
-5. The words quoted are the state the plan pinned, so the prompt needs no network and renders identically twice.
-6. A prompt is a personal record under the learner folder and never a page in the workbook.
-7. A session that hands a slice off neither builds it nor teaches it.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -50,3 +50,13 @@ The mark this prompt reads is now set by a planning pass, judged against the foc
 ### 2026-09-13 — #458 — The prompt names its own slice's recorded epic, and names each sibling story once
 
 A roadmap can now span several epics, so the plan-wide epic a prompt used to state would send a coding agent to the wrong one. Every slice that builds a story records the epic that story belonged to at approval, and the prompt names that. The epic is recorded rather than looked up when the prompt is written, because the prompt is built from the plan alone with no network and two renders must give the same prompt — and the resolved roadmap that knows each story's epic is ignored by git and missing from a fresh clone. Refuted alternative: look up the story's parent epic at prompt time, which catches a story moved to another epic after approval; it lost because the prompt would need the network, two renders could differ, and the committed plan would stop being the record of what was approved. The sibling list also changed with split stories and scaffolds in the plan: it names every other story once, however many slices build it, and never a scaffold, because a scaffold builds nothing a coding agent could touch.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

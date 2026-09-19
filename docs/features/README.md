@@ -47,8 +47,15 @@ nexus config backlog-query --form exclude
 | [PR-Driven Delivery](pr-driven-delivery/README.md)                         | Conformance, closure, and distillation against a merged pull request.            |
 | [Pre-Epic Discovery](pre-epic-discovery/README.md)                         | Discovery of foggy initiatives into resolved decisions and epic stubs.           |
 | [Queue Scratch Capture](queue-scratch-capture/README.md)                   | In-flight decision scratch as committed per-user subdirs in the queue entry.      |
-| [Roadmap-Driven Learning](roadmap-driven-learning/README.md)               | Turning a planned roadmap into hands-on lessons, theory placed just before each exercise. |
 | [Scope Discipline](scope-discipline/README.md)                             | Keeping planning artifacts to the scope someone actually asked for.              |
 
 A feature folder appears here once it has an epic; the folder itself is created at that feature's
 first epic filing.
+
+## A feature that left
+
+**Roadmap-Driven Learning** — turning a planned roadmap into hands-on lessons, theory placed just
+before each exercise — is no longer a Nexus feature. The teaching stage ships as a package of its
+own, and its feature notes, concept pages and open backlog went with it. Its concept slugs still
+resolve in this repository as retired forwarding entries, and the stage is invoked as
+`/nxsx.teach-plan` and `/nxsx.teach` once its package is installed.

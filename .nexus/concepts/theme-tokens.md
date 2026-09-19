@@ -2,32 +2,32 @@
 title: "Theme Tokens"
 aliases: ["theming", "dual theme", "light and dark mode", "semantic tokens"]
 touches: [reading-surface-tokens]
-last_updated_by: "#673"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Theme Tokens
 
-Theme tokens are one semantic colour vocabulary backed by two value sets, dark and light, chosen by a single mode flag at the root of whatever surface reads them. A consumer names the role it wants and never a colour, so one flag re-resolves the whole surface and nothing below the root asks which mode is on.
+Theme Tokens is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-A token names a role: the page background, the ink tiers from body text down to the quietest label, the accent at rest and in use, rules, code surfaces. Every name appears in both value sets, so a name that resolves in one mode resolves in the other. A value that does not flip is declared once outside both sets, so the pair holds only what actually changes.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-The two sets are emitted against the same root, one as the default and one behind the mode flag. A surface that sets the flag gets the second set by inheritance, with no question asked at any point of use. Dark is what a root that selects nothing resolves to; light is the deliberate choice.
-
-The vocabulary is defined here and rendered as bytes, which is what lets a surface embed it instead of depending on the application it first grew in. Which part is shared with a second surface belongs to the reading subset, not here.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. There is one source for a themed value: no consumer emits a literal colour the vocabulary already names.
-2. A token names a role and never an appearance, so one name stays correct in both modes.
-3. Every name is defined in both value sets, and a value that does not flip is declared once outside them.
-4. The mode is chosen once, at the surface's root, and every region resolves it by inheritance with no per-region conditional.
-5. A root that selects no mode resolves to dark.
-6. ~~An explicit mode choice is persisted and restored on reload; with no prior choice the shell follows the operating-system preference and falls back to dark.~~ Persisting a choice was the application's, and it left.
-7. ~~The server render and first client render use the default mode; the persisted or operating-system choice is reconciled only in a post-mount effect, so first load may show a one-frame flash.~~ Likewise: nothing here renders twice.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -54,3 +54,13 @@ Prime's theme and the workbook's reading tokens were one concept, and half of it
 ### 2026-09-18 — #673 — The vocabulary is stated as itself, not as the departed shell's
 
 The definition opened as Prime's — two mockups, a scrollbar thumb, a persisted switch, a one-frame flash on first load — and that opening propagated into the generated atlas, where it described a shell this repository does not hold. What survives Prime's departure is the vocabulary itself: roles rather than colours, two value sets under one flag at the root, and the rule that no consumer writes a literal. The page now says that, and the two invariants that were the application's own behaviour are struck rather than deleted, because a struck invariant records that it was once held and by whom. Refuted alternative: leave the body and let the reading subset's page carry the whole story, which loses on the atlas continuing to introduce the concept as a shell that is not here.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

@@ -2,33 +2,32 @@
 title: "Return Verification"
 aliases: ["suite gate", "fence probe", "breached fence", "unchecked fence", "returning from a pause", "unintegrated handoff", "probe control"]
 touches: ["teaching-session", "teaching-plan", "workbook-handoff", "plan-field-ownership"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Return Verification
 
-A learner returning from a pause comes back to a repository somebody else has been writing in, so the session verifies it before teaching again. The full declared suite runs first, and no lesson is written while it is red. Once the suite is green, the pinning test the next exercise names is run: a test that already passes means the handed-off work reached into the learner's slice.
+Return Verification is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The suite is always the full declared one, never a narrowed subset. Its result gates everything after it, and a probe result taken while the suite is red is never a breach: the absence of a failing probe there says nothing about whether the fence held.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-Two probes run on a return, answering different questions. The handed-off slice's test runs first; a failure means that work is not in this tree. Only then the next story slice's test runs, for the breach; a scaffold has none.
-
-The probe writes the test's own text at one scratch location, swept at the start of every session and removed after each run, so a crashed probe never leaves a mystery failing test in the learner's source tree. It names that location to the grading command, so the verdict is about that test and nothing else.
-
-A single test file cannot run alone in every stack, so a workbook may declare a control test known to pass. When that control fails the fence is reported as unchecked. Reporting that the fence could not be checked is acceptable; reporting an intact fence nobody verified is not.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. No lesson is written while the declared suite is red, and the suite that runs is always the full one.
-2. The suite runs before the fence probe, and a probe result taken on a red suite is never a breach.
-3. A fence that could not be checked blocks the lesson and is reported as unchecked, never as intact.
-4. A pinning test that passes before the learner wrote it is a breach, and the report names the slice reached into.
-5. The probe leaves the tree as it found it, using one scratch location removed after each run and swept at the start of every session.
-6. A pause naming a story the plan holds no slice for has nothing to probe, so it blocks and stays open.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -46,3 +45,13 @@ A pass-or-fail probe made a pinning test that cannot compile, or cannot run on i
 ### 2026-09-13 — #458 — Both probed tests are written before the handoff, and the fence steps over a scaffold
 
 These checks probe two tests, and until now nothing guaranteed either existed: an approved plan holds no pinning test for a slice the learner has not reached. A handoff arrival now writes both before the prompt — the handed-off slice's, which the first probe runs, and the next slice's, which the second fences — so a pause can always be verified. A scaffold builds nothing and has no test, so the fence skips it and probes the next slice that builds a story. **Known deviation, filed as #604:** when that next slice carries no pinning test the probe is not run and the return is nonetheless reported as verified, with a note that the fence is intact — which is exactly what invariant 3 forbids. The gated flow cannot reach it, because a handoff arrival writes both tests first; it is reachable only from a hand-written plan whose later slice carries no test. The page keeps asserting the rule, because the rule is the contract and this is a defect against it. This entry also records the reciprocal link from plan-field-ownership.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

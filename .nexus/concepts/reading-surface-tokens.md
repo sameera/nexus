@@ -2,26 +2,32 @@
 title: "Reading Surface Tokens"
 aliases: ["shared reading definition", "reading subset", "lifted tokens", "one palette two surfaces", "print token exception"]
 touches: ["theme-tokens", "offline-page", "lesson-renderer"]
-last_updated_by: "#669"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Reading Surface Tokens
 
-The colour and typography values a reading surface needs are defined in one place that every reading surface reads, including one that now lives in a separate repository. The workbook declares none of its own, which is only possible while a shared definition exists, because a library cannot depend on an application. Only the reading subset is shared; application chrome stays with the application.
+Reading Surface Tokens is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The shared subset is background, ink levels, accent, rules, code surfaces, type stacks and radius. Application chrome values stay where they were, so the shared definition does not become a home for gate trays, drawer shadows and badge tints. Both consumers read the same rendered values: the application imports the generated file, the workbook's stylesheet embeds it, and neither restates a value. The choice was one shared definition or a copy, and a copy is defining its own. Refuted alternative: give the workbook a small palette deliberately matched to the application's, which decouples the two, but it loses the requirement that a page present the same colours and typography as the product, and a pair of hand-matched palettes drifts within a release or two. Print is the one place literal values are written. Print must be ink on white whatever the screen theme is, and the shared definition carries no print set, so the workbook's print rules assign literals onto the shared token names.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
+
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A reading surface resolves every colour and typography value from one shared definition, and no consumer restates a value.
-2. Only the reading subset is shared. Application chrome values stay with the application.
-3. The workbook declares no colour or typography value of its own for the screen surface.
-4. Print is the single exception: it assigns literal values, every one of them onto a shared token name and confined to the print rules, and a test fails when a literal appears outside them.
-5. ~~Both consumers read the same rendered values rather than two matched copies.~~ The second consumer now lives in a separate repository. What is pinned here is that the workbook restates no value; the parity between the two surfaces is unpinned until it is filed at the other end.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -38,3 +44,13 @@ A second reading surface can only declare none of its own values while a shared 
 ### 2026-09-18 — #669 — The second consumer left, so parity is now unpinned here
 
 The one test that read Prime's stylesheet directly was removed when Prime moved to sameera/prime. It was the single place a pipeline test depended on an application tree, and the invariant it guarded became cross-repository the moment the tree left. Its sibling assertion is untouched: the workbook still declares no colour or typography of its own, so the shared definition is still pinned as the single source for everything that remains here. Filing the parity invariant at the other end is deferred to its own stub. Refuted alternative: keep the assertion and read the departed tree over a checked-out sibling, which preserves the check but makes a library test depend on another repository being present on disk.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

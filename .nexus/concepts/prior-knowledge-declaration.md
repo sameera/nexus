@@ -2,32 +2,32 @@
 title: "Prior Knowledge Declaration"
 aliases: ["declaration match", "declared concepts", "what the learner already knows", "knowledge slots", "declared phrase", "unmatched phrases", "recorded mapping"]
 touches: ["plan-rewrite", "plan-draft", "concept-vocabulary-merge", "coverage-check"]
-last_updated_by: "#457"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Prior Knowledge Declaration
 
-The interview records, in the learner's own words, what they already know. The planning session matches those words to concept identifiers, and code applies the match by removing each matched concept from every slice that would introduce it. The mapping is recorded on the draft, so a later rewrite reuses it instead of judging again.
+Prior Knowledge Declaration is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Matching is the one judgement in the rewrite. The session already reads every identifier with its one-line gloss to merge synonyms, and a match is made against that same gloss. Code refuses a match to an identifier the merged vocabulary does not hold. Code also refuses a phrase that the named slot's recorded answer does not contain word for word. Because every match quotes its phrase, the phrases that matched nothing are exactly the rest, and they are reported when the plan is written.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-Only the slots that record prior knowledge are read. What the learner came to learn is focus, not knowledge. What they recently found hard is the slot most likely to name a concept while meaning the opposite of knowing it.
-
-A removed concept leaves what every slice introduces and stays wherever a slice assumes it, because the learner holding it satisfies that assumption. The learner is told nothing. Writing the draft again drops the recorded mapping, and declaring again replaces it whole.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. The session proposes the mapping, and code applies it and refuses an identifier the merged vocabulary does not hold.
-2. Only the slots recording prior knowledge feed the match. The answers for what the learner came to learn and what they recently found hard remove no concept.
-3. Every match quotes the learner's phrase exactly as the named slot recorded it.
-4. Every declared phrase that matched no concept is reported when the plan is written.
-5. A removed concept is dropped from what slices introduce and counts as satisfied wherever a slice assumes it.
-6. Each removed concept is kept on the uncommitted draft beside its quoted phrase, and nothing is reported to the learner.
-7. A rewrite given no new declaration reuses the recorded mapping unchanged.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -41,3 +41,13 @@ A removed concept leaves what every slice introduces and stays wherever a slice 
 ### 2026-09-12 — #457 — The session matches the learner's words, and code applies the match
 
 A gloss is a sentence and an interview answer is prose, so a lexical match produces false positives. A false positive deletes teaching the learner needed, and the learner cannot notice a lesson they were never shown. A missed match only teaches something they already knew, which they can notice and skip. So the session judges the match where it already holds every gloss, and code applies it under refusals that make a wrong match visible. Each entry names its slot, because slot eligibility is only checkable when the entry says where the phrase came from. The phrase is kept beside each removed concept, against the record's wording that only identifiers are recorded, because the phrase is what lets the reviewer at approval see a wrong match. The draft is uncommitted, so no learner's words reach a commit. Refuted alternative: match in code by normalizing the answer and scoring it against each identifier and gloss. That is deterministic and needs no judgement, but it trades the error a learner can notice for the one they cannot.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

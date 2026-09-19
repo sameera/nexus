@@ -2,34 +2,32 @@
 title: "Scaffold Slice"
 aliases: ["scaffold", "teaching step", "slice with no story", "storyless slice", "scaffold restraint", "forced need", "background concept"]
 touches: ["plan-rewrite", "plan-draft", "coverage-check", "teaching-plan", "slice-identity"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Scaffold Slice
 
-A scaffold is a teaching step the rewrite inserts before a slice that assumes a concept no permitted order of the real work could introduce in time. A scaffold teaches exactly one concept, names no story, is identified by that concept, and records which slice's assumption forced it. Reordering is always tried first, so a scaffold is the last resort.
+Scaffold Slice is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Whether a concept can be taught in time is answered from the dependency edges, not from the order the rewrite chooses. The question is whether the edges permit the concept's introducer to come before the slice that assumes it. Each need that can be met becomes an added edge, and the ordering then meets it by construction. Avoiding a scaffold outranks keeping one step light.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-Needs are taken by ascending assuming story, then in vocabulary order. Each need takes the lowest-numbered introducer the graph still permits to go first. A need with no permitted introducer left is scaffolded.
-
-A concept no slice of the roadmap introduces is scaffolded rather than faulted, because every roadmap's first slices stand on background no story teaches. A concept only a handed-off story would introduce is never scaffolded, because a scaffold would hide a focus boundary drawn in the wrong place.
-
-A scaffold is emitted during ordering, at the moment its needing slice is chosen, so each concept keeps one owner. The committed plan now admits one: it carries no story, no epic, no branch and no pinning test, and writing its lesson is the only fact that can put it behind the learner.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. A scaffold introduces exactly one concept, names no story, is identified by that concept, and records the slice whose assumption forced it.
-2. A scaffold is a learner slice, and it assumes nothing.
-3. A concept has at most one scaffold.
-4. No scaffold is inserted for a concept some permitted order could introduce in time, read one concept at a time.
-5. A concept no slice of the roadmap introduces is scaffolded rather than faulted.
-6. A concept introduced only by a handed-off story is never scaffolded.
-7. A scaffold enters the order at the moment the slice whose need forced it is chosen, immediately ahead of that slice.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -48,3 +46,13 @@ Deciding scaffolds from the edges answers "could this be taught in time" the sam
 ### 2026-09-13 — #458 — The committed plan admits a scaffold, and its lesson is the only fact that finishes it
 
 A scaffold lived only in the draft, because admitting one into the committed plan meant deciding what its branch, its pinning test and its lesson are — a decision left to approval. Approval decides them by leaving them out: a scaffold carries no story, no epic, no branch and no pinning test, and it is a learner slice by construction. That leaves nothing to observe about whether the learner finished it, since a scaffold builds nothing on the roadmap and has no test to pass, so writing its lesson is what puts it behind the learner. The session teaches it rather than stopping because it names no story; the drift check skips it, because it pins nothing that could have moved; a handoff prompt never names it among the slices to leave alone; and the return probe steps over it to fence the next slice that builds a story. This entry also records the reciprocal link from slice-identity.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

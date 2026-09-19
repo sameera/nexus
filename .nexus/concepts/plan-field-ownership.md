@@ -2,32 +2,32 @@
 title: "Plan Field Ownership"
 aliases: ["field owner", "fixed field list", "no placeholder", "absent until its owner acts", "declared commands", "pinning test written on arrival"]
 touches: ["teaching-plan", "plan-approval-gate", "return-verification", "just-in-time-lesson", "pinned-sources"]
-last_updated_by: "#459"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Plan Field Ownership
 
-Every field of the committed plan has exactly one owner. Approval fills in what the issue graph and the workspace already know, the reviewer declares the two commands, and the session writes a slice's pinning test when the learner arrives at that slice. A field whose owner has not acted yet is absent rather than filled with a placeholder, because the session acts on whatever value it finds.
+Plan Field Ownership is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-Approval owns the facts: each story's state read live from the issue graph at that moment, the lesson names, the branches, each slice's epic, the dependency edges and the repository. The reviewer owns the command that runs the suite and the command that grades one exercise. The session owns each pinning test, and the reader requires one only on the slices the session has already reached.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-Producing every pinning test at approval was refused. It means writing a test for every story on the roadmap from story text the planning session never holds, at a gate that deliberately shows no prose, so nobody reviews them — and they go stale before the learner reaches them, which is the whole reason a lesson is written on arrival.
-
-The plan is built field by field from a fixed list rather than copied from the draft and stripped of what must not travel. A fixed list fails closed: a field added to the draft later reaches no committed file until someone adds it to the list on purpose. A strip list fails open, and a leak into a committed file cannot be undone.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. Approval fills in the pinned states, the lesson names, the branches, each slice's epic, the dependency edges and the repository.
-2. The reviewer declares the suite and grading commands as argument lists, never inferred, and approval refuses without them.
-3. The session writes each pinning test when the learner arrives at its slice, and a test once written is never rewritten.
-4. No field holds a placeholder; a field whose owner has not acted is absent.
-5. The reader requires a field only on the slices the session has reached.
-6. The committed plan is built from a fixed list of fields, never copied from the draft and stripped.
-7. No interview answer, declared phrase, unmatched phrase, focus word or verdict reason reaches the plan, a lesson or a page.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -46,3 +46,13 @@ The shipped session refuses a slice missing a lesson name, a branch or a pinning
 ### 2026-09-17 — #459 — Reciprocal link from pinned-sources
 
 A plan slice gained one more field, the sources its lesson is written from. Neither approval nor the session could own the field, because the material comes from a decision record that exists only after the slice's epic is designed. So the design stage owns the field and fills it when the record is approved. Until then the field is absent, which follows the existing no-placeholder rule. Refuted alternative: have close fill the field. It lost because close waits for every story to merge, and a lesson is written before its story is built. The body here is unchanged because it sits at the word cap. The pinned-sources page states the ownership rule in full.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

@@ -2,32 +2,32 @@
 title: "Plan Re-Approval"
 aliases: ["re-approval", "taught prefix", "carried slice", "re-plan after drift", "carried forward unchanged", "identifier rename refusal"]
 touches: ["plan-approval-gate", "plan-rewrite", "plan-drift-gate", "teaching-plan", "pinned-sources"]
-last_updated_by: "#459"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Plan Re-Approval
 
-A session that stopped because a story changed sends the learner back through the same planning chain and the same gate. Every slice up to and including the last one with a written lesson is carried into the new plan unchanged, so a changed story never costs a lesson already taught. Only what follows the taught part is planned again.
+Plan Re-Approval is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-The committed lessons are the session's memory. A full re-plan can hand a concept an earlier lesson already taught to a later slice, so the learner is taught it twice, and the vocabulary merge can rename an identifier the drill history and the hint log are keyed on.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-So the taught part is fixed and the rest is planned around it. The concepts those carried slices introduced count as introduced for the remainder, a partly taught story continues from the part after the last one taught, and a draft that drops or renames an identifier a written lesson carries is refused before anything is read from the issue graph.
-
-A carried slice keeps its identity, its order, its concepts, its lesson, its branch and its pinning test. Two things about it do move: its pin is refreshed to the story's current state, and its dependency edges are recomputed, because the committed plan is the only source of the edges the home page draws and a frozen edge would point at a slice the re-plan moved or removed. A refused re-approval leaves the approved plan, its lessons and its pages exactly as they were.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. Re-approval runs the same chain and the same gate as a first approval, and no path re-pins a story outside that gate.
-2. Every slice up to and including the last one with a written lesson is carried forward unchanged, except for its pinned state and its dependency edges.
-3. The changed story is pinned to its current state, and the next session teaches it.
-4. Concepts introduced by carried slices count as introduced for the re-planned remainder, so no concept is taught twice across a re-approval.
-5. A re-planned draft that drops or renames a concept identifier a written lesson carries is refused.
-6. Re-approval reuses the committed plan's suite, grading and control commands, and refuses a second declaration of them.
-7. A refused re-approval leaves the approved plan, its lessons and its pages unchanged.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -46,3 +46,13 @@ A story changing used to end a workbook: the drift gate stopped the session with
 ### 2026-09-17 — #459 — Reciprocal link from pinned-sources
 
 A slice may now carry sources pinned from its epic's approved decision record. A re-plan reads the issue graph and the roadmap, and neither can change the record those sources came from, so re-approval keeps them on any slice that is still a learner slice. A slice that becomes a handoff slice loses them, because a handoff slice teaches nothing. Refuted alternative: drop sources on re-plan and pin again. It lost because a lesson may already be written from the earlier sources, and a slice left bare would be taught from the repository search that pinning replaces. The body here is unchanged because it sits at the word cap. The pinned-sources page states the rule in full.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.

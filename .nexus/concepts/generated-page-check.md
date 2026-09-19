@@ -2,31 +2,32 @@
 title: "Generated Page Check"
 aliases: ["generated page check", "page drift check", "committed generated output", "re-render and compare", "check mode"]
 touches: ["lesson-renderer", "workbook-home-page"]
-last_updated_by: "#458"
-status: active
+last_updated_by: "#691"
+status: deprecated
 verification: verified
 ---
 
 # Generated Page Check
 
-The pages a workbook renders are committed, so a reviewer meets the change that produced them rather than a build artifact nobody sees. Committed generated output has one failure mode, which is drift from the source it was generated from. A check mode answers that: it re-renders, compares bytes, and reports what changed, what is missing and what is extra.
+Generated Page Check is a teaching-stage concept, and the teaching stage is no longer part of Nexus. The page that asserts it lives in the teaching repository; this entry is the forwarding address, kept so the name still answers and so the edges that reach it from here stay live.
 
 ## How It Works
 
-A generated page in a diff looks authored, and nothing on the page itself says which lesson it has fallen behind. So the answer is not a convention asking reviewers to notice, but a command that re-runs the generation and compares the result against what is committed.
+Nothing here asserts the concept any more. The teaching stage left Nexus as its own package,
+and its knowledge left with it — one page, one decision log, one place it can be wrong. What
+stayed is this stub, because two things still need the name. A reader who greps an old slug
+gets an answer instead of silence. And the pages here that name this one keep a live edge: an
+edge whose other end is gone is a dead edge, which reads as though the interaction lapsed when
+in fact it only moved.
 
-The check repairs nothing. Re-rendering stays the author's act, because a check that silently rewrote the committed pages would remove the very signal it exists to raise, and the reviewer would meet a clean tree where a stale page had been.
-
-The report separates three findings, because they mean different things. A changed page means the lesson moved and the page did not. A missing page means a lesson has never been rendered. An extra page means a lesson was deleted or renamed and its page stayed behind.
-
-A workbook with a teaching plan is re-rendered from the plan and the lessons together, exactly as every other render path builds it, so the home page is compared too and a plan with no lesson written yet still has something to compare. The check and the session rendering from different inputs is how the check came to report the home page as drifted after every session.
+The bullets below are the interactions as they stood when the page left. They are a map to
+follow, not a claim about today; the page in the teaching repository is what is current.
 
 ## Key Invariants
 
-1. The check re-renders and reports drift between a committed page and the lesson it came from, and between the home page and the plan it came from.
-2. The check repairs nothing, so re-rendering stays the author's to run.
-3. The report distinguishes a changed page, a missing page and an extra page.
-4. The check compares bytes, so it agrees exactly with what a fresh render would write.
+1. This entry asserts nothing about behaviour; the page in the teaching repository is the one that does.
+2. The name keeps resolving here, so a reader who searches the old slug is told where it went.
+3. Edges from pages that stayed keep resolving, so no page here carries an edge whose other end is gone.
 
 ## Integration Points
 
@@ -42,3 +43,13 @@ The renderer's page reached its own-content cap when the markup refusal had to b
 ### 2026-09-13 — #458 — The check renders from the plan and the lessons together, so it covers the home page
 
 The check re-rendered from the lessons alone while the session rendered from the lessons and the plan's unwritten slices. Once a home page existed, those two inputs would disagree on every run: the check would report the home page as drifted after every session, and a newly approved plan with no lesson yet would have no page for the check to compare at all. Every render path now builds its inputs the same way, from the committed plan and the lessons the workbook holds, and a workbook with a plan renders even before its first lesson is written. A workbook with no plan still renders its lessons alone, unchanged. This entry also records the reciprocal link from workbook-home-page.
+
+
+### 2026-09-19 — #691 — Retired: the concept moved with the teaching stage
+
+The teaching stage now ships as a package of its own, and this page went with it — body,
+invariants and decision log intact, so there is one place the concept can be wrong rather than
+two copies drifting. What is left here is a forwarding address. Archiving it instead was
+refuted: an archived page is out of the store, and every page here that names this one would
+have been left holding a dead edge, which the store refuses and which would have read as the
+interaction having lapsed rather than moved.
