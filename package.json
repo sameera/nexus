@@ -19,6 +19,10 @@
         "README.md",
         "LICENSE"
     ],
+    "exports": {
+        "./lib/*": "./dist/lib/*",
+        "./package.json": "./package.json"
+    },
     "publishConfig": {
         "access": "public"
     },

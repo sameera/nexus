@@ -599,7 +599,10 @@ function handoffConcepts(repoRoot: string, roadmap: Roadmap, draft: PlanDraft): 
         kept.set(entry.id, entry.id);
         for (const alias of entry.aliases) kept.set(alias, entry.id);
     }
-    const handedOff: Set<number> = new Set(draft.slices.filter((stub) => stub.builds === "handoff").map((stub) => stub.story));
+    // A handoff slice names the story it hands off; only a scaffold names none (record #562).
+    const handedOff: Set<number> = new Set(
+        draft.slices.filter((stub) => stub.builds === "handoff").flatMap((stub) => (stub.story === undefined ? [] : [stub.story])),
+    );
     const concepts: Map<number, string[]> = new Map();
     for (const list of readExtractions(repoRoot, roadmap).current) {
         if (!handedOff.has(list.story)) continue;

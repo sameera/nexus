@@ -141,6 +141,7 @@ describe("composeLesson assembles what the chain decided around the prose an age
         concepts: ["pinned state"],
         drill: "cold retrieval",
         revisit: [],
+        earned: null,
         exercise: {
             story: 460,
             branch: "feat/460-drift",
@@ -189,6 +190,7 @@ describe("a concept the learner took a hint on is asked about again in the next 
         concepts: ["predict then reveal"],
         drill: null,
         revisit: ["closures"],
+        earned: null,
         exercise: {
             story: 461,
             branch: "feat/461-widget",

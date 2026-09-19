@@ -40,15 +40,15 @@ describe("the plan is one file describing slices", () => {
         expect(plan.slices.map((s) => s.story)).toEqual([460, 464]);
         expect(plan.slices[0].learnerBuilds).toBe(true);
         expect(plan.slices[1].learnerBuilds).toBe(false);
-        expect(plan.slices[0].pinned.title).toBe("A re-scoped story stops");
+        expect(plan.slices[0].pinned?.title).toBe("A re-scoped story stops");
         expect(plan.slices[0].concepts).toEqual(["pinned-state", "drift"]);
     });
 
     it("carries the pinning test verbatim, so the lesson and the probe hold one text", () => {
         const plan: WorkbookPlan = parsePlan(PLAN_TEXT);
 
-        expect(plan.slices[0].pinningTest.file).toBe("teaching-plan.spec.ts");
-        expect(plan.slices[0].pinningTest.text).toContain("it('reports a closed story'");
+        expect(plan.slices[0].pinningTest?.file).toBe("teaching-plan.spec.ts");
+        expect(plan.slices[0].pinningTest?.text).toContain("it('reports a closed story'");
     });
 
     it("declares no probe control by default, and a plan without one is still a plan", () => {

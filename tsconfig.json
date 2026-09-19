@@ -41,6 +41,12 @@
     },
     {
       "path": "./libs/prose-verify"
+    },
+    {
+      "path": "./libs/epic-verdicts"
+    },
+    {
+      "path": "./libs/scope-razor"
     }
   ]
 }

@@ -14,6 +14,13 @@ behaviour says so.
   shipped teaching package survives both. Upgrading is one `nexus install`: the old four names are
   swept and the new four are placed. A workbook, a plan and a lesson page are untouched — only the
   words you type to start a sitting change.
+- The package now publishes the sources of the five libraries a second Nexus-ecosystem package
+  builds against — workspace resolution, the delivery config, epic resolution, the record digest
+  and the release identity — under `@sameeraperera/nexus/lib/<library>/<module>`. Nothing about an
+  existing install changes: the executable is still one self-contained bundle, and these sources are
+  a build-time surface for another package, never a runtime dependency. It exists so the teaching
+  stage can leave for a package of its own without a second copy of Nexus's workspace and epic
+  resolution going out of step with this one.
 - A package's install now sweeps the files its own record claims, whatever they are named. The
   sweep built its candidate set from the Nexus prefix *before* it consulted the record, so a
   component under any other prefix was never a removal candidate for anyone — including the package

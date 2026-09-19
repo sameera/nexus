@@ -18,6 +18,7 @@ import * as path from "node:path";
 import { buildAllBundles } from "./build-bundles.js";
 import { isDirectRun } from "./entry-point.js";
 import { listPayloadFiles } from "./release-payload.js";
+import { listSharedLibraryFiles } from "./shared-library-payload.js";
 
 /** The staged directory, relative to the package root. Named in the manifest's `files`. */
 export const RELEASE_TREE_DIRNAME = "dist";
@@ -40,8 +41,9 @@ export async function buildReleaseTree(repoRoot: string, outDir?: string): Promi
         fs.chmodSync(bundle, 0o755);
     }
 
-    // The payload is the stated set, not the directories it happens to live in (story #309).
-    for (const file of listPayloadFiles(repoRoot)) {
+    // The payload is the stated set, not the directories it happens to live in (story #309), and
+    // the shared library sources a second package builds against travel the same way (goal #690).
+    for (const file of [...listPayloadFiles(repoRoot), ...listSharedLibraryFiles(repoRoot)]) {
         const dest: string = path.join(releaseDir, ...file.staged.split("/"));
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.copyFileSync(file.source, dest);

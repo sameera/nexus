@@ -28,6 +28,8 @@ function resolvedEpic(epic: number, title: string, stories: StorySeed[]): Resolv
         title,
         stories: stories.map((s) => ({ number: s.number, title: s.title, body: s.body })),
         blockedBy: new Map(stories.map((s) => [s.number, s.blockedBy ?? []])),
+        // Single-repo: the resolver leaves the issues repository unqualified.
+        issuesRepo: null,
     };
 }
 

@@ -12,7 +12,7 @@
   "exclude": ["src/**/*.spec.ts", "vitest.config.mts"],
   "references": [
     {
-      "path": "../close-migration/tsconfig.lib.json"
+      "path": "../workspace/tsconfig.lib.json"
     }
   ]
 }
