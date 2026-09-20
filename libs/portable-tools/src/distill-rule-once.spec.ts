@@ -196,3 +196,33 @@ describe("the tool-internal explanations go (story #718)", () => {
         expect(DISTILL).toMatch(/changed outside the entry it gained/);
     });
 });
+
+describe("the Constraints recap goes (story #719)", () => {
+    it("ends with no section that restates rules stated beside the actions they govern", () => {
+        expect([...SECTIONS.keys()].filter((h) => /constraints|recap/i.test(h))).toEqual([]);
+    });
+
+    it("leaves no replacement index of rules at the end of the document", () => {
+        expect([...SECTIONS.keys()].pop()).toMatch(/^# Usage/);
+    });
+
+    it("relocates a whole-run safety property no action point states, still stated exactly once", () => {
+        const role = SECTIONS.get("# Role") ?? "";
+        expect(role).toMatch(/libs\/origin\/v2\/\.nexus\//);
+        expect(count(DISTILL, /libs\/origin\/v2\/\.nexus\//)).toBe(1);
+        expect(role).toMatch(/no recipe or template files, no state file, no marker\s+file/);
+        expect(count(DISTILL, /no recipe or template files/)).toBe(1);
+    });
+
+    it("finds every rule the recap stated at the action it governs", () => {
+        expect(INPUT_RESOLUTION).toMatch(/Do NOT search when a path is given/);
+        expect(INPUT_RESOLUTION).toMatch(/Never scan member checkouts/);
+        expect(INPUT_RESOLUTION).toMatch(/--recover <epic-issue>/);
+        expect(SECTIONS.get("# Role") ?? "").toMatch(/never\s+write `\.nexus\/concepts\/` on main/i);
+        expect(DISTILL).toMatch(/Hashes differ\*\* → \*\*hard-error this entry/);
+        expect(DISTILL).toMatch(/§8\.3 hard boundary/);
+        expect(DISTILL).toMatch(/Engineer\s+scratch is not a distill input/);
+        expect(DISTILL).toMatch(/\*\*append\s+exactly one\*\* Decision Log entry\. Never edit, reorder, or delete prior entries/);
+        expect(DISTILL).toMatch(/If absent, domain filing is inert for this drain/);
+    });
+});

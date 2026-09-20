@@ -39,3 +39,23 @@
   exactly what story #716 removes.
 - **Refuted alternative:** leave each phase's per-kind clause and add the table as a summary.
   Refuted because that makes nine copies instead of eight.
+
+## 2026-09-20 — The run summary is a field table, not a rendered artifact
+
+- **Choice:** Phase 6.3 defines the summary as a table of fields, each with its own omission and
+  zero-case rule, and the three surfaces keep their existing literal templates minus the
+  parentheticals that used to carry those rules.
+- **Why:** story #717 requires each surface to say what it says today in the same form, so the
+  templates could not be replaced by a generated rendering.
+- **Refuted alternative:** collapse the three templates into one rendered block. Refuted because
+  the three have different audiences and an acceptance criterion pins their current shapes.
+
+## 2026-09-20 — The recap's residue goes to the Role section, not to a short trailer
+
+- **Choice:** the two rules with no action point — the historical design workspace is never
+  written, and the stage runs on no machinery of its own — were relocated into the opening Role
+  section beside the publish gates already stated there.
+- **Why:** the decision record's relocate-or-delete audit routes a whole-run property to the
+  opening section, so the whole-run gates sit in one place rather than two.
+- **Refuted alternative:** keep a three-bullet trailer at the end of the document. Refuted because
+  a short index of rules is the second copy the epic exists to remove.

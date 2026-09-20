@@ -20,6 +20,14 @@ behaviour says so.
   into, or correct the recorded range stamp in the entry's `close-record.md`, then re-run. A blocked
   entry is never auto-deleted and is rediscovered by the next run.
 
+- `/nxs.distill`'s command document now states each of its rules once, at the step that acts on it.
+  The closing rule recap is gone, the three entry kinds have one contract instead of eight scattered
+  restatements, the checkpoint / pull request / completion report render one run summary instead of
+  three definitions of the same values, and the descriptions of the delegated programs keep the
+  invocation, the consumed output and the failure action without re-explaining how each program
+  works inside. Apart from the removed fallback above, a run over an unchanged queue produces the
+  same checkpoint decisions, the same pull request body and the same counts as before.
+
 ## 0.61.0
 
 - **The teaching stage leaves Nexus.** `/nxs.teach` and `/nxs.teach-plan`, the `nxs-workbook` skill,
