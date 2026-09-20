@@ -11,6 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { authoredComponentRoot } from "./vendor-components.js";
+import { CONTRACTS } from "./distill-load-ceiling";
 
 const COMPONENTS: string = authoredComponentRoot(__dirname);
 
@@ -240,5 +241,35 @@ describe("the taxonomy contract is read only where a registry exists (story #730
 
     it("describes itself by this stage and its selecting condition only", () => {
         expect(contract("nxs-distill-taxonomy")).toMatch(/description: .*\/nxs\.distill.*domain registry/);
+    });
+});
+
+describe("the declared selection table is the conformance surface (story #731)", () => {
+    it("declares one row per contract, and no contract without a row", () => {
+        const declared: string[] = selectionRows().map(([, c]) => c.replaceAll("`", ""));
+        expect(new Set(declared)).toEqual(new Set(CONTRACTS));
+        expect(declared.length).toBe(CONTRACTS.length);
+    });
+
+    it("names each contract in the base stage only in the table and at its own gate", () => {
+        const table: string = BASE_STAGE.slice(
+            BASE_STAGE.indexOf("### Contract selection table"),
+            BASE_STAGE.indexOf("## Entry discovery"),
+        );
+        for (const name of CONTRACTS) {
+            const outside: number = BASE_STAGE.split(name).length - 1 - (table.split(name).length - 1);
+            expect(outside, `${name} is named ${outside} time(s) outside the table`).toBe(1);
+        }
+    });
+
+    it("selects nothing for the ordinary shape, and says so", () => {
+        expect(BASE_STAGE).toMatch(/ordinary shape\*\* — run mode `ordinary`, workspace shape `single-repo`, every\n?\s*entry's kind `epic`, and no domain registry — selects no contract at all/);
+    });
+
+    it("states that a contract addresses the base stage by its unchanged phase numbers", () => {
+        expect(BASE_STAGE).toMatch(/This document's phase order and numbering do not change/);
+        for (const name of CONTRACTS) {
+            expect(contract(name)).toMatch(/phase order and numbering are unchanged/);
+        }
     });
 });

@@ -27,3 +27,9 @@
 - **Choice:** The base stage jumps from Phase 6 straight to Phase 6.3; the taxonomy contract supplies 6.1 and 6.2 at their existing numbers rather than the base stage keeping empty placeholders for them.
 - **Why:** Record invariant 4 pins numbering, not contiguity — 6.3 keeps its number either way, and a placeholder heading would be the summarizing pointer invariant 1 forbids.
 - **Refuted alternative:** Leave `## Phase 6.1` and `## Phase 6.2` in the base stage as one-line pointers at the contract.
+
+## 2026-09-20 — The ceiling is a committed JSON record, not a constant in the checker
+
+- **Choice:** `libs/portable-tools/distill-load-ceiling.json` holds the bytes, the date and the value it replaces; the checker reads it.
+- **Why:** Record invariant 11 requires the ceiling to carry its date and the value it replaces, which is a record with fields, and keeping it out of the checker makes a re-recording a one-file review.
+- **Refuted alternative:** An exported constant in the checker module.

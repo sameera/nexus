@@ -7,8 +7,9 @@ description: The recovery-mode contract of /nxs.distill. Read it only when that 
 
 `/nxs.distill` resolves its run mode before it reads any mode-specific instruction. This file is
 what it reads when that mode is **recovery**, and nothing else reads it. Every rule below is keyed
-to the base stage's own phase numbering and overrides the base stage at that number; the phase order
-is the base stage's, unchanged.
+to the base stage's own phase numbering and overrides the base stage at that number. The base
+stage's phase order and numbering are unchanged, and a phase this file does not name runs exactly
+as the base stage states it.
 
 Nothing here writes to GitHub, the concept store, the queue or a branch. Branch creation, the
 checkpoint stop and the pull-request opening stay in the base stage.

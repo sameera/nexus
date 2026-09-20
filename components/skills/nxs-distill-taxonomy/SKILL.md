@@ -11,8 +11,8 @@ reads it, and behaves exactly as it does today: no `domain` is written for any c
 taxonomy gate never fires, and the drift advisory never runs.
 
 Every rule below is keyed to the base stage's own phase numbering and overrides the base stage at
-that number. Phases 6.1 and 6.2 exist only when this contract is read; the base stage's own phase
-order and numbering, 6.3 included, are unchanged.
+that number. Phases 6.1 and 6.2 exist only when this contract is read, and the base stage's
+phase order and numbering are unchanged, 6.3 included.
 
 Nothing here writes to GitHub, the queue or a branch on its own. Branch creation, the checkpoint
 stop and the pull-request opening stay in the base stage.
