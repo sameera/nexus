@@ -29,18 +29,26 @@ import { excludePathspecs } from "./pipeline-stores.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 
-export type DeriveProblem =
-    | "missing-close-record"
-    | "missing-range"
-    | "malformed-range"
-    | "not-a-checkout"
-    | "member-unsupported"
-    | "workspace-resolution-failed"
-    | "unknown-repo"
-    | "missing-checkout"
-    | "unreachable-sha"
-    | "unorderable-range"
-    | "git-diff-failed";
+/**
+ * The closed set of failure classes this reader reports. A caller tells one failure from another
+ * by this token alone, never by parsing the prose message beside it (epic #713, story #715), so
+ * the set is a runtime value with one definition and the type is derived from it.
+ */
+export const DERIVE_PROBLEMS = [
+    "missing-close-record",
+    "missing-range",
+    "malformed-range",
+    "not-a-checkout",
+    "member-unsupported",
+    "workspace-resolution-failed",
+    "unknown-repo",
+    "missing-checkout",
+    "unreachable-sha",
+    "unorderable-range",
+    "git-diff-failed",
+] as const;
+
+export type DeriveProblem = (typeof DERIVE_PROBLEMS)[number];
 
 export interface DeriveDiagnostic {
     entry: string;
@@ -262,7 +270,7 @@ export function deriveEntryDiff(entryDir: string, hubDir: string, run: Runner = 
             const check = run("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: r.checkout });
             if (check.status !== 0) {
                 errors.push({ entry, problem: "unreachable-sha",
-                    message: `recorded ${role} ${sha} for repo '${item.repo}' is not reachable in ${r.checkout} — the checkout is behind or the stamp is wrong; update that checkout yourself and re-run (the drain never fetches, and derives no partial diff)` });
+                    message: `recorded ${role} ${sha} for repo '${item.repo}' is not reachable in ${r.checkout} — the checkout is behind or the stamp is wrong; either update that checkout yourself, or correct the recorded range stamp in the entry's close-record.md, then re-run (the drain never fetches, and derives no partial diff)` });
                 bad = true;
             }
         }

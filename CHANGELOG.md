@@ -5,6 +5,29 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.63.0
+
+- **`/nxs.distill` no longer substitutes a diff when a recorded revision cannot be reached.** The
+  single-repo fallback that re-derived the diff from the commit which introduced the queue entry is
+  gone, and so is the prompt that asked you for a replacement base and head. A failure from diff
+  derivation — an unreachable recorded base or head included — now blocks that one entry, reports
+  the tool's diagnostic, leaves the entry's files untouched, and lets the rest of the run drain.
+
+  This is a behaviour change. The fallback fired on a stale or shallow checkout just as readily as
+  on a legacy entry whose history was rewritten, and on that far more common cause it wrote a
+  different change's diff permanently into the concept store. A blocked entry is recoverable; a
+  wrong concept page is not. The block names both remedies: update the checkout the range points
+  into, or correct the recorded range stamp in the entry's `close-record.md`, then re-run. A blocked
+  entry is never auto-deleted and is rediscovered by the next run.
+
+- `/nxs.distill`'s command document now states each of its rules once, at the step that acts on it.
+  The closing rule recap is gone, the three entry kinds have one contract instead of eight scattered
+  restatements, the checkpoint / pull request / completion report render one run summary instead of
+  three definitions of the same values, and the descriptions of the delegated programs keep the
+  invocation, the consumed output and the failure action without re-explaining how each program
+  works inside. Apart from the removed fallback above, a run over an unchanged queue produces the
+  same checkpoint decisions, the same pull request body and the same counts as before.
+
 ## 0.62.0
 
 - **The epic approval gate now shows you the filed set as one pre-ticked checklist.** The digest used
@@ -62,6 +85,7 @@ behaviour says so.
   generated snapshot: re-run installation after edits; Claude's live pointers still work.
 - The headless epic implementation and analyze loop accepts `HARNESS=codex`, uses Codex's event
   stream and stops on a failed turn before pushing. Its default remains Claude.
+
 
 ## 0.61.0
 

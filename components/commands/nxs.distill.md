@@ -32,7 +32,12 @@ Your output is a **distillation-PR**. The PR merge is the authoritative write (0
 write `.nexus/concepts/` on main. Deleting a consumed entry is **part of that same PR**: the
 entry's `git rm` rides the distill branch beside its page writes, so the merge lands the pages and
 the deletion atomically. Either both hit main or neither does. You never delete an entry outside
-the PR, and never touch an unclosed/undrained one (C12).
+the PR, and never touch an unclosed/undrained one (C12). The live store is `.nexus/` at the repo
+root; the historical design workspace `libs/origin/v2/.nexus/` is **never written**.
+
+You run on **no machinery of your own**: no recipe or template files, no state file, no marker
+file, no retrieval index and no timing logic. Every rule below is stated once, at the step it
+governs, and this document ends without a recap of them.
 
 # Interaction convention — actionable choice gate
 
@@ -71,9 +76,7 @@ $ARGUMENTS
    **Also scan `.nexus/tmp/`** for **ephemeral entries** (#173) in the same run: a directory
    `.nexus/tmp/epic-<n>/`, **`.nexus/tmp/fix-<n>/`, or `.nexus/tmp/intake-<n>/`** is a drainable
    entry **only when it carries both `epic.md` and `close-record.md`** (record #176, invariant 6).
-   An epic-only materialization is resolver scratch: never listed, never warned about, never aged,
-   and a fix or intake directory missing either file is skipped exactly as an epic directory missing
-   either file is.
+   An epic-only materialization is resolver scratch: never listed, never warned about, never aged.
 
    **A planning draft is never one of these, by construction.** `/nxs.epic` writes its per-run
    folder one level deeper, under `.nexus/tmp/planning/<run-name>/` (decision record #646), never
@@ -84,19 +87,39 @@ $ARGUMENTS
    recursing would risk aging or warning about a draft an unrelated planning run still has open.
 
    **The kind set is closed: `epic`, `fix`, and `intake`, and nothing else** (record #504,
-   invariant 6). **A `fix-<n>` directory is a fix entry** (#263), written by `/nxs.fix` for a small
-   change that has already landed. **An `intake-<n>` directory is an intake entry** (#483), written
-   by `/nxs.intake` for a design change that has already landed and was never approved by a
-   decision record. Everything below processes each of them as an ephemeral epic entry, and each
-   phase calls out the differences its own razor imposes. **What an entry *is* comes
-   from `entry_kind:` in its `epic.md`, never from its location or its directory name.** The
-   directory prefix can disagree with the recorded kind: `entry_kind: fix` or `entry_kind: intake`
-   under `epic-<n>/`, an absent or non-`fix` kind under `fix-<n>/`, an absent or non-`intake` kind
-   under `intake-<n>/`, or any kind this list does not name. Then stop that entry with the named
-   per-entry hard block **`entry-kind-mismatch`**, write nothing for it, and leave the directory in
-   place. Every other resolution silently picks one of two contradictory claims about what the
-   entry is, and picking the directory name would process an entry under the wrong razor, the exact
-   case this check exists to catch. For an ephemeral candidate,
+   invariant 6). A `fix-<n>` directory is written by `/nxs.fix` for a small change that has already
+   landed; an `intake-<n>` directory by `/nxs.intake` for a design change that has already landed
+   and was never approved by a decision record. **What an entry *is* comes from `entry_kind:` in
+   its `epic.md`, never from its location or its directory name.** When the recorded kind and the
+   directory prefix disagree — `entry_kind: fix` or `entry_kind: intake` under `epic-<n>/`, an
+   absent or wrong kind under `fix-<n>/` or `intake-<n>/`, or any kind this set does not name —
+   stop that entry with the named per-entry hard block **`entry-kind-mismatch`**, write nothing for
+   it, and leave the directory in place. Every other resolution silently picks one of two
+   contradictory claims about what the entry is, and picking the directory name would process an
+   entry under the wrong razor, the exact case this check exists to catch.
+
+   **Resolve the kind once, here, and record it** in the entry's run scratch as
+   `<scratch>/<entry-slug>/entry-kind`, beside the record body Phase 0.1 writes there. Every later
+   phase reads that recorded value and must never re-derive the kind.
+
+   **The entry-kind contract.** These four axes are the whole of what the three kinds differ on.
+   Every later phase reads this table; none of them restates a kind's behaviour.
+
+   | Kind | *Why* verified against | Delta vocabulary | Validation mode | Committed removal target |
+   |---|---|---|---|---|
+   | `epic` | the record sub-issue body, hash-verified against `close-record.md`'s stamp; `close-record.md` alone when the epic has no record | full: create a page, change what a page asserts, add or retire an invariant | none added | a committed entry: its own dir. An ephemeral entry: the epic's scratch dir `.nexus/queue/epic-<n>/` |
+   | `fix` | `close-record.md` alone | one `## Decision Log Entry` appended to a page that already exists, and nothing else | `--append-only-log` | none, and an absent target is the expected shape rather than a missing one |
+   | `intake` | the pull request body, digest-verified against the `pr_digest` stamped at intake | full, exactly as `epic` | none added | the ephemeral-entry rule above, unchanged |
+
+   Everything else is **true of all three kinds** and is stated here once, with no column of its
+   own: a directory is drainable only carrying both files; an ephemeral entry never enters
+   drain-SLO accounting; an unconsumed entry is never auto-deleted whatever its age; and the kind
+   comes from the recorded `entry_kind:`. **Each drained entry is treated by its own kind's rules,
+   and no kind drained in the same run alters another kind's drain**: entries are applied,
+   validated and committed one at a time (Phase 4, step 2), so a run mixing kinds drains each
+   exactly as a run of that kind alone would.
+
+   For an ephemeral candidate,
    **presence alone is not the consumption signal**, because nothing ever commits a deletion of a
    tmp path. Derive consumption from the store instead (invariant 8): fetch the trunk
    (`git fetch "$(nexus trunk --form remote)" main`), then check whether the concept store **at the
@@ -116,9 +139,9 @@ $ARGUMENTS
       provenance, so the entry is re-offered on the next run. Report that plainly and name the
       ephemeral directory as safe to delete by hand. Never delete it yourself.
 
-   Ephemeral entries **never enter drain-SLO accounting** (invariant 7). Drain-SLO is a property
-   of durable queues, and a local tmp directory says nothing about any other machine. Never list
-   an ephemeral entry in the drain-SLO report, breach or otherwise.
+   Drain-SLO is a property of durable queues, and a local tmp directory says nothing about any
+   other machine, which is why the contract above excludes an ephemeral entry from it. Never list
+   one in the drain-SLO report, breach or otherwise.
 3. For every candidate entry, require **`close-record.md`**. An entry without one is **not yet
    closed**: list it with a warning and skip it. Never distill an unclosed epic, and **never
    delete it** (C12: undrained entries are never auto-deleted; an old undrained entry is a
@@ -139,9 +162,9 @@ $ARGUMENTS
    migration commit, so age measures how long the entry has been drainable in the hub queue.
    Drain-SLO is measured against the hub queue only. Never scan member checkouts for
    closed-but-unmigrated entries; that is migration-lag, owned by close-entry-migration /
-   workspace-status, not this report. A **blocked** entry (Phase 1 Exit 1, or the reader's
-   `unorderable-range`/`unreachable-sha`/`missing-checkout` diagnostics) names the specific range
-   entry that could not be resolved, with its repo, base and head, not merely the entry as a whole.
+   workspace-status, not this report. A **blocked** entry (Phase 1, Exit 1) names the specific range
+   entry that could not be resolved, with its repo, base and head, and the class token the reader
+   reported, not merely the entry as a whole.
 4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → **GitHub recovery mode** (#174): rebuild
    that one entry from durable GitHub state when the local copy is gone (a different machine, a
    cleared `.nexus/tmp/`, a run days after the close). Recovery is an **explicit per-entry path,
@@ -275,18 +298,16 @@ record, backlog append, and lesson).
     This stage stays **read-only** against the record issue: it fetches and hashes, never edits,
     closes, or comments.
 
-    **For an intake entry (#483), verify the pull request body instead** (record #504, invariant
-    14). An intake entry has no decision record, so this replaces the branch above rather than
-    adding to it. Re-fetch the pull request body and re-hash it, through the same digest program,
-    over the reference recorded in the entry's `epic.md` `link`:
+    **When the contract names the pull request body as this entry's *why* source, verify that
+    instead** (record #504, invariant 14). Re-fetch the body and re-hash it, through the same
+    digest program, over the reference recorded in the entry's `epic.md` `link`:
 
     ```bash
     nexus record-digest --issue <n> ${REPO:+--repo $REPO}
     ```
 
     - **Digest matches the entry's stamped `pr_digest`** → the pull request still says what was
-      recorded. Use the entry's `close-record.md` as its ***why* file**, exactly as an epic with no
-      decision record already reads its *why* solely from there.
+      recorded. Use the entry's `close-record.md` as its ***why* file**.
     - **Digest differs, or the pull request cannot be fetched** → **hard-error this entry and write
       nothing for it.** There is no drain-side waiver, on the same terms the record-hash mismatch
       above admits none: this stage writes permanently into the store, so a waived mismatch would
@@ -374,30 +395,25 @@ record, backlog append, and lesson).
     `range-unresolvable` (invariant 11): report it and process nothing for that entry. Never a
     silent empty diff, never a partial one, never an invented range.
 
-    - **merged** → continue silently. Phase 1 and Phase 4 take their normal single-repo path
-      (branch cut from the trunk, introducing-commit diff); continuation mode stays on its branch
-      and derives from the recorded range.
+    - **merged** → continue silently. Phase 1 derives from the recorded range and Phase 4 cuts the
+      branch from the trunk; continuation mode stays on its branch.
     - **not-merged** → the entry's feature branch has not merged to the trunk. Running here hits the
-      two failures the ordering exists to prevent, and you surface **both** before doing any work.
-      The gate **detects, it never substitutes** (the analyze-gate contract from `/nxs.close`):
-        1. the introducing-commit diff (Phase 1 priority 1) is degenerate. Pre-merge, the entry's
-           files were added across several branch commits, so it resolves to a branch commit (often
-           the close commit, whose diff is only close artifacts), not the merged feature diff; and
-        2. the distill branch cannot be cut from the trunk (the entry is not there), so it is cut
-           from the current HEAD, and the resulting PR carries the unmerged feature commits **and**
-           the distillation together. That collapses the two-gate design (feature-merge review, then
-           a narrow distillation review) into one PR, 0007's refuted shape.
+      failure the ordering exists to prevent, and you surface it before doing any work. The gate
+      **detects, it never substitutes** (the analyze-gate contract from `/nxs.close`): the distill
+      branch cannot be cut from the trunk (the entry is not there), so it is cut from the current
+      HEAD, and the resulting PR carries the unmerged feature commits **and** the distillation
+      together. That collapses the two-gate design (feature-merge review, then a narrow
+      distillation review) into one PR, 0007's refuted shape.
 
-      Render a one-paragraph markdown note naming the not-merged entry (or entries) and both
-      consequences, then ask via **`AskUserQuestion`**. Never proceed silently:
+      Render a one-paragraph markdown note naming the not-merged entry (or entries) and that
+      consequence, then ask via **`AskUserQuestion`**. Never proceed silently:
         - **"Merge the feature PR first, then re-run (Recommended)"** → stop. Tell the user to merge
           the entry's feature PR to the trunk (and `git fetch` first if it merged remotely but the
           local trunk ref is stale), then re-run `/nxs.distill`.
         - **"Proceed on the current branch"** → continue with a recorded waiver. For every
-          not-merged entry: Phase 1 skips the degenerate priority 1 and derives the diff from the
-          recorded `range:` (priority 2); Phase 4 cuts the branch from the current HEAD, not the
-          trunk; and the Phase 6 checkpoint states that the PR carries the unmerged feature commits
-          alongside the distillation.
+          not-merged entry: Phase 4 cuts the branch from the current HEAD, not the trunk, and the
+          Phase 6 checkpoint states that the PR carries the unmerged feature commits alongside the
+          distillation. Phase 1 is unaffected: it derives from the recorded `range:` either way.
 
       When a run mixes merged and not-merged entries, list the not-merged ones together and ask
       once. A "proceed" answer applies only to those entries; merged entries keep the normal path.
@@ -431,11 +447,8 @@ record, backlog append, and lesson).
 
 The diff is recomputed from git on every run (0006). It is never written anywhere. Both modes
 share **one reader** (decision record #513). The range list the close record stamped is the only
-diff source in either mode, because after migration the entry no longer shares history with the
-code (hub), and its introducing commit is the *migration* commit (its diff would be the migration's
-file moves: confidently wrong). Never use the introducing-commit path against a stamped range in
-either mode. Per entry, run the derivation tool with each argument its own quoted token, never a
-shell-interpolated string:
+diff source in either mode, and the stage derives no diff any other way. Per entry, run the
+derivation tool with each argument its own quoted token, never a shell-interpolated string:
 
     ```bash
     nexus derive-entry-diff --entry "<entry-dir>" [--hub <hub-root>]
@@ -445,61 +458,39 @@ shell-interpolated string:
     reports no such verb, the installed toolkit predates this capability. Stop and tell the
     operator to update their Nexus install; do not derive the diff another way.
 
-    The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
-    full SHAs). **A repo may appear in more than one entry**: an epic closed over several story
-    pull requests stamps one entry per pull request, and this reader reads every one of them,
-    never at most one per repo. In hub mode each named repo resolves to its sibling member
-    checkout through the workspace resolver (the hub's own entries resolve to the hub checkout).
-    In single-repo mode each entry resolves against this checkout's own identity, and an entry
-    naming another repo is the same unknown-repo error hub mode already gives. Never read
-    silently in the wrong checkout. The tool verifies both SHAs of every entry are reachable,
-    orders a repo's entries by ancestry of their recorded heads (a repeated repo is read in the
-    order its changes actually landed, never the order the range list happened to stamp them in),
-    and emits **one diff per range entry**. Each diff is computed as `git diff <base>...<head>`
-    inside that entry's own checkout with every pipeline store withheld, so no path is ever
-    attributed to the wrong repo and no span is ever computed from one entry's start to another
-    entry's end. It reads only: it never clones, fetches, or mutates a checkout.
+    The tool takes the entry's stamped `range:` list as its input and emits **one diff per range
+    entry**, in each entry's own checkout, with every pipeline store withheld. It reads only: it
+    never clones, fetches, or mutates a checkout, and it emits nothing at all unless every range
+    entry resolved.
 
     - **Exit 0:** stdout carries a `=== repo <identity> checkout <path> range <base>...<head> ===`
       header per range entry followed by that entry's diff, in ancestry order within each repo.
       Analyze each entry's diff against its own repo.
-    - **Exit 1** (missing checkout, unreachable SHA, unorderable heads, missing/malformed
-      `range:` stamp, unknown repo): report the tool's diagnostic **verbatim** and mark the entry
-      **blocked**. It is not processed this run and its queue files are untouched. Continue with
-      the remaining entries. Never fall back to the hub repo, never treat the failure as an empty
-      diff, never derive a partial diff, and never ask the user for a replacement range.
+    - **Exit 1 — the entry is blocked, whatever the failure class.** Report the tool's diagnostic
+      **verbatim** and mark the entry **blocked**: it is not processed this run, its queue files
+      are untouched, and the remaining entries still drain. **There is no second diff source in
+      either mode.** Never fall back to the hub repo, never treat the failure as an empty diff,
+      never derive a partial diff, and never ask the user for a replacement range.
 
-**Single-repo mode also keeps one legacy fallback**, for an entry with no usable range at all.
-Never use it for a range the tool above already read successfully:
+      Each reported problem line carries a machine-readable class token, one line per affected
+      range entry, so a caller tells the classes apart without reading the prose beside them. The
+      set is closed: `missing-close-record`, `missing-range`, `malformed-range`, `not-a-checkout`,
+      `member-unsupported`, `workspace-resolution-failed`, `unknown-repo`, `missing-checkout`,
+      `unreachable-sha`, `unorderable-range`, `git-diff-failed`.
 
-1. **The commit that introduced the queue entry (fallback: only when the range SHAs are
-   unreachable):**
+      **`unreachable-sha` is a recorded base or head this checkout cannot resolve**, and it blocks
+      that entry exactly like every other class. The remedy is the operator's and the diagnostic
+      names both halves of it: update that checkout, or correct the recorded range stamp in the
+      entry's `close-record.md`, then re-run. An unreachable recorded revision is far more often a
+      checkout that is behind than an entry whose history was rewritten, so substituting any other
+      diff here would write a confidently wrong page into the store permanently. An entry blocked
+      this way is never auto-deleted and stays rediscoverable on a later run.
 
-    ```bash
-    INTRO="$(git log --diff-filter=A --format=%H -n 1 -- <entry-dir>)"
-    git diff "${INTRO}^1" "${INTRO}"
-    ```
-
-    For a merge commit this is the merged feature diff; for a squash-merge it is the squashed
-    commit's diff. **Do not use this in continuation mode**: on a close-prepared branch the most
-    recent add to the entry dir is the close commit, whose diff is only close artifacts (and in the
-    multi-PR pipeline no single introducing commit holds the feature code). It exists for legacy
-    single-repo entries whose recorded head was squashed away and is no longer reachable.
-2. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
-   user for a base/head range via `AskUserQuestion` free text; do not guess.
-
-In both modes, withhold every **pipeline store** from the behavioral analysis. Do not write the
-paths out here. Ask the toolkit for the one definition of the set and pass it straight to git:
-
-```bash
-nexus excluded-stores --form reasons          # the set, and why each store is in it
-git diff "$BASE"..."$HEAD" -- . $(nexus excluded-stores)
-```
-
-The set is closed and reviewed, and it is stated in exactly one place (record #450, invariant 4).
-A second statement of it in this body could drift from the code's, and the drift would be silent:
-a stage would quietly read the pipeline's own working surface as shipped behaviour. Each store is
-withheld **entire**; never exclude a slice of one.
+Every **pipeline store** is withheld from the behavioral analysis, entire, never a slice of one.
+The set is closed and reviewed and is stated in exactly one place, the toolkit (record #450,
+invariant 4); `nexus excluded-stores --form reasons` prints it with its reasons. Never write the
+paths out here. A second statement of the set could drift from the code's, and the drift would be
+silent: the stage would quietly read the pipeline's own working surface as shipped behaviour.
 
 # Phase 2 — Survey the concept store
 
@@ -552,29 +543,23 @@ at all) plus `close-record.md`. When the epic has no record, the close record's 
 Deviation Rationale are the sole *why* carrier. Do **not** read `<entry>/<username>/**`. Engineer
 scratch is not a distill input; the *why* comes only from the decision record and the close record.
 
-**For a fix entry, the razor bounds the deltas before any judgment starts** (#263). Every delta
-must be `action: update` against a page that **already exists**, carrying exactly one
-`## Decision Log Entry` section and nothing else: no `## Summary`, no `## How It Works`, no
-`## Invariants Added`, no `## Invariants Retired`, no `touches_added`, no `touches_removed`, no
-`domain`. The *why* is the close record's Key Decisions (a fix entry has no decision record, and
-this stage already accepts an entry whose reasoning comes solely from the close record). The
+**The entry-kind contract bounds the deltas before any judgment starts.** Read this entry's
+recorded kind and take the delta vocabulary its row gives. A delta outside that vocabulary is
+malformed. Under the bounded vocabulary — one `## Decision Log Entry` appended to a page that
+already exists — that means no `## Summary`, no `## How It Works`, no `## Invariants Added`, no
+`## Invariants Retired`, no `touches_added`, no `touches_removed` and no `domain`. Where the
+contract names `close-record.md` as the *why* source, the *why* is its Key Decisions, and the
 delta's `source` is the reference recorded in the entry's `epic.md` `link`, which is what the
 appended log heading carries.
 
-**A rationale that maps to no existing page is a named per-entry hard block: `no-existing-page`.**
-Report it, write nothing for that entry, and leave the entry directory in place for a later run.
-This is the razor working, not a gap in it: a decision with no page is a decision that needs a page.
-Name the remedy by whether the change is still to be built or has already shipped: work not yet
-built is design work for **`/nxs.epic`**; a change that has already landed and needs to alter what a
-page asserts is landed design work for **`/nxs.intake`**. **This bound applies to a fix entry
-only.**
-
-**An intake entry (#483) gets the full epic vocabulary, exactly as an epic entry does** (record
-#504, invariant 15): a delta may create a page, change what an existing page asserts, and add or
-retire an invariant. None of the fix razor's bounds apply. Its *why* comes solely from its close
-record, on the same terms an epic with no decision record already reads its *why* solely from
-there. Its `source` is the reference recorded in the entry's `epic.md` `link`, exactly as a fix
-entry's is.
+**Under the bounded vocabulary, a rationale that maps to no existing page is a named per-entry
+hard block: `no-existing-page`.** Report it, write nothing for that entry, and leave the entry
+directory in place for a later run. This is the razor working, not a gap in it: a decision with no
+page is a decision that needs a page. Name the remedy by whether the change is still to be built or
+has already shipped: work not yet built is design work for **`/nxs.epic`**; a change that has
+already landed and needs to alter what a page asserts is landed design work for **`/nxs.intake`**.
+An entry whose row gives the full vocabulary can create the page itself, so this block never fires
+for one.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
@@ -754,10 +739,9 @@ Run these for each entry, in order, before its commit:
       400-word cap (0003 §2.2), so no page in the store can be too full to accept a reciprocal
       bullet. Never drop the edge, never demote the interaction to prose on one side, and never
       compress the target's existing content to make room. None of those is a legal move here.
-    - **For a fix entry the fan-out is empty by construction, not by a special case** (#263): a
-      fix delta may not add or remove a `touches` neighbour, so there is nothing to mirror. Run the
-      step anyway and expect no edit. The atlas regeneration is a no-op for the same reason and is
-      likewise still run, so neither check can drift.
+    - **A delta that adds and removes no `touches` neighbour leaves nothing to mirror.** Run the
+      step anyway and expect no edit, and run the atlas regeneration anyway for the same reason, so
+      neither check can drift. Under a bounded delta vocabulary that is every delta in the entry.
     - **Its only bound is the 40-word ceiling on the bullet you are writing**. That bound binds the
       new bullet, never the target's existing prose. If the interaction genuinely cannot be stated
       in 40 words, that is the signal the delta names **two distinct interactions**: declare two
@@ -849,20 +833,17 @@ Run these for each entry, in order, before its commit:
     - **member**: a member repo does not run this stage. Phase 0.3 already stopped the run before
       this point.
 
-4. **Atlas regeneration.** Rebuild the human orientation page from the store's current
-   state, with no explicit output path, so the generator resolves its own location from the
-   resolved docs root (epic #74; never a hardcoded path):
+4. **Atlas regeneration.** Rebuild the human orientation page. Name no output path (epic #74;
+   never a hardcoded one):
 
     ```bash
     nexus generate-atlas
     ```
 
-   The command's own output names where it wrote: `Atlas written: <path> (<N> concepts)`.
-   Record that `<path>`, the **resolved atlas path**, for the staged file set (Step 6), the
-   checkpoint digest (Phase 6), and the PR body (Phase 7) below. It is `docs/concepts.md` for a
-   single-repo run (unchanged) and `<docs-root>/concepts.md` for a hub, which is the repo root
-   when the hub sets no override. The atlas is derived state (DERIVED header, script-owned). It is
-   regenerated whole, never hand-edited or prose-tweaked in the PR.
+   Its output names where it wrote: `Atlas written: <path> (<N> concepts)`. Record that `<path>`,
+   the **resolved atlas path**, for the staged file set (Step 6), the run summary (Phase 6) and
+   the PR body (Phase 7). The atlas is derived state, regenerated whole, never hand-edited or
+   prose-tweaked in the PR.
 
 5. **Validator.** Run it over every page the entry changed (staged working-tree state vs the
    last commit), naming each path as its own argument:
@@ -874,7 +855,8 @@ Run these for each entry, in order, before its commit:
 
     On a hub the regenerated anchor sidecar paths are named alongside the pages, per Step 3.
 
-    **For a fix entry, add `--append-only-log`** (#263). This is the razor's essential half:
+    **Add the validation mode the entry-kind contract gives this entry's kind.** For the
+    `--append-only-log` mode, the razor's essential half:
 
     ```bash
     nexus validate-concepts --append-only-log --base HEAD "<changed-page-path>" ...
@@ -885,12 +867,10 @@ Run these for each entry, in order, before its commit:
     changed **concept pages**, never the regenerated anchor sidecars, which a fix run may
     legitimately rewrite.
 
-    **Apply the mode only to a fix entry's pages.** Entries are applied, validated and committed one
-    at a time (Step 2), so an epic entry processed in the same run is validated by its own invocation,
-    without the flag, exactly as before. **An intake entry is validated the same unbounded way**.
-    The append-only mode is a fix-only rule, and an intake entry's pages carry no such bound (record
-    #504, invariant 15). That per-entry ordering is essential here and must not be batched as an
-    optimisation: batching would make the razor compare against the wrong base.
+    Entries are applied, validated and committed one at a time (Step 2), so each is validated by
+    its own invocation carrying its own kind's mode and no other's. That per-entry ordering is
+    essential here and must not be batched as an optimisation: batching would make the razor
+    compare against the wrong base.
 
     **The refusal message matters as much as the exit code.** When the mode blocks, report it naming
     the fix entry, naming the page, and saying what it means:
@@ -905,40 +885,27 @@ Run these for each entry, in order, before its commit:
     A developer who hits this needs to learn what kind of change they made, not just that a command
     exited non-zero.
 
-    **Before draining a fix entry, establish that the validator you will run enforces the mode**
-    (record #271, invariant 13). One installed toolkit exists per account, reached by name, and it
-    lags when it is not updated. A flag has no declared surface of its own, so an older toolkit
-    accepts the invocation, reads the unrecognised mode as one more page to check, and exits
-    non-zero reporting that page as **missing**. The razor still fails closed, but the diagnostic
-    then misnames its own cause. The obvious repair, dropping the offending argument, turns a
-    safe refusal into exactly the silent pass the razor exists to prevent. So confirm the mode is
-    declared before you rely on it:
+    **Before draining an entry whose kind carries a validation mode, establish that the validator
+    you will run enforces it** (record #271, invariant 13). One installed toolkit exists per
+    account and it lags when it is not updated. An older one still fails closed, but it misnames
+    its own cause, and the obvious repair for that diagnostic is exactly the silent pass the razor
+    exists to prevent. So confirm the mode is declared before you rely on it:
 
     ```bash
     nexus --help | grep -q -- --append-only-log && echo mode-available || echo mode-unavailable
     ```
 
-    **mode-unavailable → refuse the fix entry**, and attribute the failure to the install, never to
+    **mode-unavailable → refuse that entry**, and attribute the failure to the install, never to
     a missing file: report that the installed toolkit predates the append-only mode and that the
     remedy is to update the install. An undrained fix can be recovered; a fix merged without the
     razor cannot, because the log entry cannot be unwritten.
 
-    The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
-    page's own content, the per-bullet bound on Integration Points, `touches:` == Integration
-    Points, exactly one new Decision Log entry per changed page, append-only log history, §8.3
-    rejections, and slug = filename. A path whose parent directory
-    is `anchors` is checked as an anchor sidecar instead: `concept` = filename, a well-formed
-    `source_sha` (single-repo scalar, or the hub per-repo `<host/owner/repo>@<sha>` list), and
-    repo↔path attribution consistency. The second checks the
-    atlas is in sync with the active pages.
-
     **A non-zero exit from any of these blocks the PR**. Fix the pages (or regenerate the
     atlas) and re-run until both exit 0. Do not weaken, skip, or reinterpret a blocking finding;
-    the validator is the contract's mechanical half. **Advisories are the named exception:** the
-    validator prints every finding with a leading severity token and counts the two classes
-    separately, and a run whose findings are all `[ADVISORY]` exits 0. Examples: a long-but-legal
-    bullet, a high-degree hub, a store-level revisit trigger. Those never block and are never
-    "fixed" to silence them; carry them into the PR body for the reviewer and proceed.
+    the validator is the contract's mechanical half. **Advisories are the named exception:** a
+    finding marked `[ADVISORY]` is not a failure, and a run whose findings are all advisories
+    exits 0. Those never block and are never "fixed" to silence them; carry them into the PR body
+    for the reviewer and proceed.
 
 6. **Remove the consumed entry, then commit it together with its pages + anchors** so the deletion
    is atomic with the write on merge:
@@ -968,9 +935,8 @@ Run these for each entry, in order, before its commit:
     git commit
     ```
 
-   **A fix entry has no committed removal target at all** (#263). It was never an epic, so there is
-   no `.nexus/queue/epic-<n>/` scratch home, and its own directory is under `.nexus/tmp/`. Remove
-   nothing, and **report no missing removal target**. An absent target here is the expected shape,
+   **Take the removal target from the entry-kind contract.** Where the contract gives none, remove
+   nothing and **report no missing removal target**: an absent target there is the expected shape,
    not a warning.
 
    Never `git rm` (or stage) any path under `.nexus/tmp/`. The ephemeral directory itself is
@@ -1040,7 +1006,31 @@ always exits zero**. A non-zero exit or any file write is a bug, never a block, 
 prints is ever `git add`ed. Record the captured markdown for the digest line below and the Phase 7
 PR body. **If Phase 2 found no registry, skip this step entirely** (byte-for-byte today's behavior).
 
-**STOP AND WAIT.** Render the delta digest as markdown first:
+**Write the run summary.** Everything the three surfaces state about this run is defined here,
+once, and written to `<scratch>/run-summary.md`. It is scratch: never `git add`ed, never
+committed, and **not a state file** — no later run reads it. The checkpoint below, the pull
+request body (Phase 7) and the completion report (Phase 8) are *layouts* over these fields. They
+keep their own distinct shapes and labels, they name fields, and none of them redefines what a
+field holds or when it drops out. Change what a value holds here.
+
+| Field | Holds | Omission and zero case |
+|---|---|---|
+| `entries` | per drained entry: local id, epic title, provenance ref, source (committed queue \| `.nexus/tmp` ephemeral \| recovered from epic issue `#<n>`), and what deletion lands with the merge | never omitted |
+| `by_kind` | `<n> epic, <n> fix, <n> intake` | omitted when every drained entry is an epic. Stated whenever a fix or an intake entry drained this run, so a reviewer sees that an intake entry's writes are not an epic's |
+| `deltas` | per concept: slug, `create \| update \| retire`, sections changed, the Decision Log entry's title, and the reciprocity fan-out targets | fan-out reads `none` when there was none |
+| `fix_entries` | per fix entry: the page it changes and the heading it appends | the block is absent when no fix entry drained this run |
+| `intake_entries` | per intake entry: every page created, every page whose assertions changed, every invariant retired | the block is absent when no intake entry drained this run |
+| `taxonomy` | per forced fit: `<slug>` → best-fit chosen \| new subdomain \| new domain | the line is absent when Phase 6.1 found no forced fits |
+| `anchors` / `atlas` / `validator` | the refreshed slugs, the resolved atlas path, the validator verdict and page count | never omitted |
+| `drift` | the advisory's finding count, `clean`, or `not run — no registry` | advisory only; it never blocks and never gates a surface |
+| `skipped` / `blocked` | per entry: local id, originating repo (hub mode), age, drain-SLO flag, and for a blocked entry the class token and the range entry that failed | when both are empty, each surface states the zero case under its own **unqualified** label, `Skipped:` at the checkpoint and `Entries skipped:` at the report, reading `none — every queue entry drained; no drain-SLO breaches` |
+| `waived` | the Phase 0.4 not-merged entries the lead waived, and that the PR carries their unmerged feature commits | the line is absent when every drained entry was on the trunk |
+| `pr_url` | the distillation-PR's URL | written at Phase 7 |
+
+Provenance in every field takes the Phase 0.6 resolved form, and the consumed entries are removed
+on the branch so the deletion lands with the merge, never on main now.
+
+**STOP AND WAIT.** Render the checkpoint layout from the summary:
 
 ```
 CHECKPOINT: Distillation-PR
@@ -1062,10 +1052,8 @@ Intake entries — every page created, every page whose assertions change, and e
 retired:
 - <intake local-id> (<provenance ref>) — created: <slugs, or none> — assertions changed: <slugs,
   or none> — invariants retired: <slugs, or none>
-(omit this block entirely when no intake entry drained this run)
 
 Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new subdomain "<title>" | new domain "<title>">, ...
-  (omit this line entirely when Phase 6.1 found no forced fits — "no gate fired")
 
 Anchors refreshed: <slugs>
 Atlas: regenerated (<resolved-atlas-path>)
@@ -1073,16 +1061,12 @@ Validator: PASS (<N> page(s))
 Drift advisory: <n finding(s) — misfiles/refinements/candidates, or a staleness alarm | clean — no drift above thresholds | not run — no registry> (advisory only, never blocks)
 
 Skipped (not closed): <local-id> — repo <owner/repo, hub mode only> — age <n>d [DRAIN-SLO BREACH if >30d]
-Blocked (hub mode — diff underivable): <local-id> — repo <owner/repo> — age <n>d — <problem> [DRAIN-SLO BREACH if >30d]
-(if nothing was skipped or blocked: "Skipped: none — every queue entry drained; no drain-SLO breaches")
+Blocked (diff underivable): <local-id> — repo <owner/repo> — age <n>d — <class token> — <the range entry> [DRAIN-SLO BREACH if >30d]
 
 Not-merged (Phase 0.4 waiver): <local-id> — PR based on the current HEAD; merging it lands the
-  unmerged feature commits AND this distillation together (omit this line when every drained entry
-  was on the trunk)
+  unmerged feature commits AND this distillation together
 
 About to: push the distill branch and open the distillation-PR.
-Consumed entries are removed on the branch (in each entry's commit) — the deletion lands on main
-only when the PR merges, atomically with the pages. Nothing is removed from main now.
 ```
 
 Then ask via **`AskUserQuestion`**:
@@ -1109,22 +1093,19 @@ the close worktree, which stays on this branch, and there is no prior branch to 
 worktree is removed after the PR is dealt with (Phase 8).
 
 The PR body is **review-oriented**. The reviewer is checking the *what*-abstraction and the
-page-patch mapping (0007), so give them, per concept:
+page-patch mapping (0007), so lay the run summary out for them, per concept:
 
 ```markdown
 ## Distillation: <epic title(s)>
 
 Drained queue entries: `<entry paths>` (provenance: <ref(s)>) — <n> epic, <n> fix, <n> intake
-(omit the by-kind tally when every drained entry is an epic — today's behaviour, unchanged; state
-it whenever a fix or an intake entry drained this run, so a reviewer sees an intake entry's writes
-are not an epic's)
 
 ### <slug> — <create | update | retire>
 - **What changed:** <one-paragraph summary of the page change>
 - **Why (Decision Log entry):** <the entry's short title + one-line why>
 - **Provenance:** <ref> (<link to the issue>)
 - **From an intake entry:** <ref> — flagged so a reviewer can see it apart from an epic's write
-  (omit this line entirely unless the entry that produced this delta is an intake entry)
+  (only for a delta an intake entry produced)
 - **Reciprocal edits:** <slugs, or none>
 - **Split:** <only when Phase 4 step 4 fired: `<parent-slug> → <new-slug>` + one line on the
   seam, on both halves' sections — or, for a last-resort eviction, what was dropped and why no
@@ -1156,15 +1137,16 @@ comment in the PR body so the reviewer can see the *why* without a dangling queu
 
 # Phase 8 — Report completion
 
+Lay the run summary out in the report's own shape:
+
 ```
 DISTILLATION-PR OPENED: <url>
 
 Entries drained:   <n>  (<local-ids>) — <n> epic, <n> fix, <n> intake
-                   (omit the by-kind tally when every drained entry is an epic)
 Pages created:     <n>  (<slugs>)
 Pages updated:     <n>  (<slugs>)
 Pages retired:     <n>  (<slugs>)
-Taxonomy gate:     <n> forced fit(s) resolved (<n> new subdomain(s), <n> new domain(s), <n> confirmed best-fit) — omit this line when Phase 6.1 found no forced fits (epic #94, STORY-94.01)
+Taxonomy gate:     <n> forced fit(s) resolved (<n> new subdomain(s), <n> new domain(s), <n> confirmed best-fit)
 Reciprocal edits:  <n>  (<slugs>)
 Anchors refreshed: <n>
 Validator:         PASS
@@ -1172,10 +1154,8 @@ Drift advisory:    <n finding(s), or "clean", or "not run — no registry"> (adv
 
 Entries skipped (not closed): <list with ages, drain-SLO flags; hub mode adds each entry's
                                originating repo as <owner>/<repo>>
-Entries blocked (hub mode — diff underivable): <list with originating repo, age, drain-SLO
-                               flag, and the named problem per entry>
-(if nothing was skipped or blocked: "Entries skipped: none — every queue entry drained; no
- drain-SLO breaches")
+Entries blocked (diff underivable): <list with originating repo, age, drain-SLO flag, the class
+                               token and the range entry that failed>
 
 Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```
@@ -1186,121 +1166,6 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
     Worktree: <wtPath> (the close/distill worktree, still checked out on this branch)
     CLEANUP (after the distillation-PR is merged or closed):
         git worktree remove --force <wtPath>
-
-# Constraints
-
-- **Never write `.nexus/concepts/` on main.** All page writes happen on the distill branch; the
-  PR merge is the authoritative write (0007).
-- **Consumed entries are deleted in the PR, never on main directly**. The `git rm` rides the
-  distill branch so the merge removes them atomically with the page writes (0007: deletion is bound
-  to the merge). **Never** touch an unclosed/undrained entry (C12: flag age, don't clean up).
-  In hub mode the drain-SLO report covers every undrained hub-queue entry, attributed to its
-  originating repo, and only the hub queue; member checkouts are never scanned for unmigrated
-  entries.
-- **Distill is a post-merge drain (0007)**: in single-repo mode Phase 0.4 confirms each entry is
-  on the trunk before processing it. A not-merged entry is never processed silently: the gate
-  surfaces the degenerate introducing-commit diff and the collapsed single-PR consequence, then
-  requires an explicit choice. That choice is merge first (recommended), or an explicit waiver that
-  routes the diff through the recorded `range:` and bases the branch on HEAD. Detect, never
-  substitute.
-- **The *why* is hash-verified, and a mismatch is a hard stop with no waiver**. For an entry whose
-  epic has a record sub-issue, the rationale is the fetched record body and no `decision-record.md`
-  is read. If its digest differs from the one stamped at close, that entry writes **nothing**. This
-  stage writes permanently into the knowledge store, so the softest control must not sit on the
-  most durable write. The remedy (re-approve, re-close with a fresh stamp) belongs upstream, where
-  a second approval act is visible. This stage is **read-only** against the record issue.
-- **No search when a path is given**: `$ARGUMENTS` resolves directly.
-- **Single-repo diff derivation is range-first**. The recorded `range:` is primary (exact, stamped
-  by `/nxs.close` from the merged PR); the introducing-commit path is a fallback for legacy entries
-  whose range SHAs are unreachable. In continuation mode the range is always the source, and the
-  introducing-commit path is never used (its most-recent add is the close commit).
-- **Continuation mode (the `/nxs.close --pr` hand-off) processes exactly one entry on its branch**:
-  the entry whose `close-record.md` the close just committed. It does not scan the whole queue, does
-  not batch, does not cut a new branch (it is already on the close-prepared `distill/*` branch,
-  rebased onto the trunk), uses the range-head-reachability merge precondition, and leaves worktree
-  removal to the lead (it runs inside that worktree). The ordinary whole-queue batched run is
-  unchanged when not on a close-prepared branch.
-- **The diff is recomputed, never stored** (0006). In hub mode it is recomputed **only** from
-  the close record's `range:` stamp inside the named member checkout. A missing checkout, an
-  unreachable SHA, or a missing/malformed stamp is a hard per-entry error (report it, process the
-  rest). This stage never falls back to the hub repo, never fabricates an empty or partial
-  diff, and never clones, fetches, or mutates a member checkout.
-- **No machinery**: no recipe/template files, no state file, no retrieval index (0003 §7:
-  glob/rg is the index; the atlas (at the resolved docs root) is a derived human-orientation
-  page regenerated by this phase's atlas-regeneration step, never a retrieval surface).
-  Idempotency is structural: entry presence = unconsumed. For an ephemeral entry, whose
-  presence nothing committed can end, consumption is **derived**: the entry is consumed exactly
-  when the concept store at the fetched trunk carries its provenance in a structured provenance
-  position (invariant 8). No marker file, no state file, no timing logic. The mark cannot exist
-  before the merge because it *is* the merge, and a PR closed unmerged leaves the entry
-  rediscoverable.
-- **Ephemeral entries (#173):** a `.nexus/tmp/epic-<n>/` directory is drainable only with both
-  `epic.md` and `close-record.md` (an epic-only materialization is resolver scratch: never
-  listed, warned about, or aged; invariant 6); it never enters drain-SLO accounting
-  (invariant 7); unconsumed, it is never auto-deleted whatever its age (invariant 9); its merge
-  precondition is the two-test form, range-head reachability, else merged-PR resolution
-  (invariant 10), and an unresolvable recorded range is the named per-entry hard error
-  `range-unresolvable` (invariant 11); its committed removal targets the epic's scratch dir, never
-  a `.nexus/tmp/` path (invariant 12); and the checkpoint digest names its source and what is
-  actually deleted where (invariant 13).
-- **Fix entries (#263):** a `.nexus/tmp/fix-<n>/` directory is drainable on exactly the same terms
-  as an ephemeral epic entry (both files required, no drain-SLO accounting, never auto-deleted),
-  and what it *is* comes from `entry_kind:` in its header, never its directory name; a disagreement
-  is the named per-entry hard block `entry-kind-mismatch`. Its deltas are all updates to pages that
-  already exist, so the reciprocity fan-out and the atlas regeneration are vacuous by construction
-  rather than by a special case, and a rationale that maps to no existing page is the named
-  per-entry hard block `no-existing-page`. It has no committed removal target, so the removal step
-  removes nothing and reports no missing target. Draining an epic entry is unchanged by this,
-  including an epic entry discovered in the same run as a fix entry.
-- **Intake entries (#483, record #504):** a `.nexus/tmp/intake-<n>/` directory is drainable on
-  exactly the same terms as an ephemeral epic entry (both files required, no drain-SLO accounting,
-  never auto-deleted), and what it *is* comes from `entry_kind:` in its header, never its directory
-  name; a disagreement is the same named per-entry hard block `entry-kind-mismatch` a fix entry's
-  disagreement is. Unlike a fix entry, its deltas carry the full epic vocabulary: a delta may
-  create a page, change what an existing page asserts, or add or retire an invariant (invariant
-  15), so neither the append-only validator mode nor the `no-existing-page` block ever applies to
-  it. The checkpoint names, per intake entry, every page it creates, every page whose assertions it
-  changes, and every invariant it retires (invariant 16). Draining an epic entry or a fix entry is
-  unchanged by this, including either discovered in the same run as an intake entry. **Its pull
-  request body is re-verified at Phase 0** against the `pr_digest` stamped at intake, through the
-  same digest program the decision-record hash check already uses. A mismatch or an unfetchable
-  body is a hard error with no waiver, naming a re-run of `/nxs.intake` as the remedy (invariant
-  14), never a substituted local copy.
-- **GitHub recovery (#174) is explicit and per-entry** (invariant 14): invoked as
-  `--recover <epic-issue>` for a named epic, never as a scan of closed epic issues on an ordinary
-  run. It re-derives the epic through the resolver and takes rationale, record reference, hash,
-  and range from the epic issue's close comment (the durable close record in every mode); a PR's
-  published analyze review supplies the conformance verdict where one exists. An epic issue with
-  no trusted close comment, or a recovered range that cannot be resolved locally, is a named
-  per-entry hard block (`no-close-comment` / `range-unresolvable`), never "not yet closed",
-  never a run with fabricated or empty rationale.
-- **Every changed page gains exactly one Decision Log entry per queue entry**; prior entries are
-  never edited, reordered, or deleted.
-- **Domain filing (epic #94, STORY-94.01) is gated on registry presence.** A registry present at
-  Phase 2 makes every `create` delta write a resolving `domain:` before Phase 5's validator ever
-  runs; the Phase 6.1 taxonomy gate blocks only a `forced` fit and never fires for a `clear` one;
-  an approved new domain/subdomain is authored on this same distill branch and re-validated
-  before Phase 7 opens the PR. No registry present → completely inert, byte-for-byte today's
-  behavior.
-- **The drift advisory (epic #94, STORY-94.02) is advisory only.** When a registry exists, Phase 6.3
-  runs it once over the final branch state and pastes its findings into the PR body. It is
-  deterministic (slug-ordered, integer thresholds, identical byte for byte on an unchanged store),
-  always exits zero, and **never edits a page or the registry, never gates the drain, and is never
-  committed**. No registry present → it is not run.
-- **§8.3 is a hard boundary** for pages: no code, no file paths, no type names, no API specs, no
-  speculative claims. Paths live only in `.nexus/anchors/` (R1).
-- **The per-user scratch dirs inside a queue entry are never a distill input**: never read,
-  never mapped to a `ConceptDelta`. The pipeline-store diff exclusion keeps them out of the
-  *what*; this keeps them out of the *why*. They are deleted with the entry when the PR merges.
-- **Reciprocity (C11), anchors (R1), and the validator are deterministic steps**: never skipped,
-  never reinterpreted. A non-zero validator exit blocks the PR; a run whose findings are all
-  advisories does not.
-- **Provenance is qualified cross-repo** (`<owner>/<repo>#n`, 0003 §2.4). In hub mode every
-  reference is qualified from the entry's recorded originating repo and the terse `#n` form is
-  never emitted. In single-repo mode, verify the issue actually lives in the home repo before
-  writing the terse `#n` form.
-- The historical design workspace `libs/origin/v2/.nexus/` is **never written**. The live store
-  is `.nexus/` at the repo root.
 
 # Usage
 
