@@ -76,3 +76,56 @@ describe("one contract for an unreachable range SHA (story #715)", () => {
         expect(DERIVE_SECTION).toMatch(/correct the recorded range stamp/);
     });
 });
+
+const INPUT_RESOLUTION: string = [...SECTIONS].find(([h]) => h.startsWith("# Input Resolution"))?.[1] ?? "";
+
+describe("one entry-kind contract for epic, fix and intake (story #716)", () => {
+    it("resolves the entry kind once, at discovery, and records it for every later phase to read", () => {
+        expect(INPUT_RESOLUTION).toMatch(/Resolve the kind once/);
+        expect(INPUT_RESOLUTION).toMatch(/entry-kind/);
+        expect(INPUT_RESOLUTION).toMatch(/never re-derive/i);
+    });
+
+    it("answers every axis the kinds differ on from one table covering all three", () => {
+        const table = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("|"));
+        expect(table.length).toBeGreaterThan(0);
+        const header = table[0];
+        for (const axis of [/\*why\* verified against/i, /delta vocabulary/i, /validation mode/i, /committed removal target/i]) {
+            expect(header).toMatch(axis);
+        }
+        for (const kind of ["epic", "fix", "intake"]) {
+            expect(table.some((row) => row.startsWith(`| \`${kind}\``))).toBe(true);
+        }
+    });
+
+    it("states what holds for all three kinds once, with no per-kind copy", () => {
+        expect(INPUT_RESOLUTION).toMatch(/true of all three kinds/);
+        expect(DISTILL).not.toContain("drainable on exactly the same terms");
+    });
+
+    it("states the cross-kind non-interference rule once, for all three kinds at once", () => {
+        const stating = [...SECTIONS]
+            .filter(([, text]) => /no kind drained in the same run alters another kind's drain/.test(text))
+            .map(([heading]) => heading);
+        expect(stating).toEqual([expect.stringMatching(/^# Input Resolution/)]);
+        expect(DISTILL).not.toMatch(/Draining an epic entry is unchanged by this/);
+        expect(DISTILL).not.toMatch(/Draining an epic entry or a fix entry is/);
+    });
+
+    it("restates no kind's own behaviour in a later phase or in the closing recap", () => {
+        expect(DISTILL).not.toContain("A fix entry has no committed removal target at all");
+        expect(DISTILL).not.toMatch(/An intake entry \(#483\) gets the full epic vocabulary/);
+        expect(DISTILL).not.toMatch(/An intake entry is validated the same unbounded way/);
+        expect(DISTILL).not.toMatch(/empty by construction, not by a special case/);
+        expect(DISTILL).not.toMatch(/Apply the mode only to a fix entry's pages/);
+        expect(DISTILL).not.toMatch(/\n- \*\*Fix entries \(#263\)/);
+        expect(DISTILL).not.toMatch(/\n- \*\*Intake entries \(#483, record #504\)/);
+        expect(DISTILL).not.toMatch(/\n- \*\*Ephemeral entries \(#173\)/);
+    });
+
+    it("keeps each kind's own action steps where the stage acts on them", () => {
+        expect(DISTILL).toContain("nexus validate-concepts --append-only-log --base HEAD");
+        expect(DISTILL).toContain("no-existing-page");
+        expect(DISTILL).toContain("entry-kind-mismatch");
+    });
+});

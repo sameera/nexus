@@ -248,7 +248,9 @@ describe("/nxs.distill drains a fix entry (story #268)", () => {
     });
 
     it("skips a fix directory missing either file, the same way it skips an epic entry", () => {
-        expect(DISTILL).toMatch(/a fix or intake directory missing either file is skipped exactly as an epic directory\s*\n?\s*missing/);
+        expect(DISTILL).toMatch(/`\.nexus\/tmp\/fix-<n>\/`/);
+        expect(DISTILL).toMatch(/drainable\s*\n?\s*entry \*\*only when it carries both `epic\.md` and `close-record\.md`\*\*/);
+        expect(DISTILL).toMatch(/a directory is drainable only carrying both files/);
     });
 
     it("takes the entry kind from the header, never the directory name, and blocks a disagreement", () => {
@@ -257,8 +259,8 @@ describe("/nxs.distill drains a fix entry (story #268)", () => {
     });
 
     it("bounds a fix entry's deltas to updates carrying one decision log entry and nothing else", () => {
-        expect(DISTILL).toMatch(/Every delta\s*\n?must be `action: update` against a page that \*\*already exists\*\*/);
-        expect(DISTILL).toMatch(/no `touches_added`, no `touches_removed`, no\s*\n?`domain`/);
+        expect(DISTILL).toMatch(/\| `fix` \|[^\n]*one `## Decision Log Entry` appended to a page that already exists, and nothing else/);
+        expect(DISTILL).toMatch(/no `touches_added`, no `touches_removed` and no `domain`/);
     });
 
     it("sources the appended entry's heading from the reference recorded in the entry's link", () => {
@@ -267,17 +269,19 @@ describe("/nxs.distill drains a fix entry (story #268)", () => {
 
     it("hard-blocks a rationale that maps to no existing page and leaves the directory in place", () => {
         expect(DISTILL).toContain("no-existing-page");
-        expect(DISTILL).toMatch(/leave the entry directory in place for a later run/);
+        expect(DISTILL).toMatch(/leave the entry\s*\n?\s*directory in place for a later run/);
+        expect(DISTILL).toMatch(/Under the bounded vocabulary, a rationale that maps to no existing page/);
     });
 
     it("runs the reciprocity fan-out and the atlas regeneration, and expects no change from either", () => {
-        expect(DISTILL).toMatch(/empty by construction, not by a special case/);
-        expect(DISTILL).toMatch(/atlas regeneration is a no-op for the same reason and is\s*\n?\s*likewise still run/);
+        expect(DISTILL).toMatch(/leaves nothing to mirror/);
+        expect(DISTILL).toMatch(/Run the\s*\n?\s*step anyway and expect no edit, and run the atlas regeneration anyway for the same reason/);
+        expect(DISTILL).toMatch(/Under a bounded delta vocabulary that is every delta in the entry/);
     });
 
     it("removes nothing for a fix entry and reports no missing removal target", () => {
-        expect(DISTILL).toMatch(/no committed removal target at all/);
-        expect(DISTILL).toMatch(/report no missing removal target/);
+        expect(DISTILL).toMatch(/\| `fix` \|[^\n]*\| none, and an absent target is the expected shape/);
+        expect(DISTILL).toMatch(/Where the contract gives none, remove\s*\n?\s*nothing and \*\*report no missing removal target\*\*/);
     });
 
     it("names, for each fix entry, the page it changes and the entry it appends, at the checkpoint", () => {
@@ -285,7 +289,8 @@ describe("/nxs.distill drains a fix entry (story #268)", () => {
     });
 
     it("leaves an epic entry's drain unchanged, including one discovered in the same run", () => {
-        expect(DISTILL).toMatch(/Draining an epic entry is unchanged by this,\s*\n?\s*including an epic entry discovered in the same run as a fix entry/);
+        expect(DISTILL).toMatch(/Each drained entry is treated by its own kind's rules,\s*\n?\s*and no kind drained in the same run alters another kind's drain/);
+        expect(DISTILL).toMatch(/a run mixing kinds drains each\s*\n?\s*exactly as a run of that kind alone would/);
     });
 
     it("keeps the two-test merge precondition as the gate on a recorded range head", () => {
@@ -305,8 +310,8 @@ describe("/nxs.distill blocks the PR when a fix entry breaks the razor (story #2
     });
 
     it("does not apply the mode to an epic entry drained in the same run", () => {
-        expect(DISTILL).toMatch(/Apply the mode only to a fix entry's pages/);
-        expect(DISTILL).toMatch(/validated by its own invocation,\s*\n?\s*without the flag/);
+        expect(DISTILL).toMatch(/\| `epic` \|[^\n]*\| none added \|/);
+        expect(DISTILL).toMatch(/each is validated by\s*\n?\s*its own invocation carrying its own kind's mode and no other's/);
     });
 
     it("never passes a regenerated anchor sidecar to the mode", () => {
@@ -321,7 +326,7 @@ describe("/nxs.distill blocks the PR when a fix entry breaks the razor (story #2
 
     it("establishes that the validator enforces the mode, blaming an old install rather than a missing file", () => {
         expect(DISTILL).toContain("nexus --help | grep -q -- --append-only-log");
-        expect(DISTILL).toMatch(/mode-unavailable → refuse the fix entry/);
+        expect(DISTILL).toMatch(/mode-unavailable → refuse that entry/);
         expect(DISTILL).toMatch(/remedy is to update the install/);
     });
 });
