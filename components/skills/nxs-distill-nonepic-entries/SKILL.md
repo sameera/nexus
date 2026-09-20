@@ -58,6 +58,12 @@ nexus record-digest --issue <n> ${REPO:+--repo $REPO}
     re-run /nxs.distill.
     ```
 
+## Phase 3 — the bounded vocabulary's exclusions
+
+Under the bounded vocabulary — one `## Decision Log Entry` appended to a page that
+already exists — that means no `## Summary`, no `## How It Works`, no `## Invariants Added`, no
+`## Invariants Retired`, no `touches_added`, no `touches_removed` and no `domain`.
+
 ## Phase 3 — the bounded vocabulary has no page to create
 
 **Under the bounded vocabulary, a rationale that maps to no existing page is a named per-entry hard

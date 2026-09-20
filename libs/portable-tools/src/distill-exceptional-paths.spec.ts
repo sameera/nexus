@@ -209,3 +209,36 @@ describe("the non-epic entry-kind contract is read only when such an entry drain
         expect(contract("nxs-distill-nonepic-entries")).toMatch(/description: .*\/nxs\.distill.*fix or intake/);
     });
 });
+
+describe("the taxonomy contract is read only where a registry exists (story #730)", () => {
+    it("selects it from the store survey's registry-presence check, and from nothing else", () => {
+        expect(selectionRows()).toContainEqual(["the concept store has a domain registry", "`nxs-distill-taxonomy`", "Phase 2, the store survey"]);
+        expect(BASE_STAGE).toMatch(/When it is present, load the \*\*`nxs-distill-taxonomy`\*\* skill and follow it\./);
+    });
+
+    it("leaves a store with no registry behaving exactly as it does today", () => {
+        expect(BASE_STAGE).toMatch(/If absent, domain filing is inert for this drain/);
+        expect(BASE_STAGE).toMatch(/the Phase 6 taxonomy gate never fires/);
+    });
+
+    it("keeps every classification, gate and advisory rule in the contract and none in the base stage", () => {
+        const body: string = contract("nxs-distill-taxonomy");
+        for (const phase of ["Phase 2", "Phase 3", "Phase 4", "Phase 6.1", "Phase 6.2", "Phase 6.3", "Phase 7"]) {
+            expect(body).toContain(`## ${phase}`);
+        }
+        for (const rule of ["domain_fit", "New Subdomain Draft", "nexus drift-advisory", "forced fit(s) resolved", "filing rubric"]) {
+            expect(body).toContain(rule);
+            expect(BASE_STAGE).not.toContain(rule);
+        }
+    });
+
+    it("leaves the base stage's phase numbering untouched, 6.3 included", () => {
+        expect(BASE_STAGE).toContain("## Phase 6.3 — Final checkpoint");
+        expect(BASE_STAGE).not.toContain("## Phase 6.1");
+        expect(BASE_STAGE).not.toContain("## Phase 6.2");
+    });
+
+    it("describes itself by this stage and its selecting condition only", () => {
+        expect(contract("nxs-distill-taxonomy")).toMatch(/description: .*\/nxs\.distill.*domain registry/);
+    });
+});

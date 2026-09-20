@@ -21,3 +21,9 @@
 - **Choice:** `fix-lane.spec.ts` and `nxs-intake.spec.ts` now build their `DISTILL` constant from the base command document concatenated with the non-epic contract, instead of repointing each assertion individually.
 - **Why:** Those suites assert what a run draining an entry of that kind reads, and such a run reads both documents; concatenating keeps every existing assertion verbatim, which is what record invariant 12 asks for.
 - **Refuted alternative:** Repoint each of the ~30 assertions at whichever of the two documents now owns its rule.
+
+## 2026-09-20 — Phases 6.1 and 6.2 exist only when the taxonomy contract is read
+
+- **Choice:** The base stage jumps from Phase 6 straight to Phase 6.3; the taxonomy contract supplies 6.1 and 6.2 at their existing numbers rather than the base stage keeping empty placeholders for them.
+- **Why:** Record invariant 4 pins numbering, not contiguity — 6.3 keeps its number either way, and a placeholder heading would be the summarizing pointer invariant 1 forbids.
+- **Refuted alternative:** Leave `## Phase 6.1` and `## Phase 6.2` in the base stage as one-line pointers at the contract.

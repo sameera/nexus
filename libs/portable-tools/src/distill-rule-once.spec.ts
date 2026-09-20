@@ -49,6 +49,8 @@ const HUB_CONTRACT: string = skill("nxs-distill-hub");
  * its new owner rather than dropped: the rule is still stated exactly once.
  */
 const NONEPIC_CONTRACT: string = skill("nxs-distill-nonepic-entries");
+/** Likewise for the registry-gated rules, now owned by the taxonomy contract (epic #714). */
+const TAXONOMY_CONTRACT: string = skill("nxs-distill-taxonomy");
 
 const SECTIONS: ReadonlyMap<string, string> = sections(DISTILL);
 const DERIVE_SECTION: string = [...SECTIONS].find(([h]) => h.startsWith("# Phase 1"))?.[1] ?? "";
@@ -163,7 +165,8 @@ describe("one run summary rendered at three surfaces (story #717)", () => {
         expect(count(DISTILL, /omitted when every drained entry is an epic/)).toBe(1);
         expect(count(DISTILL, /omit the by-kind tally/)).toBe(0);
         expect(count(DISTILL, /every queue entry drained; no drain-SLO breaches/)).toBe(1);
-        expect(count(DISTILL, /when Phase 6\.1 found no forced fits/)).toBe(1);
+        expect(count(TAXONOMY_CONTRACT, /when Phase 6\.1 found no forced fits/)).toBe(1);
+        expect(count(DISTILL, /when Phase 6\.1 found no forced fits/)).toBe(0);
     });
 
     it("renders the three surfaces as layouts over that one summary", () => {
@@ -195,7 +198,7 @@ describe("the tool-internal explanations go (story #718)", () => {
         expect(DISTILL).toContain("nexus generate-atlas");
         expect(DISTILL).toMatch(/Atlas written: <path> \(<N> concepts\)/);
         expect(DISTILL).toContain("nexus validate-concepts --base HEAD");
-        expect(DISTILL).toContain("nexus drift-advisory");
+        expect(TAXONOMY_CONTRACT).toContain("nexus drift-advisory");
     });
 
     it("states none of a delegated step's internal ordering, parsing, checking or formatting", () => {
