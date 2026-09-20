@@ -538,35 +538,44 @@ Order` block unlocks it — then every model-added acceptance criterion on a sto
 grouped under it, then every assumption and every out-of-scope item. Each line carries its tick, its
 number, its blockers and its provenance. **Transcribe it; derive nothing.**
 
-Render it as the checker printed it, under this heading and this instruction:
+**Render it inside a fenced code block** (nxs-razor §8), under this heading, with the checker's
+lines pasted between the fences byte for byte — its group headings, its indentation, its ticks and
+its numbers. Do **not** render the checklist as live markdown: the reviewer's client renders
+what you emit, a `- [x]` line is consumed as a task-list control and the numbers are re-sequenced
+from the list's own position, and what reaches the screen is then an unnumbered, untickable list
+naming nothing the reviewer can flip. The fence is what makes the ticks and the numbers survive.
 
-```markdown
+````markdown
 ### The filed set — untick to drop, tick to add
 
+```
+<every line of `nexus razor-offer` below its first, verbatim — for example:>
+
 Stories
-- [x]  1. <Story Title> · <size> · waits on: none · you asked: "<the story's asked fragment, verbatim>"
-- [ ]  2. <Story Title> · <size> · waits on: <Story Title> · you asked: "<fragment>"
-- [ ]  3. <Story Title> · <size> · waits on: <Story Title> · inferred
+  [x]  1. <Story Title> · <size> · waits on: none · you asked: "<the story's asked fragment, verbatim>"
+  [ ]  2. <Story Title> · <size> · waits on: <Story Title> · you asked: "<fragment>"
+  [ ]  3. <Story Title> · <size> · waits on: <Story Title> · inferred
 
 Acceptance criteria — model-added, on stories above
   <Story Title>
-- [x]  4. <the criterion, verbatim minus its label> · inferred
+  [x]  4. <the criterion, verbatim minus its label> · inferred
 
 Assumptions
-- [x]  5. <the assumption, verbatim minus its label> · inferred
+  [x]  5. <the assumption, verbatim minus its label> · inferred
 
 Out of scope
-- [x]  6. <the out-of-scope item, verbatim minus its label> · you asked: "<fragment>"
+  [x]  6. <the out-of-scope item, verbatim minus its label> · you asked: "<fragment>"
+```
 
 Type the numbers you want to flip, or nothing to take it as ticked.
-```
+````
 
 **Every line is numbered and every number flips exactly one line**, in whichever direction that line
 is currently set. There is no group whose numbers mean something different from another group's, and
 no unnumbered group the reviewer has to read differently. One typed selection carries the whole
 decision.
 
-**Keep the ticks in the markdown.** Do **not** render this as `AskUserQuestion` checkboxes — that
+**Keep the ticks in the text.** Do **not** render this as `AskUserQuestion` checkboxes — that
 control cannot arrive pre-ticked, so an untouched box would mean *drop it* and the default would be
 unrenderable (nxs-razor §8, the shared shape). The question below carries only the three actions.
 

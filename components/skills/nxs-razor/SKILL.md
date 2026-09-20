@@ -211,6 +211,15 @@ file. A stage's restatement of either convention is a pointer, never a source.
    confirmation.
 5. **Nothing is applied to content a prior partial run already filed.** A number naming such content
    is refused, with the reason stated, never silently ignored.
+6. **The list reaches the reviewer verbatim, inside a fenced code block.** The reviewer reads it in a
+   client that renders markdown, and **the tick and the number are the two things the selection
+   names** — which are exactly the two a renderer rewrites. Written as markdown list syntax, `- [x]`
+   is consumed as a task-list control and the numbers are re-sequenced from the list's own position,
+   so the reviewer is shown an unnumbered, untickable list and cannot name anything at all. A fence
+   suspends the rendering, so what the gate computed is what the reviewer reads. **The list carries
+   no markdown list syntax of its own** either: a block that escapes its fence must still be legible.
+   This holds however the list was produced — a stage that renders it by hand is under the same rule
+   as one that transcribes a checker's output.
 
 ### The planning gate's convention: addition
 
