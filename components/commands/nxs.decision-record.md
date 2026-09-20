@@ -435,17 +435,23 @@ shows the reviewer only part of what the model added leaves the rest of the labe
 **An invariant or a risk the lead asked for is not listed** — that is the lead's own definition, and
 striking it is a revise, exactly as an asked-for acceptance criterion is treated at the planning gate.
 
-**Ask the checker for the list; do not assemble it by hand:**
+**Ask the checker for the list; do not assemble it by hand.** Pass `--approved-body` **only when the
+record sub-issue is closed** at this moment — the resolved `epic.md` carries `record_state: closed`.
+Write that approved body to `<scratch>/record-approved.md` first
+(`gh issue view <record> --json body --jq .body`). An **absent** record and an **open** one each take
+no fetch and no flag: an open body is edited in place by design, so nothing about it is frozen.
 
 ```bash
-nexus razor-offer --draft "<scratch>/record-body.labelled.md" --record
+nexus razor-offer --draft "<scratch>/record-body.labelled.md" --record \
+    [--approved-body "<scratch>/record-approved.md"]     # only when record_state is closed
 ```
 
 It prints one numbered list: every refuted alternative, under the decision it belongs to, then every
-invariant the model added, then every risk it added — one sequence from 1, in the record's own
-section order. **Transcribe it; derive nothing.** A list assembled by hand can quietly omit the one
-line this gate exists to show, and nothing downstream would notice; an omission from the checker is a
-test failure.
+invariant the model added, then every risk it added — **one sequence from 1**, in the record's own
+section order, and **every line arrives ticked**, because a plain approval files the record minus
+nothing. **Transcribe it; derive nothing.** A list assembled by hand can quietly omit the one line
+this gate exists to show, and nothing downstream would notice; an omission from the checker is a test
+failure.
 
 Render the checker's lines **inside a fenced code block** (nxs-razor §8), under the heading, pasted
 between the fences byte for byte — its group headings, its indentation and its numbers. The
@@ -454,26 +460,38 @@ from the list's own position — so entry 2 under the second decision comes back
 the reviewer types then names the wrong item. The fence suspends that.
 
 ````markdown
-### What the model added — name the numbers to cut
+### What the model added — untick to cut
 
 ```
 <every line of `nexus razor-offer --record` below its first, verbatim — for example:>
 
 Refuted alternatives
   <Decision Title>
-   1. <the alternative, as written> — <its stated reason for losing>
+  [x] 1. <the alternative, as written> — <its stated reason for losing>
   <Decision Title>
-   2. <the alternative, as written> — <its stated reason for losing>
+  [x] 2. <the alternative, as written> — <its stated reason for losing>
 
 Invariants — model-added
-   3. <the invariant, verbatim minus its label>
+  [x] 3. <the invariant, verbatim minus its label>
+  [x] 4. <the invariant, verbatim minus its label> · frozen: the approved record already carries this
 
 Risks — model-added
-   4. <the risk, verbatim minus its label>
+  [x] 5. <the risk, verbatim minus its label>
 ```
 
-Type the numbers you want cut, or nothing to file the record as drafted.
+Type the numbers you want to cut, or nothing to file the record as drafted.
 ````
+
+**Every line is numbered and a number flips exactly one line**, whatever kind that line is. There is
+no group whose numbers mean something different from another group's. One typed selection carries the
+whole decision — the same thing a number does at the planning gate, so a lead who runs both stages in
+the same week reads "type 3" one way. What differs is only the direction the default points: this
+gate files the record as drafted and a number **cuts**, because a refuted alternative is not scope and
+an invariant describes an epic whose scope the planning gate has already settled (nxs-razor §8).
+
+**Keep the ticks in the text.** Do **not** render this as `AskUserQuestion` checkboxes — that control
+cannot arrive pre-ticked, so an untouched box would mean *cut it* and the default would be
+unrenderable (nxs-razor §8, the shared shape). The question below carries only the four actions.
 
 Where the viability judgment above found an alternative that names no trade-off, show the
 observation beside that alternative's number, under the fence, in the razor's own marked form —
@@ -504,11 +522,21 @@ Then ask via **`AskUserQuestion`** (per the interaction convention). Four option
 `approve with cuts` takes a typed list of the numbers. **One typed selection covers every kind the
 list holds** — a number names one line, whether that line is a refuted alternative, an invariant or a
 risk. Delete each named line from the labelled draft **before** Phase 3.6 derives the filing body, so
-it is gone before any issue is created or updated. When a cut leaves the record's invariant list
-renumbered, renumber it, and check that no surviving prose refers to a cut item by its old number.
-**Naming nothing is identical to plain approval**: no re-render and no second confirmation. A cut
-naming content in a body that is already filed and approved is refused with the reason: an approved
-record is frozen and changes only through Phase 4.5's reopen path.
+it is gone before any issue is created or updated. Then renumber the record's invariant list without
+gaps, and check that no surviving prose refers to a cut item by its old number. A reviewer may cut
+every line, including every invariant; the section then files empty or is omitted by its tier. There
+is no floor, because no razor rule may require an item to exist in order to satisfy one (nxs-razor
+§5).
+
+**Naming nothing is identical to plain approval**: the record files as drafted, with no re-render and
+no second confirmation.
+
+**A number naming a frozen line is refused**, with the reason and the route stated, never silently
+ignored and never silently applied: the approved record is frozen, and approved content changes only
+by Phase 4.5's reopen path not carrying it into the new body, under that path's supersession comment.
+It never changes by being unticked here. On a `--revise` run most of the list is frozen for exactly
+this reason, which is why the checker marks those lines when the list is rendered rather than leaving
+the reviewer to meet the refusal one number at a time.
 
 The checkpoint writes no file and is spent when it is answered. **`revise` and `no record` leave
 the store untouched**: nothing is published before this checkpoint is answered with an approval,

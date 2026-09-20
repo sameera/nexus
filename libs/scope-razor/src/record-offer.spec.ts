@@ -81,3 +81,51 @@ describe("the record checkpoint's checklist", () => {
         expect(recordChecklist("# Decision Record: Empty\n\n## Summary\n\nNothing.\n")).toEqual([]);
     });
 });
+
+describe("the ticks the record checklist arrives with", () => {
+    it("ticks every line, since a plain approval files the record minus nothing", () => {
+        expect(items.every((item: RecordChecklistItem) => item.filed)).toBe(true);
+    });
+
+    it("marks no line frozen when the run has no approved body to compare against", () => {
+        expect(items.some((item: RecordChecklistItem) => item.frozen)).toBe(false);
+    });
+});
+
+describe("a line whose content an approved record already carries", () => {
+    const approved: string = [
+        "# Decision Record: Something",
+        "",
+        "## Constraints & Invariants",
+        "",
+        "1. Every model-added invariant appears on the list",
+        "",
+    ].join("\n");
+    const frozen: RecordChecklistItem[] = recordChecklist(DRAFT, approved);
+    const carried = (text: string): RecordChecklistItem => {
+        const found: RecordChecklistItem | undefined = frozen.find((item: RecordChecklistItem) => item.text === text);
+        if (found === undefined) throw new Error(`the checklist lists no line called ${text}`);
+        return found;
+    };
+
+    it("marks the line as frozen, so the reviewer reads that before they type its number", () => {
+        expect(carried("Every model-added invariant appears on the list").frozen).toBe(true);
+    });
+
+    it("leaves a line the approved body does not carry flippable", () => {
+        expect(carried("A flip edits the labelled draft before the filing body is derived").frozen).toBe(false);
+    });
+
+    it("still ticks a frozen line, because a plain approval files the record as drafted", () => {
+        expect(carried("Every model-added invariant appears on the list").filed).toBe(true);
+    });
+
+    it("compares the way the citation check does, so retyped quotes and spacing do not decide it", () => {
+        const retyped: string = "1.  Every  model-added invariant appears on the LIST";
+        expect(recordChecklist(DRAFT, retyped).find((item: RecordChecklistItem) => item.kind === "invariant")?.frozen).toBe(true);
+    });
+
+    it("freezes nothing when the approved body is absent, which is an epic with no record yet", () => {
+        expect(recordChecklist(DRAFT, undefined).some((item: RecordChecklistItem) => item.frozen)).toBe(false);
+    });
+});

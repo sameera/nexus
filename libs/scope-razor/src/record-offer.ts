@@ -17,6 +17,7 @@
  * gate gives an asked-for acceptance criterion.
  */
 
+import { normalize } from "./citations.js";
 import { bullets, readClaim, sections, type Section } from "./document.js";
 import { stripLabels } from "./labels.js";
 
@@ -28,10 +29,21 @@ export interface RecordChecklistItem {
     /** Its number in the rendered list, from one, across every kind the list holds. */
     number: number;
     kind: RecordChecklistKind;
+    /**
+     * Ticked means a plain approval files it. Every line arrives ticked: this gate's convention is
+     * removal, and there is no smaller usable record to default to.
+     */
+    filed: boolean;
     /** The item as the reviewer reads it: its marker, its label and any template comment gone. */
     text: string;
     /** Alternatives only: the decision the alternative belongs to. */
     parent: string | undefined;
+    /**
+     * Whether the approved record body already carries this line's content. A frozen line is still
+     * rendered and still ticked; what it cannot be is flipped, because an approved body changes
+     * only through the revision path's supersession trail.
+     */
+    frozen: boolean;
 }
 
 const DECISIONS: RegExp = /^Key Decisions$/i;
@@ -95,12 +107,29 @@ function alternatives(draft: string): Array<Omit<RecordChecklistItem, "number">>
  * second idiom this gate is being aligned away from. The order is the record's, so the list reads in
  * the same order as the document it describes, and no ranking is implied — ranking would have the
  * drafting model sorting its own additions by how persuasive it finds them.
+ *
+ * Every line arrives ticked. This gate's convention is removal: a refuted alternative is not scope,
+ * and an invariant describes an epic whose scope the planning gate has already settled, so there is
+ * no smaller usable record to default to and inverting here would invert nothing.
+ *
+ * `approvedBody` is the record body as it stands approved, and it is passed only when the epic's
+ * record sub-issue is closed at the moment the checkpoint runs. A line whose label-stripped text
+ * that body already carries is marked frozen — matched by the same normalized containment the
+ * citation check uses, never fuzzily — because approved content changes through the revision path's
+ * supersession trail and never by being unticked at a gate. An open record is edited in place by
+ * design, so it is not compared against and nothing about it is refused.
  */
-export function recordChecklist(draft: string): RecordChecklistItem[] {
-    const lines: Array<Omit<RecordChecklistItem, "number">> = [
+export function recordChecklist(draft: string, approvedBody?: string): RecordChecklistItem[] {
+    const lines: Array<Pick<RecordChecklistItem, "kind" | "text" | "parent">> = [
         ...alternatives(draft),
         ...inferred(section(draft, INVARIANTS)?.lines ?? []).map((line: string) => ({ kind: "invariant" as const, text: itemText(line), parent: undefined })),
         ...inferred(section(draft, RISKS)?.lines ?? []).map((line: string) => ({ kind: "risk" as const, text: itemText(line), parent: undefined })),
     ];
-    return lines.map((line: Omit<RecordChecklistItem, "number">, index: number) => ({ ...line, number: index + 1 }));
+    const approved: string | undefined = approvedBody === undefined ? undefined : normalize(approvedBody);
+    return lines.map((line: Pick<RecordChecklistItem, "kind" | "text" | "parent">, index: number) => ({
+        ...line,
+        number: index + 1,
+        filed: true,
+        frozen: approved !== undefined && line.text !== "" && approved.includes(normalize(line.text)),
+    }));
 }

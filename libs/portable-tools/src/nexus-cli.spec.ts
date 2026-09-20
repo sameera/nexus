@@ -1284,6 +1284,40 @@ describe("nexus razor-offer --record (epic #722)", () => {
         const out: string = await run("# Decision Record: Empty\n\n## Summary\n\nNothing.\n");
         expect(out).toMatch(/nothing to (cut|tick)/i);
     });
+
+    it("ticks every line, since a plain approval files the record minus nothing", async () => {
+        const out: string = await run(record);
+        expect(out).not.toMatch(/\[ \]/);
+        expect(out).toMatch(/\[x\] +1\. have the architect return its own list/);
+        expect(out).toMatch(/\[x\] +3\. \*\*ADDRESS/);
+    });
+
+    it("writes no markdown list marker, so a renderer cannot eat the tick or renumber the line", async () => {
+        const out: string = await run(record);
+        const items: string[] = out.split("\n").filter((line: string) => /\[[x ]\]/.test(line));
+        expect(items.length).toBeGreaterThan(0);
+        for (const line of items) expect(line).toMatch(/^ *\[[x ]\] +\d+\. /);
+    });
+
+    it("marks a line the approved record body already carries, and names why it cannot be flipped", async () => {
+        const dir: string = makeTmpDir("cli-razor-frozen-");
+        fs.writeFileSync(path.join(dir, "record.md"), record);
+        fs.writeFileSync(path.join(dir, "approved.md"), "## Constraints & Invariants\n\n1. Every model-added invariant appears on the list\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-offer", "--draft", "record.md", "--record", "--approved-body", "approved.md"], io)).toBe(0);
+        const out: string = io.out.join("\n");
+        expect(out).toMatch(/\[x\] +2\. Every model-added invariant appears on the list.*approved/);
+        expect(out).toMatch(/\[x\] +1\. have the architect return its own list[^\n]*$/m);
+        expect(out.split("\n").find((line: string) => line.includes("have the architect"))).not.toContain("frozen");
+    });
+
+    it("stops rather than guessing when the approved body it was pointed at cannot be read", async () => {
+        const dir: string = makeTmpDir("cli-razor-frozen-missing-");
+        fs.writeFileSync(path.join(dir, "record.md"), record);
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-offer", "--draft", "record.md", "--record", "--approved-body", "gone.md"], io)).toBe(1);
+        expect(io.out.join("\n")).toBe("");
+    });
 });
 
 describe("nexus trunk", () => {

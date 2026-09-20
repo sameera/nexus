@@ -331,14 +331,18 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Print a razor gate's numbered checklist: the planning gate's filed set, or a record's model-added items.",
         usage: [
             "  nexus razor-offer --draft <path>",
-            "  nexus razor-offer --draft <path> --record",
+            "  nexus razor-offer --draft <path> --record [--approved-body <path>]",
             "      Print one numbered checklist: every story, every model-added acceptance criterion on",
             "      a story the default files, and every boundary. A ticked line is what a plain approval",
             "      files; the smallest usable version comes first, then the stories it excludes,",
             "      asked-for before model-added, each in the order the ordering block unlocks it.",
             "      With --record the draft is a decision record: the list holds every refuted",
             "      alternative under the decision it belongs to, then every invariant and every risk",
-            "      the model added, numbered as one sequence in the record's own section order.",
+            "      the model added, numbered as one sequence in the record's own section order and",
+            "      every line ticked, because a plain approval files the record minus nothing. Pass",
+            "      --approved-body only when the record sub-issue is closed: a line whose text that",
+            "      body already carries is marked frozen, since approved content changes only through",
+            "      the revision path.",
         ].join("\n"),
         run: runRazorOffer,
     },
@@ -1566,6 +1570,8 @@ interface RazorCheckFlags {
     assetPaths: string[];
     /** `--record`: offer over a decision-record draft rather than an epic draft (epic #722). */
     record: boolean;
+    /** `--approved-body`: the approved record body, passed only when the record sub-issue is closed. */
+    approvedBody?: string;
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
@@ -1577,6 +1583,7 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
         else if (argv[i] === "--asset-path") flags.assetPaths.push(argv[++i] ?? "");
         else if (argv[i] === "--derive") flags.derive = argv[++i];
         else if (argv[i] === "--record") flags.record = true;
+        else if (argv[i] === "--approved-body") flags.approvedBody = argv[++i];
         else if (argv[i] === "--filed")
             flags.filed = (argv[++i] ?? "")
                 .split(";")
@@ -1688,7 +1695,16 @@ async function runRazorOffer(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
     if (flags.record) {
-        const record: RecordChecklistItem[] = recordChecklist(body);
+        let approved: string | undefined;
+        if (flags.approvedBody !== undefined) {
+            try {
+                approved = fs.readFileSync(path.resolve(io.cwd, flags.approvedBody), "utf8");
+            } catch {
+                io.stderr(`razor-offer: cannot read ${flags.approvedBody}`);
+                return 1;
+            }
+        }
+        const record: RecordChecklistItem[] = recordChecklist(body, approved);
         io.stdout(renderRecordChecklist(flags.draft, record));
         return 0;
     }

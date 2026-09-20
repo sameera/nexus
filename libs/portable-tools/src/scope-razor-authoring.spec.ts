@@ -228,7 +228,7 @@ describe("the two gate conventions", () => {
 
     it("keeps the shared shape the two gates still have in common", () => {
         expect(flat).toMatch(/empty selection is identical to plain approval/i);
-        expect(flat).toMatch(/refused, with the reason stated, never silently ignored/);
+        expect(flat).toMatch(/refused, with the reason stated and the route named, never silently ignored/);
     });
 
     it("names addition as the planning gate's default and states what a plain approval files", () => {
@@ -528,6 +528,38 @@ describe("the record's pre-filing checkpoint", () => {
 
     it("renders its observation with the sentinel the assertion looks for", () => {
         expect(read("commands/nxs.decision-record.md")).toContain("⚠️ razor: names no trade-off");
+    });
+
+    it("renders one pre-ticked checklist, so a plain approval is the set the reviewer read", () => {
+        expect(record).toMatch(/every line arrives ticked/i);
+        expect(record).toMatch(/\[x\]/);
+    });
+
+    it("flips exactly one line per number typed, the planning gate's idiom", () => {
+        expect(record).toMatch(/a number .{0,40}flips (exactly )?one line/i);
+    });
+
+    it("keeps all four exits beside the checklist, the proceed-without-a-record one included", () => {
+        expect(record).toContain("**approve as drafted**");
+        expect(record).toContain("**approve with cuts**");
+        expect(record).toContain("**revise**");
+        expect(record).toContain("**no record**");
+    });
+
+    it("fetches the approved body only where there is one to freeze against", () => {
+        expect(record).toMatch(/--approved-body/);
+        expect(record).toMatch(/only when the (epic's )?record sub-issue is closed/i);
+    });
+
+    it("states the reason a frozen line refuses, and names the route that can change it", () => {
+        expect(record).toMatch(/refused/i);
+        expect(record).toMatch(/Phase 4\.5/);
+    });
+});
+
+describe("the refusal the two gates share", () => {
+    it("names approved content on the razor page, so the page and the record stage state one rule", () => {
+        expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/a prior run already filed and approved/i);
     });
 });
 

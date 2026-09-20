@@ -109,19 +109,26 @@ const RECORD_GROUP: Record<RecordChecklistKind, string> = {
 };
 
 /**
- * The record checkpoint's checklist as the gate renders it (epic #722, story #723): one numbered
- * list holding every refuted alternative, every invariant the model added and every risk it added,
- * grouped by kind in the record's own section order and numbered as one sequence.
+ * The record checkpoint's checklist as the gate renders it (epic #722, stories #723 and #724): one
+ * numbered list holding every refuted alternative, every invariant the model added and every risk it
+ * added, grouped by kind in the record's own section order and numbered as one sequence.
  *
- * The number is the first thing on every line, because the number is what the reviewer's selection
- * names. No line carries a markdown list marker, for the reason the planning gate's list carries
- * none: a renderer handed `- 1.` re-sequences the line from its own position, so the number the
- * reviewer reads is no longer the number the gate computed. The gate delivers this verbatim inside
- * a fence (nxs-razor §8); this keeps it legible where a block escapes one.
+ * Every line arrives ticked, because a plain approval files the record minus nothing, and the
+ * reviewer names only the numbers they want cut. The tick and the number are the first two things on
+ * every line, for the same reason they are at the planning gate: they are what the selection names.
+ *
+ * A frozen line says so where the reviewer reads it, rather than only when they type its number. On
+ * a revision most of the list is frozen, and a reviewer who meets the refusal one number at a time
+ * reads the gate as broken.
+ *
+ * No line carries a markdown list marker, for the reason the planning gate's list carries none: a
+ * renderer handed `- [x] 1.` consumes the tick as a task-list control and re-sequences the line from
+ * its own position, which deletes exactly the two things the selection names. The gate delivers this
+ * verbatim inside a fence (nxs-razor §8); this keeps it legible where a block escapes one.
  */
 export function renderRecordChecklist(draft: string, items: RecordChecklistItem[]): string {
     if (items.length === 0) return `razor-offer: ${draft} — the record states no refuted alternative and nothing the model added, so there is nothing to cut`;
-    const lines: string[] = [`razor-offer: ${draft} — what the model added to the record; ${items.length} numbered item(s):`];
+    const lines: string[] = [`razor-offer: ${draft} — what the model added, pre-ticked; ${items.length} numbered item(s):`];
     let group: RecordChecklistKind | undefined;
     let parent: string | undefined;
     const width: number = String(items[items.length - 1].number).length;
@@ -135,7 +142,9 @@ export function renderRecordChecklist(draft: string, items: RecordChecklistItem[
             lines.push(`  ${item.parent}`);
             parent = item.parent;
         }
-        lines.push(`  ${String(item.number).padStart(width, " ")}. ${item.text}`);
+        const number: string = String(item.number).padStart(width, " ");
+        const frozen: string = item.frozen ? " · frozen: the approved record already carries this" : "";
+        lines.push(`  [${item.filed ? "x" : " "}] ${number}. ${item.text}${frozen}`);
     }
     return lines.join("\n");
 }

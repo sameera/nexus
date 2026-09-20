@@ -5,6 +5,32 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.64.0
+
+- **The decision-record checkpoint now reads exactly like the epic approval gate.** Both gates used
+  to ask you to learn two idioms. At the planning gate a number flipped a tick. At the record
+  checkpoint a number deleted, off a bare numbered list with no ticks on it. A lead who ran both
+  stages in the same week read "type 3" two ways.
+
+  The checkpoint now renders one numbered checklist with **every line already ticked**, numbered as
+  one sequence from 1 across refuted alternatives, model-added invariants and model-added risks
+  alike. A number flips exactly one line, whatever kind it is, and one typed selection covers the
+  whole list. Typing nothing files the record as drafted, with no re-render and no second
+  confirmation.
+
+  **The convention itself has not changed** — this gate still removes, and a plain approval still
+  files the record minus nothing. What is aligned is how you read the list and what a number does to
+  it, not which direction the default points.
+
+- **A line the approved record already carries is now marked frozen, and refuses to be cut.** On a
+  `--revise` run the draft re-derives most of the invariants the approved body already holds. Cutting
+  one at the checkpoint would change approved content outside the supersession comment trail, which
+  is the one place a superseded record state is reconstructible from. Those lines are now marked
+  where you read them, and typing one's number is refused with the reason and the route stated: the
+  change belongs in the drafted body under the revision path. An epic with no record, and one whose
+  record is still open, are unaffected — an open body is edited in place by design, so nothing about
+  it is frozen.
+
 ## 0.63.0
 
 - **The decision-record checkpoint now shows you every invariant and every risk the drafting model
