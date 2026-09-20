@@ -16,7 +16,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { resolveInstallLocation, type InstallLocationResult } from "./install-location.js";
+import { CODEX_COMPONENT_DIRNAME, resolveInstallLocation, type Harness, type InstallLocationResult } from "./install-location.js";
 import { isNexusNamespacedPath } from "./nexus-namespace.js";
 import { COMPONENT_SUBTREES } from "./vendor-components.js";
 
@@ -84,13 +84,15 @@ export interface EnvironmentScope {
 export function detectEnvironmentDefects(scope: EnvironmentScope): EnvironmentDefect[] {
     const defects: EnvironmentDefect[] = [];
 
-    // The scope is the user account, never the machine: exactly two places are examined — the
-    // location a verb would install to, and the repository the verb was invoked from.
-    const location: InstallLocationResult = resolveInstallLocation(
-        scope.home === undefined ? {} : { homedir: (): string => scope.home as string },
-    );
-    if (location.ok) {
-        const repoComponentRoot: string = path.join(path.resolve(scope.cwd), ".claude");
+    // Compare account and repository installs within each harness. Having both harnesses is
+    // supported; it is not two competing copies in the same harness's skill search path.
+    for (const harness of ["claude", "codex"] as Harness[]) {
+        const location: InstallLocationResult = resolveInstallLocation({
+            harness,
+            ...(scope.home === undefined ? {} : { homedir: (): string => scope.home as string }),
+        });
+        if (!location.ok) continue;
+        const repoComponentRoot: string = path.join(path.resolve(scope.cwd), harness === "codex" ? CODEX_COMPONENT_DIRNAME : ".claude");
         const installed: Set<string> = componentRealPaths(location.path);
         const local: Set<string> = componentRealPaths(repoComponentRoot);
         const distinct: boolean = [...installed].some((real) => !local.has(real));
@@ -99,8 +101,10 @@ export function detectEnvironmentDefects(scope: EnvironmentScope): EnvironmentDe
                 defect: "2 component sets resolve on one account",
                 detail: [location.path, repoComponentRoot].join(", "),
                 remedy:
-                    "keep one component set; the account-level one is the supported arrangement, so run " +
-                    "`nexus migrate-components` in the repository to remove its committed copy",
+                    harness === "codex"
+                        ? "keep one Codex skill set; remove the repository-local Nexus skills after reviewing them, or disable their paths in Codex configuration"
+                        : "keep one component set; the account-level one is the supported arrangement, so run " +
+                          "`nexus migrate-components` in the repository to remove its committed copy",
             });
         }
     }

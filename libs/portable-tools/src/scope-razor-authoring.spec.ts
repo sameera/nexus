@@ -272,6 +272,12 @@ describe("the two gate conventions", () => {
         expect(flat).toMatch(/\*\*Both provenances are listed\*\*/);
     });
 
+    it("delivers the list verbatim in a fenced block, so the ticks and the numbers survive rendering", () => {
+        expect(flat).toMatch(/fenced code block/);
+        expect(flat).toMatch(/markdown list syntax/i);
+        expect(flat).toMatch(/the tick and the number are the two things the selection names/i);
+    });
+
     it("states that this file governs where a drafting stage's own wording disagrees with it", () => {
         expect(flat).toMatch(/Where a restatement and this file disagree, this file governs/);
         expect(flat).toMatch(/this page governs where a stage's own wording disagrees with it/i);
@@ -300,6 +306,11 @@ describe("the approval digest", () => {
     it("keeps the ticks in prose rather than as question-widget checkboxes", () => {
         expect(epic).toMatch(/Do \*\*not\*\* render this as `AskUserQuestion` checkboxes/);
         expect(epic).toMatch(/cannot arrive pre-ticked/);
+    });
+
+    it("renders the checklist inside a fenced block rather than as live markdown", () => {
+        expect(epic).toMatch(/inside a fenced code block/i);
+        expect(epic).toMatch(/Do \*\*not\*\* render the checklist as live markdown/);
     });
 
     it("carries the ticked set into the question, because mid-turn markdown may not be seen", () => {
@@ -389,6 +400,10 @@ describe("the other drafting stages", () => {
         expect(record).toContain("nxs-razor");
         expect(discover).toContain("nxs-razor");
         expect(record).toMatch(/this command restates none of it/);
+    });
+
+    it("render the record's cut list inside a fenced block, for the same reason the epic gate does", () => {
+        expect(record).toMatch(/inside a fenced code block/i);
     });
 
     it("label the record's invariants and risks in the same two-valued form", () => {

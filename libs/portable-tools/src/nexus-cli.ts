@@ -71,6 +71,7 @@ import { takeTargetRoot } from "@nexus/workspace/target-root";
 import { isDirectRun } from "./entry-point.js";
 import { allowlistNoticeLines } from "./allowlist.js";
 import { deployComponents, EMPTY_PAYLOAD, payloadDirectory, type DeployResult } from "./deploy-components.js";
+import { deployCodexComponents } from "./codex-components.js";
 import {
     DEFAULT_CONFIG_DIRNAME,
     describeInstallLocation,
@@ -78,6 +79,8 @@ import {
     ensureInstallLocation,
     inspectInstallLocation,
     resolveInstallLocation,
+    CODEX_COMPONENT_DIRNAME,
+    type Harness,
     type InstalledContent,
     type InstallLocationResult,
     type InstallLocationState,
@@ -144,7 +147,8 @@ const REGISTRY: Record<string, VerbEntry> = {
     deploy: {
         summary: "Install the Nexus Claude components into the target repo.",
         usage: [
-            "  nexus deploy [--payload <dir>] [--target <dir>]",
+            "  nexus deploy [--harness claude|codex] [--payload <dir>] [--target <dir>]",
+            "      Defaults to Claude. Codex installs generated skills under .agents/skills.",
             `      Install the Nexus Claude components (${REPO_COMPONENT_DIRNAME}/ commands, agents, skills) into the`,
             "      target repo (default: the current directory), mirroring the vendored payload",
             "      (default: the claude-components directory beside this artifact). Idempotent;",
@@ -156,9 +160,11 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runDeploy,
     },
     install: {
-        summary: "Install the Nexus Claude components at the account's configuration directory.",
+        summary: "Install Nexus for Claude (default) or Codex at the account's skill location.",
         usage: [
-            "  nexus install [--payload <dir>] [--from-checkout <dir>]",
+            "  nexus install [--harness claude|codex] [--payload <dir>] [--from-checkout <dir>]",
+            "      Codex: generate skills under ~/.agents/skills; invoke with $nxs-epic, etc.",
+            "      Codex --from-checkout generates a snapshot; rerun after source edits.",
             "      Install the Nexus Claude components (commands, agents, skills) at the Claude",
             `      configuration directory — $CLAUDE_CONFIG_DIR, or ${DEFAULT_CONFIG_DIRNAME} in your home directory.`,
             "      Exactly one component set exists per account, so this replaces per-repository",
@@ -169,9 +175,10 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runInstall,
     },
     uninstall: {
-        summary: "Remove the installed Nexus Claude components from the configuration directory.",
+        summary: "Remove Nexus components for the selected harness (default: claude).",
         usage: [
-            "  nexus uninstall",
+            "  nexus uninstall [--harness claude|codex]",
+            "      Codex removes its generated skills under ~/.agents/skills only.",
             "      Remove every Nexus-namespaced component file from the Claude configuration",
             "      directory, leaving your own files there untouched. Run it BEFORE removing the",
             "      package: the verb ships inside the package, and the package manager has no record",
@@ -193,7 +200,7 @@ const REGISTRY: Record<string, VerbEntry> = {
     version: {
         summary: "Report the installed release, its component payload and its install location.",
         usage: [
-            "  nexus version",
+            "  nexus version [--harness claude|codex]",
             "      Print { version, componentPayload, installLocation } — the release's one semantic",
             "      version, the component payload's fingerprint, and where the components are installed.",
         ].join("\n"),
@@ -599,8 +606,22 @@ function takeOption(argv: string[], flag: string, io: CliIo): { present: boolean
     return { present: true, value };
 }
 
+/** Select a harness explicitly; existing invocations retain their Claude behavior. */
+function takeHarness(argv: string[], io: CliIo): Harness | null {
+    const option = takeOption(argv, "--harness", io);
+    if (option === null) return null;
+    const value = option.value ?? "claude";
+    if (value !== "claude" && value !== "codex") {
+        io.stderr(`--harness must be claude or codex, got: ${value}`);
+        return null;
+    }
+    return value;
+}
+
 async function runDeploy(argv: string[], io: CliIo): Promise<number> {
     const rest: string[] = [...argv];
+    const harness = takeHarness(rest, io);
+    if (harness === null) return 2;
     const payloadOpt = takeOption(rest, "--payload", io);
     if (payloadOpt === null) {
         return 2;
@@ -616,16 +637,22 @@ async function runDeploy(argv: string[], io: CliIo): Promise<number> {
 
     const payloadDir: string = payloadOpt.value ?? defaultPayloadDir();
     const targetRepoRoot: string = targetOpt.value ?? io.cwd;
+    const componentRoot = path.join(targetRepoRoot, harness === "codex" ? CODEX_COMPONENT_DIRNAME : REPO_COMPONENT_DIRNAME);
 
     let result: DeployResult;
     try {
-        result = deployComponents(payloadDirectory(payloadDir), path.join(targetRepoRoot, REPO_COMPONENT_DIRNAME));
+        result =
+            harness === "codex"
+                ? deployCodexComponents(payloadDir, componentRoot, {
+                      owner: RELEASE_PACKAGE_NAME,
+                  })
+                : deployComponents(payloadDirectory(payloadDir), componentRoot);
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
     }
     io.stdout(
-        `deployed ${result.written.length} component file(s) into ${path.join(targetRepoRoot, REPO_COMPONENT_DIRNAME)}` +
+        `deployed ${result.written.length} component file(s) into ${componentRoot}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
     );
     return 0;
@@ -678,6 +705,8 @@ async function runSeedTemplates(argv: string[], io: CliIo): Promise<number> {
  */
 async function runInstall(argv: string[], io: CliIo): Promise<number> {
     const rest: string[] = [...argv];
+    const harness = takeHarness(rest, io);
+    if (harness === null) return 2;
     const payloadOpt = takeOption(rest, "--payload", io);
     if (payloadOpt === null) {
         return 2;
@@ -691,7 +720,7 @@ async function runInstall(argv: string[], io: CliIo): Promise<number> {
         return 2;
     }
 
-    const location: InstallLocationResult = resolveInstallLocation();
+    const location: InstallLocationResult = resolveInstallLocation({ harness });
     if (!location.ok) {
         io.stderr(location.message);
         return 1;
@@ -706,31 +735,44 @@ async function runInstall(argv: string[], io: CliIo): Promise<number> {
         // pointing install never looks in the directory the tree used to occupy.
         const checkout: string = path.resolve(io.cwd, checkoutOpt.value as string);
         payloadDir = checkoutComponentRoot(checkout);
-        io.stdout(`pointing at checkout: ${checkout}`);
+        io.stdout(
+            harness === "codex"
+                ? `generating Codex snapshot from checkout: ${checkout}; rerun install after edits`
+                : `pointing at checkout: ${checkout}`,
+        );
     } else {
         payloadDir = payloadOpt.value ?? defaultPayloadDir();
     }
 
     let result: DeployResult;
     try {
-        ensureInstallLocation(location.path);
-        result = deployComponents(payloadDirectory(payloadDir), location.path, {
-            mode: pointing ? "pointer" : "copy",
-            owner: RELEASE_PACKAGE_NAME,
-        });
+        if (harness === "codex") {
+            result = deployCodexComponents(payloadDir, location.path, {
+                owner: RELEASE_PACKAGE_NAME,
+            });
+        } else {
+            ensureInstallLocation(location.path);
+            result = deployComponents(payloadDirectory(payloadDir), location.path, {
+                mode: pointing ? "pointer" : "copy",
+                owner: RELEASE_PACKAGE_NAME,
+            });
+        }
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
     }
     io.stdout(
-        `installed ${result.written.length} component ${pointing ? "pointer(s)" : "file(s)"} at ${location.path}` +
+        `installed ${result.written.length} component ${pointing && harness === "claude" ? "pointer(s)" : "file(s)"} at ${location.path}` +
             (result.removed.length > 0 ? `; removed ${result.removed.length} stale component file(s)` : ""),
     );
     for (const line of collisionNoticeLines(result.claimedByOthers)) {
         io.stdout(line);
     }
-    for (const line of allowlistNoticeLines()) {
-        io.stdout(line);
+    if (harness === "codex") {
+        io.stdout("In Codex, invoke $nxs-setup to bootstrap a repository, or $nxs-epic to plan work.");
+        io.stdout("Restart Codex if the skills do not appear. Nexus writes no Codex configuration or permission settings.");
+    } else {
+        for (const line of allowlistNoticeLines()) io.stdout(line);
     }
     return 0;
 }
@@ -761,12 +803,15 @@ function collisionNoticeLines(claimed: string[]): string[] {
  * primitive's throw-on-missing-directory behaviour is therefore satisfied here, not changed.
  */
 async function runUninstall(argv: string[], io: CliIo): Promise<number> {
-    if (argv.length > 0) {
-        io.stderr(`unknown argument for uninstall: ${argv[0]}\n${USAGE}`);
+    const rest = [...argv];
+    const harness = takeHarness(rest, io);
+    if (harness === null) return 2;
+    if (rest.length > 0) {
+        io.stderr(`unknown argument for uninstall: ${rest[0]}\n${USAGE}`);
         return 2;
     }
 
-    const location: InstallLocationResult = resolveInstallLocation();
+    const location: InstallLocationResult = resolveInstallLocation({ harness });
     if (!location.ok) {
         io.stderr(location.message);
         return 1;
@@ -778,7 +823,9 @@ async function runUninstall(argv: string[], io: CliIo): Promise<number> {
 
     let result: DeployResult;
     try {
-        result = deployComponents(EMPTY_PAYLOAD, location.path, { owner: RELEASE_PACKAGE_NAME });
+        result = deployComponents(EMPTY_PAYLOAD, location.path, {
+            owner: RELEASE_PACKAGE_NAME,
+        });
     } catch (error) {
         io.stderr(error instanceof Error ? error.message : String(error));
         return 1;
@@ -881,18 +928,23 @@ function resolvedPayloadDir(): string | null {
  * A location that cannot be resolved is reported as unresolved, not raised: `version` is what a
  * user runs when the environment is already broken.
  */
-function reportedInstallLocation(): {
+function reportedInstallLocation(harness: Harness): {
     path: string | null;
     source: string | null;
     content: InstalledContent | null;
     checkout: string | null;
 } {
-    const location: InstallLocationResult = resolveInstallLocation();
+    const location: InstallLocationResult = resolveInstallLocation({ harness });
     if (!location.ok) {
         return { path: null, source: null, content: null, checkout: null };
     }
     const state: InstallLocationState = inspectInstallLocation(location.path);
-    return { path: location.path, source: location.source, content: state.content, checkout: state.checkout };
+    return {
+        path: location.path,
+        source: location.source,
+        content: state.content,
+        checkout: state.checkout,
+    };
 }
 
 /**
@@ -900,8 +952,11 @@ function reportedInstallLocation(): {
  * verb contract. Never non-zero for an environment defect (AC3); only a usage error.
  */
 async function runVersion(argv: string[], io: CliIo): Promise<number> {
-    if (argv.length > 0) {
-        io.stderr(`unknown argument for version: ${argv[0]}\n${USAGE}`);
+    const rest = [...argv];
+    const harness = takeHarness(rest, io);
+    if (harness === null) return 2;
+    if (rest.length > 0) {
+        io.stderr(`unknown argument for version: ${rest[0]}\n${USAGE}`);
         return 2;
     }
     const payloadDir: string | null = resolvedPayloadDir();
@@ -909,7 +964,7 @@ async function runVersion(argv: string[], io: CliIo): Promise<number> {
         JSON.stringify({
             version: releaseVersion(),
             componentPayload: payloadDir === null ? null : hashComponentTree(payloadDir),
-            installLocation: reportedInstallLocation(),
+            installLocation: reportedInstallLocation(harness),
         }),
     );
     return 0;

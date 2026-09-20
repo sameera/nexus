@@ -83,6 +83,23 @@ nothing.
 
 ## The other half of the loop: put the executable on your PATH
 
+### Codex contributor setup
+
+The same authored tree supplies Codex. Generate its skills with:
+
+```bash
+npx tsx libs/portable-tools/src/nexus-cli.ts install --harness codex --from-checkout .
+npx tsx libs/portable-tools/src/nexus-cli.ts version --harness codex
+```
+
+Codex needs generated metadata and runtime bindings, so this is a **snapshot**, not live pointers.
+Re-run it after editing components. The version read-out correctly reports `copy`. Claude's
+pointer workflow above stays live and can coexist with Codex. Do not deploy into this checkout's
+`.agents/skills`; keep the authored tree as the single source. `AGENTS.md` directs Codex to the
+same contributor conventions Claude reads.
+
+### Build the shared executable
+
 Pointing the install location at your checkout makes the *components* live. It does nothing for the
 *executable* they invoke. Every component body addresses `nexus` by bare name — a component never
 encodes a path to the executable it invokes, and the build-time invocation gate enforces that — so

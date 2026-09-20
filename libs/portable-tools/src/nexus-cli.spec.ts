@@ -1196,9 +1196,9 @@ describe("nexus razor-offer (epic #576)", () => {
 
     it("ticks the smallest usable version and leaves every story it excludes unticked", async () => {
         const out: string = await run(drafted);
-        expect(out).toMatch(/- \[x\] +1\. One/);
-        expect(out).toMatch(/- \[ \] +2\. Three/);
-        expect(out).toMatch(/- \[ \] +3\. Two/);
+        expect(out).toMatch(/\[x\] +1\. One/);
+        expect(out).toMatch(/\[ \] +2\. Three/);
+        expect(out).toMatch(/\[ \] +3\. Two/);
     });
 
     it("sorts the asked-for stories ahead of the model-added ones, each with its claim", async () => {
@@ -1210,15 +1210,22 @@ describe("nexus razor-offer (epic #576)", () => {
 
     it("carries the model-added criteria and the boundaries into the same numbered sequence, ticked", async () => {
         const out: string = await run(drafted);
-        expect(out).toMatch(/- \[x\] +4\. \*\*Given\*\* a run/);
-        expect(out).toMatch(/- \[x\] +5\. Runs are single-tenant/);
+        expect(out).toMatch(/\[x\] +4\. \*\*Given\*\* a run/);
+        expect(out).toMatch(/\[x\] +5\. Runs are single-tenant/);
         expect(out).toContain("Assumptions");
+    });
+
+    it("writes no markdown list marker, so a renderer cannot eat the tick or renumber the line", async () => {
+        const out: string = await run(drafted);
+        const items: string[] = out.split("\n").filter((line: string) => /\[[x ]\]/.test(line));
+        expect(items.length).toBeGreaterThan(0);
+        for (const line of items) expect(line).toMatch(/^ *\[[x ]\] +\d+\. /);
     });
 
     it("still lists every story, all ticked, when the smallest usable version needs them all", async () => {
         const out: string = await run(drafted.replace("\nOne\n", "\nOne; Two; Three\n"));
-        expect(out).not.toMatch(/- \[ \]/);
-        expect(out).toMatch(/- \[x\] +1\. One/);
+        expect(out).not.toMatch(/\[ \]/);
+        expect(out).toMatch(/\[x\] +1\. One/);
     });
 });
 

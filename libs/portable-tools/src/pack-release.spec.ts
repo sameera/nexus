@@ -159,6 +159,17 @@ afterAll(() => {
 });
 
 describe("the packed package carries all three parts (AC2)", () => {
+    it("deploys Codex skills from the installed package outside the source checkout", () => {
+        const target = fs.mkdtempSync(path.join(scratch, "codex-repo-"));
+        const result = runInstalled("nexus", ["deploy", "--harness", "codex", "--target", target]);
+        expect(result.status, result.stderr).toBe(0);
+        const skills = path.join(target, ".agents", "skills");
+        expect(fs.readFileSync(path.join(skills, "nxs-epic", "SKILL.md"), "utf8")).toContain("$nxs-discover");
+        expect(fs.readFileSync(path.join(skills, "nxs-setup", "SKILL.md"), "utf8")).toContain("AGENTS.md");
+        expect(fs.existsSync(path.join(skills, "nxs-product-context", "SKILL.md"))).toBe(true);
+        expect(fs.existsSync(path.join(target, ".claude"))).toBe(false);
+    });
+
     it("contains every binary the manifest declares", () => {
         for (const [name, relPath] of Object.entries(manifest.bin ?? {})) {
             expect(packedFiles, `${name} -> ${relPath}`).toContain(relPath);

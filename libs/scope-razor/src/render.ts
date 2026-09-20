@@ -70,6 +70,12 @@ function storyDetail(item: ChecklistItem): string {
  * A ticked line is what a plain approval files. The reviewer names only the numbers they want
  * flipped, which is why the tick and the number are the first two things on every line, and why the
  * sequence is decided here rather than transcribed and re-derived by the gate's prose.
+ *
+ * No line carries a markdown list marker. The gate hands this text to a reviewer whose client
+ * renders markdown, and a renderer given `- [x] 1.` consumes the tick as a task-list control and
+ * renumbers the line — which deletes exactly the two things the reviewer's selection names. The
+ * gate delivers the block verbatim inside a fence (nxs-razor §8); this keeps the text readable even
+ * where it does not.
  */
 export function renderChecklist(draft: string, items: ChecklistItem[]): string {
     if (items.length === 0) return `razor-offer: ${draft} — the draft declares no story, no boundary and nothing to tick`;
@@ -79,17 +85,17 @@ export function renderChecklist(draft: string, items: ChecklistItem[]): string {
     const width: number = String(items[items.length - 1].number).length;
     for (const item of items) {
         if (item.kind !== group) {
-            lines.push("", `  ${GROUP[item.kind]}`);
+            lines.push("", GROUP[item.kind]);
             group = item.kind;
             parent = undefined;
         }
         if (item.kind === "criterion" && item.parent !== parent) {
-            lines.push(`    ${item.parent}`);
+            lines.push(`  ${item.parent}`);
             parent = item.parent;
         }
         const number: string = String(item.number).padStart(width, " ");
         const detail: string = item.kind === "story" ? storyDetail(item) : "";
-        lines.push(`    - [${item.filed ? "x" : " "}] ${number}. ${item.text}${detail} · ${claim(item)}`);
+        lines.push(`  [${item.filed ? "x" : " "}] ${number}. ${item.text}${detail} · ${claim(item)}`);
     }
     return lines.join("\n");
 }

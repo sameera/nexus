@@ -33,14 +33,35 @@ behaviour says so.
 
   The default is unchanged: a plain approval still files the smallest usable version and nothing
   else, and an empty selection is still identical to a plain approval. The ticks are written into the
-  markdown rather than rendered as a checkbox control, because that control cannot arrive pre-ticked
+  text rather than rendered as a checkbox control, because that control cannot arrive pre-ticked
   and an untouched box would then mean *drop it* — which would make a tired reviewer lose scope by
   inaction, the exact failure this default exists to prevent.
+
+  The checklist reaches you **inside a code block**, so the ticks and the numbers arrive as the gate
+  computed them. Rendered as ordinary markdown, a `- [x]` line is consumed as a task-list control and
+  the numbers are re-sequenced from the list's own position, and you are shown an unnumbered,
+  untickable list naming nothing you can flip. The same rule now covers the decision record's
+  refuted-alternatives cut list, where the renumbering would silently make a typed number name a
+  different alternative.
 
 - `nexus razor-offer` prints that checklist instead of the offer list. It now emits every line the
   gate renders — ticks, numbers, sizes, blockers and provenance across stories, criteria and
   boundaries — so the gate transcribes one command's output rather than hand-numbering three groups
   after it.
+
+- **The pipeline now runs in Codex as well as Claude.** Install with
+  `nexus install --harness codex`, then invoke `$nxs-setup`, `$nxs-epic`, `$nxs-analyze` and the other
+  stages as skills. Both harnesses use the same authored workflows, helpers and review roles.
+  Codex setup reads and updates `AGENTS.md`; approval gates accept a conversational answer when
+  a choice tool is unavailable, keeping a numbered checklist and its flips in one response.
+  Specialist reviews run sequentially, with disclosure, when subagents are unavailable. Claude
+  remains the default and its component bodies are unchanged.
+- The install, uninstall, version and deploy commands accept `--harness claude|codex`.
+  Codex skills live at the account's standard skill location and can coexist with Claude.
+  Updates and removal affect only the selected harness. A Codex install from a checkout is a
+  generated snapshot: re-run installation after edits; Claude's live pointers still work.
+- The headless epic implementation and analyze loop accepts `HARNESS=codex`, uses Codex's event
+  stream and stops on a failed turn before pushing. Its default remains Claude.
 
 ## 0.61.0
 

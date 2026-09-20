@@ -7,9 +7,12 @@
 # and it is taken out of draft.
 #
 # Usage:
-#   utils/implement-epic.sh <epic-issue-number> [extra claude args...]
+#   utils/implement-epic.sh <epic-issue-number> [extra harness args...]
+#   HARNESS=codex utils/implement-epic.sh <epic-issue-number> [extra codex exec args...]
 #
 # Environment:
+#   HARNESS          claude (default) or codex; install Nexus for that harness first
+#   CODEX_SANDBOX    Codex sandbox mode (default workspace-write)
 #   TURNS            turn cap in the goal condition (default 40)
 #   PERMISSION_MODE  claude permission mode (default bypassPermissions —
 #                    required for unattended runs; tool calls cannot be
@@ -45,7 +48,7 @@
 # exactly like a run that never reached stage 4 — both happened, five epics in a row.
 #
 # Context discipline: every stage — and every half of every conformance round
-# — is its own `claude -p` invocation, so no context is carried between them.
+# — is its own `claude -p` or `codex exec` invocation, so no context is carried between them.
 # The state that crosses a round boundary is on disk (the branch, the local
 # receipt) until the loop goes clean, then on GitHub (the certifying review) —
 # never a growing conversation. A late round reads as little as the first one
@@ -55,7 +58,7 @@
 set -euo pipefail
 
 if [[ $# -lt 1 || ! "$1" =~ ^[0-9]+$ ]]; then
-    echo "usage: $(basename "$0") <epic-issue-number> [extra claude args...]" >&2
+    echo "usage: $(basename "$0") <epic-issue-number> [extra harness args...]" >&2
     exit 1
 fi
 
@@ -69,6 +72,12 @@ CONFORM_ROUNDS="${CONFORM_ROUNDS:-5}"
 FIX_TURNS="${FIX_TURNS:-30}"
 TEST_CMD="${TEST_CMD:-npx nx run-many -t test --all}"
 BASE="${BASE:-main}"
+HARNESS="${HARNESS:-claude}"
+CODEX_SANDBOX="${CODEX_SANDBOX:-workspace-write}"
+if [[ "$HARNESS" != "claude" && "$HARNESS" != "codex" ]]; then
+    echo "HARNESS must be claude or codex" >&2
+    exit 1
+fi
 
 FORMATTER='
 import readline from "node:readline";
@@ -97,6 +106,27 @@ rl.on("line", (line) => {
     try { ev = JSON.parse(line); } catch { return; }
 
     switch (ev.type) {
+        case "thread.started":
+            console.log(dim(`session ${ev.thread_id}`));
+            break;
+        case "item.started":
+            if (ev.item?.type === "command_execution") console.log(cyan(`  ● ${clip(ev.item.command, 120)}`));
+            break;
+        case "item.completed":
+            if (ev.item?.type === "agent_message") console.log("\n" + ev.item.text);
+            else if (ev.item?.aggregated_output) console.log(dim(`    ⎿ ${clip(ev.item.aggregated_output, 200)}`));
+            break;
+        case "turn.completed":
+            console.log(bold("\n=== Codex turn completed ==="));
+            break;
+        case "turn.failed":
+            console.error(ev.error?.message ?? "Codex turn failed");
+            process.exitCode = 1;
+            break;
+        case "error":
+            console.error(ev.message ?? "Codex stream error");
+            process.exitCode = 1;
+            break;
         case "system":
             if (ev.subtype === "init") {
                 console.log(dim(`session ${ev.session_id} | model ${ev.model}`));
@@ -139,11 +169,22 @@ rl.on("line", (line) => {
 });
 '
 
-# One claude -p invocation = one fresh session/context. pipefail propagates
-# a failure from either claude or the formatter (is_error → exit 1).
-run_claude() {
+# One invocation = one fresh context. pipefail propagates CLI and stream failures.
+run_agent() {
     local prompt="$1"
     shift
+    if [[ "$HARNESS" == "codex" ]]; then
+        # Codex has skills, not Claude slash commands or its /goal extension. The turn caps in
+        # these prompts remain instructions, not a CLI-enforced budget, on either harness.
+        prompt="${prompt/#\/goal /}"
+        prompt="${prompt//\/nxs.analyze/\$nxs-analyze}"
+        prompt="${prompt//\/nxs.close/\$nxs-close}"
+        prompt="${prompt//\/nxs.decision-record/\$nxs-decision-record}"
+        prompt="${prompt//\/nxs-epic-resolve/\$nxs-epic-resolve}"
+        codex exec --sandbox "$CODEX_SANDBOX" --json "$@" -- "$prompt" \
+            | node --input-type=module -e "$FORMATTER"
+        return
+    fi
     claude -p "$prompt" \
         --permission-mode "$PERMISSION_MODE" \
         --output-format stream-json \
@@ -166,7 +207,7 @@ output."
 
 # One analyze invocation, always carrying the unattended clause.
 run_analyze() {
-    run_claude "$1${UNATTENDED}" ${ANALYZE_ARGS[@]+"${ANALYZE_ARGS[@]}"}
+    run_agent "$1${UNATTENDED}" ${ANALYZE_ARGS[@]+"${ANALYZE_ARGS[@]}"}
 }
 
 GOAL="/goal Every story sub-issue of epic #${N} is implemented on a new branch — \
@@ -180,8 +221,8 @@ calling script does both. Stop after ${TURNS} turns."
 
 ANALYZE_ARGS=("$@")
 
-echo ">>> stage 1: implement epic #${N} | permission mode: ${PERMISSION_MODE} | turn cap: ${TURNS}" >&2
-run_claude "$GOAL" "$@"
+echo ">>> stage 1: implement epic #${N} | harness: ${HARNESS} | turn cap: ${TURNS}" >&2
+run_agent "$GOAL" "$@"
 
 # The loop neither pushes nor opens a PR, so nothing has left the machine yet.
 # Both steps below are needed for issue linkage: GitHub records a commit → issue
@@ -327,7 +368,7 @@ while :; do
 
     echo "" >&2
     echo ">>> stage 3.${ROUND}a: fix ${CRIT} critical / ${HIGH} high (fresh context)" >&2
-    run_claude "$(fix_prompt "$RECEIPT" "$ROUND")" "$@"
+    run_agent "$(fix_prompt "$RECEIPT" "$ROUND")" "$@"
 
     echo "" >&2
     echo ">>> pushing ${BRANCH} to origin" >&2

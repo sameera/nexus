@@ -17,6 +17,9 @@ nexus install                   # 2. the Claude components, once per account
 Then add one permission entry to your account-scoped `settings.json`, and run `/nxs.setup` inside
 each repository. Full steps, and what each command touches: [Installing](#installing).
 
+For **Codex**, use `nexus install --harness codex`, then invoke `$nxs-setup` inside Codex.
+See [Using Codex](#using-codex) for the full command mapping. Both harnesses can be installed together.
+
 ## The Archaeology Problem
 
 [![Watch the video](https://img.youtube.com/vi/EkZb5mK1j7o/0.jpg)](https://www.youtube.com/watch?v=EkZb5mK1j7o)
@@ -205,9 +208,10 @@ docs
     └── stack.md                 // The technology stack of the product.
 ```
 
-# CLAUDE.md Setup
+# Project instructions
 
-Add the following to your CLAUDE.md
+Use `CLAUDE.md` for Claude Code or `AGENTS.md` for Codex. Add the following to the appropriate file
+(replace `CLAUDE.md` with `AGENTS.md` for Codex):
 
 ```markdown
 # Project Structure
@@ -231,6 +235,10 @@ Nexus runs on one runtime, and an adopter supplies only that:
 Supported platforms are **macOS and Linux**. A release targets POSIX-like environments only; on Windows, run Nexus inside WSL.
 
 # Installing
+
+Nexus supports **Claude Code and Codex**. Both run the same pipeline stages and portable CLI.
+Claude remains the default for existing installations. For Codex, install the package as below,
+then follow [Using Codex](#using-codex); the Claude permission instructions do not apply to Codex.
 
 Nexus's components — the slash commands, agents and skills Claude Code loads — are installed **once
 for your user account**, not once per repository. Getting the package onto your machine and its
@@ -302,6 +310,71 @@ only to refresh the product context.
 
 Nothing about `/nxs.setup` installs components: the slash commands it is invoked through came from
 step 2, and a repository never carries its own copy.
+
+## Using Codex
+
+After installing the npm package, run:
+
+```bash
+nexus install --harness codex
+nexus version --harness codex
+```
+
+This generates native skills under `~/.agents/skills`, the account location described in the
+[official Codex skills documentation](https://learn.chatgpt.com/docs/build-skills). `CODEX_HOME`
+controls Codex configuration, not this skills location. Nexus writes no Codex configuration or
+permission settings. Restart Codex if the new skills do not appear.
+
+Inside Codex, invoke a stage by its skill name:
+
+| Claude Code | Codex |
+| --- | --- |
+| `/nxs.setup` | `$nxs-setup` |
+| `/nxs.discover` | `$nxs-discover` |
+| `/nxs.epic` | `$nxs-epic` |
+| `/nxs.decision-record` | `$nxs-decision-record` |
+| `/nxs.analyze` | `$nxs-analyze` |
+| `/nxs.close` | `$nxs-close` |
+| `/nxs.distill` | `$nxs-distill` |
+| `/nxs.council` | `$nxs-council` |
+| `/nxs.fix` | `$nxs-fix` |
+| `/nxs.intake` | `$nxs-intake` |
+
+Arguments follow the skill name, for example `$nxs-epic Add team invitations` or
+`$nxs-analyze --pr 123`. These are prompts in Codex, not shell commands. Skills require explicit
+invocation; a stage loads its helpers as needed. The standalone setup interview is
+`$nxs-product-context`, while `$nxs-setup` runs the entire bootstrap.
+
+Codex setup uses `AGENTS.md` for project instructions. Approval gates still require an explicit
+answer: when the client cannot show selectable choices, Codex asks in conversation. Review roles
+use subagents when available, otherwise Codex performs the reviews sequentially and discloses that
+they were not independent runs. The CLI and GitHub workflows still need the same local tools and
+credentials (`nexus`, git and authenticated `gh`).
+
+You can install both harnesses. `nexus install` continues to refresh Claude; re-run
+`nexus install --harness codex` after a package upgrade to refresh Codex. To remove Codex's skills:
+
+```bash
+nexus uninstall --harness codex
+```
+
+This leaves Claude's installation intact. Remove both component sets before uninstalling the npm
+package if you installed both. Repository-local installation is also available with
+`nexus deploy --harness codex --target <repository>`, which writes `.agents/skills`; prefer the
+account installation to avoid duplicate skills. `migrate-components` remains a Claude migration
+command for the old committed component layout.
+
+The checkout utility can also use Codex for the headless implementation and conformance loop:
+
+```bash
+HARNESS=codex utils/implement-epic.sh 123
+```
+
+It uses [`codex exec`](https://learn.chatgpt.com/docs/non-interactive-mode) with a fresh session for
+each stage and a `workspace-write` sandbox. Set `CODEX_SANDBOX` or pass additional `codex exec`
+options for your environment. Turn caps are prompt instructions, not enforced runtime budgets.
+As with the existing Claude runner, this utility pushes the implementation branch and opens or
+updates its PR; use it only when that publication is intended.
 
 ## Removing Nexus
 
