@@ -5,6 +5,43 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.62.0
+
+- **The epic approval gate now shows you the filed set as one pre-ticked checklist.** The digest used
+  to list every drafted story, then offer a separate numbered list below it saying which of them a
+  plain approval would actually file, with a third group for criteria and a fourth for boundaries —
+  and a number meant *add* under one heading and *delete* under another. You had to hold two sets in
+  your head and diff them to know what you were approving.
+
+  There is now one list. Every story, every model-added acceptance criterion on a story being filed,
+  and every assumption and out-of-scope item appear once, numbered in one sequence, each line already
+  ticked or unticked to show exactly what a plain approval files. Every line states whether you asked
+  for it or the drafting model added it, and an asked-for line quotes the fragment of your own words
+  it rests on. **A number flips the line it names**, in whichever direction that line is set, so one
+  typed selection both adds and removes.
+
+  What this changes for you beyond the reading: **you can now drop a story at the gate.** Previously
+  only criteria and boundaries could be struck, and removing a story from the smallest usable version
+  meant revise, hand-edit and re-run. Unticking one is enough, and it is treated by where the story
+  came from — an asked-for story defers as an unplanned epic issue, a model-added one is discarded.
+  The `## Smallest Usable Version` line is re-derived from what you actually filed, so it no longer
+  reaches the issue naming a story nobody planned.
+
+  Assumptions and out-of-scope items you *asked for* are now listed too, not just the inferred ones.
+  The boundary you approve is the whole boundary; the provenance beside each line is what tells them
+  apart.
+
+  The default is unchanged: a plain approval still files the smallest usable version and nothing
+  else, and an empty selection is still identical to a plain approval. The ticks are written into the
+  markdown rather than rendered as a checkbox control, because that control cannot arrive pre-ticked
+  and an untouched box would then mean *drop it* — which would make a tired reviewer lose scope by
+  inaction, the exact failure this default exists to prevent.
+
+- `nexus razor-offer` prints that checklist instead of the offer list. It now emits every line the
+  gate renders — ticks, numbers, sizes, blockers and provenance across stories, criteria and
+  boundaries — so the gate transcribes one command's output rather than hand-numbering three groups
+  after it.
+
 ## 0.61.0
 
 - **The teaching stage leaves Nexus.** `/nxs.teach` and `/nxs.teach-plan`, the `nxs-workbook` skill,

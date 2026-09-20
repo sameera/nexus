@@ -509,94 +509,96 @@ Note: the store is private, so a reader outside the team sees a broken image whe
 <everything in epic.md between the H1 title and `## User Stories` — Description, Success Metrics,
 Personas — verbatim (condense only obvious redundancy).>
 
-### Stories
-
-- **<Story 1 Title>** (<size>) — <one-line summary of the story's goal> · waits on: none
-- **<Story 2 Title>** (<size>) — <one-line summary> · waits on: <Story 1 Title>
-- …
-
-Each story's `waits on` is read from the draft's `## Implementation Order` block (nxs-razor §10) —
-the reviewer decides with the graph in view, and the block they see is the one filing uses.
-
-<everything in epic.md after the User Stories section — Assumptions, Out of Scope. If the user chose
-**answer**, `## Open Questions` is empty and omitted. If they chose **proceed**, render the remaining
-`[NEEDS CLARIFICATION]` items here under a `### ⚠️ Unresolved questions (shipping anyway)` callout so
-the approval is made with them in view.>
+<if the user chose **proceed** at the open-questions gate, render the remaining `[NEEDS
+CLARIFICATION]` items here under a `### ⚠️ Unresolved questions (shipping anyway)` callout, so the
+approval is made with them in view. If they chose **answer**, `## Open Questions` is empty and this
+is omitted.>
 ```
 
-**Then render the offer list** (nxs-razor §8), directly under the digest and before the choice. The default here is **addition**: a plain approval files the smallest usable version and nothing else, so scope the lead never asked for takes an act of will to acquire rather than an act of vigilance to avoid.
+**The stories and the boundaries are not rendered here.** They are the checklist below, which is the
+one place the reviewer reads them — a digest that lists the stories and then a second list that says
+which of them get filed makes the reviewer hold two sets in their head and diff them, and what they
+approve is then a set they reconstructed rather than one they read.
 
-**Take the additions and their numbering from the checker, not by hand:**
+**Then render the checklist** (nxs-razor §8), directly under the digest and before the choice. It is
+the filed set, written out and already ticked: **a ticked line is what a plain approval files**, an
+unticked one is offered, and a number flips the line it names. The default is **addition** — the
+smallest usable version and nothing else — so scope the lead never asked for takes an act of will to
+acquire rather than an act of vigilance to avoid.
+
+**Take the lines, their ticks and their numbering from the checker, not by hand:**
 
 ```bash
 nexus razor-offer --draft "${DRAFT_DIR}/epic.md"
 ```
 
-It prints every story the `## Smallest Usable Version` line excludes, asked-for first, then model-added, each group in the order the `## Implementation Order` block unlocks it, with the stable number and the blockers each carries. Transcribe those numbers; the groups below continue the same sequence from the last one it printed.
+It prints one numbered list: every story — the smallest usable version first and ticked, then the
+stories it excludes, asked-for before model-added, each band in the order the `## Implementation
+Order` block unlocks it — then every model-added acceptance criterion on a story the default files,
+grouped under it, then every assumption and every out-of-scope item. Each line carries its tick, its
+number, its blockers and its provenance. **Transcribe it; derive nothing.**
+
+Render it as the checker printed it, under this heading and this instruction:
 
 ```markdown
-### What a plain approval files
+### The filed set — untick to drop, tick to add
 
-**Smallest usable version** — <the stories the `## Smallest Usable Version` line names>
+Stories
+- [x]  1. <Story Title> · <size> · waits on: none · you asked: "<the story's asked fragment, verbatim>"
+- [ ]  2. <Story Title> · <size> · waits on: <Story Title> · you asked: "<fragment>"
+- [ ]  3. <Story Title> · <size> · waits on: <Story Title> · inferred
 
-- **<Story Title>** (<size>) · waits on: <…> — <one line: what it adds>
+Acceptance criteria — model-added, on stories above
+  <Story Title>
+- [x]  4. <the criterion, verbatim minus its label> · inferred
 
-### Additions — taken only if you name them
+Assumptions
+- [x]  5. <the assumption, verbatim minus its label> · inferred
 
-*Asked for*
+Out of scope
+- [x]  6. <the out-of-scope item, verbatim minus its label> · you asked: "<fragment>"
 
-1. **<Story Title>** (<size>) · waits on: <Story Title> — <one line> · you asked: "<the story's asked fragment, verbatim>"
-
-*Added by the drafting model*
-
-2. **<Story Title>** (<size>) · waits on: <…> — <one line>
-
-### Inferred criteria — filed unless you name them
-
-**<A story in the filed set>**
-
-3. <an inferred acceptance criterion, verbatim minus its label>
-
-### Boundaries — filed unless you name them
-
-*The smallest usable version was drawn inside these. The lead did not state them.*
-
-**Assumptions**
-
-4. <an inferred assumption, verbatim minus its label>
-
-**Out of scope**
-
-5. <an inferred out-of-scope item, verbatim minus its label>
+Type the numbers you want to flip, or nothing to take it as ticked.
 ```
 
-**Only the three acted-on groups are numbered.** *Additions*, *Inferred criteria* and *Boundaries* share one stably numbered list, and **one typed selection covers both directions**: a number in *Additions* adds that story, and a number in *Inferred criteria* or *Boundaries* deletes that item. What a plain approval files is rendered as plain bullets and carries no numbers at all. It is what the reviewer gets by typing nothing, so a number against it would name an action the selection has no meaning for.
+**Every line is numbered and every number flips exactly one line**, in whichever direction that line
+is currently set. There is no group whose numbers mean something different from another group's, and
+no unnumbered group the reviewer has to read differently. One typed selection carries the whole
+decision.
 
-The offer list holds **every story the `## Smallest Usable Version` line excludes**. The stories the lead asked for sort **first** and are rendered **asked-for**, each carrying its story-level asked fragment verbatim beside it. The fragment is a claim the drafting model made about the lead's own words, and this is the one place the reviewer can reject it. Within each group the order follows the `## Implementation Order` block: **what each item unlocks, never a ranking by value**. Ranking the additions by usefulness would have the drafting model scoring its own additions, which the razor forbids elsewhere for the same reason.
+**Keep the ticks in the markdown.** Do **not** render this as `AskUserQuestion` checkboxes — that
+control cannot arrive pre-ticked, so an untouched box would mean *drop it* and the default would be
+unrenderable (nxs-razor §8, the shared shape). The question below carries only the three actions.
 
-**The inversion is at story granularity only.** A model-added acceptance criterion on a story that *is* being filed stays opt-out: a plain approval files it, and it is listed under *Inferred criteria* so the reviewer can strike it. A story can stand alone; a criterion about a story already being filed cannot. Making criteria opt-in would let an asked-for story file with no criteria at all.
+**What a tick governs, and why each kind is listed the way it is, is nxs-razor §8.** It decides which
+lines the checker emits, so the list above already embodies it; read §8 rather than re-deriving it
+here.
 
-**Every inferred assumption and out-of-scope item is listed under *Boundaries*, and a plain approval files it** (nxs-razor §8). These are the conditions and exclusions the smallest usable version was sized inside. Dropping them does not shrink the epic; it hides the reasoning, and leaves an epic that reads wider than the one the reviewer approved. An asked-for one is not listed, because the lead stated it. It is filed as part of the digest body above.
+If the gate reported a mechanism observation, show it beside its story here. It is not a tick and not
+a flip; it is a thing to look at.
 
-If the gate reported a mechanism observation, show it beside its story here. It is not an addition and not a removal; it is a thing to look at.
+Then ask for the decision via **`AskUserQuestion`** (per the interaction convention). Do not emit a
+free-text prompt line. Because mid-turn markdown is not guaranteed to reach the reviewer's screen,
+**carry the ticked set into the question itself** — name the ticked stories and the counts in the
+question text, so the choice is readable from the dialog alone. Three options, each shown as its
+label and its effect:
 
-Then ask for the decision via **`AskUserQuestion`** (per the interaction convention). Do not emit a free-text prompt line. Three options, each shown as its label and its effect:
-
-- "**approve** — file the smallest usable version, and nothing else." Adds no story; files every inferred criterion and every boundary.
-- "**approve with changes** — the same, after adding the stories the reviewer names and deleting the inferred criteria and boundaries they name."
+- "**approve** — file it as ticked." Files the smallest usable version, every model-added criterion
+  on it, and every boundary. Adds no story.
+- "**approve with changes** — the same, after flipping the numbers the reviewer names."
 - "**revise** — stop." Edit the `${DRAFT_DIR}/epic.md` draft, then re-run with `/nxs.epic --resume`.
 
 **Do NOT create any issue without an explicit approval** (an `AskUserQuestion` selection of one of the two approve options, or an "Other" answer that clearly means approve). The store line is part of what is approved: a public store under a private issues repository is a **warning the lead decides on**, never a refusal. The team chose the store deliberately, and a refusal would block an open-source project with a private planning repository.
 
-- `approve` → apply the step below with the filed set equal to the smallest usable version.
-- `approve with changes` → take the numbers (typed as a list, e.g. `2, 4`), apply the step below, then Phase 6. **An empty selection is identical to a plain approval**: the smallest usable version, no re-render and no second confirmation.
+- `approve` → apply the step below with the filed set equal to the ticked set.
+- `approve with changes` → take the numbers (typed as a list, e.g. `2, 4`), flip those lines, apply the step below, then Phase 6. **An empty selection is identical to a plain approval**: the ticked set, no re-render and no second confirmation.
 - `revise` → stop. Leave `RUN_DIR` intact for editing; **report `${DRAFT_DIR}/epic.md`'s path again** as the file to edit and the one `/nxs.epic --resume` reads. Nothing is committed, so there is nothing to clean up, and **nothing has been published to the store**: assets are published only in Phase 6, after approval, so a revise leaves the store unchanged. Leave `${DRAFT_DIR}/assets.json` beside the draft: the resumed run recovers the declared assets from it, so the rewrite and the `--asset-path` assertion run on the resumed filing too.
 
-**Scope the reviewer does not take is treated by where it came from.** A model-added story nobody took is discarded and leaves no trace anywhere: no issue, no note, no later triage. An **asked-for** story nobody took is **deferred, not dropped**: Phase 6 step 8 files it as one epic stub the lead can plan later under this same gate, so deferring costs them nothing and forgets nothing.
+**Scope the reviewer does not take is treated by where it came from.** A model-added story left unticked is discarded and leaves no trace anywhere: no issue, no note, no later triage. An **asked-for** story left unticked is **deferred, not dropped**: Phase 6 step 8 files it as one epic stub the lead can plan later under this same gate, so deferring costs them nothing and forgets nothing. This holds for a story the reviewer unticked out of the smallest usable version as much as for one that arrived unticked — the treatment follows the story's provenance, never how it came to be unticked.
 
 ### Applying the approved set (before any issue is created)
 
-The **filed set** is the smallest usable version plus the additions the reviewer named. Everything here is an edit to `${DRAFT_DIR}/epic.md`, made **before** Phase 6 derives the filing body. Nothing is added or removed after something is filed.
+The **filed set** is the ticked set after the reviewer's flips are applied: the smallest usable version, minus any story they unticked, plus any story they ticked. Everything here is an edit to `${DRAFT_DIR}/epic.md`, made **before** Phase 6 derives the filing body. Nothing is added or removed after something is filed.
 
 1. **Refuse a selection naming already-filed content.** If a prior partial run filed the epic or a story (the draft's frontmatter carries `link`, or a story carries an issue number), a number naming it is **refused with the reason stated**, never silently applied. Report which numbers were refused and what remains.
 2. **Refuse an empty filed set.** At least one story is always filed; a selection that would file none is a revise, not an approval. Say so and return to the choice.
@@ -610,7 +612,7 @@ The **filed set** is the smallest usable version plus the additions the reviewer
 
     A non-zero exit **returns to the choice** with the pair it named. The reviewer either takes the blocker too or drops the addition; **nothing is re-parented on their behalf**, because "exactly the named items join the filed set" and a set silently re-wired to run is a set they did not approve. Nothing has been edited at this point, so there is nothing to undo.
 
-4. **Apply the selection.** Delete the `### Story` section of every story outside the filed set, and delete the lines of every inferred criterion and every boundary the reviewer named. Delete each dropped story's row from the `## Implementation Order` block too, so the block describes the filed set. No surviving story waits on a deleted one, because step 3 refused the set otherwise, so **no cascade follows and no edge is re-parented**.
+4. **Apply the selection.** Delete the `### Story` section of every story outside the filed set, and delete the lines of every criterion and every boundary the reviewer unticked. Delete each dropped story's row from the `## Implementation Order` block too, so the block describes the filed set. **Re-derive the `## Smallest Usable Version` line from the filed story set** — it reaches the filed issue, so a line still naming a story nobody filed asserts a necessity the epic does not have. No surviving story waits on a deleted one, because step 3 refused the set otherwise, so **no cascade follows and no edge is re-parented**.
 5. **Re-derive what the story set determined: one step, in one place.** Run it whenever the filed story set **differs from the drafted one, in either direction**: an addition and a removal both change the set, and all three of these are properties of the set rather than of one direction of travel. Skip it only when the two sets are identical.
 
     - the epic `complexity` rollup, re-derived **from the filed story set** by the Phase 3 step-4 rule, never from the draft as it was first written. **Step 6's `--filed` run checks this one mechanically**: the rollup may not sit below the largest size in the filed set, and it may not sit above it with `complexity_drivers` stating nothing that raises it. How far cross-story integration raises it is still the judgment. The check is that the judgment was made over the stories actually filed, and is stated;
@@ -781,9 +783,9 @@ Issue creation is **coupled**: the epic issue and its story sub-issues are creat
 
 7. **Add the new feature to the features index** when Phase 1 created the container. Append a row to the table in `<docs-root>/features/README.md` linking `<feature-path>/README.md` and its one-line capability statement. An existing feature needs nothing here.
 
-8. **File the deferral stub: asked-for scope the smallest usable version excludes, that the reviewer did not take.** This runs **after the epic issue and every story issue exist**, and only on the approval that filed them: nothing is created before an explicit approval selection.
+8. **File the deferral stub: asked-for scope the reviewer left unticked.** This runs **after the epic issue and every story issue exist**, and only on the approval that filed them: nothing is created before an explicit approval selection.
 
-    The deferred set is exactly the *Asked for* entries of the Phase 5 offer list the reviewer left unnamed. It **never carries a story the drafting model added**. Model-added scope the reviewer declined is discarded and leaves no trace anywhere, because regenerating it later is cheaper than carrying it as an open item somebody has to triage.
+    The deferred set is every **asked-for** story left unticked on the Phase 5 checklist — the ones that arrived unticked because the smallest usable version excludes them, and the ones the reviewer unticked out of it, which are the same thing once the selection is applied. It **never carries a story the drafting model added**. Model-added scope the reviewer declined is discarded and leaves no trace anywhere, because regenerating it later is cheaper than carrying it as an open item somebody has to triage.
 
     If that set is empty (the smallest usable version needed every asked-for story, or the reviewer took the rest), **file no stub**. An empty deferral is not an artifact.
 
@@ -835,7 +837,7 @@ Report:
 - **In discovery mode**: that the discovery folder has been **consumed** and can be removed, and that removing it is a plain commit the user makes. This command does not delete it. Name it in the report only, never in an issue body or comment.
 - **Nothing committed to `.nexus/queue/`**: the epic lives on GitHub issues, and the queue entry is created at close. The `epic.md` draft stayed in `RUN_DIR`, gitignored under `.nexus/tmp/planning/`, and (on a complete filing) `RUN_DIR` is now gone (Phase 6 step 10). This holds in discovery mode too: a consumed discovery folder is left exactly as it was found.
 - **If the creation scripts printed "Seeded github config … — review and commit"** (STORY-121.07 write-back): a repo with no `github:` block had its resolved publishing decisions (classification mode, discovered project or `none`) persisted into `.nexus/config/settings.yml`. This is a **tracked config file**, distinct from the no-queue-commit planning contract above. Tell the user to review that diff and commit it, so the fragile probe never runs again.
-- **The deferral stub, when one was filed** (Phase 6 step 8): its issue number, and the story titles it carries. If none was filed, say so: either the smallest usable version needed every asked-for story, or this run was planning a single-story deferral and the floor suppressed it.
+- **The deferral stub, when one was filed** (Phase 6 step 8): its issue number, and the story titles it carries. If none was filed, say so: either every asked-for story was ticked, or this run was planning a single-story deferral and the floor suppressed it.
 - **Assets**, when `--assets` was passed: each published file with its pinned reference and the issue it landed in; any declared file that no body mentioned and so was **not** published; or, when the repository declares no store, that assets were unsupported and the issues were filed without them.
 - Epic issue link and the created story issue numbers, plus the implementation sequence (the table from Phase 6 step 5). If the user chose `revise`, report instead that no issues were created and how to resume (`/nxs.epic --resume`).
 - Next step: `/nxs.decision-record <epic-issue-#>` to produce the decision record for this epic (it resolves the epic from its issue number; there is no committed planning file).

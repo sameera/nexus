@@ -10,6 +10,7 @@
  */
 
 import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, normalize, type Citation } from "./citations.js";
+import { bullets, criteria, isLabelled, sections } from "./document.js";
 import { stripLabels } from "./labels.js";
 import { compareSize, complexityDrivers, designWarrant, recordedComplexity, rollupFloor, storySizes, type Size, type StorySize } from "./rollup.js";
 import {
@@ -48,40 +49,6 @@ export const AC_CEILING: number = 5;
 /** The limit on Assumptions and on Out of Scope. No escape; either section may be empty. */
 export const SECTION_LIMIT: number = 5;
 
-/** A `## ` section of the draft, from its heading to the next one. */
-interface Section {
-    heading: string;
-    lines: string[];
-}
-
-function sections(draft: string, depth: string): Section[] {
-    const found: Section[] = [];
-    let open: Section | undefined;
-    for (const line of draft.split("\n")) {
-        const heading: RegExpMatchArray | null = line.match(/^(#+) /);
-        if (heading === null) {
-            open?.lines.push(line);
-        } else if (heading[1] === depth) {
-            open = { heading: line.slice(depth.length + 1).trim(), lines: [] };
-            found.push(open);
-        } else if (heading[1].length > depth.length) {
-            // A deeper heading is content of the open section, not a boundary.
-            open?.lines.push(line);
-        } else {
-            open = undefined;
-        }
-    }
-    return found;
-}
-
-/** Top-level list items — a nested continuation line is part of its item, not a second one. */
-function bullets(lines: string[]): string[] {
-    return lines.filter((line: string) => /^- /.test(line));
-}
-
-/** The two-valued vocabulary, as a presence test: an item carries one of them or it carries none. */
-const LABELLED: RegExp = /`?\[(?:inferred|asked:[ \t]*"[^"]*")\]`?/;
-
 /**
  * The provenance rule (§1), as the presence test invariant 5 permits. Without it an unlabelled item
  * is a third state the vocabulary denies — neither asked nor inferred — and it is the one state the
@@ -89,7 +56,7 @@ const LABELLED: RegExp = /`?\[(?:inferred|asked:[ \t]*"[^"]*")\]`?/;
  */
 function unlabelled(items: string[], where: string): RazorFinding[] {
     return items
-        .filter((item: string) => !LABELLED.test(item))
+        .filter((item: string) => !isLabelled(item))
         .map((item: string) => ({
             severity: "blocking" as const,
             rule: "provenance-label" as const,
@@ -101,16 +68,16 @@ function unlabelled(items: string[], where: string): RazorFinding[] {
 function checkStories(draft: string): RazorFinding[] {
     const findings: RazorFinding[] = [];
     for (const story of sections(draft, "###")) {
-        const criteria: string[] = story.lines.filter((line: string) => /^- \[[ x]\] /.test(line));
+        const acceptance: string[] = criteria(story.lines);
         const reason: boolean = story.lines.some((line: string) => /^\*\*Reason for /.test(line.trim()));
         findings.push(...unlabelled([`- ${story.heading}`], `Story: ${stripLabels(story.heading).trim()}`));
-        findings.push(...unlabelled(criteria, story.heading));
-        if (criteria.length > AC_CEILING && !reason) {
+        findings.push(...unlabelled(acceptance, story.heading));
+        if (acceptance.length > AC_CEILING && !reason) {
             findings.push({
                 severity: "blocking",
                 rule: "acceptance-criteria-ceiling",
                 where: story.heading,
-                message: `${criteria.length} acceptance criteria, above the ceiling of ${AC_CEILING}, with no stated reason.`,
+                message: `${acceptance.length} acceptance criteria, above the ceiling of ${AC_CEILING}, with no stated reason.`,
             });
         }
     }
