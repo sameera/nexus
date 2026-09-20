@@ -1034,7 +1034,31 @@ always exits zero**. A non-zero exit or any file write is a bug, never a block, 
 prints is ever `git add`ed. Record the captured markdown for the digest line below and the Phase 7
 PR body. **If Phase 2 found no registry, skip this step entirely** (byte-for-byte today's behavior).
 
-**STOP AND WAIT.** Render the delta digest as markdown first:
+**Write the run summary.** Everything the three surfaces state about this run is defined here,
+once, and written to `<scratch>/run-summary.md`. It is scratch: never `git add`ed, never
+committed, and **not a state file** — no later run reads it. The checkpoint below, the pull
+request body (Phase 7) and the completion report (Phase 8) are *layouts* over these fields. They
+keep their own distinct shapes and labels, they name fields, and none of them redefines what a
+field holds or when it drops out. Change what a value holds here.
+
+| Field | Holds | Omission and zero case |
+|---|---|---|
+| `entries` | per drained entry: local id, epic title, provenance ref, source (committed queue \| `.nexus/tmp` ephemeral \| recovered from epic issue `#<n>`), and what deletion lands with the merge | never omitted |
+| `by_kind` | `<n> epic, <n> fix, <n> intake` | omitted when every drained entry is an epic. Stated whenever a fix or an intake entry drained this run, so a reviewer sees that an intake entry's writes are not an epic's |
+| `deltas` | per concept: slug, `create \| update \| retire`, sections changed, the Decision Log entry's title, and the reciprocity fan-out targets | fan-out reads `none` when there was none |
+| `fix_entries` | per fix entry: the page it changes and the heading it appends | the block is absent when no fix entry drained this run |
+| `intake_entries` | per intake entry: every page created, every page whose assertions changed, every invariant retired | the block is absent when no intake entry drained this run |
+| `taxonomy` | per forced fit: `<slug>` → best-fit chosen \| new subdomain \| new domain | the line is absent when Phase 6.1 found no forced fits |
+| `anchors` / `atlas` / `validator` | the refreshed slugs, the resolved atlas path, the validator verdict and page count | never omitted |
+| `drift` | the advisory's finding count, `clean`, or `not run — no registry` | advisory only; it never blocks and never gates a surface |
+| `skipped` / `blocked` | per entry: local id, originating repo (hub mode), age, drain-SLO flag, and for a blocked entry the class token and the range entry that failed | when both are empty, each surface states the zero case in its own label: `none — every queue entry drained; no drain-SLO breaches` |
+| `waived` | the Phase 0.4 not-merged entries the lead waived, and that the PR carries their unmerged feature commits | the line is absent when every drained entry was on the trunk |
+| `pr_url` | the distillation-PR's URL | written at Phase 7 |
+
+Provenance in every field takes the Phase 0.6 resolved form, and the consumed entries are removed
+on the branch so the deletion lands with the merge, never on main now.
+
+**STOP AND WAIT.** Render the checkpoint layout from the summary:
 
 ```
 CHECKPOINT: Distillation-PR
@@ -1056,10 +1080,8 @@ Intake entries — every page created, every page whose assertions change, and e
 retired:
 - <intake local-id> (<provenance ref>) — created: <slugs, or none> — assertions changed: <slugs,
   or none> — invariants retired: <slugs, or none>
-(omit this block entirely when no intake entry drained this run)
 
 Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new subdomain "<title>" | new domain "<title>">, ...
-  (omit this line entirely when Phase 6.1 found no forced fits — "no gate fired")
 
 Anchors refreshed: <slugs>
 Atlas: regenerated (<resolved-atlas-path>)
@@ -1067,16 +1089,12 @@ Validator: PASS (<N> page(s))
 Drift advisory: <n finding(s) — misfiles/refinements/candidates, or a staleness alarm | clean — no drift above thresholds | not run — no registry> (advisory only, never blocks)
 
 Skipped (not closed): <local-id> — repo <owner/repo, hub mode only> — age <n>d [DRAIN-SLO BREACH if >30d]
-Blocked (hub mode — diff underivable): <local-id> — repo <owner/repo> — age <n>d — <problem> [DRAIN-SLO BREACH if >30d]
-(if nothing was skipped or blocked: "Skipped: none — every queue entry drained; no drain-SLO breaches")
+Blocked (diff underivable): <local-id> — repo <owner/repo> — age <n>d — <class token> — <the range entry> [DRAIN-SLO BREACH if >30d]
 
 Not-merged (Phase 0.4 waiver): <local-id> — PR based on the current HEAD; merging it lands the
-  unmerged feature commits AND this distillation together (omit this line when every drained entry
-  was on the trunk)
+  unmerged feature commits AND this distillation together
 
 About to: push the distill branch and open the distillation-PR.
-Consumed entries are removed on the branch (in each entry's commit) — the deletion lands on main
-only when the PR merges, atomically with the pages. Nothing is removed from main now.
 ```
 
 Then ask via **`AskUserQuestion`**:
@@ -1103,22 +1121,19 @@ the close worktree, which stays on this branch, and there is no prior branch to 
 worktree is removed after the PR is dealt with (Phase 8).
 
 The PR body is **review-oriented**. The reviewer is checking the *what*-abstraction and the
-page-patch mapping (0007), so give them, per concept:
+page-patch mapping (0007), so lay the run summary out for them, per concept:
 
 ```markdown
 ## Distillation: <epic title(s)>
 
 Drained queue entries: `<entry paths>` (provenance: <ref(s)>) — <n> epic, <n> fix, <n> intake
-(omit the by-kind tally when every drained entry is an epic — today's behaviour, unchanged; state
-it whenever a fix or an intake entry drained this run, so a reviewer sees an intake entry's writes
-are not an epic's)
 
 ### <slug> — <create | update | retire>
 - **What changed:** <one-paragraph summary of the page change>
 - **Why (Decision Log entry):** <the entry's short title + one-line why>
 - **Provenance:** <ref> (<link to the issue>)
 - **From an intake entry:** <ref> — flagged so a reviewer can see it apart from an epic's write
-  (omit this line entirely unless the entry that produced this delta is an intake entry)
+  (only for a delta an intake entry produced)
 - **Reciprocal edits:** <slugs, or none>
 - **Split:** <only when Phase 4 step 4 fired: `<parent-slug> → <new-slug>` + one line on the
   seam, on both halves' sections — or, for a last-resort eviction, what was dropped and why no
@@ -1150,15 +1165,16 @@ comment in the PR body so the reviewer can see the *why* without a dangling queu
 
 # Phase 8 — Report completion
 
+Lay the run summary out in the report's own shape:
+
 ```
 DISTILLATION-PR OPENED: <url>
 
 Entries drained:   <n>  (<local-ids>) — <n> epic, <n> fix, <n> intake
-                   (omit the by-kind tally when every drained entry is an epic)
 Pages created:     <n>  (<slugs>)
 Pages updated:     <n>  (<slugs>)
 Pages retired:     <n>  (<slugs>)
-Taxonomy gate:     <n> forced fit(s) resolved (<n> new subdomain(s), <n> new domain(s), <n> confirmed best-fit) — omit this line when Phase 6.1 found no forced fits (epic #94, STORY-94.01)
+Taxonomy gate:     <n> forced fit(s) resolved (<n> new subdomain(s), <n> new domain(s), <n> confirmed best-fit)
 Reciprocal edits:  <n>  (<slugs>)
 Anchors refreshed: <n>
 Validator:         PASS
@@ -1166,10 +1182,8 @@ Drift advisory:    <n finding(s), or "clean", or "not run — no registry"> (adv
 
 Entries skipped (not closed): <list with ages, drain-SLO flags; hub mode adds each entry's
                                originating repo as <owner>/<repo>>
-Entries blocked (hub mode — diff underivable): <list with originating repo, age, drain-SLO
-                               flag, and the named problem per entry>
-(if nothing was skipped or blocked: "Entries skipped: none — every queue entry drained; no
- drain-SLO breaches")
+Entries blocked (diff underivable): <list with originating repo, age, drain-SLO flag, the class
+                               token and the range entry that failed>
 
 Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```

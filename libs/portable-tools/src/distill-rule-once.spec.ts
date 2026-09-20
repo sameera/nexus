@@ -129,3 +129,40 @@ describe("one entry-kind contract for epic, fix and intake (story #716)", () => 
         expect(DISTILL).toContain("entry-kind-mismatch");
     });
 });
+
+function count(haystack: string, needle: RegExp): number {
+    return haystack.match(new RegExp(needle.source, needle.flags.includes("g") ? needle.flags : `${needle.flags}g`))?.length ?? 0;
+}
+
+const CHECKPOINT: string = [...SECTIONS].find(([h]) => h.startsWith("# Phase 6"))?.[1] ?? "";
+const PR_BODY: string = [...SECTIONS].find(([h]) => h.startsWith("# Phase 7"))?.[1] ?? "";
+const REPORT: string = [...SECTIONS].find(([h]) => h.startsWith("# Phase 8"))?.[1] ?? "";
+
+describe("one run summary rendered at three surfaces (story #717)", () => {
+    it("writes one run summary to scratch, never staged and never committed", () => {
+        expect(CHECKPOINT).toMatch(/run-summary/);
+        expect(CHECKPOINT).toMatch(/never\s+committed/);
+        expect(CHECKPOINT).toMatch(/not a state file/);
+    });
+
+    it("defines each rendered value once, with the omission rule that belongs to it", () => {
+        expect(count(DISTILL, /omitted when every drained entry is an epic/)).toBe(1);
+        expect(count(DISTILL, /omit the by-kind tally/)).toBe(0);
+        expect(count(DISTILL, /every queue entry drained; no drain-SLO breaches/)).toBe(1);
+        expect(count(DISTILL, /when Phase 6\.1 found no forced fits/)).toBe(1);
+    });
+
+    it("renders the three surfaces as layouts over that one summary", () => {
+        for (const surface of [CHECKPOINT, PR_BODY, REPORT]) {
+            expect(surface).toMatch(/run summary/i);
+        }
+    });
+
+    it("keeps the three surfaces in the shapes they take today", () => {
+        expect(CHECKPOINT).toMatch(/Skipped \(not closed\):/);
+        expect(REPORT).toMatch(/Entries skipped \(not closed\):/);
+        expect(CHECKPOINT).toMatch(/Intake entries — every page created/);
+        expect(REPORT).toMatch(/Entries drained:\s*<n>\s*\(<local-ids>\) — <n> epic, <n> fix, <n> intake/);
+        expect(PR_BODY).toMatch(/Drained queue entries:[^\n]*<n> epic, <n> fix, <n> intake/);
+    });
+});
