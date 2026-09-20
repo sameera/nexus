@@ -9,3 +9,9 @@
 - **Choice:** Story #727 introduces the selection table with its two rows; each later extraction adds its own row rather than the table landing complete and half-empty.
 - **Why:** A row naming a contract that does not exist yet would fail the story's own "every named contract exists as an installed skill" assertion.
 - **Refuted alternative:** Land all five rows in #727 with the unbuilt contracts marked pending.
+
+## 2026-09-20 — The hub gate lives in the workspace-shape bullet, not a separate sentence
+
+- **Choice:** The hub contract is named inside run-shape resolution's `hub` bullet rather than at a later, separate gate sentence like recovery's and continuation's.
+- **Why:** Hub rules are scattered across six phases with no single first use, so the only point where the condition is resolved and no hub rule has yet been needed is the resolution itself.
+- **Refuted alternative:** Gate it at Input Resolution 3, the first phase whose behaviour varies.

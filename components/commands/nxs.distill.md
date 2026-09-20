@@ -88,7 +88,8 @@ the resolved value instead of re-deriving it.
 
     - **single-repo** (neither file present): every path below is exactly today's behavior,
       unchanged.
-    - **hub** (`.nexus/config/workspace.yml` present).
+    - **hub** (`.nexus/config/workspace.yml` present): load the **`nxs-distill-hub`** skill and
+      follow it.
     - **member** (`.nexus/config/hub.yml` present, no manifest): a member repo does not run this
       stage. Its closed entries migrate to the hub at close, and the hub processes them. Report that
       and **stop**, before any entry is discovered.
@@ -108,6 +109,7 @@ entry's kind `epic`, and no domain registry — selects no contract at all.
 |---|---|---|
 | run mode is `recovery` | `nxs-distill-recovery` | Input Resolution 4 |
 | run mode is `continuation` | `nxs-distill-continuation` | Input Resolution, after the entry list |
+| workspace shape is `hub` | `nxs-distill-hub` | run-shape resolution |
 
 A contract states its rules against this document's phase numbers and overrides this document at
 those numbers. This document's phase order and numbering do not change, and no contract cuts a
@@ -198,22 +200,6 @@ branch, stops at the checkpoint or opens a pull request of its own.
    introducing commit, or its `epic.md` `created` date if uncommitted). Flag anything older than
    30 days as a drain-SLO breach.
 
-   **Hub mode (run-shape resolution):** the drain-SLO report spans the **whole hub queue**. Every
-   undrained entry (skipped-not-closed and blocked-underivable alike) is listed, and each is
-   **attributed to every distinct repo its `range:` list names** (epic #214, story #508). Never
-   attribute only to the first entry's repo; that attributes an entry that shipped over several
-   pull requests to whichever repo was stamped first. List every distinct, host-stripped `repo`
-   (e.g. `acme/web-app`) across the entry's `close-record.md` `range:` list, in the order they
-   first appear. When the entry carries no close record yet, list the hub repo itself: an unclosed
-   hub-queue entry is the hub's own, because migration happens only at close, after the close
-   record is written. **Age is one figure per entry, never one per repo or per range entry**.
-   Measure it as today, from the introducing commit. For a migrated entry that commit *is* the
-   migration commit, so age measures how long the entry has been drainable in the hub queue.
-   Drain-SLO is measured against the hub queue only. Never scan member checkouts for
-   closed-but-unmigrated entries; that is migration-lag, owned by close-entry-migration /
-   workspace-status, not this report. A **blocked** entry (Phase 1, Exit 1) names the specific range
-   entry that could not be resolved, with its repo, base and head, and the class token the reader
-   reported, not merely the entry as a whole.
 4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → the run mode resolved at run-shape
    resolution is **recovery**. Load the **`nxs-distill-recovery`** skill and follow it.
 5. If nothing is drainable, report that and stop.
@@ -322,11 +308,9 @@ When the run mode resolved at run-shape resolution is **continuation**, load the
 3. **Run mode and workspace shape are already resolved** at run-shape resolution. Read the values
    recorded there. Never re-derive either here or in any later phase.
 
-4. **Merge precondition: distill is a post-merge stage (0007). Single-repo mode only; skip in hub
-   mode** (a hub entry arrived by migration and is processed from the hub trunk; migration-lag is a
-   drain-SLO concern, Input Resolution 3, not this gate). The *why* was reviewed when the feature
-   merged, so a single-repo run writes the store only from an entry that has reached the trunk.
-   Confirm each drainable entry is on the trunk:
+4. **Merge precondition: distill is a post-merge stage (0007).** The *why* was reviewed when the
+   feature merged, so a run writes the store only from an entry that has reached the trunk. Confirm
+   each drainable entry is on the trunk:
 
     Keep the `epic.md`-presence proxy **for committed entries only**:
 
@@ -381,23 +365,9 @@ When the run mode resolved at run-shape resolution is **continuation**, load the
       once. A "proceed" answer applies only to those entries; merged entries keep the normal path.
 5. Determine the **home repo** (`gh repo view --json nameWithOwner`). It is the resolution scope
    for unqualified `#n` provenance (0003 §2.4).
-6. **Resolve each entry's provenance repo**, branching on the Phase 0.3 mode:
+6. **Resolve each entry's provenance repo:**
 
-    - **Hub mode:** every provenance reference is the **qualified `<owner>/<repo>#n` form**,
-      resolved deterministically from the entry's recorded originating repo (epic #214, story
-      #508; this is no longer positional). When the entry's `range:` list names exactly **one**
-      distinct repo, that is the originating repo. Strip the leading host segment and append the
-      epic's `link` number: `github.com/acme/web-app` + `#3` → `acme/web-app#3`. No network
-      round-trip is needed, because the recorded repo is ground truth. When the list names **more
-      than one** distinct repo, probe each named repo for the epic's issue number
-      (`gh issue view <link> -R <owner>/<repo> --json title`) and require **exactly one** title
-      match. When that is not decisive (zero matches, or more than one), ask the lead via
-      `AskUserQuestion` which repo the epic issue lives in. Never guess, and never default to the
-      first-named repo. The terse `#n` form is **never emitted** in hub mode: in a hub the issue
-      never lives in this stage's own repo, so a terse reference would resolve against the wrong
-      repo. Use the resolved qualified form everywhere a reference is written: page frontmatter
-      `last_updated_by`, Decision Log headings, and the PR body.
-    - **Single-repo mode (unchanged):** the epic's `link` (e.g. `"#3"`) is only meaningful in
+    The epic's `link` (e.g. `"#3"`) is only meaningful in
       the repo where that issue lives. Check `gh issue view <n> --json title` in the home repo:
       if the issue exists and its title matches the epic, the terse `#n` form is correct. If it
       does not match (an imported entry, e.g. the Prime import, where `#3` is actually
@@ -413,12 +383,11 @@ diff source in either mode, and the stage derives no diff any other way. Per ent
 derivation tool with each argument its own quoted token, never a shell-interpolated string:
 
     ```bash
-    nexus derive-entry-diff --entry "<entry-dir>" [--hub <hub-root>]
+    nexus derive-entry-diff --entry "<entry-dir>"
     ```
 
-    Omit `--hub` in single-repo mode (it defaults to the current directory). If the toolkit
-    reports no such verb, the installed toolkit predates this capability. Stop and tell the
-    operator to update their Nexus install; do not derive the diff another way.
+    If the toolkit reports no such verb, the installed toolkit predates this capability. Stop and
+    tell the operator to update their Nexus install; do not derive the diff another way.
 
     The tool takes the entry's stamped `range:` list as its input and emits **one diff per range
     entry**, in each entry's own checkout, with every pipeline store withheld. It reads only: it
@@ -431,7 +400,7 @@ derivation tool with each argument its own quoted token, never a shell-interpola
     - **Exit 1 — the entry is blocked, whatever the failure class.** Report the tool's diagnostic
       **verbatim** and mark the entry **blocked**: it is not processed this run, its queue files
       are untouched, and the remaining entries still drain. **There is no second diff source in
-      either mode.** Never fall back to the hub repo, never treat the failure as an empty diff,
+      either mode.** Never fall back to another repo, never treat the failure as an empty diff,
       never derive a partial diff, and never ask the user for a replacement range.
 
       Each reported problem line carries a machine-readable class token, one line per affected
@@ -592,9 +561,8 @@ manual curation, out of this stage's scope.
   two Decision Logs.
 - **Every `touches` slug must resolve** to an existing active page or a page this same run
   creates. A touch pointing nowhere is dropped from the delta (no speculative stub pages).
-- **Provenance**: per the Phase 0.6 resolution, everywhere a reference is written. In hub mode
-  always the qualified `<owner>/<repo>#n` form (the terse `#n` never appears in a workspace
-  run's output); in single-repo mode `#n` for the home repo, qualified cross-repo.
+- **Provenance**: per the Phase 0.6 resolution, everywhere a reference is written — `#n` for the
+  home repo, the qualified `<owner>/<repo>#n` form cross-repo.
 - **Domain filing is create-only** (epic #94, STORY-94.01; decision-record Invariant 2): `domain`
   and `domain_fit` appear on a `create` delta only, and only when Phase 2 found a registry. An
   `update` or `retire` delta never adds, changes, or references `domain`. An existing page's
@@ -710,18 +678,15 @@ Run these for each entry, in order, before its commit:
    fan-out targets), regenerate `.nexus/anchors/<slug>.md`. Anchors are **derived state**: the
    ONLY place file paths are allowed (pages still reject them), SHA-stamped, regenerable,
    **never hand-edited**. Derive each concept's anchors from the diff paths attributable to it,
-   plus an alias-grep for pre-existing anchors. In single-repo mode grep over the home repo's
-   source tree. In hub mode grep over the member checkouts of every repo in the entry's recorded
-   range plus every repo already named in the concept's existing sidecar. For a checkout missing
-   during the grep, carry that repo's existing entries and SHA forward unchanged. Never drop paths
-   because a checkout is absent, and never fetch to find one. **Only anchor a path that still
+   plus an alias-grep for pre-existing anchors. Grep over the home repo's source tree. **Only
+   anchor a path that still
    exists at its repo's newest drained head** (epic #214, story #507). A path a later range entry
    renamed or deleted away is not anchored; existence is a read-only check at that head.
 
    **Per-path attribution (epic #214, story #507).** When a repo's range names more than one
    entry, append to each path's role text which pull request last changed it, in the
-   repo-qualified form: `<owner/repo>#<pr>` in hub mode, `#<pr>` in single-repo mode. Example:
-   `- \`src/x.ts\` — validates the request shape (acme/web-app#512)`. A path that entered only via
+   form `#<pr>`. Example:
+   `- \`src/x.ts\` — validates the request shape (#512)`. A path that entered only via
    alias-grep or name matching, never through a processed range entry, carries no attribution.
    That correctly reads as this run not having put it there. Read each entry's pull request from
    the diff tool's header (`nexus derive-entry-diff`'s `pr <n>` suffix, present when the range
@@ -750,46 +715,10 @@ Run these for each entry, in order, before its commit:
     - `<path>` — <one-line role in the concept>[ (#<pr>)]
     ```
 
-   **Hub format**: `source_sha` is a per-repo mapping (one `<repo>@<sha>` item per repo) and
-   every path is qualified by its repo. `<repo>` is the normalized `host/owner/repo` identity,
-   the exact string the close record's `range:` uses. The SHA for a repo in the entry's range is
-   the **newest** of that repo's drained heads: the last entry in the ancestry order the reader
-   already resolved, not merely "the" recorded head now that a repo can carry several. It is the
-   full 40-hex SHA. The SHA for a repo whose paths entered only via alias-grep is that member
-   checkout's current `HEAD` (`git -C <checkout> rev-parse HEAD`, read-only). Every listed path is
-   attributed to exactly one repo, **its own, never another repo in the same range list**, and
-   every mapped repo has at least one path. A pre-existing scalar-form anchor a hub run touches
-   is regenerated whole into this shape:
-
-    ```markdown
-    ---
-    concept: <slug>
-    source_sha:
-      - <host/owner/repo>@<newest drained head for that repo>
-      - <host/owner/repo>@<newest drained head for that repo>
-    generated: <YYYY-MM-DD>
-    ---
-
-    <!-- DERIVED — regenerated by /nxs.distill on every drain touching this concept.
-         Never hand-edit; stale anchors are rebuilt, not fixed. -->
-
-    # Code Anchors: <Title>
-
-    - `<host/owner/repo>:<path>` — <one-line role in the concept>[ (<host/owner/repo>#<pr>)]
-    ```
-
-3. **Mode-conditional rules for the deterministic steps.** Steps 4 and 5 run the same commands
-   whatever the mode. The toolkit is addressed by name, so there is nothing to choose. Pass every
-   page path and git ref as its own separate, quoted argument; never build the command by
-   interpolating a shell string. The run mode **already resolved once in Phase 0.3** still decides
-   what those commands are told. That check reads workspace resolution's own committed artifacts,
-   never a new heuristic (e.g. never "no `package.json`"):
-
-    - **hub**: the regenerated anchor sidecars are validated alongside the pages (Step 5), because
-      the per-repo `source_sha` mapping shape is part of the contract.
-    - **single-repo**: the changed pages alone are named; there are no anchor sidecars.
-    - **member**: a member repo does not run this stage. Phase 0.3 already stopped the run before
-      this point.
+3. **Argument discipline for the deterministic steps.** Steps 4 and 5 run the same commands
+   whatever the run's shape. The toolkit is addressed by name, so there is nothing to choose. Pass
+   every page path and git ref as its own separate, quoted argument; never build the command by
+   interpolating a shell string. The changed pages alone are named; there are no anchor sidecars.
 
 4. **Atlas regeneration.** Rebuild the human orientation page. Name no output path (epic #74;
    never a hardcoded one):
@@ -810,8 +739,6 @@ Run these for each entry, in order, before its commit:
     nexus validate-concepts --base HEAD "<changed-page-path>" ...
     nexus generate-atlas --check
     ```
-
-    On a hub the regenerated anchor sidecar paths are named alongside the pages, per Step 3.
 
     **Add the validation mode the entry-kind contract gives this entry's kind.** For the
     `--append-only-log` mode, the razor's essential half:
@@ -874,8 +801,7 @@ Run these for each entry, in order, before its commit:
     git commit
     ```
 
-   `<resolved-atlas-path>` is the path Step 4 reported, never a fixed literal, so a hub run
-   never recreates a `docs/` folder it doesn't use.
+   `<resolved-atlas-path>` is the path Step 4 reported, never a fixed literal.
 
    The entry leaves `.nexus/queue/**` only on this branch; main still holds it until the PR merges,
    and it stays recoverable via git history thereafter.
@@ -981,7 +907,7 @@ field holds or when it drops out. Change what a value holds here.
 | `taxonomy` | per forced fit: `<slug>` → best-fit chosen \| new subdomain \| new domain | the line is absent when Phase 6.1 found no forced fits |
 | `anchors` / `atlas` / `validator` | the refreshed slugs, the resolved atlas path, the validator verdict and page count | never omitted |
 | `drift` | the advisory's finding count, `clean`, or `not run — no registry` | advisory only; it never blocks and never gates a surface |
-| `skipped` / `blocked` | per entry: local id, originating repo (hub mode), age, drain-SLO flag, and for a blocked entry the class token and the range entry that failed | when both are empty, each surface states the zero case under its own **unqualified** label, `Skipped:` at the checkpoint and `Entries skipped:` at the report, reading `none — every queue entry drained; no drain-SLO breaches` |
+| `skipped` / `blocked` | per entry: local id, age, drain-SLO flag, and for a blocked entry the class token and the range entry that failed | when both are empty, each surface states the zero case under its own **unqualified** label, `Skipped:` at the checkpoint and `Entries skipped:` at the report, reading `none — every queue entry drained; no drain-SLO breaches` |
 | `waived` | the Phase 0.4 not-merged entries the lead waived, and that the PR carries their unmerged feature commits | the line is absent when every drained entry was on the trunk |
 | `pr_url` | the distillation-PR's URL | written at Phase 7 |
 
@@ -1018,7 +944,7 @@ Atlas: regenerated (<resolved-atlas-path>)
 Validator: PASS (<N> page(s))
 Drift advisory: <n finding(s) — misfiles/refinements/candidates, or a staleness alarm | clean — no drift above thresholds | not run — no registry> (advisory only, never blocks)
 
-Skipped (not closed): <local-id> — repo <owner/repo, hub mode only> — age <n>d [DRAIN-SLO BREACH if >30d]
+Skipped (not closed): <local-id> — age <n>d [DRAIN-SLO BREACH if >30d]
 Blocked (diff underivable): <local-id> — repo <owner/repo> — age <n>d — <class token> — <the range entry> [DRAIN-SLO BREACH if >30d]
 
 Not-merged (Phase 0.4 waiver): <local-id> — PR based on the current HEAD; merging it lands the
@@ -1069,7 +995,7 @@ Drained queue entries: `<entry paths>` (provenance: <ref(s)>) — <n> epic, <n> 
 "Clean — no drift above thresholds." If Phase 2 found no registry, omit this section.>
 
 ## Anchors refreshed (derived, never hand-edited)
-- `.nexus/anchors/<slug>.md` @ <source_sha — single-repo scalar, or one `<repo>@<sha>` per repo in hub mode>
+- `.nexus/anchors/<slug>.md` @ <source_sha>
 
 ## Atlas regenerated (derived)
 - `<resolved-atlas-path>`
@@ -1100,10 +1026,9 @@ Anchors refreshed: <n>
 Validator:         PASS
 Drift advisory:    <n finding(s), or "clean", or "not run — no registry"> (advisory only — never blocked this drain)
 
-Entries skipped (not closed): <list with ages, drain-SLO flags; hub mode adds each entry's
-                               originating repo as <owner>/<repo>>
-Entries blocked (diff underivable): <list with originating repo, age, drain-SLO flag, the class
-                               token and the range entry that failed>
+Entries skipped (not closed): <list with ages, drain-SLO flags>
+Entries blocked (diff underivable): <list with age, drain-SLO flag, the class token and the
+                               range entry that failed>
 
 Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```

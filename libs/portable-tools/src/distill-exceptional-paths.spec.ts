@@ -116,3 +116,45 @@ describe("the continuation contract is read only in continuation mode (story #72
         expect(contract("nxs-distill-continuation")).toMatch(/description: .*\/nxs\.distill.*continuation/);
     });
 });
+
+describe("the hub contract is read only in a hub workspace (story #728)", () => {
+    it("selects it from the resolved workspace shape, at run-shape resolution", () => {
+        expect(selectionRows()).toContainEqual(["workspace shape is `hub`", "`nxs-distill-hub`", "run-shape resolution"]);
+        expect(BASE_STAGE).toMatch(/\*\*hub\*\* \(`\.nexus\/config\/workspace\.yml` present\): load the \*\*`nxs-distill-hub`\*\* skill and\n\s*follow it\./);
+    });
+
+    it("keeps every hub-only rule in the contract, keyed to the base stage's phase numbers", () => {
+        const body: string = contract("nxs-distill-hub");
+        for (const phase of ["Input Resolution 3", "Phase 0.4", "Phase 0.6", "Phase 1", "Phase 5.2", "Phase 7"]) {
+            expect(body).toContain(`## ${phase}`);
+        }
+        for (const rule of [
+            "attributed to every distinct repo its `range:` list names",
+            "migration-lag is a drain-SLO concern",
+            "form is **never emitted** here",
+            '--hub "<hub-root>"',
+            "per-repo mapping",
+            "anchor sidecars are validated alongside the pages",
+            "originating repo",
+        ]) {
+            expect(body).toContain(rule);
+            expect(BASE_STAGE).not.toContain(rule);
+        }
+    });
+
+    it("states no hub instruction in any phase of the base stage", () => {
+        const phases: string = BASE_STAGE.slice(BASE_STAGE.indexOf("# Phase 0 — Preflight"), BASE_STAGE.indexOf("# Usage"));
+        // `member-unsupported` is one of the diff reader's closed class tokens, not a hub instruction.
+        expect(phases.replace(/`member-unsupported`/g, "")).not.toMatch(/\bhub\b|\bmember\b/i);
+    });
+
+    it("names hub only where the workspace shape is resolved", () => {
+        const front: string = BASE_STAGE.slice(0, BASE_STAGE.indexOf("## Entry discovery"));
+        expect(front).toMatch(/workspace\.yml/);
+        expect(BASE_STAGE.slice(BASE_STAGE.indexOf("## Entry discovery"))).not.toContain("workspace.yml");
+    });
+
+    it("describes itself by this stage and its selecting condition only", () => {
+        expect(contract("nxs-distill-hub")).toMatch(/description: .*\/nxs\.distill.*hub/);
+    });
+});

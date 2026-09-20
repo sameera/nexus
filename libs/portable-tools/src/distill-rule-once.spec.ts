@@ -38,6 +38,11 @@ function sections(doc: string): ReadonlyMap<string, string> {
     return out;
 }
 
+const HUB_CONTRACT: string = fs.readFileSync(
+    path.join(authoredComponentRoot(SRC_DIR), "skills", "nxs-distill-hub", "SKILL.md"),
+    "utf8",
+);
+
 const SECTIONS: ReadonlyMap<string, string> = sections(DISTILL);
 const DERIVE_SECTION: string = [...SECTIONS].find(([h]) => h.startsWith("# Phase 1"))?.[1] ?? "";
 
@@ -222,7 +227,10 @@ describe("the Constraints recap goes (story #719)", () => {
 
     it("finds every rule the recap stated at the action it governs", () => {
         expect(INPUT_RESOLUTION).toMatch(/Do NOT search when a path is given/);
-        expect(INPUT_RESOLUTION).toMatch(/Never scan member checkouts/);
+        // Epic #714 moved the hub-only half of the drain-SLO report into the hub contract; the rule
+        // is still stated exactly once, at the action it governs, in its new owner.
+        expect(HUB_CONTRACT).toMatch(/Never scan member checkouts/);
+        expect(DISTILL).not.toMatch(/Never scan member checkouts/);
         expect(INPUT_RESOLUTION).toMatch(/--recover <epic-issue>/);
         expect(SECTIONS.get("# Role") ?? "").toMatch(/never\s+write `\.nexus\/concepts\/` on main/i);
         expect(DISTILL).toMatch(/Hashes differ\*\* → \*\*hard-error this entry/);
