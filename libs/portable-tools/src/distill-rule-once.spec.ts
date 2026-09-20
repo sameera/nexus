@@ -38,10 +38,17 @@ function sections(doc: string): ReadonlyMap<string, string> {
     return out;
 }
 
-const HUB_CONTRACT: string = fs.readFileSync(
-    path.join(authoredComponentRoot(SRC_DIR), "skills", "nxs-distill-hub", "SKILL.md"),
-    "utf8",
-);
+function skill(name: string): string {
+    return fs.readFileSync(path.join(authoredComponentRoot(SRC_DIR), "skills", name, "SKILL.md"), "utf8");
+}
+
+const HUB_CONTRACT: string = skill("nxs-distill-hub");
+/**
+ * Epic #714 moved the fix and intake rows, and the rules keyed to them, into the non-epic
+ * entry-kind contract. Every assertion below that pinned one of those rules is rewritten against
+ * its new owner rather than dropped: the rule is still stated exactly once.
+ */
+const NONEPIC_CONTRACT: string = skill("nxs-distill-nonepic-entries");
 
 const SECTIONS: ReadonlyMap<string, string> = sections(DISTILL);
 const DERIVE_SECTION: string = [...SECTIONS].find(([h]) => h.startsWith("# Phase 1"))?.[1] ?? "";
@@ -92,14 +99,16 @@ describe("one entry-kind contract for epic, fix and intake (story #716)", () => 
     });
 
     it("answers every axis the kinds differ on from one table covering all three", () => {
-        const table = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("| `") || l.startsWith("| Kind"));
-        expect(table.length).toBeGreaterThan(0);
+        const rows = (text: string): string[] => text.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("| `"));
         const header = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).find((l) => l.startsWith("| Kind")) ?? "";
         for (const axis of [/\*why\* verified against/i, /delta vocabulary/i, /validation mode/i, /committed removal target/i]) {
             expect(header).toMatch(axis);
         }
-        for (const kind of ["epic", "fix", "intake"]) {
-            expect(table.some((row) => row.startsWith(`| \`${kind}\``))).toBe(true);
+        // The axes are defined once, for all three kinds; the two non-epic rows are the contract's.
+        expect(rows(INPUT_RESOLUTION).some((r) => r.startsWith("| `epic`"))).toBe(true);
+        for (const kind of ["fix", "intake"]) {
+            expect(rows(NONEPIC_CONTRACT).some((r) => r.startsWith(`| \`${kind}\``))).toBe(true);
+            expect(rows(INPUT_RESOLUTION).some((r) => r.startsWith(`| \`${kind}\``))).toBe(false);
         }
     });
 
@@ -129,8 +138,8 @@ describe("one entry-kind contract for epic, fix and intake (story #716)", () => 
     });
 
     it("keeps each kind's own action steps where the stage acts on them", () => {
-        expect(DISTILL).toContain("nexus validate-concepts --append-only-log --base HEAD");
-        expect(DISTILL).toContain("no-existing-page");
+        expect(NONEPIC_CONTRACT).toContain("nexus validate-concepts --append-only-log --base HEAD");
+        expect(NONEPIC_CONTRACT).toContain("no-existing-page");
         expect(DISTILL).toContain("entry-kind-mismatch");
     });
 });
@@ -172,7 +181,7 @@ describe("one run summary rendered at three surfaces (story #717)", () => {
     it("keeps the three surfaces in the shapes they take today", () => {
         expect(CHECKPOINT).toMatch(/Skipped \(not closed\):/);
         expect(REPORT).toMatch(/Entries skipped \(not closed\):/);
-        expect(CHECKPOINT).toMatch(/Intake entries — every page created/);
+        expect(NONEPIC_CONTRACT).toMatch(/Intake entries — every page created/);
         expect(REPORT).toMatch(/Entries drained:\s*<n>\s*\(<local-ids>\) — <n> epic, <n> fix, <n> intake/);
         expect(PR_BODY).toMatch(/Drained queue entries:[^\n]*<n> epic, <n> fix, <n> intake/);
     });
@@ -202,9 +211,9 @@ describe("the tool-internal explanations go (story #718)", () => {
     it("keeps the two validator contracts the stage itself branches on", () => {
         expect(DISTILL).toMatch(/A non-zero exit from any of these blocks the PR/);
         expect(DISTILL).toMatch(/\[ADVISORY\]/);
-        expect(DISTILL).toContain("nexus --help | grep -q -- --append-only-log");
-        expect(DISTILL).toMatch(/mode-unavailable → refuse that entry/);
-        expect(DISTILL).toMatch(/changed outside the entry it gained/);
+        expect(NONEPIC_CONTRACT).toContain("nexus --help | grep -q -- --append-only-log");
+        expect(NONEPIC_CONTRACT).toMatch(/mode-unavailable → refuse that entry/);
+        expect(NONEPIC_CONTRACT).toMatch(/changed outside the entry it gained/);
     });
 });
 

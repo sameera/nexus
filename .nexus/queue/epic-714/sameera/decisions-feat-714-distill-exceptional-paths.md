@@ -15,3 +15,9 @@
 - **Choice:** The hub contract is named inside run-shape resolution's `hub` bullet rather than at a later, separate gate sentence like recovery's and continuation's.
 - **Why:** Hub rules are scattered across six phases with no single first use, so the only point where the condition is resolved and no hub rule has yet been needed is the resolution itself.
 - **Refuted alternative:** Gate it at Input Resolution 3, the first phase whose behaviour varies.
+
+## 2026-09-20 — The fix and intake lane suites read base stage plus contract
+
+- **Choice:** `fix-lane.spec.ts` and `nxs-intake.spec.ts` now build their `DISTILL` constant from the base command document concatenated with the non-epic contract, instead of repointing each assertion individually.
+- **Why:** Those suites assert what a run draining an entry of that kind reads, and such a run reads both documents; concatenating keeps every existing assertion verbatim, which is what record invariant 12 asks for.
+- **Refuted alternative:** Repoint each of the ~30 assertions at whichever of the two documents now owns its rule.

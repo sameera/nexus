@@ -110,6 +110,7 @@ entry's kind `epic`, and no domain registry — selects no contract at all.
 | run mode is `recovery` | `nxs-distill-recovery` | Input Resolution 4 |
 | run mode is `continuation` | `nxs-distill-continuation` | Input Resolution, after the entry list |
 | workspace shape is `hub` | `nxs-distill-hub` | run-shape resolution |
+| any discovered entry's kind is `fix` or `intake` | `nxs-distill-nonepic-entries` | entry discovery, at kind resolution |
 
 A contract states its rules against this document's phase numbers and overrides this document at
 those numbers. This document's phase order and numbering do not change, and no contract cuts a
@@ -153,14 +154,16 @@ branch, stops at the checkpoint or opens a pull request of its own.
    `<scratch>/<entry-slug>/entry-kind`, beside the record body Phase 0.1 writes there. Every later
    phase reads that recorded value and must never re-derive the kind.
 
+   When any discovered entry's recorded kind is **`fix`** or **`intake`**, load the
+   **`nxs-distill-nonepic-entries`** skill and follow it.
+
    **The entry-kind contract.** These four axes are the whole of what the three kinds differ on.
-   Every later phase reads this table; none of them restates a kind's behaviour.
+   Every later phase reads this table; none of them restates a kind's behaviour. The epic row is
+   the ordinary path and is stated here; the other two kinds' rows are the non-epic contract's.
 
    | Kind | *Why* verified against | Delta vocabulary | Validation mode | Committed removal target |
    |---|---|---|---|---|
    | `epic` | the record sub-issue body, hash-verified against `close-record.md`'s stamp; `close-record.md` alone when the epic has no record | full: create a page, change what a page asserts, add or retire an invariant | none added | a committed entry: its own dir. An ephemeral entry: the epic's scratch dir `.nexus/queue/epic-<n>/` |
-   | `fix` | `close-record.md` alone | one `## Decision Log Entry` appended to a page that already exists, and nothing else | `--append-only-log` | none, and an absent target is the expected shape rather than a missing one |
-   | `intake` | the pull request body, digest-verified against the `pr_digest` stamped at intake | full, exactly as `epic` | none added | the ephemeral-entry rule above, unchanged |
 
    Everything else is **true of all three kinds** and is stated here once, with no column of its
    own: a directory is drainable only carrying both files; an ephemeral entry never enters
@@ -279,30 +282,6 @@ When the run mode resolved at run-shape resolution is **continuation**, load the
     This stage stays **read-only** against the record issue: it fetches and hashes, never edits,
     closes, or comments.
 
-    **When the contract names the pull request body as this entry's *why* source, verify that
-    instead** (record #504, invariant 14). Re-fetch the body and re-hash it, through the same
-    digest program, over the reference recorded in the entry's `epic.md` `link`:
-
-    ```bash
-    nexus record-digest --issue <n> ${REPO:+--repo $REPO}
-    ```
-
-    - **Digest matches the entry's stamped `pr_digest`** → the pull request still says what was
-      recorded. Use the entry's `close-record.md` as its ***why* file**.
-    - **Digest differs, or the pull request cannot be fetched** → **hard-error this entry and write
-      nothing for it.** There is no drain-side waiver, on the same terms the record-hash mismatch
-      above admits none: this stage writes permanently into the store, so a waived mismatch would
-      file reasoning the pull request no longer states. Never substitute a local copy of the body.
-      Report:
-
-        ```
-        Drain blocked for <entry>: <qualified reference> no longer matches the body recorded at intake.
-          stamped at intake: <hash from epic.md pr_digest>
-          current body:      <recomputed hash, or "unfetchable">
-        Nothing was written for this entry.
-        Recover by re-running /nxs.intake <qualified reference> and re-approving its gate, then
-        re-run /nxs.distill.
-        ```
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: this stage creates a branch and must not entangle unrelated work.
 3. **Run mode and workspace shape are already resolved** at run-shape resolution. Read the values
@@ -483,14 +462,6 @@ contract names `close-record.md` as the *why* source, the *why* is its Key Decis
 delta's `source` is the reference recorded in the entry's `epic.md` `link`, which is what the
 appended log heading carries.
 
-**Under the bounded vocabulary, a rationale that maps to no existing page is a named per-entry
-hard block: `no-existing-page`.** Report it, write nothing for that entry, and leave the entry
-directory in place for a later run. This is the razor working, not a gap in it: a decision with no
-page is a decision that needs a page. Name the remedy by whether the change is still to be built or
-has already shipped: work not yet built is design work for **`/nxs.epic`**; a change that has
-already landed and needs to alter what a page asserts is landed design work for **`/nxs.intake`**.
-An entry whose row gives the full vocabulary can create the page itself, so this block never fires
-for one.
 
 **Delta frontmatter:** `concept` (target slug), `action` (`create | update | retire`), `source`
 (the Phase 0 provenance ref), `date` (today), `title` (create only), `touches_added` /
@@ -740,51 +711,6 @@ Run these for each entry, in order, before its commit:
     nexus generate-atlas --check
     ```
 
-    **Add the validation mode the entry-kind contract gives this entry's kind.** For the
-    `--append-only-log` mode, the razor's essential half:
-
-    ```bash
-    nexus validate-concepts --append-only-log --base HEAD "<changed-page-path>" ...
-    ```
-
-    The flag is **added to** the invocation, never substituted for it: every existing check above
-    still runs against the same pages, and the mode runs alongside them. Name only the entry's
-    changed **concept pages**, never the regenerated anchor sidecars, which a fix run may
-    legitimately rewrite.
-
-    Entries are applied, validated and committed one at a time (Step 2), so each is validated by
-    its own invocation carrying its own kind's mode and no other's. That per-entry ordering is
-    essential here and must not be batched as an optimisation: batching would make the razor
-    compare against the wrong base.
-
-    **The refusal message matters as much as the exit code.** When the mode blocks, report it naming
-    the fix entry, naming the page, and saying what it means:
-
-    ```
-    <fix local-id> (<provenance ref>) — <slug> changed outside the entry it gained.
-    That alters what the page asserts rather than adding to its history, which makes it a design
-    change, not a fix. Plan it with /nxs.epic if it is not yet built, or record it with
-    /nxs.intake since this change has already shipped. No distillation-PR is opened.
-    ```
-
-    A developer who hits this needs to learn what kind of change they made, not just that a command
-    exited non-zero.
-
-    **Before draining an entry whose kind carries a validation mode, establish that the validator
-    you will run enforces it** (record #271, invariant 13). One installed toolkit exists per
-    account and it lags when it is not updated. An older one still fails closed, but it misnames
-    its own cause, and the obvious repair for that diagnostic is exactly the silent pass the razor
-    exists to prevent. So confirm the mode is declared before you rely on it:
-
-    ```bash
-    nexus --help | grep -q -- --append-only-log && echo mode-available || echo mode-unavailable
-    ```
-
-    **mode-unavailable → refuse that entry**, and attribute the failure to the install, never to
-    a missing file: report that the installed toolkit predates the append-only mode and that the
-    remedy is to update the install. An undrained fix can be recovered; a fix merged without the
-    razor cannot, because the log entry cannot be unwritten.
-
     **A non-zero exit from any of these blocks the PR**. Fix the pages (or regenerate the
     atlas) and re-run until both exit 0. Do not weaken, skip, or reinterpret a blocking finding;
     the validator is the contract's mechanical half. **Advisories are the named exception:** a
@@ -902,8 +828,6 @@ field holds or when it drops out. Change what a value holds here.
 | `entries` | per drained entry: local id, epic title, provenance ref, source (committed queue \| `.nexus/tmp` ephemeral \| recovered from epic issue `#<n>`), and what deletion lands with the merge | never omitted |
 | `by_kind` | `<n> epic, <n> fix, <n> intake` | omitted when every drained entry is an epic. Stated whenever a fix or an intake entry drained this run, so a reviewer sees that an intake entry's writes are not an epic's |
 | `deltas` | per concept: slug, `create \| update \| retire`, sections changed, the Decision Log entry's title, and the reciprocity fan-out targets | fan-out reads `none` when there was none |
-| `fix_entries` | per fix entry: the page it changes and the heading it appends | the block is absent when no fix entry drained this run |
-| `intake_entries` | per intake entry: every page created, every page whose assertions changed, every invariant retired | the block is absent when no intake entry drained this run |
 | `taxonomy` | per forced fit: `<slug>` → best-fit chosen \| new subdomain \| new domain | the line is absent when Phase 6.1 found no forced fits |
 | `anchors` / `atlas` / `validator` | the refreshed slugs, the resolved atlas path, the validator verdict and page count | never omitted |
 | `drift` | the advisory's finding count, `clean`, or `not run — no registry` | advisory only; it never blocks and never gates a surface |
@@ -929,14 +853,6 @@ Concept deltas:
 - <slug> — <create|update|retire> — <sections changed> — log: "<entry title>"
   ↳ reciprocity fan-out: <slugs, or none>
 
-Fix entries — the page each one changes and the entry it appends:
-- <fix local-id> (<provenance ref>) → <slug> — log: "<the appended entry's heading>"
-
-Intake entries — every page created, every page whose assertions change, and every invariant
-retired:
-- <intake local-id> (<provenance ref>) — created: <slugs, or none> — assertions changed: <slugs,
-  or none> — invariants retired: <slugs, or none>
-
 Taxonomy gate: <n> forced fit(s) resolved — <slug> → <best-fit chosen | new subdomain "<title>" | new domain "<title>">, ...
 
 Anchors refreshed: <slugs>
@@ -945,7 +861,7 @@ Validator: PASS (<N> page(s))
 Drift advisory: <n finding(s) — misfiles/refinements/candidates, or a staleness alarm | clean — no drift above thresholds | not run — no registry> (advisory only, never blocks)
 
 Skipped (not closed): <local-id> — age <n>d [DRAIN-SLO BREACH if >30d]
-Blocked (diff underivable): <local-id> — repo <owner/repo> — age <n>d — <class token> — <the range entry> [DRAIN-SLO BREACH if >30d]
+Blocked (diff underivable): <local-id> — age <n>d — <class token> — <the range entry> [DRAIN-SLO BREACH if >30d]
 
 Not-merged (Phase 0.4 waiver): <local-id> — PR based on the current HEAD; merging it lands the
   unmerged feature commits AND this distillation together
@@ -983,8 +899,6 @@ Drained queue entries: `<entry paths>` (provenance: <ref(s)>) — <n> epic, <n> 
 - **What changed:** <one-paragraph summary of the page change>
 - **Why (Decision Log entry):** <the entry's short title + one-line why>
 - **Provenance:** <ref> (<link to the issue>)
-- **From an intake entry:** <ref> — flagged so a reviewer can see it apart from an epic's write
-  (only for a delta an intake entry produced)
 - **Reciprocal edits:** <slugs, or none>
 - **Split:** <only when Phase 4 step 4 fired: `<parent-slug> → <new-slug>` + one line on the
   seam, on both halves' sections — or, for a last-resort eviction, what was dropped and why no

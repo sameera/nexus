@@ -158,3 +158,54 @@ describe("the hub contract is read only in a hub workspace (story #728)", () => 
         expect(contract("nxs-distill-hub")).toMatch(/description: .*\/nxs\.distill.*hub/);
     });
 });
+
+describe("the non-epic entry-kind contract is read only when such an entry drains (story #729)", () => {
+    it("selects it from each discovered entry's resolved kind, at kind resolution", () => {
+        expect(selectionRows()).toContainEqual([
+            "any discovered entry's kind is `fix` or `intake`",
+            "`nxs-distill-nonepic-entries`",
+            "entry discovery, at kind resolution",
+        ]);
+        expect(BASE_STAGE).toMatch(/recorded kind is \*\*`fix`\*\* or \*\*`intake`\*\*, load the\n\s*\*\*`nxs-distill-nonepic-entries`\*\* skill and follow it\./);
+    });
+
+    it("keeps the axis names and the epic row in the base stage, and the other two rows in the contract", () => {
+        const kindRow = (text: string, kind: string): boolean =>
+            text.split("\n").some((l) => l.trim().startsWith(`| \`${kind}\``));
+        expect(BASE_STAGE).toContain("| Kind | *Why* verified against |");
+        expect(kindRow(BASE_STAGE, "epic")).toBe(true);
+        for (const kind of ["fix", "intake"]) {
+            expect(kindRow(BASE_STAGE, kind)).toBe(false);
+            expect(kindRow(contract("nxs-distill-nonepic-entries"), kind)).toBe(true);
+        }
+    });
+
+    it("keeps every fix and intake rule in the contract, keyed to the base stage's phase numbers", () => {
+        const body: string = contract("nxs-distill-nonepic-entries");
+        for (const phase of ["Phase 0.1", "Phase 3", "Phase 5.5", "Phase 6", "Phase 7"]) {
+            expect(body).toContain(`## ${phase}`);
+        }
+        for (const rule of [
+            "pr_digest",
+            "no-existing-page",
+            "--append-only-log",
+            "mode-unavailable",
+            "changed outside the entry it gained",
+            "Fix entries — the page each one changes",
+            "Intake entries — every page created",
+            "From an intake entry:",
+        ]) {
+            expect(body).toContain(rule);
+            expect(BASE_STAGE).not.toContain(rule);
+        }
+    });
+
+    it("still reports the run's per-kind counts from the base stage, so an all-epic run omits the tally", () => {
+        expect(BASE_STAGE).toMatch(/\| `by_kind` \| `<n> epic, <n> fix, <n> intake` \| omitted when every drained entry is an epic/);
+        expect(BASE_STAGE).toMatch(/Entries drained:\s*<n>\s*\(<local-ids>\) — <n> epic, <n> fix, <n> intake/);
+    });
+
+    it("describes itself by this stage and its selecting condition only", () => {
+        expect(contract("nxs-distill-nonepic-entries")).toMatch(/description: .*\/nxs\.distill.*fix or intake/);
+    });
+});
