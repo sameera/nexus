@@ -87,9 +87,9 @@ describe("one entry-kind contract for epic, fix and intake (story #716)", () => 
     });
 
     it("answers every axis the kinds differ on from one table covering all three", () => {
-        const table = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("|"));
+        const table = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("| `") || l.startsWith("| Kind"));
         expect(table.length).toBeGreaterThan(0);
-        const header = table[0];
+        const header = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).find((l) => l.startsWith("| Kind")) ?? "";
         for (const axis of [/\*why\* verified against/i, /delta vocabulary/i, /validation mode/i, /committed removal target/i]) {
             expect(header).toMatch(axis);
         }

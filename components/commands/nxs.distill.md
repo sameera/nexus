@@ -66,6 +66,55 @@ $ARGUMENTS
 
 # Input Resolution
 
+## Run-shape resolution
+
+Resolve the run's shape before anything is reported, refused or written, then read exactly the
+contracts that shape names. Each value below is resolved **once**, here, and every later phase reads
+the resolved value instead of re-deriving it.
+
+1. **Run mode.**
+    - **recovery** — `$ARGUMENTS` contains `--recover <epic-issue>`.
+    - **continuation** — the current branch matches `distill/*`, the working tree is clean, and the
+      branch's commits vs the trunk ref (`nexus trunk`) touch **only** queue/docs artifacts (a close
+      just prepared it: the close record, backlog append, and lesson).
+    - **ordinary** — neither of the above.
+2. **Workspace shape**, from the same committed artifacts the deterministic steps read for their
+   mode-conditional rules (Phase 5.3). Never use a new heuristic (e.g. never "no `package.json`"):
+
+    ```bash
+    test -f .nexus/config/workspace.yml   # hub manifest → hub mode
+    test -f .nexus/config/hub.yml         # member pointer → member mode
+    ```
+
+    - **single-repo** (neither file present): every path below is exactly today's behavior,
+      unchanged.
+    - **hub** (`.nexus/config/workspace.yml` present).
+    - **member** (`.nexus/config/hub.yml` present, no manifest): a member repo does not run this
+      stage. Its closed entries migrate to the hub at close, and the hub processes them. Report that
+      and **stop**, before any entry is discovered.
+
+    This mirrors workspace resolution's own role determination (a checkout carrying both files is
+    the hub); distill re-derives no workspace shape of its own.
+3. **Each discovered entry's kind**, resolved and recorded at discovery (step 2 below).
+
+### Contract selection table
+
+Each row names a resolved condition and the one contract that condition selects. Read a contract at
+the gate its row names, never ahead of the condition resolving, and read none whose condition did
+not resolve. The **ordinary shape** — run mode `ordinary`, workspace shape `single-repo`, every
+entry's kind `epic`, and no domain registry — selects no contract at all.
+
+| Resolved condition | Contract | Selected at |
+|---|---|---|
+| run mode is `recovery` | `nxs-distill-recovery` | Input Resolution 4 |
+| run mode is `continuation` | `nxs-distill-continuation` | Input Resolution, after the entry list |
+
+A contract states its rules against this document's phase numbers and overrides this document at
+those numbers. This document's phase order and numbering do not change, and no contract cuts a
+branch, stops at the checkpoint or opens a pull request of its own.
+
+## Entry discovery
+
 **Do NOT search when a path is given.**
 
 1. **`$ARGUMENTS` contains a queue-entry path** (a directory like `.nexus/queue/fe205650/`,
@@ -149,7 +198,7 @@ $ARGUMENTS
    introducing commit, or its `epic.md` `created` date if uncommitted). Flag anything older than
    30 days as a drain-SLO breach.
 
-   **Hub mode (Phase 0.3):** the drain-SLO report spans the **whole hub queue**. Every
+   **Hub mode (run-shape resolution):** the drain-SLO report spans the **whole hub queue**. Every
    undrained entry (skipped-not-closed and blocked-underivable alike) is listed, and each is
    **attributed to every distinct repo its `range:` list names** (epic #214, story #508). Never
    attribute only to the first entry's repo; that attributes an entry that shipped over several
@@ -165,69 +214,15 @@ $ARGUMENTS
    workspace-status, not this report. A **blocked** entry (Phase 1, Exit 1) names the specific range
    entry that could not be resolved, with its repo, base and head, and the class token the reader
    reported, not merely the entry as a whole.
-4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → **GitHub recovery mode** (#174): rebuild
-   that one entry from durable GitHub state when the local copy is gone (a different machine, a
-   cleared `.nexus/tmp/`, a run days after the close). Recovery is an **explicit per-entry path,
-   never a discovery source** (record #176, invariant 14): the no-argument scan never queries
-   closed epic issues looking for undistilled closes. The lead knows which epic they are
-   recovering, so an explicit invocation is sufficient and bounded.
-
-    1. **Re-derive the epic through the resolver**:
-       `nexus epic-resolve --epic <n>` → the
-       materialized `epic.md` under `.nexus/tmp/epic-<n>/`. A resolver failure is that diagnostic,
-       reported verbatim; stop.
-    2. **Take the *why* and the *what*-facts from the epic issue's close comment**. That comment is
-       the durable close record in every mode, local and `--pr` alike (record #176, invariant 4/5).
-       Fetch the epic issue's comments. Take the newest one containing the
-       `<!-- nexus:close-record -->` marker that is authored by a maintainer (`authorAssociation`
-       `OWNER`/`MEMBER`/`COLLABORATOR`, the same trust rule as the analyze block). Ignore untrusted
-       bodies and bodies that merely quote one. From it take:
-        - the **rationale**: the Key Decisions + Deviation Rationale prose, verbatim;
-        - the **record reference and full approved-body hash**, the **conformance verdict**, and
-          the **full-SHA landed `range:`**, parsed from the marker-anchored machine block, never
-          recomputed (the stamped range is by contract the exact range the close diffed);
-        - the **`issues_repo:`** field, when the block carries one. Carry it into the rebuilt
-          entry unchanged, so the record-resolution step prefers this stamped value over
-          re-resolving `epic-repo` from wherever recovery runs.
-
-       Rebuild `close-record.md` from these at `.nexus/tmp/epic-<n>/close-record.md`, beside the
-       re-derived `epic.md`. The rebuilt entry then flows through the ordinary pipeline unchanged:
-       Phase 0 hash-verifies the record against the recovered stamp, Phase 1 derives the diff from
-       the recovered range, Phase 5.6 re-aims the committed removal at the scratch dir.
-    3. **Where the epic has a linked PR**, the analyze verdict can also be recovered from the PR's
-       published review (the existing `<!-- nexus:analyze-receipt -->` machine block, same trust
-       rule) rather than treating conformance as unknown. The close comment's verdict and the
-       review must agree. The review is the tie-breaker, because it is the surface
-       `/nxs.close --pr` itself read.
-    4. **The genuinely unrecoverable cases are named per-entry hard blocks**. Report them precisely,
-       naming the entry and why it cannot be processed. Never treat them silently as "not yet
-       closed", and never process them with fabricated or empty rationale:
-        - `no-close-comment`: the epic issue has no trusted close comment (or none carrying the
-          machine block), so there is no durable rationale anywhere. Nothing is written.
-        - `range-unresolvable` (invariant 11): the recovered range cannot be resolved locally and
-          no PR resolves its head. Never a silent empty diff, never a partial one, never an
-          invented range.
+4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → the run mode resolved at run-shape
+   resolution is **recovery**. Load the **`nxs-distill-recovery`** skill and follow it.
 5. If nothing is drainable, report that and stop.
 
 All drainable entries in one run are batched into **one** distillation-PR (0007 batches
 naturally), applied entry-by-entry (Phase 4).
 
-**Continuation mode (the `/nxs.close --pr` hand-off).** Run in **continuation mode** when the
-current branch matches `distill/*`, the working tree is clean, and the branch's commits vs the
-trunk ref (`nexus trunk`) touch **only** queue/docs artifacts (a close just prepared it: the close
-record, backlog append, and lesson).
-
-- **Drain exactly the one entry this branch carries**: the queue entry whose `close-record.md` is
-  present on this branch but not at the trunk ref. Do **not** scan the whole queue, and do **not**
-  report other closed-on-their-own-branch entries as drain-SLO breaches (each is processed on its
-  own branch). Whole-queue batching applies only to the ordinary run.
-- **Do not cut a new branch** (Phase 4). You are already on the close-prepared one.
-- **Fetch and rebase onto the trunk first:** `git fetch "$(nexus trunk --form remote)" main` and
-  rebase this distill branch onto `$(nexus trunk)` before the Phase 2 survey, so slug convergence
-  sees any distillation that merged since the close (or warn if the branch base is behind and
-  cannot fast-forward).
-- Use the **range-head-reachability** merge precondition, not the `epic.md`-presence proxy
-  (Phase 0.4).
+When the run mode resolved at run-shape resolution is **continuation**, load the
+**`nxs-distill-continuation`** skill and follow it.
 
 # Phase 0 — Preflight
 
@@ -324,30 +319,8 @@ record, backlog append, and lesson).
         ```
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: this stage creates a branch and must not entangle unrelated work.
-   (In continuation mode the tree is clean because the close committed its artifacts, and you are
-   already on the `distill/*` branch. That is expected, not a block.)
-3. **Resolve the run mode once**, from the same committed artifacts and presence check the
-   deterministic steps read for their mode-conditional rules (Phase 5.3). Never use a new heuristic
-   (e.g. never "no `package.json`"):
-
-    ```bash
-    test -f .nexus/config/workspace.yml   # hub manifest → hub mode
-    test -f .nexus/config/hub.yml         # member pointer → member mode
-    ```
-
-    - **hub** (`.nexus/config/workspace.yml` present): every mode-gated behavior below takes
-      its hub branch: diff derivation (Phase 1), anchor source SHAs (Phase 5.2), provenance
-      form (Phase 0.6, Phase 3), the argument discipline on the deterministic steps (Phase 5.3),
-      and drain-SLO reporting
-      (Input Resolution 3, Phases 6/8).
-    - **single-repo** (neither file present): every path below is exactly today's behavior,
-      unchanged.
-    - **member** (`.nexus/config/hub.yml` present, no manifest): a member repo does not
-      run this stage. Its closed entries migrate to the hub at close, and the hub processes them.
-      Report that and **stop**.
-
-    This mirrors workspace resolution's own role determination (a checkout carrying both files
-    is the hub); distill re-derives no workspace shape of its own.
+3. **Run mode and workspace shape are already resolved** at run-shape resolution. Read the values
+   recorded there. Never re-derive either here or in any later phase.
 
 4. **Merge precondition: distill is a post-merge stage (0007). Single-repo mode only; skip in hub
    mode** (a hub entry arrived by migration and is processed from the hub trunk; migration-lag is a
@@ -355,18 +328,7 @@ record, backlog append, and lesson).
    merged, so a single-repo run writes the store only from an entry that has reached the trunk.
    Confirm each drainable entry is on the trunk:
 
-    **Continuation mode uses a different, stronger check**, because the `epic.md`-presence proxy is
-    defeated in the `--pr` pipeline: `epic.md` reaches `main` at the *epic* PR, long before the
-    feature merges. Confirm instead that the entry's landed change is on the trunk by testing the
-    recorded range head:
-
-    ```bash
-    TRUNK="$(git rev-parse -q --verify "$(nexus trunk)" || git rev-parse -q --verify main)"
-    git merge-base --is-ancestor <range.head> "$TRUNK" && echo merged || echo not-merged
-    ```
-
-    In the ordinary (non-continuation) run, keep the `epic.md`-presence proxy **for committed
-    entries only**:
+    Keep the `epic.md`-presence proxy **for committed entries only**:
 
     ```bash
     TRUNK="$(git rev-parse -q --verify "$(nexus trunk)" || git rev-parse -q --verify main)"
@@ -396,7 +358,7 @@ record, backlog append, and lesson).
     silent empty diff, never a partial one, never an invented range.
 
     - **merged** → continue silently. Phase 1 derives from the recorded range and Phase 4 cuts the
-      branch from the trunk; continuation mode stays on its branch.
+      branch from the trunk.
     - **not-merged** → the entry's feature branch has not merged to the trunk. Running here hits the
       failure the ordering exists to prevent, and you surface it before doing any work. The gate
       **detects, it never substitutes** (the analyze-gate contract from `/nxs.close`): the distill
@@ -650,10 +612,6 @@ manual curation, out of this stage's scope.
     instead of the trunk. That is where the entry lives (to `git rm`) and where the surveyed store
     matches. Branching from the trunk would make the `git rm` fail and land pages describing code
     the trunk does not yet have.
-
-    **In continuation mode, skip this step**. You are already on the close-prepared `distill/*`
-    branch (it holds the entry to `git rm` and the store the survey matched, rebased onto the trunk
-    in Phase 0). Apply the deltas and commit on it directly.
 
 2. **Apply entry-by-entry, one commit per queue entry** (this keeps the validator's
    one-new-Decision-Log-entry check exact when several entries touch the same page). For each
@@ -1087,11 +1045,6 @@ gh pr create --title "distill: <epic title(s) or local-ids>" --body-file "<scrat
 git checkout -
 ```
 
-**In continuation mode**, the branch already exists and was pushed by the close (`--pr`); `git push`
-lands the new concept/anchor/atlas commits on it. **Do not run `git checkout -`**. You are inside
-the close worktree, which stays on this branch, and there is no prior branch to return to. The
-worktree is removed after the PR is dealt with (Phase 8).
-
 The PR body is **review-oriented**. The reviewer is checking the *what*-abstraction and the
 page-patch mapping (0007), so lay the run summary out for them, per concept:
 
@@ -1130,11 +1083,6 @@ atomically with the page writes — **no manual post-merge step**:
   uncommitted, by the next run once this PR's provenance is on the trunk.
 ```
 
-In continuation mode the entry's `close-record.md` was added by the close earlier on this same
-branch and is `git rm`'d here, so it is **add-then-deleted within the branch** and invisible in the
-net "Files changed". Its prose lives durably in the epic-issue close comment; quote or link that
-comment in the PR body so the reviewer can see the *why* without a dangling queue path.
-
 # Phase 8 — Report completion
 
 Lay the run summary out in the report's own shape:
@@ -1159,13 +1107,6 @@ Entries blocked (diff underivable): <list with originating repo, age, drain-SLO 
 
 Consumed entries: removed on the branch — deletion lands with the merge (no post-merge step).
 ```
-
-**In continuation mode**, end with the worktree-cleanup instruction. `/nxs.distill` runs *inside* the
-close worktree, so it cannot remove that worktree itself; the lead removes it once done reviewing:
-
-    Worktree: <wtPath> (the close/distill worktree, still checked out on this branch)
-    CLEANUP (after the distillation-PR is merged or closed):
-        git worktree remove --force <wtPath>
 
 # Usage
 
