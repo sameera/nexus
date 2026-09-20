@@ -1166,34 +1166,66 @@ describe("nexus razor-offer (epic #576)", () => {
         "",
         "### Story 1: One `[inferred]`",
         "",
+        "- **size:** M",
+        "",
+        "#### Acceptance Criteria",
+        "",
+        "- [ ] **Given** a run, **when** it ends, **then** it is recorded `[inferred]`",
+        "",
         "### Story 2: Two `[inferred]`",
         "",
         "### Story 3: Three `[asked: \"a way to export it\"]`",
         "",
+        "## Assumptions",
+        "",
+        "- Runs are single-tenant `[inferred]`",
+        "",
     ].join("\n");
+
+    const run = async (body: string): Promise<string> => {
+        const dir: string = makeTmpDir("cli-razor-offer-");
+        fs.writeFileSync(path.join(dir, "epic.md"), body);
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-offer", "--draft", "epic.md"], io)).toBe(0);
+        return io.out.join("\n");
+    };
 
     it("is a dispatch name the executable declares, so the gate may invoke it", () => {
         expect(DISPATCH_NAMES).toContain("razor-offer");
     });
 
-    it("offers every story the smallest usable version excludes, asked-for first", async () => {
-        const dir: string = makeTmpDir("cli-razor-offer-");
-        fs.writeFileSync(path.join(dir, "epic.md"), drafted);
-        const io: CapturedIo = makeIo(dir);
-        expect(await runNexusCli(["razor-offer", "--draft", "epic.md"], io)).toBe(0);
-        const out: string = io.out.join("\n");
+    it("ticks the smallest usable version and leaves every story it excludes unticked", async () => {
+        const out: string = await run(drafted);
+        expect(out).toMatch(/\[x\] +1\. One/);
+        expect(out).toMatch(/\[ \] +2\. Three/);
+        expect(out).toMatch(/\[ \] +3\. Two/);
+    });
+
+    it("sorts the asked-for stories ahead of the model-added ones, each with its claim", async () => {
+        const out: string = await run(drafted);
         expect(out.indexOf("Three")).toBeLessThan(out.indexOf("Two"));
-        expect(out).toContain("1. Three");
-        expect(out).toContain("a way to export it");
+        expect(out).toContain('you asked: "a way to export it"');
         expect(out).toContain("waits on: One");
     });
 
-    it("offers nothing for a draft whose smallest usable version needs every story", async () => {
-        const dir: string = makeTmpDir("cli-razor-offer-");
-        fs.writeFileSync(path.join(dir, "epic.md"), drafted.replace("\nOne\n", "\nOne; Two; Three\n"));
-        const io: CapturedIo = makeIo(dir);
-        expect(await runNexusCli(["razor-offer", "--draft", "epic.md"], io)).toBe(0);
-        expect(io.out.join("\n")).toContain("nothing to offer");
+    it("carries the model-added criteria and the boundaries into the same numbered sequence, ticked", async () => {
+        const out: string = await run(drafted);
+        expect(out).toMatch(/\[x\] +4\. \*\*Given\*\* a run/);
+        expect(out).toMatch(/\[x\] +5\. Runs are single-tenant/);
+        expect(out).toContain("Assumptions");
+    });
+
+    it("writes no markdown list marker, so a renderer cannot eat the tick or renumber the line", async () => {
+        const out: string = await run(drafted);
+        const items: string[] = out.split("\n").filter((line: string) => /\[[x ]\]/.test(line));
+        expect(items.length).toBeGreaterThan(0);
+        for (const line of items) expect(line).toMatch(/^ *\[[x ]\] +\d+\. /);
+    });
+
+    it("still lists every story, all ticked, when the smallest usable version needs them all", async () => {
+        const out: string = await run(drafted.replace("\nOne\n", "\nOne; Two; Three\n"));
+        expect(out).not.toMatch(/\[ \]/);
+        expect(out).toMatch(/\[x\] +1\. One/);
     });
 });
 

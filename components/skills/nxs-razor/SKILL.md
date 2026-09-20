@@ -199,7 +199,10 @@ file. A stage's restatement of either convention is a pointer, never a source.
 1. **Numbered prose, grouped by parent.** Stably numbered entries, grouped under the story (or the
    decision) each belongs to. Not one control per item: five stories yield twenty listed items, and
    paginating them into batches turns one action into several rounds, which is no longer cheaper
-   than approving as drafted.
+   than approving as drafted. A checkbox widget per item is the same failure in another shape — the
+   host's question control takes a handful of options and cannot arrive pre-ticked, so the default
+   the list exists to state would be unrenderable and an untouched box would read as *drop it*. The
+   ticks are therefore **written into the prose**, and the reviewer types what they flip.
 2. **Three coarse actions**, plus any exit that gate already owes: two approvals (one plain, one
    naming a selection) and **revise**.
 3. **Selection is a list of the numbers**, typed. Not a click per item. One selection covers every
@@ -208,6 +211,15 @@ file. A stage's restatement of either convention is a pointer, never a source.
    confirmation.
 5. **Nothing is applied to content a prior partial run already filed.** A number naming such content
    is refused, with the reason stated, never silently ignored.
+6. **The list reaches the reviewer verbatim, inside a fenced code block.** The reviewer reads it in a
+   client that renders markdown, and **the tick and the number are the two things the selection
+   names** — which are exactly the two a renderer rewrites. Written as markdown list syntax, `- [x]`
+   is consumed as a task-list control and the numbers are re-sequenced from the list's own position,
+   so the reviewer is shown an unnumbered, untickable list and cannot name anything at all. A fence
+   suspends the rendering, so what the gate computed is what the reviewer reads. **The list carries
+   no markdown list syntax of its own** either: a block that escapes its fence must still be legible.
+   This holds however the list was produced — a stage that renders it by hand is under the same rule
+   as one that transcribes a checker's output.
 
 ### The planning gate's convention: addition
 
@@ -216,35 +228,46 @@ else. Everything the necessity answer (§7) excludes is *offered*, and reaches a
 reviewer names its number. So scope nobody asked for takes an act of will to acquire rather than an
 act of vigilance to avoid.
 
-The offer list holds every story the smallest usable version excludes, in two labelled groups:
+**The list is that default, written out and pre-ticked.** One numbered checklist holds every story,
+every model-added acceptance criterion on a story the default files, and every assumption and
+out-of-scope item. A ticked line is what a plain approval files; an unticked one is offered. **A
+number flips the line it names** — untick to drop it, tick to add it — so one typed selection
+carries both directions and the reviewer reads the filed set rather than assembling it.
 
-- **Asked for**: the stories the lead requested that the smallest usable version does not need.
-  These sort **first** and are rendered **asked-for**, each carrying its story-level `asked` fragment
-  verbatim, because a claim on the lead's authority must be rejectable where the reviewer is already
-  deciding. What the reviewer does not take here **defers**: it leaves as one unplanned epic issue, so
-  declining costs nothing and forgets nothing.
-- **Added by the drafting model**: what the reviewer does not take is **discarded** and leaves no
-  trace: no issue, no note, no later triage. Regenerating it later is cheaper than carrying it as an
-  open item somebody has to answer for.
+Rendering the default *as* the list is the point. A gate that names the filed set in one place and
+offers the rest in another makes the reviewer hold two sets in their head and diff them, and what
+they approve is then a set they reconstructed rather than one they read.
 
-Within each group the order follows the ordering block (§10): **what each item unlocks, and never a
-ranking by predicted value**. Ranking additions by usefulness would have the drafting model scoring
-its own additions, which §9 forbids for the same reason.
+**Ordering.** Stories come first: the smallest usable version, then the stories it excludes, with
+the asked-for ones **sorted ahead** of the model-added ones and each rendered with its story-level
+`asked` fragment verbatim — a claim on the lead's authority must be rejectable where the reviewer is
+already deciding. Within each band the order follows the ordering block (§10): **what each item
+unlocks, and never a ranking by predicted value**. Ranking additions by usefulness would have the
+drafting model scoring its own additions, which §9 forbids for the same reason.
 
-**Only stories are opt-in.** A model-added acceptance criterion on a story that *is* being filed is
-filed on a plain approval. It is **opt-out**, listed so the reviewer can remove it by naming its
-number. A story is a unit of scope and can stand alone. A criterion is a statement about scope
-already being filed and cannot. Making criteria opt-in would let an asked-for story file with no
-criteria at all, which is unverifiable, and §5 admits no minimum-count rule to patch that.
+**What a tick governs, by kind:**
 
-**An assumption or an out-of-scope item is filed on a plain approval, even when inferred.** Neither
-adds scope. An assumption states a condition the stories were sized under; an out-of-scope item
-names something the epic will not do. Together they are the boundary the smallest usable version (§7)
-was drawn inside. Removing one does not make the epic smaller. It hides why the epic is the size it
-is, and a later reader fills the gap with scope nobody approved. So each inferred one is
-**called out** in its own numbered group and leaves the filed body only if the reviewer names its
-number. The call-out matters because an inferred boundary is a decision the lead never stated, and
-the gate is where they accept or strike it.
+- **A story.** Opt-in where the necessity answer excludes it, opt-out where it includes it — both
+  are one flip of the same list, because a story is a unit of scope that can stand alone.
+- **A model-added acceptance criterion**, listed under the story it belongs to and ticked, for the
+  stories the default files and no others. A criterion on a story nobody has taken has nothing to be
+  ticked against; it arrives with its story. An **asked-for** criterion is not listed at all: it is
+  the story's own definition, and striking it is a revise. Making criteria opt-in would let an
+  asked-for story file with no criteria at all, which is unverifiable, and §5 admits no
+  minimum-count rule to patch that.
+- **An assumption or an out-of-scope item**, listed whatever its provenance and ticked. Neither adds
+  scope. An assumption states a condition the stories were sized under; an out-of-scope item names
+  something the epic will not do. Together they are the boundary the smallest usable version (§7)
+  was drawn inside, so removing one does not make the epic smaller — it hides why the epic is the
+  size it is, and a later reader fills the gap with scope nobody approved. **Both provenances are
+  listed** because the boundary the reviewer approves is the whole of it; the fragment beside each
+  line is what tells an inferred one from a stated one, and an inferred boundary is a decision the
+  lead never made, which the gate is where they accept or strike.
+
+**What the reviewer does not take is treated by where it came from.** An unticked **asked-for** story
+**defers**: it leaves as one unplanned epic issue, so declining costs nothing and forgets nothing. An
+unticked **model-added** story is **discarded** and leaves no trace — no issue, no note, no later
+triage. Regenerating it later is cheaper than carrying it as an open item somebody has to answer for.
 
 **At least one story is always filed.** A selection leaving none is a revise, not an approval.
 

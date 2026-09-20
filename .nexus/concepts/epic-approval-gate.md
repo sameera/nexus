@@ -2,7 +2,7 @@
 title: "Epic Approval Gate"
 aliases: ["approval digest gate", "epic filing gate", "decision-grade digest", "offer list at the digest", "waits on line"]
 touches: ["nexus-pipeline", "story-as-unit", "issue-sourced-planning", "publishing-config-resolution", "decision-record", "backlog-stub", "fog-referral-gate", "discovery-graduation", "prose-translation", "scope-razor", "cut-gate", "derived-filing-body", "addition-gate", "draft-ordering-block", "set-closure-check", "design-warrant", "citation-check", "razor-enforcement", "issue-asset-store", "planning-run-folder"]
-last_updated_by: "#638"
+last_updated_by: "#711"
 status: active
 verification: verified
 ---
@@ -102,3 +102,7 @@ The asset store declares an interaction with this concept, so the edge is mirror
 ### 2026-09-17 — #638 — The draft moves into the checkout's own scratch folder
 
 The draft used to live in the harness's session scratch, outside the checkout, so a reviewer stopped at the gate had no practical way to open a full story before deciding. It now lives in the run's own folder under the repository's gitignored scratch area, and the digest names that folder's path beside it. See [planning-run-folder](planning-run-folder.md) for the folder's own rules.
+
+### 2026-09-20 — #711 — The gate lists every story in one pre-ticked checklist
+
+The old gate made the reviewer compare two overlapping sets: the stories the draft listed, then a second list saying which of them a plain approval files. A number meant add under one heading and delete under another, and a story could not be dropped at the gate at all. The gate now shows one numbered list. A tick marks what a plain approval files, and a number flips the line it names. The reviewer reads the filed set directly and can drop a story without revising and re-running. Refuted alternative: a take-everything action. It was refused because it restores the cheap route to maximal scope that the addition gate removed. The ticks are written in the markdown, not in a checkbox control, because the question widget cannot arrive pre-ticked and an untouched box would read as drop it.

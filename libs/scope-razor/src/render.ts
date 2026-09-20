@@ -6,7 +6,7 @@
 
 import type { Finding, TokenKind } from "./labels.js";
 import type { RazorFinding } from "./check.js";
-import type { OfferItem } from "./offer.js";
+import type { ChecklistItem, ChecklistKind } from "./offer.js";
 
 /** What each surviving token asks of the reader — a label goes, a placeholder and a marker do not. */
 const REMEDY: Record<TokenKind, string> = {
@@ -43,32 +43,59 @@ export function renderRazorFindings(draft: string, findings: RazorFinding[]): st
     ].join("\n");
 }
 
+/** The heading each run of one kind is printed under, so the reviewer reads what a tick governs. */
+const GROUP: Record<ChecklistKind, string> = {
+    story: "Stories",
+    criterion: "Acceptance criteria — model-added, on stories above",
+    assumption: "Assumptions",
+    "out-of-scope": "Out of scope",
+};
+
+/** The provenance the reviewer reads off the line: a claim on their own words, or the model's. */
+function claim(item: ChecklistItem): string {
+    return item.fragment === undefined ? "inferred" : `you asked: "${item.fragment}"`;
+}
+
+/** A story's trailing detail — its size and what taking it also takes. */
+function storyDetail(item: ChecklistItem): string {
+    const size: string = item.size === undefined ? "" : ` · ${item.size}`;
+    return `${size} · waits on: ${item.blockedBy.length === 0 ? "none" : item.blockedBy.join("; ")}`;
+}
+
 /**
- * The offer list as the gate reads it (epic #576, story #579): the stories the smallest usable
- * version excludes, in the two labelled groups, each carrying its stable number, its blockers and —
- * for an asked-for story — the fragment that claims the lead's own authority for it.
+ * The checklist as the gate renders it (epic #576, story #579): one numbered list, every line
+ * carrying the tick it arrives with, so the reviewer reads the filed set directly instead of
+ * assembling it out of groups that each mean something different.
  *
- * The numbering starts at one and is the sequence the reviewer types against; the gate's own
- * removals continue it. The order is the graph's and nothing else, so this render is the one place
- * the sequence is decided and the gate's prose transcribes rather than re-derives it.
+ * A ticked line is what a plain approval files. The reviewer names only the numbers they want
+ * flipped, which is why the tick and the number are the first two things on every line, and why the
+ * sequence is decided here rather than transcribed and re-derived by the gate's prose.
+ *
+ * No line carries a markdown list marker. The gate hands this text to a reviewer whose client
+ * renders markdown, and a renderer given `- [x] 1.` consumes the tick as a task-list control and
+ * renumbers the line — which deletes exactly the two things the reviewer's selection names. The
+ * gate delivers the block verbatim inside a fence (nxs-razor §8); this keeps the text readable even
+ * where it does not.
  */
-export function renderOfferList(draft: string, items: OfferItem[]): string {
-    if (items.length === 0) return `razor-offer: ${draft} — the smallest usable version needs every story; there is nothing to offer`;
-    const group = (label: string, of: "asked" | "inferred"): string[] => {
-        const rows: OfferItem[] = items.filter((item: OfferItem) => item.provenance === of);
-        if (rows.length === 0) return [];
-        return [
-            `  ${label}`,
-            ...rows.map((item: OfferItem) => {
-                const waits: string = item.blockedBy.length === 0 ? "none" : item.blockedBy.join("; ");
-                const claim: string = item.fragment === undefined ? "" : ` · you asked: "${item.fragment}"`;
-                return `    ${item.number}. ${item.title} · waits on: ${waits}${claim}`;
-            }),
-        ];
-    };
-    return [
-        `razor-offer: ${draft} — ${items.length} story/stories the smallest usable version excludes:`,
-        ...group("Asked for", "asked"),
-        ...group("Added by the drafting model", "inferred"),
-    ].join("\n");
+export function renderChecklist(draft: string, items: ChecklistItem[]): string {
+    if (items.length === 0) return `razor-offer: ${draft} — the draft declares no story, no boundary and nothing to tick`;
+    const lines: string[] = [`razor-offer: ${draft} — the filed set, pre-ticked; ${items.length} numbered item(s):`];
+    let group: ChecklistKind | undefined;
+    let parent: string | undefined;
+    const width: number = String(items[items.length - 1].number).length;
+    for (const item of items) {
+        if (item.kind !== group) {
+            lines.push("", GROUP[item.kind]);
+            group = item.kind;
+            parent = undefined;
+        }
+        if (item.kind === "criterion" && item.parent !== parent) {
+            lines.push(`  ${item.parent}`);
+            parent = item.parent;
+        }
+        const number: string = String(item.number).padStart(width, " ");
+        const detail: string = item.kind === "story" ? storyDetail(item) : "";
+        lines.push(`  [${item.filed ? "x" : " "}] ${number}. ${item.text}${detail} · ${claim(item)}`);
+    }
+    return lines.join("\n");
 }

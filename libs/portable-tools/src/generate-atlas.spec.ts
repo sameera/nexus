@@ -374,6 +374,9 @@ describe("renderAtlas / generateAtlas determinism", () => {
     });
 });
 
+// Every case here spawns `npx tsx` as a subprocess, so one case costs seconds rather than
+// milliseconds and the default 5s budget is a coin flip once the rest of the suite is running
+// alongside it. The timeout is the block's, not one case's, because they all pay the same cost.
 describe("CLI", () => {
     function runCli(args: string[]): { status: number; stdout: string; stderr: string } {
         try {
@@ -442,7 +445,7 @@ describe("CLI", () => {
         expect(result.stderr).not.toContain("pnpm");
         expect(result.stderr).not.toContain("utils/");
     });
-});
+}, 60_000);
 
 // --- resolver-derived default output (epic #74, STORY-74.02) ----------------
 

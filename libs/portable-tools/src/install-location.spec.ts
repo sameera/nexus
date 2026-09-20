@@ -31,6 +31,20 @@ afterEach(() => {
 });
 
 describe("resolving the install location", () => {
+    it("uses Codex's account skills root independently of either harness's configuration overrides", () => {
+        expect(resolveInstallLocation({
+            harness: "codex",
+            env: { CLAUDE_CONFIG_DIR: "invalid", CODEX_HOME: "/opt/codex-config" },
+            homedir: () => "/home/adopter",
+        })).toMatchObject({ ok: true, path: "/home/adopter/.agents", source: "home-default" });
+    });
+
+    it("reports an unavailable home for Codex instead of suggesting Claude configuration", () => {
+        const result = resolveInstallLocation({ harness: "codex", homedir: () => "" });
+        expect(result.ok).toBe(false);
+        expect(!result.ok && result.message).toContain("Codex");
+    });
+
     it("takes the home-directory default when the variable is unset", () => {
         const resolved = resolveInstallLocation({ env: {}, homedir: () => "/home/adopter" });
         expect(resolved).toMatchObject({ ok: true, path: path.join("/home/adopter", ".claude"), source: "home-default" });

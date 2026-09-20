@@ -243,14 +243,39 @@ describe("the two gate conventions", () => {
         expect(flat).toMatch(/nothing to add to/i);
     });
 
-    it("keeps the inversion at story granularity, so a sub-story item is still opt-out", () => {
-        expect(flat).toMatch(/Only stories are opt-in/);
-        expect(flat).toMatch(/A model-added acceptance criterion on a story that \*is\* being filed is filed on a plain approval/);
+    it("renders the default as one pre-ticked list, where a number flips the line it names", () => {
+        expect(flat).toMatch(/A ticked line is what a plain approval files/);
+        expect(flat).toMatch(/A number flips the line it names/);
+        expect(flat).toMatch(/one typed selection carries both directions/i);
     });
 
-    it("files an inferred assumption or out-of-scope item on a plain approval, because the smallest usable version was drawn inside them", () => {
-        expect(flat).toMatch(/An assumption or an out-of-scope item is filed on a plain approval, even when inferred/);
+    it("writes the ticks into the prose, because a per-item widget cannot arrive pre-ticked", () => {
+        expect(flat).toMatch(/cannot arrive pre-ticked/);
+        expect(flat).toMatch(/an untouched box would read as \*drop it\*/);
+        expect(flat).toMatch(/ticks are therefore \*\*written into the prose\*\*/);
+    });
+
+    it("orders each band by what it unlocks and says why a value ranking is refused", () => {
+        expect(flat).toMatch(/what each item unlocks, and never a ranking by predicted value/);
+        expect(flat).toMatch(/scoring its own additions/);
+    });
+
+    it("keeps a story opt-in either way and a sub-story criterion opt-out", () => {
+        expect(flat).toMatch(/Opt-in where the necessity answer excludes it, opt-out where it includes it/);
+        expect(flat).toMatch(/An \*\*asked-for\*\* criterion is not listed at all/);
+        expect(flat).toMatch(/file with no criteria at all/);
+    });
+
+    it("ticks a boundary of either provenance, because the reviewer approves the whole boundary", () => {
+        expect(flat).toMatch(/An assumption or an out-of-scope item\*\*, listed whatever its provenance and ticked/);
         expect(flat).toMatch(/boundary the smallest usable version \(§7\) was drawn inside/);
+        expect(flat).toMatch(/\*\*Both provenances are listed\*\*/);
+    });
+
+    it("delivers the list verbatim in a fenced block, so the ticks and the numbers survive rendering", () => {
+        expect(flat).toMatch(/fenced code block/);
+        expect(flat).toMatch(/markdown list syntax/i);
+        expect(flat).toMatch(/the tick and the number are the two things the selection names/i);
     });
 
     it("states that this file governs where a drafting stage's own wording disagrees with it", () => {
@@ -262,15 +287,35 @@ describe("the two gate conventions", () => {
 describe("the approval digest", () => {
     const epic: string = read("commands/nxs.epic.md").replace(/\s+/g, " ");
 
-    it("files the smallest usable version on a plain approval, and nothing else", () => {
-        expect(epic).toContain("### What a plain approval files");
-        expect(epic).toMatch(/a plain approval files the smallest usable version and nothing else/i);
+    it("renders the filed set as one pre-ticked checklist the reviewer reads the default off", () => {
+        expect(epic).toContain("### The filed set — untick to drop, tick to add");
+        expect(epic).toMatch(/a ticked line is what a plain approval files/i);
+        expect(epic).toMatch(/Type the numbers you want to flip, or nothing to take it as ticked/);
     });
 
-    it("offers the rest as additions the reviewer has to name, in one stably numbered list", () => {
-        expect(epic).toContain("### Additions — taken only if you name them");
-        expect(epic).toMatch(/share one stably numbered\s+list/);
-        expect(epic).toMatch(/one typed selection covers both/i);
+    it("gives every number one meaning, so no group reads differently from another", () => {
+        expect(epic).toMatch(/every number flips exactly one line/i);
+        expect(epic).toMatch(/One typed selection carries the whole decision/);
+    });
+
+    it("renders the stories and the boundaries once, in the checklist and not also in the digest body", () => {
+        expect(epic).toMatch(/\*\*The stories and the boundaries are not rendered here\.\*\*/);
+        expect(epic).toMatch(/hold two sets in their head and diff them/);
+    });
+
+    it("keeps the ticks in prose rather than as question-widget checkboxes", () => {
+        expect(epic).toMatch(/Do \*\*not\*\* render this as `AskUserQuestion` checkboxes/);
+        expect(epic).toMatch(/cannot arrive pre-ticked/);
+    });
+
+    it("renders the checklist inside a fenced block rather than as live markdown", () => {
+        expect(epic).toMatch(/inside a fenced code block/i);
+        expect(epic).toMatch(/Do \*\*not\*\* render the checklist as live markdown/);
+    });
+
+    it("carries the ticked set into the question, because mid-turn markdown may not be seen", () => {
+        expect(epic).toMatch(/mid-turn markdown is not guaranteed to reach the reviewer's screen/);
+        expect(epic).toMatch(/carry the ticked set into the question itself/i);
     });
 
     it("offers three actions, so adding scope is one choice rather than a re-run", () => {
@@ -278,31 +323,36 @@ describe("the approval digest", () => {
         expect(epic).toContain("**approve** —");
     });
 
-    it("sorts the asked-for stories first and renders each with the fragment that claims it", () => {
-        expect(epic).toMatch(/sort \*\*first\*\* and are rendered \*\*asked-for\*\*/);
-        expect(epic).toMatch(/asked fragment verbatim beside it/);
+    it("sorts the asked-for stories ahead of the model-added ones, each with the fragment that claims it", () => {
+        expect(epic).toMatch(/asked-for before model-added/);
+        expect(epic).toMatch(/you asked: "<the story's asked fragment, verbatim>"/);
     });
 
-    it("orders the offer by what each item unlocks, never by a ranking of value", () => {
-        expect(epic).toMatch(/what each item unlocks, never a ranking by value/);
-        expect(epic).toMatch(/scoring its own additions/);
+    it("orders the checklist by what each item unlocks, and leaves the reason for that to the razor", () => {
+        expect(epic).toMatch(/in the order the `## Implementation Order` block unlocks it/);
+        expect(epic).not.toMatch(/scoring its own additions/);
     });
 
-    it("inverts at story granularity only, keeping sub-story items opt-out", () => {
-        expect(epic).toContain("### Inferred criteria — filed unless you name them");
+    it("points at the razor for what a tick governs rather than restating the convention", () => {
         expect(epic).not.toMatch(/applies every listed removal/);
-        expect(epic).toMatch(/inversion is at story granularity only/i);
-        expect(epic).toMatch(/file with no criteria at all/);
+        expect(epic).toMatch(/What a tick governs, and why each kind is listed the way it is, is nxs-razor §8/);
+        expect(epic).toMatch(/read §8 rather than re-deriving it\s+here/);
     });
 
-    it("calls out every inferred assumption and out-of-scope item and files it unless the reviewer names it", () => {
-        expect(epic).toContain("### Boundaries — filed unless you name them");
-        expect(epic).toMatch(/files every inferred criterion and every boundary/i);
-        expect(epic).toMatch(/every inferred criterion and every boundary the reviewer named/i);
+    it("states only what a plain approval files, which is the gate's own behaviour and not the rule", () => {
+        expect(epic).toMatch(/every model-added criterion\s+on it, and every boundary/);
     });
 
     it("discards what the reviewer does not take rather than banking it", () => {
         expect(epic).toMatch(/is discarded and leaves no trace anywhere/);
+    });
+
+    it("treats an untick the same as an item that arrived unticked, by the story's provenance", () => {
+        expect(epic).toMatch(/the treatment follows the story's provenance, never how it came to be unticked/);
+    });
+
+    it("re-derives the necessity line from the filed set, since it reaches the issue", () => {
+        expect(epic).toMatch(/Re-derive the `## Smallest Usable Version` line from the filed story set/);
     });
 
     it("treats an empty selection as a plain approval", () => {
@@ -327,13 +377,9 @@ describe("the approval digest", () => {
         expect(epic).toMatch(/re-derive what the story set determined/i);
     });
 
-    it("numbers only the three groups a selection can act on", () => {
-        expect(epic).toMatch(/Only the three acted-on groups are numbered/);
-        expect(epic).toMatch(/a number against it\s+would name an action the selection has no meaning for/);
-    });
-
-    it("takes the offer list's order and numbering from the checker rather than by hand", () => {
+    it("takes the checklist's ticks, order and numbering from the checker rather than by hand", () => {
         expect(epic).toMatch(/nexus razor-offer --draft/);
+        expect(epic).toMatch(/\*\*Transcribe it; derive nothing\.\*\*/);
     });
 
     it("derives the filing body with the checker, which asserts what it wrote", () => {
@@ -354,6 +400,10 @@ describe("the other drafting stages", () => {
         expect(record).toContain("nxs-razor");
         expect(discover).toContain("nxs-razor");
         expect(record).toMatch(/this command restates none of it/);
+    });
+
+    it("render the record's cut list inside a fenced block, for the same reason the epic gate does", () => {
+        expect(record).toMatch(/inside a fenced code block/i);
     });
 
     it("label the record's invariants and risks in the same two-valued form", () => {

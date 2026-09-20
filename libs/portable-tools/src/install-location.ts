@@ -23,11 +23,15 @@ export const DEFAULT_CONFIG_DIRNAME = ".claude";
 /** Where the resolved location came from — reported so a user can see which rule applied. */
 export type LocationSource = "environment" | "home-default";
 
-export type InstallLocationResult =
-    | { ok: true; path: string; source: LocationSource }
-    | { ok: false; message: string };
+export type Harness = "claude" | "codex";
+
+/** Codex discovers account skills here, independently of its CODEX_HOME configuration. */
+export const CODEX_COMPONENT_DIRNAME = ".agents";
+
+export type InstallLocationResult = { ok: true; path: string; source: LocationSource } | { ok: false; message: string };
 
 export interface LocationScope {
+    harness?: Harness;
     /** The environment to read; defaults to the process environment. */
     env?: Record<string, string | undefined>;
     /** The account home; defaults to the operating system's answer. */
@@ -47,7 +51,8 @@ function unusable(reason: string): { ok: false; message: string } {
 /** Resolve the install location, or report why the value given cannot be used. */
 export function resolveInstallLocation(scope: LocationScope = {}): InstallLocationResult {
     const env: Record<string, string | undefined> = scope.env ?? process.env;
-    const raw: string | undefined = env[CONFIG_DIR_VAR];
+    const codex = scope.harness === "codex";
+    const raw: string | undefined = codex ? undefined : env[CONFIG_DIR_VAR];
 
     if (raw !== undefined) {
         const value: string = raw.trim();
@@ -69,12 +74,16 @@ export function resolveInstallLocation(scope: LocationScope = {}): InstallLocati
     if (home === "" || !path.isAbsolute(home)) {
         return {
             ok: false,
-            message:
-                `no home directory could be resolved and ${CONFIG_DIR_VAR} is unset. ` +
-                `Set ${CONFIG_DIR_VAR} to an absolute path.`,
+            message: codex
+                ? "no home directory could be resolved for Codex's account skills."
+                : `no home directory could be resolved and ${CONFIG_DIR_VAR} is unset. ` + `Set ${CONFIG_DIR_VAR} to an absolute path.`,
         };
     }
-    return { ok: true, path: path.join(home, DEFAULT_CONFIG_DIRNAME), source: "home-default" };
+    return {
+        ok: true,
+        path: path.join(home, codex ? CODEX_COMPONENT_DIRNAME : DEFAULT_CONFIG_DIRNAME),
+        source: "home-default",
+    };
 }
 
 /** Create the resolved location when it does not exist yet. */

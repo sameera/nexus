@@ -431,18 +431,25 @@ marker is one asserted string.
 **Then render the cut list** (nxs-razor §8), directly above the choice. This gate's convention is
 **removal**; a refuted alternative is not scope, so there is nothing here to add to.
 
-```markdown
+Render the numbered entries **inside a fenced code block** (nxs-razor §8), under the heading. The
+reviewer's client renders markdown, and a numbered entry written as a markdown list is re-sequenced
+from the list's own position — so entry 2 under the second decision comes back as 1, and the number
+the reviewer types then names the wrong alternative. The fence suspends that.
+
+````markdown
 ### Refuted alternatives
 
-**<Decision Title>**
-
-1. <the alternative, as written> — <its stated reason for losing>
-   ⚠️ razor: names no trade-off
-
-**<Decision Title>**
-
-2. <the alternative, as written> — <its stated reason for losing>
 ```
+<Decision Title>
+
+  1. <the alternative, as written> — <its stated reason for losing>
+     ⚠️ razor: names no trade-off
+
+<Decision Title>
+
+  2. <the alternative, as written> — <its stated reason for losing>
+```
+````
 
 Every refuted alternative in the draft appears, numbered stably, grouped under the decision it
 belongs to. An observation is rendered beside its entry; it is a thing to look at, not a verdict.
