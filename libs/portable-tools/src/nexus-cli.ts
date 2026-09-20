@@ -61,8 +61,8 @@ import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/p
 import { renderVerifyResult } from "@nexus/prose-verify/render";
 import { deriveFilingBody, survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
 import { checkApplied, checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
-import { renderOfferList, renderRazorFindings, renderSurvivingTokens } from "@nexus/scope-razor/render";
-import { offerList, type OfferItem } from "@nexus/scope-razor/offer";
+import { renderChecklist, renderRazorFindings, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
@@ -320,12 +320,13 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runRazorCheck,
     },
     "razor-offer": {
-        summary: "Print the planning gate's offer list, ordered by the draft's dependency graph.",
+        summary: "Print the planning gate's pre-ticked checklist of the set a plain approval files.",
         usage: [
             "  nexus razor-offer --draft <path>",
-            "      List every story the draft's smallest usable version excludes, asked-for first and",
-            "      then model-added, each in the order the ordering block unlocks it, with the stable",
-            "      number the reviewer types against. The gate's removals continue the same sequence.",
+            "      Print one numbered checklist: every story, every model-added acceptance criterion on",
+            "      a story the default files, and every boundary. A ticked line is what a plain approval",
+            "      files; the smallest usable version comes first, then the stories it excludes,",
+            "      asked-for before model-added, each in the order the ordering block unlocks it.",
         ].join("\n"),
         run: runRazorOffer,
     },
@@ -1604,10 +1605,11 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
 }
 
 /**
- * `nexus razor-offer` — the planning gate's offer list, ordered by the draft's own dependency graph
- * (epic #576, story #579). The gate renders from this rather than deriving the sequence itself:
- * ordering by what each item unlocks is mechanical, and the alternative — the drafting model ranking
- * its own additions by predicted value — is the self-assessment the razor forbids elsewhere.
+ * `nexus razor-offer` — the planning gate's checklist, pre-ticked with the set a plain approval
+ * files and ordered by the draft's own dependency graph (epic #576, story #579). The gate renders
+ * from this rather than deriving the sequence itself: both the tick state and the order are
+ * mechanical, and the alternative — the drafting model numbering its own additions and ranking them
+ * by predicted value — is the self-assessment the razor forbids elsewhere.
  */
 async function runRazorOffer(argv: string[], io: CliIo): Promise<number> {
     const flags: RazorCheckFlags = parseRazorCheckFlags(argv);
@@ -1622,8 +1624,8 @@ async function runRazorOffer(argv: string[], io: CliIo): Promise<number> {
         io.stderr(`razor-offer: cannot read ${flags.draft}`);
         return 1;
     }
-    const items: OfferItem[] = offerList(body);
-    io.stdout(renderOfferList(flags.draft, items));
+    const items: ChecklistItem[] = checklist(body);
+    io.stdout(renderChecklist(flags.draft, items));
     return 0;
 }
 
