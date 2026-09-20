@@ -1229,6 +1229,63 @@ describe("nexus razor-offer (epic #576)", () => {
     });
 });
 
+describe("nexus razor-offer --record (epic #722)", () => {
+    const record: string = [
+        "# Decision Record: Something",
+        "",
+        "## Key Decisions",
+        "",
+        "### The list is a render over the draft",
+        "",
+        "- **Decision:** read the labelled draft.",
+        "- **Refuted alternative:** have the architect return its own list — it loses on single-source provenance.",
+        "",
+        "## Constraints & Invariants",
+        "",
+        "1. Every model-added invariant appears on the list `[inferred]`",
+        '2. One typed selection covers every kind `[asked: "one typed number means the same thing"]`',
+        "",
+        "## Risks (BLOCKER / ADDRESS only)",
+        "",
+        "- **ADDRESS — a claimed citation hides an invariant:** mark the claim. `[inferred]`",
+        "",
+    ].join("\n");
+
+    const run = async (body: string): Promise<string> => {
+        const dir: string = makeTmpDir("cli-razor-record-");
+        fs.writeFileSync(path.join(dir, "record.md"), body);
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["razor-offer", "--draft", "record.md", "--record"], io)).toBe(0);
+        return io.out.join("\n");
+    };
+
+    it("prints the model-added invariants and risks alongside the refuted alternatives, in one sequence", async () => {
+        const out: string = await run(record);
+        expect(out).toMatch(/ 1\. have the architect return its own list/);
+        expect(out).toMatch(/ 2\. Every model-added invariant appears on the list/);
+        expect(out).toMatch(/ 3\. \*\*ADDRESS — a claimed citation hides an invariant:\*\*/);
+    });
+
+    it("names the decision each refuted alternative belongs to", async () => {
+        expect(await run(record)).toContain("The list is a render over the draft");
+    });
+
+    it("prints no invariant and no risk the lead asked for", async () => {
+        expect(await run(record)).not.toContain("One typed selection covers every kind");
+    });
+
+    it("writes no markdown list marker, so a renderer cannot renumber the line the reviewer names", async () => {
+        const out: string = await run(record);
+        const numbered: string[] = out.split("\n").filter((line: string) => /^ *\d+\. /.test(line.trimStart()) === false && /\d+\. /.test(line));
+        for (const line of numbered) expect(line).not.toMatch(/^ *[-*] /);
+    });
+
+    it("says so plainly when the record holds nothing the model added", async () => {
+        const out: string = await run("# Decision Record: Empty\n\n## Summary\n\nNothing.\n");
+        expect(out).toMatch(/nothing to (cut|tick)/i);
+    });
+});
+
 describe("nexus trunk", () => {
     function repoWithRemotes(remotes: Array<[string, string]>): string {
         const dir: string = makeTmpDir("cli-trunk-");

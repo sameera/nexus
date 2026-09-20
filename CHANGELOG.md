@@ -5,6 +5,28 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.63.0
+
+- **The decision-record checkpoint now shows you every invariant and every risk the drafting model
+  added.** The stage has always labelled each invariant and each risk as yours or its own, and
+  checked each quotation against what you typed. None of that ever reached your screen: the
+  checkpoint listed the refuted alternatives and nothing else, then the labels were stripped and the
+  record was filed. A constraint the model invented on its own became binding on the build without
+  anybody being shown that nobody had asked for it.
+
+  The checkpoint's list now holds all three kinds — every refuted alternative, under the decision it
+  belongs to, then every invariant the model added, then every risk it added — numbered as one
+  sequence from 1, in the record's own section order. One typed selection cuts any of them, whatever
+  kind it is, and the cut lands before the record is filed.
+
+  **An invariant or a risk you asked for is not listed.** That is your own definition of the epic,
+  and striking it is a revise rather than a cut — the same treatment the planning gate gives an
+  acceptance criterion you asked for.
+
+  The list is no longer assembled by the drafting model. It comes from the same checker that builds
+  the planning gate's checklist, and the stage transcribes it, so a line the model added can no
+  longer quietly fail to reach you.
+
 ## 0.62.0
 
 - **The epic approval gate now shows you the filed set as one pre-ticked checklist.** The digest used

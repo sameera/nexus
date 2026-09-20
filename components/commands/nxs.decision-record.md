@@ -429,30 +429,55 @@ into the draft body**. A render that did leak into the body is caught at Phase 3
 marker is one asserted string.
 
 **Then render the cut list** (nxs-razor §8), directly above the choice. This gate's convention is
-**removal**; a refuted alternative is not scope, so there is nothing here to add to.
+**removal**; a refuted alternative is not scope, so there is nothing here to add to. The list holds
+**every refuted alternative and every invariant and every risk the model added**, because a gate that
+shows the reviewer only part of what the model added leaves the rest of the labelling as decoration.
+**An invariant or a risk the lead asked for is not listed** — that is the lead's own definition, and
+striking it is a revise, exactly as an asked-for acceptance criterion is treated at the planning gate.
 
-Render the numbered entries **inside a fenced code block** (nxs-razor §8), under the heading. The
+**Ask the checker for the list; do not assemble it by hand:**
+
+```bash
+nexus razor-offer --draft "<scratch>/record-body.labelled.md" --record
+```
+
+It prints one numbered list: every refuted alternative, under the decision it belongs to, then every
+invariant the model added, then every risk it added — one sequence from 1, in the record's own
+section order. **Transcribe it; derive nothing.** A list assembled by hand can quietly omit the one
+line this gate exists to show, and nothing downstream would notice; an omission from the checker is a
+test failure.
+
+Render the checker's lines **inside a fenced code block** (nxs-razor §8), under the heading, pasted
+between the fences byte for byte — its group headings, its indentation and its numbers. The
 reviewer's client renders markdown, and a numbered entry written as a markdown list is re-sequenced
 from the list's own position — so entry 2 under the second decision comes back as 1, and the number
-the reviewer types then names the wrong alternative. The fence suspends that.
+the reviewer types then names the wrong item. The fence suspends that.
 
 ````markdown
-### Refuted alternatives
+### What the model added — name the numbers to cut
 
 ```
-<Decision Title>
+<every line of `nexus razor-offer --record` below its first, verbatim — for example:>
 
-  1. <the alternative, as written> — <its stated reason for losing>
-     ⚠️ razor: names no trade-off
+Refuted alternatives
+  <Decision Title>
+   1. <the alternative, as written> — <its stated reason for losing>
+  <Decision Title>
+   2. <the alternative, as written> — <its stated reason for losing>
 
-<Decision Title>
+Invariants — model-added
+   3. <the invariant, verbatim minus its label>
 
-  2. <the alternative, as written> — <its stated reason for losing>
+Risks — model-added
+   4. <the risk, verbatim minus its label>
 ```
+
+Type the numbers you want cut, or nothing to file the record as drafted.
 ````
 
-Every refuted alternative in the draft appears, numbered stably, grouped under the decision it
-belongs to. An observation is rendered beside its entry; it is a thing to look at, not a verdict.
+Where the viability judgment above found an alternative that names no trade-off, show the
+observation beside that alternative's number, under the fence, in the razor's own marked form —
+`⚠️ razor: names no trade-off`. It is a thing to look at, not a cut and not a verdict.
 
 **Then render the store line** (when `ASSETS` is set), so approval is informed consent to publish
 there:
@@ -470,16 +495,20 @@ outside the team sees a broken image where a member sees the diagram.
 Then ask via **`AskUserQuestion`** (per the interaction convention). Four options:
 
 - **approve as drafted**: file the record as it stands.
-- **approve with cuts**: the same, after removing the alternatives the reviewer names.
+- **approve with cuts**: the same, after removing the lines the reviewer names — alternatives,
+  invariants and risks alike.
 - **revise**: return to Phase 1 for the decisions the reviewer names.
 - **no record**: the epic proceeds without one (the Phase 0.2 step-4 exit: file nothing, remove the
   needs-design label, stop).
 
-`approve with cuts` takes a typed list of the numbers. Delete those alternatives from the labelled
-draft **before Phase 3.6 derives the filing body**, so they are gone before any issue is
-created or updated. **Naming nothing is identical to plain approval**: no re-render and no second
-confirmation. A cut naming an alternative in a body that is already filed and approved is refused
-with the reason: an approved record is frozen and changes only through Phase 4.5's reopen path.
+`approve with cuts` takes a typed list of the numbers. **One typed selection covers every kind the
+list holds** — a number names one line, whether that line is a refuted alternative, an invariant or a
+risk. Delete each named line from the labelled draft **before** Phase 3.6 derives the filing body, so
+it is gone before any issue is created or updated. When a cut leaves the record's invariant list
+renumbered, renumber it, and check that no surviving prose refers to a cut item by its old number.
+**Naming nothing is identical to plain approval**: no re-render and no second confirmation. A cut
+naming content in a body that is already filed and approved is refused with the reason: an approved
+record is frozen and changes only through Phase 4.5's reopen path.
 
 The checkpoint writes no file and is spent when it is answered. **`revise` and `no record` leave
 the store untouched**: nothing is published before this checkpoint is answered with an approval,
