@@ -139,9 +139,9 @@ $ARGUMENTS
    migration commit, so age measures how long the entry has been drainable in the hub queue.
    Drain-SLO is measured against the hub queue only. Never scan member checkouts for
    closed-but-unmigrated entries; that is migration-lag, owned by close-entry-migration /
-   workspace-status, not this report. A **blocked** entry (Phase 1 Exit 1, or the reader's
-   `unorderable-range`/`unreachable-sha`/`missing-checkout` diagnostics) names the specific range
-   entry that could not be resolved, with its repo, base and head, not merely the entry as a whole.
+   workspace-status, not this report. A **blocked** entry (Phase 1, Exit 1) names the specific range
+   entry that could not be resolved, with its repo, base and head, and the class token the reader
+   reported, not merely the entry as a whole.
 4. **`$ARGUMENTS` contains `--recover <epic-issue>`** → **GitHub recovery mode** (#174): rebuild
    that one entry from durable GitHub state when the local copy is gone (a different machine, a
    cleared `.nexus/tmp/`, a run days after the close). Recovery is an **explicit per-entry path,
@@ -374,30 +374,25 @@ record, backlog append, and lesson).
     `range-unresolvable` (invariant 11): report it and process nothing for that entry. Never a
     silent empty diff, never a partial one, never an invented range.
 
-    - **merged** → continue silently. Phase 1 and Phase 4 take their normal single-repo path
-      (branch cut from the trunk, introducing-commit diff); continuation mode stays on its branch
-      and derives from the recorded range.
+    - **merged** → continue silently. Phase 1 derives from the recorded range and Phase 4 cuts the
+      branch from the trunk; continuation mode stays on its branch.
     - **not-merged** → the entry's feature branch has not merged to the trunk. Running here hits the
-      two failures the ordering exists to prevent, and you surface **both** before doing any work.
-      The gate **detects, it never substitutes** (the analyze-gate contract from `/nxs.close`):
-        1. the introducing-commit diff (Phase 1 priority 1) is degenerate. Pre-merge, the entry's
-           files were added across several branch commits, so it resolves to a branch commit (often
-           the close commit, whose diff is only close artifacts), not the merged feature diff; and
-        2. the distill branch cannot be cut from the trunk (the entry is not there), so it is cut
-           from the current HEAD, and the resulting PR carries the unmerged feature commits **and**
-           the distillation together. That collapses the two-gate design (feature-merge review, then
-           a narrow distillation review) into one PR, 0007's refuted shape.
+      failure the ordering exists to prevent, and you surface it before doing any work. The gate
+      **detects, it never substitutes** (the analyze-gate contract from `/nxs.close`): the distill
+      branch cannot be cut from the trunk (the entry is not there), so it is cut from the current
+      HEAD, and the resulting PR carries the unmerged feature commits **and** the distillation
+      together. That collapses the two-gate design (feature-merge review, then a narrow
+      distillation review) into one PR, 0007's refuted shape.
 
-      Render a one-paragraph markdown note naming the not-merged entry (or entries) and both
-      consequences, then ask via **`AskUserQuestion`**. Never proceed silently:
+      Render a one-paragraph markdown note naming the not-merged entry (or entries) and that
+      consequence, then ask via **`AskUserQuestion`**. Never proceed silently:
         - **"Merge the feature PR first, then re-run (Recommended)"** → stop. Tell the user to merge
           the entry's feature PR to the trunk (and `git fetch` first if it merged remotely but the
           local trunk ref is stale), then re-run `/nxs.distill`.
         - **"Proceed on the current branch"** → continue with a recorded waiver. For every
-          not-merged entry: Phase 1 skips the degenerate priority 1 and derives the diff from the
-          recorded `range:` (priority 2); Phase 4 cuts the branch from the current HEAD, not the
-          trunk; and the Phase 6 checkpoint states that the PR carries the unmerged feature commits
-          alongside the distillation.
+          not-merged entry: Phase 4 cuts the branch from the current HEAD, not the trunk, and the
+          Phase 6 checkpoint states that the PR carries the unmerged feature commits alongside the
+          distillation. Phase 1 is unaffected: it derives from the recorded `range:` either way.
 
       When a run mixes merged and not-merged entries, list the not-merged ones together and ask
       once. A "proceed" answer applies only to those entries; merged entries keep the normal path.
@@ -431,11 +426,8 @@ record, backlog append, and lesson).
 
 The diff is recomputed from git on every run (0006). It is never written anywhere. Both modes
 share **one reader** (decision record #513). The range list the close record stamped is the only
-diff source in either mode, because after migration the entry no longer shares history with the
-code (hub), and its introducing commit is the *migration* commit (its diff would be the migration's
-file moves: confidently wrong). Never use the introducing-commit path against a stamped range in
-either mode. Per entry, run the derivation tool with each argument its own quoted token, never a
-shell-interpolated string:
+diff source in either mode, and the stage derives no diff any other way. Per entry, run the
+derivation tool with each argument its own quoted token, never a shell-interpolated string:
 
     ```bash
     nexus derive-entry-diff --entry "<entry-dir>" [--hub <hub-root>]
@@ -463,30 +455,25 @@ shell-interpolated string:
     - **Exit 0:** stdout carries a `=== repo <identity> checkout <path> range <base>...<head> ===`
       header per range entry followed by that entry's diff, in ancestry order within each repo.
       Analyze each entry's diff against its own repo.
-    - **Exit 1** (missing checkout, unreachable SHA, unorderable heads, missing/malformed
-      `range:` stamp, unknown repo): report the tool's diagnostic **verbatim** and mark the entry
-      **blocked**. It is not processed this run and its queue files are untouched. Continue with
-      the remaining entries. Never fall back to the hub repo, never treat the failure as an empty
-      diff, never derive a partial diff, and never ask the user for a replacement range.
+    - **Exit 1 — the entry is blocked, whatever the failure class.** Report the tool's diagnostic
+      **verbatim** and mark the entry **blocked**: it is not processed this run, its queue files
+      are untouched, and the remaining entries still drain. **There is no second diff source in
+      either mode.** Never fall back to the hub repo, never treat the failure as an empty diff,
+      never derive a partial diff, and never ask the user for a replacement range.
 
-**Single-repo mode also keeps one legacy fallback**, for an entry with no usable range at all.
-Never use it for a range the tool above already read successfully:
+      Each reported problem line carries a machine-readable class token, one line per affected
+      range entry, so a caller tells the classes apart without reading the prose beside them. The
+      set is closed: `missing-close-record`, `missing-range`, `malformed-range`, `not-a-checkout`,
+      `member-unsupported`, `workspace-resolution-failed`, `unknown-repo`, `missing-checkout`,
+      `unreachable-sha`, `unorderable-range`, `git-diff-failed`.
 
-1. **The commit that introduced the queue entry (fallback: only when the range SHAs are
-   unreachable):**
-
-    ```bash
-    INTRO="$(git log --diff-filter=A --format=%H -n 1 -- <entry-dir>)"
-    git diff "${INTRO}^1" "${INTRO}"
-    ```
-
-    For a merge commit this is the merged feature diff; for a squash-merge it is the squashed
-    commit's diff. **Do not use this in continuation mode**: on a close-prepared branch the most
-    recent add to the entry dir is the close commit, whose diff is only close artifacts (and in the
-    multi-PR pipeline no single introducing commit holds the feature code). It exists for legacy
-    single-repo entries whose recorded head was squashed away and is no longer reachable.
-2. **Neither resolves** (e.g. the entry is uncommitted or its history was rewritten) → ask the
-   user for a base/head range via `AskUserQuestion` free text; do not guess.
+      **`unreachable-sha` is a recorded base or head this checkout cannot resolve**, and it blocks
+      that entry exactly like every other class. The remedy is the operator's and the diagnostic
+      names both halves of it: update that checkout, or correct the recorded range stamp in the
+      entry's `close-record.md`, then re-run. An unreachable recorded revision is far more often a
+      checkout that is behind than an entry whose history was rewritten, so substituting any other
+      diff here would write a confidently wrong page into the store permanently. An entry blocked
+      this way is never auto-deleted and stays rediscoverable on a later run.
 
 In both modes, withhold every **pipeline store** from the behavioral analysis. Do not write the
 paths out here. Ask the toolkit for the one definition of the set and pass it straight to git:
@@ -1199,9 +1186,8 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   entries.
 - **Distill is a post-merge drain (0007)**: in single-repo mode Phase 0.4 confirms each entry is
   on the trunk before processing it. A not-merged entry is never processed silently: the gate
-  surfaces the degenerate introducing-commit diff and the collapsed single-PR consequence, then
-  requires an explicit choice. That choice is merge first (recommended), or an explicit waiver that
-  routes the diff through the recorded `range:` and bases the branch on HEAD. Detect, never
+  surfaces the collapsed single-PR consequence, then requires an explicit choice. That choice is
+  merge first (recommended), or an explicit waiver that bases the branch on HEAD. Detect, never
   substitute.
 - **The *why* is hash-verified, and a mismatch is a hard stop with no waiver**. For an entry whose
   epic has a record sub-issue, the rationale is the fetched record body and no `decision-record.md`
@@ -1210,21 +1196,14 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   most durable write. The remedy (re-approve, re-close with a fresh stamp) belongs upstream, where
   a second approval act is visible. This stage is **read-only** against the record issue.
 - **No search when a path is given**: `$ARGUMENTS` resolves directly.
-- **Single-repo diff derivation is range-first**. The recorded `range:` is primary (exact, stamped
-  by `/nxs.close` from the merged PR); the introducing-commit path is a fallback for legacy entries
-  whose range SHAs are unreachable. In continuation mode the range is always the source, and the
-  introducing-commit path is never used (its most-recent add is the close commit).
 - **Continuation mode (the `/nxs.close --pr` hand-off) processes exactly one entry on its branch**:
   the entry whose `close-record.md` the close just committed. It does not scan the whole queue, does
   not batch, does not cut a new branch (it is already on the close-prepared `distill/*` branch,
   rebased onto the trunk), uses the range-head-reachability merge precondition, and leaves worktree
   removal to the lead (it runs inside that worktree). The ordinary whole-queue batched run is
   unchanged when not on a close-prepared branch.
-- **The diff is recomputed, never stored** (0006). In hub mode it is recomputed **only** from
-  the close record's `range:` stamp inside the named member checkout. A missing checkout, an
-  unreachable SHA, or a missing/malformed stamp is a hard per-entry error (report it, process the
-  rest). This stage never falls back to the hub repo, never fabricates an empty or partial
-  diff, and never clones, fetches, or mutates a member checkout.
+- **The diff is recomputed, never stored** (0006). The close record's `range:` stamp is its only
+  source, read in the named checkout, in both modes.
 - **No machinery**: no recipe/template files, no state file, no retrieval index (0003 §7:
   glob/rg is the index; the atlas (at the resolved docs root) is a derived human-orientation
   page regenerated by this phase's atlas-regeneration step, never a retrieval surface).

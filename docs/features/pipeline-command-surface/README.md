@@ -9,3 +9,4 @@ The names and surfaces of the Nexus slash commands — keeping the command vocab
 ## Epics
 
 - **Rename /nxs.hld to /nxs.decision-record** — [#151](https://github.com/sameera/nexus/issues/151)
+- **State each distillation rule once, at the point it acts** — [#713](https://github.com/sameera/nexus/issues/713)

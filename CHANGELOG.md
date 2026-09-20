@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.62.0
+
+- **`/nxs.distill` no longer substitutes a diff when a recorded revision cannot be reached.** The
+  single-repo fallback that re-derived the diff from the commit which introduced the queue entry is
+  gone, and so is the prompt that asked you for a replacement base and head. A failure from diff
+  derivation — an unreachable recorded base or head included — now blocks that one entry, reports
+  the tool's diagnostic, leaves the entry's files untouched, and lets the rest of the run drain.
+
+  This is a behaviour change. The fallback fired on a stale or shallow checkout just as readily as
+  on a legacy entry whose history was rewritten, and on that far more common cause it wrote a
+  different change's diff permanently into the concept store. A blocked entry is recoverable; a
+  wrong concept page is not. The block names both remedies: update the checkout the range points
+  into, or correct the recorded range stamp in the entry's `close-record.md`, then re-run. A blocked
+  entry is never auto-deleted and is rediscovered by the next run.
+
 ## 0.61.0
 
 - **The teaching stage leaves Nexus.** `/nxs.teach` and `/nxs.teach-plan`, the `nxs-workbook` skill,

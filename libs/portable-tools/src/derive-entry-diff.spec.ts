@@ -4,7 +4,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Runner } from "@nexus/workspace/run";
-import { deriveEntryDiff, parseRange, renderDeriveFailure, renderRepoDiffs, runCli } from "./derive-entry-diff";
+import { DERIVE_PROBLEMS, deriveEntryDiff, parseRange, renderDeriveFailure, renderRepoDiffs, runCli } from "./derive-entry-diff";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
 const TSX_BIN: string = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
@@ -810,5 +810,46 @@ describe("renderRepoDiffs / renderDeriveFailure", () => {
         expect(rendered).toContain("Diff derivation failed: 2 problem(s) for entry demo-entry");
         expect(rendered).toContain("missing-checkout: member 'api' is not checked out");
         expect(rendered).toContain("unreachable-sha: sha not reachable");
+    });
+});
+
+describe("the failure-class token contract (epic #713, story #715)", () => {
+    it("pins the closed set of problem tokens the stage branches on", () => {
+        expect([...DERIVE_PROBLEMS]).toEqual([
+            "missing-close-record",
+            "missing-range",
+            "malformed-range",
+            "not-a-checkout",
+            "member-unsupported",
+            "workspace-resolution-failed",
+            "unknown-repo",
+            "missing-checkout",
+            "unreachable-sha",
+            "unorderable-range",
+            "git-diff-failed",
+        ]);
+    });
+
+    it("carries the class token on every rendered problem line, one line per diagnostic", () => {
+        const rendered = renderDeriveFailure(
+            DERIVE_PROBLEMS.map((problem) => ({ entry: "demo-entry", problem, message: `message for ${problem}` })),
+        );
+        for (const problem of DERIVE_PROBLEMS) {
+            expect(rendered).toContain(`  ${problem}: message for ${problem}`);
+        }
+    });
+
+    it("names both operator remedies in the unreachable-revision diagnostic", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [{ repo: "github.com/acme/web-app", base: web.base, head: "c".repeat(40) }]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        const message = result.errors[0].message;
+        expect(message).toContain("update that checkout");
+        expect(message).toContain("correct the recorded range stamp");
+        expect(message).toContain("close-record.md");
     });
 });
