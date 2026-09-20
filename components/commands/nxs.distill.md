@@ -453,20 +453,10 @@ derivation tool with each argument its own quoted token, never a shell-interpola
     reports no such verb, the installed toolkit predates this capability. Stop and tell the
     operator to update their Nexus install; do not derive the diff another way.
 
-    The tool reads the `range:` list from `close-record.md` (entries of `{repo, base, head}`,
-    full SHAs). **A repo may appear in more than one entry**: an epic closed over several story
-    pull requests stamps one entry per pull request, and this reader reads every one of them,
-    never at most one per repo. In hub mode each named repo resolves to its sibling member
-    checkout through the workspace resolver (the hub's own entries resolve to the hub checkout).
-    In single-repo mode each entry resolves against this checkout's own identity, and an entry
-    naming another repo is the same unknown-repo error hub mode already gives. Never read
-    silently in the wrong checkout. The tool verifies both SHAs of every entry are reachable,
-    orders a repo's entries by ancestry of their recorded heads (a repeated repo is read in the
-    order its changes actually landed, never the order the range list happened to stamp them in),
-    and emits **one diff per range entry**. Each diff is computed as `git diff <base>...<head>`
-    inside that entry's own checkout with every pipeline store withheld, so no path is ever
-    attributed to the wrong repo and no span is ever computed from one entry's start to another
-    entry's end. It reads only: it never clones, fetches, or mutates a checkout.
+    The tool takes the entry's stamped `range:` list as its input and emits **one diff per range
+    entry**, in each entry's own checkout, with every pipeline store withheld. It reads only: it
+    never clones, fetches, or mutates a checkout, and it emits nothing at all unless every range
+    entry resolved.
 
     - **Exit 0:** stdout carries a `=== repo <identity> checkout <path> range <base>...<head> ===`
       header per range entry followed by that entry's diff, in ancestry order within each repo.
@@ -491,18 +481,11 @@ derivation tool with each argument its own quoted token, never a shell-interpola
       diff here would write a confidently wrong page into the store permanently. An entry blocked
       this way is never auto-deleted and stays rediscoverable on a later run.
 
-In both modes, withhold every **pipeline store** from the behavioral analysis. Do not write the
-paths out here. Ask the toolkit for the one definition of the set and pass it straight to git:
-
-```bash
-nexus excluded-stores --form reasons          # the set, and why each store is in it
-git diff "$BASE"..."$HEAD" -- . $(nexus excluded-stores)
-```
-
-The set is closed and reviewed, and it is stated in exactly one place (record #450, invariant 4).
-A second statement of it in this body could drift from the code's, and the drift would be silent:
-a stage would quietly read the pipeline's own working surface as shipped behaviour. Each store is
-withheld **entire**; never exclude a slice of one.
+Every **pipeline store** is withheld from the behavioral analysis, entire, never a slice of one.
+The set is closed and reviewed and is stated in exactly one place, the toolkit (record #450,
+invariant 4); `nexus excluded-stores --form reasons` prints it with its reasons. Never write the
+paths out here. A second statement of the set could drift from the code's, and the drift would be
+silent: the stage would quietly read the pipeline's own working surface as shipped behaviour.
 
 # Phase 2 — Survey the concept store
 
@@ -845,20 +828,17 @@ Run these for each entry, in order, before its commit:
     - **member**: a member repo does not run this stage. Phase 0.3 already stopped the run before
       this point.
 
-4. **Atlas regeneration.** Rebuild the human orientation page from the store's current
-   state, with no explicit output path, so the generator resolves its own location from the
-   resolved docs root (epic #74; never a hardcoded path):
+4. **Atlas regeneration.** Rebuild the human orientation page. Name no output path (epic #74;
+   never a hardcoded one):
 
     ```bash
     nexus generate-atlas
     ```
 
-   The command's own output names where it wrote: `Atlas written: <path> (<N> concepts)`.
-   Record that `<path>`, the **resolved atlas path**, for the staged file set (Step 6), the
-   checkpoint digest (Phase 6), and the PR body (Phase 7) below. It is `docs/concepts.md` for a
-   single-repo run (unchanged) and `<docs-root>/concepts.md` for a hub, which is the repo root
-   when the hub sets no override. The atlas is derived state (DERIVED header, script-owned). It is
-   regenerated whole, never hand-edited or prose-tweaked in the PR.
+   Its output names where it wrote: `Atlas written: <path> (<N> concepts)`. Record that `<path>`,
+   the **resolved atlas path**, for the staged file set (Step 6), the run summary (Phase 6) and
+   the PR body (Phase 7). The atlas is derived state, regenerated whole, never hand-edited or
+   prose-tweaked in the PR.
 
 5. **Validator.** Run it over every page the entry changed (staged working-tree state vs the
    last commit), naming each path as its own argument:
@@ -901,13 +881,10 @@ Run these for each entry, in order, before its commit:
     exited non-zero.
 
     **Before draining an entry whose kind carries a validation mode, establish that the validator
-    you will run enforces it** (record #271, invariant 13). One installed toolkit exists per account, reached by name, and it
-    lags when it is not updated. A flag has no declared surface of its own, so an older toolkit
-    accepts the invocation, reads the unrecognised mode as one more page to check, and exits
-    non-zero reporting that page as **missing**. The razor still fails closed, but the diagnostic
-    then misnames its own cause. The obvious repair, dropping the offending argument, turns a
-    safe refusal into exactly the silent pass the razor exists to prevent. So confirm the mode is
-    declared before you rely on it:
+    you will run enforces it** (record #271, invariant 13). One installed toolkit exists per
+    account and it lags when it is not updated. An older one still fails closed, but it misnames
+    its own cause, and the obvious repair for that diagnostic is exactly the silent pass the razor
+    exists to prevent. So confirm the mode is declared before you rely on it:
 
     ```bash
     nexus --help | grep -q -- --append-only-log && echo mode-available || echo mode-unavailable
@@ -918,22 +895,12 @@ Run these for each entry, in order, before its commit:
     remedy is to update the install. An undrained fix can be recovered; a fix merged without the
     razor cannot, because the log entry cannot be unwritten.
 
-    The first checks frontmatter completeness (0003 §2.1 + `verification`), the 400-word cap on a
-    page's own content, the per-bullet bound on Integration Points, `touches:` == Integration
-    Points, exactly one new Decision Log entry per changed page, append-only log history, §8.3
-    rejections, and slug = filename. A path whose parent directory
-    is `anchors` is checked as an anchor sidecar instead: `concept` = filename, a well-formed
-    `source_sha` (single-repo scalar, or the hub per-repo `<host/owner/repo>@<sha>` list), and
-    repo↔path attribution consistency. The second checks the
-    atlas is in sync with the active pages.
-
     **A non-zero exit from any of these blocks the PR**. Fix the pages (or regenerate the
     atlas) and re-run until both exit 0. Do not weaken, skip, or reinterpret a blocking finding;
-    the validator is the contract's mechanical half. **Advisories are the named exception:** the
-    validator prints every finding with a leading severity token and counts the two classes
-    separately, and a run whose findings are all `[ADVISORY]` exits 0. Examples: a long-but-legal
-    bullet, a high-degree hub, a store-level revisit trigger. Those never block and are never
-    "fixed" to silence them; carry them into the PR body for the reviewer and proceed.
+    the validator is the contract's mechanical half. **Advisories are the named exception:** a
+    finding marked `[ADVISORY]` is not a failure, and a run whose findings are all advisories
+    exits 0. Those never block and are never "fixed" to silence them; carry them into the PR body
+    for the reviewer and proceed.
 
 6. **Remove the consumed entry, then commit it together with its pages + anchors** so the deletion
    is atomic with the write on merge:
@@ -1252,7 +1219,6 @@ close worktree, so it cannot remove that worktree itself; the lead removes it on
   behavior.
 - **The drift advisory (epic #94, STORY-94.02) is advisory only.** When a registry exists, Phase 6.3
   runs it once over the final branch state and pastes its findings into the PR body. It is
-  deterministic (slug-ordered, integer thresholds, identical byte for byte on an unchanged store),
   always exits zero, and **never edits a page or the registry, never gates the drain, and is never
   committed**. No registry present → it is not run.
 - **§8.3 is a hard boundary** for pages: no code, no file paths, no type names, no API specs, no

@@ -166,3 +166,33 @@ describe("one run summary rendered at three surfaces (story #717)", () => {
         expect(PR_BODY).toMatch(/Drained queue entries:[^\n]*<n> epic, <n> fix, <n> intake/);
     });
 });
+
+describe("the tool-internal explanations go (story #718)", () => {
+    it("describes each delegated step by invocation, consumed output and failure action", () => {
+        expect(DERIVE_SECTION).toContain("nexus derive-entry-diff --entry");
+        expect(DERIVE_SECTION).toMatch(/\*\*Exit 0:\*\*/);
+        expect(DERIVE_SECTION).toMatch(/\*\*Exit 1/);
+        expect(DISTILL).toContain("nexus generate-atlas");
+        expect(DISTILL).toMatch(/Atlas written: <path> \(<N> concepts\)/);
+        expect(DISTILL).toContain("nexus validate-concepts --base HEAD");
+        expect(DISTILL).toContain("nexus drift-advisory");
+    });
+
+    it("states none of a delegated step's internal ordering, parsing, checking or formatting", () => {
+        expect(DISTILL).not.toMatch(/orders a repo's entries by ancestry/);
+        expect(DISTILL).not.toMatch(/The first checks frontmatter completeness/);
+        expect(DISTILL).not.toMatch(/checked as an anchor sidecar instead/);
+        expect(DISTILL).not.toMatch(/reads the unrecognised mode as one more page to check/);
+        expect(DISTILL).not.toMatch(/so the generator resolves its own location/);
+        expect(DISTILL).not.toMatch(/slug-ordered, integer thresholds/);
+        expect(DISTILL).not.toMatch(/Each diff is computed as `git diff <base>\.\.\.<head>`/);
+    });
+
+    it("keeps the two validator contracts the stage itself branches on", () => {
+        expect(DISTILL).toMatch(/A non-zero exit from any of these blocks the PR/);
+        expect(DISTILL).toMatch(/\[ADVISORY\]/);
+        expect(DISTILL).toContain("nexus --help | grep -q -- --append-only-log");
+        expect(DISTILL).toMatch(/mode-unavailable → refuse that entry/);
+        expect(DISTILL).toMatch(/changed outside the entry it gained/);
+    });
+});
