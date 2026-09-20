@@ -158,6 +158,12 @@ describe("one run summary rendered at three surfaces (story #717)", () => {
         }
     });
 
+    it("names the unqualified zero-case label each surface renders when nothing was skipped or blocked", () => {
+        const cell = /\| `skipped` \/ `blocked` \|[^\n]*\n/.exec(DISTILL)?.[0] ?? "";
+        expect(cell).toMatch(/`Skipped:`/);
+        expect(cell).toMatch(/`Entries skipped:`/);
+    });
+
     it("keeps the three surfaces in the shapes they take today", () => {
         expect(CHECKPOINT).toMatch(/Skipped \(not closed\):/);
         expect(REPORT).toMatch(/Entries skipped \(not closed\):/);

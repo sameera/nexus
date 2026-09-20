@@ -1023,7 +1023,7 @@ field holds or when it drops out. Change what a value holds here.
 | `taxonomy` | per forced fit: `<slug>` → best-fit chosen \| new subdomain \| new domain | the line is absent when Phase 6.1 found no forced fits |
 | `anchors` / `atlas` / `validator` | the refreshed slugs, the resolved atlas path, the validator verdict and page count | never omitted |
 | `drift` | the advisory's finding count, `clean`, or `not run — no registry` | advisory only; it never blocks and never gates a surface |
-| `skipped` / `blocked` | per entry: local id, originating repo (hub mode), age, drain-SLO flag, and for a blocked entry the class token and the range entry that failed | when both are empty, each surface states the zero case in its own label: `none — every queue entry drained; no drain-SLO breaches` |
+| `skipped` / `blocked` | per entry: local id, originating repo (hub mode), age, drain-SLO flag, and for a blocked entry the class token and the range entry that failed | when both are empty, each surface states the zero case under its own **unqualified** label, `Skipped:` at the checkpoint and `Entries skipped:` at the report, reading `none — every queue entry drained; no drain-SLO breaches` |
 | `waived` | the Phase 0.4 not-merged entries the lead waived, and that the PR carries their unmerged feature commits | the line is absent when every drained entry was on the trunk |
 | `pr_url` | the distillation-PR's URL | written at Phase 7 |
 
