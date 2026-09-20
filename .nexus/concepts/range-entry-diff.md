@@ -2,7 +2,7 @@
 title: "Range-Entry Diff Derivation"
 aliases: ["range reader", "entry diff derivation", "per-entry change set", "range list reader"]
 touches: ["distiller", "code-anchors", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close"]
-last_updated_by: "#215"
+last_updated_by: "#713"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ Range-entry diff derivation turns the range list a close stamped into the change
 
 ## How It Works
 
-Each stamped range names a repository, a start revision, an end revision, and the pull request it came from. The reader resolves every entry to a checkout — through the workspace manifest in a hub, or against the current checkout's own identity where there is no workspace — and confirms both revisions are present before emitting anything. Within a repository it sorts entries by ancestry of their end revisions, because each is a trunk commit; two ends it cannot order stop the whole entry rather than being guessed at. Each change set is then computed in its own repository's checkout, over its own start and end alone. One unresolvable entry leaves its queue entry undrained while the rest of the run drains, and a failure belonging to a repository, such as an absent checkout, is reported once rather than once per entry naming it.
+Each stamped range names a repository, a start revision, an end revision, and the pull request it came from. The reader resolves every entry to a checkout — through the workspace manifest in a hub, or against the current checkout's own identity where there is no workspace — and confirms both revisions are present before emitting anything. Within a repository it sorts entries by ancestry of their end revisions, because each is a trunk commit; two ends it cannot order stop the whole entry rather than being guessed at. Each change set is then computed in its own repository's checkout, over its own start and end alone. One unresolvable entry leaves its queue entry undrained while the rest of the run drains, and a failure belonging to a repository, such as an absent checkout, is reported once rather than once per entry naming it. Each failure carries its class as a token from a closed set. An unreachable revision names both remedies: update the checkout, or correct the stamp.
 
 ## Key Invariants
 
@@ -46,3 +46,7 @@ Mechanical reciprocity fan-out: multi-pr-close is the writer of the range list t
 ### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
 
 Mechanical reciprocity fan-out: the page that used to stamp the range list this reads is retired, so the edge is removed. The stamper is the close over several pull requests, which this page already names.
+
+### 2026-09-20 — #713 — The failure class is a token from a closed set, and an unreachable revision names both remedies
+
+The set of failure classes this reader reports became one runtime value that its tests enumerate, rather than a type the tests cannot read back. A caller tells one failure from another by the class token alone, never by parsing the prose beside it. The remedy an unreachable revision reports grew a second half: correct the recorded range stamp, alongside updating the checkout. That second half became load-bearing in the same change, because the drain's legacy fallback used to re-derive a diff by itself when a range would not resolve, and that fallback is gone. The operator now performs the repair the fallback used to perform silently, so the diagnostic has to name it. Refuted alternative: keep the class set as a type alone and restate the token list in the drain's own document. It loses because that is a second copy of the same set, which is the defect the change removing it exists to close.
