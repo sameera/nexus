@@ -284,6 +284,27 @@ describe("nexus planning-dir (story #639, decision record #646)", () => {
     });
 });
 
+describe("nexus pr-verdict (registration only — the selection rule is covered by its own unit specs)", () => {
+    it("is a registered verb the help names", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-verdict-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus pr-verdict");
+        expect(VERB_NAMES).toContain("pr-verdict");
+    });
+
+    it("refuses without a pull request number", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-verdict-"));
+        expect(await runNexusCli(["pr-verdict", "--repo", "acme/widget"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--pr");
+    });
+
+    it("refuses without the repository it is reading, so the trust check is never inert", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-verdict-"));
+        expect(await runNexusCli(["pr-verdict", "--pr", "665"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--repo");
+    });
+});
+
 describe("nexus record-digest (registration only — network path covered by the migration-axis parity corpus)", () => {
     it("exits 2 with a usage diagnostic when --issue is missing", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-record-digest-"));

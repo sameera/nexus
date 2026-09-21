@@ -16,7 +16,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type Result, fail, ok } from "./diagnostic.js";
+import { RECEIPT_MARKER, type ReceiptBlock, collectReceiptBlocks, maintainerAuthored, newestReceiptBlock } from "./receipt-blocks.js";
 import { type Runner, git } from "./run.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
@@ -260,8 +262,6 @@ export function verifyRange(run: Runner, cwd: string, input: RangeVerifyInput): 
 // The analyze receipt, read back the way /nxs.close --pr reads it
 // ---------------------------------------------------------------------------
 
-export const RECEIPT_MARKER = "<!-- nexus:analyze-receipt -->";
-
 export interface AnalyzeReceipt {
     /**
      * The epic issue this receipt was analyzed against. Bare (`#N`) when the receipt was
@@ -349,6 +349,8 @@ export interface ReceiptVerdict {
     receipt: AnalyzeReceipt | null;
     /** The PR head at read-back time. */
     prHead: string;
+    /** The platform timestamp of the review or comment carrying the selected block; "" when none. */
+    at: string;
     /** Exact full-identifier equality — the currency test /nxs.close --pr applies. */
     current: boolean;
     /** Commits that landed after analysis, when that can be counted. */
@@ -356,41 +358,32 @@ export interface ReceiptVerdict {
     rawBody: string;
 }
 
-interface Candidate {
-    body: string;
-    at: string;
-    source: "review" | "comment";
-}
-
-function collectCandidates(doc: Record<string, unknown>): Candidate[] {
-    const out: Candidate[] = [];
-    const push = (arr: unknown, source: "review" | "comment", timeKey: string): void => {
-        if (!Array.isArray(arr)) return;
-        for (const item of arr) {
-            if (item === null || typeof item !== "object") continue;
-            const rec = item as Record<string, unknown>;
-            const body = typeof rec["body"] === "string" ? rec["body"] : "";
-            if (!body.includes(RECEIPT_MARKER)) continue;
-            out.push({ body, at: typeof rec[timeKey] === "string" ? rec[timeKey] : "", source });
-        }
-    };
-    push(doc["reviews"], "review", "submittedAt");
-    push(doc["comments"], "comment", "createdAt");
-    return out;
-}
-
 /**
- * Trust is scoped to the repository the pull request lives in (decision record #495, invariant
- * 13): a receipt stamping a `repo` that differs from the repository actually read is a block
- * copied from a different PR (possibly in a different member) and must never be treated as this
- * PR's verdict. A receipt with no `repo` stamp predates epic #211 and is always accepted — it
- * could only ever have come from "this repository" in the first place. Filtered in *before*
- * newest-wins selection, so an untrusted block can never shadow a trusted, older one.
+ * Every trust check this reader applies, in one place: the block's author, the repository it
+ * stamps, and the pull request it names. All of them run *before* newest-wins selection, so an
+ * untrusted block can never shadow a trusted, older one (epic #747, invariant 10).
+ *
+ * - **Authorship.** A pull request's reviews and comments are writable by anyone, so a verdict
+ *   counts only from someone who can speak for the repository (see `maintainerAuthored`).
+ * - **Repository.** A receipt stamping a `repo` that differs from the repository actually read is
+ *   a block copied from a different PR (possibly in a different member) and must never be treated
+ *   as this PR's verdict (decision record #495, invariant 13). A receipt with no `repo` stamp
+ *   predates epic #211 and is always accepted — it could only ever have come from "this
+ *   repository" in the first place.
+ * - **Pull request.** A block naming another `pr:` is a copy of that pull request's verdict.
+ *
+ * Which written form the stamp takes is not the question: `sameRepo` is the one comparison rule
+ * every reader of a published verdict shares (epic #747), so the bare `owner/repo` and the
+ * host-qualified `host/owner/repo` name the same repository here and in the epic-wide derivation
+ * alike.
  */
-function repoTrusted(body: string, expectedRepo: string | null | undefined): boolean {
-    if (!expectedRepo) return true;
-    const parsed = parseReceiptBlock(body);
-    return parsed === null || parsed.repo === null || parsed.repo.toLowerCase() === expectedRepo.toLowerCase();
+function trusted(block: ReceiptBlock, prNumber: number, expectedRepo: string | null | undefined): boolean {
+    if (!maintainerAuthored(block)) return false;
+    const parsed = parseReceiptBlock(block.body);
+    if (parsed === null) return true; // a malformed block is reported below, never silently dropped
+    if (parsed.pr !== null && parsed.pr !== prNumber) return false;
+    if (!expectedRepo || parsed.repo === null) return true;
+    return sameRepo(parsed.repo, expectedRepo);
 }
 
 export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expectedRepo?: string | null): Result<ReceiptVerdict> {
@@ -404,17 +397,15 @@ export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expect
     }
     const prHead = typeof doc["headRefOid"] === "string" ? doc["headRefOid"] : "";
 
-    const candidates = collectCandidates(doc)
-        .filter((c) => repoTrusted(c.body, expectedRepo))
-        .sort((a, b) => a.at.localeCompare(b.at));
-    const newest = candidates[candidates.length - 1];
-    if (newest === undefined) {
+    const newest = newestReceiptBlock(collectReceiptBlocks(doc).filter((c) => trusted(c, prNumber, expectedRepo)));
+    if (newest === null) {
         return ok({
             prNumber,
             found: false,
             source: null,
             receipt: null,
             prHead,
+            at: "",
             current: false,
             staleNote: null,
             rawBody: "",
@@ -436,7 +427,10 @@ export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expect
                 ? `analyzed head ${receipt.head} != PR head ${prHead}`
                 : `analyzed head ${receipt.head} != PR head ${prHead}; ${count} commit(s) landed after analysis`;
     }
-    return { ok: true, value: { prNumber, found: true, source: newest.source, receipt, prHead, current, staleNote, rawBody: newest.body } };
+    return {
+        ok: true,
+        value: { prNumber, found: true, source: newest.source, receipt, prHead, at: newest.at, current, staleNote, rawBody: newest.body },
+    };
 }
 
 // ---------------------------------------------------------------------------

@@ -40,6 +40,7 @@ import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
+import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
 import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
@@ -289,6 +290,18 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         subverbs: ["derive", "currency", "combined", "merge-gate", "waive-story"],
         run: runEpicVerdicts,
+    },
+    "pr-verdict": {
+        summary: "Print the analyze verdict one pull request carries.",
+        usage: [
+            "  nexus pr-verdict --pr <N> --repo <owner/repo or host/owner/repo> [--dir <startDir>]",
+            "      Read the pull request's published analyze blocks and print the one it carries:",
+            "      { command, pr, repo, found, source, at, current, staleNote, receipt }. Applies",
+            "      maintainer authorship, repository trust, the pull-request match and newest-wins",
+            "      by GitHub's own timestamp — never a date, a key count or the prose in a block.",
+            "      --repo is required: it is the repository the trust check runs against.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runPrVerdict(argv, io)),
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -1467,6 +1480,50 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const dir = path.dirname(defaultOutPath(root, flags.epic));
     const outPath = writeEpicReceipt(dir, result.receipt, { date: new Date().toISOString().slice(0, 10) });
     io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", outPath, receipt: result.receipt }));
+    return 0;
+}
+
+interface PrVerdictFlags {
+    pr?: number;
+    repo?: string;
+    dir?: string;
+}
+
+function parsePrVerdictFlags(argv: string[]): PrVerdictFlags {
+    const flags: PrVerdictFlags = {};
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
+        else if (argv[i] === "--repo") flags.repo = argv[++i];
+        else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
+    }
+    return flags;
+}
+
+/**
+ * `nexus pr-verdict` — which verdict a pull request carries, executed rather than described
+ * (decision record #750, invariant 8). The close gate invokes this and reports what it returns;
+ * it does not restate the selection rule, and there is no hand-selection path behind it.
+ */
+function runPrVerdict(argv: string[], io: CliIo): number {
+    const flags = parsePrVerdictFlags(argv.slice(1));
+    if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
+        io.stderr("usage: nexus pr-verdict --pr <N> --repo <owner/repo or host/owner/repo> [--dir <startDir>]");
+        return 2;
+    }
+    if (flags.repo === undefined || flags.repo.trim().length === 0) {
+        io.stderr(
+            "usage: nexus pr-verdict --pr <N> --repo <owner/repo or host/owner/repo> [--dir <startDir>]\n" +
+                "--repo names the repository the pull request lives in; without it the trust check would be inert.",
+        );
+        return 2;
+    }
+
+    const result = readPrVerdict(closeMigrationRunner, flags.dir ?? io.cwd, flags.pr, flags.repo.trim());
+    if (!result.ok) {
+        io.stderr(`pr-verdict ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ command: "pr-verdict", ...result.verdict }));
     return 0;
 }
 

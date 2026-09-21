@@ -59,6 +59,11 @@
       "import": "./src/write.ts",
       "default": "./src/write.ts"
     },
+    "./pr-verdict": {
+      "types": "./src/pr-verdict.ts",
+      "import": "./src/pr-verdict.ts",
+      "default": "./src/pr-verdict.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

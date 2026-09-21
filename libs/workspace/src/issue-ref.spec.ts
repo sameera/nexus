@@ -3,6 +3,7 @@ import {
     formatIssueRef,
     issueRefsMatch,
     parseIssueRef,
+    parseRepoIdentity,
     sameRepo,
     type PublicationContext,
 } from "./issue-ref.js";
@@ -52,6 +53,50 @@ describe("sameRepo — repository identity is case-insensitive", () => {
         expect(sameRepo(null, null)).toBe(true);
         expect(sameRepo(null, DOCS)).toBe(false);
         expect(sameRepo(DOCS, null)).toBe(false);
+    });
+});
+
+describe("sameRepo — the host-qualified and bare forms name one repository (epic #747)", () => {
+    const QUALIFIED = "github.com/geo-nexus/docs";
+
+    it("matches a host-qualified identity against the bare one a reader expected", () => {
+        expect(sameRepo(QUALIFIED, DOCS)).toBe(true);
+        expect(sameRepo(DOCS, QUALIFIED)).toBe(true);
+    });
+
+    it("matches two host-qualified identities that agree", () => {
+        expect(sameRepo(QUALIFIED, "GitHub.com/Geo-Nexus/Docs")).toBe(true);
+    });
+
+    it("separates two repositories however each is written", () => {
+        expect(sameRepo(QUALIFIED, CODE)).toBe(false);
+        expect(sameRepo(QUALIFIED, "github.com/" + CODE)).toBe(false);
+        expect(sameRepo("github.com/other/docs", DOCS)).toBe(false);
+    });
+
+    it("treats a host stated on both sides as a fact that must agree", () => {
+        expect(sameRepo(QUALIFIED, "gitlab.com/geo-nexus/docs")).toBe(false);
+    });
+
+    it("falls back to plain equality for a token that is not a repository identity at all", () => {
+        expect(sameRepo("not a repo", "not a repo")).toBe(true);
+        expect(sameRepo("a/b/c/d", DOCS)).toBe(false);
+    });
+});
+
+describe("parseRepoIdentity — the two written forms of a repository", () => {
+    it("reads the bare form, leaving the host unknown", () => {
+        expect(parseRepoIdentity("geo-nexus/docs")).toEqual({ host: null, owner: "geo-nexus", name: "docs" });
+    });
+
+    it("reads the host-qualified form and lowercases every part", () => {
+        expect(parseRepoIdentity("GitHub.com/Geo-Nexus/Docs")).toEqual({ host: "github.com", owner: "geo-nexus", name: "docs" });
+    });
+
+    it("rejects anything that is not one of the two forms", () => {
+        for (const token of ["", "docs", "a/", "/docs", "a/b/c/d", "https://github.com/geo-nexus/docs"]) {
+            expect(parseRepoIdentity(token), token).toBeNull();
+        }
     });
 });
 

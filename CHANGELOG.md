@@ -5,6 +5,44 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.68.0
+
+- **`/nxs.close` no longer picks a pull request's analyze verdict by hand.** When a pull request
+  carried more than one published verdict — analyze re-run after a correction — the gate was told
+  in prose to take the newest, and on at least one real close it reported the superseded one's
+  severity counts instead. The two blocks differed in one thing: the later omitted the optional
+  toolkit-version key, and the more complete-looking block won. The gate now calls a command that
+  returns the verdict a pull request carries and reports what it returns. The command applies
+  maintainer authorship, the repository stamp, the pull request named, and newest by GitHub's own
+  timestamp — a date written inside a block, the number of keys it carries and the prose above it
+  decide nothing. The severity counts reported are the ones the machine block carries.
+
+  That command is available to you directly as `nexus pr-verdict --pr <N> --repo <owner/repo>`. It
+  prints what the pull request's verdict is, whether it is still current, and the analyzed commit.
+  Re-running analyze after a correction now clears the close gate, which is what it was always
+  meant to do.
+
+- **`/nxs.distill --recover` picks that verdict the same way.** Rebuilding a lost entry from
+  GitHub, the stage used to read the analyze block on the epic's linked pull request by hand, with
+  its own copy of the newest-wins rule. It now calls the same command, so a recovered close and a
+  live one report the same verdict for the same pull request. A pull request carrying no verdict
+  leaves the close comment's verdict standing, as before.
+
+## 0.67.0
+
+- **`/nxs.close` now reads the story verdicts `/nxs.analyze` already published.** An epic that
+  ships story by story ends up with one published verdict per story pull request, and the close
+  gate derives one epic receipt from them. That derivation dropped every verdict whose stamped
+  repository was written with its host — which is the only form analyze writes. An epic whose
+  stories had all been judged reported that not one of them carried a verdict, and the gate then
+  read conformance as never having run. Both readers of a published verdict now treat the
+  host-qualified and the bare spelling of a repository as naming the same repository, so the
+  verdicts already sitting on your merged pull requests are read as they stand.
+
+  A verdict stamping a genuinely different repository is still rejected, in either spelling, and a
+  stated host that disagrees is still a conflict. Nothing analyze writes has changed, and no
+  verdict already published is rewritten, retracted or re-judged.
+
 ## 0.66.0
 
 - `/nxs.distill` now reads the instructions for a path only once it has established that the run
