@@ -14,7 +14,7 @@
 
 import { type AnalyzeReceipt, RECEIPT_MARKER, parseReceiptBlock } from "@nexus/pr-acceptance/verify";
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
-import { issueRefsMatch } from "@nexus/workspace/issue-ref";
+import { issueRefsMatch, sameRepo } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -115,7 +115,11 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
             //  qualified epic reference is not silently dropped here.
             if (!issueRefsMatch(receipt.epic, `#${input.epic}`)) continue;
             if (!receipt.stories.includes(input.story)) continue;
-            if (receipt.repo !== null && receipt.repo.toLowerCase() !== expectedRepo) continue;
+            // Repository identity goes through the one shared rule, never string equality: the
+            // gate stamps the host-qualified form and this reader knows the bare one, and the two
+            // name the same repository (epic #747). A stamp naming a different repository, in
+            // either form, still fails here.
+            if (receipt.repo !== null && !sameRepo(receipt.repo, expectedRepo)) continue;
 
             const existing = perCandidate.get(key);
             if (existing === undefined || found.at.localeCompare(existing.at) > 0) {

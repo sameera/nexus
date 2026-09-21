@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.67.0
+
+- **`/nxs.close` now reads the story verdicts `/nxs.analyze` already published.** An epic that
+  ships story by story ends up with one published verdict per story pull request, and the close
+  gate derives one epic receipt from them. That derivation dropped every verdict whose stamped
+  repository was written with its host — which is the only form analyze writes. An epic whose
+  stories had all been judged reported that not one of them carried a verdict, and the gate then
+  read conformance as never having run. Both readers of a published verdict now treat the
+  host-qualified and the bare spelling of a repository as naming the same repository, so the
+  verdicts already sitting on your merged pull requests are read as they stand.
+
+  A verdict stamping a genuinely different repository is still rejected, in either spelling, and a
+  stated host that disagrees is still a conflict. Nothing analyze writes has changed, and no
+  verdict already published is rewritten, retracted or re-judged.
+
 ## 0.66.0
 
 - `/nxs.distill` now reads the instructions for a path only once it has established that the run

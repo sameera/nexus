@@ -50,10 +50,53 @@ export function parseIssueRef(text: string): IssueRef | null {
     return null;
 }
 
-/** Repository identity is case-insensitive on GitHub. Two unknowns are treated as equal. */
+/**
+ * A parsed repository identity. `host` is null for the bare `owner/repo` form — an unknown host,
+ * never an assumed one.
+ */
+export interface RepoIdentity {
+    host: string | null;
+    owner: string;
+    name: string;
+}
+
+const REPO_SEGMENT_RE = /^[\w.-]+$/;
+
+/**
+ * Parse the two written forms of a repository: bare `owner/repo`, or host-qualified
+ * `host/owner/repo` — the form the conformance gate stamps into a published verdict. Null for
+ * anything else, including a URL.
+ */
+export function parseRepoIdentity(text: string): RepoIdentity | null {
+    const parts = text.trim().toLowerCase().split("/");
+    if (!parts.every((p) => REPO_SEGMENT_RE.test(p))) return null;
+    if (parts.length === 2) return { host: null, owner: parts[0], name: parts[1] };
+    if (parts.length === 3) return { host: parts[0], owner: parts[1], name: parts[2] };
+    return null;
+}
+
+/**
+ * Whether two written repository identities name the same repository — the one comparison rule
+ * every reader of a published verdict calls, so two readers of the same block cannot disagree
+ * about which repository it stamps (epic #747, decision record #750, invariant 4).
+ *
+ * Identity is case-insensitive, as it is on GitHub, and it spans both written forms: the owner and
+ * the repository name must agree, and a host is compared only when **both** sides state one. A
+ * host stated on one side only is unknown, and an unknown never matches — nor does it reject
+ * (invariant 2), which is what lets a verdict stamped `github.com/acme/widget` be read by a caller
+ * that knows only `acme/widget`. Two hosts that are both stated and differ are a conflict: the host
+ * is what separates two forges hosting the same owner and repository name.
+ *
+ * Two unknown repositories (`null`) are treated as equal, and an unknown never matches a known one.
+ * A token that is not a repository identity at all falls back to case-folded equality.
+ */
 export function sameRepo(a: string | null, b: string | null): boolean {
     if (a === null || b === null) return a === b;
-    return a.toLowerCase() === b.toLowerCase();
+    const left = parseRepoIdentity(a);
+    const right = parseRepoIdentity(b);
+    if (left === null || right === null) return a.toLowerCase() === b.toLowerCase();
+    if (left.owner !== right.owner || left.name !== right.name) return false;
+    return left.host === null || right.host === null || left.host === right.host;
 }
 
 /**

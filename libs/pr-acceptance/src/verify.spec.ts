@@ -525,6 +525,41 @@ describe("verifyReceipt", () => {
         expect(r.value.receipt?.repo).toBe("github.com/acme/widget");
     });
 
+    it("trusts the host-qualified stamp against a bare expected repository, and the reverse (epic #747)", () => {
+        // The two readers of this block must not disagree about which written form names this
+        // repository: whichever form each side carries, the verdict is this pull request's.
+        for (const [stamped, expected] of [
+            ["github.com/acme/widget", "acme/widget"],
+            ["acme/widget", "github.com/acme/widget"],
+        ]) {
+            const run = fakeRunner([
+                view({
+                    reviews: [],
+                    comments: [{ body: bodyWithRepo(head, stamped), createdAt: "2026-09-08T10:00:00Z" }],
+                    headRefOid: head,
+                }),
+            ]);
+            const r = verifyReceipt(run, "/clone", 7, expected);
+            expect(r.ok).toBe(true);
+            if (!r.ok) return;
+            expect(r.value.found, `${stamped} vs ${expected}`).toBe(true);
+        }
+    });
+
+    it("still ignores a different repository stamped in the bare form (epic #747)", () => {
+        const run = fakeRunner([
+            view({
+                reviews: [],
+                comments: [{ body: bodyWithRepo(head, "acme/other"), createdAt: "2026-09-08T10:00:00Z" }],
+                headRefOid: head,
+            }),
+        ]);
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(false);
+    });
+
     it("errors on a receipt block the close-side reader could not parse", () => {
         const run = fakeRunner([
             view({ reviews: [], comments: [{ body: `${RECEIPT_MARKER}\ngarbage`, createdAt: "x" }], headRefOid: head }),

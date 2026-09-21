@@ -16,6 +16,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type Result, fail, ok } from "./diagnostic.js";
 import { type Runner, git } from "./run.js";
 
@@ -386,11 +387,16 @@ function collectCandidates(doc: Record<string, unknown>): Candidate[] {
  * PR's verdict. A receipt with no `repo` stamp predates epic #211 and is always accepted — it
  * could only ever have come from "this repository" in the first place. Filtered in *before*
  * newest-wins selection, so an untrusted block can never shadow a trusted, older one.
+ *
+ * Which written form the stamp takes is not the question: `sameRepo` is the one comparison rule
+ * every reader of a published verdict shares (epic #747), so the bare `owner/repo` and the
+ * host-qualified `host/owner/repo` name the same repository here and in the epic-wide derivation
+ * alike.
  */
 function repoTrusted(body: string, expectedRepo: string | null | undefined): boolean {
     if (!expectedRepo) return true;
     const parsed = parseReceiptBlock(body);
-    return parsed === null || parsed.repo === null || parsed.repo.toLowerCase() === expectedRepo.toLowerCase();
+    return parsed === null || parsed.repo === null || sameRepo(parsed.repo, expectedRepo);
 }
 
 export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expectedRepo?: string | null): Result<ReceiptVerdict> {

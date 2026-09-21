@@ -78,6 +78,42 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         expect(r.receipt.epic).toBe("geo-nexus/docs#212");
     });
 
+    it("derives an aggregate when every story's verdict stamps the repository in the host-qualified form (epic #747)", () => {
+        // Every verdict a shipped epic carries was stamped `github.com/<owner>/<repo>`. Before
+        // this epic the derivation dropped all of them and reported that no story was judged.
+        const qualified = (story: number, pr: number, head: string): string =>
+            block(story, pr, head).replace("mode: full", "mode: full\nrepo: github.com/acme/widget");
+        const run: Runner = (cmd, args) => {
+            if (cmd === "gh" && args[0] === "pr" && args[1] === "view") {
+                const n = Number(args[2]);
+                const story = n === 501 ? 496 : 497;
+                const head = n === 501 ? "a".repeat(40) : "c".repeat(40);
+                return {
+                    status: 0,
+                    stdout: JSON.stringify({
+                        state: "MERGED",
+                        headRefOid: head,
+                        baseRefOid: "b".repeat(40),
+                        reviews: [{ body: qualified(story, n, head), submittedAt: "2026-09-01T00:00:00Z" }],
+                        comments: [],
+                    }),
+                    stderr: "",
+                };
+            }
+            return { status: 1, stdout: "", stderr: `unexpected: ${cmd} ${args.join(" ")}` };
+        };
+        const r = resolveEpicVerdicts(run, {
+            epic: 212,
+            stories: [496, 497],
+            candidatesByStory: { 496: [candidate(501)], 497: [candidate(502)] },
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.state).toBe("aggregate");
+        if (r.state !== "aggregate") return;
+        expect(r.receipt.stories.map((s) => s.story)).toEqual([496, 497]);
+    });
+
     it("stops as partial and names the story with no verdict, without deriving a receipt, when some stories do carry one", () => {
         const run = ghRunner({ 501: { state: "OPEN", head: "a".repeat(40), story: 496 } });
         const r = resolveEpicVerdicts(run, {
