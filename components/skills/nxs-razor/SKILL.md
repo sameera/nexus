@@ -209,8 +209,11 @@ file. A stage's restatement of either convention is a pointer, never a source.
    group the list holds.
 4. **An empty selection is identical to plain approval**: no re-derivation, no re-render, no second
    confirmation.
-5. **Nothing is applied to content a prior partial run already filed.** A number naming such content
-   is refused, with the reason stated, never silently ignored.
+5. **Nothing is applied to content a prior run already filed and approved.** A number naming such
+   content is refused, with the reason stated and the route named, never silently ignored and never
+   silently applied. Approval is what freezes the content: a body that is filed but still open is
+   edited in place by design, so refusing there would turn a cut that costs one edit into a re-run.
+   The gate marks such a line where the reviewer reads it, not only when they type its number.
 6. **The list reaches the reviewer verbatim, inside a fenced code block.** The reviewer reads it in a
    client that renders markdown, and **the tick and the number are the two things the selection
    names** — which are exactly the two a renderer rewrites. Written as markdown list syntax, `- [x]`
@@ -282,6 +285,20 @@ by construction (§9), and an invariant or a risk describes an epic whose scope 
 already settled. There is no smaller usable record to default to and no deferred remainder to file,
 so inverting here would invert nothing. It would only turn the cheap deletion of something from a
 record into a revise-and-re-run.
+
+**The shape is the planning gate's, unchanged.** One numbered checklist holds all three kinds — the
+refuted alternatives under the decision each belongs to, then the model-added invariants, then the
+model-added risks — numbered as **one sequence from 1** in the record's own section order, with
+**every line arriving ticked**. A number flips the line it names, one typed selection covers every
+kind the list holds, and an empty selection is a plain approval. So the alignment between the two
+gates is in how the reviewer reads and acts; only the direction the default points differs.
+
+**An invariant or a risk the lead asked for is not listed**, in any form. That is the lead's own
+definition of the epic, and striking it is a revise — the treatment §8's planning-gate convention
+gives an asked-for acceptance criterion. The exposure this leaves is that the citation check (§3)
+proves a quoted fragment exists and never that it licenses the item, so an over-claimed label keeps
+an invariant off this list. It still lands in a body the approver reads before closing the record
+sub-issue.
 
 ## 9. A refuted alternative is offered, not required
 
