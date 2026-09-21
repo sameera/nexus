@@ -28,6 +28,7 @@ hub docs repo holds the concept store and drains the queue.
 - **Retire the Member Close-and-Migrate Path** — [#215](https://github.com/sameera/nexus/issues/215)
 - **A Member Pull Request Resolves to the Stories It Implements** — [#564](https://github.com/sameera/nexus/issues/564)
 - **The Epic Receipt Accepts and Ranks Published Story Verdicts** — [#747](https://github.com/sameera/nexus/issues/747)
+- **A Published Verdict's Story Numbers Name the Repository They Belong To** — [#751](https://github.com/sameera/nexus/issues/751)
 
 ## Tooling
 
