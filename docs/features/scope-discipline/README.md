@@ -12,3 +12,4 @@ Keeping planning artifacts to the scope someone actually asked for.
 - **Planning Defaults to the Smallest Usable Version** — [#576](https://github.com/sameera/nexus/issues/576)
 - **A Coherent Decomposition Files an Initiative** — [#705](https://github.com/sameera/nexus/issues/705)
 - **The Record Checkpoint Reads as One Checklist** — [#722](https://github.com/sameera/nexus/issues/722)
+- **The Razor Check Reads a Decision Record as a Decision Record** — [#759](https://github.com/sameera/nexus/issues/759)
