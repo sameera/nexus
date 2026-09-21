@@ -341,6 +341,37 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
     };
 }
 
+/**
+ * The repository a verdict's `epic`, `record` and `stories` resolve against, as a reader sees it
+ * (epic #751, decision record #764, invariant 5): the key the block states, or the code repository
+ * it stamps when it states none. No third source is consulted — one fact with two sources has no
+ * rule for a disagreement.
+ *
+ * Null is an unknown repository, never an assumed one: a block that states neither key could only
+ * ever have been published before either existed.
+ */
+export function effectiveIssuesRepo(receipt: AnalyzeReceipt): string | null {
+    return receipt.issuesRepo ?? receipt.repo;
+}
+
+/**
+ * Whether a verdict's bare story numbers belong to `expected` — the one comparison both readers of
+ * a published verdict call (invariant 7), so neither can disagree with the other about the same
+ * block.
+ *
+ * An unknown on either side accepts; only two known, differing identities reject (invariant 6).
+ * That is what lets the whole population published before this key existed keep reading exactly as
+ * it does today: each omits the key legitimately, because its issues and its code live in the same
+ * repository, so the fallback resolves to the repository the reader is already asking about.
+ * Identity goes through {@link @nexus/workspace/issue-ref!sameRepo}, never string equality, so the
+ * bare and host-qualified written forms name the same repository here.
+ */
+export function issuesRepoMatches(receipt: AnalyzeReceipt, expected: string | null | undefined): boolean {
+    const effective = effectiveIssuesRepo(receipt);
+    if (effective === null || expected === null || expected === undefined || expected === "") return true;
+    return sameRepo(effective, expected);
+}
+
 export interface ReceiptVerdict {
     prNumber: number;
     found: boolean;
@@ -356,6 +387,12 @@ export interface ReceiptVerdict {
     /** Commits that landed after analysis, when that can be counted. */
     staleNote: string | null;
     rawBody: string;
+    /**
+     * The effective issues repository of every block dropped for belonging to another repository's
+     * issues (invariant 9). A story reported as carrying no verdict is never indistinguishable
+     * from one whose verdict was rejected.
+     */
+    issuesRepoRejected: string[];
 }
 
 /**
@@ -371,22 +408,40 @@ export interface ReceiptVerdict {
  *   predates epic #211 and is always accepted — it could only ever have come from "this
  *   repository" in the first place.
  * - **Pull request.** A block naming another `pr:` is a copy of that pull request's verdict.
+ * - **Issues repository.** A block whose story numbers resolve against a different repository than
+ *   the caller is reading is not this caller's verdict, however well its code repository matches
+ *   (epic #751). It is reported separately from the other drops, because a verdict rejected for
+ *   belonging elsewhere is a different fact from a pull request that carries none.
  *
  * Which written form the stamp takes is not the question: `sameRepo` is the one comparison rule
  * every reader of a published verdict shares (epic #747), so the bare `owner/repo` and the
  * host-qualified `host/owner/repo` name the same repository here and in the epic-wide derivation
  * alike.
  */
-function trusted(block: ReceiptBlock, prNumber: number, expectedRepo: string | null | undefined): boolean {
-    if (!maintainerAuthored(block)) return false;
+export type BlockTrust = "trusted" | "untrusted" | "issues-repo-mismatch";
+
+function trustBlock(
+    block: ReceiptBlock,
+    prNumber: number,
+    expectedRepo: string | null | undefined,
+    expectedIssuesRepo: string | null,
+): BlockTrust {
+    if (!maintainerAuthored(block)) return "untrusted";
     const parsed = parseReceiptBlock(block.body);
-    if (parsed === null) return true; // a malformed block is reported below, never silently dropped
-    if (parsed.pr !== null && parsed.pr !== prNumber) return false;
-    if (!expectedRepo || parsed.repo === null) return true;
-    return sameRepo(parsed.repo, expectedRepo);
+    if (parsed === null) return "trusted"; // a malformed block is reported below, never silently dropped
+    if (parsed.pr !== null && parsed.pr !== prNumber) return "untrusted";
+    if (expectedRepo && parsed.repo !== null && !sameRepo(parsed.repo, expectedRepo)) return "untrusted";
+    if (!issuesRepoMatches(parsed, expectedIssuesRepo)) return "issues-repo-mismatch";
+    return "trusted";
 }
 
-export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expectedRepo?: string | null): Result<ReceiptVerdict> {
+export function verifyReceipt(
+    run: Runner,
+    cwd: string,
+    prNumber: number,
+    expectedRepo: string | null | undefined,
+    expectedIssuesRepo: string | null,
+): Result<ReceiptVerdict> {
     const r = run("gh", ["pr", "view", String(prNumber), "--json", "reviews,comments,headRefOid"], { cwd });
     if (r.status !== 0) return fail("gh-failed", `gh pr view ${prNumber} --json reviews,comments failed: ${r.stderr.trim()}`);
     let doc: Record<string, unknown>;
@@ -397,7 +452,21 @@ export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expect
     }
     const prHead = typeof doc["headRefOid"] === "string" ? doc["headRefOid"] : "";
 
-    const newest = newestReceiptBlock(collectReceiptBlocks(doc).filter((c) => trusted(c, prNumber, expectedRepo)));
+    // Every trust check runs before newest-wins selection (invariant 8), the issues-repository
+    // comparison among them, so an untrusted block can never shadow a trusted, older one.
+    const kept: ReceiptBlock[] = [];
+    const issuesRepoRejected: string[] = [];
+    for (const block of collectReceiptBlocks(doc)) {
+        const trust = trustBlock(block, prNumber, expectedRepo, expectedIssuesRepo);
+        if (trust === "trusted") kept.push(block);
+        else if (trust === "issues-repo-mismatch") {
+            const parsed = parseReceiptBlock(block.body);
+            const stated = parsed === null ? null : effectiveIssuesRepo(parsed);
+            if (stated !== null) issuesRepoRejected.push(stated);
+        }
+    }
+
+    const newest = newestReceiptBlock(kept);
     if (newest === null) {
         return ok({
             prNumber,
@@ -409,6 +478,7 @@ export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expect
             current: false,
             staleNote: null,
             rawBody: "",
+            issuesRepoRejected,
         });
     }
     const receipt = parseReceiptBlock(newest.body);
@@ -429,7 +499,18 @@ export function verifyReceipt(run: Runner, cwd: string, prNumber: number, expect
     }
     return {
         ok: true,
-        value: { prNumber, found: true, source: newest.source, receipt, prHead, at: newest.at, current, staleNote, rawBody: newest.body },
+        value: {
+            prNumber,
+            found: true,
+            source: newest.source,
+            receipt,
+            prHead,
+            at: newest.at,
+            current,
+            staleNote,
+            rawBody: newest.body,
+            issuesRepoRejected,
+        },
     };
 }
 

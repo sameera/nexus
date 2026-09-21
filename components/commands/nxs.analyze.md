@@ -289,6 +289,12 @@ returns one of two states on stdout as JSON:
     request. **Do not fall through to Phase 1** on this state; deriving a receipt from only the
     present stories would silently under-report the epic.
 
+Every state also carries **`rejected`**: the candidate pull requests whose published verdicts were
+dropped because their bare story numbers resolve against a different repository's issues
+(epic #751). A story named there is not a story nobody analyzed — its pull request carries a
+verdict written before the gate named its issues repository. Report it as such, and name
+`/nxs.analyze --pr <N>` on that pull request as the way through. An empty list is the norm.
+
 Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
 verdict — report it and stop, the same as any other unreadable-record failure in this command.
 

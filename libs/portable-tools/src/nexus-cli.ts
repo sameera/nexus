@@ -42,6 +42,7 @@ import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
+import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
 import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
@@ -300,7 +301,10 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      { command, pr, repo, found, source, at, current, staleNote, receipt }. Applies",
             "      maintainer authorship, repository trust, the pull-request match and newest-wins",
             "      by GitHub's own timestamp — never a date, a key count or the prose in a block.",
-            "      --repo is required: it is the repository the trust check runs against.",
+            "      --repo is required: it is the repository the trust check runs against. The",
+            "      repository the verdict's story numbers resolve against is resolved from the",
+            "      checkout, never asked for; a verdict belonging to another repository's issues",
+            "      exits 1 as issues-repo-mismatch rather than reporting no verdict at all.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runPrVerdict(argv, io)),
     },
@@ -1455,13 +1459,24 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
 
+    // A candidate dropped for belonging to another repository's issues is named here (epic #751,
+    // invariant 9): a story reported as carrying no verdict must never be indistinguishable from a
+    // story whose verdict was rejected.
     if (result.state === "none") {
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "none" }));
+        io.stdout(JSON.stringify({ epic: flags.epic, state: "none", rejected: result.rejected }));
         return 0;
     }
 
     if (result.state === "partial") {
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "partial", missing: result.missing, present: result.present }));
+        io.stdout(
+            JSON.stringify({
+                epic: flags.epic,
+                state: "partial",
+                missing: result.missing,
+                present: result.present,
+                rejected: result.rejected,
+            }),
+        );
         return 0;
     }
 
@@ -1531,7 +1546,18 @@ function runPrVerdict(argv: string[], io: CliIo): number {
         return 2;
     }
 
-    const result = readPrVerdict(closeMigrationRunner, flags.dir ?? io.cwd, flags.pr, flags.repo.trim());
+    // The repository the verdict's bare story numbers resolve against is resolved here, not asked
+    // for (epic #751, invariant 4): the configured issues repository, or this checkout's own when
+    // none is configured, so it is never empty and a caller cannot leave the comparison inert. A
+    // resolver failure stops the run.
+    const cwd = flags.dir ?? io.cwd;
+    const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+    if (!repos.ok) {
+        io.stderr(`pr-verdict ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+
+    const result = readPrVerdict(closeMigrationRunner, cwd, flags.pr, flags.repo.trim(), repos.repos.issuesRepo);
     if (!result.ok) {
         io.stderr(`pr-verdict ${result.error.problem}: ${result.error.message}`);
         return 1;

@@ -10,7 +10,7 @@ import {
 
 const SLUG = { owner: "acme", repo: "widget" };
 
-function block(opts: { epic?: string; stories?: string; repo?: string; head?: string; findings?: string }): string {
+function block(opts: { epic?: string; stories?: string; repo?: string; issuesRepo?: string; head?: string; findings?: string }): string {
     return [
         "<!-- nexus:analyze-receipt -->",
         "```yaml",
@@ -23,6 +23,7 @@ function block(opts: { epic?: string; stories?: string; repo?: string; head?: st
         `record_hash: deadbeef`,
         `findings: { critical: 0, high: 0, medium: ${opts.findings ?? "0"}, low: 0 }`,
         ...(opts.repo !== undefined ? [`repo: ${opts.repo}`] : []),
+        ...(opts.issuesRepo !== undefined ? [`issues_repo: ${opts.issuesRepo}`] : []),
         `stories: [${opts.stories ?? "496"}]`,
         "```",
     ].join("\n");
@@ -309,5 +310,108 @@ describe("resolveStoryVerdict on the live two-verdict pull request (epic #747)",
         if (!r.found) return;
         expect(r.verdict.receipt.findings["high"]).toBe(0);
         expect(r.verdict.receipt.nexusVersion).toBeNull();
+    });
+});
+
+describe("resolveStoryVerdict — a verdict's story numbers resolve against the repository it names (epic #751)", () => {
+    const head = "a".repeat(40);
+    const HUB = { owner: "geo-nexus", repo: "docs" };
+    const CODE = { owner: "geo-nexus", repo: "giccp" };
+
+    const pr = (body: string) => ({
+        state: "OPEN",
+        head,
+        base: "b".repeat(40),
+        reviews: [{ body, submittedAt: "2026-09-16T02:00:00Z" }],
+    });
+
+    it("matches the story of the repository the verdict names, not the one that merely shares the number", () => {
+        // #117 exists in both repositories. The verdict says which one it means.
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/docs" })) });
+        const r = resolveStoryVerdict(run, {
+            epic: 114,
+            story: 117,
+            candidates: [{ pr: 665, repo: CODE, cwd: "/code" }],
+            issuesRepo: "geo-nexus/docs",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || !r.found) throw new Error("expected the verdict to be found");
+        expect(r.verdict.pr).toBe(665);
+    });
+
+    it("drops the verdict whose numbers belong to the other repository, rather than cross-matching", () => {
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp" })) });
+        const r = resolveStoryVerdict(run, {
+            epic: 114,
+            story: 117,
+            candidates: [{ pr: 665, repo: CODE, cwd: "/code" }],
+            issuesRepo: "geo-nexus/docs",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.found).toBe(false);
+    });
+
+    it("names the dropped candidate, so 'no verdict' and 'verdict rejected' are never the same report", () => {
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp" })) });
+        const r = resolveStoryVerdict(run, {
+            epic: 114,
+            story: 117,
+            candidates: [{ pr: 665, repo: CODE, cwd: "/code" }],
+            issuesRepo: "geo-nexus/docs",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.rejected).toEqual([{ pr: 665, repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/giccp" }]);
+    });
+
+    it("accepts a key-less verdict whose code repository is the repository the reader is asking about", () => {
+        // Every verdict published before this change omits the key, legitimately: its issues and
+        // its code live in one repository.
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/docs" })) });
+        const r = resolveStoryVerdict(run, {
+            epic: 114,
+            story: 117,
+            candidates: [{ pr: 665, repo: HUB, cwd: "/hub" }],
+            issuesRepo: "geo-nexus/docs",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || !r.found) throw new Error("expected the verdict to be found");
+        expect(r.rejected).toEqual([]);
+    });
+
+    it("accepts every verdict when the reader does not know which repository the numbers belong to", () => {
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp" })) });
+        const r = resolveStoryVerdict(run, {
+            epic: 114,
+            story: 117,
+            candidates: [{ pr: 665, repo: CODE, cwd: "/code" }],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.found).toBe(true);
+    });
+
+    it("runs the comparison with the other trust checks, before newest-wins", () => {
+        const run = ghRunner({
+            665: {
+                state: "OPEN",
+                head,
+                base: "b".repeat(40),
+                reviews: [
+                    { body: block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/docs", findings: "1" }), submittedAt: "2026-09-16T02:44:11Z" },
+                    { body: block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp", issuesRepo: "someone-else/docs", findings: "9" }), submittedAt: "2026-09-16T02:59:56Z" },
+                ],
+            },
+        });
+        const r = resolveStoryVerdict(run, {
+            epic: 114,
+            story: 117,
+            candidates: [{ pr: 665, repo: CODE, cwd: "/code" }],
+            issuesRepo: "geo-nexus/docs",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || !r.found) throw new Error("expected the older, trusted verdict to be found");
+        expect(r.verdict.receipt.findings["medium"]).toBe(1);
     });
 });

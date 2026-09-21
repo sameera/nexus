@@ -332,15 +332,27 @@ if the user opts to analyze first, nothing later in this command should have run
         ```
 
       `<repoIdentity>` is the `range.repo` Phase 0.5 printed — the repository the pull request
-      lives in, which is what the command runs its trust check against. It prints `{ found, source,
-      at, current, staleNote, receipt }`, and `receipt` carries `date`/`head`/`mode`/`findings`/
+      lives in, which is what the command runs its trust check against. The repository the
+      verdict's bare story numbers resolve against is **not** an argument: the command resolves it
+      from the checkout it runs in (the configured issues repository, else that checkout's own), so
+      it can never be forgotten or fed a wrong value. It prints `{ found, source, at, current,
+      staleNote, receipt, issuesRepo }`, and `receipt` carries `date`/`head`/`mode`/`findings`/
       `stories` already parsed. **Report what it returns and read nothing else** — never open the
       pull request's reviews and comments to pick a block by hand. A pull request may carry several
       published blocks, and which one is its verdict — maintainer authorship, the repository it
-      stamps, the pull request it names, and newest by GitHub's own timestamp — is the command's
-      decision, not yours. `found: false` is a pull request carrying no verdict, which is the
-      missing-receipt case below. `stories:` (epic #211) names which story issue(s) the verdict
-      covers — read it, never re-derive it from the PR.
+      stamps, the repository its story numbers resolve against, the pull request it names, and
+      newest by GitHub's own timestamp — is the command's decision, not yours. `found: false` is a
+      pull request carrying no verdict, which is the missing-receipt case below. `stories:`
+      (epic #211) names which story issue(s) the verdict covers — read it, never re-derive it from
+      the PR.
+
+      **`issues-repo-mismatch` (exit 1) is not the missing-receipt case.** It means the pull request
+      *does* carry published verdicts, but their story numbers resolve against a different
+      repository than this epic's stories live in (epic #751) — a verdict written before the gate
+      named its issues repository, in a workspace whose issues and code differ. Stop and report the
+      diagnostic verbatim. The way through is re-running `/nxs.analyze --pr <N>` so the pull request
+      carries a verdict that names where its numbers live; never treat it as "analyze never ran",
+      which would send the lead to wait for a run that already happened.
 
    **Aggregate receipt (epic #212).** A local-mode `analyze-receipt.md` carrying a `stories:` list
    instead of a single `head:` is the epic-wide receipt `/nxs.analyze` derived from the story
@@ -406,6 +418,12 @@ if the user opts to analyze first, nothing later in this command should have run
     - `{state: "aggregate", receipt, ...}` — every story has a verdict after all (the local receipt file
       was simply absent, e.g. a fresh checkout) — the command has already written it. Re-read it and
       continue as though Phase 1.2 step 1 had found it there.
+    Every state also carries `rejected` — the candidate pull requests whose published verdicts were
+    dropped for belonging to another repository's issues (epic #751), each naming its story, its
+    pull request and the repository its numbers resolve against. **When a story appears there, say
+    so instead of reporting it as unanalyzed**: its pull request carries a verdict, and re-running
+    `/nxs.analyze --pr <N>` on it is what makes that verdict readable. An empty list is the norm.
+
     - `{state: "partial", missing, present}` — some stories carry a verdict and some do not. For
       **each** story number in `missing`, render a short note naming the story, then ask via
       `AskUserQuestion`:
