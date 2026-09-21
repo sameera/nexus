@@ -154,25 +154,30 @@ describe("/nxs.distill accepts an intake entry with the epic vocabulary (story #
     });
 
     it("skips an intake directory missing either file, the same way it skips a fix or epic entry", () => {
-        expect(DISTILL).toMatch(/a fix or intake directory missing either file is skipped exactly as an epic directory\s*\n?\s*missing/);
+        expect(DISTILL).toMatch(/`\.nexus\/tmp\/intake-<n>\/`/);
+        expect(DISTILL).toMatch(/drainable\s*\n?\s*entry \*\*only when it carries both `epic\.md` and `close-record\.md`\*\*/);
+        expect(DISTILL).toMatch(/a directory is drainable only carrying both files/);
     });
 
     it("takes the entry kind from the header for an intake directory too, and blocks a disagreement", () => {
-        expect(DISTILL).toMatch(/an absent or non-`intake` kind\s*\n?\s*under `intake-<n>\/`/);
+        expect(DISTILL).toMatch(/an\s*\n?\s*absent or wrong kind under `fix-<n>\/` or `intake-<n>\/`/);
+        expect(DISTILL).toMatch(/never from its location or its directory name/);
         expect(DISTILL).toContain("entry-kind-mismatch");
     });
 
     it("lets an intake entry's deltas create a page, change an assertion, or retire an invariant", () => {
-        expect(DISTILL).toMatch(/An intake entry \(#483\) gets the full epic vocabulary/);
-        expect(DISTILL).toMatch(/This bound applies to a fix entry\s*\n?\s*only\./);
+        expect(DISTILL).toMatch(/\| `intake` \|[^\n]*\| full, exactly as `epic` \|/);
+        expect(DISTILL).toMatch(/\| `epic` \|[^\n]*create a page, change what a page asserts, add or retire an invariant/);
     });
 
     it("does not apply the append-only mode to an intake entry's pages", () => {
-        expect(DISTILL).toMatch(/An intake entry is validated the same unbounded way/);
+        expect(DISTILL).toMatch(/\| `intake` \|[^\n]*\| none added \|/);
+        expect(DISTILL).toMatch(/each is validated by\s*\n?\s*its own invocation carrying its own kind's mode and no other's/);
     });
 
     it("never blocks an intake entry with the fix-only no-existing-page rule", () => {
-        expect(DISTILL).toMatch(/neither the append-only validator mode nor the `no-existing-page` block ever applies to\s*\n?\s*it/);
+        expect(DISTILL).toMatch(/\| `intake` \|[^\n]*full, exactly as `epic`[^\n]*none added/);
+        expect(DISTILL).toMatch(/An entry whose row gives the full vocabulary can create the page itself, so this block never fires\s*\n?for one/);
     });
 
     it("names, per intake entry, every page created, changed and every invariant retired at the checkpoint", () => {
@@ -184,13 +189,15 @@ describe("/nxs.distill accepts an intake entry with the epic vocabulary (story #
     });
 
     it("leaves epic and fix entries unchanged when drained in the same run as an intake entry", () => {
-        expect(DISTILL).toMatch(/Draining an epic entry or a fix entry is\s*\n?\s*unchanged by this, including either discovered in the same run as an intake entry/);
+        expect(DISTILL).toMatch(/Each drained entry is treated by its own kind's rules,\s*\n?\s*and no kind drained in the same run alters another kind's drain/);
+        expect(DISTILL).toMatch(/\| `intake` \|/);
     });
 });
 
 describe("/nxs.distill catches an edited pull request for an intake entry (story #488)", () => {
     it("re-fetches and re-hashes the pull request body through the one digest program", () => {
-        expect(DISTILL).toMatch(/verify the pull request body instead/);
+        expect(DISTILL).toMatch(/names the pull request body as this entry's \*why\* source, verify that\s*\n?\s*instead/);
+        expect(DISTILL).toMatch(/\| `intake` \|[^\n]*pull request body, digest-verified against the `pr_digest` stamped at intake/);
         expect(DISTILL).toContain("nexus record-digest --issue <n>");
     });
 
