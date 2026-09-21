@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder"]
-last_updated_by: "#713"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder", "on-demand-stage-contract"]
+last_updated_by: "#714"
 status: active
 verification: verified
 ---
@@ -54,6 +54,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [multi-pr-close](multi-pr-close.md) — the writer of the stamped range list.
 - [range-entry-diff](range-entry-diff.md) — the reader that turns a stamped range list into one change set per pull request, in landed order.
 - [planning-run-folder](planning-run-folder.md) — a planning draft sitting under the same scratch area; neither its shape nor a close record matches what this scan looks for, so it is never listed, aged or drained.
+- [on-demand-stage-contract](on-demand-stage-contract.md) — the way this stage is partitioned: it resolves its run shape first and reads only the contracts that shape names, so an ordinary drain reads none of them.
 
 ## Decision Log
 
@@ -172,3 +173,11 @@ Mechanical reciprocity fan-out: a planning draft now lives under the same gitign
 ### 2026-09-20 — #713 — The stamped range is the only diff source, and a failure to derive blocks the entry
 
 The single-repository fallback that re-derived an entry's diff from the commit which introduced the queue entry is removed, and so is the prompt that asked the lead for a replacement base and head. The decision of 2026-07-20 that kept that scan as a fallback for a legacy entry whose range was unreachable is retired by this entry. A failure to derive an entry's diff now blocks that one entry in every mode. The drain reports the derivation step's diagnostic, leaves the entry's files untouched, and drains the rest of the run. The fallback fired on a stale or shallow checkout just as readily as on a legacy entry whose history was rewritten, and its trigger cannot tell those two causes apart. On the far more common cause it wrote a different change's diff permanently into the concept store. A blocked entry is recoverable, is never auto-deleted, and is rediscovered by the next run. A wrong concept page is not recoverable. Refuted alternative: keep the fallback and fire it only on the unreachable-revision class, which is now distinguishable. It preserves a path for the legacy entry the fallback was built for, and a competent engineer could choose it. It loses because that class still covers both causes, so the substitution stays wrong in exactly the case that makes it wrong. The same change restated the stage's own rules once each, at the step each rule governs. The three entry kinds gained one contract that every later step reads, the kind is resolved once at discovery and recorded per entry so a later step reads that resolution rather than deriving it again, and the checkpoint, the pull request body and the completion report became layouts over one run summary held in scratch. Those are document changes alone. A run over a queue whose recorded revisions are all reachable produces the same checkpoint decisions, the same pull request body and the same counts as it did before.
+
+### 2026-09-20 — #714 — The run's shape is resolved first, and only the contracts that shape names are read
+
+The stage stated every rule it might need in one document, and the whole document was read before the run knew which rules applied. Six exceptional paths — recovery, the close hand-off, a hub workspace, the two non-epic entry kinds, and the domain registry — moved out into separately loadable contracts, and the stage now resolves its run mode, its workspace shape, each entry's recorded kind and registry presence before naming any of them. An ordinary drain, meaning a single-repository checkout draining epic entries with no recovery, no hand-off and no registry, reads none of the six. The mechanism is described on its own page rather than here, because this page is at its word cap and the store splits a concept that no longer fits rather than growing it.
+
+Nothing any path does has changed. Every refusal, gate, diagnostic and ordered step is the same one, in the same order, reached from the contract that now states it, and the stage's phase order and numbering are untouched so every reference a sibling stage or a concept page carries stays valid.
+
+The six paths became five contracts. Fix and intake share one, because loading a contract loads its whole body and an all-epic queue loads neither under either shape, so splitting them would have bought a saving on a path this change was not optimising while breaking apart the single entry-kind comparison the preceding change had just consolidated. Refuted alternative: one contract per named path, which is how the work was described when it was filed. It loses because the axes the two non-epic kinds differ on are defined once across all three kinds, and two contracts cannot both own that definition.

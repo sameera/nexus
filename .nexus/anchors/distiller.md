@@ -1,6 +1,6 @@
 ---
 concept: distiller
-source_sha: 33106a91002ab79c893fe35e0a8ee548b0f8ea14
+source_sha: b74a97736ebc340d427f50c946a53594a2124c90
 generated: 2026-09-20
 ---
 
@@ -16,6 +16,7 @@ generated: 2026-09-20
 - `components/commands/nxs.distill.md` — the drain-health report: an undrained entry attributed to every distinct repository its range list names in first-appearance order, one age figure per entry measured from the introducing commit, and a blocked entry naming the range entry that could not be resolved.
 - `components/commands/nxs.distill.md` — the prose convention with its grounding variant: the rule block sits directly above the drafting step, writes the fetched record body to a named file at preflight, and drafts each changed page and the PR body plain the first time, grounding an abstraction in the epic and that why file rather than translating a finished draft.
 - `components/commands/nxs.distill.md` — the Input Resolution scan exempts a planning draft under `.nexus/tmp/planning/` by construction: it carries no `close-record.md` and its own `epic.md`, when one exists, has no `entry_kind:` this scan recognises.
+- `components/commands/nxs.distill.md` — run-shape resolution and the contract selection table: the run mode, the workspace shape and each entry's recorded kind resolved before anything is reported, refused or written, and each exceptional path's rules read from its own contract only once its condition resolves (#734).
 - `libs/portable-tools/src/distill-rule-once.spec.ts` — pins each consolidated rule's single statement and the absence of its second copy: the unreachable-revision contract, the entry-kind contract, the run summary behind the three surfaces, and the removed closing recap.
 - `libs/portable-tools/src/derive-entry-diff.ts` — the reader the drain derives every entry's change sets through, in both modes.
 - `libs/portable-tools/src/derive-entry-diff.spec.ts` — pins the exclusions, including that discovery prose riding the same branch as the code never reaches the emitted diff.
