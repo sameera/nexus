@@ -64,6 +64,16 @@
       "import": "./src/render.ts",
       "default": "./src/render.ts"
     },
+    "./receipt-blocks": {
+      "types": "./src/receipt-blocks.ts",
+      "import": "./src/receipt-blocks.ts",
+      "default": "./src/receipt-blocks.ts"
+    },
+    "./verdict-fixtures": {
+      "types": "./src/verdict-fixtures.ts",
+      "import": "./src/verdict-fixtures.ts",
+      "default": "./src/verdict-fixtures.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

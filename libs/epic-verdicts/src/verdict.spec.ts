@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { resolveStoryVerdict } from "./verdict.js";
 import { type Runner } from "./run.js";
+import {
+    TWO_VERDICT_EPIC,
+    TWO_VERDICT_PR,
+    TWO_VERDICT_STORY,
+    twoVerdictPrPayload,
+} from "@nexus/pr-acceptance/verdict-fixtures";
 
 const SLUG = { owner: "acme", repo: "widget" };
 
@@ -281,5 +287,27 @@ describe("resolveStoryVerdict — trust and recency across a story's candidate p
         if (!r.ok || !r.found) return;
         expect(r.verdict.repo).toBe("acme/member-app");
         expect(r.verdict.head).toBe("a".repeat(40));
+    });
+});
+
+describe("resolveStoryVerdict on the live two-verdict pull request (epic #747)", () => {
+    // The epic-wide reader is one of the readers that could have reported the older verdict's
+    // counts, so it is run against the pinned payload before anything about ranking changes.
+    it("selects the verdict GitHub timestamped later, not the one returned last", () => {
+        const run: Runner = (cmd, args) =>
+            cmd === "gh" && args[0] === "pr" && args[1] === "view"
+                ? { status: 0, stdout: JSON.stringify(twoVerdictPrPayload()), stderr: "" }
+                : { status: 1, stdout: "", stderr: `unexpected: ${cmd} ${args.join(" ")}` };
+        const r = resolveStoryVerdict(run, {
+            epic: TWO_VERDICT_EPIC,
+            story: TWO_VERDICT_STORY,
+            candidates: [{ pr: TWO_VERDICT_PR, repo: { owner: "geo-nexus", repo: "giccp" }, cwd: "/repo" }],
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.found).toBe(true);
+        if (!r.found) return;
+        expect(r.verdict.receipt.findings["high"]).toBe(0);
+        expect(r.verdict.receipt.nexusVersion).toBeNull();
     });
 });

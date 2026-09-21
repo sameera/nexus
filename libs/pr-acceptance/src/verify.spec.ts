@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
-    RECEIPT_MARKER,
     changedFileSet,
     deriveRangeViaHelper,
     parseReceiptBlock,
@@ -13,7 +12,15 @@ import {
     verifyResidue,
 } from "./verify.js";
 import { type Route, fakeRunner, initRepo, makeTempDir, sh, writeCommit } from "./harness-fixtures.js";
+import { RECEIPT_MARKER } from "./receipt-blocks.js";
 import { defaultRunner } from "./run.js";
+import {
+    TWO_VERDICT_PR,
+    TWO_VERDICT_REPO,
+    proseDisagreeingWithBlock,
+    twoVerdictPrPayload,
+    verdictBody,
+} from "./verdict-fixtures.js";
 
 const tracked: string[] = [];
 afterAll(() => {
@@ -581,6 +588,80 @@ describe("verifyReceipt", () => {
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("gh-failed");
+    });
+});
+
+describe("verifyReceipt on the live two-verdict pull request (epic #747)", () => {
+    const view = (doc: unknown): Route => ({ match: "gh pr view", result: { stdout: JSON.stringify(doc) } });
+    const read = (doc: unknown) => verifyReceipt(fakeRunner([view(doc)]), "/clone", TWO_VERDICT_PR, TWO_VERDICT_REPO);
+
+    it("selects the verdict GitHub timestamped later, even though the payload returned it last and it omits the toolkit-version key", () => {
+        const r = read(twoVerdictPrPayload());
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.receipt?.findings["high"]).toBe(0);
+        expect(r.value.receipt?.nexusVersion).toBeNull();
+    });
+
+    it("reports the counts the machine block carries, not the ones the prose above it states", () => {
+        const r = read(twoVerdictPrPayload({ newerBody: proseDisagreeingWithBlock() }));
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.receipt?.findings["high"]).toBe(0);
+    });
+
+    it("ignores a newer block written by someone who is not a maintainer of this repository", () => {
+        const r = read(
+            twoVerdictPrPayload({
+                extraComments: [
+                    { body: verdictBody({ high: 9 }), createdAt: "2026-09-16T03:30:00Z", authorAssociation: "NONE" },
+                ],
+            }),
+        );
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.receipt?.findings["high"]).toBe(0);
+    });
+
+    it("ignores a newer block that names a different pull request — a copy, not this PR's verdict", () => {
+        const r = read(
+            twoVerdictPrPayload({
+                extraComments: [
+                    { body: verdictBody({ high: 9, pr: 999 }), createdAt: "2026-09-16T03:30:00Z", authorAssociation: "MEMBER" },
+                ],
+            }),
+        );
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.receipt?.findings["high"]).toBe(0);
+    });
+
+    it("ignores a newer block stamping another repository, in either written form", () => {
+        for (const repo of ["github.com/geo-nexus/other", "geo-nexus/other"]) {
+            const r = read(
+                twoVerdictPrPayload({
+                    extraComments: [
+                        { body: verdictBody({ high: 9, repo }), createdAt: "2026-09-16T03:30:00Z", authorAssociation: "MEMBER" },
+                    ],
+                }),
+            );
+            expect(r.ok).toBe(true);
+            if (!r.ok) return;
+            expect(r.value.receipt?.findings["high"], repo).toBe(0);
+        }
+    });
+
+    it("reports the pull request as stale, since commits landed after the analyzed commit", () => {
+        const run = fakeRunner([
+            view(twoVerdictPrPayload()),
+            { match: "git rev-list", result: { stdout: "3\n" } },
+        ]);
+        const r = verifyReceipt(run, "/clone", TWO_VERDICT_PR, TWO_VERDICT_REPO);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.current).toBe(false);
     });
 });
 

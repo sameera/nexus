@@ -9,3 +9,21 @@
 - **Choice:** when either side is not a two- or three-segment repository identity, compare the two strings case-insensitively instead of rejecting.
 - **Why:** that is exactly today's behaviour for an unparseable stamp, so the widening cannot make a previously accepted verdict fail.
 - **Refuted alternative:** reject any stamp that does not parse, which would newly drop verdicts nobody has complained about.
+
+## 2026-09-21 — The command wraps the existing single-pull-request reader
+
+- **Choice:** `nexus pr-verdict` calls the compiled reader that already answers this question, extended with the two filters only the gate's prose had been applying (maintainer authorship, the pull request a block names), rather than a second selection implementation behind the command.
+- **Why:** the record's point is that the compiled reader was already right and the gate had no way to reach it; a fresh implementation would be a third reader to keep in step.
+- **Refuted alternative:** a standalone reader in the epic-verdicts library, leaving the harness reader untouched.
+
+## 2026-09-21 — An author association GitHub did not state is unknown, not untrusted
+
+- **Choice:** a block whose payload carries no `authorAssociation` is accepted; one that states an association outside OWNER/MEMBER/COLLABORATOR is rejected.
+- **Why:** it is the same unstated-is-unknown rule the record fixes for the repository stamp, and GitHub always states the field in a real run, so nothing a live gate reads is weakened.
+- **Refuted alternative:** reject an absent association, which would drop every verdict read from a payload that did not request the field.
+
+## 2026-09-21 — `--repo` is required rather than resolved from the checkout
+
+- **Choice:** the command refuses with a usage error when the caller does not name the repository it is reading.
+- **Why:** invariant 9 asks every caller to tell the command which repository it is reading; resolving it silently would let a caller that never knew leave the trust check inert and look identical.
+- **Refuted alternative:** fall back to the checkout's own identity when `--repo` is omitted.

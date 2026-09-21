@@ -12,7 +12,8 @@
  * survivor across every candidate — not just within one PR — wins.
  */
 
-import { type AnalyzeReceipt, RECEIPT_MARKER, parseReceiptBlock } from "@nexus/pr-acceptance/verify";
+import { type AnalyzeReceipt, parseReceiptBlock } from "@nexus/pr-acceptance/verify";
+import { collectReceiptBlocks, newestReceiptBlock } from "@nexus/pr-acceptance/receipt-blocks";
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { issueRefsMatch, sameRepo } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
@@ -32,28 +33,6 @@ export type ResolveStoryVerdictResult =
     | { ok: true; found: true; verdict: StoryVerdict; survivors: StoryVerdict[] }
     | { ok: true; found: false; candidates: number[] }
     | { ok: false; error: EpicVerdictsDiagnostic };
-
-interface Timestamped {
-    body: string;
-    at: string;
-}
-
-function collect(doc: Record<string, unknown>): Timestamped[] {
-    const out: Timestamped[] = [];
-    const push = (arr: unknown, timeKey: string): void => {
-        if (!Array.isArray(arr)) return;
-        for (const item of arr) {
-            if (item === null || typeof item !== "object") continue;
-            const rec = item as Record<string, unknown>;
-            const body = typeof rec["body"] === "string" ? rec["body"] : "";
-            if (!body.includes(RECEIPT_MARKER)) continue;
-            out.push({ body, at: typeof rec[timeKey] === "string" ? rec[timeKey] : "" });
-        }
-    };
-    push(doc["reviews"], "submittedAt");
-    push(doc["comments"], "createdAt");
-    return out;
-}
 
 /**
  * One candidate pull request, self-describing its own repository and checkout — never a single
@@ -83,8 +62,8 @@ export interface ResolveStoryVerdictInput {
  * verdict for the same story after its code already shipped).
  */
 export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput): ResolveStoryVerdictResult {
-    // Newest matching receipt per candidate pull request — a PR may carry more than one matching
-    // review/comment over time (repeated analyze runs), so only its own latest represents it.
+    // One verdict per candidate pull request — a PR may carry more than one matching review or
+    // comment over time (repeated analyze runs), so only its own latest represents it.
     const perCandidate = new Map<string, { at: string; verdict: StoryVerdict }>();
 
     for (const candidate of input.candidates) {
@@ -106,37 +85,41 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
         const state = String(doc["state"] ?? "").toUpperCase();
         if (state !== "OPEN" && state !== "MERGED") continue; // closed-unmerged never survives
 
-        const key = `${expectedRepo}#${candidate.pr}`;
-        for (const found of collect(doc)) {
+        // Trust first, recency second (invariant 10 of decision record #750): an untrusted block
+        // can never shadow a trusted, older one.
+        const trusted = collectReceiptBlocks(doc).filter((found) => {
             const receipt = parseReceiptBlock(found.body);
-            if (receipt === null) continue;
+            if (receipt === null) return false;
             // Accepts both the bare and the fully-qualified provenance form (concept
             //  "Provenance Reference"), so a receipt an analyze run wrote against a
             //  qualified epic reference is not silently dropped here.
-            if (!issueRefsMatch(receipt.epic, `#${input.epic}`)) continue;
-            if (!receipt.stories.includes(input.story)) continue;
+            if (!issueRefsMatch(receipt.epic, `#${input.epic}`)) return false;
+            if (!receipt.stories.includes(input.story)) return false;
             // Repository identity goes through the one shared rule, never string equality: the
             // gate stamps the host-qualified form and this reader knows the bare one, and the two
             // name the same repository (epic #747). A stamp naming a different repository, in
             // either form, still fails here.
-            if (receipt.repo !== null && !sameRepo(receipt.repo, expectedRepo)) continue;
+            return receipt.repo === null || sameRepo(receipt.repo, expectedRepo);
+        });
 
-            const existing = perCandidate.get(key);
-            if (existing === undefined || found.at.localeCompare(existing.at) > 0) {
-                perCandidate.set(key, {
-                    at: found.at,
-                    verdict: {
-                        story: input.story,
-                        pr: candidate.pr,
-                        repo: expectedRepo,
-                        state: state as "OPEN" | "MERGED",
-                        head: receipt.head,
-                        base: typeof doc["baseRefOid"] === "string" ? doc["baseRefOid"] : "",
-                        receipt,
-                    },
-                });
-            }
-        }
+        // Newest matching receipt per candidate pull request, by the same shared ordering step the
+        // single-pull-request reader uses, so the two cannot rank one payload differently.
+        const newest = newestReceiptBlock(trusted);
+        if (newest === null) continue;
+        const receipt = parseReceiptBlock(newest.body);
+        if (receipt === null) continue;
+        perCandidate.set(`${expectedRepo}#${candidate.pr}`, {
+            at: newest.at,
+            verdict: {
+                story: input.story,
+                pr: candidate.pr,
+                repo: expectedRepo,
+                state: state as "OPEN" | "MERGED",
+                head: receipt.head,
+                base: typeof doc["baseRefOid"] === "string" ? doc["baseRefOid"] : "",
+                receipt,
+            },
+        });
     }
 
     if (perCandidate.size === 0) return { ok: true, found: false, candidates: input.candidates.map((c) => c.pr) };

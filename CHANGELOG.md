@@ -5,6 +5,23 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.68.0
+
+- **`/nxs.close` no longer picks a pull request's analyze verdict by hand.** When a pull request
+  carried more than one published verdict — analyze re-run after a correction — the gate was told
+  in prose to take the newest, and on at least one real close it reported the superseded one's
+  severity counts instead. The two blocks differed in one thing: the later omitted the optional
+  toolkit-version key, and the more complete-looking block won. The gate now calls a command that
+  returns the verdict a pull request carries and reports what it returns. The command applies
+  maintainer authorship, the repository stamp, the pull request named, and newest by GitHub's own
+  timestamp — a date written inside a block, the number of keys it carries and the prose above it
+  decide nothing. The severity counts reported are the ones the machine block carries.
+
+  That command is available to you directly as `nexus pr-verdict --pr <N> --repo <owner/repo>`. It
+  prints what the pull request's verdict is, whether it is still current, and the analyzed commit.
+  Re-running analyze after a correction now clears the close gate, which is what it was always
+  meant to do.
+
 ## 0.67.0
 
 - **`/nxs.close` now reads the story verdicts `/nxs.analyze` already published.** An epic that
