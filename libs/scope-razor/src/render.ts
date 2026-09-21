@@ -7,6 +7,7 @@
 import type { Finding, TokenKind } from "./labels.js";
 import type { RazorFinding } from "./check.js";
 import type { ChecklistItem, ChecklistKind } from "./offer.js";
+import type { RecordChecklistItem, RecordChecklistKind } from "./record-offer.js";
 
 /** What each surviving token asks of the reader — a label goes, a placeholder and a marker do not. */
 const REMEDY: Record<TokenKind, string> = {
@@ -96,6 +97,54 @@ export function renderChecklist(draft: string, items: ChecklistItem[]): string {
         const number: string = String(item.number).padStart(width, " ");
         const detail: string = item.kind === "story" ? storyDetail(item) : "";
         lines.push(`  [${item.filed ? "x" : " "}] ${number}. ${item.text}${detail} · ${claim(item)}`);
+    }
+    return lines.join("\n");
+}
+
+/** The heading each run of one record kind is printed under, so the reviewer reads what it holds. */
+const RECORD_GROUP: Record<RecordChecklistKind, string> = {
+    alternative: "Refuted alternatives",
+    invariant: "Invariants — model-added",
+    risk: "Risks — model-added",
+};
+
+/**
+ * The record checkpoint's checklist as the gate renders it (epic #722, stories #723 and #724): one
+ * numbered list holding every refuted alternative, every invariant the model added and every risk it
+ * added, grouped by kind in the record's own section order and numbered as one sequence.
+ *
+ * Every line arrives ticked, because a plain approval files the record minus nothing, and the
+ * reviewer names only the numbers they want cut. The tick and the number are the first two things on
+ * every line, for the same reason they are at the planning gate: they are what the selection names.
+ *
+ * A frozen line says so where the reviewer reads it, rather than only when they type its number. On
+ * a revision most of the list is frozen, and a reviewer who meets the refusal one number at a time
+ * reads the gate as broken.
+ *
+ * No line carries a markdown list marker, for the reason the planning gate's list carries none: a
+ * renderer handed `- [x] 1.` consumes the tick as a task-list control and re-sequences the line from
+ * its own position, which deletes exactly the two things the selection names. The gate delivers this
+ * verbatim inside a fence (nxs-razor §8); this keeps it legible where a block escapes one.
+ */
+export function renderRecordChecklist(draft: string, items: RecordChecklistItem[]): string {
+    if (items.length === 0) return `razor-offer: ${draft} — the record states no refuted alternative and nothing the model added, so there is nothing to cut`;
+    const lines: string[] = [`razor-offer: ${draft} — what the model added, pre-ticked; ${items.length} numbered item(s):`];
+    let group: RecordChecklistKind | undefined;
+    let parent: string | undefined;
+    const width: number = String(items[items.length - 1].number).length;
+    for (const item of items) {
+        if (item.kind !== group) {
+            lines.push("", RECORD_GROUP[item.kind]);
+            group = item.kind;
+            parent = undefined;
+        }
+        if (item.kind === "alternative" && item.parent !== parent) {
+            lines.push(`  ${item.parent}`);
+            parent = item.parent;
+        }
+        const number: string = String(item.number).padStart(width, " ");
+        const frozen: string = item.frozen ? " · frozen: the approved record already carries this" : "";
+        lines.push(`  [${item.filed ? "x" : " "}] ${number}. ${item.text}${frozen}`);
     }
     return lines.join("\n");
 }

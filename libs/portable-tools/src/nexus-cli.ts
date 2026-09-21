@@ -61,8 +61,9 @@ import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/p
 import { renderVerifyResult } from "@nexus/prose-verify/render";
 import { deriveFilingBody, survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
 import { checkApplied, checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
-import { renderChecklist, renderRazorFindings, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { renderChecklist, renderRazorFindings, renderRecordChecklist, renderSurvivingTokens } from "@nexus/scope-razor/render";
 import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
+import { recordChecklist, type RecordChecklistItem } from "@nexus/scope-razor/record-offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import { localDocsRoot, resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
@@ -327,13 +328,21 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runRazorCheck,
     },
     "razor-offer": {
-        summary: "Print the planning gate's pre-ticked checklist of the set a plain approval files.",
+        summary: "Print a razor gate's numbered checklist: the planning gate's filed set, or a record's model-added items.",
         usage: [
             "  nexus razor-offer --draft <path>",
+            "  nexus razor-offer --draft <path> --record [--approved-body <path>]",
             "      Print one numbered checklist: every story, every model-added acceptance criterion on",
             "      a story the default files, and every boundary. A ticked line is what a plain approval",
             "      files; the smallest usable version comes first, then the stories it excludes,",
             "      asked-for before model-added, each in the order the ordering block unlocks it.",
+            "      With --record the draft is a decision record: the list holds every refuted",
+            "      alternative under the decision it belongs to, then every invariant and every risk",
+            "      the model added, numbered as one sequence in the record's own section order and",
+            "      every line ticked, because a plain approval files the record minus nothing. Pass",
+            "      --approved-body only when the record sub-issue is closed: a line whose text that",
+            "      body already carries is marked frozen, since approved content changes only through",
+            "      the revision path.",
         ].join("\n"),
         run: runRazorOffer,
     },
@@ -1559,16 +1568,22 @@ interface RazorCheckFlags {
     derive?: string;
     /** This run's declared local asset paths (epic #594): a survivor fails `--assert-clean`. */
     assetPaths: string[];
+    /** `--record`: offer over a decision-record draft rather than an epic draft (epic #722). */
+    record: boolean;
+    /** `--approved-body`: the approved record body, passed only when the record sub-issue is closed. */
+    approvedBody?: string;
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
-    const flags: RazorCheckFlags = { assertClean: false, assetPaths: [] };
+    const flags: RazorCheckFlags = { assertClean: false, assetPaths: [], record: false };
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--draft") flags.draft = argv[++i];
         else if (argv[i] === "--source") flags.source = argv[++i];
         else if (argv[i] === "--assert-clean") flags.assertClean = true;
         else if (argv[i] === "--asset-path") flags.assetPaths.push(argv[++i] ?? "");
         else if (argv[i] === "--derive") flags.derive = argv[++i];
+        else if (argv[i] === "--record") flags.record = true;
+        else if (argv[i] === "--approved-body") flags.approvedBody = argv[++i];
         else if (argv[i] === "--filed")
             flags.filed = (argv[++i] ?? "")
                 .split(";")
@@ -1678,6 +1693,20 @@ async function runRazorOffer(argv: string[], io: CliIo): Promise<number> {
     } catch {
         io.stderr(`razor-offer: cannot read ${flags.draft}`);
         return 1;
+    }
+    if (flags.record) {
+        let approved: string | undefined;
+        if (flags.approvedBody !== undefined) {
+            try {
+                approved = fs.readFileSync(path.resolve(io.cwd, flags.approvedBody), "utf8");
+            } catch {
+                io.stderr(`razor-offer: cannot read ${flags.approvedBody}`);
+                return 1;
+            }
+        }
+        const record: RecordChecklistItem[] = recordChecklist(body, approved);
+        io.stdout(renderRecordChecklist(flags.draft, record));
+        return 0;
     }
     const items: ChecklistItem[] = checklist(body);
     io.stdout(renderChecklist(flags.draft, items));

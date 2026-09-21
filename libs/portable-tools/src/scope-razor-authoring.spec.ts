@@ -228,7 +228,7 @@ describe("the two gate conventions", () => {
 
     it("keeps the shared shape the two gates still have in common", () => {
         expect(flat).toMatch(/empty selection is identical to plain approval/i);
-        expect(flat).toMatch(/refused, with the reason stated, never silently ignored/);
+        expect(flat).toMatch(/refused, with the reason stated and the route named, never silently ignored/);
     });
 
     it("names addition as the planning gate's default and states what a plain approval files", () => {
@@ -406,6 +406,23 @@ describe("the other drafting stages", () => {
         expect(record).toMatch(/inside a fenced code block/i);
     });
 
+    it("take the record cut list's content and numbering from the checker rather than rendering it by hand", () => {
+        expect(record).toMatch(/nexus razor-offer --draft .* --record/);
+        expect(record).toMatch(/\*\*Transcribe it; derive nothing\.\*\*/);
+    });
+
+    it("show the reviewer every invariant and every risk the model added, not the alternatives alone", () => {
+        expect(record).toMatch(/every invariant and every risk the model added/i);
+    });
+
+    it("keep an invariant or a risk the lead asked for off the list, since striking one is a revise", () => {
+        expect(record).toMatch(/an invariant or a risk the lead asked for is not listed/i);
+    });
+
+    it("let one typed selection cover every kind the list holds, so a number means one thing", () => {
+        expect(record).toMatch(/One typed selection covers every kind the list holds/);
+    });
+
     it("label the record's invariants and risks in the same two-valued form", () => {
         expect(record).toMatch(/Label every invariant and every risk/);
         expect(record).toContain("[inferred]");
@@ -482,8 +499,8 @@ describe("the record's pre-filing checkpoint", () => {
     });
 
     it("lists every refuted alternative numbered and grouped by its decision", () => {
-        expect(record).toContain("### Refuted alternatives");
-        expect(record).toMatch(/numbered stably, grouped under the decision it belongs to/);
+        expect(record).toContain("Refuted alternatives");
+        expect(record).toMatch(/under the decision it belongs to/);
     });
 
     it("removes the named alternatives before any issue is created or updated", () => {
@@ -506,11 +523,43 @@ describe("the record's pre-filing checkpoint", () => {
 
     it("derives the filing body after the checkpoint, so the body is the one the reviewer approved", () => {
         expect(record).toContain("## Phase 3.6 — Derive the filing body");
-        expect(record).toMatch(/\*\*before Phase 3\.6 derives the filing body\*\*/);
+        expect(record).toMatch(/before\*\* Phase 3\.6 derives the filing body/);
     });
 
     it("renders its observation with the sentinel the assertion looks for", () => {
         expect(read("commands/nxs.decision-record.md")).toContain("⚠️ razor: names no trade-off");
+    });
+
+    it("renders one pre-ticked checklist, so a plain approval is the set the reviewer read", () => {
+        expect(record).toMatch(/every line arrives ticked/i);
+        expect(record).toMatch(/\[x\]/);
+    });
+
+    it("flips exactly one line per number typed, the planning gate's idiom", () => {
+        expect(record).toMatch(/a number .{0,40}flips (exactly )?one line/i);
+    });
+
+    it("keeps all four exits beside the checklist, the proceed-without-a-record one included", () => {
+        expect(record).toContain("**approve as drafted**");
+        expect(record).toContain("**approve with cuts**");
+        expect(record).toContain("**revise**");
+        expect(record).toContain("**no record**");
+    });
+
+    it("fetches the approved body only where there is one to freeze against", () => {
+        expect(record).toMatch(/--approved-body/);
+        expect(record).toMatch(/only when the (epic's )?record sub-issue is closed/i);
+    });
+
+    it("states the reason a frozen line refuses, and names the route that can change it", () => {
+        expect(record).toMatch(/refused/i);
+        expect(record).toMatch(/Phase 4\.5/);
+    });
+});
+
+describe("the refusal the two gates share", () => {
+    it("names approved content on the razor page, so the page and the record stage state one rule", () => {
+        expect(read(RAZOR).replace(/\s+/g, " ")).toMatch(/a prior run already filed and approved/i);
     });
 });
 
