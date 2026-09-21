@@ -303,6 +303,18 @@ describe("nexus pr-verdict (registration only — the selection rule is covered 
         expect(await runNexusCli(["pr-verdict", "--pr", "665"], io)).toBe(2);
         expect(io.err.join("\n")).toContain("--repo");
     });
+
+    /**
+     * The two refusals above pass whether or not the flags are read at all, so neither can see a
+     * verb that rejects its own well-formed invocation. The close gate and distill recovery both
+     * shell out to this exact line, so a parse that never accepts it takes both stages down.
+     */
+    it("accepts a well-formed invocation and gets past flag parsing", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-verdict-"));
+        const code: number = await runNexusCli(["pr-verdict", "--pr", "665", "--repo", "acme/widget"], io);
+        expect(io.err.join("\n")).not.toContain("usage:");
+        expect(code).not.toBe(2);
+    });
 });
 
 describe("nexus record-digest (registration only — network path covered by the migration-axis parity corpus)", () => {
