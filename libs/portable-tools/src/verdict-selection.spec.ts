@@ -15,6 +15,10 @@ import { authoredComponentRoot } from "./vendor-components.js";
 import { DISPATCH_NAMES } from "./nexus-cli.js";
 
 const CLOSE: string = fs.readFileSync(path.join(authoredComponentRoot(__dirname), "commands", "nxs.close.md"), "utf8");
+const RECOVERY: string = fs.readFileSync(
+    path.join(authoredComponentRoot(__dirname), "skills", "nxs-distill-recovery", "SKILL.md"),
+    "utf8",
+);
 
 describe("the close gate reaches the rule through the command", () => {
     it("invokes a registered command to read the pull request's verdict", () => {
@@ -33,5 +37,22 @@ describe("the close gate reaches the rule through the command", () => {
 
     it("keeps no hand-selection fallback for the same question", () => {
         expect(CLOSE).not.toMatch(/gh pr view <N> --json reviews,comments/);
+    });
+});
+
+/**
+ * Invariant 8 binds every stage, not just the close gate. Distill's recovery mode asks the same
+ * question of a linked pull request — which analyze verdict does it carry — and answered it by
+ * borrowing the close gate's prose rule. A second hand-executed copy of a rule is the defect the
+ * command exists to remove, wherever it is written.
+ */
+describe("distill recovery reaches the same rule through the same command", () => {
+    it("invokes the command to read a linked pull request's verdict", () => {
+        expect(RECOVERY).toMatch(/nexus pr-verdict --pr \S+ --repo \S+/);
+    });
+
+    it("no longer borrows the analyze block's selection rule as prose", () => {
+        expect(RECOVERY).not.toMatch(/same trust rule as the analyze/i);
+        expect(RECOVERY).not.toMatch(/nexus:analyze-receipt[\s\S]{0,200}?(newest|authorAssociation)/i);
     });
 });

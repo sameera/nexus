@@ -22,6 +22,12 @@ behaviour says so.
   Re-running analyze after a correction now clears the close gate, which is what it was always
   meant to do.
 
+- **`/nxs.distill --recover` picks that verdict the same way.** Rebuilding a lost entry from
+  GitHub, the stage used to read the analyze block on the epic's linked pull request by hand, with
+  its own copy of the newest-wins rule. It now calls the same command, so a recovered close and a
+  live one report the same verdict for the same pull request. A pull request carrying no verdict
+  leaves the close comment's verdict standing, as before.
+
 ## 0.67.0
 
 - **`/nxs.close` now reads the story verdicts `/nxs.analyze` already published.** An epic that
