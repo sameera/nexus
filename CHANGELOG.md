@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.69.0
+
+- **`/nxs.decision-record` can now satisfy the razor check it prescribes.** The stage runs the
+  shared razor checker over its own draft and tells you to fix what blocks before going on. That
+  checker read every third-level heading as a user story, so it demanded a provenance label on
+  every decision a record states — while the razor says outright that a decision carries no label.
+  A record with six decisions produced six blocking findings, and the only way to clear them was to
+  label something the rule forbids labelling. The check now reads a story as a heading that names
+  one, the same definition the ordering check already used, so a record's decisions raise nothing.
+
+  Everything else the checker reports on a record is unchanged: a quotation that is not in the
+  run's source text still blocks, and so does every other rule that applies to the draft. The
+  `epic` stage is untouched — a story heading and an acceptance criterion still each carry a label,
+  and the acceptance-criteria ceiling still applies. A record already approved while this was live
+  was approved against a check that never passed; re-running the check over it is your call.
+
 ## 0.68.0
 
 - **`/nxs.close` no longer picks a pull request's analyze verdict by hand.** When a pull request

@@ -32,8 +32,8 @@ export interface UnmetBlocker {
     blocker: string;
 }
 
-/** `### Story 1: <title>` and `### Story #577: <title>` alike — the number is not part of the name. */
-const STORY_HEADING: RegExp = /^###[ \t]+Story[ \t]+#?\d+[ \t]*:[ \t]*(.+?)[ \t]*$/;
+/** `Story 1: <title>` and `Story #577: <title>` alike — the number is not part of the name. */
+const STORY_HEADING: RegExp = /^Story[ \t]+#?\d+[ \t]*:[ \t]*(.+?)[ \t]*$/;
 
 /** `- **<title>** — blocked by: <title>; <title>` — an em dash or a hyphen, `none` for no blockers. */
 const ORDERING_ROW: RegExp = /^-[ \t]+\*\*(.+?)\*\*[ \t]*[—–-][ \t]*blocked by:[ \t]*(.*)$/i;
@@ -64,13 +64,28 @@ export function smallestUsableVersion(draft: string): string[] | undefined {
     return named.filter((name: string) => name !== "");
 }
 
+/** A third-level heading, as the text under its marker. */
+const THIRD_LEVEL: RegExp = /^###[ \t]+(.+)$/;
+
+/**
+ * The story a third-level heading declares, by title, or `undefined` when it declares something
+ * else. A decision record writes its decisions at this depth too, and the razor forbids labelling
+ * one, so a checker that read every such heading as a story would demand a label the rule denies.
+ * This is the single definition of what a story heading is; every check that walks stories asks it.
+ */
+export function storyHeadingTitle(heading: string): string | undefined {
+    const match: RegExpMatchArray | null = stripLabels(heading).trim().match(STORY_HEADING);
+    return match === null ? undefined : match[1].trim();
+}
+
 /** Every story the draft declares, in reading order, with any provenance label stripped off. */
 export function storyTitles(draft: string): string[] {
     return draft
         .split("\n")
-        .map((line: string) => stripLabels(line).match(STORY_HEADING))
+        .map((line: string) => line.match(THIRD_LEVEL))
         .filter((match: RegExpMatchArray | null): match is RegExpMatchArray => match !== null)
-        .map((match: RegExpMatchArray) => match[1].trim());
+        .map((match: RegExpMatchArray) => storyHeadingTitle(match[1]))
+        .filter((title: string | undefined): title is string => title !== undefined);
 }
 
 /** The ordering block's rows, in written order. A draft that carries no block yields nothing. */
