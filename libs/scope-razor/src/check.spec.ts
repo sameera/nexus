@@ -369,3 +369,50 @@ describe("the apply-time arm, over the set the reviewer approved", () => {
         expect(findings.some((f: RazorFinding) => f.where === "Two")).toBe(true);
     });
 });
+
+describe("a decision-record draft, whose third-level headings are decisions and not stories", () => {
+    const record = (decisions: string[], invariants: string[] = ["1. Sessions end on close `[inferred]`"]): string =>
+        ["# Decision Record: A Capability", "", "## Key Decisions", "", ...decisions, "", "## Constraints & Invariants", "", ...invariants, ""].join("\n");
+
+    const decision = (title: string, lines: string[] = ["- **Decision:** the checker adopts one definition.", "- **Why:** one idea of a story, not two."]): string[] => [
+        `### ${title}`,
+        "",
+        ...lines,
+    ];
+
+    it("raises no provenance-label finding for a decision, which the razor forbids labelling", () => {
+        const body: string = record([...decision("The story check adopts the ordering check's definition"), "", ...decision("The ordering block dies at filing")]);
+        expect(checkDraft(body, "src")).toEqual([]);
+    });
+
+    it("still reports a quoted fragment that is not in the run's source text", () => {
+        const body: string = record(decision("The queue entry is born at close"), ['1. An air-gapped deployment `[asked: "an air-gapped deployment"]`']);
+        const found: RazorFinding[] = blocking(checkDraft(body, "the lead described a login screen"));
+        expect(found).toHaveLength(1);
+        expect(found[0].rule).toBe("citation");
+        expect(found[0].where).toContain("air-gapped deployment");
+    });
+
+    it("does not apply the acceptance-criteria ceiling to a heading that declares no story", () => {
+        const body: string = record(decision("A decision that lists its follow-ups", acs(6)));
+        expect(blocking(checkDraft(body, "src"))).toEqual([]);
+    });
+});
+
+describe("an epic draft, whose third-level headings are stories", () => {
+    it("still blocks a story heading carrying no provenance label, naming the story", () => {
+        const body: string = draft({ stories: ["### Story 1: Unlabelled", "", "#### Acceptance Criteria", "", ...acs(1)].join("\n") });
+        const found: RazorFinding[] = blocking(checkDraft(body, "src")).filter((f: RazorFinding) => f.rule === "provenance-label");
+        expect(found).toHaveLength(1);
+        expect(found[0].where).toContain("Unlabelled");
+    });
+
+    it("still blocks an unlabelled acceptance criterion and the ceiling, under an issue-numbered story heading", () => {
+        const body: string = draft({
+            stories: ["### Story #760: Numbered `[inferred]`", "", "#### Acceptance Criteria", "", ...acs(6), "- [ ] **Given** a, **when** b, **then** c"].join("\n"),
+        });
+        const found: RazorFinding[] = blocking(checkDraft(body, "src"));
+        expect(found.filter((f: RazorFinding) => f.rule === "provenance-label")).toHaveLength(1);
+        expect(found.filter((f: RazorFinding) => f.rule === "acceptance-criteria-ceiling")).toHaveLength(1);
+    });
+});

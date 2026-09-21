@@ -19,6 +19,7 @@ import {
     ORDERING_HEADING,
     parseOrdering,
     smallestUsableVersion,
+    storyHeadingTitle,
     storyTitles,
     unmetBlockers,
     type OrderingEntry,
@@ -65,9 +66,20 @@ function unlabelled(items: string[], where: string): RazorFinding[] {
         }));
 }
 
+/**
+ * The story rules — the labelled heading and the acceptance-criteria ceiling (epic #759, story #760).
+ *
+ * A story is a heading that names one, which is the definition the ordering check already reads the
+ * draft with. Walking every third-level heading instead would read a decision record's decisions as
+ * stories, and the razor states outright that a decision carries no provenance label: the check
+ * would block every record on the one stage that has no gate agent to overrule it, and the only way
+ * to clear the finding would be to label something the rule forbids labelling.
+ */
 function checkStories(draft: string): RazorFinding[] {
     const findings: RazorFinding[] = [];
     for (const story of sections(draft, "###")) {
+        if (storyHeadingTitle(story.heading) === undefined) continue;
+
         const acceptance: string[] = criteria(story.lines);
         const reason: boolean = story.lines.some((line: string) => /^\*\*Reason for /.test(line.trim()));
         findings.push(...unlabelled([`- ${story.heading}`], `Story: ${stripLabels(story.heading).trim()}`));
