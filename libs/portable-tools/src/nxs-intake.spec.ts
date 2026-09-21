@@ -145,7 +145,15 @@ describe("/nxs.intake's follow-ups become open epic stubs on approval (story #48
     });
 });
 
-const DISTILL: string = body("nxs.distill.md");
+/**
+ * What a run draining an entry of this kind reads: the base stage, plus the non-epic entry-kind
+ * contract the stage loads once that kind resolves (epic #714). The rules below are unchanged and
+ * still stated exactly once; some of them now live in the contract rather than the base stage.
+ */
+const DISTILL: string = [
+    body("nxs.distill.md"),
+    fs.readFileSync(path.join(authoredComponentRoot(SRC_DIR), "skills", "nxs-distill-nonepic-entries", "SKILL.md"), "utf8"),
+].join("\n");
 
 describe("/nxs.distill accepts an intake entry with the epic vocabulary (story #487)", () => {
     it("discovers an intake directory as a drainable entry alongside epic and fix entries", () => {

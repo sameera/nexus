@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.66.0
+
+- `/nxs.distill` now reads the instructions for a path only once it has established that the run
+  takes that path. The stage resolves the run's shape first — its mode, the workspace shape, each
+  entry's recorded kind, and whether the concept store has a domain registry — and then loads only
+  the contracts that shape names. The ordinary drain, a single-repo checkout draining epic entries
+  with no recovery, no close hand-off and no registry, loads none of them: the recovery procedure,
+  the continuation exceptions, the hub rules, the fix and intake rules and the taxonomy gate are no
+  longer part of what it reads. The stage's loaded size for that run drops by about a third, and a
+  check now holds it under a recorded ceiling with a second check naming any rule that moves back.
+
+  Nothing any path does has changed. Every refusal, gate, diagnostic and ordered step is the same
+  one, in the same order, reached from the contract that now states it. A recovery run, a
+  continuation hand-off, a hub drain, a fix or intake entry and a store with a registry all behave
+  exactly as they did before.
+
 ## 0.65.0
 
 - **The decision-record checkpoint now reads exactly like the epic approval gate.** Both gates used

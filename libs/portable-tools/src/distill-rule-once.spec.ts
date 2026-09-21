@@ -38,6 +38,20 @@ function sections(doc: string): ReadonlyMap<string, string> {
     return out;
 }
 
+function skill(name: string): string {
+    return fs.readFileSync(path.join(authoredComponentRoot(SRC_DIR), "skills", name, "SKILL.md"), "utf8");
+}
+
+const HUB_CONTRACT: string = skill("nxs-distill-hub");
+/**
+ * Epic #714 moved the fix and intake rows, and the rules keyed to them, into the non-epic
+ * entry-kind contract. Every assertion below that pinned one of those rules is rewritten against
+ * its new owner rather than dropped: the rule is still stated exactly once.
+ */
+const NONEPIC_CONTRACT: string = skill("nxs-distill-nonepic-entries");
+/** Likewise for the registry-gated rules, now owned by the taxonomy contract (epic #714). */
+const TAXONOMY_CONTRACT: string = skill("nxs-distill-taxonomy");
+
 const SECTIONS: ReadonlyMap<string, string> = sections(DISTILL);
 const DERIVE_SECTION: string = [...SECTIONS].find(([h]) => h.startsWith("# Phase 1"))?.[1] ?? "";
 
@@ -87,14 +101,16 @@ describe("one entry-kind contract for epic, fix and intake (story #716)", () => 
     });
 
     it("answers every axis the kinds differ on from one table covering all three", () => {
-        const table = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("|"));
-        expect(table.length).toBeGreaterThan(0);
-        const header = table[0];
+        const rows = (text: string): string[] => text.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("| `"));
+        const header = INPUT_RESOLUTION.split("\n").map((l) => l.trim()).find((l) => l.startsWith("| Kind")) ?? "";
         for (const axis of [/\*why\* verified against/i, /delta vocabulary/i, /validation mode/i, /committed removal target/i]) {
             expect(header).toMatch(axis);
         }
-        for (const kind of ["epic", "fix", "intake"]) {
-            expect(table.some((row) => row.startsWith(`| \`${kind}\``))).toBe(true);
+        // The axes are defined once, for all three kinds; the two non-epic rows are the contract's.
+        expect(rows(INPUT_RESOLUTION).some((r) => r.startsWith("| `epic`"))).toBe(true);
+        for (const kind of ["fix", "intake"]) {
+            expect(rows(NONEPIC_CONTRACT).some((r) => r.startsWith(`| \`${kind}\``))).toBe(true);
+            expect(rows(INPUT_RESOLUTION).some((r) => r.startsWith(`| \`${kind}\``))).toBe(false);
         }
     });
 
@@ -124,8 +140,8 @@ describe("one entry-kind contract for epic, fix and intake (story #716)", () => 
     });
 
     it("keeps each kind's own action steps where the stage acts on them", () => {
-        expect(DISTILL).toContain("nexus validate-concepts --append-only-log --base HEAD");
-        expect(DISTILL).toContain("no-existing-page");
+        expect(NONEPIC_CONTRACT).toContain("nexus validate-concepts --append-only-log --base HEAD");
+        expect(NONEPIC_CONTRACT).toContain("no-existing-page");
         expect(DISTILL).toContain("entry-kind-mismatch");
     });
 });
@@ -149,7 +165,8 @@ describe("one run summary rendered at three surfaces (story #717)", () => {
         expect(count(DISTILL, /omitted when every drained entry is an epic/)).toBe(1);
         expect(count(DISTILL, /omit the by-kind tally/)).toBe(0);
         expect(count(DISTILL, /every queue entry drained; no drain-SLO breaches/)).toBe(1);
-        expect(count(DISTILL, /when Phase 6\.1 found no forced fits/)).toBe(1);
+        expect(count(TAXONOMY_CONTRACT, /when Phase 6\.1 found no forced fits/)).toBe(1);
+        expect(count(DISTILL, /when Phase 6\.1 found no forced fits/)).toBe(0);
     });
 
     it("renders the three surfaces as layouts over that one summary", () => {
@@ -167,7 +184,7 @@ describe("one run summary rendered at three surfaces (story #717)", () => {
     it("keeps the three surfaces in the shapes they take today", () => {
         expect(CHECKPOINT).toMatch(/Skipped \(not closed\):/);
         expect(REPORT).toMatch(/Entries skipped \(not closed\):/);
-        expect(CHECKPOINT).toMatch(/Intake entries — every page created/);
+        expect(NONEPIC_CONTRACT).toMatch(/Intake entries — every page created/);
         expect(REPORT).toMatch(/Entries drained:\s*<n>\s*\(<local-ids>\) — <n> epic, <n> fix, <n> intake/);
         expect(PR_BODY).toMatch(/Drained queue entries:[^\n]*<n> epic, <n> fix, <n> intake/);
     });
@@ -181,7 +198,7 @@ describe("the tool-internal explanations go (story #718)", () => {
         expect(DISTILL).toContain("nexus generate-atlas");
         expect(DISTILL).toMatch(/Atlas written: <path> \(<N> concepts\)/);
         expect(DISTILL).toContain("nexus validate-concepts --base HEAD");
-        expect(DISTILL).toContain("nexus drift-advisory");
+        expect(TAXONOMY_CONTRACT).toContain("nexus drift-advisory");
     });
 
     it("states none of a delegated step's internal ordering, parsing, checking or formatting", () => {
@@ -197,9 +214,9 @@ describe("the tool-internal explanations go (story #718)", () => {
     it("keeps the two validator contracts the stage itself branches on", () => {
         expect(DISTILL).toMatch(/A non-zero exit from any of these blocks the PR/);
         expect(DISTILL).toMatch(/\[ADVISORY\]/);
-        expect(DISTILL).toContain("nexus --help | grep -q -- --append-only-log");
-        expect(DISTILL).toMatch(/mode-unavailable → refuse that entry/);
-        expect(DISTILL).toMatch(/changed outside the entry it gained/);
+        expect(NONEPIC_CONTRACT).toContain("nexus --help | grep -q -- --append-only-log");
+        expect(NONEPIC_CONTRACT).toMatch(/mode-unavailable → refuse that entry/);
+        expect(NONEPIC_CONTRACT).toMatch(/changed outside the entry it gained/);
     });
 });
 
@@ -222,7 +239,10 @@ describe("the Constraints recap goes (story #719)", () => {
 
     it("finds every rule the recap stated at the action it governs", () => {
         expect(INPUT_RESOLUTION).toMatch(/Do NOT search when a path is given/);
-        expect(INPUT_RESOLUTION).toMatch(/Never scan member checkouts/);
+        // Epic #714 moved the hub-only half of the drain-SLO report into the hub contract; the rule
+        // is still stated exactly once, at the action it governs, in its new owner.
+        expect(HUB_CONTRACT).toMatch(/Never scan member checkouts/);
+        expect(DISTILL).not.toMatch(/Never scan member checkouts/);
         expect(INPUT_RESOLUTION).toMatch(/--recover <epic-issue>/);
         expect(SECTIONS.get("# Role") ?? "").toMatch(/never\s+write `\.nexus\/concepts\/` on main/i);
         expect(DISTILL).toMatch(/Hashes differ\*\* → \*\*hard-error this entry/);
