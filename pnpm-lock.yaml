@@ -245,6 +245,9 @@ importers:
 
   libs/epic-verdicts:
     dependencies:
+      '@nexus/delivery-config':
+        specifier: workspace:*
+        version: link:../delivery-config
       '@nexus/epic-resolve':
         specifier: workspace:*
         version: link:../epic-resolve

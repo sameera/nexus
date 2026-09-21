@@ -41,6 +41,7 @@ import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
+import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
 import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
@@ -302,6 +303,18 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      --repo is required: it is the repository the trust check runs against.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runPrVerdict(argv, io)),
+    },
+    "verdict-check": {
+        summary: "Check a drafted analyze verdict names the repository its story numbers resolve against, before it is published.",
+        usage: [
+            "  nexus verdict-check --body <path> [--dir <startDir>]",
+            "      Resolve this checkout's issues repository and the analyzed pull request's code",
+            "      repository, parse the drafted body with the same parser readers use, and approve",
+            "      it or refuse. Prints { command, issuesRepo, repo } on approval. Exits 1 when the",
+            "      body names no issues repository or names the wrong one, naming the value it should",
+            "      have carried. Both repositories are resolved here, never taken as arguments.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runVerdictCheck(argv, io)),
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -1524,6 +1537,48 @@ function runPrVerdict(argv: string[], io: CliIo): number {
         return 1;
     }
     io.stdout(JSON.stringify({ command: "pr-verdict", ...result.verdict }));
+    return 0;
+}
+
+interface VerdictCheckFlags {
+    body?: string;
+    dir?: string;
+}
+
+function parseVerdictCheckFlags(argv: string[]): VerdictCheckFlags {
+    const flags: VerdictCheckFlags = {};
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--body") flags.body = argv[++i];
+        else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
+    }
+    return flags;
+}
+
+/**
+ * `nexus verdict-check` — the publish boundary of the conformance gate (epic #751, decision
+ * record #764). The gate drafts the verdict, hands the exact bytes here, and publishes only what
+ * this approves; a refusal is a failure of the publish step, not a warning to write around.
+ */
+function runVerdictCheck(argv: string[], io: CliIo): number {
+    const flags = parseVerdictCheckFlags(argv);
+    if (flags.body === undefined || flags.body.trim().length === 0) {
+        io.stderr("usage: nexus verdict-check --body <path> [--dir <startDir>]");
+        return 2;
+    }
+    let body: string;
+    try {
+        body = fs.readFileSync(flags.body, "utf8");
+    } catch (e) {
+        io.stderr(`verdict-check body-unreadable: ${flags.body} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+        return 1;
+    }
+
+    const result = checkVerdictPublish(closeMigrationRunner, flags.dir ?? io.cwd, body);
+    if (!result.ok) {
+        io.stderr(`verdict-check ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ command: "verdict-check", ...result.repos }));
     return 0;
 }
 

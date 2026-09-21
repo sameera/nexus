@@ -508,9 +508,9 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     ```yaml
     epic: "<epic-ref>"
     nexus_version: <VERSION>             # the toolkit that wrote this block; omit if unresolved
-    issues_repo: <ISSUES_REPO>           # where epic/record/stories live; OMIT when it equals `repo` below
+    issues_repo: <ISSUES_REPO>           # where epic/record/stories live; ALWAYS written, never omitted
     repo: <repoIdentity>                 # the target repo actually read — the member, not the hub
-    stories: [<n>, ...]                  # the story issue number(s) this verdict covers, in issues_repo (or repo, when issues_repo is omitted)
+    stories: [<n>, ...]                  # the story issue number(s) this verdict covers, in issues_repo
     pr: <N>
     date: <YYYY-MM-DD>
     head: <full 40-hex analyzedHead>     # the commit actually analyzed
@@ -525,20 +525,41 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     read, so a reader never has to assume "this repository" when the PR could belong to any
     declared member — the **code** repository the analyzed pull request lives in. `issues_repo` is
     the different question: the repository `epic`, `record` and `stories` resolve against — the
-    checkout's own `$ISSUES_REPO`. The two are the same repository for most single-repo and hub
-    runs, and **`issues_repo` is omitted whenever it equals `repo`** — a reader that finds no
-    `issues_repo` key resolves the epic numbers against `repo`, exactly as a block predating this
-    key already means. Stamp `epic-ref` and `record-ref` under the **`nxs-issue-reference`** skill:
-    bare when they name `issues_repo` (or `repo`, when `issues_repo` is omitted), qualified
-    `owner/repo#N` when they name neither — which, since this block is always published on a pull
-    request in `repo`, is exactly the case where `issues_repo` is present and differs from `repo`.
-    `stories` is the sorted list `nexus pr-worktree stories` resolved — never re-derived by a
-    reader, and never re-derived across runs: a story pull request analyzed more than once still
-    carries only its own story numbers. It stays a bare number list: its repository is
-    `issues_repo` (or `repo`), declared once, immediately above. Stamp the **full**, un-abbreviated
-    repo identity and every covered story number; never truncate either.
+    checkout's own `$ISSUES_REPO`, or this repository's own `owner/repo` when `$ISSUES_REPO`
+    resolved to nothing.
 
-2. Publish it as a **PR review**, so the verdict lands in the merge box:
+    **`issues_repo` is written on every publish** (epic #751), whether or not it equals `repo`.
+    The rule that omitted it when the two matched is gone: that conditional is what produced a
+    published verdict whose bare story numbers cross-matched an unrelated issue in the code
+    repository. Two repositories stated is never ambiguous; one stated and one inferred is. An
+    absent key now means only one thing — a verdict written before this change — and a reader
+    still falls back to `repo` for those, which is why nothing already published is rejected.
+
+    Stamp `epic-ref` and `record-ref` under the **`nxs-issue-reference`** skill: bare when they
+    name `issues_repo`, qualified `owner/repo#N` when they do not — which, since this block is
+    always published on a pull request in `repo`, is exactly the case where `issues_repo` differs
+    from `repo`. `stories` is the sorted list `nexus pr-worktree stories` resolved — never
+    re-derived by a reader, and never re-derived across runs: a story pull request analyzed more
+    than once still carries only its own story numbers. It stays a bare number list: its repository
+    is `issues_repo`, declared once, immediately above. Stamp the **full**, un-abbreviated repo
+    identity and every covered story number; never truncate either.
+
+2. **Check the drafted body before publishing anything:**
+
+    ```bash
+    nexus verdict-check --body "<scratch>/analyze-review.md" --dir "$wtPath"
+    ```
+
+    It resolves this checkout's issues repository and the analyzed pull request's code repository
+    **itself** — you hand it neither — parses the body with the same parser every reader uses, and
+    prints `{ issuesRepo, repo }` when the body names the repository its story numbers resolve
+    against. A non-zero exit is a **failure of the publish step**: publish nothing, report the
+    diagnostic verbatim, and do not report the run as successful. The refusal names the value the
+    block should have carried, so the correction is mechanical — rewrite the block with that value
+    and run the check again. This runs on the review path and the comment fallback path alike; the
+    body it judges is the exact body that goes on the wire.
+
+3. Publish it as a **PR review**, so the verdict lands in the merge box:
 
     ```bash
     # clean — no critical/high findings:
@@ -559,7 +580,7 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     gh pr comment <N> -R <repoIdentity> --body-file "<scratch>/analyze-review.md"
     ```
 
-3. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
+4. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
 
 `head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so `/nxs.close` can
 compare it for exact equality against the PR head. Re-running analyze publishes a fresh review;
@@ -592,6 +613,12 @@ compare it for exact equality against the PR head. Re-running analyze publishes 
 - **The record hash comes from the one digest program** (`nxs-record-digest`), computed over the
   body as fetched from GitHub, and is stamped in full on both the receipt and the PR machine block
   beside the analysed commit. Never re-derive it with a shell one-liner and never truncate it.
+- **A verdict is never published without naming its issues repository (epic #751).** The
+  `nexus verdict-check` call in `--pr` mode step 2 is the boundary: the gate publishes only a body
+  that check approved, and a refusal stops the publish rather than downgrading to a warning. Never
+  restate its rule in prose here and never publish around it — the prose version of this rule
+  existed for as long as the key did, and was followed everywhere except the one case it was
+  written for.
 - **Receipt placement is contractual (#171).** Issue-sourced epic → `analyze-receipt.md` under
   `.nexus/tmp/epic-<n>/`, beside the materialized `epic.md`; old-contract committed entry → into
   that committed directory, unchanged; `--pr` → PR review only, no receipt file. Downstream

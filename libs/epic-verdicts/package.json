@@ -64,6 +64,16 @@
       "import": "./src/pr-verdict.ts",
       "default": "./src/pr-verdict.ts"
     },
+    "./verdict-repos": {
+      "types": "./src/verdict-repos.ts",
+      "import": "./src/verdict-repos.ts",
+      "default": "./src/verdict-repos.ts"
+    },
+    "./publish-check": {
+      "types": "./src/publish-check.ts",
+      "import": "./src/publish-check.ts",
+      "default": "./src/publish-check.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {
@@ -71,6 +81,7 @@
     "@nexus/epic-resolve": "workspace:*",
     "@nexus/pr-acceptance": "workspace:*",
     "@nexus/pr-worktree": "workspace:*",
-    "@nexus/record-digest": "workspace:*"
+    "@nexus/record-digest": "workspace:*",
+    "@nexus/delivery-config": "workspace:*"
   }
 }
