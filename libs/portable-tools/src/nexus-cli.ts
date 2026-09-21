@@ -1505,7 +1505,7 @@ function parsePrVerdictFlags(argv: string[]): PrVerdictFlags {
  * it does not restate the selection rule, and there is no hand-selection path behind it.
  */
 function runPrVerdict(argv: string[], io: CliIo): number {
-    const flags = parsePrVerdictFlags(argv.slice(1));
+    const flags = parsePrVerdictFlags(argv);
     if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
         io.stderr("usage: nexus pr-verdict --pr <N> --repo <owner/repo or host/owner/repo> [--dir <startDir>]");
         return 2;
