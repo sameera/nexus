@@ -17,7 +17,7 @@
  */
 
 import { sameRepo } from "@nexus/workspace/issue-ref";
-import { type ShippedRecord } from "./ledger.js";
+import { shippedRecordKey, type FindingCounts, type ShippedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
 
 /** One entry of the close record's range, attributed to the repository its record names. */
@@ -98,7 +98,37 @@ export function ledgerCloseGate(run: Runner, cwd: string, input: LedgerCloseGate
     return { merged, range, blocking, ok: blocking.length === 0 };
 }
 
-/** The records in a deterministic order: repository, then pull-request number. */
+/**
+ * The records in history order: the merge time each one stamped, then the repository and the
+ * pull-request number to break a tie (invariant 14).
+ *
+ * The merge time is the platform's, recorded when the gate held the merged code, so ordering two
+ * records of one story never needs a copy of the repository they merged in. Pull-request number is
+ * not the order: two pull requests of one story can be numbered in one order and merged in the
+ * other, and it is the merge order the range has to follow.
+ */
 function orderRecords(records: readonly ShippedRecord[]): ShippedRecord[] {
-    return [...records].sort((a, b) => (sameRepo(a.repo, b.repo) ? a.pr - b.pr : a.repo.localeCompare(b.repo)));
+    return [...records].sort(
+        (a, b) => a.mergedAt.localeCompare(b.mergedAt) || (sameRepo(a.repo, b.repo) ? a.pr - b.pr : a.repo.localeCompare(b.repo)),
+    );
+}
+
+/**
+ * The epic's findings, summed once per record (invariant 13).
+ *
+ * The unit is the record, not the story. A pull request that implements two stories was judged
+ * once, so counting per record makes it count once without a de-duplication rule anyone has to
+ * remember — and a story that shipped as two pull requests contributes both, because each is its
+ * own record rather than two claimants on one per-story slot.
+ */
+export function sumLedgerFindings(records: readonly ShippedRecord[]): FindingCounts {
+    const total: FindingCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+    const seen = new Set<string>();
+    for (const r of records) {
+        const key = shippedRecordKey(r.repo, r.pr);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        for (const severity of Object.keys(total) as Array<keyof FindingCounts>) total[severity] += r.findings[severity] ?? 0;
+    }
+    return total;
 }

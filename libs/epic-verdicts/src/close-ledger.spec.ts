@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ledgerCloseGate } from "./close-ledger.js";
+import { ledgerCloseGate, sumLedgerFindings } from "./close-ledger.js";
 import { type ShippedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
 
@@ -88,5 +88,52 @@ describe("ledgerCloseGate — merge state and range from the epic's record (epic
             records: [record([770], 10, "acme/member"), record([771], 11, "acme/other")],
         });
         expect(asked).toEqual(["acme/member#10", "acme/other#11"]);
+    });
+});
+
+describe("a story that shipped as several pull requests contributes all of them (epic #769, story #774)", () => {
+    function at(pr: number, mergedAt: string, repo = "acme/member"): ShippedRecord {
+        return { ...record([770], pr, repo), mergedAt };
+    }
+
+    it("covers the commits of both, and the earlier one is not displaced by the later", () => {
+        const feature = at(10, "2026-09-01T00:00:00Z");
+        const fix = at(11, "2026-09-08T00:00:00Z");
+        const { run } = platform({ "acme/member#10": "merge-10", "acme/member#11": "merge-11" });
+        const gate = ledgerCloseGate(run, "/hub", { stories: [770], records: [feature, fix] });
+        expect(gate.ok).toBe(true);
+        expect(gate.range).toEqual([
+            { repo: "acme/member", pr: 10, base: "base-10", head: "merge-10" },
+            { repo: "acme/member", pr: 11, base: "base-11", head: "merge-11" },
+        ]);
+    });
+
+    it("orders two of one story's pull requests in the same repository by which merged first", () => {
+        // Numbered in one order, merged in the other — it is the merge order the range follows.
+        const later = at(10, "2026-09-08T00:00:00Z");
+        const earlier = at(11, "2026-09-01T00:00:00Z");
+        const { run } = platform({ "acme/member#10": "merge-10", "acme/member#11": "merge-11" });
+        const gate = ledgerCloseGate(run, "/hub", { stories: [770], records: [later, earlier] });
+        expect(gate.range.map((e) => e.pr)).toEqual([11, 10]);
+        expect(gate.merged.map((m) => m.pr)).toEqual([11, 10]);
+    });
+});
+
+describe("sumLedgerFindings — findings summed once per record (epic #769, invariant 13)", () => {
+    function withFindings(pr: number, high: number, stories = [770], repo = "acme/member"): ShippedRecord {
+        return { ...record(stories, pr, repo), findings: { critical: 0, high, medium: 0, low: 0 } };
+    }
+
+    it("counts each pull request of a story that shipped in two", () => {
+        expect(sumLedgerFindings([withFindings(10, 2), withFindings(11, 3)]).high).toBe(5);
+    });
+
+    it("counts a record naming two stories once", () => {
+        expect(sumLedgerFindings([withFindings(10, 4, [770, 771])]).high).toBe(4);
+    });
+
+    it("counts one pull request once however many times it is handed over", () => {
+        const one = withFindings(10, 4);
+        expect(sumLedgerFindings([one, { ...one, repo: "github.com/Acme/Member" }]).high).toBe(4);
     });
 });

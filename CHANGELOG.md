@@ -30,6 +30,13 @@ behaviour says so.
   reports the same merge commit for each recorded pull request. A story with no record is also a
   hard block, naming the story.
 
+- **Every merged pull request that shipped part of a story now reaches the close range.** The rule
+  in place before kept one pull request per story, so a later fix displaced the feature it was
+  fixing and the displaced code never reached the range — quietly, with nothing to notice. A record
+  is keyed by the pull request, so the slot a second pull request could evict no longer exists. Two
+  pull requests of one story are ordered by the merge time each record stamped, not by number, and
+  findings are summed once per record.
+
 - **`/nxs.analyze` can now be asked what an epic has shipped.** Run against an epic rather than a
   pull request, it classifies every story as shipped, unrecorded, unshipped or excluded. The
   distinction that matters is between a story with nothing recorded at all — unfinished work — and

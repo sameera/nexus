@@ -169,6 +169,13 @@ single-repo and hub mode only.
     Name any `untrusted` entries too — records on the epic issue whose author cannot speak for the
     issues repository — rather than ignoring them.
 
+    A story that shipped as **two** pull requests contributes **both** — the record's identity is the
+    pull request, so there is no per-story slot a later fix could evict, and the feature it fixed
+    reaches the range beside it. Two entries of one story in one repository are ordered by the merge
+    time each record stamped, never by pull-request number: two pull requests can be numbered in one
+    order and merged in the other, and it is the merge order the range follows. `findings` is summed
+    once per record, so a pull request implementing two stories counts once.
+
     **Every SHA in `range` is the stamp** — keep it for Phase 3 and the Phase 4 stamp. Do not
     re-derive a range: it was stamped by the run that held the merged code, which is what lets this
     close an epic whose code merged in a repository you hold no copy of. Each entry is attributed to

@@ -42,7 +42,7 @@ import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { epicRefForRecord, fetchShippedRecords, postShippedRecord, type FindingCounts, type ShippedRecord } from "@nexus/epic-verdicts/ledger";
 import { assessEpicCoverage } from "@nexus/epic-verdicts/coverage";
-import { ledgerCloseGate } from "@nexus/epic-verdicts/close-ledger";
+import { ledgerCloseGate, sumLedgerFindings } from "@nexus/epic-verdicts/close-ledger";
 import { resolveStoryMergedPrs, type StoryMergedPr } from "@nexus/epic-verdicts/story-prs";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
@@ -1535,6 +1535,9 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
                 epic: flags.epic,
                 issuesRepo,
                 ...gate,
+                // Summed once per record, so a pull request that implements two stories counts once
+                // and a story that shipped as two pull requests counts both (invariant 13).
+                findings: sumLedgerFindings(collected.collected.records.map((f) => f.record)),
                 excluded: excludedStories,
                 untrusted: collected.collected.untrusted,
             }),
