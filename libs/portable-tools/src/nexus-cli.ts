@@ -34,7 +34,7 @@ import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-res
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
 import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/epic-resolve/planning-dir";
-import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
+import { resolveEpicVerdicts, type RejectedStoryCandidate, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
@@ -1463,19 +1463,15 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // invariant 9): a story reported as carrying no verdict must never be indistinguishable from a
     // story whose verdict was rejected.
     if (result.state === "none") {
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "none", rejected: result.rejected }));
+        io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "none", result.rejected)));
         return 0;
     }
 
     if (result.state === "partial") {
         io.stdout(
-            JSON.stringify({
-                epic: flags.epic,
-                state: "partial",
-                missing: result.missing,
-                present: result.present,
-                rejected: result.rejected,
-            }),
+            JSON.stringify(
+                epicVerdictsPayload(flags.epic, "partial", result.rejected, { missing: result.missing, present: result.present }),
+            ),
         );
         return 0;
     }
@@ -1491,7 +1487,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             currentRecordDigest = record.record.digest;
         }
         const currency = checkEpicCurrency(closeMigrationRunner, root, result.verdicts, { currentRecordDigest });
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...currency }));
+        io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", result.rejected, { ...currency })));
         return 0;
     }
 
@@ -1501,14 +1497,34 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             io.stderr(`epic-verdicts ${combined.error.problem}: ${combined.error.message}`);
             return 1;
         }
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...combined.combined }));
+        io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", result.rejected, { ...combined.combined })));
         return 0;
     }
 
     const dir = path.dirname(defaultOutPath(root, flags.epic));
     const outPath = writeEpicReceipt(dir, result.receipt, { date: new Date().toISOString().slice(0, 10) });
-    io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", outPath, receipt: result.receipt }));
+    io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", result.rejected, { outPath, receipt: result.receipt })));
     return 0;
+}
+
+/**
+ * The one shape every `epic-verdicts` state is printed in (epic #751, invariant 9).
+ *
+ * A candidate dropped because its verdict's story numbers resolve against another repository's
+ * issues is named on the way out, so a story reported as carrying no verdict is never
+ * indistinguishable from a story whose verdict was rejected. Both stage prompts tell their reader
+ * that every state carries `rejected`, and the resolver computes it for every state. Spreading it
+ * per branch is what let three of the five branches drop it while two kept it: the field was
+ * remembered rather than checked. Building the payload here means a new state cannot omit it, and
+ * `rejected` is written last so a branch's own fields can never shadow it.
+ */
+export function epicVerdictsPayload(
+    epic: number,
+    state: "none" | "partial" | "aggregate",
+    rejected: RejectedStoryCandidate[],
+    rest: Record<string, unknown> = {},
+): Record<string, unknown> {
+    return { epic, state, ...rest, rejected };
 }
 
 interface PrVerdictFlags {

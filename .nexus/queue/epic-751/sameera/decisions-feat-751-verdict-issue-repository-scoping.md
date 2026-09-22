@@ -21,3 +21,9 @@
 - **Choice:** `verifyReceipt` returns `issuesRepoRejected`, and `resolveStoryVerdict` returns `rejected`, both filled during the single trust pass.
 - **Why:** Invariant 8 puts the comparison inside the trust checks, before newest-wins. Naming the drop from there is free; recomputing it afterwards would be a second implementation of the same rule.
 - **Refuted alternative:** Let the caller re-read the blocks and work out which were dropped. Keeps the reader's return type unchanged, but gives one rule two implementations with no rule for a disagreement.
+
+## 2026-09-21 — Every epic-verdicts state is printed through one payload builder
+
+- **Choice:** `epicVerdictsPayload` builds the printed object for all five branches of the verb, writing `rejected` last so a branch's own fields cannot shadow it.
+- **Why:** three of the five branches dropped a field both stage prompts promise, because each branch spread its own object and the field was remembered rather than checked; building it in one place means a new state cannot omit it.
+- **Refuted alternative:** add `rejected:` to the three branches that lacked it — the smaller diff, but it leaves the next branch free to forget it again, which is the failure that just happened.
