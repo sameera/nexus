@@ -1441,3 +1441,46 @@ describe("nexus epic-verdicts — every state names the records it refused to tr
         expect(close).toContain("never treat it as \"analyze never ran\"");
     });
 });
+
+/**
+ * Story #775 AC2 — a lead invoking a retired check *by name* is told it no longer exists. The
+ * names are `nexus epic-verdicts merge-gate` and `nexus epic-verdicts currency`, so the refusal
+ * belongs to the epic-verdicts dispatcher: reaching a live derivation because `--epic` happened to
+ * be supplied is the "silently succeeding [which] would read as a live requirement met" outcome
+ * decision record #777 refutes.
+ */
+describe("nexus epic-verdicts — the retired checks report their own removal (story #775)", () => {
+    for (const subverb of ["merge-gate", "currency"] as const) {
+        it(`refuses \`epic-verdicts ${subverb}\` with no --epic, naming what replaced it`, async () => {
+            const io: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+            expect(await runNexusCli(["epic-verdicts", subverb], io)).toBe(1);
+            expect(io.out).toEqual([]);
+            expect(io.err.join("\n")).toContain(`nexus epic-verdicts ${subverb}`);
+            expect(io.err.join("\n")).toContain("no longer exists");
+        });
+
+        it(`refuses \`epic-verdicts ${subverb} --epic <N>\` rather than running a live derivation`, async () => {
+            const io: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+            expect(await runNexusCli(["epic-verdicts", subverb, "--epic", "769"], io)).toBe(1);
+            expect(io.out).toEqual([]);
+            expect(io.err.join("\n")).toContain("no longer exists");
+        });
+    }
+
+    it("names the replacement for merge-gate and the reason currency is gone", async () => {
+        const mergeGate: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+        await runNexusCli(["epic-verdicts", "merge-gate", "--epic", "769"], mergeGate);
+        expect(mergeGate.err.join("\n")).toContain("close-gate");
+
+        const currency: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+        await runNexusCli(["epic-verdicts", "currency", "--epic", "769"], currency);
+        expect(currency.err.join("\n")).toContain("code-staleness");
+    });
+
+    it("leaves epic-resolve alone — a retired epic-verdicts name is not an epic-resolve concern", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+        expect(await runNexusCli(["epic-resolve", "merge-gate"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("usage:");
+        expect(io.err.join("\n")).not.toContain("no longer exists");
+    });
+});

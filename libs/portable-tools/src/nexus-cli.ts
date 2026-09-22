@@ -1214,14 +1214,6 @@ function epicResolveTargetRoot(startDir: string, io: CliIo): string | null {
  */
 async function runEpicResolve(argv: string[], io: CliIo): Promise<number> {
     const flags: EpicResolveFlags = parseEpicResolveFlags(argv, io.cwd);
-    // A retired check reports its own removal. Silently succeeding would read as a live
-    // requirement met; an unrecognised command would read as a broken install.
-    const retired: string | undefined = RETIRED_EPIC_VERDICTS_SUBVERBS[argv[0]];
-    if (retired !== undefined) {
-        io.stderr(`epic-verdicts check-retired: \`nexus epic-verdicts ${argv[0]}\` no longer exists. ${retired}`);
-        return 1;
-    }
-
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
         io.stderr("usage: epic_resolve.ts --epic <N> [--out <path>] [--root <startDir>] [--require-epic]");
         return 2;
@@ -1335,12 +1327,6 @@ function storyCarriesLabel(cwd: string, issuesRepo: string, story: number, label
     return isExcludedStory(labels, label);
 }
 
-/** The platform's own merge timestamp — the ordering key two records of one story are sorted by. */
-function prMergedAt(cwd: string, pr: number): string {
-    const r = closeMigrationRunner("gh", ["pr", "view", String(pr), "--json", "mergedAt", "--jq", ".mergedAt"], { cwd });
-    return r.status === 0 ? r.stdout.trim() : "";
-}
-
 interface EpicVerdictsFlags {
     epic?: number;
     root: string;
@@ -1402,6 +1388,15 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
  */
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
+
+    // A retired check reports its own removal, ahead of every flag check below: a retired name
+    // that reached a live derivation because `--epic` happened to be supplied would succeed
+    // silently, and that reads as a live requirement met (decision record #777).
+    const retired: string | undefined = RETIRED_EPIC_VERDICTS_SUBVERBS[argv[0]];
+    if (retired !== undefined) {
+        io.stderr(`epic-verdicts check-retired: \`nexus epic-verdicts ${argv[0]}\` no longer exists. ${retired}`);
+        return 1;
+    }
 
     // waive-story takes --story, not --epic (it names one story issue directly, never an epic) —
     // dispatched before the --epic check every other subverb below still enforces unconditionally.
@@ -1598,7 +1593,11 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             repo,
             pr: flags.pr,
             mergeCommit: pr.pr.mergeCommitOid,
-            mergedAt: prMergedAt(root, flags.pr),
+            // The ordering key (story #774 AC2) comes from the repository-qualified `gh pr view`
+            // this path already made. A second, unqualified query could answer for the wrong
+            // repository or fail into an empty string, and an empty key drops the record to the
+            // tiebreak that is explicitly not the order (invariant 14).
+            mergedAt: pr.pr.mergedAt,
             base,
             head,
             findings: parseFindingCounts(flags.findings),
