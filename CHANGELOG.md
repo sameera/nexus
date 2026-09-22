@@ -5,6 +5,60 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.73.0
+
+- **When a pull request that implemented a story merges, `/nxs.analyze --pr` now records what it
+  shipped on the epic issue.** The record names the pull request, the story it implements, the
+  repository it merged in, its merge commit and the commit range it shipped. One record per code
+  repository and pull-request number: a re-run replaces that record's body and leaves every other
+  record alone, so two leads recording two pull requests minutes apart cannot drop each other's
+  work. A run against an open pull request is unchanged — it publishes the engineer's review and
+  writes nothing on the epic issue.
+
+  The post-merge run is now part of the loop rather than optional, because the close gate reads
+  those records. An epic whose pull requests merged before this release is backfilled by running
+  `/nxs.analyze --pr <N>` over each of them once.
+
+- **`/nxs.close` now takes merge state and the close range from the epic's records.** It stops
+  asking the platform whether a pull request merged — the question that returned "unmerged" for
+  merged work whenever it went to the wrong repository — and stops deriving a range it cannot
+  derive without a copy of the repository the code merged in. An epic whose stories merged
+  elsewhere now closes with no waiver and no manual override, and each range entry names the
+  repository its own record names.
+
+  One live check remains, and it is a hard block rather than a waiver: whether the platform still
+  reports the same merge commit for each recorded pull request. A story with no record is also a
+  hard block, naming the story.
+
+- **Every merged pull request that shipped part of a story now reaches the close range.** The rule
+  in place before kept one pull request per story, so a later fix displaced the feature it was
+  fixing and the displaced code never reached the range — quietly, with nothing to notice. A record
+  is keyed by the pull request, so the slot a second pull request could evict no longer exists. Two
+  pull requests of one story are ordered by the merge time each record stamped, not by number, and
+  findings are summed once per record.
+
+- **`/nxs.close` no longer asks you to waive an analysis whose commit moved.** That question was
+  never a judgment: the answer could not make the shipped code any different, and the conformance
+  record is now written by the run that saw the merge, so the judged code and the shipped code are
+  the same code. No state describes the analysed commit as stale, and no waiver is offered for one.
+  A decision record revised since the analysis is a real judgment and is unchanged — still
+  reported, still taking its own waiver. The one thing left to adjudicate at close is findings.
+
+- **One reader now answers what an epic shipped, and the checks it replaced report their own
+  removal.** The branch-name and same-repository search is gone, so no gate resolves a story's pull
+  requests by guessing at a branch name or by a link that only ever pointed inside one repository.
+  `nexus epic-verdicts merge-gate` and `nexus epic-verdicts currency` no longer exist: invoking
+  either prints what replaced it rather than succeeding inertly or failing as an unrecognised
+  command. Published reviews stay as the engineer's read surface and are never read to establish
+  what shipped.
+
+- **`/nxs.analyze` can now be asked what an epic has shipped.** Run against an epic rather than a
+  pull request, it classifies every story as shipped, unrecorded, unshipped or excluded. The
+  distinction that matters is between a story with nothing recorded at all — unfinished work — and
+  a story whose merged pull request never went through the gate, which one post-merge run fixes.
+  The live story set is re-read each run, so a story added to the epic after a record was written
+  shows up as unshipped without invalidating the records already there.
+
 ## 0.72.0
 
 - **A verdict that names no issues repository is read as belonging to the epic being read, not to

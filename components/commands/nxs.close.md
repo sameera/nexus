@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); and /nxs.analyze ran (missing / revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -145,46 +145,60 @@ single-repo and hub mode only.
     is the merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for Phase 3
     and the Phase 4 stamp.**
 
-    **Multi-PR case (epic #213, story #503) — when the epic shipped as several story pull requests,
-    step 3 above does not apply.** Determine this from the same merge-state check Phase 1.2 runs
-    below (cross-reference it there for what it checks and how it reports an unmerged pull request;
-    this step does not restate its mechanics):
+    **Multi-PR case (epic #213, story #503; epic #769) — when the epic shipped as several story pull
+    requests, step 3 above does not apply.** Merge state and the range both come from the epic's own
+    records, not from a search over repositories you happen to hold:
 
     ```bash
-    nexus epic-verdicts merge-gate --epic <epic-issue>
+    nexus epic-verdicts close-gate --epic <epic-issue>
     ```
 
-    `{ stories, allMerged, unmerged }` names every story's pull request — more than one distinct
-    pull request in `stories` is the multi-PR case. **`allMerged` must be `true` before you go
-    further**, with no waiver, exactly as Phase 1.2 blocks on it; report an unmerged one the same way
-    and stop. (Phase 1.2 re-reads the aggregate receipt and re-checks this later from inside the
-    worktree — running the check here first, before any worktree exists, is what makes the
-    order-inversion below real rather than assumed.)
+    It prints `{ ok, merged, range: [{ repo, pr, base, head }, ...], blocking, excluded, untrusted }`.
+    More than one entry in `range` is the multi-PR case.
 
-    Once every pull request is merged, open **ONE worktree/branch for the whole epic — never one per
-    pull request** — deriving every range and verifying the trunk **before** it is cut (decision
-    record #509's order-inversion requirement: never create a worktree, then discover a later pull
-    request's range or trunk membership fails):
+    **`ok` must be `true` before you go further.** `blocking` is a hard block on both its kinds, with
+    **no waiver offered** on either (Phase 1.2 cross-references this and does not restate it):
+
+    - `merge-commit-moved` — the platform no longer reports the merge commit a record stamped. The
+      recorded range describes commits that are not on the trunk. Name the pull request and stop.
+    - `story-unrecorded` — a live story of this epic has no record. Name the story and stop, telling
+      the lead to run `/nxs.analyze --pr <N>` over the merged pull request that shipped it. An epic
+      whose pull requests merged before the ledger existed is backfilled the same way; nothing reads
+      a published review to fill the gap.
+
+    Name any `untrusted` entries too — records on the epic issue whose author cannot speak for the
+    issues repository — rather than ignoring them.
+
+    A story that shipped as **two** pull requests contributes **both** — the record's identity is the
+    pull request, so there is no per-story slot a later fix could evict, and the feature it fixed
+    reaches the range beside it. Two entries of one story in one repository are ordered by the merge
+    time each record stamped, never by pull-request number: two pull requests can be numbered in one
+    order and merged in the other, and it is the merge order the range follows. `findings` is summed
+    once per record, so a pull request implementing two stories counts once.
+
+    **Every SHA in `range` is the stamp** — keep it for Phase 3 and the Phase 4 stamp. Do not
+    re-derive a range: it was stamped by the run that held the merged code, which is what lets this
+    close an epic whose code merged in a repository you hold no copy of. Each entry is attributed to
+    the repository **its record names**, never the repository you started the close from.
+
+    Once `ok` is `true`, open **ONE worktree/branch for the whole epic — never one per pull request**:
 
     ```bash
-    nexus pr-worktree open --pr <pr-1>,<pr-2>,... --mode close \
+    nexus pr-worktree open --pr <prs whose range entry names THIS repository> --mode close \
       --branch "distill/$(date +%Y-%m-%d)-<epic-slug-or-epic-issue>"
     ```
 
-    using the pull request numbers `merge-gate`'s `stories` list named. This single call derives
-    every range, verifies every stamped head is an ancestor of the trunk the branch is about to be
-    cut from, and only then opens the worktree — all-or-nothing, and no worktree is ever created if
-    either check fails.
+    Trunk verification narrows to the repository the distillation branch is cut in (decision record
+    #777): pass only the pull requests whose `range` entry names that repository, and pass none at
+    all when no entry does. **When no entry names this repository, omit `--pr` entirely** — the call
+    then cuts the branch here and prints `ranges: []`, because this is where the epic issue and the
+    concept store live even when every story merged somewhere else. For every other repository the
+    `merge-commit-moved` check above stands in its place — weaker than ancestry, and honestly
+    weaker, because this stage declines to obtain a copy of a repository you do not hold.
 
-    On exit 1, the diagnostic names either an unresolvable range (the same hard stop as an unmerged
-    pull request above) or a trunk missing a stamped head. **For the trunk case specifically**, tell
-    the lead the local trunk is behind a recent merge: re-run once the fetch the diagnostic names
-    has brought it up to date — never proceed on a stale one.
-
-    On success it prints `{ wtPath, ranges: [{ repo, base, head, pr }, ...] }` — plural, one entry per
-    pull request, in the given order. **Keep every one of these SHAs for Phase 3 and the Phase 4
-    stamp**, exactly as `range` is kept in the single-PR case above (Phase 4's multi-entry `range:`
-    stamp, story #501, already expects this shape).
+    On exit 1, the diagnostic names a trunk missing a stamped head: tell the lead the local trunk is
+    behind a recent merge and re-run once the fetch it names has brought it up to date — never
+    proceed on a stale one. Keep `close-gate`'s `range`, not anything this call prints.
 
     Because every story branch commits its per-user scratch into this same epic-keyed path
     (`.nexus/queue/epic-<epic-issue>/<user>/notes-*.md`, read unchanged in Phase 2) and every story
@@ -335,8 +349,8 @@ if the user opts to analyze first, nothing later in this command should have run
       lives in, which is what the command runs its trust check against. The repository the
       verdict's bare story numbers resolve against is **not** an argument: the command resolves it
       from the checkout it runs in (the configured issues repository, else that checkout's own), so
-      it can never be forgotten or fed a wrong value. It prints `{ found, source, at, current,
-      staleNote, receipt, issuesRepo }`, and `receipt` carries `date`/`head`/`mode`/`findings`/
+      it can never be forgotten or fed a wrong value. It prints `{ found, source, at, prHead,
+      receipt, issuesRepo }`, and `receipt` carries `date`/`head`/`mode`/`findings`/
       `stories` already parsed. **Report what it returns and read nothing else** — never open the
       pull request's reviews and comments to pick a block by hand. A pull request may carry several
       published blocks, and which one is its verdict — maintainer authorship, the repository it
@@ -358,45 +372,38 @@ if the user opts to analyze first, nothing later in this command should have run
    instead of a single `head:` is the epic-wide receipt `/nxs.analyze` derived from the story
    verdicts.
 
-   **Merge gate (epic #213, story #500) — check this FIRST, before currency.** An epic that shipped
-   as several pull requests cannot close while any one of them is still open — sub-issue-closed
-   (Phase 1.1) is a separate precondition and does not imply the pull request merged. Run:
+   **The shipped ledger (epic #769) — check this FIRST.** What the epic shipped comes from the
+   records on the epic issue, never from a search over repositories or a published review. Run:
 
     ```bash
-    nexus epic-verdicts merge-gate --epic <epic-issue>
+    nexus epic-verdicts close-gate --epic <epic-issue>
     ```
 
-   It prints `{ stories, allMerged, unmerged }` — the live merge state of every story's pull
-   request. **If `allMerged` is `false`, block and report every unmerged pull request by name, then
-   stop.** This is a hard block with **no waiver offered** — unlike the currency choice gate below,
-   there is no option to proceed past an unmerged pull request:
+   Every recorded pull request is merged by construction — a record exists only because a gate run
+   saw the merge — so merge state is not asked of the platform here. **If `ok` is `false`, block and
+   report every entry in `blocking` by name, then stop.** Both kinds are hard blocks with **no
+   waiver offered**:
 
     ```
-    Cannot close epic <epic-ref>: <N> story pull request(s) not yet merged.
+    Cannot close epic <epic-ref>: <N> blocking condition(s).
 
-      #<pr> (story <story-ref>, <repo>) — <state>
+      #<pr> (<repo>) — the platform no longer reports the merge commit this epic recorded
+                       (recorded <recorded>, reports <reported>)
+      story <story-ref> — no record: no merged pull request has been recorded for it
       …
 
-    Merge each pull request before closing the epic. This command never merges a pull request itself.
+    A moved merge commit means the recorded range describes commits that are not on the trunk.
+    A story with no record is backfilled by running /nxs.analyze --pr <N> over the merged pull
+    request that shipped it. This command never merges, records, or waives on your behalf.
     ```
 
     `<epic-ref>` and `<story-ref>` qualify under the terminal-context rule when `$ISSUES_REPO` is
     non-empty; `#<pr>` stays bare — its own `<repo>` column already names where it lives, the same
     disambiguation a qualifier would add.
 
-   Only once `allMerged` is `true` do you re-check currency with the same shared helper that derived
-   it — never re-derive it yourself:
-
-    ```bash
-    nexus epic-verdicts currency --epic <epic-issue> ${record:+--record $record}
-    ```
-
-   It re-checks every story's verdict against that story's pull request's **current** head and, when
-   a record is given, the record's **current** digest, and prints `{ stories, allCurrent }`. Report
-   **each** stale story **by name** — never a single "the epic is stale" statement — using the same
-   stale-(code)/stale-(record) language below, one clause per story per axis. `allCurrent: true` is
-   the aggregate's **clean** state; any story reported not current is this receipt's **stale** state,
-   on whichever axis(es) that story failed.
+   Once the ledger's gate passes, there is nothing further to re-check about the code. The record
+   axis alone remains, and it is checked against the record's current digest below — never against
+   a pull request's current head, and never against a branch tip.
 
    **No aggregate receipt at all** reads exactly like the existing **missing** state below — an epic
    that never shipped story by story produced no receipt for `/nxs.analyze` to have written, so there
@@ -418,30 +425,22 @@ if the user opts to analyze first, nothing later in this command should have run
     - `{state: "aggregate", receipt, ...}` — every story has a verdict after all (the local receipt file
       was simply absent, e.g. a fresh checkout) — the command has already written it. Re-read it and
       continue as though Phase 1.2 step 1 had found it there.
-    Every state also carries `rejected` — the candidate pull requests whose published verdicts were
-    dropped for *stating* another repository's issues (epic #751), each naming its story, its
-    pull request and the repository it states. A verdict stating none is never listed here; it is
-    accepted as this epic's. **When a story appears there, say
-    so instead of reporting it as unanalyzed**: its pull request carries a verdict, and re-running
-    `/nxs.analyze --pr <N>` on it is what makes that verdict readable. An empty list is the norm.
+    Every state also carries `untrusted` — marker-bearing comments on the epic issue whose author's
+    association with the issues repository is not owner, member or collaborator. The marker alone
+    confers no trust. **Name them** rather than ignoring them: a story reported as carrying nothing
+    must never be indistinguishable from a story whose record was refused. An empty list is the norm.
 
-    - `{state: "partial", missing, present}` — some stories carry a verdict and some do not. For
-      **each** story number in `missing`, render a short note naming the story, then ask via
-      `AskUserQuestion`:
-        - **"Waive — this story shipped inside a sibling's pull request"**
-        - "Stop — this story needs its own pull request or existing verdict"
-
-      Waiving writes nothing yet: collect the story number and today's date into an in-memory waived-
-      stories list, carried to Phase 4 (the close record names it) and Phase 7.4b (the marker write,
-      after the checkpoint, alongside the epic's other GitHub writes) — never before the lead has
-      committed to closing. **If any story in `missing` is left un-waived, stop: the epic does not
-      close.** This is a stop-and-ask like the conformance choice gate below, not the merge gate's hard
-      block above — the lead has a real choice, but an outstanding undecided story blocks the close the
-      same as a "no" would.
+    A story with **no record at all** is not decided here — the ledger's own hard block above already
+    stopped the close and named it. There is no waiver for it, and nothing reads a published review
+    to fill the gap: the remedy is one `/nxs.analyze --pr <N>` run over the merged pull request that
+    shipped that story. A story that shipped inside a sibling's pull request is named by that
+    sibling's record, or carries the no-pull-request marker and is excluded.
 
    The receipt also carries `record` / `record_hash` in full mode (#139) — the decision record the
-   analysis checked against. **Staleness has two independent axes, and neither is inferred from the
-   other:** the code may have moved after the analysis, the design may have moved after it, or both.
+   analysis checked against. **One axis remains: the design.** The record may have been revised
+   after the analysis, and that is a judgment a lead may knowingly waive. The code axis is gone
+   (epic #769, story #776): the run that wrote a record held the merged code, so the judged code
+   and the shipped code are the same code and there is nothing for a staleness check to catch.
 
     **Record axis.** When the receipt carries `record`/`record_hash`, re-hash the record issue's
     **current** body through the one digest program and compare:
@@ -459,37 +458,36 @@ if the user opts to analyze first, nothing later in this command should have run
     is no record axis to evaluate.)
 
    Classify the state:
-    - **clean** — receipt found, no critical/high findings, **current on both axes**:
-      local → `git rev-list --count <head>..HEAD` is `0`;
-      `--pr` → the block `head` **equals** the PR head (`gh pr view <N> --json headRefOid`) exactly
-      (full-SHA equality — do **not** use `git rev-list`, which is meaningless across a
-      squash/rebase); **and** the stamped `record_hash` equals the record's current digest. Set the
-      close record's `analyze:` value to `ran <date> @ <head>` and continue silently to Phase 2.
+    - **clean** — receipt found, no critical/high findings, and the stamped `record_hash` equals the
+      record's current digest. Set the close record's `analyze:` value to `ran <date> @ <head>` and
+      continue silently to Phase 2.
     - **missing** — no receipt / no trusted machine block: `/nxs.analyze` never ran on this entry.
-    - **stale (code)** — local: commits landed after the receipt (`git rev-list --count <head>..HEAD`
-      > 0; report the count); `--pr`: the block `head` ≠ the PR head (a commit landed after analysis).
     - **stale (record)** — the stamped `record_hash` ≠ the record's current digest: the design was
       revised after it was analysed.
     - **blocking** — the receipt reports critical or high findings: analyze judged the code
       does not yet satisfy the epic.
 
-   Both staleness axes can hold at once; report **each** by name, never collapsed into one "stale".
-2. On **missing / stale (either axis) / blocking**, render a one-paragraph markdown note naming the
+   **There is no code-staleness state** (epic #769, story #776). Never describe the analysed commit
+   as stale against a branch, never count commits that landed after the analysis, and never compare
+   the analysed head to a branch tip to decide anything here. The conformance record is written by
+   the run that saw the merge, so the judged code and the shipped code are the same code; a branch
+   that kept moving afterwards cannot make the shipped code any different. What is left for you to
+   adjudicate is findings, and a decision record that moved.
+2. On **missing / stale (record) / blocking**, render a one-paragraph markdown note naming the
    state and what it means, then ask via `AskUserQuestion` — never proceed silently:
     - missing → **"Run /nxs.analyze first (Recommended)"** | "Close without analysis"
-    - stale (code) → **"Re-run /nxs.analyze (Recommended)"** | "Proceed with the stale receipt"
     - stale (record) → **"Re-run /nxs.analyze (Recommended)"** | "Proceed against the revised record"
     - blocking → **"Stop and fix the findings (Recommended)"** | "Override and close"
 
-   The two axes take the **same explicit waiver**: a lead who may knowingly proceed on an unanalysed
-   commit may knowingly proceed on a revised record, through the same gate.
+   **Offer no waiver about the analysed commit**, on any path — there is no question there for a
+   lead to answer. A revised decision record is a different thing and keeps its own waiver: the
+   design moved, and a lead may knowingly close against the older analysis.
 3. If the user picks the recommended option, **stop**: tell them to run `/nxs.analyze` (fixing
    findings first, for blocking) and then re-run `/nxs.close`. Do not run the analysis yourself —
    the gate detects, it does not substitute.
 4. If the user picks the proceed option, set the waiver text for the close record's `analyze:`
    frontmatter (Phase 4) and continue — one clause per axis that was waived:
     - missing → `waived — closed without /nxs.analyze (<YYYY-MM-DD>)`
-    - stale (code) → `stale — ran <date> @ <head>, <N> commit(s) unanalyzed; waived <YYYY-MM-DD>`
     - stale (record) → `stale — record #<record> revised since analysis (<stamped-hash> → <current-hash>); waived <YYYY-MM-DD>`
     - blocking → `overridden — <C> critical / <H> high finding(s) open; waived <YYYY-MM-DD>`
 
@@ -683,22 +681,21 @@ Fill the seeded template and write it into the queue entry.
       `repo`/`base`/`head` are exactly the Phase 0.5 `range` output (the helper already resolved the
       identity and the merge-commit-anchored SHAs).
 
-      **Aggregate receipt, several story pull requests (epic #213, story #501).** When Phase 1.2's
-      aggregate epic receipt drove this close — the epic shipped as more than one story pull
-      request — the single-entry shape above does not apply. Write **one `range:` entry per story
-      pull request** instead, never one entry per repository: even two story pull requests landed
-      in the same repo each keep their own entry. Resolve every entry in one call, from the merge
-      gate's already-fetched story list:
+      **Several story pull requests (epic #213, story #501; epic #769, story #773).** When the
+      epic shipped as more than one story pull request, the single-entry shape above does not
+      apply. Write **one `range:` entry per story pull request** instead, never one entry per
+      repository: even two story pull requests landed in the same repo each keep their own entry.
 
-        ```bash
-        nexus pr-worktree range --pr <story-pr-1>,<story-pr-2>,...
-        ```
-
-      It prints `{ ranges: [{ repo, base, head, pr }, ...] }` — one item per PR, in the given
-      order, each carrying the pull request it came from. Stamp the list exactly as returned. A
-      failure (any single PR's range cannot be verified) is the **same hard stop** as an unmerged
-      PR in the merge gate above: stop **before** the close record or anything else is written —
-      never a partial `range:` list, and never a substitute range supplied by the lead.
+      **Stamp the `range` list Phase 0.5's `close-gate` printed, verbatim.** Every entry was
+      already stamped by the conformance run that held the merged code, and each names the
+      repository **its own record names**. Do not re-derive it here. In particular do not resolve
+      the entries with `nexus pr-worktree range`: that path attributes every entry to the
+      repository the close was started from and reads each pull request against that same local
+      copy, so on the shape this epic exists for — the epic issue here, the story pull requests
+      merged in a repository you hold no copy of — it either stops or stamps the wrong repository
+      on every entry. Phase 0.5 already hard-stopped on any entry that could not be verified, so
+      there is nothing left to fail here: never a partial `range:` list, and never a substitute
+      range supplied by the lead.
     - **Waived Stories (epic #213, story #502)** — an additional field, not part of the seeded
       template's placeholder set (the note above): add a `## Waived Stories` body section, one line
       per story waived in Phase 1.2's storyless-story gate — `#<story> — waived <YYYY-MM-DD>`, the
@@ -1211,10 +1208,12 @@ state, but a closed epic with an open issue misreports the pipeline.
   **explicit user waiver**; never run the analysis from inside close, and never proceed silently. A
   waiver is always recorded in the close record's `analyze:` frontmatter and surfaced in the close
   comment.
-- **Two staleness axes, never collapsed** — the code may have moved after the analysis, the design
-  may have moved after it, or both. Name and report each separately, require the same explicit
-  waiver for each, and never infer one from the other; collapsing them would let a changed design
-  hide behind an unchanged commit.
+- **One staleness axis, and it is the design** — a decision record revised since the analysis is
+  reported and takes an explicit waiver, because the design moved and a lead may knowingly close
+  against the older analysis. The code axis is gone (epic #769): the conformance record is written
+  by the run that saw the merge, so the analysed code and the shipped code are the same code, and
+  no answer about a branch that kept moving afterwards could make the shipped code any different.
+  Never report a state describing the analysed commit as stale, and never offer a waiver for one.
 - **Durable surfaces carry an issue reference, never a queue path** — the close record and the epic's
   close comment both carry the record as `#<record>` plus the full approved-body hash, and each
   recorded deviation names the record issue it deviated from. A queue path on either would dangle the

@@ -248,14 +248,13 @@ judged (decision record #505). Detect this before Phase 1 does any of its own di
 nexus epic-verdicts derive --epic <epic-issue>
 ```
 
-This is the one shared program `/nxs.close` also calls (never a second copy of the collection,
-trust and recency rules) — it resolves each story's candidate pull requests, validates each
-candidate's `<!-- nexus:analyze-receipt -->` block against the trust rules record #495 fixed
-(repository-scoped, newest-wins by GitHub's own submission timestamp, open-or-merged only), and
-returns one of two states on stdout as JSON:
+This is the one shared program `/nxs.close` also calls (never a second copy of the rules) — it reads
+the **records on the epic issue**, and nothing else. No published review, no head-branch name and no
+same-repository issue link is consulted to establish what the epic shipped (epic #769). It returns
+one of two states on stdout as JSON:
 
--   **`"aggregate"`** — every story carries a trusted verdict. The command already wrote the epic
-    receipt (`analyze-receipt.md` beside the resolved `epic.md`, per the #171 placement contract) and
+-   **`"aggregate"`** — the epic carries records. The command already wrote the epic receipt
+    (`analyze-receipt.md` beside the resolved `epic.md`, per the #171 placement contract) and
     printed it back as `receipt`. **Skip Phase 1 and Phase 2's per-story work entirely** — there is
     nothing left to read or judge story-by-story.
 
@@ -267,35 +266,30 @@ returns one of two states on stdout as JSON:
     nexus epic-verdicts combined --epic <epic-issue>
     ```
 
-    This prints the **union** of every story pull request's own changed-file set — each pull
-    request's own diff, never a range spanning two of them — read from each pull request's own
-    repository checkout, no worktree created. Judge the epic's success metrics and every
-    cross-story invariant against this combined set the same way Phase 2 judges a single-PR run
-    against its diff. A finding that only the combined set shows is attributed to **the epic**, never
-    to one story; a cross-story check the combined set cannot decide (it depends on code that only
-    exists once the stories are integrated, and they have not all merged) is reported as
-    **unverifiable**, naming what would decide it — never passed silently. Then go to Phase 3 and
-    report both: the findings summed per distinct verdict (never per story — a verdict covering two
-    stories counts once) plus this cross-story judgment, and the pull requests the receipt was
-    derived from.
--   **`"none"`** — not a single required story carries a verdict: this epic never shipped story by
-    story. The command wrote no receipt. **Fall through to Phase 1 and run exactly as today** — this
-    is the ordinary full-epic path, not a gap. A story marked as shipping without its own pull
-    request (`no-pr-label`) never counts against this: an epic every one of whose *other* stories is
-    unmarked and unverdicted still reads as `"none"`, not `"partial"`.
--   **`"partial"`** — some required stories carry a verdict and some do not. The command wrote no
-    receipt. Report the gap by story name — `missing` lists the stories with no verdict, `present`
-    the ones that do — and recommend running `/nxs.analyze --pr <N>` on each missing story's pull
-    request. **Do not fall through to Phase 1** on this state; deriving a receipt from only the
-    present stories would silently under-report the epic.
+    This prints the **union** of every recorded pull request's own changed-file set — each pull
+    request's own range as its record stamped it, never a range spanning two of them — no worktree
+    created. Judge the epic's success metrics and every cross-story invariant against this combined
+    set the same way Phase 2 judges a single-PR run against its diff. A finding that only the
+    combined set shows is attributed to **the epic**, never to one story; a cross-story check the
+    combined set cannot decide is reported as **unverifiable**, naming what would decide it — never
+    passed silently. Then go to Phase 3 and report both: the findings summed per record (never per
+    story — a record covering two stories counts once, and a story that shipped as two pull requests
+    contributes both) plus this cross-story judgment, and the pull requests the receipt was derived
+    from.
+-   **`"none"`** — the epic carries no record at all: it never shipped story by story. The command
+    wrote no receipt. **Fall through to Phase 1 and run exactly as today** — this is the ordinary
+    full-epic path, not a gap.
 
-Every state also carries **`rejected`**: the candidate pull requests whose published verdicts were
-dropped because they *state* an issues repository other than the one this epic's stories live in
-(epic #751). A verdict that states none is accepted — it was published before the gate wrote the
-key, and the code repository it stamps says where its pull request lives, not where its numbers do.
-A story named in `rejected` is not a story nobody analyzed — its pull request carries a verdict
-naming the wrong repository. Report it as such, and name `/nxs.analyze --pr <N>` on that pull
-request as the way through. An empty list is the norm.
+**A partial epic is not this command's answer.** Ask `nexus epic-verdicts coverage --epic <N>` for
+that: it separates a story with nothing recorded (unshipped) from one whose merged pull request
+never went through the gate (unrecorded), which `derive` cannot tell apart and which take different
+remedies.
+
+Every state also carries **`untrusted`**: marker-bearing comments on the epic issue whose author's
+association with the issues repository is not owner, member or collaborator. The marker alone
+confers no trust — anyone who can comment on the issues repository can write one. An untrusted
+record is **named**, never silently ignored, so a story reported as carrying nothing is never
+indistinguishable from a story whose record was refused. An empty list is the norm.
 
 Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
 verdict — report it and stop, the same as any other unreadable-record failure in this command.
@@ -588,11 +582,67 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     gh pr comment <N> -R <repoIdentity> --body-file "<scratch>/analyze-review.md"
     ```
 
-4. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
+4. **Record what shipped, when — and only when — the pull request has merged.** A run against an
+   open pull request stops here: the review above is the engineer's read surface, and the epic issue
+   gains nothing. A run against a **merged** pull request writes the epic's shipped record, which is
+   what `/nxs.close` reads later instead of searching repositories for pull requests:
 
-`head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so `/nxs.close` can
-compare it for exact equality against the PR head. Re-running analyze publishes a fresh review;
-`/nxs.close` takes the latest machine block.
+    ```bash
+    nexus epic-verdicts record --epic <epic> --pr <N> \
+      --stories "<the story numbers this PR shipped>" \
+      --findings "critical:<c>,high:<h>,medium:<m>,low:<l>" \
+      --record-hash "<record_hash, omitted in degraded mode>" \
+      --root "$wtPath"
+    ```
+
+    The command derives the commit range itself, from the one merge-anchored derivation, and posts
+    the record on the **epic** issue in the issues repository — not on the pull request, and not in
+    the repository the pull request merged in. One record per code repository and pull-request
+    number: re-running this replaces that record's body and changes no other record, so two leads
+    recording two pull requests minutes apart cannot drop each other's work.
+
+    `written: false` with `reason: "not-merged"` is the ordinary pre-merge answer, not a failure.
+    A **non-zero exit is a failed run**: the composed body is printed with the diagnostic, and the
+    remedy is to re-run this one command — never to report the analyze run as complete. Any
+    `untrusted` entries it prints are records on the epic issue whose author cannot speak for the
+    issues repository; name them in your report rather than ignoring them.
+
+    **The post-merge run is required.** `/nxs.close` blocks on a story with no record, and nothing
+    reads a published review to fill the gap. An epic whose pull requests merged before this
+    existed is backfilled by running `/nxs.analyze --pr <N>` over each of them once.
+
+5. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
+
+## Asking an epic what it has shipped
+
+Run against an **epic** rather than a pull request, this gate reports coverage — what the epic has
+shipped and what it has not — so a gap reaches you while you can still act on it:
+
+```bash
+nexus epic-verdicts coverage --epic <epic> --root "<repo root>"
+```
+
+It re-reads the epic's live story set on every run and classifies each story into one of four
+states. Report each one by name; never collapse them, because the remedies differ:
+
+- **shipped** — every merged pull request that shipped this story carries a record.
+- **unrecorded** — a merged pull request exists for this story and carries no record. This is a
+  merge that never went through the gate; the remedy is one `/nxs.analyze --pr <N>` run over it.
+- **unshipped** — nothing merged for this story at all. This is unfinished work.
+- **excluded** — the story is marked as shipping without a pull request of its own, and is left out
+  of the count rather than reported as a gap.
+
+`fullyShipped: true` only when every non-excluded story is *shipped*. Name every recorded pull
+request when reporting a fully shipped epic, every unshipped story otherwise, and any `untrusted`
+entries — records on the epic issue whose author cannot speak for the issues repository.
+
+The issue graph answers the *unrecorded* question and nothing else. It is a reconciliation aid: a
+wrong answer from it costs you a prompt, never a wrong close.
+
+`head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so the commit the
+analysis judged is named without ambiguity, and so the range a record stamps is anchored to it.
+`/nxs.close` no longer compares it against the pull request's current head (epic #769, story #776).
+Re-running analyze publishes a fresh review; `/nxs.close` takes the latest machine block.
 
 # Usage
 
