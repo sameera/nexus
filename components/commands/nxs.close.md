@@ -433,26 +433,16 @@ if the user opts to analyze first, nothing later in this command should have run
     - `{state: "aggregate", receipt, ...}` — every story has a verdict after all (the local receipt file
       was simply absent, e.g. a fresh checkout) — the command has already written it. Re-read it and
       continue as though Phase 1.2 step 1 had found it there.
-    Every state also carries `rejected` — the candidate pull requests whose published verdicts were
-    dropped for *stating* another repository's issues (epic #751), each naming its story, its
-    pull request and the repository it states. A verdict stating none is never listed here; it is
-    accepted as this epic's. **When a story appears there, say
-    so instead of reporting it as unanalyzed**: its pull request carries a verdict, and re-running
-    `/nxs.analyze --pr <N>` on it is what makes that verdict readable. An empty list is the norm.
+    Every state also carries `untrusted` — marker-bearing comments on the epic issue whose author's
+    association with the issues repository is not owner, member or collaborator. The marker alone
+    confers no trust. **Name them** rather than ignoring them: a story reported as carrying nothing
+    must never be indistinguishable from a story whose record was refused. An empty list is the norm.
 
-    - `{state: "partial", missing, present}` — some stories carry a verdict and some do not. For
-      **each** story number in `missing`, render a short note naming the story, then ask via
-      `AskUserQuestion`:
-        - **"Waive — this story shipped inside a sibling's pull request"**
-        - "Stop — this story needs its own pull request or existing verdict"
-
-      Waiving writes nothing yet: collect the story number and today's date into an in-memory waived-
-      stories list, carried to Phase 4 (the close record names it) and Phase 7.4b (the marker write,
-      after the checkpoint, alongside the epic's other GitHub writes) — never before the lead has
-      committed to closing. **If any story in `missing` is left un-waived, stop: the epic does not
-      close.** This is a stop-and-ask like the conformance choice gate below, not the merge gate's hard
-      block above — the lead has a real choice, but an outstanding undecided story blocks the close the
-      same as a "no" would.
+    A story with **no record at all** is not decided here — the ledger's own hard block above already
+    stopped the close and named it. There is no waiver for it, and nothing reads a published review
+    to fill the gap: the remedy is one `/nxs.analyze --pr <N>` run over the merged pull request that
+    shipped that story. A story that shipped inside a sibling's pull request is named by that
+    sibling's record, or carries the no-pull-request marker and is excluded.
 
    The receipt also carries `record` / `record_hash` in full mode (#139) — the decision record the
    analysis checked against. **Staleness has two independent axes, and neither is inferred from the

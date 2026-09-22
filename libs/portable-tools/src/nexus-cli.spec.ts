@@ -1405,34 +1405,34 @@ describe("nexus trunk", () => {
     });
 });
 
-describe("nexus epic-verdicts — every state names the candidates it rejected (epic #751)", () => {
+describe("nexus epic-verdicts — every state names the records it refused to trust (epic #751, #769)", () => {
     const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
     const read = (name: string): string => fs.readFileSync(path.join(REPO_ROOT, "components", "commands", name), "utf8");
 
-    const candidate = { story: 117, pr: 665, repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/docs" };
+    const refused = { commentId: "IC_1", key: "geo-nexus/giccp#665", author: "drive-by", authorAssociation: "NONE" };
 
-    it("carries rejected in every state the verb prints, not only the two that were remembered", () => {
-        for (const state of ["none", "partial", "aggregate"] as const) {
-            expect(epicVerdictsPayload(751, state, [])).toHaveProperty("rejected", []);
+    it("carries untrusted in every state the verb prints, not only the ones that were remembered", () => {
+        for (const state of ["none", "aggregate"] as const) {
+            expect(epicVerdictsPayload(751, state, [])).toHaveProperty("untrusted", []);
         }
     });
 
-    it("keeps rejected when a state supplies fields of its own", () => {
-        const payload = epicVerdictsPayload(751, "aggregate", [candidate], { outPath: "/tmp/r.md", receipt: { epic: "#751" } });
-        expect(payload["rejected"]).toEqual([candidate]);
+    it("keeps untrusted when a state supplies fields of its own", () => {
+        const payload = epicVerdictsPayload(751, "aggregate", [refused], { outPath: "/tmp/r.md", receipt: { epic: "#751" } });
+        expect(payload["untrusted"]).toEqual([refused]);
         expect(payload["outPath"]).toBe("/tmp/r.md");
         expect(payload["state"]).toBe("aggregate");
         expect(payload["epic"]).toBe(751);
     });
 
-    it("never lets a state's own field shadow rejected", () => {
-        const payload = epicVerdictsPayload(751, "aggregate", [candidate], { rejected: [] });
-        expect(payload["rejected"]).toEqual([candidate]);
+    it("never lets a state's own field shadow untrusted", () => {
+        const payload = epicVerdictsPayload(751, "aggregate", [refused], { untrusted: [] });
+        expect(payload["untrusted"]).toEqual([refused]);
     });
 
-    it("pins the promise both stage prompts make about rejected", () => {
-        expect(read("nxs.analyze.md")).toContain("Every state also carries **`rejected`**");
-        expect(read("nxs.close.md")).toContain("Every state also carries `rejected`");
+    it("pins the promise both stage prompts make about untrusted", () => {
+        expect(read("nxs.analyze.md")).toContain("Every state also carries **`untrusted`**");
+        expect(read("nxs.close.md")).toContain("Every state also carries `untrusted`");
     });
 
     it("pins that the close stage reads issues-repo-mismatch as its own condition, not a missing receipt", () => {

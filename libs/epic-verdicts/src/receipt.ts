@@ -1,15 +1,20 @@
 /**
- * The aggregated epic receipt — one factual picture derived from the story verdicts, never a
- * second conformance run (decision record #505, Summary and invariant 1).
+ * The aggregated epic receipt — one factual picture derived from the epic's shipped records, never
+ * a second conformance run (decision record #505, Summary and invariant 1; epic #769).
  *
- * Findings are summed **per distinct verdict**, not per story (invariant 2): a verdict covering
- * more than one story contributes its severity counts exactly once, which is why callers pass the
- * whole set of per-story verdicts here rather than pre-summed counts — de-duplication needs to see
- * every verdict together.
+ * The records replaced the published verdicts this was built from before. The shape is unchanged,
+ * because the close gate and the distiller read the same fields; what changed is that the source is
+ * now the epic issue rather than a search over pull-request reviews, so an epic whose code merged
+ * in a repository the lead holds no copy of still produces a receipt.
+ *
+ * Findings are summed **per record**, not per story (invariant 13): a pull request covering more
+ * than one story contributes its severity counts exactly once, which is why callers pass the whole
+ * record set here rather than pre-summed counts — de-duplication needs to see every record together.
  */
 
 import { formatIssueRef } from "@nexus/workspace/issue-ref";
-import { type StoryVerdict } from "./verdict.js";
+import { sumLedgerFindings } from "./close-ledger.js";
+import { type ShippedRecord } from "./ledger.js";
 
 export type FindingCounts = { critical: number; high: number; medium: number; low: number };
 
@@ -40,53 +45,43 @@ export interface EpicReceipt {
     excluded: number[];
 }
 
-function verdictKey(v: StoryVerdict): string {
-    return `${v.repo}#${v.pr}@${v.head}`;
-}
-
 const ZERO: FindingCounts = { critical: 0, high: 0, medium: 0, low: 0 };
 
 export interface BuildEpicReceiptOptions {
     /**
      * The repository the epic issue lives in, when it differs from the code repositories the
-     * verdicts already carry. Bare `epic:` is written when this is null or matches every
-     * verdict's own repo — the single-repo case, unchanged from before this option existed.
+     * records already carry. Bare `epic:` is written when this is null or matches every record's
+     * own repo — the single-repo case, unchanged from before this option existed.
      */
     issuesRepo?: string | null;
 }
 
-/** Build the epic receipt from the epic's resolved per-story verdicts. */
+/** Build the epic receipt from the records the epic issue carries. */
 export function buildEpicReceipt(
     epic: number,
-    verdicts: StoryVerdict[],
+    records: readonly ShippedRecord[],
     excluded: number[] = [],
     opts: BuildEpicReceiptOptions = {},
 ): EpicReceipt {
-    const distinctByKey = new Map<string, StoryVerdict>();
-    for (const v of verdicts) distinctByKey.set(verdictKey(v), v);
-
-    const findings: FindingCounts = { ...ZERO };
-    for (const v of distinctByKey.values()) {
-        for (const severity of Object.keys(findings) as Array<keyof FindingCounts>) {
-            findings[severity] += v.receipt.findings[severity] ?? 0;
-        }
-    }
+    const findings: FindingCounts = records.length === 0 ? { ...ZERO } : sumLedgerFindings(records);
 
     const prSeen = new Set<string>();
     const prs: EpicReceiptPr[] = [];
-    for (const v of distinctByKey.values()) {
-        const key = `${v.repo}#${v.pr}`;
-        if (prSeen.has(key)) continue;
-        prSeen.add(key);
-        prs.push({ repo: v.repo, pr: v.pr });
+    const stories: EpicReceiptStory[] = [];
+    for (const r of records) {
+        const key = `${r.repo}#${r.pr}`;
+        if (!prSeen.has(key)) {
+            prSeen.add(key);
+            prs.push({ repo: r.repo, pr: r.pr });
+        }
+        // A record naming two stories lands under both: the receipt is read per story, and the
+        // single counting that matters is the findings sum above.
+        for (const story of r.stories) stories.push({ story, repo: r.repo, pr: r.pr, head: r.head });
     }
     prs.sort((a, b) => a.repo.localeCompare(b.repo) || a.pr - b.pr);
+    stories.sort((a, b) => a.story - b.story || a.repo.localeCompare(b.repo) || a.pr - b.pr);
 
-    const stories: EpicReceiptStory[] = verdicts
-        .map((v) => ({ story: v.story, repo: v.repo, pr: v.pr, head: v.head }))
-        .sort((a, b) => a.story - b.story);
-
-    // A single receipt can cover verdicts from more than one code repo (an epic shipped across
+    // A single receipt can cover records from more than one code repo (an epic shipped across
     // several PRs); qualify against the first one, or leave bare when there is none to compare
     // against — the same "no ambiguity, no key" rule the epic.md and close-record producers follow.
     const codeRepo = stories[0]?.repo ?? prs[0]?.repo ?? null;

@@ -37,6 +37,14 @@ behaviour says so.
   pull requests of one story are ordered by the merge time each record stamped, not by number, and
   findings are summed once per record.
 
+- **One reader now answers what an epic shipped, and the checks it replaced report their own
+  removal.** The branch-name and same-repository search is gone, so no gate resolves a story's pull
+  requests by guessing at a branch name or by a link that only ever pointed inside one repository.
+  `nexus epic-verdicts merge-gate` and `nexus epic-verdicts currency` no longer exist: invoking
+  either prints what replaced it rather than succeeding inertly or failing as an unrecognised
+  command. Published reviews stay as the engineer's read surface and are never read to establish
+  what shipped.
+
 - **`/nxs.analyze` can now be asked what an epic has shipped.** Run against an epic rather than a
   pull request, it classifies every story as shipped, unrecorded, unshipped or excluded. The
   distinction that matters is between a story with nothing recorded at all — unfinished work — and
