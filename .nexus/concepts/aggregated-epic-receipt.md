@@ -1,8 +1,8 @@
 ---
 title: "Aggregated Epic Receipt"
 aliases: ["epic receipt", "aggregate mode", "story verdicts", "per-story staleness", "combined change set", "no-pull-request marker"]
-touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim"]
-last_updated_by: "#564"
+touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "verdict-repository-scoping"]
+last_updated_by: "#751"
 status: active
 verification: verified
 ---
@@ -35,6 +35,7 @@ The conformance stage, addressed at an epic, looks for a published verdict on ea
 - [workspace-resolution](workspace-resolution.md) — names the repositories the search for a story's verdict spans, so a story whose pull request lives in a member repository is found.
 - [multi-pr-close](multi-pr-close.md) — reads this receipt as the authoritative pull-request set for the epic, and its close-time waiver is what writes the no-pull-request marker onto a story issue.
 - [scope-claim](scope-claim.md) — narrows what reaches a pull request's story list, so a story this aggregate reads as analyzed was one that pull request actually took on.
+- [verdict-repository-scoping](verdict-repository-scoping.md) — decides which candidate verdicts this derivation may count, and requires each one it drops for belonging elsewhere to be named.
 
 ## Decision Log
 
@@ -51,3 +52,7 @@ The receipt already names each story's repository, pull request and analyzed hea
 ### 2026-09-12 — #564 — Reciprocal link from scope-claim
 
 Mechanical reciprocity fan-out: this aggregate reads a story as analyzed when any trusted receipt names it, and it re-judges nothing, so it can only be as honest as the story list each receipt stamps. Requiring a reference to claim the work is what keeps a story merely cited as background out of that list. Receipts published before that narrowing are not retracted here, because this aggregate picks the newest receipt naming a story, so a corrected receipt that omits the story does not displace the older one that wrongly named it; those are remediated by hand.
+
+### 2026-09-21 — #751 — Reciprocal link from verdict-repository-scoping
+
+The derivation gained a trust check on the repository a candidate's story numbers belong to, and an obligation to name every candidate it drops for failing it.

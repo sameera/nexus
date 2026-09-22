@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt"]
-last_updated_by: "#212"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "verdict-repository-scoping"]
+last_updated_by: "#751"
 status: active
 verification: verified
 ---
@@ -63,6 +63,7 @@ as a literal value no reader can mistake for a waiver.
 - [intake-lane](intake-lane.md) — the other lane this gate refuses to run against, having no criteria to check.
 - [pr-story-resolution](pr-story-resolution.md) — decides which criteria are in scope against a pull request: the resolved stories' criteria, never every story's.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — the receipt shape derived from the stories' own verdicts, which this gate reads story by story instead of judging the epic afresh.
+- [verdict-repository-scoping](verdict-repository-scoping.md) — names the repository this gate's published verdict resolves its story numbers against, and the check the gate must pass before publishing one.
 
 ## Decision Log
 
@@ -112,3 +113,7 @@ Mechanical reciprocity fan-out: the pull-request story resolution page names thi
 Analyze against an epic whose stories were each judged on their own pull request now derives the receipt from those verdicts instead of judging the epic again. The gate's own contract does not move. Analyze still writes the receipt as its only output, close still reads it back before mining anything else, and a stale or blocking receipt still needs an explicit waiver. What moved is the meaning of an absent receipt. Analyze can now run, find that only some stories carry a verdict, and refuse to derive, so "analyze never ran" stopped being the only way a receipt goes missing. The invariant is restated as what close can actually observe, which is that there is no analysis to read. Refuted alternative: give the gate a sixth state for a refused derivation. That state was rejected because the lead's remedy is the same in both cases, and a second meaning for an absent receipt would fork the gate's classification for no decision it changes.
 
 Mechanical reciprocity fan-out: the aggregated epic receipt page names this gate as the one whose receipt it fills, so a reader arriving at either page learns which shape a given run produced.
+
+### 2026-09-21 — #751 — Reciprocal link from verdict-repository-scoping
+
+The gate's publish step now has a boundary check it must pass, and the repository rules it enforces are stated on their own page rather than here.
