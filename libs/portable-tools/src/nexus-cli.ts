@@ -40,6 +40,7 @@ import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
+import { epicRefForRecord, fetchShippedRecords, postShippedRecord, type FindingCounts, type ShippedRecord } from "@nexus/epic-verdicts/ledger";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
@@ -285,12 +286,17 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Read the local aggregate analyze-receipt.md and check every story pull request's",
             "      merge state via `gh pr view`. Prints { command: \"merge-gate\", stories, allMerged,",
             "      unmerged }. Exits 1 only when the local receipt itself cannot be found/read.",
+            "  nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0]",
+            "                            [--record-hash <hex>] [--range-base <sha> --range-head <sha>] [--root <startDir>]",
+            "      Record what a merged pull request shipped, on the epic issue itself. One record per",
+            "      code repository and pull-request number; a re-run replaces that record alone. An",
+            "      unmerged pull request writes nothing and prints { written: false, state }.",
             "  nexus epic-verdicts waive-story --story <N> [--root <startDir>]",
             "      Write the resolved no-pull-request marker label onto a story issue via `gh issue",
             "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
             "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "currency", "combined", "merge-gate", "waive-story"],
+        subverbs: ["derive", "currency", "combined", "merge-gate", "record", "waive-story"],
         run: runEpicVerdicts,
     },
     "pr-verdict": {
@@ -1292,14 +1298,42 @@ async function runPlanningDir(argv: string[], io: CliIo): Promise<number> {
     return 0;
 }
 
+
+/**
+ * The severity counts a gate hands the ledger, read from one compact flag. Absent is zero, never
+ * an error: a pull request that produced no finding of a severity is the ordinary case.
+ */
+function parseFindingCounts(text: string | undefined): FindingCounts {
+    const counts: FindingCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const [, k, v] of (text ?? "").matchAll(/([a-z]+)\s*[:=]\s*(\d+)/gi)) {
+        const key = k.toLowerCase();
+        for (const name of Object.keys(counts) as Array<keyof FindingCounts>) {
+            if (name === key || name[0] === key) counts[name] = Number(v);
+        }
+    }
+    return counts;
+}
+
+/** The platform's own merge timestamp — the ordering key two records of one story are sorted by. */
+function prMergedAt(cwd: string, pr: number): string {
+    const r = closeMigrationRunner("gh", ["pr", "view", String(pr), "--json", "mergedAt", "--jq", ".mergedAt"], { cwd });
+    return r.status === 0 ? r.stdout.trim() : "";
+}
+
 interface EpicVerdictsFlags {
     epic?: number;
     root: string;
     record?: number;
     story?: number;
+    pr?: number;
+    stories?: number[];
+    findings?: string;
+    recordHash?: string;
+    rangeBase?: string;
+    rangeHead?: string;
 }
 
-const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "waive-story"];
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "record", "waive-story"];
 
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
     const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
@@ -1310,6 +1344,12 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
         else if (a === "--root") flags.root = args[++i];
         else if (a === "--record") flags.record = Number(args[++i]);
         else if (a === "--story") flags.story = Number(args[++i]);
+        else if (a === "--pr") flags.pr = Number(args[++i]);
+        else if (a === "--stories") flags.stories = [...(args[++i] ?? "").matchAll(/\d+/g)].map((m) => Number(m[0]));
+        else if (a === "--findings") flags.findings = args[++i];
+        else if (a === "--record-hash") flags.recordHash = args[++i];
+        else if (a === "--range-base") flags.rangeBase = args[++i];
+        else if (a === "--range-head") flags.rangeHead = args[++i];
     }
     return flags;
 }
@@ -1433,6 +1473,107 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
+
+    // `record` — the shipped ledger's writer (epic #769). A record is written only against a
+    // merged pull request: the merge commit and the range anchored to it do not exist before the
+    // merge, and a run against an open pull request is the engineer's review, which writes nothing
+    // on the epic issue. Everything the record states about conformance is passed in by the gate
+    // that just produced it; nothing here reads a published review back to find out what shipped.
+    if (argv[0] === "record") {
+        if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
+            io.stderr(
+                "usage: nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0] " +
+                    "[--record-hash <hex>] [--range-base <sha> --range-head <sha>] [--root <startDir>]",
+            );
+            return 2;
+        }
+        const repos = resolveVerdictRepos(closeMigrationRunner, root);
+        if (!repos.ok) {
+            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+            return 1;
+        }
+        const { issuesRepo, repo } = repos.repos;
+
+        const pr = resolvePr(closeMigrationRunner, root, flags.pr, { requireMerged: false });
+        if (!pr.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(pr.error));
+            return 1;
+        }
+        if (!pr.pr.merged || pr.pr.mergeCommitOid === null) {
+            io.stdout(
+                JSON.stringify({
+                    command: "record",
+                    epic: flags.epic,
+                    pr: flags.pr,
+                    repo,
+                    issuesRepo,
+                    written: false,
+                    state: pr.pr.state,
+                    reason: "not-merged",
+                }),
+            );
+            return 0;
+        }
+
+        // The range comes from the one merge-anchored derivation with its existing exclusions
+        // (invariant 4) unless the caller already stamped it in this same run.
+        let base = flags.rangeBase ?? "";
+        let head = flags.rangeHead ?? "";
+        if (base.length === 0 || head.length === 0) {
+            const prHead: string | undefined = fetchPrHead(closeMigrationRunner, root, flags.pr);
+            const derived = deriveRange(closeMigrationRunner, root, pr.pr, { verifyAgainstPrHead: prHead });
+            if (!derived.ok) {
+                io.stderr(renderPrWorktreeDiagnostic(derived.error));
+                return 1;
+            }
+            base = derived.range.base;
+            head = derived.range.head;
+        }
+
+        const existing = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
+        if (!existing.ok) {
+            io.stderr(`epic-verdicts ${existing.error.problem}: ${existing.error.message}`);
+            return 1;
+        }
+
+        const record: ShippedRecord = {
+            epic: epicRefForRecord(flags.epic, issuesRepo, repo),
+            stories: [...(flags.stories ?? [])].sort((a, b) => a - b),
+            repo,
+            pr: flags.pr,
+            mergeCommit: pr.pr.mergeCommitOid,
+            mergedAt: prMergedAt(root, flags.pr),
+            base,
+            head,
+            findings: parseFindingCounts(flags.findings),
+            recordHash: flags.recordHash?.trim() || null,
+            nexusVersion: releaseVersion(),
+        };
+
+        const posted = postShippedRecord(closeMigrationRunner, root, issuesRepo, flags.epic, record, existing.collected.records);
+        if (!posted.ok) {
+            // Invariant 10: the composed body survives the failed post, so the retry is a re-run
+            // rather than a re-derivation, and the run never reads as a success.
+            io.stderr(`epic-verdicts ${posted.error.problem}: ${posted.error.message}`);
+            io.stderr(`the record body was composed and not posted; re-run this command to retry:\n${posted.body}`);
+            return 1;
+        }
+        io.stdout(
+            JSON.stringify({
+                command: "record",
+                epic: flags.epic,
+                pr: flags.pr,
+                repo,
+                issuesRepo,
+                written: true,
+                action: posted.action,
+                key: posted.key,
+                record,
+                untrusted: existing.collected.untrusted,
+            }),
+        );
+        return 0;
+    }
 
     if (argv[0] === "merge-gate") {
         // Merge state is a narrower, local-file read — the already-written aggregate receipt names

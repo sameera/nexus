@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.73.0
+
+- **When a pull request that implemented a story merges, `/nxs.analyze --pr` now records what it
+  shipped on the epic issue.** The record names the pull request, the story it implements, the
+  repository it merged in, its merge commit and the commit range it shipped. One record per code
+  repository and pull-request number: a re-run replaces that record's body and leaves every other
+  record alone, so two leads recording two pull requests minutes apart cannot drop each other's
+  work. A run against an open pull request is unchanged — it publishes the engineer's review and
+  writes nothing on the epic issue.
+
+  The post-merge run is now part of the loop rather than optional, because the close gate reads
+  those records. An epic whose pull requests merged before this release is backfilled by running
+  `/nxs.analyze --pr <N>` over each of them once.
+
 ## 0.72.0
 
 - **A verdict that names no issues repository is read as belonging to the epic being read, not to

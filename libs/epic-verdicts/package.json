@@ -64,6 +64,11 @@
       "import": "./src/pr-verdict.ts",
       "default": "./src/pr-verdict.ts"
     },
+    "./ledger": {
+      "types": "./src/ledger.ts",
+      "import": "./src/ledger.ts",
+      "default": "./src/ledger.ts"
+    },
     "./story-prs": {
       "types": "./src/story-prs.ts",
       "import": "./src/story-prs.ts",

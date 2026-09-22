@@ -588,7 +588,36 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     gh pr comment <N> -R <repoIdentity> --body-file "<scratch>/analyze-review.md"
     ```
 
-4. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
+4. **Record what shipped, when — and only when — the pull request has merged.** A run against an
+   open pull request stops here: the review above is the engineer's read surface, and the epic issue
+   gains nothing. A run against a **merged** pull request writes the epic's shipped record, which is
+   what `/nxs.close` reads later instead of searching repositories for pull requests:
+
+    ```bash
+    nexus epic-verdicts record --epic <epic> --pr <N> \
+      --stories "<the story numbers this PR shipped>" \
+      --findings "critical:<c>,high:<h>,medium:<m>,low:<l>" \
+      --record-hash "<record_hash, omitted in degraded mode>" \
+      --root "$wtPath"
+    ```
+
+    The command derives the commit range itself, from the one merge-anchored derivation, and posts
+    the record on the **epic** issue in the issues repository — not on the pull request, and not in
+    the repository the pull request merged in. One record per code repository and pull-request
+    number: re-running this replaces that record's body and changes no other record, so two leads
+    recording two pull requests minutes apart cannot drop each other's work.
+
+    `written: false` with `reason: "not-merged"` is the ordinary pre-merge answer, not a failure.
+    A **non-zero exit is a failed run**: the composed body is printed with the diagnostic, and the
+    remedy is to re-run this one command — never to report the analyze run as complete. Any
+    `untrusted` entries it prints are records on the epic issue whose author cannot speak for the
+    issues repository; name them in your report rather than ignoring them.
+
+    **The post-merge run is required.** `/nxs.close` blocks on a story with no record, and nothing
+    reads a published review to fill the gap. An epic whose pull requests merged before this
+    existed is backfilled by running `/nxs.analyze --pr <N>` over each of them once.
+
+5. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
 
 `head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so `/nxs.close` can
 compare it for exact equality against the PR head. Re-running analyze publishes a fresh review;
