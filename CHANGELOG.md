@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.73.1
+
+- **A distillation no longer stops because the epic's record wrote its repository the short way.**
+  The shipped ledger stamps a merged pull request's repository as `owner/repo`, and a checkout
+  knows itself as `github.com/owner/repo`. The drain compared the two as plain strings, so
+  `/nxs.distill` refused every epic closed through the ledger with `unknown-repo: range names repo
+  '<owner/repo>' but this checkout's identity is '<host/owner/repo>'` — on the first epic that shipped
+  the ledger, on its own distillation. It now compares them the way every other reader of a stamped
+  repository does, so both written forms name the same repository and a stamp naming a genuinely
+  different repository is still refused.
+
 ## 0.73.0
 
 - **When a pull request that implemented a story merges, `/nxs.analyze --pr` now records what it
