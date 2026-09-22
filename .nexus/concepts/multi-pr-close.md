@@ -1,33 +1,33 @@
 ---
 title: "Close Over Several Pull Requests"
 aliases: ["multi-pull-request close", "epic-wide close", "merge gate", "story pull-request set", "range list", "one entry per pull request", "storyless story waiver", "trunk head verification"]
-touches: ["aggregated-epic-receipt", "pr-driven-flow", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff", "remote-identity-normalization"]
-last_updated_by: "#628"
+touches: ["aggregated-epic-receipt", "pr-driven-flow", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff", "remote-identity-normalization", "shipped-ledger"]
+last_updated_by: "#769"
 status: active
 verification: verified
 ---
 
 # Close Over Several Pull Requests
 
-A close is addressed at the epic rather than at one pull request, so an epic whose stories shipped as several pull requests closes in one run. The set of pull requests comes from the epic receipt, every one of them must be merged, and each contributes its own merge-anchored range entry.
+A close is addressed at the epic rather than at one pull request, so an epic whose stories shipped as several pull requests closes in one run. The pull requests come from the epic's own records, each already merged, each carrying its own merge-anchored range entry.
 
 ## How It Works
 
-The gate runs in a fixed order. Merge state comes first, story by story, against live pull-request state. An unmerged pull request is a hard block naming that pull request and its story, and no waiver is offered. Currency is checked next and keeps its own waiver, because a stale analysis is a judgment the lead may take and an unmerged pull request is not.
+Merge state and the range come from the epic's own records, so a close never needs a copy of the repository the code merged in. A story with no record, and a recorded merge commit the platform no longer reports, are each a hard block naming what failed, with no waiver. The record axis keeps its own.
 
 A closed story with no pull request of its own also stops the run, and the lead is offered a waiver for that story. Taking the waiver writes the durable marker onto the story issue, after the closure checkpoint, alongside the other writes to GitHub.
 
-Only once every gate passes are the ranges derived, one call per pull request into the existing merge-anchored derivation. Only once every range resolves is the branch cut. Nothing gathers the engineers' notes, because every story branch committed into the same epic-keyed path before the cut.
+No range is derived here: each was stamped by the run that held the merged code, and the close stamps that list verbatim. Trunk verification narrows to the repository the branch is cut in; where no record names it, the branch is cut there anyway. Nothing gathers the engineers' notes, because every story branch committed into the same epic-keyed path before the cut.
 
 ## Key Invariants
 
-1. Every story's pull request must be merged. An open one is a hard block naming the pull request and its story, with no waiver.
-2. The set of pull requests comes from the epic receipt, never from branch names, timelines or searches.
+1. A story with no record is a hard block naming it; a recorded merge commit the platform no longer reports is a hard block naming that pull request. Neither takes a waiver.
+2. The pull-request set comes from the epic's records, never from branch names, timelines, searches or a published review.
 3. A story that shipped inside a sibling's pull request passes only on the lead's explicit waiver. The waiver writes the durable marker after the checkpoint, and the close record names the story and its date.
-4. One range entry is stamped per story pull request, anchored on that pull request's own merge and naming its number. Entries are never collapsed per repository.
+4. One range entry is stamped per pull request, never collapsed per repository.
 5. A refusal on any single entry stops the close before a branch is cut, a file is written, or an issue is touched.
 6. A commit that reached the trunk outside a story pull request is not in the recorded range.
-7. Every gate and every derivation completes before a working tree exists. The branch is cut from a trunk verified to hold every stamped head.
+7. Every gate completes before a working tree exists. The branch is cut from a trunk verified to hold every stamped head that names its repository; elsewhere the merge-commit check stands in.
 
 ## Integration Points
 
@@ -39,6 +39,7 @@ Only once every gate passes are the ranges derived, one call per pull request in
 - [range-entry-diff](range-entry-diff.md) — the reader that turns this stamped list into one change set per pull request; it replaced the interim refusal this close shipped alongside.
 
 - [remote-identity-normalization](remote-identity-normalization.md) — canonicalizes the repository identity each stamped range entry carries.
+- [shipped-ledger](shipped-ledger.md) — supplies this close's merge state and its whole range list, already stamped.
 
 ## Decision Log
 
@@ -59,3 +60,22 @@ Mechanical reciprocity fan-out, both directions in one entry. The page that used
 The gate that verifies the trunk holds every stamped head now resolves that trunk from the repository the work is contributed to, not from the lead's own copy. A lead working from a fork has a local trunk that tracks the fork, and that trunk can be far behind the merges this close is verifying. Verifying against it would report a stamped head as missing when the head had in fact landed, so the close would refuse an epic that was fully merged.
 
 The refusal that reports a stale trunk also names the remote the lead must fetch from, and that name is now the remote actually being read. A remedy naming the wrong remote would send the lead to fetch a repository that can never bring their trunk up to date, and the resulting second failure would read as a defect in the gate rather than as a stale checkout.
+
+### 2026-09-22 — #769 — Merge state and the range are read from the epic's records, not asked of the platform
+
+Asking the platform for merge state gave a wrong answer whenever the question went to the wrong
+repository, and an epic whose stories merged elsewhere read as unmerged and ended in a waiver. The
+records on the epic issue settle it instead: a record exists only because a gate run saw the merge,
+so merge state is not a question any more, and the range came stamped from that same run. What is
+left to ask is whether the platform still reports that merge commit, which needs no copy of the
+repository and is a hard block rather than a waiver, because a moved merge commit means the
+recorded range describes commits that are not on the trunk. Trunk verification narrows with it:
+the close can only verify ancestry where it holds a copy, so it verifies the repository it cuts
+the branch in and accepts the merge-commit check elsewhere. That is weaker than ancestry and
+honestly weaker. Refuted alternative: refuse to close an epic carrying records from a repository
+the lead does not hold. It preserves the old invariant exactly, and it reinstates the requirement
+this declined — the lead's only remedy would be cloning repositories they have no reason to hold.
+
+Mechanical reciprocity fan-out: the shipped ledger names this close as the reader that takes merge
+state and the close range from its records, so a reader arriving at either page learns which side
+writes the fact and which side spends it.

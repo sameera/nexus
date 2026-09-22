@@ -1,8 +1,8 @@
 ---
 title: "Remote Identity Normalization"
 aliases: ["remote normalization", "git remote matching", "same-remote comparison", "remote identity rule"]
-touches: ["workspace-resolution", "multi-pr-close"]
-last_updated_by: "#215"
+touches: ["workspace-resolution", "multi-pr-close", "shipped-ledger"]
+last_updated_by: "#769"
 status: active
 verification: verified
 ---
@@ -29,6 +29,7 @@ Workspace resolution applies this rule wherever remote identity matters: verifyi
 - [workspace-resolution](workspace-resolution.md) — resolution uses this rule to verify a member's pointer names the located hub and to reject two members that resolve to the same remote.
 
 - [multi-pr-close](multi-pr-close.md) — the stamped range's repository identity is produced through this rule, so a drain can match it to a declared member.
+- [shipped-ledger](shipped-ledger.md) — names a record's code repository by this rule, so two readers cannot disagree about which repository it stamps.
 
 ## Decision Log
 
@@ -43,3 +44,9 @@ Mechanical reciprocity fan-out: the close-entry-migration page names this rule a
 ### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
 
 Mechanical reciprocity fan-out: the page that stamped the range's repository identity is retired, so the edge is removed and the same interaction is recorded against the close that stamps the range now. The rule itself is unchanged.
+
+### 2026-09-22 — #769 — Reciprocal link from shipped-ledger
+
+Mechanical reciprocity fan-out: the shipped ledger names this rule as how a record states the
+repository its pull request merged in, so a reader arriving at either page learns that the two
+written forms of an identity are compared, never matched as raw strings.
