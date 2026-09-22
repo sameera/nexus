@@ -19,6 +19,13 @@ behaviour says so.
   those records. An epic whose pull requests merged before this release is backfilled by running
   `/nxs.analyze --pr <N>` over each of them once.
 
+- **`/nxs.analyze` can now be asked what an epic has shipped.** Run against an epic rather than a
+  pull request, it classifies every story as shipped, unrecorded, unshipped or excluded. The
+  distinction that matters is between a story with nothing recorded at all — unfinished work — and
+  a story whose merged pull request never went through the gate, which one post-merge run fixes.
+  The live story set is re-read each run, so a story added to the epic after a record was written
+  shows up as unshipped without invalidating the records already there.
+
 ## 0.72.0
 
 - **A verdict that names no issues repository is read as belonging to the epic being read, not to

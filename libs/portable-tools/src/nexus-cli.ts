@@ -41,6 +41,8 @@ import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { epicRefForRecord, fetchShippedRecords, postShippedRecord, type FindingCounts, type ShippedRecord } from "@nexus/epic-verdicts/ledger";
+import { assessEpicCoverage } from "@nexus/epic-verdicts/coverage";
+import { resolveStoryMergedPrs, type StoryMergedPr } from "@nexus/epic-verdicts/story-prs";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
@@ -291,12 +293,17 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Record what a merged pull request shipped, on the epic issue itself. One record per",
             "      code repository and pull-request number; a re-run replaces that record alone. An",
             "      unmerged pull request writes nothing and prints { written: false, state }.",
+            "  nexus epic-verdicts coverage --epic <N> [--root <startDir>]",
+            "      Ask an epic what it has shipped. Re-reads the live story set and classifies each",
+            "      story as shipped, unrecorded, unshipped or excluded against the epic's records.",
+            "      Prints { command: \"coverage\", fullyShipped, stories, unshipped, unrecorded,",
+            "      recorded, excluded, untrusted }.",
             "  nexus epic-verdicts waive-story --story <N> [--root <startDir>]",
             "      Write the resolved no-pull-request marker label onto a story issue via `gh issue",
             "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
             "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "currency", "combined", "merge-gate", "record", "waive-story"],
+        subverbs: ["derive", "currency", "combined", "merge-gate", "record", "coverage", "waive-story"],
         run: runEpicVerdicts,
     },
     "pr-verdict": {
@@ -1314,6 +1321,16 @@ function parseFindingCounts(text: string | undefined): FindingCounts {
     return counts;
 }
 
+
+/** Does a story issue carry `label` in the issues repository? Absent or unreadable is "no". */
+function storyCarriesLabel(cwd: string, issuesRepo: string, story: number, label: string): boolean {
+    const r = closeMigrationRunner("gh", ["issue", "view", String(story), "--repo", issuesRepo, "--json", "labels", "--jq", ".labels[].name"], {
+        cwd,
+    });
+    const labels = r.status === 0 ? r.stdout.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+    return isExcludedStory(labels, label);
+}
+
 /** The platform's own merge timestamp — the ordering key two records of one story are sorted by. */
 function prMergedAt(cwd: string, pr: number): string {
     const r = closeMigrationRunner("gh", ["pr", "view", String(pr), "--json", "mergedAt", "--jq", ".mergedAt"], { cwd });
@@ -1333,7 +1350,7 @@ interface EpicVerdictsFlags {
     rangeHead?: string;
 }
 
-const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "record", "waive-story"];
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "record", "coverage", "waive-story"];
 
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
     const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
@@ -1473,6 +1490,57 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
+
+    // `coverage` — the shipped ledger's epic-wide reader (epic #769, story #772). The live story
+    // set is re-read here on every run, so a story added after a record was written is reported as
+    // unshipped with nothing having to invalidate the records already there. The issue graph is
+    // consulted here and nowhere else: it answers whether a merged pull request exists for a story
+    // and carries no record, which is a prompt to the lead, never an input to the close gate.
+    if (argv[0] === "coverage") {
+        const repos = resolveVerdictRepos(closeMigrationRunner, root);
+        if (!repos.ok) {
+            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+            return 1;
+        }
+        const issuesRepo = repos.repos.issuesRepo;
+
+        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        if (!resolved.ok) {
+            io.stderr(renderEpicResolveDiagnostic(resolved.error));
+            return 1;
+        }
+        const stories = resolved.resolved.stories.map((st) => st.number);
+
+        const collected = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
+        if (!collected.ok) {
+            io.stderr(`epic-verdicts ${collected.error.problem}: ${collected.error.message}`);
+            return 1;
+        }
+
+        const slash = issuesRepo.indexOf("/");
+        const issuesSlug = { owner: issuesRepo.slice(0, slash), repo: issuesRepo.slice(slash + 1) };
+        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+        const excluded: number[] = [];
+        const mergedPrsByStory: Record<number, StoryMergedPr[]> = {};
+        for (const story of stories) {
+            if (noPrLabel.length > 0 && storyCarriesLabel(root, issuesRepo, story, noPrLabel)) {
+                excluded.push(story);
+                continue;
+            }
+            mergedPrsByStory[story] = resolveStoryMergedPrs(closeMigrationRunner, root, issuesSlug, story).prs;
+        }
+
+        const coverage = assessEpicCoverage({
+            epic: flags.epic,
+            stories,
+            excluded,
+            records: collected.collected.records.map((f) => f.record),
+            mergedPrsByStory,
+            untrusted: collected.collected.untrusted,
+        });
+        io.stdout(JSON.stringify({ command: "coverage", issuesRepo, ...coverage }));
+        return 0;
+    }
 
     // `record` — the shipped ledger's writer (epic #769). A record is written only against a
     // merged pull request: the merge commit and the range anchored to it do not exist before the

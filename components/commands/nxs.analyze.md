@@ -619,6 +619,32 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
 
 5. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
 
+## Asking an epic what it has shipped
+
+Run against an **epic** rather than a pull request, this gate reports coverage — what the epic has
+shipped and what it has not — so a gap reaches you while you can still act on it:
+
+```bash
+nexus epic-verdicts coverage --epic <epic> --root "<repo root>"
+```
+
+It re-reads the epic's live story set on every run and classifies each story into one of four
+states. Report each one by name; never collapse them, because the remedies differ:
+
+- **shipped** — every merged pull request that shipped this story carries a record.
+- **unrecorded** — a merged pull request exists for this story and carries no record. This is a
+  merge that never went through the gate; the remedy is one `/nxs.analyze --pr <N>` run over it.
+- **unshipped** — nothing merged for this story at all. This is unfinished work.
+- **excluded** — the story is marked as shipping without a pull request of its own, and is left out
+  of the count rather than reported as a gap.
+
+`fullyShipped: true` only when every non-excluded story is *shipped*. Name every recorded pull
+request when reporting a fully shipped epic, every unshipped story otherwise, and any `untrusted`
+entries — records on the epic issue whose author cannot speak for the issues repository.
+
+The issue graph answers the *unrecorded* question and nothing else. It is a reconciliation aid: a
+wrong answer from it costs you a prompt, never a wrong close.
+
 `head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so `/nxs.close` can
 compare it for exact equality against the PR head. Re-running analyze publishes a fresh review;
 `/nxs.close` takes the latest machine block.

@@ -64,6 +64,11 @@
       "import": "./src/pr-verdict.ts",
       "default": "./src/pr-verdict.ts"
     },
+    "./coverage": {
+      "types": "./src/coverage.ts",
+      "import": "./src/coverage.ts",
+      "default": "./src/coverage.ts"
+    },
     "./ledger": {
       "types": "./src/ledger.ts",
       "import": "./src/ledger.ts",
