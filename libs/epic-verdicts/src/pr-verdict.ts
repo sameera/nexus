@@ -12,6 +12,13 @@
  * `repo` is not optional. A caller that did not say which repository it is reading would leave the
  * trust check inert in a real run (invariant 9).
  *
+ * There is no code-staleness axis here any more (epic #769, story #776). Comparing the analysed
+ * commit against a branch that kept moving after the merge is not a judgment a lead can make: the
+ * answer cannot make the shipped code any different, and the record the conformance gate writes is
+ * written by the run that saw the merge, so the judged code and the shipped code are the same code.
+ * What the close gate still adjudicates is findings, and a decision record revised since the
+ * analysis — which is a real judgment and keeps its own waiver.
+ *
  * `issuesRepo` is required on the same terms (epic #751, decision record #764): it is the
  * repository the verdict's bare story numbers are being resolved against, and the caller that
  * forgets it is precisely the caller the comparison exists for. Unlike the epic-wide derivation,
@@ -39,9 +46,6 @@ export interface PrVerdict {
     at: string;
     /** The pull request's head at read time. */
     prHead: string;
-    /** The analyzed commit still equals the pull request's head. */
-    current: boolean;
-    staleNote: string | null;
 }
 
 export type ReadPrVerdictResult = { ok: true; verdict: PrVerdict } | { ok: false; error: EpicVerdictsDiagnostic };
@@ -81,8 +85,6 @@ export function readPrVerdict(run: Runner, cwd: string, pr: number, repo: string
             receipt: v.receipt,
             at: v.at,
             prHead: v.prHead,
-            current: v.current,
-            staleNote: v.staleNote,
         },
     };
 }

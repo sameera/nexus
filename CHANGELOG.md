@@ -37,6 +37,13 @@ behaviour says so.
   pull requests of one story are ordered by the merge time each record stamped, not by number, and
   findings are summed once per record.
 
+- **`/nxs.close` no longer asks you to waive an analysis whose commit moved.** That question was
+  never a judgment: the answer could not make the shipped code any different, and the conformance
+  record is now written by the run that saw the merge, so the judged code and the shipped code are
+  the same code. No state describes the analysed commit as stale, and no waiver is offered for one.
+  A decision record revised since the analysis is a real judgment and is unchanged — still
+  reported, still taking its own waiver. The one thing left to adjudicate at close is findings.
+
 - **One reader now answers what an epic shipped, and the checks it replaced report their own
   removal.** The branch-name and same-repository search is gone, so no gate resolves a story's pull
   requests by guessing at a branch name or by a link that only ever pointed inside one repository.

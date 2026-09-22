@@ -100,12 +100,17 @@ describe("readPrVerdict — newest-wins, executed rather than described", () => 
         expect(r.verdict.receipt?.findings["high"]).toBe(0);
     });
 
-    it("reports the verdict as not current, since commits landed after the analyzed commit", () => {
-        const r = read(twoVerdictPrPayload());
+    it("reports no state describing the analysed commit as stale against a branch (epic #769)", () => {
+        // The pull request has moved on since the analysis. That is not something this reader
+        // reports, and not something the close gate can offer a waiver for: the shipped code is
+        // whatever the record stamped, and no answer here would change it.
+        const r = read({ ...twoVerdictPrPayload(), headRefOid: "f".repeat(40) });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.verdict.current).toBe(false);
-        expect(r.verdict.staleNote).toContain("landed after analysis");
+        expect(r.verdict.found).toBe(true);
+        expect(r.verdict).not.toHaveProperty("current");
+        expect(r.verdict).not.toHaveProperty("staleNote");
+        expect(Object.values(r.verdict).join(" ")).not.toContain("landed after analysis");
     });
 
     it("reports a pull request carrying no verdict as found: false, not as a failure", () => {

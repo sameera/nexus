@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block), and /nxs.analyze ran (its analyze-receipt.md present and current; missing/stale/blocking requires an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic. Emits a human-prose close record beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced local close, in the committed entry for an old-contract one — (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); and /nxs.analyze ran (missing / revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -347,8 +347,8 @@ if the user opts to analyze first, nothing later in this command should have run
       lives in, which is what the command runs its trust check against. The repository the
       verdict's bare story numbers resolve against is **not** an argument: the command resolves it
       from the checkout it runs in (the configured issues repository, else that checkout's own), so
-      it can never be forgotten or fed a wrong value. It prints `{ found, source, at, current,
-      staleNote, receipt, issuesRepo }`, and `receipt` carries `date`/`head`/`mode`/`findings`/
+      it can never be forgotten or fed a wrong value. It prints `{ found, source, at, prHead,
+      receipt, issuesRepo }`, and `receipt` carries `date`/`head`/`mode`/`findings`/
       `stories` already parsed. **Report what it returns and read nothing else** — never open the
       pull request's reviews and comments to pick a block by hand. A pull request may carry several
       published blocks, and which one is its verdict — maintainer authorship, the repository it
@@ -399,19 +399,9 @@ if the user opts to analyze first, nothing later in this command should have run
     non-empty; `#<pr>` stays bare — its own `<repo>` column already names where it lives, the same
     disambiguation a qualifier would add.
 
-   Only once `allMerged` is `true` do you re-check currency with the same shared helper that derived
-   it — never re-derive it yourself:
-
-    ```bash
-    nexus epic-verdicts currency --epic <epic-issue> ${record:+--record $record}
-    ```
-
-   It re-checks every story's verdict against that story's pull request's **current** head and, when
-   a record is given, the record's **current** digest, and prints `{ stories, allCurrent }`. Report
-   **each** stale story **by name** — never a single "the epic is stale" statement — using the same
-   stale-(code)/stale-(record) language below, one clause per story per axis. `allCurrent: true` is
-   the aggregate's **clean** state; any story reported not current is this receipt's **stale** state,
-   on whichever axis(es) that story failed.
+   Once the ledger's gate passes, there is nothing further to re-check about the code. The record
+   axis alone remains, and it is checked against the record's current digest below — never against
+   a pull request's current head, and never against a branch tip.
 
    **No aggregate receipt at all** reads exactly like the existing **missing** state below — an epic
    that never shipped story by story produced no receipt for `/nxs.analyze` to have written, so there
@@ -464,37 +454,36 @@ if the user opts to analyze first, nothing later in this command should have run
     is no record axis to evaluate.)
 
    Classify the state:
-    - **clean** — receipt found, no critical/high findings, **current on both axes**:
-      local → `git rev-list --count <head>..HEAD` is `0`;
-      `--pr` → the block `head` **equals** the PR head (`gh pr view <N> --json headRefOid`) exactly
-      (full-SHA equality — do **not** use `git rev-list`, which is meaningless across a
-      squash/rebase); **and** the stamped `record_hash` equals the record's current digest. Set the
-      close record's `analyze:` value to `ran <date> @ <head>` and continue silently to Phase 2.
+    - **clean** — receipt found, no critical/high findings, and the stamped `record_hash` equals the
+      record's current digest. Set the close record's `analyze:` value to `ran <date> @ <head>` and
+      continue silently to Phase 2.
     - **missing** — no receipt / no trusted machine block: `/nxs.analyze` never ran on this entry.
-    - **stale (code)** — local: commits landed after the receipt (`git rev-list --count <head>..HEAD`
-      > 0; report the count); `--pr`: the block `head` ≠ the PR head (a commit landed after analysis).
     - **stale (record)** — the stamped `record_hash` ≠ the record's current digest: the design was
       revised after it was analysed.
     - **blocking** — the receipt reports critical or high findings: analyze judged the code
       does not yet satisfy the epic.
 
-   Both staleness axes can hold at once; report **each** by name, never collapsed into one "stale".
-2. On **missing / stale (either axis) / blocking**, render a one-paragraph markdown note naming the
+   **There is no code-staleness state** (epic #769, story #776). Never describe the analysed commit
+   as stale against a branch, never count commits that landed after the analysis, and never compare
+   the analysed head to a branch tip to decide anything here. The conformance record is written by
+   the run that saw the merge, so the judged code and the shipped code are the same code; a branch
+   that kept moving afterwards cannot make the shipped code any different. What is left for you to
+   adjudicate is findings, and a decision record that moved.
+2. On **missing / stale (record) / blocking**, render a one-paragraph markdown note naming the
    state and what it means, then ask via `AskUserQuestion` — never proceed silently:
     - missing → **"Run /nxs.analyze first (Recommended)"** | "Close without analysis"
-    - stale (code) → **"Re-run /nxs.analyze (Recommended)"** | "Proceed with the stale receipt"
     - stale (record) → **"Re-run /nxs.analyze (Recommended)"** | "Proceed against the revised record"
     - blocking → **"Stop and fix the findings (Recommended)"** | "Override and close"
 
-   The two axes take the **same explicit waiver**: a lead who may knowingly proceed on an unanalysed
-   commit may knowingly proceed on a revised record, through the same gate.
+   **Offer no waiver about the analysed commit**, on any path — there is no question there for a
+   lead to answer. A revised decision record is a different thing and keeps its own waiver: the
+   design moved, and a lead may knowingly close against the older analysis.
 3. If the user picks the recommended option, **stop**: tell them to run `/nxs.analyze` (fixing
    findings first, for blocking) and then re-run `/nxs.close`. Do not run the analysis yourself —
    the gate detects, it does not substitute.
 4. If the user picks the proceed option, set the waiver text for the close record's `analyze:`
    frontmatter (Phase 4) and continue — one clause per axis that was waived:
     - missing → `waived — closed without /nxs.analyze (<YYYY-MM-DD>)`
-    - stale (code) → `stale — ran <date> @ <head>, <N> commit(s) unanalyzed; waived <YYYY-MM-DD>`
     - stale (record) → `stale — record #<record> revised since analysis (<stamped-hash> → <current-hash>); waived <YYYY-MM-DD>`
     - blocking → `overridden — <C> critical / <H> high finding(s) open; waived <YYYY-MM-DD>`
 
@@ -1216,10 +1205,12 @@ state, but a closed epic with an open issue misreports the pipeline.
   **explicit user waiver**; never run the analysis from inside close, and never proceed silently. A
   waiver is always recorded in the close record's `analyze:` frontmatter and surfaced in the close
   comment.
-- **Two staleness axes, never collapsed** — the code may have moved after the analysis, the design
-  may have moved after it, or both. Name and report each separately, require the same explicit
-  waiver for each, and never infer one from the other; collapsing them would let a changed design
-  hide behind an unchanged commit.
+- **One staleness axis, and it is the design** — a decision record revised since the analysis is
+  reported and takes an explicit waiver, because the design moved and a lead may knowingly close
+  against the older analysis. The code axis is gone (epic #769): the conformance record is written
+  by the run that saw the merge, so the analysed code and the shipped code are the same code, and
+  no answer about a branch that kept moving afterwards could make the shipped code any different.
+  Never report a state describing the analysed commit as stale, and never offer a waiver for one.
 - **Durable surfaces carry an issue reference, never a queue path** — the close record and the epic's
   close comment both carry the record as `#<record>` plus the full approved-body hash, and each
   recorded deviation names the record issue it deviated from. A queue path on either would dangle the
