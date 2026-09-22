@@ -5,6 +5,24 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.72.0
+
+- **A verdict that names no issues repository is read as belonging to the epic being read, not to
+  its code repository.** The previous release made readers compare the repository a verdict's
+  story numbers belong to before matching a number, and for a verdict published before the key
+  existed it read the code repository the verdict stamps as that answer. In a workspace whose
+  issues and code live in different repositories, that is the wrong answer for every pre-existing
+  verdict: on a live epic, four of five story verdicts were dropped and the epic-level gate refused
+  to run, telling you to re-run the conformance gate on every merged pull request.
+
+  Readers now take the key the verdict states, and nothing else. A verdict that states none is
+  accepted by whichever epic's story it was discovered for, because candidate discovery already
+  tied that pull request to that story. Only a verdict that *states* a different repository is
+  rejected, and it is still named in `rejected` and in the `issues-repo-mismatch` condition, so a
+  dropped verdict is never confused with a missing one. Every verdict published since the gate
+  started writing the key states it, so the accepted-unstated population only shrinks.
+  `/nxs.analyze` and `/nxs.close` say the same.
+
 ## 0.71.0
 
 - **A published verdict's story numbers are now matched only against the repository they belong

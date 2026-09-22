@@ -817,11 +817,19 @@ describe("the issues repository a reader resolves a verdict's story numbers agai
         expect(r.value.issuesRepoRejected).toEqual(["someone-else/docs"]);
     });
 
-    it("drops the live cross-matching verdict, whose numbers fall back to the wrong repository", () => {
-        // geo-nexus/giccp#665: no issues_repo, so its bare #114/117 resolve against giccp, where
-        // both numbers exist as unrelated items. A reader asking about geo-nexus/docs is not
-        // looking at that.
+    it("accepts a key-less verdict read from a workspace whose issues and code differ", () => {
+        // geo-nexus/giccp#641: published before the key existed, from the code repository, for a
+        // story that lives in geo-nexus/docs. The verdict states nothing about where its numbers
+        // live, so the reader asking about geo-nexus/docs takes it — an unknown is not a stamp.
         const r = readWith(published({ repo: "geo-nexus/giccp" }), "geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.issuesRepoRejected).toEqual([]);
+    });
+
+    it("drops a verdict that states the code repository as its issues repository when the reader wants another", () => {
+        const r = readWith(published({ repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/giccp" }), "geo-nexus/docs");
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.found).toBe(false);
@@ -869,18 +877,20 @@ describe("effectiveIssuesRepo / issuesRepoMatches — one rule, both readers (ep
         expect(effectiveIssuesRepo(parse(["issues_repo: geo-nexus/docs", "repo: geo-nexus/giccp"]))).toBe("geo-nexus/docs");
     });
 
-    it("is the code repository the verdict stamps, when it states none", () => {
-        expect(effectiveIssuesRepo(parse(["repo: geo-nexus/giccp"]))).toBe("geo-nexus/giccp");
-    });
-
-    it("is unknown when the verdict states neither — never an assumed repository", () => {
+    it("is unknown when the verdict states none — the code repository it stamps is not a substitute", () => {
+        // A verdict published before the key existed stamps its code repository and says nothing
+        // about where its story numbers live. Reading the stamp as that answer is what rejected the
+        // whole pre-existing population of a workspace whose issues and code differ.
+        expect(effectiveIssuesRepo(parse(["repo: geo-nexus/giccp"]))).toBeNull();
         expect(effectiveIssuesRepo(parse([]))).toBeNull();
     });
 
-    it("accepts on an unknown at either side, and rejects only two known, differing identities", () => {
+    it("accepts on an unknown at either side, and rejects only two stated, differing identities", () => {
         expect(issuesRepoMatches(parse([]), "geo-nexus/docs")).toBe(true);
-        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp"]), null)).toBe(true);
-        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp"]), "")).toBe(true);
-        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp"]), "geo-nexus/docs")).toBe(false);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp"]), "geo-nexus/docs")).toBe(true);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp", "issues_repo: geo-nexus/docs"]), null)).toBe(true);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp", "issues_repo: geo-nexus/docs"]), "")).toBe(true);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp", "issues_repo: github.com/geo-nexus/docs"]), "geo-nexus/docs")).toBe(true);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp", "issues_repo: geo-nexus/giccp"]), "geo-nexus/docs")).toBe(false);
     });
 });

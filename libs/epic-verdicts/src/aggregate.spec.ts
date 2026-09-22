@@ -238,7 +238,7 @@ describe("resolveEpicVerdicts — a candidate rejected for its issues repository
             : { status: 1, stdout: "", stderr: "unexpected" };
 
     it("reports the story as carrying no verdict and names why, rather than leaving the two the same", () => {
-        const r = resolveEpicVerdicts(runner(), {
+        const r = resolveEpicVerdicts(runner("acme/widget"), {
             epic: 212,
             stories: [496],
             candidatesByStory: { 496: [candidate(501)] },
@@ -247,6 +247,18 @@ describe("resolveEpicVerdicts — a candidate rejected for its issues repository
         expect(r.ok).toBe(true);
         if (!r.ok || r.state !== "none") throw new Error(`expected state none, got ${r.ok ? r.state : "error"}`);
         expect(r.rejected).toEqual([{ story: 496, pr: 501, repo: "acme/widget", issuesRepo: "acme/widget" }]);
+    });
+
+    it("accepts a key-less verdict from the member, whose stories live in the hub", () => {
+        const r = resolveEpicVerdicts(runner(), {
+            epic: 212,
+            stories: [496],
+            candidatesByStory: { 496: [candidate(501)] },
+            issuesRepo: "acme/hub",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || r.state !== "aggregate") throw new Error(`expected an aggregate receipt, got ${r.ok ? r.state : "error"}`);
+        expect(r.rejected).toEqual([]);
     });
 
     it("rejects nothing once the verdict names the repository the epic's stories live in", () => {

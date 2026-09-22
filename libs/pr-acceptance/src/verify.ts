@@ -343,15 +343,16 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
 
 /**
  * The repository a verdict's `epic`, `record` and `stories` resolve against, as a reader sees it
- * (epic #751, decision record #764, invariant 5): the key the block states, or the code repository
- * it stamps when it states none. No third source is consulted — one fact with two sources has no
- * rule for a disagreement.
+ * (epic #751, decision record #764, invariant 5): the key the block states, and nothing else.
  *
- * Null is an unknown repository, never an assumed one: a block that states neither key could only
- * ever have been published before either existed.
+ * Null is an unknown repository, never an assumed one. A block that omits the key was published
+ * before the gate wrote it on every publish, and the code repository it stamps says where its pull
+ * request lives, not where its story numbers do — the two differ in exactly the workspace this
+ * comparison exists for. Reading the stamp as the answer rejected every pre-existing verdict on
+ * such a workspace's epics, while a same-repository verdict was accepted for the wrong reason.
  */
 export function effectiveIssuesRepo(receipt: AnalyzeReceipt): string | null {
-    return receipt.issuesRepo ?? receipt.repo;
+    return receipt.issuesRepo;
 }
 
 /**
@@ -359,10 +360,11 @@ export function effectiveIssuesRepo(receipt: AnalyzeReceipt): string | null {
  * a published verdict call (invariant 7), so neither can disagree with the other about the same
  * block.
  *
- * An unknown on either side accepts; only two known, differing identities reject (invariant 6).
- * That is what lets the whole population published before this key existed keep reading exactly as
- * it does today: each omits the key legitimately, because its issues and its code live in the same
- * repository, so the fallback resolves to the repository the reader is already asking about.
+ * An unknown on either side accepts; only two stated, differing identities reject (invariant 6).
+ * That is what lets the whole population published before this key existed keep reading: a
+ * verdict that states nothing about where its numbers live is taken by the reader asking, whose
+ * candidate discovery already tied the pull request to this story. The stamp is written on every
+ * publish now, so this acceptance covers a shrinking population and never a new block.
  * Identity goes through {@link @nexus/workspace/issue-ref!sameRepo}, never string equality, so the
  * bare and host-qualified written forms name the same repository here.
  */

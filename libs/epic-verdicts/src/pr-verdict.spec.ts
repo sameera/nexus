@@ -138,17 +138,31 @@ describe("readPrVerdict — the repository a verdict's story numbers resolve aga
         expect(r.verdict.issuesRepo).toBe(TWO_VERDICT_REPO);
     });
 
-    it("stops with a named condition when the pull request's verdicts belong to another repository's issues", () => {
-        // This is the live defect: the verdicts stamp giccp and name no issues repository, so
-        // their bare #114/117 fall back to giccp — where both numbers exist as unrelated items.
+    it("reads the live key-less verdicts from a checkout whose issues live in another repository", () => {
+        // geo-nexus/giccp#665: the verdicts stamp giccp and name no issues repository. Reading the
+        // stamp as the issues repository rejected every verdict geo-nexus/docs#114's stories carry.
         const r = readAgainst("geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.verdict.found).toBe(true);
+        expect(r.verdict.at).toBe(NEWER_VERDICT_AT);
+    });
+
+    const statedElsewhere = () =>
+        twoVerdictPrPayload({
+            olderBody: verdictBody({ high: 2, nexusVersion: "0.48.0", issuesRepo: "geo-nexus/giccp" }),
+            newerBody: verdictBody({ high: 0, issuesRepo: "geo-nexus/giccp" }),
+        });
+
+    it("stops with a named condition when the pull request's verdicts state another repository's issues", () => {
+        const r = readAgainst("geo-nexus/docs", statedElsewhere());
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("issues-repo-mismatch");
     });
 
     it("names both repositories in that condition, so it is never read as 'analyze never ran'", () => {
-        const r = readAgainst("geo-nexus/docs");
+        const r = readAgainst("geo-nexus/docs", statedElsewhere());
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.message).toContain("geo-nexus/docs");

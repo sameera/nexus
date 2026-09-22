@@ -340,7 +340,7 @@ describe("resolveStoryVerdict — a verdict's story numbers resolve against the 
     });
 
     it("drops the verdict whose numbers belong to the other repository, rather than cross-matching", () => {
-        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp" })) });
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/giccp" })) });
         const r = resolveStoryVerdict(run, {
             epic: 114,
             story: 117,
@@ -353,7 +353,7 @@ describe("resolveStoryVerdict — a verdict's story numbers resolve against the 
     });
 
     it("names the dropped candidate, so 'no verdict' and 'verdict rejected' are never the same report", () => {
-        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp" })) });
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/giccp" })) });
         const r = resolveStoryVerdict(run, {
             epic: 114,
             story: 117,
@@ -363,6 +363,22 @@ describe("resolveStoryVerdict — a verdict's story numbers resolve against the 
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.rejected).toEqual([{ pr: 665, repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/giccp" }]);
+    });
+
+    it("accepts a key-less verdict from the code repository when the reader's issues live elsewhere", () => {
+        // geo-nexus/giccp#641 for geo-nexus/docs#118: published before the key existed. The stamp
+        // says where the code lives, not where the story numbers live, so it is no ground to drop
+        // the verdict from a reader asking about geo-nexus/docs.
+        const run = ghRunner({ 665: pr(block({ epic: "#114", stories: "117", repo: "geo-nexus/giccp" })) });
+        const r = resolveStoryVerdict(run, {
+            epic: 114,
+            story: 117,
+            candidates: [{ pr: 665, repo: CODE, cwd: "/code" }],
+            issuesRepo: "geo-nexus/docs",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || !r.found) throw new Error("expected the verdict to be found");
+        expect(r.rejected).toEqual([]);
     });
 
     it("accepts a key-less verdict whose code repository is the repository the reader is asking about", () => {
