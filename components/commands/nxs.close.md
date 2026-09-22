@@ -347,10 +347,10 @@ if the user opts to analyze first, nothing later in this command should have run
       the PR.
 
       **`issues-repo-mismatch` (exit 1) is not the missing-receipt case.** It means the pull request
-      *does* carry published verdicts, but their story numbers resolve against a different
-      repository than this epic's stories live in (epic #751) — a verdict written before the gate
-      named its issues repository, in a workspace whose issues and code differ. Stop and report the
-      diagnostic verbatim. The way through is re-running `/nxs.analyze --pr <N>` so the pull request
+      *does* carry published verdicts, but every one of them *states* an issues repository other
+      than the one this epic's stories live in (epic #751). A verdict that states none is read as
+      belonging to this epic — the code repository it stamps is not read as its issues repository.
+      Stop and report the diagnostic verbatim. The way through is re-running `/nxs.analyze --pr <N>` so the pull request
       carries a verdict that names where its numbers live; never treat it as "analyze never ran",
       which would send the lead to wait for a run that already happened.
 
@@ -419,8 +419,9 @@ if the user opts to analyze first, nothing later in this command should have run
       was simply absent, e.g. a fresh checkout) — the command has already written it. Re-read it and
       continue as though Phase 1.2 step 1 had found it there.
     Every state also carries `rejected` — the candidate pull requests whose published verdicts were
-    dropped for belonging to another repository's issues (epic #751), each naming its story, its
-    pull request and the repository its numbers resolve against. **When a story appears there, say
+    dropped for *stating* another repository's issues (epic #751), each naming its story, its
+    pull request and the repository it states. A verdict stating none is never listed here; it is
+    accepted as this epic's. **When a story appears there, say
     so instead of reporting it as unanalyzed**: its pull request carries a verdict, and re-running
     `/nxs.analyze --pr <N>` on it is what makes that verdict readable. An empty list is the norm.
 

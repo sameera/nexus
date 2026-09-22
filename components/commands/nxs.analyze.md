@@ -290,10 +290,12 @@ returns one of two states on stdout as JSON:
     present stories would silently under-report the epic.
 
 Every state also carries **`rejected`**: the candidate pull requests whose published verdicts were
-dropped because their bare story numbers resolve against a different repository's issues
-(epic #751). A story named there is not a story nobody analyzed — its pull request carries a
-verdict written before the gate named its issues repository. Report it as such, and name
-`/nxs.analyze --pr <N>` on that pull request as the way through. An empty list is the norm.
+dropped because they *state* an issues repository other than the one this epic's stories live in
+(epic #751). A verdict that states none is accepted — it was published before the gate wrote the
+key, and the code repository it stamps says where its pull request lives, not where its numbers do.
+A story named in `rejected` is not a story nobody analyzed — its pull request carries a verdict
+naming the wrong repository. Report it as such, and name `/nxs.analyze --pr <N>` on that pull
+request as the way through. An empty list is the norm.
 
 Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
 verdict — report it and stop, the same as any other unreadable-record failure in this command.

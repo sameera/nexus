@@ -127,9 +127,10 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
             // either form, still fails here.
             if (receipt.repo !== null && !sameRepo(receipt.repo, expectedRepo)) return false;
             // The story numbers a verdict carries are bare, so they mean nothing until the
-            // repository they resolve against is known (epic #751). A verdict belonging to another
+            // repository they resolve against is known (epic #751). A verdict stating another
             // repository's issues is dropped here — with the other trust checks, before newest-wins
-            // — and named, so this story is not silently reported as carrying no verdict at all.
+            // — and named, so this story is not silently reported as carrying no verdict at all. A
+            // verdict stating none is accepted: its stamp names its code, not its issues.
             if (!issuesRepoMatches(receipt, input.issuesRepo ?? null)) {
                 rejected.push({ pr: candidate.pr, repo: expectedRepo, issuesRepo: effectiveIssuesRepo(receipt) ?? "" });
                 return false;
