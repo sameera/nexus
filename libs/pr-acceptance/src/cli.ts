@@ -333,7 +333,7 @@ function main(): void {
         if (flags.pr === undefined || Number.isNaN(flags.pr)) usage("receipt --pr <N>");
         const ctx = context();
         requireClone(ctx);
-        const r = verifyReceipt(defaultRunner, ctx.clonePath, flags.pr);
+        const r = verifyReceipt(defaultRunner, ctx.clonePath, flags.pr, undefined, null);
         if (!r.ok) die(r.error);
         const evidence = record(
             ctx,

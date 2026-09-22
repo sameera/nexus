@@ -27,7 +27,7 @@ function ghRunner(doc: unknown): Runner {
     };
 }
 
-const read = (doc: unknown) => readPrVerdict(ghRunner(doc), "/repo", TWO_VERDICT_PR, TWO_VERDICT_REPO);
+const read = (doc: unknown) => readPrVerdict(ghRunner(doc), "/repo", TWO_VERDICT_PR, TWO_VERDICT_REPO, TWO_VERDICT_REPO);
 
 describe("readPrVerdict — newest-wins, executed rather than described", () => {
     it("returns the verdict GitHub timestamped later, whatever order the payload returned the two in", () => {
@@ -122,5 +122,52 @@ describe("readPrVerdict — newest-wins, executed rather than described", () => 
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("gh-failed");
+    });
+});
+
+describe("readPrVerdict — the repository a verdict's story numbers resolve against (epic #751)", () => {
+    const readAgainst = (issuesRepo: string, doc: unknown = twoVerdictPrPayload()) =>
+        readPrVerdict(ghRunner(doc), "/repo", TWO_VERDICT_PR, TWO_VERDICT_REPO, issuesRepo);
+
+    it("reads the live key-less verdicts exactly as it does today when issues and code share a repository", () => {
+        const r = readAgainst(TWO_VERDICT_REPO);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.verdict.found).toBe(true);
+        expect(r.verdict.at).toBe(NEWER_VERDICT_AT);
+        expect(r.verdict.issuesRepo).toBe(TWO_VERDICT_REPO);
+    });
+
+    it("stops with a named condition when the pull request's verdicts belong to another repository's issues", () => {
+        // This is the live defect: the verdicts stamp giccp and name no issues repository, so
+        // their bare #114/117 fall back to giccp — where both numbers exist as unrelated items.
+        const r = readAgainst("geo-nexus/docs");
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("issues-repo-mismatch");
+    });
+
+    it("names both repositories in that condition, so it is never read as 'analyze never ran'", () => {
+        const r = readAgainst("geo-nexus/docs");
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.message).toContain("geo-nexus/docs");
+        expect(r.error.message).toContain("geo-nexus/giccp");
+    });
+
+    it("accepts a verdict that states the issues repository the caller is reading", () => {
+        const doc = twoVerdictPrPayload({ newerBody: verdictBody({ high: 0, issuesRepo: "geo-nexus/docs" }) });
+        const r = readAgainst("geo-nexus/docs", doc);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.verdict.found).toBe(true);
+        expect(r.verdict.receipt?.issuesRepo).toBe("geo-nexus/docs");
+    });
+
+    it("reports a pull request that simply carries no verdict as found: false, not as a mismatch", () => {
+        const r = readAgainst("geo-nexus/docs", { state: "OPEN", reviews: [], comments: [], headRefOid: "f".repeat(40) });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.verdict.found).toBe(false);
     });
 });

@@ -62,9 +62,21 @@ describe("/nxs.analyze loads the shared skill and qualifies references on the PR
         expect(ANALYZE).toContain("STORY <story-ref> <title>");
     });
 
-    it("stamps issues_repo beside repo in the PR-review machine block, omitted when they match", () => {
+    it("stamps issues_repo beside repo in the PR-review machine block, on every publish (epic #751)", () => {
         expect(ANALYZE).toMatch(/issues_repo: <ISSUES_REPO>[^\n]*where epic\/record\/stories live/);
-        expect(ANALYZE).toMatch(/OMIT.*whenever it equals `repo`/s);
+        expect(ANALYZE).toMatch(/ALWAYS written, never omitted/);
+    });
+
+    it("no longer carries the omit-when-equal rule the cross-matching verdict was written under", () => {
+        expect(ANALYZE).not.toMatch(/OMIT.*whenever it equals `repo`/s);
+    });
+
+    it("hands the drafted body to the pre-publish check before either publish path", () => {
+        expect(ANALYZE).toContain('nexus verdict-check --body "<scratch>/analyze-review.md" --dir "$wtPath"');
+        const checkAt = ANALYZE.indexOf("nexus verdict-check");
+        expect(checkAt).toBeGreaterThan(-1);
+        expect(checkAt).toBeLessThan(ANALYZE.indexOf("gh pr review <N> -R <repoIdentity> --approve"));
+        expect(checkAt).toBeLessThan(ANALYZE.indexOf("gh pr comment <N> -R <repoIdentity>"));
     });
 
     it("carries -R <repoIdentity> on every gh pr review / gh pr comment call (the secondary bug)", () => {

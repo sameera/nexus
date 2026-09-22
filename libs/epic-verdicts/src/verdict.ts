@@ -10,9 +10,13 @@
  * deprioritized: a closed-unmerged PR's code never shipped. Recency is GitHub's own submission
  * timestamp (`submittedAt` / `createdAt`), never a date written in the block body, so the newest
  * survivor across every candidate — not just within one PR — wins.
+ *
+ * A verdict's story numbers are bare, so the repository they resolve against is a trust check too
+ * (epic #751): a candidate whose verdict belongs to another repository's issues is dropped with the
+ * rest, before newest-wins, and named on the way out.
  */
 
-import { type AnalyzeReceipt, parseReceiptBlock } from "@nexus/pr-acceptance/verify";
+import { type AnalyzeReceipt, effectiveIssuesRepo, issuesRepoMatches, parseReceiptBlock } from "@nexus/pr-acceptance/verify";
 import { collectReceiptBlocks, newestReceiptBlock } from "@nexus/pr-acceptance/receipt-blocks";
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { issueRefsMatch, sameRepo } from "@nexus/workspace/issue-ref";
@@ -29,9 +33,23 @@ export interface StoryVerdict {
     receipt: AnalyzeReceipt;
 }
 
+/**
+ * A candidate pull request whose published verdict was dropped because its bare story numbers
+ * resolve against another repository's issues (epic #751, invariant 9). Reported rather than
+ * silently discarded, so a story that carries no verdict is never indistinguishable from a story
+ * whose verdict was rejected.
+ */
+export interface RejectedCandidate {
+    pr: number;
+    /** The code repository the candidate lives in. */
+    repo: string;
+    /** The issues repository the dropped verdict's story numbers resolve against. */
+    issuesRepo: string;
+}
+
 export type ResolveStoryVerdictResult =
-    | { ok: true; found: true; verdict: StoryVerdict; survivors: StoryVerdict[] }
-    | { ok: true; found: false; candidates: number[] }
+    | { ok: true; found: true; verdict: StoryVerdict; survivors: StoryVerdict[]; rejected: RejectedCandidate[] }
+    | { ok: true; found: false; candidates: number[]; rejected: RejectedCandidate[] }
     | { ok: false; error: EpicVerdictsDiagnostic };
 
 /**
@@ -50,6 +68,13 @@ export interface ResolveStoryVerdictInput {
     epic: number;
     story: number;
     candidates: StoryPrCandidate[];
+    /**
+     * The repository this story's number belongs to. A verdict whose own effective issues
+     * repository differs is another repository's verdict and is dropped (epic #751). Null is an
+     * unknown, and an unknown accepts — a single-repo checkout has no second repository for a
+     * number to collide in.
+     */
+    issuesRepo?: string | null;
 }
 
 /**
@@ -65,6 +90,7 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
     // One verdict per candidate pull request — a PR may carry more than one matching review or
     // comment over time (repeated analyze runs), so only its own latest represents it.
     const perCandidate = new Map<string, { at: string; verdict: StoryVerdict }>();
+    const rejected: RejectedCandidate[] = [];
 
     for (const candidate of input.candidates) {
         const expectedRepo = `${candidate.repo.owner}/${candidate.repo.repo}`.toLowerCase();
@@ -99,7 +125,16 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
             // gate stamps the host-qualified form and this reader knows the bare one, and the two
             // name the same repository (epic #747). A stamp naming a different repository, in
             // either form, still fails here.
-            return receipt.repo === null || sameRepo(receipt.repo, expectedRepo);
+            if (receipt.repo !== null && !sameRepo(receipt.repo, expectedRepo)) return false;
+            // The story numbers a verdict carries are bare, so they mean nothing until the
+            // repository they resolve against is known (epic #751). A verdict belonging to another
+            // repository's issues is dropped here — with the other trust checks, before newest-wins
+            // — and named, so this story is not silently reported as carrying no verdict at all.
+            if (!issuesRepoMatches(receipt, input.issuesRepo ?? null)) {
+                rejected.push({ pr: candidate.pr, repo: expectedRepo, issuesRepo: effectiveIssuesRepo(receipt) ?? "" });
+                return false;
+            }
+            return true;
         });
 
         // Newest matching receipt per candidate pull request, by the same shared ordering step the
@@ -122,12 +157,12 @@ export function resolveStoryVerdict(run: Runner, input: ResolveStoryVerdictInput
         });
     }
 
-    if (perCandidate.size === 0) return { ok: true, found: false, candidates: input.candidates.map((c) => c.pr) };
+    if (perCandidate.size === 0) return { ok: true, found: false, candidates: input.candidates.map((c) => c.pr), rejected };
 
     let best: { at: string; verdict: StoryVerdict } | null = null;
     for (const entry of perCandidate.values()) {
         if (best === null || entry.at.localeCompare(best.at) > 0) best = entry;
     }
 
-    return { ok: true, found: true, verdict: best!.verdict, survivors: [...perCandidate.values()].map((e) => e.verdict) };
+    return { ok: true, found: true, verdict: best!.verdict, survivors: [...perCandidate.values()].map((e) => e.verdict), rejected };
 }

@@ -203,3 +203,61 @@ describe("resolveEpicVerdicts — derive the epic receipt from the story verdict
         expect(r.verdicts[0].repo).toBe("acme/member-app");
     });
 });
+
+describe("resolveEpicVerdicts — a candidate rejected for its issues repository is named (epic #751)", () => {
+    const head = "a".repeat(40);
+
+    /** A verdict published from the member's own repository, with or without the key. */
+    function memberPrView(story: number, pr: number, issuesRepo?: string) {
+        const body = [
+            "<!-- nexus:analyze-receipt -->",
+            "```yaml",
+            'epic: "#212"',
+            ...(issuesRepo === undefined ? [] : [`issues_repo: ${issuesRepo}`]),
+            "repo: acme/widget",
+            `pr: ${pr}`,
+            "date: 2026-09-01",
+            `head: ${head}`,
+            "mode: full",
+            "findings: { critical: 0, high: 0, medium: 0, low: 0 }",
+            `stories: [${story}]`,
+            "```",
+        ].join("\n");
+        return {
+            state: "OPEN",
+            headRefOid: head,
+            baseRefOid: "b".repeat(40),
+            reviews: [{ body, submittedAt: "2026-09-01T00:00:00Z" }],
+            comments: [],
+        };
+    }
+
+    const runner = (issuesRepo?: string): Runner => (cmd, args) =>
+        cmd === "gh" && args[0] === "pr" && args[1] === "view"
+            ? { status: 0, stdout: JSON.stringify(memberPrView(496, 501, issuesRepo)), stderr: "" }
+            : { status: 1, stdout: "", stderr: "unexpected" };
+
+    it("reports the story as carrying no verdict and names why, rather than leaving the two the same", () => {
+        const r = resolveEpicVerdicts(runner(), {
+            epic: 212,
+            stories: [496],
+            candidatesByStory: { 496: [candidate(501)] },
+            issuesRepo: "acme/hub",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || r.state !== "none") throw new Error(`expected state none, got ${r.ok ? r.state : "error"}`);
+        expect(r.rejected).toEqual([{ story: 496, pr: 501, repo: "acme/widget", issuesRepo: "acme/widget" }]);
+    });
+
+    it("rejects nothing once the verdict names the repository the epic's stories live in", () => {
+        const r = resolveEpicVerdicts(runner("acme/hub"), {
+            epic: 212,
+            stories: [496],
+            candidatesByStory: { 496: [candidate(501)] },
+            issuesRepo: "acme/hub",
+        });
+        expect(r.ok).toBe(true);
+        if (!r.ok || r.state !== "aggregate") throw new Error("expected an aggregate receipt");
+        expect(r.rejected).toEqual([]);
+    });
+});

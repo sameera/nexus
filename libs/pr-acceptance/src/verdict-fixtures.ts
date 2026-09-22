@@ -42,6 +42,8 @@ export interface VerdictBodyOptions {
     /** Omitted by the later of the two live blocks. */
     nexusVersion?: string;
     repo?: string;
+    /** The issues repository the block names, when it names one (epic #751). */
+    issuesRepo?: string;
     pr?: number;
     /** The counts the prose above the block states, when they are made to disagree with it. */
     proseHigh?: number;
@@ -60,6 +62,7 @@ export function verdictBody(opts: VerdictBodyOptions): string {
         "```yaml",
         `epic: "#${TWO_VERDICT_EPIC}"`,
         ...(opts.nexusVersion === undefined ? [] : [`nexus_version: ${opts.nexusVersion}`]),
+        ...(opts.issuesRepo === undefined ? [] : [`issues_repo: ${opts.issuesRepo}`]),
         `repo: ${opts.repo ?? TWO_VERDICT_REPO}`,
         `stories: [${TWO_VERDICT_STORY}]`,
         `pr: ${opts.pr ?? TWO_VERDICT_PR}`,

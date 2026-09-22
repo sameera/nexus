@@ -4,6 +4,8 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
     changedFileSet,
     deriveRangeViaHelper,
+    effectiveIssuesRepo,
+    issuesRepoMatches,
     parseReceiptBlock,
     prChangedFiles,
     prEndpoints,
@@ -425,7 +427,7 @@ describe("verifyReceipt", () => {
         const run = fakeRunner([
             view({ reviews: [], comments: [{ body: body(head), createdAt: "2026-07-25T10:00:00Z" }], headRefOid: head }),
         ]);
-        const r = verifyReceipt(run, "/clone", 13);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.found).toBe(true);
@@ -437,7 +439,7 @@ describe("verifyReceipt", () => {
         const run = fakeRunner([
             view({ reviews: [{ body: body(head), submittedAt: "2026-07-25T10:00:00Z" }], comments: [], headRefOid: head }),
         ]);
-        const r = verifyReceipt(run, "/clone", 13);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
         expect(r.ok && r.value.source).toBe("review");
     });
 
@@ -453,7 +455,7 @@ describe("verifyReceipt", () => {
                 headRefOid: newer,
             }),
         ]);
-        const r = verifyReceipt(run, "/clone", 13);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.receipt?.head).toBe(newer);
@@ -465,7 +467,7 @@ describe("verifyReceipt", () => {
         const run = fakeRunner([
             view({ reviews: [], comments: [{ body: body(head), createdAt: "2026-07-25T10:00:00Z" }], headRefOid: later }),
         ]);
-        const r = verifyReceipt(run, "/clone", 13);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.current).toBe(false);
@@ -475,7 +477,7 @@ describe("verifyReceipt", () => {
 
     it("reports a PR with no receipt at all rather than failing", () => {
         const run = fakeRunner([view({ reviews: [], comments: [{ body: "nice work", createdAt: "x" }], headRefOid: head })]);
-        const r = verifyReceipt(run, "/clone", 13);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.found).toBe(false);
@@ -493,7 +495,7 @@ describe("verifyReceipt", () => {
                 headRefOid: head,
             }),
         ]);
-        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget", null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.found).toBe(true);
@@ -508,7 +510,7 @@ describe("verifyReceipt", () => {
                 headRefOid: head,
             }),
         ]);
-        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget", null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.found).toBe(false);
@@ -525,7 +527,7 @@ describe("verifyReceipt", () => {
                 headRefOid: head,
             }),
         ]);
-        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget", null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.found).toBe(true);
@@ -546,7 +548,7 @@ describe("verifyReceipt", () => {
                     headRefOid: head,
                 }),
             ]);
-            const r = verifyReceipt(run, "/clone", 7, expected);
+            const r = verifyReceipt(run, "/clone", 7, expected, null);
             expect(r.ok).toBe(true);
             if (!r.ok) return;
             expect(r.value.found, `${stamped} vs ${expected}`).toBe(true);
@@ -561,7 +563,7 @@ describe("verifyReceipt", () => {
                 headRefOid: head,
             }),
         ]);
-        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget");
+        const r = verifyReceipt(run, "/clone", 7, "github.com/acme/widget", null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.found).toBe(false);
@@ -571,7 +573,7 @@ describe("verifyReceipt", () => {
         const run = fakeRunner([
             view({ reviews: [], comments: [{ body: `${RECEIPT_MARKER}\ngarbage`, createdAt: "x" }], headRefOid: head }),
         ]);
-        const r = verifyReceipt(run, "/clone", 13);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("receipt-malformed");
@@ -579,12 +581,12 @@ describe("verifyReceipt", () => {
 
     it("surfaces a gh failure", () => {
         const run = fakeRunner([{ match: "gh pr view", result: { status: 1, stderr: "boom" } }]);
-        expect(verifyReceipt(run, "/clone", 13).ok).toBe(false);
+        expect(verifyReceipt(run, "/clone", 13, undefined, null).ok).toBe(false);
     });
 
     it("surfaces unparseable gh output", () => {
         const run = fakeRunner([{ match: "gh pr view", result: { stdout: "<html>" } }]);
-        const r = verifyReceipt(run, "/clone", 13);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("gh-failed");
@@ -593,7 +595,7 @@ describe("verifyReceipt", () => {
 
 describe("verifyReceipt on the live two-verdict pull request (epic #747)", () => {
     const view = (doc: unknown): Route => ({ match: "gh pr view", result: { stdout: JSON.stringify(doc) } });
-    const read = (doc: unknown) => verifyReceipt(fakeRunner([view(doc)]), "/clone", TWO_VERDICT_PR, TWO_VERDICT_REPO);
+    const read = (doc: unknown) => verifyReceipt(fakeRunner([view(doc)]), "/clone", TWO_VERDICT_PR, TWO_VERDICT_REPO, null);
 
     it("selects the verdict GitHub timestamped later, even though the payload returned it last and it omits the toolkit-version key", () => {
         const r = read(twoVerdictPrPayload());
@@ -658,7 +660,7 @@ describe("verifyReceipt on the live two-verdict pull request (epic #747)", () =>
             view(twoVerdictPrPayload()),
             { match: "git rev-list", result: { stdout: "3\n" } },
         ]);
-        const r = verifyReceipt(run, "/clone", TWO_VERDICT_PR, TWO_VERDICT_REPO);
+        const r = verifyReceipt(run, "/clone", TWO_VERDICT_PR, TWO_VERDICT_REPO, null);
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.value.current).toBe(false);
@@ -748,5 +750,137 @@ describe("the analyze receipt's writer stamp (story #306)", () => {
         const other = parseReceiptBlock(block(['epic: "#10"', "nexus_version: 99.0.0", "pr: 13", `head: ${head}`, "mode: full", "record_hash: " + "f".repeat(64)]));
         expect(other?.head).toBe(head);
         expect(other?.nexusVersion).toBe("99.0.0");
+    });
+});
+
+describe("the issues repository a reader resolves a verdict's story numbers against (epic #751)", () => {
+    const head = "d".repeat(40);
+    const view = (doc: unknown): Route => ({ match: "gh pr view", result: { stdout: JSON.stringify(doc) } });
+
+    /** One published verdict, with or without the key that names where its story numbers live. */
+    const published = (opts: { repo?: string; issuesRepo?: string; at?: string }) =>
+        [
+            "summary",
+            "",
+            RECEIPT_MARKER,
+            "```yaml",
+            'epic: "#114"',
+            ...(opts.issuesRepo === undefined ? [] : [`issues_repo: ${opts.issuesRepo}`]),
+            ...(opts.repo === undefined ? [] : [`repo: ${opts.repo}`]),
+            "stories: [117]",
+            "pr: 7",
+            "date: 2026-09-15",
+            `head: ${head}`,
+            "mode: full",
+            "findings: { critical: 0, high: 0, medium: 0, low: 0 }",
+            "```",
+        ].join("\n");
+
+    const readWith = (body: string, expectedIssuesRepo: string | null) =>
+        verifyReceipt(
+            fakeRunner([view({ reviews: [], comments: [{ body, createdAt: "2026-09-15T10:00:00Z" }], headRefOid: head })]),
+            "/clone",
+            7,
+            "geo-nexus/giccp",
+            expectedIssuesRepo,
+        );
+
+    it("resolves a key-less verdict's numbers against the code repository it stamps, and accepts it", () => {
+        // The whole population published before this key existed: issues and code in one repo.
+        const r = readWith(published({ repo: "geo-nexus/giccp" }), "geo-nexus/giccp");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.issuesRepoRejected).toEqual([]);
+    });
+
+    it("never rejects a verdict merely for naming no issues repository", () => {
+        const r = readWith(published({ repo: "geo-nexus/giccp" }), null);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+    });
+
+    it("matches the story against the repository the verdict names, not the one its code lives in", () => {
+        const r = readWith(published({ repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/docs" }), "geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.receipt?.stories).toEqual([117]);
+    });
+
+    it("drops a verdict whose story numbers belong to another repository, and names it", () => {
+        const r = readWith(published({ repo: "geo-nexus/giccp", issuesRepo: "someone-else/docs" }), "geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(false);
+        expect(r.value.issuesRepoRejected).toEqual(["someone-else/docs"]);
+    });
+
+    it("drops the live cross-matching verdict, whose numbers fall back to the wrong repository", () => {
+        // geo-nexus/giccp#665: no issues_repo, so its bare #114/117 resolve against giccp, where
+        // both numbers exist as unrelated items. A reader asking about geo-nexus/docs is not
+        // looking at that.
+        const r = readWith(published({ repo: "geo-nexus/giccp" }), "geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(false);
+        expect(r.value.issuesRepoRejected).toEqual(["geo-nexus/giccp"]);
+    });
+
+    it("accepts whatever a verdict states when the reader does not know which repository it wants", () => {
+        const r = readWith(published({ repo: "geo-nexus/giccp", issuesRepo: "someone-else/docs" }), null);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+    });
+
+    it("compares identity through the shared rule, across both written forms", () => {
+        const r = readWith(published({ repo: "geo-nexus/giccp", issuesRepo: "github.com/geo-nexus/docs" }), "geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+    });
+
+    it("runs before newest-wins, so a newer verdict from elsewhere cannot shadow this one", () => {
+        const run = fakeRunner([
+            view({
+                reviews: [],
+                comments: [
+                    { body: published({ repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/docs" }), createdAt: "2026-09-15T09:00:00Z" },
+                    { body: published({ repo: "geo-nexus/giccp", issuesRepo: "someone-else/docs" }), createdAt: "2026-09-15T11:00:00Z" },
+                ],
+                headRefOid: head,
+            }),
+        ]);
+        const r = verifyReceipt(run, "/clone", 7, "geo-nexus/giccp", "geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.value.found).toBe(true);
+        expect(r.value.at).toBe("2026-09-15T09:00:00Z");
+    });
+});
+
+describe("effectiveIssuesRepo / issuesRepoMatches — one rule, both readers (epic #751)", () => {
+    const parse = (lines: string[]) =>
+        parseReceiptBlock([RECEIPT_MARKER, "```yaml", `head: ${"d".repeat(40)}`, ...lines, "```"].join("\n"))!;
+
+    it("is the key the verdict states, when it states one", () => {
+        expect(effectiveIssuesRepo(parse(["issues_repo: geo-nexus/docs", "repo: geo-nexus/giccp"]))).toBe("geo-nexus/docs");
+    });
+
+    it("is the code repository the verdict stamps, when it states none", () => {
+        expect(effectiveIssuesRepo(parse(["repo: geo-nexus/giccp"]))).toBe("geo-nexus/giccp");
+    });
+
+    it("is unknown when the verdict states neither — never an assumed repository", () => {
+        expect(effectiveIssuesRepo(parse([]))).toBeNull();
+    });
+
+    it("accepts on an unknown at either side, and rejects only two known, differing identities", () => {
+        expect(issuesRepoMatches(parse([]), "geo-nexus/docs")).toBe(true);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp"]), null)).toBe(true);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp"]), "")).toBe(true);
+        expect(issuesRepoMatches(parse(["repo: geo-nexus/giccp"]), "geo-nexus/docs")).toBe(false);
     });
 });

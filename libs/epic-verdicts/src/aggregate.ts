@@ -14,12 +14,16 @@
  * shipping without its own pull request — is removed from the coverage requirement entirely before
  * this classification runs, and is named on the receipt as excluded rather than as present or
  * missing.
+ *
+ * `rejected` carries every candidate dropped because its verdict's story numbers belong to another
+ * repository's issues (epic #751, invariant 9), so a story reported as missing is never
+ * indistinguishable from a story whose verdict was rejected.
  */
 
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { buildEpicReceipt, type EpicReceipt } from "./receipt.js";
 import { type Runner } from "./run.js";
-import { resolveStoryVerdict, type StoryPrCandidate, type StoryVerdict } from "./verdict.js";
+import { resolveStoryVerdict, type RejectedCandidate, type StoryPrCandidate, type StoryVerdict } from "./verdict.js";
 
 export interface ResolveEpicVerdictsInput {
     epic: number;
@@ -28,14 +32,27 @@ export interface ResolveEpicVerdictsInput {
     candidatesByStory: Record<number, StoryPrCandidate[]>;
     /** Stories marked as shipping without their own pull request — excluded from coverage. */
     excludedStories?: number[];
-    /** The repository the epic issue lives in, passed through to {@link buildEpicReceipt}. */
+    /**
+     * The repository the epic issue lives in. Passed through to {@link buildEpicReceipt}, and to
+     * each story's reader as the repository its bare numbers resolve against (epic #751).
+     */
     issuesRepo?: string | null;
 }
 
+/** A dropped candidate, carried out with the story whose verdict it would have been. */
+export type RejectedStoryCandidate = RejectedCandidate & { story: number };
+
 export type ResolveEpicVerdictsResult =
-    | { ok: true; state: "aggregate"; receipt: EpicReceipt; verdicts: StoryVerdict[]; changeSetVerdicts: StoryVerdict[] }
-    | { ok: true; state: "none" }
-    | { ok: true; state: "partial"; missing: number[]; present: number[] }
+    | {
+          ok: true;
+          state: "aggregate";
+          receipt: EpicReceipt;
+          verdicts: StoryVerdict[];
+          changeSetVerdicts: StoryVerdict[];
+          rejected: RejectedStoryCandidate[];
+      }
+    | { ok: true; state: "none"; rejected: RejectedStoryCandidate[] }
+    | { ok: true; state: "partial"; missing: number[]; present: number[]; rejected: RejectedStoryCandidate[] }
     | { ok: false; error: EpicVerdictsDiagnostic };
 
 /**
@@ -55,11 +72,13 @@ export function resolveEpicVerdicts(run: Runner, input: ResolveEpicVerdictsInput
     const changeSetVerdicts: StoryVerdict[] = [];
     const missing: number[] = [];
     const present: number[] = [];
+    const rejected: RejectedStoryCandidate[] = [];
 
     for (const story of required) {
         const candidates = input.candidatesByStory[story] ?? [];
-        const r = resolveStoryVerdict(run, { epic: input.epic, story, candidates });
+        const r = resolveStoryVerdict(run, { epic: input.epic, story, candidates, issuesRepo: input.issuesRepo });
         if (!r.ok) return r;
+        rejected.push(...r.rejected.map((c) => ({ ...c, story })));
         if (r.found) {
             verdicts.push(r.verdict);
             changeSetVerdicts.push(...r.survivors);
@@ -69,8 +88,8 @@ export function resolveEpicVerdicts(run: Runner, input: ResolveEpicVerdictsInput
         }
     }
 
-    if (present.length === 0) return { ok: true, state: "none" };
-    if (missing.length > 0) return { ok: true, state: "partial", missing, present };
+    if (present.length === 0) return { ok: true, state: "none", rejected };
+    if (missing.length > 0) return { ok: true, state: "partial", missing, present, rejected };
     const receipt = buildEpicReceipt(input.epic, verdicts, excluded, { issuesRepo: input.issuesRepo });
-    return { ok: true, state: "aggregate", receipt, verdicts, changeSetVerdicts };
+    return { ok: true, state: "aggregate", receipt, verdicts, changeSetVerdicts, rejected };
 }

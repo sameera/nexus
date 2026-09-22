@@ -11,7 +11,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildBundle } from "./bundle";
-import { DISPATCH_NAMES, runNexusCli, VERB_NAMES, type CliIo } from "./nexus-cli";
+import { DISPATCH_NAMES, epicVerdictsPayload, runNexusCli, VERB_NAMES, type CliIo } from "./nexus-cli";
 import { copyComponentTree, COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components";
 
 let tmpDirs: string[] = [];
@@ -1402,5 +1402,42 @@ describe("nexus trunk", () => {
     it("is a registered verb", () => {
         expect(VERB_NAMES).toContain("trunk");
         expect(DISPATCH_NAMES).toContain("trunk");
+    });
+});
+
+describe("nexus epic-verdicts — every state names the candidates it rejected (epic #751)", () => {
+    const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
+    const read = (name: string): string => fs.readFileSync(path.join(REPO_ROOT, "components", "commands", name), "utf8");
+
+    const candidate = { story: 117, pr: 665, repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/docs" };
+
+    it("carries rejected in every state the verb prints, not only the two that were remembered", () => {
+        for (const state of ["none", "partial", "aggregate"] as const) {
+            expect(epicVerdictsPayload(751, state, [])).toHaveProperty("rejected", []);
+        }
+    });
+
+    it("keeps rejected when a state supplies fields of its own", () => {
+        const payload = epicVerdictsPayload(751, "aggregate", [candidate], { outPath: "/tmp/r.md", receipt: { epic: "#751" } });
+        expect(payload["rejected"]).toEqual([candidate]);
+        expect(payload["outPath"]).toBe("/tmp/r.md");
+        expect(payload["state"]).toBe("aggregate");
+        expect(payload["epic"]).toBe(751);
+    });
+
+    it("never lets a state's own field shadow rejected", () => {
+        const payload = epicVerdictsPayload(751, "aggregate", [candidate], { rejected: [] });
+        expect(payload["rejected"]).toEqual([candidate]);
+    });
+
+    it("pins the promise both stage prompts make about rejected", () => {
+        expect(read("nxs.analyze.md")).toContain("Every state also carries **`rejected`**");
+        expect(read("nxs.close.md")).toContain("Every state also carries `rejected`");
+    });
+
+    it("pins that the close stage reads issues-repo-mismatch as its own condition, not a missing receipt", () => {
+        const close: string = read("nxs.close.md");
+        expect(close).toContain("`issues-repo-mismatch` (exit 1) is not the missing-receipt case");
+        expect(close).toContain("never treat it as \"analyze never ran\"");
     });
 });

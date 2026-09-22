@@ -34,13 +34,15 @@ import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-res
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
 import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/epic-resolve/planning-dir";
-import { resolveEpicVerdicts, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
+import { resolveEpicVerdicts, type RejectedStoryCandidate, type ResolveEpicVerdictsResult } from "@nexus/epic-verdicts/aggregate";
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { checkEpicCurrency } from "@nexus/epic-verdicts/currency";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
+import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
+import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 import { type StoryPrCandidate } from "@nexus/epic-verdicts/verdict";
 import { EPIC_RECEIPT_FILENAME, readEpicReceipt, writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
@@ -299,9 +301,24 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      { command, pr, repo, found, source, at, current, staleNote, receipt }. Applies",
             "      maintainer authorship, repository trust, the pull-request match and newest-wins",
             "      by GitHub's own timestamp — never a date, a key count or the prose in a block.",
-            "      --repo is required: it is the repository the trust check runs against.",
+            "      --repo is required: it is the repository the trust check runs against. The",
+            "      repository the verdict's story numbers resolve against is resolved from the",
+            "      checkout, never asked for; a verdict belonging to another repository's issues",
+            "      exits 1 as issues-repo-mismatch rather than reporting no verdict at all.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runPrVerdict(argv, io)),
+    },
+    "verdict-check": {
+        summary: "Check a drafted analyze verdict names the repository its story numbers resolve against, before it is published.",
+        usage: [
+            "  nexus verdict-check --body <path> [--dir <startDir>]",
+            "      Resolve this checkout's issues repository and the analyzed pull request's code",
+            "      repository, parse the drafted body with the same parser readers use, and approve",
+            "      it or refuse. Prints { command, issuesRepo, repo } on approval. Exits 1 when the",
+            "      body names no issues repository or names the wrong one, naming the value it should",
+            "      have carried. Both repositories are resolved here, never taken as arguments.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runVerdictCheck(argv, io)),
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -1442,13 +1459,20 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         return 1;
     }
 
+    // A candidate dropped for belonging to another repository's issues is named here (epic #751,
+    // invariant 9): a story reported as carrying no verdict must never be indistinguishable from a
+    // story whose verdict was rejected.
     if (result.state === "none") {
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "none" }));
+        io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "none", result.rejected)));
         return 0;
     }
 
     if (result.state === "partial") {
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "partial", missing: result.missing, present: result.present }));
+        io.stdout(
+            JSON.stringify(
+                epicVerdictsPayload(flags.epic, "partial", result.rejected, { missing: result.missing, present: result.present }),
+            ),
+        );
         return 0;
     }
 
@@ -1463,7 +1487,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             currentRecordDigest = record.record.digest;
         }
         const currency = checkEpicCurrency(closeMigrationRunner, root, result.verdicts, { currentRecordDigest });
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...currency }));
+        io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", result.rejected, { ...currency })));
         return 0;
     }
 
@@ -1473,14 +1497,34 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             io.stderr(`epic-verdicts ${combined.error.problem}: ${combined.error.message}`);
             return 1;
         }
-        io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", ...combined.combined }));
+        io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", result.rejected, { ...combined.combined })));
         return 0;
     }
 
     const dir = path.dirname(defaultOutPath(root, flags.epic));
     const outPath = writeEpicReceipt(dir, result.receipt, { date: new Date().toISOString().slice(0, 10) });
-    io.stdout(JSON.stringify({ epic: flags.epic, state: "aggregate", outPath, receipt: result.receipt }));
+    io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", result.rejected, { outPath, receipt: result.receipt })));
     return 0;
+}
+
+/**
+ * The one shape every `epic-verdicts` state is printed in (epic #751, invariant 9).
+ *
+ * A candidate dropped because its verdict's story numbers resolve against another repository's
+ * issues is named on the way out, so a story reported as carrying no verdict is never
+ * indistinguishable from a story whose verdict was rejected. Both stage prompts tell their reader
+ * that every state carries `rejected`, and the resolver computes it for every state. Spreading it
+ * per branch is what let three of the five branches drop it while two kept it: the field was
+ * remembered rather than checked. Building the payload here means a new state cannot omit it, and
+ * `rejected` is written last so a branch's own fields can never shadow it.
+ */
+export function epicVerdictsPayload(
+    epic: number,
+    state: "none" | "partial" | "aggregate",
+    rejected: RejectedStoryCandidate[],
+    rest: Record<string, unknown> = {},
+): Record<string, unknown> {
+    return { epic, state, ...rest, rejected };
 }
 
 interface PrVerdictFlags {
@@ -1518,12 +1562,65 @@ function runPrVerdict(argv: string[], io: CliIo): number {
         return 2;
     }
 
-    const result = readPrVerdict(closeMigrationRunner, flags.dir ?? io.cwd, flags.pr, flags.repo.trim());
+    // The repository the verdict's bare story numbers resolve against is resolved here, not asked
+    // for (epic #751, invariant 4): the configured issues repository, or this checkout's own when
+    // none is configured, so it is never empty and a caller cannot leave the comparison inert. A
+    // resolver failure stops the run.
+    const cwd = flags.dir ?? io.cwd;
+    const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+    if (!repos.ok) {
+        io.stderr(`pr-verdict ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+
+    const result = readPrVerdict(closeMigrationRunner, cwd, flags.pr, flags.repo.trim(), repos.repos.issuesRepo);
     if (!result.ok) {
         io.stderr(`pr-verdict ${result.error.problem}: ${result.error.message}`);
         return 1;
     }
     io.stdout(JSON.stringify({ command: "pr-verdict", ...result.verdict }));
+    return 0;
+}
+
+interface VerdictCheckFlags {
+    body?: string;
+    dir?: string;
+}
+
+function parseVerdictCheckFlags(argv: string[]): VerdictCheckFlags {
+    const flags: VerdictCheckFlags = {};
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--body") flags.body = argv[++i];
+        else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
+    }
+    return flags;
+}
+
+/**
+ * `nexus verdict-check` — the publish boundary of the conformance gate (epic #751, decision
+ * record #764). The gate drafts the verdict, hands the exact bytes here, and publishes only what
+ * this approves; a refusal is a failure of the publish step, not a warning to write around.
+ */
+function runVerdictCheck(argv: string[], io: CliIo): number {
+    const flags = parseVerdictCheckFlags(argv);
+    if (flags.body === undefined || flags.body.trim().length === 0) {
+        io.stderr("usage: nexus verdict-check --body <path> [--dir <startDir>]");
+        return 2;
+    }
+    let body: string;
+    try {
+        body = fs.readFileSync(flags.body, "utf8");
+    } catch (e) {
+        io.stderr(`verdict-check body-unreadable: ${flags.body} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+        return 1;
+    }
+
+    const result = checkVerdictPublish(closeMigrationRunner, flags.dir ?? io.cwd, body);
+    if (!result.ok) {
+        io.stderr(`verdict-check ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ command: "verdict-check", ...result.repos }));
     return 0;
 }
 

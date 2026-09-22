@@ -5,6 +5,48 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.71.0
+
+- **A published verdict's story numbers are now matched only against the repository they belong
+  to.** A verdict names the stories it covers as bare numbers, and every reader matched them by
+  number alone. Where an epic's issues live in one repository and its code in another, an unrelated
+  issue that happens to share a number read as your story — which is what happened on a live epic.
+
+  Readers now resolve those numbers against the repository the verdict names, or — when it names
+  none — the code repository it stamps. That fallback is what the whole population published before
+  this release already relies on, so nothing is rejected for omitting the key: a verdict whose
+  issues and code live in one repository reads exactly as it did. What is rejected is a verdict
+  whose numbers land in a different repository than the one being read.
+
+  A rejection is never silent. `/nxs.close`'s epic-wide derivation names the dropped pull request
+  and the repository its numbers resolve against, so a story reported as carrying no verdict is
+  never confused with a story whose verdict was rejected. Reading one pull request's verdict stops
+  with a named condition instead, because there is no other candidate to fall back to — re-running
+  `/nxs.analyze --pr <N>` on that pull request is what clears it.
+
+## 0.70.0
+
+- **`/nxs.analyze` now names the repository a published verdict's story numbers belong to, and
+  cannot publish without it.** A verdict names the stories it covers as bare numbers. Which
+  repository those numbers resolve against was stated by a key the stage was told, in prose, to
+  omit whenever it equalled the code repository — and nothing checked that it was written when the
+  two differed. On a real epic whose issues live in one repository and whose code lives in another,
+  the published verdicts named only the code repository, and both numbers they carried also existed
+  there as unrelated items. A reader matching by number alone could not tell the difference.
+
+  The key is now written on every publish, whether or not the two repositories match, and the
+  omit-when-equal rule is gone: that conditional is what failed. Immediately before publishing —
+  on the review path and on the self-authored-comment fallback alike — the stage hands the exact
+  body it is about to post to a check that resolves both repositories itself and refuses a body
+  naming no issues repository. A refusal stops the publish and names the value the block should
+  have carried; the run does not report success. You can call it directly as
+  `nexus verdict-check --body <path>`.
+
+  Nothing already published changes. A verdict written before this release names no issues
+  repository, legitimately, and readers still resolve its numbers against the code repository it
+  stamps. Re-running analyze on a pull request whose verdict cross-matched while this was live is
+  your call, and is what corrects it.
+
 ## 0.69.0
 
 - **`/nxs.decision-record` can now satisfy the razor check it prescribes.** The stage runs the
