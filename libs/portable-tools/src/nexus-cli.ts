@@ -280,7 +280,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Print the union of every recorded pull request's own changed-file set, for judging",
             "      the epic's success metrics and cross-story invariants against the combined code.",
             "  nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0]",
-            "                            [--record-hash <hex>] [--range-base <sha> --range-head <sha>] [--root <startDir>]",
+            "                            [--record-hash <hex>] [--root <startDir>]",
             "      Record what a merged pull request shipped, on the epic issue itself. One record per",
             "      code repository and pull-request number; a re-run replaces that record alone. An",
             "      unmerged pull request writes nothing and prints { written: false, state }.",
@@ -1336,8 +1336,6 @@ interface EpicVerdictsFlags {
     stories?: number[];
     findings?: string;
     recordHash?: string;
-    rangeBase?: string;
-    rangeHead?: string;
 }
 
 /**
@@ -1375,8 +1373,6 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
         else if (a === "--stories") flags.stories = [...(args[++i] ?? "").matchAll(/\d+/g)].map((m) => Number(m[0]));
         else if (a === "--findings") flags.findings = args[++i];
         else if (a === "--record-hash") flags.recordHash = args[++i];
-        else if (a === "--range-base") flags.rangeBase = args[++i];
-        else if (a === "--range-head") flags.rangeHead = args[++i];
     }
     return flags;
 }
@@ -1534,7 +1530,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
             io.stderr(
                 "usage: nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0] " +
-                    "[--record-hash <hex>] [--range-base <sha> --range-head <sha>] [--root <startDir>]",
+                    "[--record-hash <hex>] [--root <startDir>]",
             );
             return 2;
         }
@@ -1567,19 +1563,17 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         }
 
         // The range comes from the one merge-anchored derivation with its existing exclusions
-        // (invariant 4) unless the caller already stamped it in this same run.
-        let base = flags.rangeBase ?? "";
-        let head = flags.rangeHead ?? "";
-        if (base.length === 0 || head.length === 0) {
-            const prHead: string | undefined = fetchPrHead(closeMigrationRunner, root, flags.pr);
-            const derived = deriveRange(closeMigrationRunner, root, pr.pr, { verifyAgainstPrHead: prHead });
-            if (!derived.ok) {
-                io.stderr(renderPrWorktreeDiagnostic(derived.error));
-                return 1;
-            }
-            base = derived.range.base;
-            head = derived.range.head;
+        // (decision record #777, invariant 4). There is deliberately no way for a caller to hand
+        // one in: a range the derivation never produced would disagree with the diff the distiller
+        // later recomputes from it, one stage after the branch was cut.
+        const prHead: string | undefined = fetchPrHead(closeMigrationRunner, root, flags.pr);
+        const derived = deriveRange(closeMigrationRunner, root, pr.pr, { verifyAgainstPrHead: prHead });
+        if (!derived.ok) {
+            io.stderr(renderPrWorktreeDiagnostic(derived.error));
+            return 1;
         }
+        const base: string = derived.range.base;
+        const head: string = derived.range.head;
 
         const existing = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
         if (!existing.ok) {

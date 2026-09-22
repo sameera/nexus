@@ -437,8 +437,10 @@ if the user opts to analyze first, nothing later in this command should have run
     sibling's record, or carries the no-pull-request marker and is excluded.
 
    The receipt also carries `record` / `record_hash` in full mode (#139) — the decision record the
-   analysis checked against. **Staleness has two independent axes, and neither is inferred from the
-   other:** the code may have moved after the analysis, the design may have moved after it, or both.
+   analysis checked against. **One axis remains: the design.** The record may have been revised
+   after the analysis, and that is a judgment a lead may knowingly waive. The code axis is gone
+   (epic #769, story #776): the run that wrote a record held the merged code, so the judged code
+   and the shipped code are the same code and there is nothing for a staleness check to catch.
 
     **Record axis.** When the receipt carries `record`/`record_hash`, re-hash the record issue's
     **current** body through the one digest program and compare:
@@ -679,22 +681,21 @@ Fill the seeded template and write it into the queue entry.
       `repo`/`base`/`head` are exactly the Phase 0.5 `range` output (the helper already resolved the
       identity and the merge-commit-anchored SHAs).
 
-      **Aggregate receipt, several story pull requests (epic #213, story #501).** When Phase 1.2's
-      aggregate epic receipt drove this close — the epic shipped as more than one story pull
-      request — the single-entry shape above does not apply. Write **one `range:` entry per story
-      pull request** instead, never one entry per repository: even two story pull requests landed
-      in the same repo each keep their own entry. Resolve every entry in one call, from the merge
-      gate's already-fetched story list:
+      **Several story pull requests (epic #213, story #501; epic #769, story #773).** When the
+      epic shipped as more than one story pull request, the single-entry shape above does not
+      apply. Write **one `range:` entry per story pull request** instead, never one entry per
+      repository: even two story pull requests landed in the same repo each keep their own entry.
 
-        ```bash
-        nexus pr-worktree range --pr <story-pr-1>,<story-pr-2>,...
-        ```
-
-      It prints `{ ranges: [{ repo, base, head, pr }, ...] }` — one item per PR, in the given
-      order, each carrying the pull request it came from. Stamp the list exactly as returned. A
-      failure (any single PR's range cannot be verified) is the **same hard stop** as an unmerged
-      PR in the merge gate above: stop **before** the close record or anything else is written —
-      never a partial `range:` list, and never a substitute range supplied by the lead.
+      **Stamp the `range` list Phase 0.5's `close-gate` printed, verbatim.** Every entry was
+      already stamped by the conformance run that held the merged code, and each names the
+      repository **its own record names**. Do not re-derive it here. In particular do not resolve
+      the entries with `nexus pr-worktree range`: that path attributes every entry to the
+      repository the close was started from and reads each pull request against that same local
+      copy, so on the shape this epic exists for — the epic issue here, the story pull requests
+      merged in a repository you hold no copy of — it either stops or stamps the wrong repository
+      on every entry. Phase 0.5 already hard-stopped on any entry that could not be verified, so
+      there is nothing left to fail here: never a partial `range:` list, and never a substitute
+      range supplied by the lead.
     - **Waived Stories (epic #213, story #502)** — an additional field, not part of the seeded
       template's placeholder set (the note above): add a `## Waived Stories` body section, one line
       per story waived in Phase 1.2's storyless-story gate — `#<story> — waived <YYYY-MM-DD>`, the
