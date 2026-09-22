@@ -25,6 +25,7 @@ import { parse } from "yaml";
 import { resolveWorkspace, type ResolvedWorkspace } from "@nexus/workspace/resolve";
 import { type Runner, defaultRunner } from "@nexus/workspace/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
+import { sameRepo } from "@nexus/workspace/issue-ref";
 import { excludePathspecs } from "./pipeline-stores.js";
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
@@ -169,10 +170,13 @@ export function parseRange(entryDir: string): ParseRangeResult {
 
 /** Match a recorded repo identity to its checkout: the hub first, then each declared member. */
 function resolveHubCheckout(ws: ResolvedWorkspace, entry: string, item: RangeItem): { checkout: string } | { error: DeriveDiagnostic } {
-    if (item.repo === ws.hub.normalizedRemote) {
+    // `sameRepo` is the one comparison rule every reader of a stamped repository calls, so a
+    // record stamped `owner/repo` and a checkout known as `host/owner/repo` name the same
+    // repository. Raw string equality here made this reader disagree with every other one.
+    if (sameRepo(item.repo, ws.hub.normalizedRemote)) {
         return { checkout: ws.hubRoot };
     }
-    const member = ws.members.find((m) => m.normalizedRemote === item.repo);
+    const member = ws.members.find((m) => sameRepo(m.normalizedRemote, item.repo));
     if (member === undefined) {
         return { error: { entry, problem: "unknown-repo",
             message: `range names repo '${item.repo}' but the workspace manifest declares no member (and no hub) with that remote identity; fix .nexus/config/workspace.yml or the stamp` } };
@@ -191,7 +195,7 @@ function resolveSingleRepoCheckout(
     entry: string,
     item: RangeItem,
 ): { checkout: string } | { error: DeriveDiagnostic } {
-    if (item.repo !== repoIdentity) {
+    if (!sameRepo(item.repo, repoIdentity)) {
         return { error: { entry, problem: "unknown-repo",
             message: `range names repo '${item.repo}' but this checkout's identity is '${repoIdentity}'; single-repo mode resolves an entry only against its own identity, never another repo's` } };
     }
