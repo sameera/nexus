@@ -42,6 +42,7 @@ import { discoverCandidatePrs } from "@nexus/epic-verdicts/discover";
 import { checkEpicMergeGate } from "@nexus/epic-verdicts/merge-gate";
 import { epicRefForRecord, fetchShippedRecords, postShippedRecord, type FindingCounts, type ShippedRecord } from "@nexus/epic-verdicts/ledger";
 import { assessEpicCoverage } from "@nexus/epic-verdicts/coverage";
+import { ledgerCloseGate } from "@nexus/epic-verdicts/close-ledger";
 import { resolveStoryMergedPrs, type StoryMergedPr } from "@nexus/epic-verdicts/story-prs";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
@@ -298,12 +299,17 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      story as shipped, unrecorded, unshipped or excluded against the epic's records.",
             "      Prints { command: \"coverage\", fullyShipped, stories, unshipped, unrecorded,",
             "      recorded, excluded, untrusted }.",
+            "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
+            "      Decide merge state and the close range from the epic's records. Prints { command:",
+            "      \"close-gate\", ok, merged, range, blocking }. Blocks — never waives — on a recorded",
+            "      pull request whose merge commit the platform no longer reports, and on a live story",
+            "      with no record.",
             "  nexus epic-verdicts waive-story --story <N> [--root <startDir>]",
             "      Write the resolved no-pull-request marker label onto a story issue via `gh issue",
             "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
             "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "currency", "combined", "merge-gate", "record", "coverage", "waive-story"],
+        subverbs: ["derive", "currency", "combined", "merge-gate", "record", "coverage", "close-gate", "waive-story"],
         run: runEpicVerdicts,
     },
     "pr-verdict": {
@@ -1350,7 +1356,7 @@ interface EpicVerdictsFlags {
     rangeHead?: string;
 }
 
-const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "record", "coverage", "waive-story"];
+const EPIC_VERDICTS_SUBVERBS = ["derive", "currency", "combined", "merge-gate", "record", "coverage", "close-gate", "waive-story"];
 
 function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags {
     const args = EPIC_VERDICTS_SUBVERBS.includes(argv[0]) ? argv.slice(1) : argv;
@@ -1490,6 +1496,51 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
+
+    // `close-gate` — the shipped ledger read at close (epic #769, story #773). Merge state and the
+    // range come from the records; the only live question is whether the platform still reports the
+    // same merge commit, which is a hard block because a moved merge commit means the recorded range
+    // describes commits that are not on the trunk.
+    if (argv[0] === "close-gate") {
+        const repos = resolveVerdictRepos(closeMigrationRunner, root);
+        if (!repos.ok) {
+            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+            return 1;
+        }
+        const issuesRepo = repos.repos.issuesRepo;
+
+        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        if (!resolved.ok) {
+            io.stderr(renderEpicResolveDiagnostic(resolved.error));
+            return 1;
+        }
+        const collected = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
+        if (!collected.ok) {
+            io.stderr(`epic-verdicts ${collected.error.problem}: ${collected.error.message}`);
+            return 1;
+        }
+
+        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+        const storyNumbers = resolved.resolved.stories.map((st) => st.number);
+        const excludedStories = noPrLabel.length > 0 ? storyNumbers.filter((st) => storyCarriesLabel(root, issuesRepo, st, noPrLabel)) : [];
+
+        const gate = ledgerCloseGate(closeMigrationRunner, root, {
+            stories: storyNumbers,
+            excluded: excludedStories,
+            records: collected.collected.records.map((f) => f.record),
+        });
+        io.stdout(
+            JSON.stringify({
+                command: "close-gate",
+                epic: flags.epic,
+                issuesRepo,
+                ...gate,
+                excluded: excludedStories,
+                untrusted: collected.collected.untrusted,
+            }),
+        );
+        return 0;
+    }
 
     // `coverage` — the shipped ledger's epic-wide reader (epic #769, story #772). The live story
     // set is re-read here on every run, so a story added after a record was written is reported as

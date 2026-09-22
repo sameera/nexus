@@ -145,46 +145,51 @@ single-repo and hub mode only.
     is the merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for Phase 3
     and the Phase 4 stamp.**
 
-    **Multi-PR case (epic #213, story #503) — when the epic shipped as several story pull requests,
-    step 3 above does not apply.** Determine this from the same merge-state check Phase 1.2 runs
-    below (cross-reference it there for what it checks and how it reports an unmerged pull request;
-    this step does not restate its mechanics):
+    **Multi-PR case (epic #213, story #503; epic #769) — when the epic shipped as several story pull
+    requests, step 3 above does not apply.** Merge state and the range both come from the epic's own
+    records, not from a search over repositories you happen to hold:
 
     ```bash
-    nexus epic-verdicts merge-gate --epic <epic-issue>
+    nexus epic-verdicts close-gate --epic <epic-issue>
     ```
 
-    `{ stories, allMerged, unmerged }` names every story's pull request — more than one distinct
-    pull request in `stories` is the multi-PR case. **`allMerged` must be `true` before you go
-    further**, with no waiver, exactly as Phase 1.2 blocks on it; report an unmerged one the same way
-    and stop. (Phase 1.2 re-reads the aggregate receipt and re-checks this later from inside the
-    worktree — running the check here first, before any worktree exists, is what makes the
-    order-inversion below real rather than assumed.)
+    It prints `{ ok, merged, range: [{ repo, pr, base, head }, ...], blocking, excluded, untrusted }`.
+    More than one entry in `range` is the multi-PR case.
 
-    Once every pull request is merged, open **ONE worktree/branch for the whole epic — never one per
-    pull request** — deriving every range and verifying the trunk **before** it is cut (decision
-    record #509's order-inversion requirement: never create a worktree, then discover a later pull
-    request's range or trunk membership fails):
+    **`ok` must be `true` before you go further.** `blocking` is a hard block on both its kinds, with
+    **no waiver offered** on either (Phase 1.2 cross-references this and does not restate it):
+
+    - `merge-commit-moved` — the platform no longer reports the merge commit a record stamped. The
+      recorded range describes commits that are not on the trunk. Name the pull request and stop.
+    - `story-unrecorded` — a live story of this epic has no record. Name the story and stop, telling
+      the lead to run `/nxs.analyze --pr <N>` over the merged pull request that shipped it. An epic
+      whose pull requests merged before the ledger existed is backfilled the same way; nothing reads
+      a published review to fill the gap.
+
+    Name any `untrusted` entries too — records on the epic issue whose author cannot speak for the
+    issues repository — rather than ignoring them.
+
+    **Every SHA in `range` is the stamp** — keep it for Phase 3 and the Phase 4 stamp. Do not
+    re-derive a range: it was stamped by the run that held the merged code, which is what lets this
+    close an epic whose code merged in a repository you hold no copy of. Each entry is attributed to
+    the repository **its record names**, never the repository you started the close from.
+
+    Once `ok` is `true`, open **ONE worktree/branch for the whole epic — never one per pull request**:
 
     ```bash
-    nexus pr-worktree open --pr <pr-1>,<pr-2>,... --mode close \
+    nexus pr-worktree open --pr <prs whose range entry names THIS repository> --mode close \
       --branch "distill/$(date +%Y-%m-%d)-<epic-slug-or-epic-issue>"
     ```
 
-    using the pull request numbers `merge-gate`'s `stories` list named. This single call derives
-    every range, verifies every stamped head is an ancestor of the trunk the branch is about to be
-    cut from, and only then opens the worktree — all-or-nothing, and no worktree is ever created if
-    either check fails.
+    Trunk verification narrows to the repository the distillation branch is cut in (decision record
+    #777): pass only the pull requests whose `range` entry names that repository, and pass none at
+    all when no entry does. For every other repository the `merge-commit-moved` check above stands in
+    its place — weaker than ancestry, and honestly weaker, because this stage declines to obtain a
+    copy of a repository you do not hold.
 
-    On exit 1, the diagnostic names either an unresolvable range (the same hard stop as an unmerged
-    pull request above) or a trunk missing a stamped head. **For the trunk case specifically**, tell
-    the lead the local trunk is behind a recent merge: re-run once the fetch the diagnostic names
-    has brought it up to date — never proceed on a stale one.
-
-    On success it prints `{ wtPath, ranges: [{ repo, base, head, pr }, ...] }` — plural, one entry per
-    pull request, in the given order. **Keep every one of these SHAs for Phase 3 and the Phase 4
-    stamp**, exactly as `range` is kept in the single-PR case above (Phase 4's multi-entry `range:`
-    stamp, story #501, already expects this shape).
+    On exit 1, the diagnostic names a trunk missing a stamped head: tell the lead the local trunk is
+    behind a recent merge and re-run once the fetch it names has brought it up to date — never
+    proceed on a stale one. Keep `close-gate`'s `range`, not anything this call prints.
 
     Because every story branch commits its per-user scratch into this same epic-keyed path
     (`.nexus/queue/epic-<epic-issue>/<user>/notes-*.md`, read unchanged in Phase 2) and every story
@@ -358,26 +363,29 @@ if the user opts to analyze first, nothing later in this command should have run
    instead of a single `head:` is the epic-wide receipt `/nxs.analyze` derived from the story
    verdicts.
 
-   **Merge gate (epic #213, story #500) — check this FIRST, before currency.** An epic that shipped
-   as several pull requests cannot close while any one of them is still open — sub-issue-closed
-   (Phase 1.1) is a separate precondition and does not imply the pull request merged. Run:
+   **The shipped ledger (epic #769) — check this FIRST.** What the epic shipped comes from the
+   records on the epic issue, never from a search over repositories or a published review. Run:
 
     ```bash
-    nexus epic-verdicts merge-gate --epic <epic-issue>
+    nexus epic-verdicts close-gate --epic <epic-issue>
     ```
 
-   It prints `{ stories, allMerged, unmerged }` — the live merge state of every story's pull
-   request. **If `allMerged` is `false`, block and report every unmerged pull request by name, then
-   stop.** This is a hard block with **no waiver offered** — unlike the currency choice gate below,
-   there is no option to proceed past an unmerged pull request:
+   Every recorded pull request is merged by construction — a record exists only because a gate run
+   saw the merge — so merge state is not asked of the platform here. **If `ok` is `false`, block and
+   report every entry in `blocking` by name, then stop.** Both kinds are hard blocks with **no
+   waiver offered**:
 
     ```
-    Cannot close epic <epic-ref>: <N> story pull request(s) not yet merged.
+    Cannot close epic <epic-ref>: <N> blocking condition(s).
 
-      #<pr> (story <story-ref>, <repo>) — <state>
+      #<pr> (<repo>) — the platform no longer reports the merge commit this epic recorded
+                       (recorded <recorded>, reports <reported>)
+      story <story-ref> — no record: no merged pull request has been recorded for it
       …
 
-    Merge each pull request before closing the epic. This command never merges a pull request itself.
+    A moved merge commit means the recorded range describes commits that are not on the trunk.
+    A story with no record is backfilled by running /nxs.analyze --pr <N> over the merged pull
+    request that shipped it. This command never merges, records, or waives on your behalf.
     ```
 
     `<epic-ref>` and `<story-ref>` qualify under the terminal-context rule when `$ISSUES_REPO` is

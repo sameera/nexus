@@ -19,6 +19,17 @@ behaviour says so.
   those records. An epic whose pull requests merged before this release is backfilled by running
   `/nxs.analyze --pr <N>` over each of them once.
 
+- **`/nxs.close` now takes merge state and the close range from the epic's records.** It stops
+  asking the platform whether a pull request merged — the question that returned "unmerged" for
+  merged work whenever it went to the wrong repository — and stops deriving a range it cannot
+  derive without a copy of the repository the code merged in. An epic whose stories merged
+  elsewhere now closes with no waiver and no manual override, and each range entry names the
+  repository its own record names.
+
+  One live check remains, and it is a hard block rather than a waiver: whether the platform still
+  reports the same merge commit for each recorded pull request. A story with no record is also a
+  hard block, naming the story.
+
 - **`/nxs.analyze` can now be asked what an epic has shipped.** Run against an epic rather than a
   pull request, it classifies every story as shipped, unrecorded, unshipped or excluded. The
   distinction that matters is between a story with nothing recorded at all — unfinished work — and
