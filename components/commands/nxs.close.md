@@ -190,9 +190,11 @@ single-repo and hub mode only.
 
     Trunk verification narrows to the repository the distillation branch is cut in (decision record
     #777): pass only the pull requests whose `range` entry names that repository, and pass none at
-    all when no entry does. For every other repository the `merge-commit-moved` check above stands in
-    its place — weaker than ancestry, and honestly weaker, because this stage declines to obtain a
-    copy of a repository you do not hold.
+    all when no entry does. **When no entry names this repository, omit `--pr` entirely** — the call
+    then cuts the branch here and prints `ranges: []`, because this is where the epic issue and the
+    concept store live even when every story merged somewhere else. For every other repository the
+    `merge-commit-moved` check above stands in its place — weaker than ancestry, and honestly
+    weaker, because this stage declines to obtain a copy of a repository you do not hold.
 
     On exit 1, the diagnostic names a trunk missing a stamped head: tell the lead the local trunk is
     behind a recent merge and re-run once the fetch it names has brought it up to date — never

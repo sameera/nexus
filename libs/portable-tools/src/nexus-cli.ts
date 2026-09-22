@@ -2124,11 +2124,20 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (subcommand === "preflight" || subcommand === "open") {
-        if (flags.prRef === undefined) {
+        if (flags.mode !== "analyze" && flags.mode !== "close") {
             io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
             return 2;
         }
-        if (flags.mode !== "analyze" && flags.mode !== "close") {
+        // `open --mode close` is the one caller allowed to pass no `--pr` at all. Trunk
+        // verification narrows to the repository the distillation branch is cut in (decision
+        // record #777), so the close passes only the pull requests whose range entry names THIS
+        // repository — and an epic whose every story merged elsewhere names none. The branch is
+        // still cut here, because this is where the epic issue and the concept store live.
+        const closeEpicOpen: boolean =
+            subcommand === "open" &&
+            flags.mode === "close" &&
+            (flags.prRef === undefined || flags.prRef.includes(","));
+        if (flags.prRef === undefined && !closeEpicOpen) {
             io.stderr(`usage: pr_worktree.ts ${subcommand} --pr <N> --mode analyze|close`);
             return 2;
         }
@@ -2139,8 +2148,8 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
         // exists — never cut a branch, then discover a later PR's range or trunk membership fails.
         // Only `open --mode close` grows this path; preflight and a member analyze target stay
         // single-PR (a member PR isn't part of this epic-wide close flow at all).
-        if (subcommand === "open" && flags.mode === "close" && flags.prRef.includes(",")) {
-            const prRefParts = flags.prRef.split(",").map((s) => s.trim());
+        if (closeEpicOpen) {
+            const prRefParts = flags.prRef === undefined ? [] : flags.prRef.split(",").map((s) => s.trim());
             if (prRefParts.some((p) => p.length === 0)) {
                 io.stderr("usage: pr_worktree.ts open --pr <N1,N2,...> --mode close --branch <b>");
                 return 2;
@@ -2162,10 +2171,16 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
             }
             const { repoRoot } = role.resolved;
 
-            const list = deriveRangeList(closeMigrationRunner, repoRoot, prNumbers);
-            if (!list.ok) {
-                io.stderr(renderPrWorktreeDiagnostic(list.error));
-                return 1;
+            // No pull request merged here, so there is no range to derive and no stamped head to
+            // verify against the trunk — only the branch to cut.
+            let ranges: RangeListItem[] = [];
+            if (prNumbers.length > 0) {
+                const list = deriveRangeList(closeMigrationRunner, repoRoot, prNumbers);
+                if (!list.ok) {
+                    io.stderr(renderPrWorktreeDiagnostic(list.error));
+                    return 1;
+                }
+                ranges = list.ranges;
             }
 
             // Resolve the trunk exactly the way `openCloseWorktree` is about to (canonical remote,
@@ -2188,7 +2203,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
                 closeMigrationRunner,
                 repoRoot,
                 trunk,
-                list.ranges.map((r: RangeListItem) => ({ pr: r.pr, head: r.head })),
+                ranges.map((r: RangeListItem) => ({ pr: r.pr, head: r.head })),
                 { remote: trunkRemote },
             );
             if (!verified.ok) {
@@ -2206,7 +2221,7 @@ async function runPrWorktree(argv: string[], io: CliIo): Promise<number> {
                     command: "open",
                     mode: "close",
                     wtPath: wt.wtPath,
-                    ranges: list.ranges.map((r: RangeListItem) => ({ repo: r.repo, base: r.base, head: r.head, pr: r.pr })),
+                    ranges: ranges.map((r: RangeListItem) => ({ repo: r.repo, base: r.base, head: r.head, pr: r.pr })),
                 }),
             );
             return 0;

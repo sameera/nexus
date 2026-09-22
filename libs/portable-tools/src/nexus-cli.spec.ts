@@ -805,6 +805,58 @@ describe("nexus pr-worktree open --pr <list> --mode close (story #503)", () => {
         // No worktree was created — order-inversion actually holds in code, not just in prose.
         expect(worktreeCount(repo)).toBe(1); // only the main checkout
     });
+
+    // Decision record #777, "Trunk verification narrows to the repository the distillation branch
+    // is cut in": the close runs where the epic issue lives, and every story pull request may have
+    // merged somewhere else entirely. `nxs.close` tells the lead to pass only the pull requests
+    // whose range entry names this repository, "and pass none at all when no entry does" — the
+    // epic's headline shape. Without this path the close has no way to open its distillation
+    // worktree in exactly that shape, so the close record is never written.
+    it("opens the distillation worktree with no pull requests when none merged in this repository", async () => {
+        const { repo } = buildSequentialSquashPrs(1);
+        const fixturePath = writeGhFixture({});
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await withGhStandIn(fixturePath, () =>
+            runNexusCli(["pr-worktree", "open", "--mode", "close", "--branch", "distill/2026-09-22-epic-769"], io),
+        );
+
+        expect(code).toBe(0);
+        const printed = JSON.parse(io.out.join("")) as {
+            command: string;
+            mode: string;
+            wtPath: string;
+            ranges: Array<{ repo: string; base: string; head: string; pr: number }>;
+        };
+        expect(printed.command).toBe("open");
+        expect(printed.mode).toBe("close");
+        expect(printed.ranges).toEqual([]);
+        expect(fs.existsSync(printed.wtPath)).toBe(true);
+        expect(worktreeCount(repo)).toBe(2); // the main checkout + the one epic worktree
+
+        createdWorktrees.push({ repo, wtPath: printed.wtPath });
+    });
+
+    it("still refuses to open a close worktree with no pull requests and no branch", async () => {
+        const { repo } = buildSequentialSquashPrs(1);
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await runNexusCli(["pr-worktree", "open", "--mode", "close"], io);
+
+        expect(code).toBe(2);
+        expect(io.out).toEqual([]);
+        expect(worktreeCount(repo)).toBe(1); // only the main checkout
+    });
+
+    it("still refuses an analyze worktree with no pull request", async () => {
+        const { repo } = buildSequentialSquashPrs(1);
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await runNexusCli(["pr-worktree", "open", "--mode", "analyze"], io);
+
+        expect(code).toBe(2);
+        expect(io.out).toEqual([]);
+    });
 });
 
 // Story #502: the close-time waiver's one write — `gh issue edit --add-label`. Like story #501's
