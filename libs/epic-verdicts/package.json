@@ -64,6 +64,11 @@
       "import": "./src/pr-verdict.ts",
       "default": "./src/pr-verdict.ts"
     },
+    "./story-prs": {
+      "types": "./src/story-prs.ts",
+      "import": "./src/story-prs.ts",
+      "default": "./src/story-prs.ts"
+    },
     "./verdict-repos": {
       "types": "./src/verdict-repos.ts",
       "import": "./src/verdict-repos.ts",
