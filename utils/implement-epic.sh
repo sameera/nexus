@@ -57,6 +57,14 @@
 
 set -euo pipefail
 
+# Keep the harness-specific entry point in charge of Codex invocations. It
+# pins HARNESS=codex and re-enters this shared pipeline without the selector.
+if [[ "${1:-}" == "--harness" && "${2:-}" == "codex" ]]; then
+    shift 2
+    SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+    exec "${SCRIPT_DIR}/codex/implement-epic.sh" "$@"
+fi
+
 if [[ $# -lt 1 || ! "$1" =~ ^[0-9]+$ ]]; then
     echo "usage: $(basename "$0") <epic-issue-number> [extra harness args...]" >&2
     exit 1
