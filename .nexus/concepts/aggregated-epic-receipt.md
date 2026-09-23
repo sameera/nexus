@@ -1,8 +1,8 @@
 ---
 title: "Aggregated Epic Receipt"
 aliases: ["epic receipt", "aggregate mode", "story verdicts", "per-story staleness", "combined change set", "no-pull-request marker"]
-touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "verdict-repository-scoping", "published-verdict-selection"]
-last_updated_by: "#751"
+touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection"]
+last_updated_by: "#769"
 status: active
 verification: verified
 ---
@@ -13,16 +13,16 @@ An epic whose stories were each judged on their own pull request gets one receip
 
 ## How It Works
 
-The conformance stage, addressed at an epic, looks for a published verdict on each story's pull request. Candidates come from the story issue's closing links and from a head branch naming the story number, searched across every repository the workspace declares. A candidate counts only if its verdict stamps this epic and names this story, so a wrong candidate can only be rejected. The newest surviving verdict per story is the one the receipt reports. A story marked on its issue as shipping without a pull request of its own leaves the coverage requirement, named as excluded. Currency is then checked per story on two axes: the verdict's analyzed commit against that pull request's current head, and the verdict's stamped record digest against the record's current digest. The close gate reads the receipt and re-runs that check at gate time, naming each stale story rather than the whole epic.
+The conformance stage, addressed at an epic, reads the records on the epic issue for what shipped, and consults the issue graph only to notice a merged pull request that carries no record. It reports each story as shipped, unrecorded, unshipped or excluded, re-reading the live story set each run, so a story added after a record was written is reported without anything invalidating the records already there. A story marked on its issue as shipping without a pull request of its own is excluded rather than reported unshipped. One currency axis remains, checked per story: the stamped record digest against the record's current digest. The close gate reads the receipt and re-runs that check at gate time, naming each stale story rather than the whole epic.
 
 ## Key Invariants
 
 1. The aggregate re-judges nothing. Every per-story finding and severity count is carried through unchanged.
-2. Findings are summed once per distinct verdict, never once per story. A verdict covering two stories counts once.
+2. Findings are summed once per record, never once per story. A record covering two stories counts once.
 3. The combined code is the union of each story pull request's own change set, taken at the head its verdict stamped. No range spans two pull requests, and the aggregate stamps no range anywhere.
 4. Every pipeline store is withheld from each pull request's change set, through the one shared exclusion set.
 5. A finding only the combined code shows is attributed to the epic, never to a single story. A cross-story check the combined code cannot decide is reported as unverifiable, never passed.
-6. Staleness is reported story by story on both axes and is never collapsed into one statement about the epic.
+6. Staleness is reported story by story on the record axis alone and is never collapsed into one statement about the epic.
 7. Partial coverage writes no receipt, so the close gate sees exactly what it sees when analysis never ran.
 
 ## Integration Points
@@ -37,6 +37,7 @@ The conformance stage, addressed at an epic, looks for a published verdict on ea
 - [scope-claim](scope-claim.md) — narrows what reaches a pull request's story list, so a story this aggregate reads as analyzed was one that pull request actually took on.
 - [published-verdict-selection](published-verdict-selection.md) — the shared trust and recency rule this derivation applies per story, so the repository a verdict stamps is read in either written form.
 - [verdict-repository-scoping](verdict-repository-scoping.md) — decides which candidate verdicts this derivation may count, and requires each one it drops for belonging elsewhere to be named.
+- [shipped-ledger](shipped-ledger.md) — the records this receipt now reads what shipped from, in place of searching repositories for a published verdict.
 
 ## Decision Log
 
@@ -61,3 +62,17 @@ This derivation dropped every verdict it was given. The conformance gate stamps 
 ### 2026-09-21 — #751 — Reciprocal link from verdict-repository-scoping
 
 The derivation gained a trust check on the repository a candidate's story numbers belong to, and an obligation to name every candidate it drops for failing it.
+
+### 2026-09-22 — #769 — What shipped comes from the epic's own records, and the issue graph only flags a gap
+
+Resolving a story to its pull requests by searching for a published verdict only ever worked in
+the repositories the lead happened to hold a checkout of, so an epic whose code merged elsewhere
+read as partly unshipped and the close ended in a waiver. The records on the epic issue answer
+that question instead, and they answer it the same way wherever the reader is standing, because
+each record carries the repository and the range. The issue graph keeps one job: noticing a merged
+pull request that carries no record, which is a merge that skipped the gate. That job is advisory,
+so a thin cross-repository linkage costs the lead a prompt rather than a wrong close. Coverage is
+reported in four states rather than two, because a story with nothing recorded and a story whose
+merged pull request carries no record need different remedies. Findings are summed once per
+record rather than once per verdict, which is the same rule stated against the thing that now
+carries them. The per-story code-staleness axis is gone with the rest of it.

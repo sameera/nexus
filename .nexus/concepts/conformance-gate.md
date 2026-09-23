@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "verdict-repository-scoping", "published-verdict-selection"]
-last_updated_by: "#751"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection"]
+last_updated_by: "#769"
 status: active
 verification: verified
 ---
@@ -19,9 +19,8 @@ Analyze reports findings inline, then writes the receipt as its only output. Loc
 receipt is a small artifact beside the epic. It sits in the ephemeral area for issue-sourced
 epics or in the committed entry for old-contract ones. This placement is contractual; the next two stages depend on it. Against a pull request, the receipt is a published review with
 the same information in a machine-readable block, because the worktree that would hold a local
-artifact is gone before close's pull-request run can read it. Close reads the receipt before mining
-anything else, classifying it by staleness or by blocking findings. Staleness means the
-record's approved body changed since analyze ran. The verdict with any waiver is restated on
+artifact is gone before close's pull-request run can read it. Close reads the receipt before mining anything else, classifying it by blocking findings or by
+whether the record's approved body changed since analyze ran. The verdict with any waiver is restated on
 the durable close comment. An unapproved decision record blocks analyze entirely; a blocked
 run emits nothing. That single rule gives a missing receipt exactly one meaning: analyze never
 ran. An entry lacking acceptance criteria, success metrics, or decision record is refused
@@ -30,14 +29,14 @@ as a literal value no reader can mistake for a waiver.
 
 ## Key Invariants
 
-1. Analyze writes only the receipt or the published-review equivalent; no other report
-   artifact exists.
+1. Analyze writes the receipt, its published-review form, and a merged pull request's record of
+   what shipped; no other report artifact exists.
 2. When an unapproved decision record blocks analyze, the run emits nothing: no receipt, no
    review, no comment.
 3. A missing receipt means exactly one thing to close: there is no analysis to read.
 4. Close reads the receipt before mining anything else; it never infers conformance itself.
-5. A stale or blocking receipt gates close behind an explicit human waiver, never a silent
-   pass.
+5. A blocking or record-stale receipt gates close behind an explicit waiver; no state calls the
+   analysed commit stale.
 6. Which form and placement the receipt takes follows from where analyze and close execute,
    not from a mode-specific rule: a local artifact in the ephemeral area or the committed
    entry, or a published review when the worktree is gone. Downstream stages rely on that
@@ -65,6 +64,7 @@ as a literal value no reader can mistake for a waiver.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — the receipt shape derived from the stories' own verdicts, which this gate reads story by story instead of judging the epic afresh.
 - [published-verdict-selection](published-verdict-selection.md) — decides which of a pull request's published blocks is its verdict; this gate reports what that returns rather than choosing one.
 - [verdict-repository-scoping](verdict-repository-scoping.md) — names the repository this gate's published verdict resolves its story numbers against, and the check the gate must pass before publishing one.
+- [shipped-ledger](shipped-ledger.md) — the record this gate writes on the epic issue for a merged pull request, and the source every later gate reads what shipped from.
 
 ## Decision Log
 
@@ -122,3 +122,18 @@ In pull-request mode the gate had been told, in prose, to take the newest block 
 ### 2026-09-21 — #751 — Reciprocal link from verdict-repository-scoping
 
 The gate's publish step now has a boundary check it must pass, and the repository rules it enforces are stated on their own page rather than here.
+
+### 2026-09-22 — #769 — A merged run records what shipped, and the code-staleness axis is gone
+
+The gate gained a second output and lost a classification. Against a merged pull request it now
+writes a record on the epic issue naming the story, the repository, the merge commit and the range
+that shipped, so the question of what an epic shipped is answered where it was cheap and certain
+rather than reconstructed later from repositories a reader may not hold. A run against an open
+pull request is unchanged: it publishes its review for the engineer and writes nothing durable.
+The classification lost the code axis entirely. Comparing the analysed commit against a branch
+that kept moving after the merge was never a judgment a lead could act on, because the answer
+cannot make the shipped code any different, and the waiver it demanded trained the lead to
+overrule the tool. What remains is findings, and a decision record revised since the analysis,
+which is a real judgment and keeps its waiver. Refuted alternative: keep the code axis as an
+advisory that blocks nothing. It loses because an advisory nobody may act on is noise on the one
+surface a lead reads at close.

@@ -1,8 +1,8 @@
 ---
 title: "Durable Close Record"
 aliases: ["close comment", "durable close rationale", "close machine block", "closing rationale"]
-touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding", "pipeline-store-exclusion", "multi-pr-close"]
-last_updated_by: "#213"
+touches: ["ephemeral-handoff-entry", "committed-queue", "distiller", "conformance-gate", "record-digest", "backlog-stub", "writer-stamp", "template-seeding", "pipeline-store-exclusion", "multi-pr-close", "shipped-ledger"]
+last_updated_by: "#769"
 status: active
 verification: verified
 ---
@@ -20,7 +20,7 @@ The close stage always posted its rationale onto the epic issue; that side effec
 1. The single durable copy of a close's rationale is the comment on the epic issue, in every mode.
 2. The comment inlines the key decisions and deviation rationale in full; nothing is thinned because the mirrored file is disposable.
 3. It stamps the record reference and hash, the conformance verdict, the landed range, and which release wrote it, in a marker-anchored block — the writer beside the hash, never inside the bytes it covers.
-4. The stamped range is the exact range the close diffed, never recomputed afterwards.
+4. The stamped range is the one the conformance run stamped when it held the merged code, carried through verbatim and never recomputed by the close or after it.
 5. A failed post preserves the body, leaves the epic issue open, ends with a retry instruction, and never reports success.
 6. The comment links only durable targets, never a queue or ephemeral location.
 7. An epic issue carrying no trusted close comment cannot be recovered from and is a named hard block.
@@ -37,6 +37,7 @@ The close stage always posted its rationale onto the epic issue; that side effec
 - [template-seeding](template-seeding.md) — places the close-record template this stage fills; the stage now stops on its absence rather than falling back.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — close derives its deviation rationale from a diff withholding every member.
 - [multi-pr-close](multi-pr-close.md) — supplies the list-shaped range and every waived story this comment carries onto the epic issue.
+- [shipped-ledger](shipped-ledger.md) — the records the stamped range originates in, one per merged pull request.
 
 ## Decision Log
 
@@ -63,3 +64,15 @@ Mechanical reciprocity fan-out: the close-from-diff pass that produces the devia
 ### 2026-09-10 — #213 — The comment names every waived story and its date
 
 A story waived as having shipped without a pull request of its own is adjudicated once, by the lead, at the moment the epic closes. This comment is the only copy of a close's rationale that survives the entry, so a waiver recorded nowhere else would be invisible to anyone reading the epic issue afterwards.
+
+### 2026-09-22 — #769 — The stamped range originates one stage earlier
+
+The range this comment carries used to be the one the close derived while diffing. It is now the
+one the conformance run stamped at the moment it held the merged code, passed through unchanged.
+The distinction matters to a reader of the closed epic: the range is attributable to the repository
+each pull request merged in rather than to the repository the close happened to run from, and it
+stays correct for an epic whose code merged where the closer holds no copy. Nothing else about the
+comment moved.
+
+Mechanical reciprocity fan-out: the shipped ledger names this comment as where its range is stamped
+durably, so a reader arriving at either page learns that the two carry the same revisions.

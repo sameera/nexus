@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close", "published-verdict-selection"]
-last_updated_by: "#747"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close", "shipped-ledger", "published-verdict-selection"]
+last_updated_by: "#769"
 status: active
 verification: verified
 ---
@@ -22,11 +22,13 @@ A conformance run takes one pull-request reference. A bare number means this che
 1. Only conformance runs against a member repository; closure and distillation refuse one, a member epic closing from the hub instead.
 2. The stamped range anchors on commits permanent on the trunk, never the pull-request branch tip; an empty, non-ancestor, or unverifiable range is refused rather than guessed.
 3. The flow is additive and mutually exclusive with the local path.
-4. A conformance verdict is trusted only from a maintainer-authored review or comment in the pull request's own repository, and only when its stamped repository and pull request match those read. Staleness is exact full-identifier equality against the pull-request head.
+4. A conformance verdict is trusted only from a maintainer-authored review or comment in the pull request's own repository, and only when its stamped repository and pull request match those read. Nothing compares the analysed commit against the pull request's current head.
 5. Closure and distillation share one worktree on the distillation branch.
 6. A conformance run reads its diff, its code and the engineer's scratch from the target repository's checkout, and everything it is judged against from a main checkout. An undeclared repository, or a declared member absent from its expected checkout, stops the run.
 
 ## Integration Points
+
+- [shipped-ledger](shipped-ledger.md) — written by this flow's post-merge conformance run, which the close now requires.
 
 - [nexus-pipeline](nexus-pipeline.md) — the pipeline whose conformance and closure stages this flow runs against a pull request.
 - [distiller](distiller.md) — the drain that continues in the shared worktree and derives its diff from the stamped range.
@@ -91,3 +93,16 @@ The flow also names that same repository when it asks the platform about the pul
 ### 2026-09-21 — #747 — Reciprocal link from published-verdict-selection
 
 Mechanical reciprocity fan-out: this flow publishes one verdict per analysis run, so a pull request analysed twice carries two. Which of them a later stage reads is that page's rule, not this flow's.
+
+### 2026-09-22 — #769 — The post-merge conformance run becomes required, and nothing compares heads
+
+The flow always allowed a conformance run before the merge and one after it. The post-merge run is
+now the one the close requires, because it is what records what shipped, and the close blocks on a
+story with no record. The pre-merge run is unchanged and stays the engineer's read surface, timed
+for the person who has to act on it. With the record written by a run that held the merged code,
+comparing an analysed commit against the pull request's current head stopped answering anything, so
+that comparison is gone from this flow along with the waiver it used to demand.
+
+Mechanical reciprocity fan-out: the shipped ledger names this flow's post-merge run as the only
+thing that writes a record, so a reader arriving at either page learns when in the flow the fact
+is captured.
