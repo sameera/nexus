@@ -1,7 +1,7 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "shipped-ledger"]
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection"]
 last_updated_by: "#769"
 status: active
 verification: verified
@@ -62,6 +62,8 @@ as a literal value no reader can mistake for a waiver.
 - [intake-lane](intake-lane.md) — the other lane this gate refuses to run against, having no criteria to check.
 - [pr-story-resolution](pr-story-resolution.md) — decides which criteria are in scope against a pull request: the resolved stories' criteria, never every story's.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — the receipt shape derived from the stories' own verdicts, which this gate reads story by story instead of judging the epic afresh.
+- [published-verdict-selection](published-verdict-selection.md) — decides which of a pull request's published blocks is its verdict; this gate reports what that returns rather than choosing one.
+- [verdict-repository-scoping](verdict-repository-scoping.md) — names the repository this gate's published verdict resolves its story numbers against, and the check the gate must pass before publishing one.
 - [shipped-ledger](shipped-ledger.md) — the record this gate writes on the epic issue for a merged pull request, and the source every later gate reads what shipped from.
 
 ## Decision Log
@@ -112,6 +114,14 @@ Mechanical reciprocity fan-out: the pull-request story resolution page names thi
 Analyze against an epic whose stories were each judged on their own pull request now derives the receipt from those verdicts instead of judging the epic again. The gate's own contract does not move. Analyze still writes the receipt as its only output, close still reads it back before mining anything else, and a stale or blocking receipt still needs an explicit waiver. What moved is the meaning of an absent receipt. Analyze can now run, find that only some stories carry a verdict, and refuse to derive, so "analyze never ran" stopped being the only way a receipt goes missing. The invariant is restated as what close can actually observe, which is that there is no analysis to read. Refuted alternative: give the gate a sixth state for a refused derivation. That state was rejected because the lead's remedy is the same in both cases, and a second meaning for an absent receipt would fork the gate's classification for no decision it changes.
 
 Mechanical reciprocity fan-out: the aggregated epic receipt page names this gate as the one whose receipt it fills, so a reader arriving at either page learns which shape a given run produced.
+
+### 2026-09-21 — #747 — Which block counts became a rule this gate invokes
+
+In pull-request mode the gate had been told, in prose, to take the newest block carrying the marker and to check its author and the repository it stamps. A model carried that out by hand, and on a live close it reported a superseded verdict's severity counts: the later of two blocks omitted an optional key and the more complete-looking one won. A rule this gate's verdict depends on cannot have a non-deterministic executor and no test that can fail, so the whole rule moved behind a command the gate invokes, with no hand-selection path left behind. What the gate asserts is unchanged — it still reads a receipt before mining anything else and never infers conformance itself. What changed is that obtaining the pull request's verdict is now somebody else's decision, stated on its own page.
+
+### 2026-09-21 — #751 — Reciprocal link from verdict-repository-scoping
+
+The gate's publish step now has a boundary check it must pass, and the repository rules it enforces are stated on their own page rather than here.
 
 ### 2026-09-22 — #769 — A merged run records what shipped, and the code-staleness axis is gone
 

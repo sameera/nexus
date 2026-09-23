@@ -23,6 +23,9 @@ generated: 2026-09-22
 - `libs/pr-acceptance/src/verify.ts` — the receipt-block parser, now also surfacing the stamped record reference and digest the per-story record axis compares (#521)
 - `components/commands/nxs.analyze.md` — the aggregate-mode detection, its three states, and the cross-story judgment against the combined code (#521)
 - `components/commands/nxs.close.md` — the gate's reading of a per-story receipt and its per-story staleness report (#521)
+- `libs/workspace/src/issue-ref.ts` — the one repository comparison this derivation now calls, accepting either written form of the same repository and rejecting a different one (#753)
+- `libs/pr-acceptance/src/receipt-blocks.ts` — the shared collection and ordering step the per-story reader shares with the single-pull-request reader (#753)
+- `libs/epic-verdicts/src/verdict-repos.ts` — resolves the repository this derivation compares a candidate verdict's story numbers against (#765).
 - `libs/epic-verdicts/src/coverage.ts` — the four coverage states over the epic's live story set, read from the records rather than searched for (#778)
 - `libs/epic-verdicts/src/coverage.spec.ts` — pins unrecorded apart from unshipped, the excluded story, and a story added after a record was written (#778)
 - `libs/epic-verdicts/src/story-prs.ts` — resolves a story to every merged pull request through the issue graph, across repositories (#778)

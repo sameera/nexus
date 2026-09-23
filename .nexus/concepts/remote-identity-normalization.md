@@ -1,7 +1,7 @@
 ---
 title: "Remote Identity Normalization"
 aliases: ["remote normalization", "git remote matching", "same-remote comparison", "remote identity rule"]
-touches: ["workspace-resolution", "multi-pr-close", "shipped-ledger"]
+touches: ["workspace-resolution", "multi-pr-close", "shipped-ledger", "published-verdict-selection"]
 last_updated_by: "#769"
 status: active
 verification: verified
@@ -31,6 +31,8 @@ Workspace resolution applies this rule wherever remote identity matters: verifyi
 - [multi-pr-close](multi-pr-close.md) — the stamped range's repository identity is produced through this rule, so a drain can match it to a declared member.
 - [shipped-ledger](shipped-ledger.md) — names a record's code repository by this rule, so two readers cannot disagree about which repository it stamps.
 
+- [published-verdict-selection](published-verdict-selection.md) — consumes the canonical identity this rule produces, and compares it against a possibly bare naming of the same repository.
+
 ## Decision Log
 
 ### 2026-07-12 — #38 — Lower-case the host, preserve the repository path's case
@@ -44,6 +46,10 @@ Mechanical reciprocity fan-out: the close-entry-migration page names this rule a
 ### 2026-09-11 — #215 — Reciprocal link removed: close-entry-migration retired
 
 Mechanical reciprocity fan-out: the page that stamped the range's repository identity is retired, so the edge is removed and the same interaction is recorded against the close that stamps the range now. The rule itself is unchanged.
+
+### 2026-09-21 — #747 — Reciprocal link from published-verdict-selection
+
+Mechanical reciprocity fan-out: the canonical host-qualified identity this page defines is what a published verdict stamps. The reader comparing that stamp had been requiring an exact match against a bare owner-and-name, which is why the host-optional comparison now sits on the consuming page rather than here.
 
 ### 2026-09-22 — #769 — Reciprocal link from shipped-ledger
 

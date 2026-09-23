@@ -1,8 +1,8 @@
 ---
 title: "Provenance Reference"
 aliases: ["provenance hop", "issue reference form", "cross-repo reference", "page blame", "reference substitution"]
-touches: ["concept-store", "append-only-decision-log", "fix-lane", "intake-lane", "entry-slot-ownership"]
-last_updated_by: "#515"
+touches: ["concept-store", "append-only-decision-log", "fix-lane", "intake-lane", "entry-slot-ownership", "verdict-repository-scoping", "published-verdict-selection"]
+last_updated_by: "#751"
 status: active
 verification: verified
 ---
@@ -39,6 +39,8 @@ A reference may name an issue or a pull request. The two share one number namesp
 - [fix-lane](fix-lane.md) — reads its single input in this grammar, so what resolves at the input is what reaches the page.
 - [intake-lane](intake-lane.md) — reads its one input in this same grammar, through a skill shared with the fix lane.
 - [entry-slot-ownership](entry-slot-ownership.md) — compares recorded references in this grammar, so a number's slot is judged by repository and not by number alone.
+- [verdict-repository-scoping](verdict-repository-scoping.md) — why a published verdict's story list stays a bare number list: its repository is declared once, immediately above it.
+- [published-verdict-selection](published-verdict-selection.md) — applies this same two-form idea to a repository rather than an issue: owner and name must agree, and a host stated on one side only is unknown.
 
 ## Decision Log
 
@@ -65,3 +67,11 @@ Taking the first stamped range's repository was only ever right because a range 
 ### 2026-09-12 — #515 — Reciprocal link from entry-slot-ownership
 
 Mechanical reciprocity fan-out: the rule that decides which kind of entry holds a number's slot compares each candidate entry's recorded reference in this grammar, resolving a bare reference against the home repository, so two repositories that happen to share a number no longer collide. Nothing this page already asserted has changed.
+
+### 2026-09-21 — #747 — Reciprocal link from published-verdict-selection
+
+Mechanical reciprocity fan-out: that rule names a repository in two written forms, bare and host-qualified, the same shape this page defines for naming an issue. The two grammars stay separate pages because they answer different questions and a reader of one rarely needs the other.
+
+### 2026-09-21 — #751 — Reciprocal link from verdict-repository-scoping
+
+A published verdict keeps a bare story-number list rather than qualifying each entry, because the repository is declared once above the list.

@@ -12,4 +12,4 @@ generated: 2026-09-22
 - `libs/workspace/src/remote.ts` — the one normalization rule: split any remote spelling into host and path, ignore protocol and the trailing suffix, lower-case the host, preserve path case.
 - `libs/workspace/src/remote.spec.ts` — equivalence across secure-shell/web spellings, suffix and case handling.
 - `libs/workspace/src/identity.ts` — the repository-identity derivation this rule canonicalizes for, now beside the resolver that reads the same committed artifacts.
-- `libs/workspace/src/issue-ref.ts` — the comparison every reader of a stamped repository calls, spanning both written forms of an identity (#778)
+- `libs/workspace/src/issue-ref.ts` — the comparison every reader of a stamped repository calls, spanning both written forms of an identity (#753, #778)

@@ -2,7 +2,7 @@
 title: "Rule Set Enforcement"
 aliases: ["normative home", "conformance test", "pinned constants", "one implementation", "judgment never blocks", "rule ships with its assertion"]
 touches: ["scope-razor", "scope-provenance", "set-closure-check", "epic-approval-gate", "decision-record", "citation-check", "design-warrant"]
-last_updated_by: "#576"
+last_updated_by: "#759"
 status: active
 verification: verified
 ---
@@ -26,6 +26,7 @@ A rule and the assertion pinning it ship in the same story. Shipping the rule in
 3. A judgment rule never blocks: it is prevented while drafting and reported to the reviewer as an observation.
 4. An observation about an item is produced by a party other than the one that wrote it.
 5. A rule and the assertion that pins its wording ship in the same story, so no window exists in which the claim is unenforced.
+6. A rule in the shared checker fires only on a draft that declares what the rule assumes; a draft that declares no story raises no story finding.
 
 ## Integration Points
 
@@ -42,3 +43,7 @@ A rule and the assertion pinning it ship in the same story. Shipping the rule in
 ### 2026-09-13 — #576 — Split from the scope razor: how the rules are kept honest
 
 Split from scope-razor, which was at its own-content capacity and was describing two things: what the rules are, and what makes a restatement of them fail a build. The seam holds because each half is loadable alone. A question about how many out-of-scope items a draft may hold never needs the pinning mechanism, and a question about why a check lives in the shared checker rather than a gate's prompt never needs the counts. This epic is what forced the seam: it added a rule that a rule ships with its assertion in the same story, and the rules it added were placed in the shared checker precisely because a gate instruction is something a model can drop. The parent's Decision Log stays whole and is not copied here.
+
+### 2026-09-21 — #759 — A shared rule fires only on a draft that declares what it assumes
+
+Four stages invoke this checker and they write different documents. The story rules read every third-level heading as a story, so they demanded a provenance label on each decision a record states — the one item the rule set says outright carries no label. A record with six decisions produced six blocking findings, and the stage prescribing the check could satisfy it on no draft it produced. The sibling ordering rule had already answered this by asking whether the draft declares a story at all and skipping when it does not. The story rules now ask the same question, through the same definition, so the guard is one definition with two callers rather than two guards that can disagree. Refuted alternative: give the record stage its own checker, or a flag naming which document it is drafting. A competent engineer would take it, because it makes each stage's rules explicit at the call site. It loses because the divergence it invites is the one this page exists to prevent: two implementations of the same rules, drifting in silence, with the conformance test pinning only one of them.

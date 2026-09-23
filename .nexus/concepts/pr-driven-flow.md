@@ -1,7 +1,7 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close", "shipped-ledger"]
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close", "shipped-ledger", "published-verdict-selection"]
 last_updated_by: "#769"
 status: active
 verification: verified
@@ -40,6 +40,8 @@ A conformance run takes one pull-request reference. A bare number means this che
 - [pr-story-resolution](pr-story-resolution.md) — resolves which stories a conformance run covers, and narrows that run's findings to them.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — collects the per-story verdicts this flow publishes into one answer for the epic they belong to.
 - [multi-pr-close](multi-pr-close.md) — generalizes this flow's closure stage to an epic that shipped as several pull requests; one pull request is the one-entry case.
+
+- [published-verdict-selection](published-verdict-selection.md) — decides which of the verdicts this flow publishes on a pull request is the one a later stage reads.
 
 ## Decision Log
 
@@ -87,6 +89,10 @@ The refusal on closure and distillation in a member checkout is unchanged, but w
 Every read this flow makes now names the repository the pull request was opened against, rather than the remote a lead's own checkout happens to call origin. A lead who works from a fork has an origin that is their personal copy of the repository. That copy carries no reference for a pull request opened against the canonical repository, and its trunk can be far behind the merge. Before this change the conformance stage failed to fetch the pull request's head in such a checkout. The closure stage cut its distillation branch from the fork's stale trunk. The close record stamped the fork as the repository the work landed in. The rule is now that the flow reads the remote named upstream when the checkout declares one, and origin otherwise. Pushes keep naming origin, because the lead pushes the distillation branch to their own fork and opens a pull request from it.
 
 The flow also names that same repository when it asks the platform about the pull request. Left to itself the platform client picks a base repository from whichever remotes it finds. In a fork checkout its pick and the fetch's pick can therefore be two different repositories, where one pull-request number means two different pull requests. Naming the repository makes the two reads agree by construction. A checkout that declares no upstream remote behaves exactly as it did before.
+
+### 2026-09-21 — #747 — Reciprocal link from published-verdict-selection
+
+Mechanical reciprocity fan-out: this flow publishes one verdict per analysis run, so a pull request analysed twice carries two. Which of them a later stage reads is that page's rule, not this flow's.
 
 ### 2026-09-22 — #769 — The post-merge conformance run becomes required, and nothing compares heads
 
