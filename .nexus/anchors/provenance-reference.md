@@ -1,6 +1,6 @@
 ---
 concept: provenance-reference
-source_sha: 4586ae1c13dd1c6efee6d2044b59969cf968edbb
+source_sha: 11b192b174650730105f1b8eb0172ac3d513857f
 generated: 2026-09-21
 ---
 
@@ -15,3 +15,4 @@ generated: 2026-09-21
 - `components/commands/nxs.intake.md` — reads its one pull-request reference in the same grammar, through the same shared skill (#549)
 - `components/skills/nxs-landed-reference/SKILL.md` — the shared reference-form table and issue-or-pull-request resolution both lanes read through, and the slot test that compares a candidate entry's recorded reference by repository (#549)
 - `libs/workspace/src/issue-ref.ts` — the module holding this grammar, which now also carries the repository comparison: the same two-form idea applied to a repository rather than an issue (#753)
+- `libs/pr-acceptance/src/verify.ts` — a published verdict's bare story-number list, and the repository key declared once above it that the list resolves against (#765).

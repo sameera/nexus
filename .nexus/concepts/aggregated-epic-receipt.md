@@ -1,8 +1,8 @@
 ---
 title: "Aggregated Epic Receipt"
 aliases: ["epic receipt", "aggregate mode", "story verdicts", "per-story staleness", "combined change set", "no-pull-request marker"]
-touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "published-verdict-selection"]
-last_updated_by: "#747"
+touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "verdict-repository-scoping", "published-verdict-selection"]
+last_updated_by: "#751"
 status: active
 verification: verified
 ---
@@ -36,6 +36,7 @@ The conformance stage, addressed at an epic, looks for a published verdict on ea
 - [multi-pr-close](multi-pr-close.md) — reads this receipt as the authoritative pull-request set for the epic, and its close-time waiver is what writes the no-pull-request marker onto a story issue.
 - [scope-claim](scope-claim.md) — narrows what reaches a pull request's story list, so a story this aggregate reads as analyzed was one that pull request actually took on.
 - [published-verdict-selection](published-verdict-selection.md) — the shared trust and recency rule this derivation applies per story, so the repository a verdict stamps is read in either written form.
+- [verdict-repository-scoping](verdict-repository-scoping.md) — decides which candidate verdicts this derivation may count, and requires each one it drops for belonging elsewhere to be named.
 
 ## Decision Log
 
@@ -57,3 +58,6 @@ Mechanical reciprocity fan-out: this aggregate reads a story as analyzed when an
 
 This derivation dropped every verdict it was given. The conformance gate stamps the repository it read in the host-qualified form, and the derivation compared that stamp against a bare owner-and-name, so nothing ever matched: an epic whose stories all carried verdicts reported that not one did, and the close gate then read conformance as never having run. The single-pull-request reader compared host-qualified to host-qualified and accepted the same blocks, and each reader's own tests encoded its own side of the disagreement, so neither suite could observe the split. The comparison is now one shared rule both readers call, accepting either written form of the same repository and still rejecting a different one. Nothing about coverage, severity counts or staleness changed; this page asserted the right behaviour all along and the code did not do it.
 
+### 2026-09-21 — #751 — Reciprocal link from verdict-repository-scoping
+
+The derivation gained a trust check on the repository a candidate's story numbers belong to, and an obligation to name every candidate it drops for failing it.

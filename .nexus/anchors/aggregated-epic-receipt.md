@@ -1,6 +1,6 @@
 ---
 concept: aggregated-epic-receipt
-source_sha: 4586ae1c13dd1c6efee6d2044b59969cf968edbb
+source_sha: 11b192b174650730105f1b8eb0172ac3d513857f
 generated: 2026-09-21
 ---
 
@@ -35,3 +35,4 @@ generated: 2026-09-21
 - `libs/epic-verdicts/src/merge-gate.spec.ts` — pins the per-story read and the unmerged list (#523)
 - `libs/workspace/src/issue-ref.ts` — the one repository comparison this derivation now calls, accepting either written form of the same repository and rejecting a different one (#753)
 - `libs/pr-acceptance/src/receipt-blocks.ts` — the shared collection and ordering step the per-story reader shares with the single-pull-request reader (#753)
+- `libs/epic-verdicts/src/verdict-repos.ts` — resolves the repository this derivation compares a candidate verdict's story numbers against (#765).

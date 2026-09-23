@@ -1,6 +1,6 @@
 ---
 concept: conformance-gate
-source_sha: 4586ae1c13dd1c6efee6d2044b59969cf968edbb
+source_sha: 11b192b174650730105f1b8eb0172ac3d513857f
 generated: 2026-09-21
 ---
 
@@ -18,3 +18,4 @@ generated: 2026-09-21
 - `libs/portable-tools/src/pipeline-stores.ts` — the exclusion set the gate's diff appends, having withheld nothing before
 - `libs/epic-verdicts/src/pr-verdict.ts` — the callable reader the gate now invokes for a pull request's verdict, in place of prose the gate carried out by hand (#753)
 - `libs/portable-tools/src/nexus-cli.ts` — the verb exposing that reader to the gate, refusing when the caller does not name the repository being read (#753)
+- `libs/epic-verdicts/src/publish-check.ts` — the boundary this gate's publish step must pass: a verdict naming no issues repository is refused rather than published (#765).
