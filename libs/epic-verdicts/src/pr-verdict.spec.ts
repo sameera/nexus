@@ -100,12 +100,17 @@ describe("readPrVerdict — newest-wins, executed rather than described", () => 
         expect(r.verdict.receipt?.findings["high"]).toBe(0);
     });
 
-    it("reports the verdict as not current, since commits landed after the analyzed commit", () => {
-        const r = read(twoVerdictPrPayload());
+    it("reports no state describing the analysed commit as stale against a branch (epic #769)", () => {
+        // The pull request has moved on since the analysis. That is not something this reader
+        // reports, and not something the close gate can offer a waiver for: the shipped code is
+        // whatever the record stamped, and no answer here would change it.
+        const r = read({ ...twoVerdictPrPayload(), headRefOid: "f".repeat(40) });
         expect(r.ok).toBe(true);
         if (!r.ok) return;
-        expect(r.verdict.current).toBe(false);
-        expect(r.verdict.staleNote).toContain("landed after analysis");
+        expect(r.verdict.found).toBe(true);
+        expect(r.verdict).not.toHaveProperty("current");
+        expect(r.verdict).not.toHaveProperty("staleNote");
+        expect(Object.values(r.verdict).join(" ")).not.toContain("landed after analysis");
     });
 
     it("reports a pull request carrying no verdict as found: false, not as a failure", () => {
@@ -138,17 +143,31 @@ describe("readPrVerdict — the repository a verdict's story numbers resolve aga
         expect(r.verdict.issuesRepo).toBe(TWO_VERDICT_REPO);
     });
 
-    it("stops with a named condition when the pull request's verdicts belong to another repository's issues", () => {
-        // This is the live defect: the verdicts stamp giccp and name no issues repository, so
-        // their bare #114/117 fall back to giccp — where both numbers exist as unrelated items.
+    it("reads the live key-less verdicts from a checkout whose issues live in another repository", () => {
+        // geo-nexus/giccp#665: the verdicts stamp giccp and name no issues repository. Reading the
+        // stamp as the issues repository rejected every verdict geo-nexus/docs#114's stories carry.
         const r = readAgainst("geo-nexus/docs");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.verdict.found).toBe(true);
+        expect(r.verdict.at).toBe(NEWER_VERDICT_AT);
+    });
+
+    const statedElsewhere = () =>
+        twoVerdictPrPayload({
+            olderBody: verdictBody({ high: 2, nexusVersion: "0.48.0", issuesRepo: "geo-nexus/giccp" }),
+            newerBody: verdictBody({ high: 0, issuesRepo: "geo-nexus/giccp" }),
+        });
+
+    it("stops with a named condition when the pull request's verdicts state another repository's issues", () => {
+        const r = readAgainst("geo-nexus/docs", statedElsewhere());
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.problem).toBe("issues-repo-mismatch");
     });
 
     it("names both repositories in that condition, so it is never read as 'analyze never ran'", () => {
-        const r = readAgainst("geo-nexus/docs");
+        const r = readAgainst("geo-nexus/docs", statedElsewhere());
         expect(r.ok).toBe(false);
         if (r.ok) return;
         expect(r.error.message).toContain("geo-nexus/docs");

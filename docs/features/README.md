@@ -36,6 +36,7 @@ nexus config backlog-query --form exclude
 | Feature                                                                    | What it covers                                                                   |
 | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | [Artifact Prose Style](artifact-prose-style/README.md)                     | Plain-language rules for every human-facing artifact, at a resident cost worth paying. |
+| [Codex Distillation](codex-distillation/README.md)                         | Reduce Codex distillation instructions by moving deterministic work into portable tooling while preserving judgment and approval gates. |
 | [Concept Domain Taxonomy](concept-domains/README.md)                       | A curated domain taxonomy for the concept atlas, replacing derived headings.      |
 | [Concept Store Capacity](concept-store-capacity/README.md)                 | Keeping concept pages cheap to load and their touches graph growable.             |
 | [Component Distribution](component-distribution/README.md)                 | Packaging, installing, and addressing Nexus components outside the target repo.   |

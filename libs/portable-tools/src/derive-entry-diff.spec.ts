@@ -518,6 +518,38 @@ describe("deriveEntryDiff — hard errors (invariant 5)", () => {
         expect(result.errors[0].message).toContain("github.com/acme/ghost");
     });
 
+    // The ledger stamps a record's repository in the bare `owner/repo` form, and a checkout's own
+    // identity is host-qualified. `sameRepo` is the one comparison rule every reader of a stamped
+    // repository calls, so the two forms name the same repository and the drain must resolve it.
+    it("single-repo mode: a bare owner/repo stamp resolves against the host-qualified checkout", () => {
+        const parent = makeParent();
+        const { web } = buildHubFixture(parent);
+        const entryDir = writeEntry(web.root, [{ repo: "acme/web-app", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, web.root);
+        expect(result.ok).toBe(true);
+    });
+
+    it("hub mode: a bare owner/repo stamp resolves against a declared member", () => {
+        const parent = makeParent();
+        const { hubRoot, web } = buildHubFixture(parent);
+        const entryDir = writeEntry(hubRoot, [{ repo: "acme/web-app", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, hubRoot);
+        expect(result.ok).toBe(true);
+    });
+
+    it("single-repo mode: a bare stamp naming a different repo is still unknown-repo", () => {
+        const parent = makeParent();
+        const { web } = buildHubFixture(parent);
+        const entryDir = writeEntry(web.root, [{ repo: "acme/ghost", base: web.base, head: web.head }]);
+
+        const result = deriveEntryDiff(entryDir, web.root);
+        expect(result.ok).toBe(false);
+        if (result.ok) return;
+        expect(result.errors[0].problem).toBe("unknown-repo");
+    });
+
     it("git diff failure surfaces via an injected Runner", () => {
         const parent = makeParent();
         const { hubRoot, web } = buildHubFixture(parent);

@@ -57,6 +57,16 @@ describe("resolvePr", () => {
         expect(r.pr.authorLogin).toBe("dev");
     });
 
+    // Story #774 AC2 orders one story's records by when each pull request merged. The timestamp
+    // is already in this repository-qualified answer, so no caller needs a second, unqualified
+    // `gh pr view` to learn it (invariant 14).
+    it("carries the platform's merge timestamp, so ordering needs no second query", () => {
+        const r = resolvePr(ghRunner({ stdout: MERGED }), "/repo", 7, { requireMerged: true });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.pr.mergedAt).toBe("2026-07-20T10:00:00Z");
+    });
+
     it("rejects an open PR when merged is required (close)", () => {
         const open = JSON.stringify({ state: "OPEN", mergedAt: null, mergeCommit: null, commits: [] });
         const r = resolvePr(ghRunner({ stdout: open }), "/repo", 7, { requireMerged: true });
@@ -72,6 +82,7 @@ describe("resolvePr", () => {
         if (!r.ok) return;
         expect(r.pr.merged).toBe(false);
         expect(r.pr.mergeCommitOid).toBe(null);
+        expect(r.pr.mergedAt).toBe("");
     });
 
     it("maps a not-found gh error", () => {

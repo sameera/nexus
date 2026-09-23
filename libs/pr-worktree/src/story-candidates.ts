@@ -81,6 +81,31 @@ const BODY_REF_RE = /([\w.-]+\/[\w.-]+)#(\d+)\b/g;
 const SCOPE_REF_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|implement(?:s|ed)?|part of)\s+([\w.-]+\/[\w.-]+)?#(\d+)\b/gi;
 
 /**
+ * Does `text` *claim* issue `number` of the issues repository `slug`, under the same grammar the
+ * rungs above read? The one implementation of the claim rule, exported because the reverse
+ * direction — a story resolved to the pull requests that shipped it — validates a weak graph edge
+ * with exactly this question (epic #769). Two copies of the grammar is how the body rung and the
+ * commit rung drifted apart before; a second copy for the reverse direction would drift the same
+ * way.
+ *
+ * `bareAllowed` says whether an unqualified `#N` counts. It does when the text belongs to the
+ * issues repository itself, and does not when it belongs elsewhere — there a bare number names
+ * that repository's own issue.
+ */
+export function claimsIssue(text: string, number: number, slug: RepoSlug, bareAllowed: boolean): boolean {
+    for (const m of text.matchAll(SCOPE_REF_RE)) {
+        if (Number(m[2]) !== number) continue;
+        const qualifier: string | undefined = m[1];
+        if (qualifier === undefined) {
+            if (bareAllowed) return true;
+            continue;
+        }
+        if (namesIssuesRepo(qualifier, slug)) return true;
+    }
+    return false;
+}
+
+/**
  * Does a repository qualifier name the issues repository? The one implementation of that rule,
  * shared by both rungs that read text a human wrote. A qualifier is only ever *compared* against
  * the configured issues repository — never used as the target of a lookup — so text an external

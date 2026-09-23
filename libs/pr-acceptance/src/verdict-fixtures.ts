@@ -92,6 +92,8 @@ export interface TwoVerdictPayloadOptions {
     extraComments?: PayloadComment[];
     /** Replaces the later verdict's body, keeping its timestamp and author. */
     newerBody?: string;
+    /** Replaces the earlier verdict's body, keeping its timestamp and author. */
+    olderBody?: string;
 }
 
 /**
@@ -106,7 +108,11 @@ export function twoVerdictPrPayload(opts: TwoVerdictPayloadOptions = {}): Record
         reviews: [],
         comments: [
             { body: "screenshot", createdAt: "2026-09-16T02:31:46Z", authorAssociation: "MEMBER" },
-            { body: verdictBody({ high: 2, nexusVersion: "0.48.0" }), createdAt: OLDER_VERDICT_AT, authorAssociation: "MEMBER" },
+            {
+                body: opts.olderBody ?? verdictBody({ high: 2, nexusVersion: "0.48.0" }),
+                createdAt: OLDER_VERDICT_AT,
+                authorAssociation: "MEMBER",
+            },
             {
                 body: opts.newerBody ?? verdictBody({ high: 0 }),
                 createdAt: NEWER_VERDICT_AT,

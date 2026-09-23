@@ -16,4 +16,6 @@ generated: 2026-09-21
 - `libs/pr-acceptance/src/verify.ts` — the receipt-block parser, which maps an absent writing release to an unknown writer and an absent stamped repository to a same-repository read, and now surfaces the stamped record reference and digest (#521)
 - `libs/pr-acceptance/src/verify.spec.ts` — pins that a receipt carrying the newer stamped fields parses to the same values as one without them (#521)
 - `libs/portable-tools/src/pipeline-stores.ts` — the exclusion set the gate's diff appends, having withheld nothing before
+- `libs/epic-verdicts/src/pr-verdict.ts` — the callable reader the gate now invokes for a pull request's verdict, in place of prose the gate carried out by hand (#753)
+- `libs/portable-tools/src/nexus-cli.ts` — the verb exposing that reader to the gate, refusing when the caller does not name the repository being read (#753)
 - `libs/epic-verdicts/src/publish-check.ts` — the boundary this gate's publish step must pass: a verdict naming no issues repository is refused rather than published (#765).

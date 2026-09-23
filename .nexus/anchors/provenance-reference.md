@@ -14,4 +14,5 @@ generated: 2026-09-21
 - `components/commands/nxs.fix.md` — reads a single reference in this grammar through the shared skill, resolving it against either an issue or a pull request without distinguishing them, and adding only the qualification (#549)
 - `components/commands/nxs.intake.md` — reads its one pull-request reference in the same grammar, through the same shared skill (#549)
 - `components/skills/nxs-landed-reference/SKILL.md` — the shared reference-form table and issue-or-pull-request resolution both lanes read through, and the slot test that compares a candidate entry's recorded reference by repository (#549)
+- `libs/workspace/src/issue-ref.ts` — the module holding this grammar, which now also carries the repository comparison: the same two-form idea applied to a repository rather than an issue (#753)
 - `libs/pr-acceptance/src/verify.ts` — a published verdict's bare story-number list, and the repository key declared once above it that the list resolves against (#765).

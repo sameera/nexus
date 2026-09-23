@@ -33,4 +33,6 @@ generated: 2026-09-21
 - `components/commands/nxs.close.md` — the gate's reading of a per-story receipt and its per-story staleness report (#521)
 - `libs/epic-verdicts/src/merge-gate.ts` — the live merge-state re-check the close gate runs over this receipt's per-story list, kept separate from the currency axes so it can block without a waiver (#523)
 - `libs/epic-verdicts/src/merge-gate.spec.ts` — pins the per-story read and the unmerged list (#523)
+- `libs/workspace/src/issue-ref.ts` — the one repository comparison this derivation now calls, accepting either written form of the same repository and rejecting a different one (#753)
+- `libs/pr-acceptance/src/receipt-blocks.ts` — the shared collection and ordering step the per-story reader shares with the single-pull-request reader (#753)
 - `libs/epic-verdicts/src/verdict-repos.ts` — resolves the repository this derivation compares a candidate verdict's story numbers against (#765).

@@ -14,26 +14,6 @@
       "import": "./src/diagnostic.ts",
       "default": "./src/diagnostic.ts"
     },
-    "./discover": {
-      "types": "./src/discover.ts",
-      "import": "./src/discover.ts",
-      "default": "./src/discover.ts"
-    },
-    "./verdict": {
-      "types": "./src/verdict.ts",
-      "import": "./src/verdict.ts",
-      "default": "./src/verdict.ts"
-    },
-    "./aggregate": {
-      "types": "./src/aggregate.ts",
-      "import": "./src/aggregate.ts",
-      "default": "./src/aggregate.ts"
-    },
-    "./currency": {
-      "types": "./src/currency.ts",
-      "import": "./src/currency.ts",
-      "default": "./src/currency.ts"
-    },
     "./combined": {
       "types": "./src/combined.ts",
       "import": "./src/combined.ts",
@@ -49,11 +29,6 @@
       "import": "./src/receipt.ts",
       "default": "./src/receipt.ts"
     },
-    "./merge-gate": {
-      "types": "./src/merge-gate.ts",
-      "import": "./src/merge-gate.ts",
-      "default": "./src/merge-gate.ts"
-    },
     "./write": {
       "types": "./src/write.ts",
       "import": "./src/write.ts",
@@ -63,6 +38,26 @@
       "types": "./src/pr-verdict.ts",
       "import": "./src/pr-verdict.ts",
       "default": "./src/pr-verdict.ts"
+    },
+    "./close-ledger": {
+      "types": "./src/close-ledger.ts",
+      "import": "./src/close-ledger.ts",
+      "default": "./src/close-ledger.ts"
+    },
+    "./coverage": {
+      "types": "./src/coverage.ts",
+      "import": "./src/coverage.ts",
+      "default": "./src/coverage.ts"
+    },
+    "./ledger": {
+      "types": "./src/ledger.ts",
+      "import": "./src/ledger.ts",
+      "default": "./src/ledger.ts"
+    },
+    "./story-prs": {
+      "types": "./src/story-prs.ts",
+      "import": "./src/story-prs.ts",
+      "default": "./src/story-prs.ts"
     },
     "./verdict-repos": {
       "types": "./src/verdict-repos.ts",

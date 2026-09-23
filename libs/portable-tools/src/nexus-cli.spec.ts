@@ -805,6 +805,58 @@ describe("nexus pr-worktree open --pr <list> --mode close (story #503)", () => {
         // No worktree was created — order-inversion actually holds in code, not just in prose.
         expect(worktreeCount(repo)).toBe(1); // only the main checkout
     });
+
+    // Decision record #777, "Trunk verification narrows to the repository the distillation branch
+    // is cut in": the close runs where the epic issue lives, and every story pull request may have
+    // merged somewhere else entirely. `nxs.close` tells the lead to pass only the pull requests
+    // whose range entry names this repository, "and pass none at all when no entry does" — the
+    // epic's headline shape. Without this path the close has no way to open its distillation
+    // worktree in exactly that shape, so the close record is never written.
+    it("opens the distillation worktree with no pull requests when none merged in this repository", async () => {
+        const { repo } = buildSequentialSquashPrs(1);
+        const fixturePath = writeGhFixture({});
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await withGhStandIn(fixturePath, () =>
+            runNexusCli(["pr-worktree", "open", "--mode", "close", "--branch", "distill/2026-09-22-epic-769"], io),
+        );
+
+        expect(code).toBe(0);
+        const printed = JSON.parse(io.out.join("")) as {
+            command: string;
+            mode: string;
+            wtPath: string;
+            ranges: Array<{ repo: string; base: string; head: string; pr: number }>;
+        };
+        expect(printed.command).toBe("open");
+        expect(printed.mode).toBe("close");
+        expect(printed.ranges).toEqual([]);
+        expect(fs.existsSync(printed.wtPath)).toBe(true);
+        expect(worktreeCount(repo)).toBe(2); // the main checkout + the one epic worktree
+
+        createdWorktrees.push({ repo, wtPath: printed.wtPath });
+    });
+
+    it("still refuses to open a close worktree with no pull requests and no branch", async () => {
+        const { repo } = buildSequentialSquashPrs(1);
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await runNexusCli(["pr-worktree", "open", "--mode", "close"], io);
+
+        expect(code).toBe(2);
+        expect(io.out).toEqual([]);
+        expect(worktreeCount(repo)).toBe(1); // only the main checkout
+    });
+
+    it("still refuses an analyze worktree with no pull request", async () => {
+        const { repo } = buildSequentialSquashPrs(1);
+        const io: CapturedIo = makeIo(repo);
+
+        const code = await runNexusCli(["pr-worktree", "open", "--mode", "analyze"], io);
+
+        expect(code).toBe(2);
+        expect(io.out).toEqual([]);
+    });
 });
 
 // Story #502: the close-time waiver's one write — `gh issue edit --add-label`. Like story #501's
@@ -1405,39 +1457,82 @@ describe("nexus trunk", () => {
     });
 });
 
-describe("nexus epic-verdicts — every state names the candidates it rejected (epic #751)", () => {
+describe("nexus epic-verdicts — every state names the records it refused to trust (epic #751, #769)", () => {
     const REPO_ROOT: string = path.resolve(import.meta.dirname, "..", "..", "..");
     const read = (name: string): string => fs.readFileSync(path.join(REPO_ROOT, "components", "commands", name), "utf8");
 
-    const candidate = { story: 117, pr: 665, repo: "geo-nexus/giccp", issuesRepo: "geo-nexus/docs" };
+    const refused = { commentId: "IC_1", key: "geo-nexus/giccp#665", author: "drive-by", authorAssociation: "NONE" };
 
-    it("carries rejected in every state the verb prints, not only the two that were remembered", () => {
-        for (const state of ["none", "partial", "aggregate"] as const) {
-            expect(epicVerdictsPayload(751, state, [])).toHaveProperty("rejected", []);
+    it("carries untrusted in every state the verb prints, not only the ones that were remembered", () => {
+        for (const state of ["none", "aggregate"] as const) {
+            expect(epicVerdictsPayload(751, state, [])).toHaveProperty("untrusted", []);
         }
     });
 
-    it("keeps rejected when a state supplies fields of its own", () => {
-        const payload = epicVerdictsPayload(751, "aggregate", [candidate], { outPath: "/tmp/r.md", receipt: { epic: "#751" } });
-        expect(payload["rejected"]).toEqual([candidate]);
+    it("keeps untrusted when a state supplies fields of its own", () => {
+        const payload = epicVerdictsPayload(751, "aggregate", [refused], { outPath: "/tmp/r.md", receipt: { epic: "#751" } });
+        expect(payload["untrusted"]).toEqual([refused]);
         expect(payload["outPath"]).toBe("/tmp/r.md");
         expect(payload["state"]).toBe("aggregate");
         expect(payload["epic"]).toBe(751);
     });
 
-    it("never lets a state's own field shadow rejected", () => {
-        const payload = epicVerdictsPayload(751, "aggregate", [candidate], { rejected: [] });
-        expect(payload["rejected"]).toEqual([candidate]);
+    it("never lets a state's own field shadow untrusted", () => {
+        const payload = epicVerdictsPayload(751, "aggregate", [refused], { untrusted: [] });
+        expect(payload["untrusted"]).toEqual([refused]);
     });
 
-    it("pins the promise both stage prompts make about rejected", () => {
-        expect(read("nxs.analyze.md")).toContain("Every state also carries **`rejected`**");
-        expect(read("nxs.close.md")).toContain("Every state also carries `rejected`");
+    it("pins the promise both stage prompts make about untrusted", () => {
+        expect(read("nxs.analyze.md")).toContain("Every state also carries **`untrusted`**");
+        expect(read("nxs.close.md")).toContain("Every state also carries `untrusted`");
     });
 
     it("pins that the close stage reads issues-repo-mismatch as its own condition, not a missing receipt", () => {
         const close: string = read("nxs.close.md");
         expect(close).toContain("`issues-repo-mismatch` (exit 1) is not the missing-receipt case");
         expect(close).toContain("never treat it as \"analyze never ran\"");
+    });
+});
+
+/**
+ * Story #775 AC2 — a lead invoking a retired check *by name* is told it no longer exists. The
+ * names are `nexus epic-verdicts merge-gate` and `nexus epic-verdicts currency`, so the refusal
+ * belongs to the epic-verdicts dispatcher: reaching a live derivation because `--epic` happened to
+ * be supplied is the "silently succeeding [which] would read as a live requirement met" outcome
+ * decision record #777 refutes.
+ */
+describe("nexus epic-verdicts — the retired checks report their own removal (story #775)", () => {
+    for (const subverb of ["merge-gate", "currency"] as const) {
+        it(`refuses \`epic-verdicts ${subverb}\` with no --epic, naming what replaced it`, async () => {
+            const io: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+            expect(await runNexusCli(["epic-verdicts", subverb], io)).toBe(1);
+            expect(io.out).toEqual([]);
+            expect(io.err.join("\n")).toContain(`nexus epic-verdicts ${subverb}`);
+            expect(io.err.join("\n")).toContain("no longer exists");
+        });
+
+        it(`refuses \`epic-verdicts ${subverb} --epic <N>\` rather than running a live derivation`, async () => {
+            const io: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+            expect(await runNexusCli(["epic-verdicts", subverb, "--epic", "769"], io)).toBe(1);
+            expect(io.out).toEqual([]);
+            expect(io.err.join("\n")).toContain("no longer exists");
+        });
+    }
+
+    it("names the replacement for merge-gate and the reason currency is gone", async () => {
+        const mergeGate: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+        await runNexusCli(["epic-verdicts", "merge-gate", "--epic", "769"], mergeGate);
+        expect(mergeGate.err.join("\n")).toContain("close-gate");
+
+        const currency: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+        await runNexusCli(["epic-verdicts", "currency", "--epic", "769"], currency);
+        expect(currency.err.join("\n")).toContain("code-staleness");
+    });
+
+    it("leaves epic-resolve alone — a retired epic-verdicts name is not an epic-resolve concern", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-retired-"));
+        expect(await runNexusCli(["epic-resolve", "merge-gate"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("usage:");
+        expect(io.err.join("\n")).not.toContain("no longer exists");
     });
 });

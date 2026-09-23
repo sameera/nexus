@@ -23,6 +23,8 @@ export interface PrInfo {
     /** OPEN | MERGED | CLOSED (as `gh` reports it). */
     state: string;
     merged: boolean;
+    /** mergedAt — the platform's own merge timestamp; "" for a PR that has not merged. */
+    mergedAt: string;
     /** baseRefOid — the PR base tip (full SHA). */
     base: string;
     /** headRefOid — the PR branch tip (full SHA). */
@@ -123,6 +125,7 @@ export function resolvePr(
         number: prNumber,
         state: asString(doc["state"], "UNKNOWN"),
         merged,
+        mergedAt: merged ? (mergedAt as string) : "",
         base: asString(doc["baseRefOid"]),
         head: asString(doc["headRefOid"]),
         mergeCommitOid: nestedString(doc["mergeCommit"], "oid"),
