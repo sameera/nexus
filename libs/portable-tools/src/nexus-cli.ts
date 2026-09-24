@@ -43,7 +43,7 @@ import { ledgerCloseGate, sumLedgerFindings } from "@nexus/epic-verdicts/close-l
 import { resolveStoryMergedPrs, type StoryMergedPr } from "@nexus/epic-verdicts/story-prs";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
-import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
+import { resolveVerdictRepos, resolveVerdictRoots } from "@nexus/epic-verdicts/verdict-repos";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { buildEpicReceipt } from "@nexus/epic-verdicts/receipt";
 import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
@@ -1382,6 +1382,118 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
  * trust, recency and coverage as one program, called by both `/nxs.analyze` (which writes the
  * receipt this prints) and `/nxs.close` (which re-checks currency against the same story set).
  */
+// `record` — the shipped ledger's writer (epic #769). A record is written only against a
+// merged pull request: the merge commit and the range anchored to it do not exist before the
+// merge, and a run against an open pull request is the engineer's review, which writes nothing
+// on the epic issue. Everything the record states about conformance is passed in by the gate
+// that just produced it; nothing here reads a published review back to find out what shipped.
+function runEpicVerdictsRecord(flags: EpicVerdictsFlags, epic: number, io: CliIo): number {
+    if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
+        io.stderr(
+            "usage: nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0] " +
+                "[--record-hash <hex>] [--root <startDir>]",
+        );
+        return 2;
+    }
+    // The two sides of a record live in different checkouts in a workspace (#783): the pull
+    // request, its merge and its range in the member it merged in, and the epic in the hub.
+    const roots = resolveVerdictRoots(closeMigrationRunner, flags.root);
+    if (!roots.ok) {
+        io.stderr(renderWorkspaceStatus(roots));
+        return 1;
+    }
+    const { codeRoot, issuesRoot } = roots.roots;
+
+    const repos = resolveVerdictRepos(closeMigrationRunner, issuesRoot, codeRoot);
+    if (!repos.ok) {
+        io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+    const { issuesRepo, repo } = repos.repos;
+
+    const pr = resolvePr(closeMigrationRunner, codeRoot, flags.pr, { requireMerged: false });
+    if (!pr.ok) {
+        io.stderr(renderPrWorktreeDiagnostic(pr.error));
+        return 1;
+    }
+    if (!pr.pr.merged || pr.pr.mergeCommitOid === null) {
+        io.stdout(
+            JSON.stringify({
+                command: "record",
+                epic: epic,
+                pr: flags.pr,
+                repo,
+                issuesRepo,
+                written: false,
+                state: pr.pr.state,
+                reason: "not-merged",
+            }),
+        );
+        return 0;
+    }
+
+    // The range comes from the one merge-anchored derivation with its existing exclusions
+    // (decision record #777, invariant 4). There is deliberately no way for a caller to hand
+    // one in: a range the derivation never produced would disagree with the diff the distiller
+    // later recomputes from it, one stage after the branch was cut.
+    const prHead: string | undefined = fetchPrHead(closeMigrationRunner, codeRoot, flags.pr);
+    const derived = deriveRange(closeMigrationRunner, codeRoot, pr.pr, { verifyAgainstPrHead: prHead });
+    if (!derived.ok) {
+        io.stderr(renderPrWorktreeDiagnostic(derived.error));
+        return 1;
+    }
+    const base: string = derived.range.base;
+    const head: string = derived.range.head;
+
+    const existing = fetchShippedRecords(closeMigrationRunner, issuesRoot, issuesRepo, epic);
+    if (!existing.ok) {
+        io.stderr(`epic-verdicts ${existing.error.problem}: ${existing.error.message}`);
+        return 1;
+    }
+
+    const record: ShippedRecord = {
+        epic: epicRefForRecord(epic, issuesRepo, repo),
+        stories: [...(flags.stories ?? [])].sort((a, b) => a - b),
+        repo,
+        pr: flags.pr,
+        mergeCommit: pr.pr.mergeCommitOid,
+        // The ordering key (story #774 AC2) comes from the repository-qualified `gh pr view`
+        // this path already made. A second, unqualified query could answer for the wrong
+        // repository or fail into an empty string, and an empty key drops the record to the
+        // tiebreak that is explicitly not the order (invariant 14).
+        mergedAt: pr.pr.mergedAt,
+        base,
+        head,
+        findings: parseFindingCounts(flags.findings),
+        recordHash: flags.recordHash?.trim() || null,
+        nexusVersion: releaseVersion(),
+    };
+
+    const posted = postShippedRecord(closeMigrationRunner, issuesRoot, issuesRepo, epic, record, existing.collected.records);
+    if (!posted.ok) {
+        // Invariant 10: the composed body survives the failed post, so the retry is a re-run
+        // rather than a re-derivation, and the run never reads as a success.
+        io.stderr(`epic-verdicts ${posted.error.problem}: ${posted.error.message}`);
+        io.stderr(`the record body was composed and not posted; re-run this command to retry:\n${posted.body}`);
+        return 1;
+    }
+    io.stdout(
+        JSON.stringify({
+            command: "record",
+            epic: epic,
+            pr: flags.pr,
+            repo,
+            issuesRepo,
+            written: true,
+            action: posted.action,
+            key: posted.key,
+            record,
+            untrusted: existing.collected.untrusted,
+        }),
+    );
+    return 0;
+}
+
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
 
@@ -1418,6 +1530,10 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         io.stderr("usage: nexus epic-verdicts derive|combined|coverage|close-gate --epic <N> [--root <startDir>]");
         return 2;
     }
+
+    // `record` resolves its own two roots: the hub-only root below would drop the member checkout
+    // the pull request lives in (#783).
+    if (argv[0] === "record") return runEpicVerdictsRecord(flags, flags.epic, io);
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
@@ -1518,109 +1634,6 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             untrusted: collected.collected.untrusted,
         });
         io.stdout(JSON.stringify({ command: "coverage", issuesRepo, ...coverage }));
-        return 0;
-    }
-
-    // `record` — the shipped ledger's writer (epic #769). A record is written only against a
-    // merged pull request: the merge commit and the range anchored to it do not exist before the
-    // merge, and a run against an open pull request is the engineer's review, which writes nothing
-    // on the epic issue. Everything the record states about conformance is passed in by the gate
-    // that just produced it; nothing here reads a published review back to find out what shipped.
-    if (argv[0] === "record") {
-        if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
-            io.stderr(
-                "usage: nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0] " +
-                    "[--record-hash <hex>] [--root <startDir>]",
-            );
-            return 2;
-        }
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
-            return 1;
-        }
-        const { issuesRepo, repo } = repos.repos;
-
-        const pr = resolvePr(closeMigrationRunner, root, flags.pr, { requireMerged: false });
-        if (!pr.ok) {
-            io.stderr(renderPrWorktreeDiagnostic(pr.error));
-            return 1;
-        }
-        if (!pr.pr.merged || pr.pr.mergeCommitOid === null) {
-            io.stdout(
-                JSON.stringify({
-                    command: "record",
-                    epic: flags.epic,
-                    pr: flags.pr,
-                    repo,
-                    issuesRepo,
-                    written: false,
-                    state: pr.pr.state,
-                    reason: "not-merged",
-                }),
-            );
-            return 0;
-        }
-
-        // The range comes from the one merge-anchored derivation with its existing exclusions
-        // (decision record #777, invariant 4). There is deliberately no way for a caller to hand
-        // one in: a range the derivation never produced would disagree with the diff the distiller
-        // later recomputes from it, one stage after the branch was cut.
-        const prHead: string | undefined = fetchPrHead(closeMigrationRunner, root, flags.pr);
-        const derived = deriveRange(closeMigrationRunner, root, pr.pr, { verifyAgainstPrHead: prHead });
-        if (!derived.ok) {
-            io.stderr(renderPrWorktreeDiagnostic(derived.error));
-            return 1;
-        }
-        const base: string = derived.range.base;
-        const head: string = derived.range.head;
-
-        const existing = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
-        if (!existing.ok) {
-            io.stderr(`epic-verdicts ${existing.error.problem}: ${existing.error.message}`);
-            return 1;
-        }
-
-        const record: ShippedRecord = {
-            epic: epicRefForRecord(flags.epic, issuesRepo, repo),
-            stories: [...(flags.stories ?? [])].sort((a, b) => a - b),
-            repo,
-            pr: flags.pr,
-            mergeCommit: pr.pr.mergeCommitOid,
-            // The ordering key (story #774 AC2) comes from the repository-qualified `gh pr view`
-            // this path already made. A second, unqualified query could answer for the wrong
-            // repository or fail into an empty string, and an empty key drops the record to the
-            // tiebreak that is explicitly not the order (invariant 14).
-            mergedAt: pr.pr.mergedAt,
-            base,
-            head,
-            findings: parseFindingCounts(flags.findings),
-            recordHash: flags.recordHash?.trim() || null,
-            nexusVersion: releaseVersion(),
-        };
-
-        const posted = postShippedRecord(closeMigrationRunner, root, issuesRepo, flags.epic, record, existing.collected.records);
-        if (!posted.ok) {
-            // Invariant 10: the composed body survives the failed post, so the retry is a re-run
-            // rather than a re-derivation, and the run never reads as a success.
-            io.stderr(`epic-verdicts ${posted.error.problem}: ${posted.error.message}`);
-            io.stderr(`the record body was composed and not posted; re-run this command to retry:\n${posted.body}`);
-            return 1;
-        }
-        io.stdout(
-            JSON.stringify({
-                command: "record",
-                epic: flags.epic,
-                pr: flags.pr,
-                repo,
-                issuesRepo,
-                written: true,
-                action: posted.action,
-                key: posted.key,
-                record,
-                untrusted: existing.collected.untrusted,
-            }),
-        );
         return 0;
     }
 

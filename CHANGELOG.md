@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.73.2
+
+- **`/nxs.analyze --pr` now records a member's merged pull request on the hub's epic issue.** In a
+  multi-repo workspace the shipped-record step looked the pull request up in the hub instead of the
+  member it merged in. From a member checkout it stopped with `pr-not-found`; from the analyze
+  worktree it stopped with `missing-hub-checkout`. Either way no record was written, so `/nxs.close`
+  blocked every story of a hub-plus-member epic on `story-unrecorded`. The step now reads the pull
+  request, its merge commit and its range from the member, and posts the record on the epic issue
+  in the hub, naming the member as the repository it merged in. Single-repo and hub runs are
+  unchanged. An epic stuck on this is unblocked by re-running `/nxs.analyze --pr` over each of its
+  merged member pull requests.
+
 ## 0.73.1
 
 - **A distillation no longer stops because the epic's record wrote its repository the short way.**
