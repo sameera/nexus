@@ -188,6 +188,7 @@ run_agent() {
         prompt="${prompt//\/nxs.analyze/\$nxs-analyze}"
         prompt="${prompt//\/nxs.close/\$nxs-close}"
         prompt="${prompt//\/nxs.decision-record/\$nxs-decision-record}"
+        prompt="${prompt//\/nxs.distill/\$nxs-distill}"
         prompt="${prompt//\/nxs-epic-resolve/\$nxs-epic-resolve}"
         codex exec --sandbox "$CODEX_SANDBOX" --json "$@" -- "$prompt" \
             | node --input-type=module -e "$FORMATTER"

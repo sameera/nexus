@@ -1,11 +1,11 @@
 {
-  "claude-components/agents/nxs-architect.md": "ab3067909c62eb98535938610ecd8211f4b261357ad4b5057eb5648f14d1bb2e",
+  "claude-components/agents/nxs-architect.md": "b15246cfd75baa94f6f9eca3e6ef531ea6d68986e5134f51153d571ba8cb60e1",
   "claude-components/agents/nxs-epic-gate.md": "ec70dd4566755a58e0b745f8f3c91d3ac3a4ff491b45a42b5edc2872fda12cc4",
   "claude-components/agents/nxs-pm.md": "a5f39fb6ac2dea6b3c57b3e8cd3cd76e838c24a430dacc6e9002856d5d5ad500",
   "claude-components/commands/nxs.analyze.md": "6425a600759cdda3df0da0e193ee61701289cf043817258bdce50e28d04a253e",
   "claude-components/commands/nxs.close.md": "0751e585e62997aa5e7295555ba2b972e7cd6aec0d9130b7c3b00b2b2c4b893d",
   "claude-components/commands/nxs.council.md": "d506e1a381de86b040f1a4ae8accf130bf94b9a96a832edf397bc6a6603032dc",
-  "claude-components/commands/nxs.decision-record.md": "07fd38e7fe582e6403fc95f0dbb77184848c83a8b4de08c55c812e60905876cc",
+  "claude-components/commands/nxs.decision-record.md": "3be45a2d8fadd8e33fadadde0c5cc668094126cb3561b3b1d1f9eef4f7e9940e",
   "claude-components/commands/nxs.discover.md": "bfc4a5426ad3ca2fe3b8ebb43ad0894cbe3046083f0eef2f4031a8bc6173c789",
   "claude-components/commands/nxs.distill.md": "326da765177fbe63fd57d287e12005b9fa3d9aa856052f7c50724ad287ac1abf",
   "claude-components/commands/nxs.epic.md": "ee3427d62439525abe34119449d1736f4c610d2305d856ba6de4dd8d1c9cbd79",
@@ -30,6 +30,7 @@
   "claude-components/skills/nxs-setup/SKILL.md": "d46f47735081af1597343c8e675d601a7839b4a23b2c448cd86832c4f6afb89b",
   "claude-components/skills/nxs-workspace-status/SKILL.md": "0d20631701abd856951a48f2ca03430dd3a8b97d740e7942d48a3bb06fc20439",
   "templates/close-record-template.md": "7c15ca4b06d5ba6f4e58474fcebd018fe57ddc5ade59a4dbd8be5af0d99d9169",
-  "templates/decision-record-template.md": "93e983fa827b1041ca5e28721a151f37acf2bc11231dc6a51fe33d01117682d4",
+  "templates/decision-record-template-v1.md": "6a693fdb3ce26244c65899a9946960d0eb559a491393484e7703b466bf5b5675",
+  "templates/decision-record-template.md": "b7b9376716974c3b6607618f878123d16836d269c557962e676ca8cf641a4d22",
   "templates/standard.template.md": "16843e962fcf9cd8420c4b4bed4be431ea8389de62b39740edafd569728918c7"
 }

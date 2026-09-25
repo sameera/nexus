@@ -1,6 +1,6 @@
 ---
 name: nxs.decision-record
-description: Add the architectural decision record to a planned epic: the focused "why" (key decisions + refuted alternatives, invariants, risks), tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch; with `--revise` it reopens an approved record, records what it supersedes, updates it, and re-closes it. Next stage is implementation, then /nxs.analyze validates conformance.
+description: Add the architectural decision record to a planned epic, approval contract first: how the design works in the epic's own words, an approval brief of what needs a decision and what each choice costs, the guarantees the build must keep, and the risks, with each decision's reason and refuted alternative in an appendix. Tiered by complexity. Reads the epic and its stories; files the record as a sub-issue of the epic issue (its durable home) and moves the epic from needs-design to in-progress, with approval being the close of that sub-issue. An old-contract committed queue entry still gets decision-record.md beside epic.md. With `--from <path>` it imports an existing design doc (a developer HLD or plan) as the authoritative basis for the record instead of analyzing from scratch; with `--revise` it reopens an approved record, records what it supersedes, updates it, and re-closes it. Next stage is implementation, then /nxs.analyze validates conformance.
 category: engineering
 tools: Read, Grep, Glob, Write, Bash, Task, Skill, AskUserQuestion
 model: inherit
@@ -19,7 +19,7 @@ account and the approval time come from the issue timeline, and an unapproved re
 every stage downstream of it.
 
 **The design spans the whole epic, not a single story.** One record covers the epic. Its decisions
-and invariants must hold across every story; that is what coverage means. The **story** is the unit
+and guarantees must hold across every story; that is what coverage means. The **story** is the unit
 of *implementation* and of the GitHub issue (0009), and there is no task layer below it. The story is
 not the unit of design. Read all stories together and design for the epic.
 
@@ -267,9 +267,13 @@ value, and never treat failure as "context absent".
 Invoke `nxs-architect` in **decision-record mode**. The architect produces the decision *content*:
 the "why", not a 16-section document.
 
+**Choose the record's template before the call** (Phase 3 step 1). The choice tells the architect
+which format to return, and a stale seeded template stops the run there, before any analysis is
+spent.
+
 **Import mode (`--from`):** pass `IMPORT_DOC` (Phase 0.5) as the FIRST, authoritative input and tell
 the architect to **derive** the record from it: extract the decisions, the refuted viable
-alternatives, the invariants, and the BLOCKER/ADDRESS risks the doc already states, rather than
+alternatives, the trade-offs, the guarantees, and the BLOCKER/ADDRESS risks the doc already states, rather than
 re-designing from scratch. Fresh reasoning is used only to (a) abstract any code / file paths / type
 names in the doc into domain prose and (b) verify story coverage. Any decision the doc states without
 a *why*, any choice made without recording the viable alternative it beat, or any doc claim that
@@ -283,7 +287,7 @@ decisions are **already settled**. Its job is to design on top of them, not to r
 They **do not replace the analysis**. The architect still designs the epic from scratch and the
 coverage requirement below still applies to every story. The gists do **not** go through `--from`.
 Import mode treats its document as *the* design, but a gist decides *what* to build and at what
-scope. A gist carries no invariants and settles almost nothing about how the epic is built, and that
+scope. A gist carries no guarantees and settles almost nothing about how the epic is built, and that
 is the part of a record the conformance gate later checks against.
 
 A gist that **states a decision without its reasoning** becomes an **Open Clarification** for the
@@ -306,22 +310,40 @@ Inputs to read:
   (B3 makes this read live; until then it is manual / README-driven — if a concepts
   list is present, grep docs for the matching pages and read them. Do NOT block if absent.)
 
-Produce, as human prose (no machine block, no file paths / type names / API or schema specs):
-- A 2–3 sentence summary of what is built and the shape of the chosen approach.
-- The chosen approach in a few sentences (diagram only if load-bearing).
-- KEY DECISIONS (core): one entry per real decision — what was decided, why, and the
-  refuted VIABLE alternative + why it lost. Guardrail (C1/G2): include an alternative only
-  if a competent engineer might genuinely have chosen it and it lost on a real trade-off —
-  never a strawman. Omit the alternative line if none was viable.
-- CONSTRAINTS & INVARIANTS the build must preserve, including security boundaries.
+Record format: approval-first   # or: old format, for a --revise of a record approved in
+                                #   the old format (chosen by Phase 3 step 1, before this call)
+                                #   — then ask for the old sections instead of the list below
+
+Produce, as human prose (no machine block, no file paths / type names / API or schema specs).
+Number decisions D1…, guarantees G1…, risks R1… so each can cite the others by ID:
+- MECHANISM: a Terms list defining once every internal name the decisions use, then the steps
+  and data the decisions rely on (diagram only if load-bearing). Enough for the stage to write
+  How it works from it in the epic's vocabulary.
+- DECISIONS (core): one entry per real decision, every field given, `none` where it is empty:
+  Decision; Why; Refuted viable alternative (only if a competent engineer might genuinely have
+  chosen it and it lost on a real trade-off — never a strawman; otherwise `none`); Trade-off
+  (what the choice gives up); Epic commitment affected (the issue, the exact current wording
+  quoted from the epic or story, the exact new wording, status pending); Delivered by (the story
+  that delivers it; a decision no story delivers is new scope and must be said so); Guarantees
+  (the IDs it supports).
+- GUARANTEES the build must preserve, including security boundaries: one checkable sentence each,
+  grouped under headings naming what a reviewer checks, each ending with its supporting decision
+  IDs. Behaviour already true that must not break goes under "Existing behaviour to preserve".
   Per-subsystem only — route any cross-cutting NFR budget to <docs-root>/system/standards/ instead.
-- RISKS limited to BLOCKER / ADDRESS (those that force a human decision). No likelihood×severity
+- RISKS limited to BLOCKER / ADDRESS (those that force a human decision), each ADDRESS risk with
+  who delivers its mitigation and whether that plan is already made. No likelihood×severity
   matrix, no speculative risks.
+- CONCEPT-STORE CHANGES: only a concept-page statement the design changes, quoted, with its new
+  wording.
 - OPEN CLARIFICATIONS: ⚠️ NEEDS CLARIFICATION items only the human can resolve.
 
-Coverage requirement: the decisions + invariants must give design coverage for EVERY user
+Do not write a summary or an approval brief: the stage writes How it works and the brief from
+the fields above.
+
+Coverage requirement: the decisions + guarantees must give design coverage for EVERY user
 story in epic.md. An uncovered story fails this record's coverage requirement (verified in Phase 3).
-Where a story needs a design split, describe it as an edit to that story's scope — NOT a new task.
+Where a story needs a design split, describe it as an edit to that story's scope — NOT a new task —
+and give it as that decision's Epic commitment affected.
 ```
 
 **MANDATORY STOP:** do not format the record until the architect analysis returns.
@@ -338,12 +360,14 @@ section to ship unresolved (mirrors the open-question block in `/nxs.epic`).
    context as markdown, then call the tool with one option per plausible answer (the architect's
    proposed default first, labelled "(Recommended)"). The user can always pick "Other" for a custom
    reply.
-4. Fold each answer into the decision-record content: into the affected decision, invariant, or
-   approach. An answer that changes a story's scope is reflected as an **edit to that story**
-   (the design-split rule), not a new open question.
-5. **Write gate:** the written record's `## Open Clarifications` section must be **empty**. If the
-   `AskUserQuestion` UI is dismissed or skipped without answers, **stop and report that the gate is
-   still open**. Do not fall back to writing the unresolved markers into the file, and do not
+4. Fold each answer into the decision-record content: into the affected decision, guarantee or
+   mechanism. An answer that changes a story's scope is recorded as that decision's **Epic
+   commitment affected** (the design-split rule), with the story's exact old and new wording. It is
+   not a new open question, and this stage never edits the story issue itself.
+5. **Write gate:** no open clarification reaches the written record. The approval-first template
+   has no section for one, and the old-format template's `## Open Clarifications` section stays
+   **empty**. If the `AskUserQuestion` UI is dismissed or skipped without answers, **stop and
+   report that the gate is still open**. Do not fall back to writing the unresolved markers into the file, and do not
    proceed to Phase 4.
 
 ## Phase 3 — Format into the decision-record template
@@ -355,20 +379,81 @@ Not "closure instantiates the entry, whose subsequent ingestion populates the st
 creates the entry, and distill moves the entry into the concept store". Frontmatter, fenced code,
 machine blocks, hashes, label names, shell commands and Given / When / Then lines stay as written.
 
-1. Read the seeded project template: `.nexus/config/templates/decision-record-template.md` (the
-   project copy, not the `common/templates/` master).
+1. **Choose the template, then read it.** Both are seeded project copies under
+   `.nexus/config/templates/`, not the `common/templates/` masters.
+
+    - **Every record, by default:** `.nexus/config/templates/decision-record-template.md`, the
+      approval-first format.
+    - **A `--revise` of a record approved in the old format:** its approved body
+      (`gh issue view <record> $REPO_ARG --json body --jq .body`, or the committed
+      `decision-record.md` on the old-contract path) has a `## Constraints & Invariants` section and
+      no `## Guarantees` section. Draft the revision from
+      `.nexus/config/templates/decision-record-template-v1.md`, and tell the architect in Phase 1
+      that the record is in the old format. A revision keeps the format its record was approved in.
+      The checkpoint marks the approved lines as frozen by matching their text, and a record
+      converted to the new format would match none of them.
+
+    If the default template has no `## Guarantees` section, it is a copy seeded before the
+    approval-first format shipped, because seeding never overwrites a project's copy. Stop and say
+    so: the lead moves that copy aside, runs `nexus seed-templates`, and carries any local tuning
+    over into the new copy. If the old-format template is needed and absent, stop and name
+    `nexus seed-templates` as the remedy; it adds only the templates a project does not have.
 2. Read the epic's `complexity` frontmatter from `${QDIR}/epic.md`. It is the story-size rollup (0009)
-   and selects the **C5 required-section whitelist**. Apply the whitelist explicitly, not as a
-   heuristic. If `complexity` is absent (a hand-filed epic resolved from an issue with no
-   `nexus:epic-meta` block), default to **L**: require all sections rather than risk
-   under-documenting.
+   and selects the **required-section tier**. Apply the tier explicitly, not as a heuristic. If
+   `complexity` is absent (a hand-filed epic resolved from an issue with no `nexus:epic-meta`
+   block), default to **L**: require all sections rather than risk under-documenting.
 
     | `complexity` | Required sections |
     | --- | --- |
-    | **S** or **M** | **Key Decisions** + **Constraints & Invariants** only. All other sections optional: omit if empty; do not force-fill. |
-    | **L** or **XL** | **All** template sections required. A required section left empty needs a stated reason. |
+    | **S** or **M** | **How it works**, **Guarantees** and the appendix's **Decisions and reasons**. All other sections optional: omit if empty; do not force-fill. |
+    | **L** or **XL** | **Every** template section, except Concept-store changes. A required section left empty states why. |
 
-3. Fill the template from the architect's output.
+    The **Approval brief appears at every size whenever any of its groups has an entry**, because it
+    is a list fixed by rule and a tier cannot make it optional. At L or XL an empty brief states
+    why, like any other empty section. Concept-store changes appears only when the design changes a
+    concept-store statement, at every size.
+
+    An old-format revision keeps the old tiers: **Key Decisions** and **Constraints & Invariants**
+    at S or M, and every section at L or XL.
+3. **Fill the template.** The architect's output supplies the appendix, the guarantees and the
+   risks. This stage writes How it works and the Approval brief itself, from that output. **The
+   architect does not write the brief**, because the brief's content is fixed by rule and is not a
+   choice of which items matter.
+
+    - **Design rationale and mechanism** (the appendix). The architect's Mechanism, with its Terms
+      list, then one **Decisions and reasons** entry per decision. Every entry gives every field:
+      Decision, Why, Refuted viable alternative, Trade-off, Epic commitment affected (the issue,
+      the exact old wording, the exact new wording and its status), Delivered by, and Guarantees.
+      Write `none` for an empty field, so that an empty field is stated rather than forgotten. The
+      `none` fields exist for the checkpoint, and they are removed from the filed body.
+    - **Guarantees.** The architect's groups, each named for what a reviewer checks. Each
+      guarantee ends with the decisions it supports, or sits under "Existing behaviour to
+      preserve".
+    - **Risks and dependencies**, and **Concept-store changes** when the architect named any.
+    - **How it works.** Explain how the design meets the epic's outcomes, from the Mechanism and the
+      decisions. Use only the vocabulary of the epic and its stories, and name no internal
+      component: no term from the appendix's Terms list appears here. Do not restate an outcome the
+      epic or a story already states; point to it when an anchor helps. About 300 words is a
+      guideline, not a limit. When a clear explanation needs more, the section runs longer. Never
+      cut content or a definition to meet the guideline.
+    - **Approval brief.** Build it mechanically from the decisions, guarantees and risks. Omit an
+      empty group.
+        - **Resolve before approval:** every BLOCKER risk; every epic or story commitment whose
+          status is not *amended*; every guarantee that cites no decision and is not under "Existing
+          behaviour to preserve"; and, in a multi-story epic, every decision no story delivers.
+        - **Choices with trade-offs:** every decision whose trade-off is not `none`, in plain
+          words, with its trade-off as a sub-bullet.
+        - **Before implementation:** every ADDRESS risk whose mitigation is a plan not yet made.
+        - **Committed follow-up:** every ADDRESS risk whose mitigation is decided, with who
+          delivers it.
+        - **Revision delta:** on a `--revise` run only, the IDs of the decisions changed and
+          withdrawn.
+
+      Every decision with a trade-off appears in the brief exactly once. A decision listed under
+      "Resolve before approval" carries its trade-off there, as a sub-bullet of its entry, and is
+      not repeated under "Choices with trade-offs".
+    - **An old-format revision** fills the old-format template from the old sections the architect
+      returned, as the stage did before the approval-first format.
 4. Delete all template guidance comments before writing.
 4b. **Apply the razor** (load the **`nxs-razor`** skill; it is the same rule set `/nxs.epic` drafts
    under, and this command restates none of it).
@@ -376,8 +461,9 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     - **Materialize the run's source text** to `<scratch>/source.md` before labelling anything: the
       epic body and its stories, plus the imported design doc in `--from` mode. Every citation in
       this run is checked against that file and nothing else.
-    - **Label every invariant and every risk** inline, `[asked: "…"]` with a fragment quoted from
-      `source.md`, or `[inferred]`. The vocabulary has two values. Decisions and refuted alternatives
+    - **Label every guarantee and every risk** inline, `[asked: "…"]` with a fragment quoted from
+      `source.md`, or `[inferred]`. In an old-format revision, label every invariant and every
+      risk instead. The vocabulary has two values. Decisions and refuted alternatives
       are not labelled; a refuted alternative is the model's own by construction, so the label would
       discriminate nothing.
     - **Check the draft**, and fix what blocks before going on:
@@ -388,8 +474,8 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
 
       This stage has no gate agent and gains none. It runs the same checker the epic gate runs, over
       its own draft.
-5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or
-   invariant. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
+5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or a
+   guarantee. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
 
 **The record body is pure human prose**. On the issue-sourced path it becomes a GitHub issue body,
@@ -809,11 +895,12 @@ Report concisely:
   approval, plus the canonical digest from step 7. On the old-contract path, the file path instead.
 - The epic it covers (title + issue ref), its `complexity` rating, and its labels now
   (`needs-design` removed, `in-progress` applied).
-- Sections **filled** vs. **tiered out** under C5 (e.g. "S epic → Key Decisions + Invariants; other
-  sections omitted").
-- Open clarifications: **none**, or **N resolved** at the Phase 2 gate (the Open Clarifications
-  section is empty in the filed record).
-- Story coverage: confirm every user story is addressed.
+- The record's format (approval-first, or old format for a revision of an old-format record) and
+  its sections **filled** vs. **tiered out** (e.g. "S epic → How it works, Guarantees, Decisions and
+  reasons; Approval brief with two choices; other sections omitted").
+- Open clarifications: **none**, or **N resolved** at the Phase 2 gate (none reaches the filed
+  record).
+- Story coverage: confirm every user story is addressed by a decision or a guarantee.
 - Workbook sources (when a workbook teaches this epic): that the record is closed and available to
   pin from, or that it is left open and nothing can be pinned from it yet.
 - Next step: implement the stories, then `/nxs.analyze`. That stage **will not run** while the

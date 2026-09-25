@@ -5,6 +5,30 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.74.0
+
+- **`/nxs.decision-record` now drafts every new record approval contract first.** The record opens
+  with How it works, a short explanation of the design in the epic's and stories' own words. An
+  Approval brief follows. It lists what must be resolved before approval, and every decision that
+  gives something up, with what it gives up. Then come the Guarantees, grouped by what a reviewer
+  checks and each naming the decisions behind it, and the Risks and dependencies. A Concept-store
+  changes section appears only when the design changes a concept-page statement. The full reasons
+  for each decision, a Terms list for every internal name, and the detailed mechanism move to an
+  appendix at the end. Each decision there states its trade-off, the exact old and new wording of
+  any epic or story text it changes, the story that delivers it, and the guarantees it supports.
+  The old Summary, Chosen Approach, Key Decisions, Constraints & Invariants and Open Clarifications
+  sections are gone from new records. How it works has a guideline of about 300 words, and runs
+  longer when the design needs it. A small or medium epic's record now always has a How it works
+  section, so the shortest records get a little longer.
+- **A revision of a record approved in the old format stays in the old format.**
+  `/nxs.decision-record --revise` drafts it from the old template, so its approved lines still
+  match. Records already filed are not rewritten.
+- **Breaking: a repository seeded before this release must re-seed its decision-record
+  template.** Seeding never overwrites a project's copy, so the project's record template is still
+  the old one, and `/nxs.decision-record` now stops and says so instead of drafting from it. Move
+  that copy aside and run `nexus seed-templates`, which also adds the old-format template a revision
+  needs. Carry any local tuning over into the new copy.
+
 ## 0.73.2
 
 - **`/nxs.analyze --pr` now records a member's merged pull request on the hub's epic issue.** In a

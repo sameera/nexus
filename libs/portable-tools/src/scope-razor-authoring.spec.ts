@@ -423,8 +423,8 @@ describe("the other drafting stages", () => {
         expect(record).toMatch(/One typed selection covers every kind the list holds/);
     });
 
-    it("label the record's invariants and risks in the same two-valued form", () => {
-        expect(record).toMatch(/Label every invariant and every risk/);
+    it("label the record's guarantees and risks in the same two-valued form", () => {
+        expect(record).toMatch(/Label every guarantee and every risk/);
         expect(record).toContain("[inferred]");
     });
 

@@ -3,7 +3,7 @@
  * the project's own configuration get there.
  *
  * Three stages read a template from `.nexus/config/templates/` — setup its standards template, the
- * decision-record stage its record template, close its close-record template — and nothing seeded
+ * decision-record stage its record templates, close its close-record template — and nothing seeded
  * any of them. That gap was hidden by the Nexus checkout, where the files happen to be present; in
  * any other repository the stages read a path that never existed. So the masters now travel inside
  * the release (`TEMPLATE_PAYLOAD_DIRNAME`, beside the bundled entrypoints, exactly as the component
@@ -29,10 +29,15 @@ import * as path from "node:path";
 /**
  * The tool-agnostic templates a project's stages read. One copy serves every project — there is no
  * per-tool variant — so this is the whole seeded set, named here and nowhere else.
+ *
+ * The decision-record stage reads two: the approval-first template every new record is drafted
+ * from, and the old-format one a revision of a record approved in that format keeps (epic #787,
+ * D11), because a revision's frozen lines match only in the format they were approved in.
  */
 export const SEEDED_TEMPLATES: readonly string[] = [
     "close-record-template.md",
     "decision-record-template.md",
+    "decision-record-template-v1.md",
     "standard.template.md",
 ];
 
