@@ -17,3 +17,23 @@
 - **Choice:** The 0.74.0 changelog says "Breaking" for the re-seed, and the release-notes spec's context sets `breakingChange: true`.
 - **Why:** A repository seeded before 0.74.0 finds `/nxs.decision-record` stopping until the lead re-seeds.
 - **Refuted alternative:** none
+
+## 2026-09-25 — Cut IDs passed to derive as an explicit `--cut` flag
+- **Choice:** `nexus razor-check --derive` takes `--cut G3,R2`, and stops naming every line that still cites a listed ID as a whole token, writing nothing.
+- **Why:** The explicit list is deterministic; the stage already knows what the reviewer cut.
+- **Refuted alternative:** Detect cut IDs as gaps in the G/R numbering; it needs no flag, but a gap left by an earlier revision would read as a fresh cut.
+
+## 2026-09-25 — `none` fields removed wherever they appear, not only inside decision entries
+- **Choice:** `deriveFilingBody` drops any `- **<Field>:** none` bullet (case-insensitive, optional period), and `survivingTokens` reports one as `none-field`.
+- **Why:** G10 says no `none` field reaches a filed body, and no epic, close or story template writes such a line, so a generic rule costs epics nothing.
+- **Refuted alternative:** Remove them only inside a record's `#### D<n>` entries; it is narrower, but it makes the derive step format-aware and misses a `none` field written elsewhere.
+
+## 2026-09-25 — The section reader returns guarantees and invariants as separate lists
+- **Choice:** `readRecord` returns `{ format, decisions, guarantees, invariants, risks, conceptChanges }`, with the list the format lacks left empty; the checkpoint reads a draft in neither format by the old headings, as today.
+- **Why:** One flat shape serialises directly for #790's read-only command, and keeping the neither-format checkpoint on the old path leaves every old-format result unchanged.
+- **Refuted alternative:** A discriminated union per format; it is stricter in TypeScript, but every caller then branches before it can read the risks and decisions both formats share.
+
+## 2026-09-25 — Unlabelled guarantee or risk blocks at `razor-check --source`, new format only
+- **Choice:** `checkDraft` adds provenance-label findings for every unlabelled guarantee and risk when the draft reads as the new format.
+- **Why:** G7 (D4) requires it, and an old-format draft is left exactly as today.
+- **Refuted alternative:** Leave it to #792's cross-reference findings; the cut list would then keep an unlabelled line only through the reader's default, with no finding.

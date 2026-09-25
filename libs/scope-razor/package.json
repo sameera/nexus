@@ -35,6 +35,11 @@
             "import": "./src/record-offer.ts",
             "default": "./src/record-offer.ts"
         },
+        "./record": {
+            "types": "./src/record.ts",
+            "import": "./src/record.ts",
+            "default": "./src/record.ts"
+        },
         "./offer": {
             "types": "./src/offer.ts",
             "import": "./src/offer.ts",

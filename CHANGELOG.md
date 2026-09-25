@@ -23,6 +23,19 @@ behaviour says so.
 - **A revision of a record approved in the old format stays in the old format.**
   `/nxs.decision-record --revise` drafts it from the old template, so its approved lines still
   match. Records already filed are not rewritten.
+- **The record checkpoint's cut list reads the new sections.** For a new-format draft it lists
+  every refuted alternative under its decision, every guarantee the model added, each under its
+  group (Existing behaviour to preserve included), and every risk the model added. A decision whose
+  alternative is written as `none` adds no line. An old-format revision's list reads the old
+  sections and marks approved lines as frozen, as before. A guarantee or a risk with no provenance
+  label now blocks at the draft check, so none can drop off the list.
+- **Cutting a guarantee or a risk no longer renumbers the rest.** The gap stays, because decisions
+  and the Approval brief cite them by ID. The stage passes the cut IDs to the derive step. When a
+  surviving line still cites a cut ID, filing stops and names each such line, and the lead fixes it
+  by hand. An old-format revision still renumbers its invariants.
+- **A field written as `none` in the draft is absent from the filed record.** The draft states
+  every field of a decision, `none` where it is empty, and the derive step removes those lines. The
+  clean-body assertion fails on any that survives.
 - **Breaking: a repository seeded before this release must re-seed its decision-record
   template.** Seeding never overwrites a project's copy, so the project's record template is still
   the old one, and `/nxs.decision-record` now stops and says so instead of drafting from it. Move

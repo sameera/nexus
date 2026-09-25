@@ -473,7 +473,8 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         ```
 
       This stage has no gate agent and gains none. It runs the same checker the epic gate runs, over
-      its own draft.
+      its own draft. In a new-format draft it blocks every guarantee and every risk that carries no
+      label, so none can drop off the Phase 3.5 cut list.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or a
    guarantee. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
@@ -516,10 +517,19 @@ marker is one asserted string.
 
 **Then render the cut list** (nxs-razor §8), directly above the choice. This gate's convention is
 **removal**; a refuted alternative is not scope, so there is nothing here to add to. The list holds
-**every refuted alternative and every invariant and every risk the model added**, because a gate that
+**every refuted alternative, and every guarantee and every risk the model added**, because a gate that
 shows the reviewer only part of what the model added leaves the rest of the labelling as decoration.
-**An invariant or a risk the lead asked for is not listed** — that is the lead's own definition, and
-striking it is a revise, exactly as an asked-for acceptance criterion is treated at the planning gate.
+Every group of guarantees is read, "Existing behaviour to preserve" included. A decision whose refuted
+viable alternative is `none` contributes no line, because `none` states that there was no
+alternative. **A guarantee or a risk the lead asked for is not listed** — that is the lead's own
+definition, and striking it is a revise, exactly as an asked-for acceptance criterion is treated at
+the planning gate.
+
+**An old-format revision** (drafted from the old-format template in Phase 3, step 1) is read by its
+old sections: every refuted alternative under Key Decisions, and every invariant and every risk the
+model added. Its approved lines are marked frozen exactly as before. The checker tells the two
+formats apart by their headings, so the stage passes the same flags for both. Nothing converts an old
+record to the new format.
 
 **Ask the checker for the list; do not assemble it by hand.** Pass `--approved-body` **only when the
 record sub-issue is closed** at this moment — the resolved `epic.md` carries `record_state: closed`.
@@ -533,9 +543,9 @@ nexus razor-offer --draft "<scratch>/record-body.labelled.md" --record \
 ```
 
 It prints one numbered list: every refuted alternative, under the decision it belongs to, then every
-invariant the model added, then every risk it added — **one sequence from 1**, in the record's own
-section order, and **every line arrives ticked**, because a plain approval files the record minus
-nothing. **Transcribe it; derive nothing.** A list assembled by hand can quietly omit the one line
+guarantee the model added, under its group, then every risk it added — **one sequence from 1**, in
+the record's own section order, and **every line arrives ticked**, because a plain approval files the
+record minus nothing. **Transcribe it; derive nothing.** A list assembled by hand can quietly omit the one line
 this gate exists to show, and nothing downstream would notice; an omission from the checker is a test
 failure.
 
@@ -557,9 +567,10 @@ Refuted alternatives
   <Decision Title>
   [x] 2. <the alternative, as written> — <its stated reason for losing>
 
-Invariants — model-added
-  [x] 3. <the invariant, verbatim minus its label>
-  [x] 4. <the invariant, verbatim minus its label> · frozen: the approved record already carries this
+Guarantees — model-added
+  <Group heading>
+  [x] 3. <the guarantee, verbatim minus its label>
+  [x] 4. <the guarantee, verbatim minus its label> · frozen: the approved record already carries this
 
 Risks — model-added
   [x] 5. <the risk, verbatim minus its label>
@@ -573,7 +584,7 @@ no group whose numbers mean something different from another group's. One typed 
 whole decision — the same thing a number does at the planning gate, so a lead who runs both stages in
 the same week reads "type 3" one way. What differs is only the direction the default points: this
 gate files the record as drafted and a number **cuts**, because a refuted alternative is not scope and
-an invariant describes an epic whose scope the planning gate has already settled (nxs-razor §8).
+a guarantee describes an epic whose scope the planning gate has already settled (nxs-razor §8).
 
 **Keep the ticks in the text.** Do **not** render this as `AskUserQuestion` checkboxes — that control
 cannot arrive pre-ticked, so an untouched box would mean *cut it* and the default would be
@@ -600,19 +611,27 @@ Then ask via **`AskUserQuestion`** (per the interaction convention). Four option
 
 - **approve as drafted**: file the record as it stands.
 - **approve with cuts**: the same, after removing the lines the reviewer names — alternatives,
-  invariants and risks alike.
+  guarantees and risks alike.
 - **revise**: return to Phase 1 for the decisions the reviewer names.
 - **no record**: the epic proceeds without one (the Phase 0.2 step-4 exit: file nothing, remove the
   needs-design label, stop).
 
 `approve with cuts` takes a typed list of the numbers. **One typed selection covers every kind the
-list holds** — a number names one line, whether that line is a refuted alternative, an invariant or a
+list holds** — a number names one line, whether that line is a refuted alternative, a guarantee or a
 risk. Delete each named line from the labelled draft **before** Phase 3.6 derives the filing body, so
-it is gone before any issue is created or updated. Then renumber the record's invariant list without
-gaps, and check that no surviving prose refers to a cut item by its old number. A reviewer may cut
-every line, including every invariant; the section then files empty or is omitted by its tier. There
-is no floor, because no razor rule may require an item to exist in order to satisfy one (nxs-razor
-§5).
+it is gone before any issue is created or updated.
+
+- **A new-format record keeps its numbers.** Do not renumber the guarantees or the risks. The gap a
+  cut leaves stays, because decisions and the Approval brief cite guarantees and risks by ID, and
+  renumbering would make every later citation name the wrong item. Note the ID of each cut guarantee
+  and risk (`G3`, `R2`), and pass them to Phase 3.6 as `--cut`. Do not edit a line that cites a cut
+  ID yet: the derive step names every such line, and the lead fixes each one.
+- **An old-format revision renumbers, as before.** Renumber its invariant list without gaps, and
+  check that no surviving prose refers to a cut item by its old number.
+
+A reviewer may cut every line, including every guarantee; the section then files empty or is omitted
+by its tier. There is no floor, because no razor rule may require an item to exist in order to
+satisfy one (nxs-razor §5).
 
 **Naming nothing is identical to plain approval**: the record files as drafted, with no re-render and
 no second confirmation.
@@ -631,7 +650,24 @@ and the publish itself is the first thing Phase 3.6 does after the labels come o
 ## Phase 3.6 — Derive the filing body
 
 The labelled draft is not what is filed. Once the checkpoint is answered and any cut is applied,
-strip every label from `<scratch>/record-body.labelled.md` into `<scratch>/record-body.md`.
+derive the filing body with the checker. It removes every label and every field written as `none`,
+and asserts that nothing drafting-time survived:
+
+```bash
+nexus razor-check --draft "<scratch>/record-body.labelled.md" --derive "<scratch>/record-body.md" \
+    [--cut "G3,R2"]     # the IDs of the guarantees and risks cut at Phase 3.5, new format only
+```
+
+**A non-zero exit stops the run: file nothing.** With `--cut`, the checker first searches the
+labelled draft for each cut ID, as a whole token, so `G3` does not match `G31`. When a surviving
+line still cites one, it names each such line by its line number, writes no body, and exits 1. Show
+the lead those lines. The lead fixes each one by hand, for example by removing the ID from a
+decision's Guarantees field, and the derive runs again. The stage never removes a citation itself,
+because that would change what a decision says it supports. An old-format revision passes no
+`--cut`; its renumbering was checked at Phase 3.5.
+
+A `- **<Field>:** none` line exists for the checkpoint only, so the derived body carries none of
+them. A field whose value says more than `none` is kept.
 
 **Then publish the assets and rewrite their references (when `ASSETS` is set)**. This is the first
 side effect after the checkpoint. It runs on the derived body, before the assertion and before any
@@ -660,8 +696,9 @@ nexus razor-check --draft "<scratch>/record-body.md" --assert-clean \
 A non-zero exit stops the run: **file nothing**. The record body is the artifact the record hash is
 taken over, so a label surviving into it would report a design that did not change as changed. The
 same assertion fails on a surviving template placeholder token (`{{…}}`), on a surviving
-observation marker (`⚠️ razor:`), and on a local asset path the rewrite missed, given this run's
-`--asset-path`s, matched exactly. So none of them reaches the filed body.
+observation marker (`⚠️ razor:`), on a field written as `none`, and on a local asset path the
+rewrite missed, given this run's `--asset-path`s, matched exactly. So none of them reaches the filed
+body.
 
 This is a phase of its own rather than a step of Phase 3 because it runs **after** the Phase 3.5
 checkpoint, so the body is derived from the draft the reviewer actually approved, cuts included.

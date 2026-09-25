@@ -1,5 +1,10 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { recordChecklist, type RecordChecklistItem } from "./record-offer.js";
+
+const NEW: string = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "__fixtures__", "record-new.labelled.md"), "utf8");
 
 const DRAFT: string = [
     "# Decision Record: Something",
@@ -127,5 +132,60 @@ describe("a line whose content an approved record already carries", () => {
 
     it("freezes nothing when the approved body is absent, which is an epic with no record yet", () => {
         expect(recordChecklist(DRAFT, undefined).some((item: RecordChecklistItem) => item.frozen)).toBe(false);
+    });
+});
+
+describe("the checklist of a new-format record (epic #787, story #789)", () => {
+    const listed: RecordChecklistItem[] = recordChecklist(NEW);
+    const of = (kind: RecordChecklistItem["kind"]): RecordChecklistItem[] => listed.filter((item: RecordChecklistItem) => item.kind === kind);
+
+    it("lists every refuted alternative under its decision, two under a decision that refutes two", () => {
+        expect(of("alternative").map((item: RecordChecklistItem) => item.parent)).toEqual([
+            "D1 — A new function and a new provider",
+            "D2 — Match in the store, keyed by the batch's own values",
+            "D2 — Match in the store, keyed by the batch's own values",
+        ]);
+        expect(of("alternative")[2].text).toMatch(/^Query per value from inside the function/);
+    });
+
+    it("lists no alternative written as `none`, since `none` states that there was none", () => {
+        expect(listed.map((item: RecordChecklistItem) => item.parent)).not.toContain("D3 — No match yields the empty value");
+        expect(listed.some((item: RecordChecklistItem) => /^none$/i.test(item.text))).toBe(false);
+    });
+
+    it("lists every model-added guarantee from every group, Existing behaviour to preserve included", () => {
+        expect(of("guarantee").map((item: RecordChecklistItem) => item.text.slice(0, 3))).toEqual(["G1.", "G3.", "G4."]);
+        expect(of("guarantee").map((item: RecordChecklistItem) => item.parent)).toEqual(["Tenant boundary", "Fetching and cost", "Existing behaviour to preserve"]);
+    });
+
+    it("lists every model-added risk, and no line of the Approval brief", () => {
+        expect(of("risk").map((item: RecordChecklistItem) => item.text.slice(0, 2))).toEqual(["R1", "R3"]);
+        expect(listed.some((item: RecordChecklistItem) => item.text.startsWith("D1."))).toBe(false);
+    });
+
+    it("lists no guarantee and no risk the lead asked for", () => {
+        const texts: string = listed.map((item: RecordChecklistItem) => item.text).join("\n");
+        expect(texts).not.toMatch(/G2\.|G5\.|R2 ADDRESS/);
+    });
+
+    it("lists no invariant, since the new format has none", () => {
+        expect(of("invariant")).toEqual([]);
+    });
+
+    it("numbers alternatives, guarantees and risks as one ticked sequence from one", () => {
+        expect(listed.map((item: RecordChecklistItem) => item.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+        expect(listed.map((item: RecordChecklistItem) => item.kind)).toEqual(["alternative", "alternative", "alternative", "guarantee", "guarantee", "guarantee", "risk", "risk"]);
+        expect(listed.every((item: RecordChecklistItem) => item.filed)).toBe(true);
+    });
+
+    it("strips the provenance label off every guarantee and risk it lists", () => {
+        expect(listed.map((item: RecordChecklistItem) => item.text).join("\n")).not.toMatch(/\[inferred\]|\[asked:/);
+    });
+
+    it("marks a guarantee the approved record already carries as frozen, and leaves the rest flippable", () => {
+        const approved: string = "## Guarantees\n\n### Fetching and cost\n\n- G3. Query never contacts the database while a record is being mapped. (D2)\n";
+        const frozen: RecordChecklistItem[] = recordChecklist(NEW, approved);
+        expect(frozen.filter((item: RecordChecklistItem) => item.frozen).map((item: RecordChecklistItem) => item.text.slice(0, 3))).toEqual(["G3."]);
+        expect(frozen.every((item: RecordChecklistItem) => item.filed)).toBe(true);
     });
 });

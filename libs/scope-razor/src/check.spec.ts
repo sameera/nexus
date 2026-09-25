@@ -416,3 +416,19 @@ describe("an epic draft, whose third-level headings are stories", () => {
         expect(found.filter((f: RazorFinding) => f.rule === "acceptance-criteria-ceiling")).toHaveLength(1);
     });
 });
+
+describe("a new-format decision-record draft (epic #787, story #789)", () => {
+    const record = (guarantees: string[], risks: string[]): string =>
+        ["# Decision Record: A Capability", "", "## Guarantees", "", "### Filing", "", ...guarantees, "", "## Risks and dependencies", "", ...risks, ""].join("\n");
+
+    it("raises nothing when every guarantee and every risk carries a label", () => {
+        expect(checkDraft(record(["- G1. Sessions end on close. (D1) `[inferred]`"], ["- R1 ADDRESS — a thing. `[inferred]`"]), "src")).toEqual([]);
+    });
+
+    it("blocks an unlabelled guarantee in any group and an unlabelled risk, naming each", () => {
+        const body: string = record(["- G1. Sessions end on close. (D1) `[inferred]`", "", "### Existing behaviour to preserve", "", "- G2. Logins keep working."], ["- R1 ADDRESS — a thing."]);
+        const found: RazorFinding[] = blocking(checkDraft(body, "src"));
+        expect(found.map((f: RazorFinding) => f.rule)).toEqual(["provenance-label", "provenance-label"]);
+        expect(found.map((f: RazorFinding) => f.message).join("\n")).toMatch(/G2\. Logins keep working[\s\S]*R1 ADDRESS/);
+    });
+});

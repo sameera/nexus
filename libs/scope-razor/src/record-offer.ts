@@ -12,17 +12,25 @@
  * notice, while an omission from a checker is a test failure. The stage transcribes what this
  * returns and adds only the viability observation and the choice.
  *
- * Only the model's own additions are listed. An invariant or a risk the lead asked for is the lead's
- * own definition, and striking it is a revise rather than a tick — the same treatment the planning
- * gate gives an asked-for acceptance criterion.
+ * Only the model's own additions are listed. A guarantee (an invariant, in an old-format record) or a
+ * risk the lead asked for is the lead's own definition, and striking it is a revise rather than a
+ * tick — the same treatment the planning gate gives an asked-for acceptance criterion.
+ *
+ * The sections are read by the record reader (epic #787, story #789), which knows both formats. A
+ * renamed heading would otherwise empty the list silently, which is the one failure this gate exists
+ * to prevent. A draft in neither format is read by the old headings, as it always was.
  */
 
 import { normalize } from "./citations.js";
-import { bullets, readClaim, sections, type Section } from "./document.js";
+import { readClaim } from "./document.js";
 import { stripLabels } from "./labels.js";
+import { readRecordAs, recordFormat, type RecordDecision, type RecordField, type RecordGuarantee, type RecordLine, type RecordReading } from "./record.js";
 
-/** Which part of the record a checklist line came from. */
-export type RecordChecklistKind = "alternative" | "invariant" | "risk";
+/**
+ * Which part of the record a checklist line came from. A new-format record lists guarantees, and an
+ * old-format one lists invariants (epic #787, story #789).
+ */
+export type RecordChecklistKind = "alternative" | "invariant" | "guarantee" | "risk";
 
 /** One line of the checkpoint's checklist. */
 export interface RecordChecklistItem {
@@ -36,7 +44,10 @@ export interface RecordChecklistItem {
     filed: boolean;
     /** The item as the reviewer reads it: its marker, its label and any template comment gone. */
     text: string;
-    /** Alternatives only: the decision the alternative belongs to. */
+    /**
+     * An alternative's decision, or a guarantee's group heading, so the reviewer reads what the line
+     * belongs to. Nothing for an invariant or a risk.
+     */
     parent: string | undefined;
     /**
      * Whether the approved record body already carries this line's content. A frozen line is still
@@ -44,21 +55,6 @@ export interface RecordChecklistItem {
      * only through the revision path's supersession trail.
      */
     frozen: boolean;
-}
-
-const DECISIONS: RegExp = /^Key Decisions$/i;
-const INVARIANTS: RegExp = /^Constraints & Invariants$/i;
-const RISKS: RegExp = /^Risks\b/i;
-const ALTERNATIVE: RegExp = /^-[ \t]+\*\*Refuted alternative:\*\*[ \t]*/i;
-
-/** A section's heading with any trailing template comment removed, the form the headings match in. */
-function heading(section: Section): string {
-    return section.heading.replace(/\s*<!--.*$/, "").trim();
-}
-
-/** The one `##` section with this heading, or nothing when the record omits it. */
-function section(draft: string, wanted: RegExp): Section | undefined {
-    return sections(draft, "##").find((candidate: Section) => wanted.test(heading(candidate)));
 }
 
 /**
@@ -73,34 +69,27 @@ function itemText(item: string): string {
         .trim();
 }
 
-/** Top-level items of a section: the template writes invariants numbered and risks as bullets. */
-function items(lines: string[]): string[] {
-    return lines.filter((line: string) => /^(?:- |\d+\. )/.test(line));
-}
-
 /** The model's own additions among a section's items — an asked-for one is the lead's definition. */
-function inferred(lines: string[]): string[] {
-    return items(lines).filter((line: string) => readClaim(line).provenance === "inferred");
+function inferred<T extends RecordLine>(items: T[]): T[] {
+    return items.filter((item: T) => readClaim(item.text).provenance === "inferred");
 }
 
 /**
  * Every refuted alternative the record states, under the decision it belongs to. A decision that
  * refutes nothing contributes no line: the razor offers the alternative rather than requiring it, so
- * an absent one is the ordinary case and not a gap to render.
+ * an absent one is the ordinary case and not a gap to render. In the new format a decision states
+ * that absence as `none`, and the reader already leaves that out.
  */
-function alternatives(draft: string): Array<Omit<RecordChecklistItem, "number">> {
-    const decisions: Section | undefined = section(draft, DECISIONS);
-    if (decisions === undefined) return [];
-    return sections(decisions.lines.join("\n"), "###").flatMap((decision: Section) =>
-        bullets(decision.lines)
-            .filter((line: string) => ALTERNATIVE.test(line))
-            .map((line: string) => ({ kind: "alternative" as const, text: itemText(line.replace(ALTERNATIVE, "")), parent: heading(decision) })),
+function alternatives(record: RecordReading): Array<Pick<RecordChecklistItem, "kind" | "text" | "parent">> {
+    return record.decisions.flatMap((decision: RecordDecision) =>
+        decision.alternatives.map((field: RecordField) => ({ kind: "alternative" as const, text: itemText(field.value), parent: decision.heading })),
     );
 }
 
 /**
- * The checkpoint's checklist: every refuted alternative, then every invariant the model added, then
- * every risk it added — one numbered sequence from one, in the record's own section order.
+ * The checkpoint's checklist: every refuted alternative, then every guarantee (or, in an old-format
+ * record, every invariant) the model added, then every risk it added — one numbered sequence from
+ * one, in the record's own section order.
  *
  * The numbering is one sequence across all three kinds because the reviewer's selection is one typed
  * list of numbers, and a number meaning a different thing depending on which group it sits in is the
@@ -120,10 +109,12 @@ function alternatives(draft: string): Array<Omit<RecordChecklistItem, "number">>
  * design, so it is not compared against and nothing about it is refused.
  */
 export function recordChecklist(draft: string, approvedBody?: string): RecordChecklistItem[] {
+    const record: RecordReading = readRecordAs(draft, recordFormat(draft) === "new" ? "new" : "old");
     const lines: Array<Pick<RecordChecklistItem, "kind" | "text" | "parent">> = [
-        ...alternatives(draft),
-        ...inferred(section(draft, INVARIANTS)?.lines ?? []).map((line: string) => ({ kind: "invariant" as const, text: itemText(line), parent: undefined })),
-        ...inferred(section(draft, RISKS)?.lines ?? []).map((line: string) => ({ kind: "risk" as const, text: itemText(line), parent: undefined })),
+        ...alternatives(record),
+        ...inferred(record.guarantees).map((item: RecordGuarantee) => ({ kind: "guarantee" as const, text: itemText(item.text), parent: item.group === "" ? undefined : item.group })),
+        ...inferred(record.invariants).map((item: RecordLine) => ({ kind: "invariant" as const, text: itemText(item.text), parent: undefined })),
+        ...inferred(record.risks).map((item: RecordLine) => ({ kind: "risk" as const, text: itemText(item.text), parent: undefined })),
     ];
     const approved: string | undefined = approvedBody === undefined ? undefined : normalize(approvedBody);
     return lines.map((line: Pick<RecordChecklistItem, "kind" | "text" | "parent">, index: number) => ({

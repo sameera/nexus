@@ -4,7 +4,8 @@
  *
  * Three kinds of token exist only while a draft is being written: the provenance label, the
  * placeholder a template ships so its slots are visible, and the marker a gate render puts beside
- * an advisory observation. Each serves the author, the gate or the digest; none of them is the
+ * an advisory observation. (The ordering block, a declared asset path and a record field written as
+ * `none` joined them later, each documented where it is matched.) Each serves the author, the gate or the digest; none of them is the
  * durable reader of a filed issue, so all three have to be gone by the time a body is filed.
  * "Remember to strip them" is an instruction a model can drop, which is why stripping and the
  * assertion that nothing survived are the same tested pair rather than a habit.
@@ -15,7 +16,7 @@
  */
 
 /** Which drafting-time vocabulary a surviving token belongs to. */
-export type TokenKind = "label" | "placeholder" | "observation" | "ordering" | "asset-path";
+export type TokenKind = "label" | "placeholder" | "observation" | "ordering" | "asset-path" | "none-field";
 
 /** One surviving drafting-time token in a body that was supposed to be clean. */
 export interface Finding {
@@ -58,11 +59,22 @@ const OBSERVATION: RegExp = /⚠️[ \t]*razor:/g;
  */
 const ORDERING: RegExp = /^(?:##[ \t]+Implementation Order[ \t]*|-[ \t]+\*\*.+?\*\*[ \t]*[\u2014\u2013-][ \t]*blocked by:.*)$/gi;
 
+/**
+ * A field written as `none` (epic #787, story #789, D6): a `- **Name:** none` bullet. A record's
+ * draft writes every optional field of a decision entry, and writes `none` where it has nothing to
+ * say, so an omitted trade-off cannot pass for a stated absence. The value exists for the
+ * checkpoint's checks and not for a reader of the filed body, so derive removes the line. Only the
+ * whole value `none` matches, in any case and with an optional period: prose that uses the word, or
+ * a value that starts with it, is content.
+ */
+const NONE_FIELD: RegExp = /^[ \t]*-[ \t]+\*\*[^*\n]+?:\*\*[ \t]*none\.?[ \t]*$/gi;
+
 const GRAMMARS: ReadonlyArray<{ kind: TokenKind; pattern: RegExp }> = [
     { kind: "label", pattern: LABEL },
     { kind: "placeholder", pattern: PLACEHOLDER },
     { kind: "observation", pattern: OBSERVATION },
     { kind: "ordering", pattern: ORDERING },
+    { kind: "none-field", pattern: NONE_FIELD },
 ];
 
 /** A declared path as a whole token: not preceded or followed by another path character. */
@@ -80,13 +92,15 @@ export function stripLabels(draft: string): string {
 }
 
 /**
- * Derive the body that is filed: the draft with every provenance label removed and the draft-level
- * ordering block removed whole, and nothing else changed. The two go together because they are the
- * same kind of thing — bookkeeping the author, the gate and the digest read, and no durable reader
- * of a filed issue ever does.
+ * Derive the body that is filed: the draft with every provenance label removed, every field written
+ * as `none` removed, and the draft-level ordering block removed whole, and nothing else changed. The
+ * three go together because they are the same kind of thing — bookkeeping the author, the gate and
+ * the digest read, and no durable reader of a filed issue ever does.
  */
 export function deriveFilingBody(draft: string): string {
-    const lines: string[] = stripLabels(draft).split("\n");
+    const lines: string[] = stripLabels(draft)
+        .split("\n")
+        .filter((line: string) => !new RegExp(NONE_FIELD.source, "i").test(line));
     const start: number = lines.findIndex((line: string) => /^##[ \t]+Implementation Order[ \t]*$/i.test(line));
     if (start === -1) return lines.join("\n");
     let end: number = lines.findIndex((line: string, index: number) => index > start && /^#{1,2} /.test(line));

@@ -65,7 +65,8 @@ import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/p
 import { renderVerifyResult } from "@nexus/prose-verify/render";
 import { deriveFilingBody, survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
 import { checkApplied, checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
-import { renderChecklist, renderRazorFindings, renderRecordChecklist, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { renderChecklist, renderCutCitations, renderRazorFindings, renderRecordChecklist, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { cutCitations, type CutCitation } from "@nexus/scope-razor/record";
 import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
 import { recordChecklist, type RecordChecklistItem } from "@nexus/scope-razor/record-offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
@@ -352,16 +353,19 @@ const REGISTRY: Record<string, VerbEntry> = {
         usage: [
             "  nexus razor-check --draft <path> --source <path>",
             "  nexus razor-check --draft <path> --filed \"<title>; <title>\"",
-            "  nexus razor-check --draft <path> --derive <path>",
+            "  nexus razor-check --draft <path> --derive <path> [--cut <G3,R2,...>]",
             "  nexus razor-check --draft <path> --assert-clean [--asset-path <path>]...",
             "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
             "      personas table, exiting 1 when any finding blocks. With --filed it instead runs the",
             "      apply-time arm over the set the reviewer approved, before any edge is rewritten: the",
             "      set is closed under its blockers, every name in it is a story, and the complexity",
             "      rollup and the design warrant describe the stories actually filed. With --derive it",
-            "      writes the filing body — labels and the ordering block removed — and asserts it, and",
-            "      with --assert-clean it asserts a body it is given — no provenance label, template",
-            "      placeholder token, observation marker, ordering row or declared local asset path",
+            "      writes the filing body — labels, the ordering block and any field written as `none`",
+            "      removed — and asserts it. --cut names the guarantees and risks the reviewer cut from a",
+            "      record: when a surviving line still cites one, as a whole token, it names each such",
+            "      line, writes nothing and exits 1. With --assert-clean it asserts a body it is given —",
+            "      no provenance label, template placeholder token, observation marker, ordering row,",
+            "      `none` field or declared local asset path",
             "      (--asset-path, repeatable, matched exactly) — so a drafting-time body is never filed.",
         ].join("\n"),
         run: runRazorCheck,
@@ -376,12 +380,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      files; the smallest usable version comes first, then the stories it excludes,",
             "      asked-for before model-added, each in the order the ordering block unlocks it.",
             "      With --record the draft is a decision record: the list holds every refuted",
-            "      alternative under the decision it belongs to, then every invariant and every risk",
-            "      the model added, numbered as one sequence in the record's own section order and",
-            "      every line ticked, because a plain approval files the record minus nothing. Pass",
-            "      --approved-body only when the record sub-issue is closed: a line whose text that",
-            "      body already carries is marked frozen, since approved content changes only through",
-            "      the revision path.",
+            "      alternative under the decision it belongs to, then every guarantee (every invariant,",
+            "      in an old-format record) and every risk the model added, numbered as one sequence in",
+            "      the record's own section order and every line ticked, because a plain approval files",
+            "      the record minus nothing. Pass --approved-body only when the record sub-issue is",
+            "      closed: a line whose text that body already carries is marked frozen, since approved",
+            "      content changes only through the revision path.",
         ].join("\n"),
         run: runRazorOffer,
     },
@@ -1909,6 +1913,8 @@ interface RazorCheckFlags {
     record: boolean;
     /** `--approved-body`: the approved record body, passed only when the record sub-issue is closed. */
     approvedBody?: string;
+    /** `--cut`: the guarantee and risk IDs the reviewer cut, comma-separated (epic #787, story #789). */
+    cut?: string[];
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
@@ -1921,6 +1927,11 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
         else if (argv[i] === "--derive") flags.derive = argv[++i];
         else if (argv[i] === "--record") flags.record = true;
         else if (argv[i] === "--approved-body") flags.approvedBody = argv[++i];
+        else if (argv[i] === "--cut")
+            flags.cut = (argv[++i] ?? "")
+                .split(/[,\s]+/)
+                .map((id: string) => id.trim().toUpperCase())
+                .filter((id: string) => id !== "");
         else if (argv[i] === "--filed")
             flags.filed = (argv[++i] ?? "")
                 .split(";")
@@ -1945,6 +1956,10 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const mode: boolean = flags.assertClean || flags.filed !== undefined || flags.derive !== undefined;
     if (flags.draft === undefined || (!mode && flags.source === undefined)) {
         io.stderr("usage: nexus razor-check --draft <path> (--source <path> | --filed \"<title>; <title>\" | --derive <path> | --assert-clean)");
+        return 2;
+    }
+    if (flags.cut !== undefined && (flags.derive === undefined || flags.cut.length === 0 || flags.cut.some((id: string) => !/^[GR]\d+$/.test(id)))) {
+        io.stderr("usage: nexus razor-check --draft <path> --derive <path> --cut <G3,R2,...> — --cut names cut guarantee (G<n>) and risk (R<n>) IDs, and only with --derive");
         return 2;
     }
 
@@ -1972,6 +1987,13 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (flags.derive !== undefined) {
+        // A cut in a new-format record keeps every other number (D5), so a surviving citation to a
+        // cut ID names something the record no longer holds. Stop before anything is written.
+        const citing: CutCitation[] = cutCitations(body, flags.cut ?? []);
+        if (citing.length > 0) {
+            io.stderr(renderCutCitations(flags.draft, citing));
+            return 1;
+        }
         const filing: string = deriveFilingBody(body);
         try {
             fs.writeFileSync(path.resolve(io.cwd, flags.derive), filing, "utf8");

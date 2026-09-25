@@ -1405,6 +1405,74 @@ describe("nexus razor-offer --record (epic #722)", () => {
     });
 });
 
+describe("the record checkpoint over a new-format draft (epic #787, story #789)", () => {
+    const labelled: string = fs.readFileSync(path.join(path.resolve(import.meta.dirname, "..", "..", ".."), "libs", "scope-razor", "src", "__fixtures__", "record-new.labelled.md"), "utf8");
+
+    const inDir = (files: Record<string, string>): CapturedIo => {
+        const dir: string = makeTmpDir("cli-razor-new-record-");
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        return makeIo(dir);
+    };
+
+    it("prints the model-added guarantees under a Guarantees group, with the alternatives and risks", async () => {
+        const io: CapturedIo = inDir({ "record.md": labelled });
+        expect(await runNexusCli(["razor-offer", "--draft", "record.md", "--record"], io)).toBe(0);
+        const out: string = io.out.join("\n");
+        expect(out).toMatch(/Guarantees — model-added/);
+        expect(out).not.toMatch(/Invariants — model-added/);
+        expect(out).toMatch(/\[x\] +4\. G1\./);
+        expect(out).toMatch(/\[x\] +8\. R3 ADDRESS/);
+        expect(out).toContain("Existing behaviour to preserve");
+    });
+
+    it("derives a filing body with no field written as `none` in it", async () => {
+        const io: CapturedIo = inDir({ "record.md": labelled });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md"], io)).toBe(0);
+        const filed: string = fs.readFileSync(path.join(io.cwd, "record-body.md"), "utf8");
+        expect(filed).not.toMatch(/^- \*\*[^*]+:\*\* *none\.?$/im);
+        expect(filed).toContain("- **Delivered by:** #224");
+    });
+
+    it("stops before deriving when a surviving line cites a cut guarantee, naming the line and writing nothing", async () => {
+        const cut: string = labelled.replace(/^- G3\..*\n/m, "");
+        const io: CapturedIo = inDir({ "record.md": cut });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "G3"], io)).toBe(1);
+        expect(fs.existsSync(path.join(io.cwd, "record-body.md"))).toBe(false);
+        const err: string = io.err.join("\n");
+        const citing: number = cut.split("\n").findIndex((line: string) => line === "- **Guarantees:** G1, G3") + 1;
+        expect(err).toContain(`record.md:${citing}`);
+        expect(err).toContain("G3");
+    });
+
+    it("derives as usual when no surviving line cites the cut items, the gap in the numbering kept", async () => {
+        const cut: string = labelled.replace(/^- G4\..*\n/m, "").replace(/^- R3 .*\n/m, "");
+        const io: CapturedIo = inDir({ "record.md": cut });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "G4,R3"], io)).toBe(0);
+        const filed: string = fs.readFileSync(path.join(io.cwd, "record-body.md"), "utf8");
+        expect(filed).toContain("- G5. The Value List function");
+        expect(filed).not.toContain("G4.");
+    });
+
+    it("matches a cut ID as a whole token, so cutting G1 is not stopped by a line citing G11", async () => {
+        const body: string = "## Guarantees\n\n- G11. A thing. (D1) `[inferred]`\n";
+        const io: CapturedIo = inDir({ "record.md": body });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "G1"], io)).toBe(0);
+    });
+
+    it("refuses a cut list that names something other than a guarantee or a risk, or comes without --derive", async () => {
+        const io: CapturedIo = inDir({ "record.md": labelled });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "D2"], io)).toBe(2);
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--assert-clean", "--cut", "G3"], io)).toBe(2);
+        expect(fs.existsSync(path.join(io.cwd, "record-body.md"))).toBe(false);
+    });
+
+    it("fails the clean-body assertion on a `none` field that survived into a body derived some other way", async () => {
+        const io: CapturedIo = inDir({ "record-body.md": "#### D1 — A thing\n\n- **Decision:** a thing.\n- **Trade-off:** none\n" });
+        expect(await runNexusCli(["razor-check", "--draft", "record-body.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("record-body.md:4");
+    });
+});
+
 describe("nexus trunk", () => {
     function repoWithRemotes(remotes: Array<[string, string]>): string {
         const dir: string = makeTmpDir("cli-trunk-");

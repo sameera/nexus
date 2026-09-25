@@ -12,6 +12,7 @@
 import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, normalize, type Citation } from "./citations.js";
 import { bullets, criteria, isLabelled, sections } from "./document.js";
 import { stripLabels } from "./labels.js";
+import { readRecord, type RecordLine, type RecordReading } from "./record.js";
 import { compareSize, complexityDrivers, designWarrant, recordedComplexity, rollupFloor, storySizes, type Size, type StorySize } from "./rollup.js";
 import {
     NECESSITY_HEADING,
@@ -113,6 +114,19 @@ function checkSections(draft: string): RazorFinding[] {
         }
     }
     return findings;
+}
+
+/**
+ * The provenance rule over a new-format record's guarantees and risks (epic #787, story #789, G7).
+ * The checkpoint lists only the model's additions, so a line with no label is the one line a reader
+ * cannot place. The reader treats it as the model's own, which keeps it on the cut list, and this
+ * blocks it so the label is written rather than assumed. An old-format record is checked as before.
+ */
+function checkRecord(draft: string): RazorFinding[] {
+    const record: RecordReading = readRecord(draft);
+    if (record.format !== "new") return [];
+    const texts = (items: RecordLine[]): string[] => items.map((item: RecordLine) => item.text);
+    return [...unlabelled(texts(record.guarantees), "Guarantees"), ...unlabelled(texts(record.risks), "Risks and dependencies")];
 }
 
 function checkPersonas(draft: string): RazorFinding[] {
@@ -323,5 +337,5 @@ function checkNecessity(draft: string): RazorFinding[] {
  * An empty result is a draft that breaks none of them.
  */
 export function checkDraft(draft: string, sourceText: string): RazorFinding[] {
-    return [...checkStories(draft), ...checkSections(draft), ...checkPersonas(draft), ...checkOrdering(draft), ...checkNecessity(draft), ...checkCitations(draft, sourceText)];
+    return [...checkStories(draft), ...checkSections(draft), ...checkRecord(draft), ...checkPersonas(draft), ...checkOrdering(draft), ...checkNecessity(draft), ...checkCitations(draft, sourceText)];
 }
