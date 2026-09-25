@@ -190,3 +190,74 @@ describe("the architect in decision-record mode (D1)", () => {
         expect(headings(architect, "###")).not.toContain("Chosen Approach");
     });
 });
+
+/** The body of one `##` phase of the stage, up to the next `##` heading. */
+function phase(stage: string, name: string): string {
+    const start: number = stage.indexOf(`\n## ${name}`);
+    expect(start, `phase ${name}`).toBeGreaterThanOrEqual(0);
+    const rest: string = stage.slice(start + 1);
+    const next: number = rest.indexOf("\n## ", 1);
+    return (next === -1 ? rest : rest.slice(0, next)).replace(/\s+/g, " ");
+}
+
+describe("the checkpoint checks promised epic and story changes against the live issues (story #791, D8, D10)", () => {
+    const stage: string = component("commands/nxs.decision-record.md");
+    const checkpoint: string = phase(stage, "Phase 3.5");
+    const flat: string = stage.replace(/\s+/g, " ");
+
+    it("runs the amendment check on the labelled draft before it renders the cut list (G15)", () => {
+        const check: number = checkpoint.indexOf('nexus record-amendments --draft "<scratch>/record-body.labelled.md"');
+        expect(check).toBeGreaterThanOrEqual(0);
+        expect(check).toBeLessThan(checkpoint.indexOf("nexus razor-offer"));
+        expect(check).toBeLessThan(checkpoint.indexOf("render the cut list"));
+    });
+
+    it("stops the run, filing nothing, when the check cannot read an issue", () => {
+        expect(checkpoint).toMatch(/A non-zero exit stops the run: file nothing\.\*\* Either an issue could not be read/);
+    });
+
+    it("writes an amended change's status with the date it was checked (G15)", () => {
+        expect(checkpoint).toContain("`amended (verified <checked>)`");
+    });
+
+    it("keeps a pending change pending, adds a model-added BLOCKER naming the wording to apply and what the issue says today, and lists it first (G16)", () => {
+        expect(checkpoint).toMatch(/Status stays `pending`\. Add a \*\*BLOCKER\*\* risk/);
+        expect(checkpoint).toMatch(/labelled `\[inferred\]`/);
+        expect(checkpoint).toMatch(/Apply this exact wording: "<new>"\. <saysToday>/);
+        expect(checkpoint).toMatch(/list the change \*\*first\*\* under "Resolve before approval"/);
+        expect(checkpoint).toMatch(/Checked <checked>: <saysToday>/);
+    });
+
+    it("leaves an unresolved change as written, for the cross-reference check", () => {
+        expect(checkpoint).toMatch(/\*\*`unresolved`\*\* → leave the line as written/);
+    });
+
+    it("never makes the change itself (D10)", () => {
+        expect(checkpoint).toMatch(/The stage never makes the change itself\.\*\* It does not edit the text of the epic issue or of any story issue/);
+    });
+
+    it("states that the stage never edits the text of the epic or a story, and that moving the epic's labels is its one write to the epic (G17, G25)", () => {
+        expect(flat).toMatch(/never edits the text of the epic issue or of any story issue\*\*, on any path/);
+        expect(flat).toMatch(/Its one write to the epic issue is moving the epic's labels/);
+        expect(flat).toMatch(/It never touches a story issue\./);
+    });
+
+    it("edits no issue body but the record's, and changes only labels on the epic", () => {
+        const edits: string[] = [...stage.matchAll(/gh issue edit (\S+)[^\n]*/g)].map((m: RegExpMatchArray) => m[0]);
+        expect(edits.length).toBeGreaterThan(0);
+        for (const edit of edits) {
+            if (edit.startsWith("gh issue edit <epic-issue>")) {
+                expect(edit, edit).not.toMatch(/--body|--title/);
+                expect(edit, edit).toMatch(/-label/);
+            } else {
+                expect(edit, edit).toMatch(/^gh issue edit (<record>|\$RECORD) /);
+            }
+        }
+    });
+
+    it("records a design split as an Epic commitment affected, never as an edit to the story", () => {
+        expect(flat).not.toMatch(/split is an edit to/);
+        expect(flat).not.toMatch(/as an edit to that story/);
+        expect(component("agents/nxs-architect.md").replace(/\s+/g, " ")).not.toMatch(/as an edit to that story/);
+    });
+});

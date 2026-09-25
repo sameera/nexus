@@ -126,8 +126,9 @@ Constraints & Invariants, Risks and Open Clarifications. The stage fills the old
 them.
 
 **Coverage requirement**: the decisions plus guarantees must give design coverage for **every** user
-story in the epic. Where a story needs a design split, describe it as an edit to that story's scope —
-never as a new task — and record it as that decision's **Epic commitment affected**.
+story in the epic. Where a story needs a design split, describe it as a change to that story's scope —
+never as a new task — and record it as that decision's **Epic commitment affected**. The lead applies
+the change; neither you nor the stage edits the story.
 
 **Keep it prose.** No file paths, type or function names, API or schema specs, or implementation
 steps — those are the engineer's (0001 D4). Restrict yourself to decisions, guarantees, and

@@ -107,6 +107,7 @@ import {
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
+import { runRecordAmendments } from "./record-amendments.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -350,6 +351,21 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Exits 1 when the body cannot be read.",
         ].join("\n"),
         run: runRecordSections,
+    },
+    "record-amendments": {
+        summary: "Check each epic or story change a drafted decision record promises against the live issue.",
+        usage: [
+            "  nexus record-amendments --draft <path> [--root <dir>]",
+            "      Read-only: writes no file and edits no issue. For each 'Epic commitment affected'",
+            "      line (none skipped), read the named issue and print { command, checked, amendments }:",
+            "      checked is today's date; each amendment gives its decision, issue, repo, old and new",
+            "      wording, status (amended when the new wording is on the issue, else pending;",
+            "      unresolved is not read), newPresent, oldPresent and saysToday. Matching is exact after",
+            "      normalising whitespace and case. A bare reference reads the epic-repo; owner/repo#N",
+            "      reads that repository. Exits 0 when a change is pending. Exits 1 on an issue it cannot",
+            "      read or a commitment line it cannot parse, naming it; 2 on a usage error.",
+        ].join("\n"),
+        run: (argv, io) => runRecordAmendments(argv, io),
     },
     "prose-verify": {
         summary: "Prove a translated artifact kept its machine-read regions byte-identical and every tracked item intact.",

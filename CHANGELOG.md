@@ -50,6 +50,19 @@ behaviour says so.
   approved in the old format reads as before, and a record whose headings match neither format is
   read whole, as before. The record hash is computed the same way for both formats, so every
   stamped hash still verifies.
+- **The record checkpoint checks each promised epic or story change against the live issue.**
+  Before the cut list, `/nxs.decision-record` runs the new read-only `nexus record-amendments`
+  command. For each "Epic commitment affected" line it reads the named issue and reports whether
+  the exact new wording is there, after normalising whitespace and case only, and what the issue
+  says today. A change whose wording is present gets the status `amended (verified <date>)`. A
+  change whose wording is absent stays `pending`: the record gains a BLOCKER risk naming the issue,
+  the exact wording to apply and what the issue says today, and the change is listed first under
+  "Resolve before approval" with the date it was checked. A change applied in different words
+  still reads as pending. The lead applies the record's wording on GitHub, or revises the decision
+  to the wording used. An issue the command cannot read stops the checkpoint.
+- **`/nxs.decision-record` never edits the text of the epic issue or of a story issue.** It still
+  moves the epic's labels as before. A decision that changes what the epic or a story says is
+  recorded in the record for the lead to apply.
 - **Breaking: a repository seeded before this release must re-seed its decision-record
   template.** Seeding never overwrites a project's copy, so the project's record template is still
   the old one, and `/nxs.decision-record` now stops and says so instead of drafting from it. Move

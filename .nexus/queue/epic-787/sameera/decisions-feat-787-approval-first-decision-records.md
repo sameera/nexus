@@ -57,3 +57,18 @@
 - **Choice:** The distill base stage stays under its recorded load ceiling by condensing the Phase 3 Sources paragraph and the Phase 0 old-contract/no-record items that restated each other, rather than raising the ceiling.
 - **Why:** The ceiling record requires `replaces > bytes`, so it is designed only to go down.
 - **Refuted alternative:** Move the format rules into a new distill contract skill; it keeps the base stage small, but the rules apply to every ordinary drain, which the contract model reserves for no contract.
+
+## 2026-09-25 — A bare commitment reference reads the epic repository
+- **Choice:** `nexus record-amendments` reads a bare `#N` against the resolved `epic-repo` (the current repository when empty), and an `owner/repo#N` against the repository it names; it takes no `--epic` flag.
+- **Why:** The record is filed as a sub-issue of the epic, so under the issue-reference rule a bare number in its body resolves against the epic's repository, and a story in another repository is already written qualified.
+- **Refuted alternative:** Take `--epic <N>` and read every other number against `story-repo`; it guesses right for an unqualified story in a split workspace, but contradicts the reference rule the record body is written under.
+
+## 2026-09-25 — The amendment check fails closed on an unreadable commitment line
+- **Choice:** A non-`none` "Epic commitment affected" line that does not read as `<issue>. Old: "…". New: "…". Status: <status>.` exits 1 naming the decision and line, and nothing is fetched; an `unresolved` line may omit the wording and is reported unchecked.
+- **Why:** An unchecked commitment must not read as a checked one, and the stage has no result to write for a line it cannot parse.
+- **Refuted alternative:** Report the line in the JSON and exit 0, leaving it to #792's cross-reference block; the output stays complete, but until #792 ships nothing stops a malformed commitment reaching the cut list.
+
+## 2026-09-25 — The pure half lives in scope-razor, the gh half in portable-tools
+- **Choice:** `@nexus/scope-razor/amendments` reads commitments from the draft (through `readRecord`) and matches wording; `libs/portable-tools/src/record-amendments.ts` resolves the repository, fetches with `gh api` through an injected `Runner`, and takes an injectable clock.
+- **Why:** The commitment field is read by the one record reader, and scope-razor has no process seam; the verb module can take a fake runner in its spec the way `fetchRecord` does.
+- **Refuted alternative:** Reuse `fetchRecord` from record-digest for the fetch; one fewer gh call site, but its diagnostics name a "record issue" and it hashes a body nobody reads here.

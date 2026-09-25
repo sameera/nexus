@@ -1554,6 +1554,28 @@ describe("nexus record-sections: the read-only section reader the later stages c
     });
 });
 
+describe("nexus record-amendments (registration only; the gh path is covered by record-amendments.spec.ts) (epic #787, story #791)", () => {
+    it("exits 2 with usage when no draft is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-record-amendments-"));
+        expect(await runNexusCli(["record-amendments"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/usage: nexus record-amendments --draft <path>/);
+    });
+
+    it("prints an empty list, reading nothing, for a draft that promises no change", async () => {
+        const dir: string = makeTmpDir("cli-record-amendments-");
+        fs.writeFileSync(path.join(dir, "draft.md"), "# Decision Record: X\n\n## Guarantees\n\n- G1. A thing. (D1)\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["record-amendments", "--draft", "draft.md"], io)).toBe(0);
+        expect(JSON.parse(io.out.join("\n"))).toMatchObject({ command: "record-amendments", amendments: [] });
+    });
+
+    it("is listed in --help", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-cwd-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus record-amendments --draft <path>");
+    });
+});
+
 describe("the record checkpoint blocks a draft in neither format (epic #787, story #790, G20)", () => {
     const inDir = (files: Record<string, string>): CapturedIo => {
         const dir: string = makeTmpDir("cli-razor-record-format-");

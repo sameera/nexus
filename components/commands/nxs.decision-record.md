@@ -342,8 +342,8 @@ the fields above.
 
 Coverage requirement: the decisions + guarantees must give design coverage for EVERY user
 story in epic.md. An uncovered story fails this record's coverage requirement (verified in Phase 3).
-Where a story needs a design split, describe it as an edit to that story's scope — NOT a new task —
-and give it as that decision's Epic commitment affected.
+Where a story needs a design split, describe it as a change to that story's scope — NOT a new task —
+and give it as that decision's Epic commitment affected. The lead applies it; nobody edits the story.
 ```
 
 **MANDATORY STOP:** do not format the record until the architect analysis returns.
@@ -439,7 +439,8 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     - **Approval brief.** Build it mechanically from the decisions, guarantees and risks. Omit an
       empty group.
         - **Resolve before approval:** every BLOCKER risk; every epic or story commitment whose
-          status is not *amended*; every guarantee that cites no decision and is not under "Existing
+          status is not *amended* (the Phase 3.5 amendment check reads each against the live issue
+          and moves a pending one to the top); every guarantee that cites no decision and is not under "Existing
           behaviour to preserve"; and, in a multi-story epic, every decision no story delivers.
         - **Choices with trade-offs:** every decision whose trade-off is not `none`, in plain
           words, with its trade-off as a sub-bullet.
@@ -510,7 +511,44 @@ This checkpoint runs **before every path that creates or updates the record sub-
 approved, so a cut after filing is either an edit to a published body or a reopen. Both are worse
 than not filing it.
 
-**First, judge viability.** You are formatting a record the **architect** wrote; you are not the
+**First, check every promised epic or story change against the live issue** (new format only; an
+old-format revision has no "Epic commitment affected" field). A link to the epic does not prove the
+epic was changed, so the check reads the issue itself. Run the amendment check on the labelled draft:
+
+```bash
+nexus record-amendments --draft "<scratch>/record-body.labelled.md" --root "<root>"
+```
+
+**A non-zero exit stops the run: file nothing.** Either an issue could not be read, or a commitment
+line does not read as `<issue>. Old: "…". New: "…". Status: <status>.` Report the diagnostic
+verbatim. Fix a malformed line and run the check again; never guess a result for an issue that
+could not be read.
+
+The command writes nothing. It prints `checked` (today's date) and one result per commitment, and
+the stage writes each result into the labelled draft:
+
+- **`amended`** (the exact new wording is on the issue) → set the decision's Status to
+  `amended (verified <checked>)`. The change is no longer listed under "Resolve before approval".
+  If its decision has a trade-off, that trade-off moves to "Choices with trade-offs".
+- **`pending`** (the new wording is absent) → the Status stays `pending`. Add a **BLOCKER** risk to
+  Risks and dependencies, at the next free R number and labelled `[inferred]`, because the model
+  added it. It names the issue, the exact wording to apply, and what the issue says today:
+  `R<n> BLOCKER — <issue> does not carry the change D<k> promises. Apply this exact wording:
+  "<new>". <saysToday> [inferred]`. Then list the change **first** under "Resolve before approval",
+  citing D<k> and R<n>, ending `Checked <checked>: <saysToday>`, with its decision's trade-off as a
+  sub-bullet. `saysToday` quotes the old wording when the issue still carries it. When the issue
+  carries neither the old nor the new wording, it says so. That usually means the record quotes the
+  old wording wrongly, so check the decision's Old text against the issue before approval.
+- **`unresolved`** → leave the line as written. The command does not read the issue for it, and it
+  stays under "Resolve before approval" as Phase 3 listed it.
+
+**The stage never makes the change itself.** It does not edit the text of the epic issue or of any
+story issue to make the wording appear. The lead applies the wording on GitHub, or revises the
+decision to the wording the issue already uses, and the check runs again on the next pass through
+this checkpoint. A new BLOCKER risk is model-added, so it appears on the cut list below like any
+other.
+
+**Then judge viability.** You are formatting a record the **architect** wrote; you are not the
 architect. Read each refuted alternative and ask whether its stated reason for losing names a
 **trade-off**: what the alternative was better at, and what it gave up. Where it names none, report
 that alternative as a **non-blocking observation**, prefixed with the razor's marker `⚠️ razor:`
@@ -961,8 +999,8 @@ Report concisely:
 # Constraints
 
 - **No 16-section HLD, no per-task LLD, no task index, no `story_ref`**: the story is the
-  implementation unit (0009) and `/nxs.tasks` is cut (0010). A design split is an edit to an existing
-  story, not a new task.
+  implementation unit (0009) and `/nxs.tasks` is cut (0010). A design split changes an existing
+  story's scope, not a new task. It is recorded as an Epic commitment affected for the lead to apply.
 - **Human prose only.** System A emits no machine artifact; the distiller (System B) derives the
   ConceptDelta later from the record + close record and the diff (0006). On the issue-sourced path
   the body carries **no frontmatter and no hidden machine comment**, because the body is the hashed
@@ -987,6 +1025,11 @@ Report concisely:
   A repository with no declared store files the record without them and says so once.
 - **Labels are created before they are applied**, and this stage writes only the **epic's** labels
   and its **record sub-issue**. It never touches a story issue.
+- **The stage never edits the text of the epic issue or of any story issue**, on any path: drafting,
+  the checkpoint, filing, or `--revise`. Its one write to the epic issue is moving the epic's labels
+  (needs-design to in-progress at filing, or removing needs-design on "no record"). A decision that
+  changes what the epic or a story says is recorded as that decision's Epic commitment affected,
+  with status pending, and the Phase 3.5 amendment check reports whether the lead has applied it.
 - **Approval is the close of the record sub-issue.** Never write an approval field, an `approved`
   label, or a status anywhere, and never infer approval from any other signal. Nexus applies no
   permission check of its own: whoever can close the sub-issue is the approver, and the timeline
