@@ -75,7 +75,7 @@ The prefetch reads every search value the batch's records carry.
 - **Refuted viable alternative:** Materialise the two-column projection for the whole table. It was the original design, but it scales with the table.
 - **Refuted viable alternative:** Query per value from inside the function. It holds nothing, but costs one round trip per record.
 - **Trade-off:** every search value must be traceable at publish.
-- **Epic commitment affected:** #223. Old: "a field reference or a literal". New: "a literal, or a field reference publish can trace". Status: pending.
+- **Epic commitment affected:** #223. Old: "a field reference or a literal". New: "a literal, or a field reference publish can trace". Status: amended (verified 2026-09-20).
 - **Delivered by:** #224
 - **Guarantees:** G1, G3
 

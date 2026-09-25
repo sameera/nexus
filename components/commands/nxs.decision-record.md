@@ -470,7 +470,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     - **Check the draft**, and fix what blocks before going on:
 
         ```bash
-        nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md" --record
+        nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md" --record --epic "${QDIR}/epic.md"
         ```
 
       This stage has no gate agent and gains none. It runs the same checker the epic gate runs, over
@@ -479,6 +479,28 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       a draft that reads as neither format, with no `## Guarantees` and no `## Constraints &
       Invariants` section, also blocks. Filed, it would give the later stages no parts to read. Fix
       the draft's headings to its template's; do not file it.
+
+      In a new-format draft the checker also blocks each **cross-reference gap**, and names the
+      guarantee or decision and its line:
+
+        - a guarantee that cites no decision and is not under "Existing behaviour to preserve";
+        - in a multi-story epic, a decision whose "Delivered by" is `none` or missing;
+        - an epic or story change whose status is not *amended*;
+        - a decision whose "Epic commitment affected" does not quote both the exact old and the
+          exact new wording (an addition quotes an empty old wording, `Old: ""`);
+        - a decision with a trade-off that the Approval brief does not list, or lists under both
+          "Resolve before approval" and "Choices with trade-offs".
+
+      The first three are allowed when the brief lists the item's ID under "Resolve before
+      approval". The last two are not: give the wording, and list the decision once. "Listed" means
+      the ID, such as `D3` or `G12`, appears as a whole word in the right group of the brief. An ID in
+      another group does not count, and `D31` does not count for `D3`. The check proves that an ID is
+      listed. It does not prove that the brief's sentence about it is right.
+
+      `--epic` names the resolved `epic.md`, and the checker counts its story headings to decide
+      whether the epic has more than one story. That file comes from one fixed producer, so its count
+      does not depend on how `source.md` was assembled. Without `--epic`, the checker counts the
+      stories in `source.md`.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or a
    guarantee. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.
@@ -547,6 +569,25 @@ story issue to make the wording appear. The lead applies the wording on GitHub, 
 decision to the wording the issue already uses, and the check runs again on the next pass through
 this checkpoint. A new BLOCKER risk is model-added, so it appears on the cut list below like any
 other.
+
+**Second, run the record checker again** on the labelled draft, now that the amendment results are
+written into it:
+
+```bash
+nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md" --record --epic "${QDIR}/epic.md"
+```
+
+**A non-zero exit stops the run before the cut list is rendered: file nothing.** Report each finding
+verbatim. Each one names a guarantee or a decision and its line, and is one of the cross-reference
+gaps listed at Phase 3, step 4b. For each one, the lead either fixes the draft or lists the item
+under "Resolve before approval", where the approver decides it. A change without its exact old and
+new wording, or a trade-off missing from the brief, must be fixed; listing it does not clear it. Then
+run the check again.
+
+The first step already lists every pending change under "Resolve before approval". So for a change
+that step checked, the pending-change block does not fire here. It fires for a change whose status
+is `unresolved` and which the brief does not list, and for a draft the lead edited by hand after the
+first step.
 
 **Then judge viability.** You are formatting a record the **architect** wrote; you are not the
 architect. Read each refuted alternative and ask whether its stated reason for losing names a

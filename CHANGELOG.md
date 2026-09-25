@@ -60,6 +60,20 @@ behaviour says so.
   "Resolve before approval" with the date it was checked. A change applied in different words
   still reads as pending. The lead applies the record's wording on GitHub, or revises the decision
   to the wording used. An issue the command cannot read stops the checkpoint.
+- **The record checkpoint blocks a draft whose parts do not point at each other.** After the
+  amendment check and before the cut list, `/nxs.decision-record` runs the record checker again,
+  and `nexus razor-check --record` now blocks each of these gaps in a new-format draft, naming the
+  guarantee or decision and its line. A guarantee that cites no decision and is not under Existing
+  behaviour to preserve. In an epic of more than one story, a decision that names no delivering
+  story. An epic or story change whose status is not amended. Each of these three is allowed when
+  the Approval brief lists its ID under "Resolve before approval". Two more gaps block whatever the
+  brief says: a change that does not quote both the exact old and the exact new wording (an
+  addition quotes `Old: ""`), and a decision with a trade-off that the brief does not list, or lists
+  under both "Resolve before approval" and "Choices with trade-offs". An ID counts only as a whole
+  word in the right group, so `D31` does not stand for `D3`. The check proves that an ID is listed,
+  not that the brief's sentence about it is right. The new `--epic <path>` flag names the resolved
+  `epic.md`, whose stories are counted; without it the checker counts the stories in `--source`.
+  Old-format drafts get no new checks.
 - **`/nxs.decision-record` never edits the text of the epic issue or of a story issue.** It still
   moves the epic's labels as before. A decision that changes what the epic or a story says is
   recorded in the record for the lead to apply.

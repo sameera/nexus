@@ -72,3 +72,28 @@
 - **Choice:** `@nexus/scope-razor/amendments` reads commitments from the draft (through `readRecord`) and matches wording; `libs/portable-tools/src/record-amendments.ts` resolves the repository, fetches with `gh api` through an injected `Runner`, and takes an injectable clock.
 - **Why:** The commitment field is read by the one record reader, and scope-razor has no process seam; the verb module can take a fake runner in its spec the way `fetchRecord` does.
 - **Refuted alternative:** Reuse `fetchRecord` from record-digest for the fetch; one fewer gh call site, but its diagnostics name a "record issue" and it hashes a body nobody reads here.
+
+## 2026-09-25 — The story count comes from the resolved epic.md via `--epic`
+- **Choice:** `nexus razor-check --record` takes `--epic <path>` and counts the distinct `### Story` headings of the resolved `epic.md`; without it, it counts those in `--source`. The stage passes `--epic "${QDIR}/epic.md"`.
+- **Why:** `epic.md` has one deterministic producer, while `source.md` is assembled by the model and may hold story bodies with no story headings, which would read as a one-story epic and silently skip the check.
+- **Refuted alternative:** `--stories <n>`; explicit, but the model counts, and a wrong count passes silently.
+
+## 2026-09-25 — A decision listed under both Resolve and Choices blocks
+- **Choice:** A decision with a trade-off whose ID appears in both "Resolve before approval" and "Choices with trade-offs" is a blocking cross-reference finding.
+- **Why:** G5 says it appears in the brief exactly once; two copies are how the trial's #786 lost a trade-off when an item moved groups, since one copy goes stale.
+- **Refuted alternative:** Accept the duplicate as listed; it never blocks a correct draft, but lets the stale copy stand.
+
+## 2026-09-25 — G13 reuses the amendment reader, so an unquoted old wording blocks
+- **Choice:** The wording check reads each commitment through `commitmentsIn`; a line it cannot read, or one that gives no quoted Old or New (including an `unresolved` line that omits them), blocks whatever the brief says. An addition passes with `Old: ""`.
+- **Why:** One reader means the checkpoint's two steps agree on what "the exact wording" is, and AC 3 is unconditional.
+- **Refuted alternative:** Accept prose such as `Old: no criterion` as an addition; it passes the trial records, but the amendment check cannot read that line.
+
+## 2026-09-25 — "Listed" is a whole-token ID anywhere in the group block
+- **Choice:** An ID counts as listed when it appears as a whole token on any line (sub-bullets included, labels stripped) between the group's bold line and the next bold line or heading.
+- **Why:** Resolve entries cite IDs inside prose, such as "(D2, D9)", so matching only an item's leading ID would miss them.
+- **Refuted alternative:** Match only the leading `D<n>.` of a Choices item; stricter for Choices, but two rules for one word "listed".
+
+## 2026-09-25 — The record-new fixture's pending change becomes amended
+- **Choice:** `record-new.labelled.md`'s D2 commitment reads `Status: amended (verified 2026-09-20)`.
+- **Why:** Its pending change sat under Choices, not Resolve, which is exactly the gap #792 blocks; the fixture is used as a passing draft, and amending keeps every line number other specs pin.
+- **Refuted alternative:** Move D2 into "Resolve before approval"; also valid, but shifts the fixture's lines.

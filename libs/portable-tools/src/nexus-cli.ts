@@ -68,6 +68,7 @@ import { checkApplied, checkDraft, type RazorFinding as RazorRuleFinding } from 
 import { renderChecklist, renderCutCitations, renderRazorFindings, renderRecordChecklist, renderSurvivingTokens } from "@nexus/scope-razor/render";
 import { cutCitations, recordSections, type CutCitation } from "@nexus/scope-razor/record";
 import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
+import { storyCount } from "@nexus/scope-razor/ordering";
 import { recordChecklist, type RecordChecklistItem } from "@nexus/scope-razor/record-offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
@@ -380,14 +381,20 @@ const REGISTRY: Record<string, VerbEntry> = {
     "razor-check": {
         summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
         usage: [
-            "  nexus razor-check --draft <path> --source <path> [--record]",
+            "  nexus razor-check --draft <path> --source <path> [--record [--epic <path>]]",
             "  nexus razor-check --draft <path> --filed \"<title>; <title>\"",
             "  nexus razor-check --draft <path> --derive <path> [--cut <G3,R2,...>]",
             "  nexus razor-check --draft <path> --assert-clean [--asset-path <path>]...",
             "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
             "      personas table, exiting 1 when any finding blocks. --record declares the draft a",
             "      decision record, which then also blocks when it reads as neither format: no",
-            "      Guarantees section and no Constraints & Invariants section. With --filed it instead runs the",
+            "      Guarantees section and no Constraints & Invariants section. In a new-format record it",
+            "      also blocks each cross-reference gap: a guarantee citing no decision, a decision naming",
+            "      no delivering story in a multi-story epic, or an epic or story change not yet made,",
+            "      unless its ID is listed under \"Resolve before approval\"; a change without both the",
+            "      exact old and new wording; and a trade-off the Approval brief does not list, or lists",
+            "      twice. --epic names the materialized epic, whose stories are counted; without it the",
+            "      stories in --source are counted. With --filed it instead runs the",
             "      apply-time arm over the set the reviewer approved, before any edge is rewritten: the",
             "      set is closed under its blockers, every name in it is a story, and the complexity",
             "      rollup and the design warrant describe the stories actually filed. With --derive it",
@@ -1974,6 +1981,8 @@ interface RazorCheckFlags {
     approvedBody?: string;
     /** `--cut`: the guarantee and risk IDs the reviewer cut, comma-separated (epic #787, story #789). */
     cut?: string[];
+    /** `--epic`: the materialized epic.md, whose stories a record's cross-reference check counts (#792). */
+    epic?: string;
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
@@ -1986,6 +1995,7 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
         else if (argv[i] === "--derive") flags.derive = argv[++i];
         else if (argv[i] === "--record") flags.record = true;
         else if (argv[i] === "--approved-body") flags.approvedBody = argv[++i];
+        else if (argv[i] === "--epic") flags.epic = argv[++i];
         else if (argv[i] === "--cut")
             flags.cut = (argv[++i] ?? "")
                 .split(/[,\s]+/)
@@ -2082,7 +2092,16 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const sourceText: string | undefined = readOr(flags.source as string);
     if (sourceText === undefined) return 1;
 
-    const findings: RazorRuleFinding[] = checkDraft(body, sourceText, { record: flags.record });
+    // A record's cross-reference check needs to know whether the epic has more than one story. The
+    // materialized epic.md is written by one deterministic producer, so its story headings are the
+    // count to trust; the model-assembled source text is the fallback when no epic is named.
+    let stories: number | undefined;
+    if (flags.epic !== undefined) {
+        const epicText: string | undefined = readOr(flags.epic);
+        if (epicText === undefined) return 1;
+        stories = storyCount(epicText);
+    }
+    const findings: RazorRuleFinding[] = checkDraft(body, sourceText, { record: flags.record, stories });
     const report: string = renderRazorFindings(flags.draft, findings);
     if (findings.some((f: RazorRuleFinding) => f.severity === "blocking")) {
         io.stderr(report);

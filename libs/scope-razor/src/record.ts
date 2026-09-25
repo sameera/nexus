@@ -350,7 +350,7 @@ export interface CutCitation {
 }
 
 /** A cut ID as a whole token: `G3` must not match `G31`, and `R2` must not match `SR2`. */
-function wholeId(id: string): RegExp {
+export function wholeId(id: string): RegExp {
     return new RegExp(`(?<![A-Za-z0-9_])${id}(?![A-Za-z0-9_])`);
 }
 

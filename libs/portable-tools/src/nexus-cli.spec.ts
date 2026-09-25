@@ -1602,6 +1602,62 @@ describe("the record checkpoint blocks a draft in neither format (epic #787, sto
     });
 });
 
+describe("the record checkpoint blocks a draft whose cross-references do not hold (epic #787, story #792)", () => {
+    const inDir = (files: Record<string, string>): CapturedIo => {
+        const dir: string = makeTmpDir("cli-razor-record-xref-");
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        return makeIo(dir);
+    };
+    const draft = (deliveredBy: string, resolve: string): string =>
+        [
+            "# Decision Record: X",
+            "",
+            "## Approval brief",
+            "",
+            "**Resolve before approval**",
+            "",
+            resolve,
+            "",
+            "## Guarantees",
+            "",
+            "- G1. A thing holds. (D7) `[inferred]`",
+            "",
+            "## Design rationale and mechanism",
+            "",
+            "### Decisions and reasons",
+            "",
+            "#### D7 — A choice",
+            "",
+            "- **Decision:** a thing.",
+            "- **Trade-off:** none",
+            `- **Delivered by:** ${deliveredBy}`,
+            "",
+        ].join("\n");
+    const epic: string = "# Epic: X\n\n## User Stories\n\n### Story #1: One\n\n### Story #2: Two\n";
+
+    it("exits 1 and names the decision that no story delivers in a multi-story epic", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("none", "- R1 BLOCKER: a thing."), "source.md": "src", "epic.md": epic });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record", "--epic", "epic.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/cross-reference\] D7\b/);
+    });
+
+    it("exits 0 once the brief lists the decision under Resolve before approval", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("none", "- D7 has no delivering story."), "source.md": "src", "epic.md": epic });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record", "--epic", "epic.md"], io)).toBe(0);
+    });
+
+    it("counts the stories in the source text when no epic is named", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("none", "- R1 BLOCKER: a thing."), "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record"], io)).toBe(0);
+    });
+
+    it("exits 1 when the named epic cannot be read", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("#1", "- R1 BLOCKER: a thing."), "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record", "--epic", "gone.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/cannot read gone\.md/);
+    });
+});
+
 describe("nexus trunk", () => {
     function repoWithRemotes(remotes: Array<[string, string]>): string {
         const dir: string = makeTmpDir("cli-trunk-");

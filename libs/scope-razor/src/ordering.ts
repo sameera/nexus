@@ -88,6 +88,15 @@ export function storyTitles(draft: string): string[] {
         .filter((title: string | undefined): title is string => title !== undefined);
 }
 
+/**
+ * How many distinct stories a text declares. A record's cross-reference check reads it from the
+ * materialized epic (epic #787, story #792): in an epic of more than one story, every decision names
+ * the story that delivers it.
+ */
+export function storyCount(text: string): number {
+    return new Set(storyTitles(text).map((title: string) => title.toLowerCase().replace(/\s+/g, " "))).size;
+}
+
 /** The ordering block's rows, in written order. A draft that carries no block yields nothing. */
 export function parseOrdering(draft: string): OrderingEntry[] {
     const lines: string[] = draft.split("\n");
