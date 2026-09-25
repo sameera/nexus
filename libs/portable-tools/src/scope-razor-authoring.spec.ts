@@ -411,20 +411,35 @@ describe("the other drafting stages", () => {
         expect(record).toMatch(/\*\*Transcribe it; derive nothing\.\*\*/);
     });
 
-    it("show the reviewer every invariant and every risk the model added, not the alternatives alone", () => {
-        expect(record).toMatch(/every invariant and every risk the model added/i);
+    it("show the reviewer every guarantee and every risk the model added, not the alternatives alone", () => {
+        expect(record).toMatch(/every guarantee and every risk the model added/i);
     });
 
-    it("keep an invariant or a risk the lead asked for off the list, since striking one is a revise", () => {
-        expect(record).toMatch(/an invariant or a risk the lead asked for is not listed/i);
+    it("keep a guarantee or a risk the lead asked for off the list, since striking one is a revise", () => {
+        expect(record).toMatch(/a guarantee or a risk the lead asked for is not listed/i);
+    });
+
+    it("read an old-format revision's cut list by its old sections, frozen marks included (epic #787, story #789)", () => {
+        expect(record).toMatch(/An old-format revision.{0,200}read by its old sections/);
+        expect(record).toMatch(/Nothing converts an old record/);
+    });
+
+    it("keep a new-format record's numbers on a cut, and renumber only an old-format one", () => {
+        expect(record).toMatch(/A new-format record keeps its numbers/);
+        expect(record).toMatch(/An old-format revision renumbers, as before/);
+    });
+
+    it("pass the cut IDs to the derive step, which stops on a line that still cites one", () => {
+        expect(record).toMatch(/nexus razor-check --draft .* --derive .* \[--cut /);
+        expect(record).toMatch(/names each such line by its line number, writes no body/);
     });
 
     it("let one typed selection cover every kind the list holds, so a number means one thing", () => {
         expect(record).toMatch(/One typed selection covers every kind the list holds/);
     });
 
-    it("label the record's invariants and risks in the same two-valued form", () => {
-        expect(record).toMatch(/Label every invariant and every risk/);
+    it("label the record's guarantees and risks in the same two-valued form", () => {
+        expect(record).toMatch(/Label every guarantee and every risk/);
         expect(record).toContain("[inferred]");
     });
 

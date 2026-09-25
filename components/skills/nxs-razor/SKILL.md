@@ -104,7 +104,12 @@ When filing begins, the stage derives a **clean body** from the labelled draft b
 label and fragment. It then runs the checker in assertion mode over that derived body. **A
 surviving token of any of the three kinds fails the run before any issue is created or updated.**
 
-Only the label is derived away. A surviving placeholder is a question nobody answered. A surviving
+A decision record's draft adds one more drafting-time form: a field written as `none`
+(`- **Trade-off:** none`). The draft writes every optional field of a decision, so that an empty
+field is stated rather than forgotten. The derive step removes each such line, and the assertion
+fails on one that survives.
+
+Only the label and the `none` field are derived away. A surviving placeholder is a question nobody answered. A surviving
 marker is a verdict the body was never meant to state. So the assertion **reports** those two for a
 human to resolve rather than deleting them.
 
@@ -277,27 +282,28 @@ triage. Regenerating it later is cheaper than carrying it as an open item somebo
 ### The design-record checkpoint's convention: removal
 
 **The action is **removal**.** The list holds what the model added to the record: every `inferred`
-invariant and risk, and every refuted alternative. A plain approval files the record as drafted,
-minus nothing.
+guarantee and risk, and every refuted alternative. A plain approval files the record as drafted,
+minus nothing. A revision of a record approved in the old format keeps that format, so its list
+holds invariants where a new record's holds guarantees.
 
 **This gate has nothing to add to.** Its list is not scope. A refuted alternative is the model's own
-by construction (§9), and an invariant or a risk describes an epic whose scope the planning gate has
+by construction (§9), and a guarantee or a risk describes an epic whose scope the planning gate has
 already settled. There is no smaller usable record to default to and no deferred remainder to file,
 so inverting here would invert nothing. It would only turn the cheap deletion of something from a
 record into a revise-and-re-run.
 
 **The shape is the planning gate's, unchanged.** One numbered checklist holds all three kinds — the
-refuted alternatives under the decision each belongs to, then the model-added invariants, then the
+refuted alternatives under the decision each belongs to, then the model-added guarantees, then the
 model-added risks — numbered as **one sequence from 1** in the record's own section order, with
 **every line arriving ticked**. A number flips the line it names, one typed selection covers every
 kind the list holds, and an empty selection is a plain approval. So the alignment between the two
 gates is in how the reviewer reads and acts; only the direction the default points differs.
 
-**An invariant or a risk the lead asked for is not listed**, in any form. That is the lead's own
+**A guarantee or a risk the lead asked for is not listed**, in any form. That is the lead's own
 definition of the epic, and striking it is a revise — the treatment §8's planning-gate convention
 gives an asked-for acceptance criterion. The exposure this leaves is that the citation check (§3)
 proves a quoted fragment exists and never that it licenses the item, so an over-claimed label keeps
-an invariant off this list. It still lands in a body the approver reads before closing the record
+a guarantee off this list. It still lands in a body the approver reads before closing the record
 sub-issue.
 
 ## 9. A refuted alternative is offered, not required

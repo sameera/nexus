@@ -35,6 +35,16 @@
             "import": "./src/record-offer.ts",
             "default": "./src/record-offer.ts"
         },
+        "./amendments": {
+            "types": "./src/amendments.ts",
+            "import": "./src/amendments.ts",
+            "default": "./src/amendments.ts"
+        },
+        "./record": {
+            "types": "./src/record.ts",
+            "import": "./src/record.ts",
+            "default": "./src/record.ts"
+        },
         "./offer": {
             "types": "./src/offer.ts",
             "import": "./src/offer.ts",

@@ -65,8 +65,10 @@ import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "@nexus/p
 import { renderVerifyResult } from "@nexus/prose-verify/render";
 import { deriveFilingBody, survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
 import { checkApplied, checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
-import { renderChecklist, renderRazorFindings, renderRecordChecklist, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { renderChecklist, renderCutCitations, renderRazorFindings, renderRecordChecklist, renderSurvivingTokens } from "@nexus/scope-razor/render";
+import { cutCitations, recordSections, type CutCitation } from "@nexus/scope-razor/record";
 import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
+import { storyCount } from "@nexus/scope-razor/ordering";
 import { recordChecklist, type RecordChecklistItem } from "@nexus/scope-razor/record-offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
 import { fetchRecord } from "@nexus/record-digest/fetch";
@@ -106,6 +108,7 @@ import {
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
+import { runRecordAmendments } from "./record-amendments.js";
 import { runWorkspaceAddRepo } from "./workspace-add-repo.js";
 import { runWorkspaceInit } from "./workspace-init.js";
 
@@ -337,6 +340,34 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         run: runRecordDigest,
     },
+    "record-sections": {
+        summary: "Print a decision record's format and the parts the stages after approval read, as JSON.",
+        usage: [
+            "  nexus record-sections --body <path>",
+            "      Read-only. Print { format, decisions, guarantees, invariants, risks, conceptChanges }.",
+            "      format is new (a Guarantees section), old (a Constraints & Invariants section) or",
+            "      neither. A body in neither format lists no parts and exits 0: the stage reads it whole.",
+            "      A concept-store change carries old and new only when its line is exactly",
+            "      '<page> page: \"<old>\" becomes \"<new>\".'; otherwise read its text whole.",
+            "      Exits 1 when the body cannot be read.",
+        ].join("\n"),
+        run: runRecordSections,
+    },
+    "record-amendments": {
+        summary: "Check each epic or story change a drafted decision record promises against the live issue.",
+        usage: [
+            "  nexus record-amendments --draft <path> [--root <dir>]",
+            "      Read-only: writes no file and edits no issue. For each 'Epic commitment affected'",
+            "      line (none skipped), read the named issue and print { command, checked, amendments }:",
+            "      checked is today's date; each amendment gives its decision, issue, repo, old and new",
+            "      wording, status (amended when the new wording is on the issue, else pending;",
+            "      unresolved is not read), newPresent, oldPresent and saysToday. Matching is exact after",
+            "      normalising whitespace and case. A bare reference reads the epic-repo; owner/repo#N",
+            "      reads that repository. Exits 0 when a change is pending. Exits 1 on an issue it cannot",
+            "      read or a commitment line it cannot parse, naming it; 2 on a usage error.",
+        ].join("\n"),
+        run: (argv, io) => runRecordAmendments(argv, io),
+    },
     "prose-verify": {
         summary: "Prove a translated artifact kept its machine-read regions byte-identical and every tracked item intact.",
         usage: [
@@ -350,18 +381,29 @@ const REGISTRY: Record<string, VerbEntry> = {
     "razor-check": {
         summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
         usage: [
-            "  nexus razor-check --draft <path> --source <path>",
+            "  nexus razor-check --draft <path> --source <path> [--record [--epic <path>]]",
             "  nexus razor-check --draft <path> --filed \"<title>; <title>\"",
-            "  nexus razor-check --draft <path> --derive <path>",
+            "  nexus razor-check --draft <path> --derive <path> [--cut <G3,R2,...>]",
             "  nexus razor-check --draft <path> --assert-clean [--asset-path <path>]...",
             "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
-            "      personas table, exiting 1 when any finding blocks. With --filed it instead runs the",
+            "      personas table, exiting 1 when any finding blocks. --record declares the draft a",
+            "      decision record, which then also blocks when it reads as neither format: no",
+            "      Guarantees section and no Constraints & Invariants section. In a new-format record it",
+            "      also blocks each cross-reference gap: a guarantee citing no decision, a decision naming",
+            "      no delivering story in a multi-story epic, or an epic or story change not yet made,",
+            "      unless its ID is listed under \"Resolve before approval\"; a change without both the",
+            "      exact old and new wording; and a trade-off the Approval brief does not list, or lists",
+            "      twice. --epic names the materialized epic, whose stories are counted; without it the",
+            "      stories in --source are counted. With --filed it instead runs the",
             "      apply-time arm over the set the reviewer approved, before any edge is rewritten: the",
             "      set is closed under its blockers, every name in it is a story, and the complexity",
             "      rollup and the design warrant describe the stories actually filed. With --derive it",
-            "      writes the filing body — labels and the ordering block removed — and asserts it, and",
-            "      with --assert-clean it asserts a body it is given — no provenance label, template",
-            "      placeholder token, observation marker, ordering row or declared local asset path",
+            "      writes the filing body — labels, the ordering block and any field written as `none`",
+            "      removed — and asserts it. --cut names the guarantees and risks the reviewer cut from a",
+            "      record: when a surviving line still cites one, as a whole token, it names each such",
+            "      line, writes nothing and exits 1. With --assert-clean it asserts a body it is given —",
+            "      no provenance label, template placeholder token, observation marker, ordering row,",
+            "      `none` field or declared local asset path",
             "      (--asset-path, repeatable, matched exactly) — so a drafting-time body is never filed.",
         ].join("\n"),
         run: runRazorCheck,
@@ -376,12 +418,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      files; the smallest usable version comes first, then the stories it excludes,",
             "      asked-for before model-added, each in the order the ordering block unlocks it.",
             "      With --record the draft is a decision record: the list holds every refuted",
-            "      alternative under the decision it belongs to, then every invariant and every risk",
-            "      the model added, numbered as one sequence in the record's own section order and",
-            "      every line ticked, because a plain approval files the record minus nothing. Pass",
-            "      --approved-body only when the record sub-issue is closed: a line whose text that",
-            "      body already carries is marked frozen, since approved content changes only through",
-            "      the revision path.",
+            "      alternative under the decision it belongs to, then every guarantee (every invariant,",
+            "      in an old-format record) and every risk the model added, numbered as one sequence in",
+            "      the record's own section order and every line ticked, because a plain approval files",
+            "      the record minus nothing. Pass --approved-body only when the record sub-issue is",
+            "      closed: a line whose text that body already carries is marked frozen, since approved",
+            "      content changes only through the revision path.",
         ].join("\n"),
         run: runRazorOffer,
     },
@@ -1846,6 +1888,31 @@ async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
     return 0;
 }
 
+/**
+ * `nexus record-sections` — the one reader of an approved record's parts (epic #787, story #790,
+ * D4). `/nxs.analyze`, `/nxs.close` and `/nxs.distill` call it on the fetched body to learn its
+ * format and list its decisions, guarantees or invariants, risks and concept-store changes, so a
+ * guarantee under a group heading cannot be skipped by a stage reading for "invariants". It writes
+ * nothing; the hash is still taken by `record-digest` over the body as fetched.
+ */
+async function runRecordSections(argv: string[], io: CliIo): Promise<number> {
+    const at: number = argv.indexOf("--body");
+    const target: string | undefined = at === -1 ? undefined : argv[at + 1];
+    if (target === undefined || target === "") {
+        io.stderr("usage: nexus record-sections --body <path>");
+        return 2;
+    }
+    let body: string;
+    try {
+        body = fs.readFileSync(path.resolve(io.cwd, target), "utf8");
+    } catch {
+        io.stderr(`record-sections: cannot read ${target}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify(recordSections(body), null, 2));
+    return 0;
+}
+
 interface ProseVerifyFlags {
     before?: string;
     after?: string;
@@ -1905,10 +1972,17 @@ interface RazorCheckFlags {
     derive?: string;
     /** This run's declared local asset paths (epic #594): a survivor fails `--assert-clean`. */
     assetPaths: string[];
-    /** `--record`: offer over a decision-record draft rather than an epic draft (epic #722). */
+    /**
+     * `--record`: the draft is a decision record rather than an epic (epic #722). The offer reads
+     * the record's cut list; the check also blocks a record that reads as neither format (#790).
+     */
     record: boolean;
     /** `--approved-body`: the approved record body, passed only when the record sub-issue is closed. */
     approvedBody?: string;
+    /** `--cut`: the guarantee and risk IDs the reviewer cut, comma-separated (epic #787, story #789). */
+    cut?: string[];
+    /** `--epic`: the materialized epic.md, whose stories a record's cross-reference check counts (#792). */
+    epic?: string;
 }
 
 function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
@@ -1921,6 +1995,12 @@ function parseRazorCheckFlags(argv: string[]): RazorCheckFlags {
         else if (argv[i] === "--derive") flags.derive = argv[++i];
         else if (argv[i] === "--record") flags.record = true;
         else if (argv[i] === "--approved-body") flags.approvedBody = argv[++i];
+        else if (argv[i] === "--epic") flags.epic = argv[++i];
+        else if (argv[i] === "--cut")
+            flags.cut = (argv[++i] ?? "")
+                .split(/[,\s]+/)
+                .map((id: string) => id.trim().toUpperCase())
+                .filter((id: string) => id !== "");
         else if (argv[i] === "--filed")
             flags.filed = (argv[++i] ?? "")
                 .split(";")
@@ -1945,6 +2025,10 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const mode: boolean = flags.assertClean || flags.filed !== undefined || flags.derive !== undefined;
     if (flags.draft === undefined || (!mode && flags.source === undefined)) {
         io.stderr("usage: nexus razor-check --draft <path> (--source <path> | --filed \"<title>; <title>\" | --derive <path> | --assert-clean)");
+        return 2;
+    }
+    if (flags.cut !== undefined && (flags.derive === undefined || flags.cut.length === 0 || flags.cut.some((id: string) => !/^[GR]\d+$/.test(id)))) {
+        io.stderr("usage: nexus razor-check --draft <path> --derive <path> --cut <G3,R2,...> — --cut names cut guarantee (G<n>) and risk (R<n>) IDs, and only with --derive");
         return 2;
     }
 
@@ -1972,6 +2056,13 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (flags.derive !== undefined) {
+        // A cut in a new-format record keeps every other number (D5), so a surviving citation to a
+        // cut ID names something the record no longer holds. Stop before anything is written.
+        const citing: CutCitation[] = cutCitations(body, flags.cut ?? []);
+        if (citing.length > 0) {
+            io.stderr(renderCutCitations(flags.draft, citing));
+            return 1;
+        }
         const filing: string = deriveFilingBody(body);
         try {
             fs.writeFileSync(path.resolve(io.cwd, flags.derive), filing, "utf8");
@@ -2001,7 +2092,16 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const sourceText: string | undefined = readOr(flags.source as string);
     if (sourceText === undefined) return 1;
 
-    const findings: RazorRuleFinding[] = checkDraft(body, sourceText);
+    // A record's cross-reference check needs to know whether the epic has more than one story. The
+    // materialized epic.md is written by one deterministic producer, so its story headings are the
+    // count to trust; the model-assembled source text is the fallback when no epic is named.
+    let stories: number | undefined;
+    if (flags.epic !== undefined) {
+        const epicText: string | undefined = readOr(flags.epic);
+        if (epicText === undefined) return 1;
+        stories = storyCount(epicText);
+    }
+    const findings: RazorRuleFinding[] = checkDraft(body, sourceText, { record: flags.record, stories });
     const report: string = renderRazorFindings(flags.draft, findings);
     if (findings.some((f: RazorRuleFinding) => f.severity === "blocking")) {
         io.stderr(report);

@@ -235,7 +235,7 @@ single-repo and hub mode only.
       The entry carries **no `decision-record.md`** (nothing was committed at planning; the durable
       record home is the epic's **record sub-issue**). That is not a downgrade: Phase 2 resolves the
       deviation baseline per entry from what is actually present, so it fetches the record sub-issue's
-      body and Phase 3 runs the full invariant-aware pass. Only an epic with **no record at all**
+      body and Phase 3 runs the full pass against its guarantees or invariants. Only an epic with **no record at all**
       falls back to the downgraded, no-invariant pass.
 
    Then run **Phase 0's frontmatter parsing** against `${QDIR}/epic.md` (title, `link`, `feature`,
@@ -528,9 +528,27 @@ any not already captured in the decision record. **Sources (C6), in priority ord
    record captures what *changed* against these, not a restatement). Resolve the record's baseline
    **per entry, from what is actually present** — no flag, no mode switch, no migration:
     1. the epic's **record sub-issue** when it has one (fetch the body: `gh issue view <record>
-       $REPO_ARG --json body --jq .body`) — the norm under #139;
+       $REPO_ARG --json body --jq .body > "<scratch>/record-body.md"`) — the norm under #139;
     2. else a committed **`decision-record.md`** in `QDIR` — an old-contract entry, exactly as today;
     3. else the close record alone (no invariants; the deviation pass is downgraded).
+
+   For the first two, **list the record's parts through the section reader** rather than finding
+   them by hand. It is read-only, and the record hash is still taken by `nexus record-digest`
+   exactly as before, for both formats:
+
+    ```bash
+    nexus record-sections --body "<scratch>/record-body.md"   # or "${QDIR}/decision-record.md"
+    ```
+
+   Its `format` fixes what the record contributes to this phase and to Phase 3:
+
+    - `new` — the planned decisions are its `decisions`, the appendix's **Decisions and reasons**,
+      each with its ID, decision, reason and refuted viable alternatives. The deviation baseline is
+      the body's **How it works**, its appendix **Mechanism**, and its `guarantees`.
+    - `old` — the planned decisions are its Key Decisions, and the baseline is its chosen approach,
+      constraints and invariants, read exactly as before.
+    - `neither` — the headings match neither format, so read the whole body as the baseline, as
+      before the approval-first format existed.
 2. **Story issue comments** — read the comment thread on each child story issue for decisions recorded
    during implementation (in the resolved issues-repo — see Phase 1.0):
 
@@ -563,7 +581,8 @@ any not already captured in the decision record. **Sources (C6), in priority ord
 
 For each decision, capture the **decision + the why**, and the **refuted viable alternative** if one
 existed (C1/G2 guardrail: no strawmen — record an alternative only if a competent engineer might have
-chosen it). This is the distiller's *why* source for the Decision Log. There are **no task files** to
+chosen it). Where a key decision is one a new-format record made or changed, take its decision, reason
+and refuted viable alternative from that record decision's entry, and name it by its ID (`D4`). This is the distiller's *why* source for the Decision Log. There are **no task files** to
 mine — do not look for `TASK-*.md`.
 
 # Phase 3 — Close-from-diff forcing function
@@ -607,14 +626,16 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
 2. **Auto-derive the *what*** from the diff — the behavioral changes, the files touched. This is
    code-derivable, so you derive it; **you do not ask the human to write it**.
 
-3. **Detect deviations** — compare the shipped code against the decision record's chosen approach,
-   constraints, and invariants (the baseline resolved in Phase 2). A deviation is where the code
-   diverges from what the decision record implied: a constraint relaxed, an invariant worked around,
-   an approach changed, a named component replaced. Matched work needs no entry.
+3. **Detect deviations** — compare the shipped code against the baseline Phase 2 resolved: a
+   new-format record's How it works, Mechanism and guarantees, or an old-format record's chosen
+   approach, constraints and invariants. A deviation is where the code diverges from what the
+   decision record implied: a constraint relaxed, a guarantee or an invariant worked around, an
+   approach changed, a named component replaced. Matched work needs no entry.
 
     - **Name the baseline on each deviation.** Every deviation's rationale states the record issue
       it deviated from (`#<record>`) — the queue entry is deleted by the drain, so the rationale
-      must stay self-contained once it is gone.
+      must stay self-contained once it is gone. Against a new-format record it also names the
+      decision it deviates from by its ID (`#<record> D4`), and a broken guarantee by its ID.
     - If the epic has no decision record at all, say so and derive deviations only against the
       epic's stated approach/scope (downgraded — no invariant check).
 
@@ -1163,8 +1184,8 @@ does not reopen the epic issue.
    superseded body verbatim, its hash, and why it was superseded):
 
     - **The revision changed only the record's wording** — the shipped code still satisfies the same
-      decisions and invariants. Continue to step 3; the close record's prose stands.
-    - **The revision changed the design** — a decision, an invariant, or scope moved. The committed
+      decisions and guarantees (invariants, in an old-format record). Continue to step 3; the close record's prose stands.
+    - **The revision changed the design** — a decision, a guarantee or an invariant, or scope moved. The committed
       close record's Key Decisions and Deviation Rationale were written against the superseded body
       and are now wrong. Re-run **Phase 2 and Phase 3** against the new record body and rewrite those
       two sections of `${QDIR}/close-record.md` before continuing. Everything else in the file —

@@ -12,6 +12,8 @@
 import { citationHolds, citations, MINIMUM_FRAGMENT_WORDS, normalize, type Citation } from "./citations.js";
 import { bullets, criteria, isLabelled, sections } from "./document.js";
 import { stripLabels } from "./labels.js";
+import { readRecord, recordFormat, type RecordLine, type RecordReading } from "./record.js";
+import { crossReferenceFindings } from "./record-check.js";
 import { compareSize, complexityDrivers, designWarrant, recordedComplexity, rollupFloor, storySizes, type Size, type StorySize } from "./rollup.js";
 import {
     NECESSITY_HEADING,
@@ -19,6 +21,7 @@ import {
     ORDERING_HEADING,
     parseOrdering,
     smallestUsableVersion,
+    storyCount,
     storyHeadingTitle,
     storyTitles,
     unmetBlockers,
@@ -33,7 +36,7 @@ export type Severity = "blocking" | "advisory";
 export interface RazorFinding {
     severity: Severity;
     /** The rule that failed, as a stable slug the caller may group on. */
-    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label" | "ordering" | "closure" | "rollup";
+    rule: "acceptance-criteria-ceiling" | "section-limit" | "citation" | "personas-table" | "provenance-label" | "ordering" | "closure" | "rollup" | "record-format" | "cross-reference";
     /** The story title or section heading the finding belongs to. */
     where: string;
     message: string;
@@ -113,6 +116,48 @@ function checkSections(draft: string): RazorFinding[] {
         }
     }
     return findings;
+}
+
+/**
+ * How a draft is checked. `record` declares a decision-record draft, whose format and, in the new
+ * format, cross-references are then checked too. `stories` is the number of stories in the epic the
+ * record designs; when it is not given, the stories declared in the source text are counted.
+ */
+export interface CheckOptions {
+    record?: boolean;
+    stories?: number;
+}
+
+/**
+ * The provenance rule over a new-format record's guarantees and risks (epic #787, story #789, G7).
+ * The checkpoint lists only the model's additions, so a line with no label is the one line a reader
+ * cannot place. The reader treats it as the model's own, which keeps it on the cut list, and this
+ * blocks it so the label is written rather than assumed. An old-format record is checked as before.
+ */
+function checkRecord(draft: string): RazorFinding[] {
+    const record: RecordReading = readRecord(draft);
+    if (record.format !== "new") return [];
+    const texts = (items: RecordLine[]): string[] => items.map((item: RecordLine) => item.text);
+    return [...unlabelled(texts(record.guarantees), "Guarantees"), ...unlabelled(texts(record.risks), "Risks and dependencies")];
+}
+
+/**
+ * A record draft's format (epic #787, story #790, D3 and G20). Both templates require their
+ * format's contract section at every tier, so a draft with neither was drafted from neither
+ * template. Filed, it would be read whole by every later stage, with none of the checks either
+ * format gets, so it stops here. The checker cannot tell a record draft from an epic draft by its
+ * content, so the caller declares it.
+ */
+function checkRecordFormat(draft: string): RazorFinding[] {
+    if (recordFormat(draft) !== "neither") return [];
+    return [
+        {
+            severity: "blocking",
+            rule: "record-format",
+            where: "Decision record",
+            message: 'The draft has neither a "## Guarantees" section (the approval-first format) nor a "## Constraints & Invariants" section (the old format), so no later stage could read its parts.',
+        },
+    ];
 }
 
 function checkPersonas(draft: string): RazorFinding[] {
@@ -322,6 +367,17 @@ function checkNecessity(draft: string): RazorFinding[] {
  * Every mechanically decidable razor rule, over one draft and the source text that run was given.
  * An empty result is a draft that breaks none of them.
  */
-export function checkDraft(draft: string, sourceText: string): RazorFinding[] {
-    return [...checkStories(draft), ...checkSections(draft), ...checkPersonas(draft), ...checkOrdering(draft), ...checkNecessity(draft), ...checkCitations(draft, sourceText)];
+export function checkDraft(draft: string, sourceText: string, options: CheckOptions = {}): RazorFinding[] {
+    const stories: number = options.stories ?? storyCount(sourceText);
+    return [
+        ...(options.record === true ? checkRecordFormat(draft) : []),
+        ...(options.record === true ? crossReferenceFindings(draft, stories) : []),
+        ...checkStories(draft),
+        ...checkSections(draft),
+        ...checkRecord(draft),
+        ...checkPersonas(draft),
+        ...checkOrdering(draft),
+        ...checkNecessity(draft),
+        ...checkCitations(draft, sourceText),
+    ];
 }

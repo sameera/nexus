@@ -1405,6 +1405,259 @@ describe("nexus razor-offer --record (epic #722)", () => {
     });
 });
 
+describe("the record checkpoint over a new-format draft (epic #787, story #789)", () => {
+    const labelled: string = fs.readFileSync(path.join(path.resolve(import.meta.dirname, "..", "..", ".."), "libs", "scope-razor", "src", "__fixtures__", "record-new.labelled.md"), "utf8");
+
+    const inDir = (files: Record<string, string>): CapturedIo => {
+        const dir: string = makeTmpDir("cli-razor-new-record-");
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        return makeIo(dir);
+    };
+
+    it("prints the model-added guarantees under a Guarantees group, with the alternatives and risks", async () => {
+        const io: CapturedIo = inDir({ "record.md": labelled });
+        expect(await runNexusCli(["razor-offer", "--draft", "record.md", "--record"], io)).toBe(0);
+        const out: string = io.out.join("\n");
+        expect(out).toMatch(/Guarantees — model-added/);
+        expect(out).not.toMatch(/Invariants — model-added/);
+        expect(out).toMatch(/\[x\] +4\. G1\./);
+        expect(out).toMatch(/\[x\] +8\. R3 ADDRESS/);
+        expect(out).toContain("Existing behaviour to preserve");
+    });
+
+    it("derives a filing body with no field written as `none` in it", async () => {
+        const io: CapturedIo = inDir({ "record.md": labelled });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md"], io)).toBe(0);
+        const filed: string = fs.readFileSync(path.join(io.cwd, "record-body.md"), "utf8");
+        expect(filed).not.toMatch(/^- \*\*[^*]+:\*\* *none\.?$/im);
+        expect(filed).toContain("- **Delivered by:** #224");
+    });
+
+    it("stops before deriving when a surviving line cites a cut guarantee, naming the line and writing nothing", async () => {
+        const cut: string = labelled.replace(/^- G3\..*\n/m, "");
+        const io: CapturedIo = inDir({ "record.md": cut });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "G3"], io)).toBe(1);
+        expect(fs.existsSync(path.join(io.cwd, "record-body.md"))).toBe(false);
+        const err: string = io.err.join("\n");
+        const citing: number = cut.split("\n").findIndex((line: string) => line === "- **Guarantees:** G1, G3") + 1;
+        expect(err).toContain(`record.md:${citing}`);
+        expect(err).toContain("G3");
+    });
+
+    it("derives as usual when no surviving line cites the cut items, the gap in the numbering kept", async () => {
+        const cut: string = labelled.replace(/^- G4\..*\n/m, "").replace(/^- R3 .*\n/m, "");
+        const io: CapturedIo = inDir({ "record.md": cut });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "G4,R3"], io)).toBe(0);
+        const filed: string = fs.readFileSync(path.join(io.cwd, "record-body.md"), "utf8");
+        expect(filed).toContain("- G5. The Value List function");
+        expect(filed).not.toContain("G4.");
+    });
+
+    it("matches a cut ID as a whole token, so cutting G1 is not stopped by a line citing G11", async () => {
+        const body: string = "## Guarantees\n\n- G11. A thing. (D1) `[inferred]`\n";
+        const io: CapturedIo = inDir({ "record.md": body });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "G1"], io)).toBe(0);
+    });
+
+    it("refuses a cut list that names something other than a guarantee or a risk, or comes without --derive", async () => {
+        const io: CapturedIo = inDir({ "record.md": labelled });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--derive", "record-body.md", "--cut", "D2"], io)).toBe(2);
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--assert-clean", "--cut", "G3"], io)).toBe(2);
+        expect(fs.existsSync(path.join(io.cwd, "record-body.md"))).toBe(false);
+    });
+
+    it("fails the clean-body assertion on a `none` field that survived into a body derived some other way", async () => {
+        const io: CapturedIo = inDir({ "record-body.md": "#### D1 — A thing\n\n- **Decision:** a thing.\n- **Trade-off:** none\n" });
+        expect(await runNexusCli(["razor-check", "--draft", "record-body.md", "--assert-clean"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("record-body.md:4");
+    });
+});
+
+describe("nexus record-sections: the read-only section reader the later stages call (epic #787, story #790)", () => {
+    const REPO: string = path.resolve(import.meta.dirname, "..", "..", "..");
+    const TRIAL: string = path.join(REPO, "docs", "features", "artifact-prose-style", "decision-record-trial");
+    const FIXTURES: string = path.join(REPO, "libs", "scope-razor", "src", "__fixtures__");
+
+    const run = async (body: string): Promise<{ code: number; io: CapturedIo; json: () => Record<string, unknown> }> => {
+        const dir: string = makeTmpDir("cli-record-sections-");
+        fs.writeFileSync(path.join(dir, "record-body.md"), body);
+        const io: CapturedIo = makeIo(dir);
+        const code: number = await runNexusCli(["record-sections", "--body", "record-body.md"], io);
+        return { code, io, json: () => JSON.parse(io.out.join("\n")) as Record<string, unknown> };
+    };
+
+    it("prints a new-format record's decisions, guarantees, risks and concept-store changes as JSON", async () => {
+        const { code, json } = await run(fs.readFileSync(path.join(TRIAL, "record-786.md"), "utf8"));
+        expect(code).toBe(0);
+        const read = json() as { format: string; decisions: Array<{ id: string; why: string }>; guarantees: Array<{ id: string; group: string }>; invariants: unknown[]; risks: unknown[]; conceptChanges: Array<{ page: string }> };
+        expect(read.format).toBe("new");
+        expect(read.decisions).toHaveLength(11);
+        expect(read.decisions[0].why).toMatch(/^The objective must be settled/);
+        expect(read.guarantees.filter((g) => g.group === "Existing behaviour to preserve").map((g) => g.id)).toEqual(["G9", "G10"]);
+        expect(read.invariants).toEqual([]);
+        expect(read.risks).toHaveLength(2);
+        expect(read.conceptChanges.map((c) => c.page)).toEqual(["Epic stub", "Issue kind"]);
+    });
+
+    it("reads the other worked example too", async () => {
+        const { code, json } = await run(fs.readFileSync(path.join(TRIAL, "record-245.md"), "utf8"));
+        expect(code).toBe(0);
+        expect((json() as { decisions: unknown[] }).decisions).toHaveLength(13);
+    });
+
+    it("prints an old-format filed record's Key Decisions, invariants and risks, and no guarantees", async () => {
+        const { code, json } = await run(fs.readFileSync(path.join(FIXTURES, "record-old.filed.md"), "utf8"));
+        expect(code).toBe(0);
+        const read = json() as { format: string; decisions: unknown[]; guarantees: unknown[]; invariants: unknown[]; risks: unknown[] };
+        expect(read.format).toBe("old");
+        expect(read.decisions).toHaveLength(8);
+        expect(read.invariants).toHaveLength(16);
+        expect(read.risks).toHaveLength(3);
+        expect(read.guarantees).toEqual([]);
+    });
+
+    it("prints a labelled draft without its labels", async () => {
+        const { code, io } = await run(fs.readFileSync(path.join(FIXTURES, "record-new.labelled.md"), "utf8"));
+        expect(code).toBe(0);
+        expect(io.out.join("\n")).not.toContain("[inferred]");
+    });
+
+    it("reports a body in neither format and exits 0, so the stage reads that body whole", async () => {
+        const { code, json } = await run("# Decision Record: X\n\n## Summary\n\nA thing.\n");
+        expect(code).toBe(0);
+        expect(json()).toMatchObject({ format: "neither", decisions: [], guarantees: [], invariants: [] });
+    });
+
+    it("writes nothing, leaving the body it read unchanged", async () => {
+        const body: string = fs.readFileSync(path.join(TRIAL, "record-245.md"), "utf8");
+        const { io } = await run(body);
+        expect(fs.readdirSync(io.cwd)).toEqual(["record-body.md"]);
+        expect(fs.readFileSync(path.join(io.cwd, "record-body.md"), "utf8")).toBe(body);
+    });
+
+    it("exits 1 on a body it cannot read, naming the path", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-record-sections-"));
+        expect(await runNexusCli(["record-sections", "--body", "missing.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("missing.md");
+    });
+
+    it("exits 2 with usage when no body is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-record-sections-"));
+        expect(await runNexusCli(["record-sections"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/usage: nexus record-sections --body/);
+    });
+
+    it("is listed in --help", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-cwd-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus record-sections --body <path>");
+    });
+});
+
+describe("nexus record-amendments (registration only; the gh path is covered by record-amendments.spec.ts) (epic #787, story #791)", () => {
+    it("exits 2 with usage when no draft is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-record-amendments-"));
+        expect(await runNexusCli(["record-amendments"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/usage: nexus record-amendments --draft <path>/);
+    });
+
+    it("prints an empty list, reading nothing, for a draft that promises no change", async () => {
+        const dir: string = makeTmpDir("cli-record-amendments-");
+        fs.writeFileSync(path.join(dir, "draft.md"), "# Decision Record: X\n\n## Guarantees\n\n- G1. A thing. (D1)\n");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["record-amendments", "--draft", "draft.md"], io)).toBe(0);
+        expect(JSON.parse(io.out.join("\n"))).toMatchObject({ command: "record-amendments", amendments: [] });
+    });
+
+    it("is listed in --help", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-cwd-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus record-amendments --draft <path>");
+    });
+});
+
+describe("the record checkpoint blocks a draft in neither format (epic #787, story #790, G20)", () => {
+    const inDir = (files: Record<string, string>): CapturedIo => {
+        const dir: string = makeTmpDir("cli-razor-record-format-");
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        return makeIo(dir);
+    };
+    const neither: string = "# Decision Record: X\n\n## Summary\n\nA thing.\n\n## Key Decisions\n\n### A thing\n\n- **Decision:** a thing.\n";
+
+    it("exits 1 on a record draft that reads as neither format, naming the missing sections", async () => {
+        const io: CapturedIo = inDir({ "record.md": neither, "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/record-format/);
+    });
+
+    it("passes the same draft when it is not declared a record, as before", async () => {
+        const io: CapturedIo = inDir({ "record.md": neither, "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md"], io)).toBe(0);
+    });
+
+    it("passes a new-format record draft", async () => {
+        const labelled: string = fs.readFileSync(path.join(path.resolve(import.meta.dirname, "..", "..", ".."), "libs", "scope-razor", "src", "__fixtures__", "record-new.labelled.md"), "utf8");
+        const io: CapturedIo = inDir({ "record.md": labelled, "source.md": "never the author's raw text keeps working unchanged alongside Query case-insensitive matching must use an index" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record"], io)).toBe(0);
+    });
+});
+
+describe("the record checkpoint blocks a draft whose cross-references do not hold (epic #787, story #792)", () => {
+    const inDir = (files: Record<string, string>): CapturedIo => {
+        const dir: string = makeTmpDir("cli-razor-record-xref-");
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        return makeIo(dir);
+    };
+    const draft = (deliveredBy: string, resolve: string): string =>
+        [
+            "# Decision Record: X",
+            "",
+            "## Approval brief",
+            "",
+            "**Resolve before approval**",
+            "",
+            resolve,
+            "",
+            "## Guarantees",
+            "",
+            "- G1. A thing holds. (D7) `[inferred]`",
+            "",
+            "## Design rationale and mechanism",
+            "",
+            "### Decisions and reasons",
+            "",
+            "#### D7 — A choice",
+            "",
+            "- **Decision:** a thing.",
+            "- **Trade-off:** none",
+            `- **Delivered by:** ${deliveredBy}`,
+            "",
+        ].join("\n");
+    const epic: string = "# Epic: X\n\n## User Stories\n\n### Story #1: One\n\n### Story #2: Two\n";
+
+    it("exits 1 and names the decision that no story delivers in a multi-story epic", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("none", "- R1 BLOCKER: a thing."), "source.md": "src", "epic.md": epic });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record", "--epic", "epic.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/cross-reference\] D7\b/);
+    });
+
+    it("exits 0 once the brief lists the decision under Resolve before approval", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("none", "- D7 has no delivering story."), "source.md": "src", "epic.md": epic });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record", "--epic", "epic.md"], io)).toBe(0);
+    });
+
+    it("counts the stories in the source text when no epic is named", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("none", "- R1 BLOCKER: a thing."), "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record"], io)).toBe(0);
+    });
+
+    it("exits 1 when the named epic cannot be read", async () => {
+        const io: CapturedIo = inDir({ "record.md": draft("#1", "- R1 BLOCKER: a thing."), "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record", "--epic", "gone.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/cannot read gone\.md/);
+    });
+});
+
 describe("nexus trunk", () => {
     function repoWithRemotes(remotes: Array<[string, string]>): string {
         const dir: string = makeTmpDir("cli-trunk-");

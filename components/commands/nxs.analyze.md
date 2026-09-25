@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's invariants — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -10,7 +10,8 @@ tools: Read, Grep, Glob, Bash, Write
 
 Act as a verification reviewer. Check that the **implemented code** for one epic actually satisfies
 what its planning promised — the stories' acceptance criteria, the epic's success metrics, and the
-decision record's constraints and invariants. The unit of work is the **story** (0009): each story is
+decision record's guarantees, or its constraints and invariants in a record approved in the old
+format. The unit of work is the **story** (0009): each story is
 a GitHub issue, and you check the code against each story's acceptance criteria.
 
 This is a **conformance** gate, not a quality gate. You answer *"does the build do what the epic
@@ -167,7 +168,8 @@ frontmatter `link` to get the epic issue number; it anchors the story issues.
 
 ## Phase 0.5 — Resolve the decision record (four states, one of which blocks)
 
-The decision record supplies the **invariants** to check, and its home is a **sub-issue of the epic
+The decision record supplies the **conditions** to check (its guarantees, or an old-format
+record's invariants), and its home is a **sub-issue of the epic
 issue** (#139). Resolve it before anything else — a blocked run must emit nothing at all.
 
 1. Resolve the target repo and the needs-design label name **through the shared publishing
@@ -195,7 +197,7 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
 
     | State | Condition | Outcome |
     | --- | --- | --- |
-    | **full** | record sub-issue exists and is **closed as completed** | Run in full mode; invariants come from the record issue body. |
+    | **full** | record sub-issue exists and is **closed as completed** | Run in full mode; the conditions come from the record issue body. |
     | **block — unapproved** | record sub-issue is **open**, or closed as **not planned** | **Stop.** A not-planned closure is a withdrawn design, not an approval. |
     | **block — claimed but unfiled** | epic carries the needs-design label but has **no** record sub-issue | **Stop.** The epic says it needs a record and none exists. |
     | **degraded** | **no** record sub-issue **and no** needs-design claim | Run in the no-invariant mode and state that you did (invariant 13). |
@@ -233,8 +235,29 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
     ```
 
     Keep `digest` as `RECORD_HASH` and `#<record>` as the record reference; both are stamped into
-    the result in Phase 3. Read the invariants from the **record issue body** (the same fetch), not
-    from any local copy.
+    the result in Phase 3. Read the conditions from the **record issue body**, not from any local
+    copy.
+
+6. **In full mode, list the record's parts through the section reader.** Write the body to scratch
+   and ask the reader for its format and parts; do not find them by hand:
+
+    ```bash
+    gh issue view <record> $REPO_ARG --json body --jq .body > "<scratch>/record-body.md"
+    nexus record-sections --body "<scratch>/record-body.md"
+    ```
+
+    An old-contract entry passes its committed `decision-record.md` as the body instead. The
+    command is read-only; a non-zero exit is a fetch failure (step 3) and stops the run. Its
+    `format` decides what Phase 2.2 checks:
+
+    - `new` — the conditions are the `guarantees` list, every entry of every group, "Existing
+      behaviour to preserve" included. Each is named by its ID (`G4`).
+    - `old` — the conditions are the record's constraints and invariants, read exactly as before.
+    - `neither` — the headings match neither format, so read the whole body for its constraints,
+      as before the approval-first format existed.
+
+    The body is still read as prose for its context. The reader only fixes the list, so no
+    guarantee under a group heading is skipped.
 
 ## Phase 0.6 — Aggregate mode: an epic whose stories already shipped their own verdicts
 
@@ -349,7 +372,7 @@ Determine what was actually built for this epic. Use, in order of availability:
    present — `decisions-*.md`, `notes-*.md` — read them as *context only*.
    They surface the engineer's stated rationale for a divergence at review time (visible now
    because the scratch is committed to the PR head, not machine-local). Use them to explain
-   scope drift (§2.4) and, in **downgraded** mode, to reconstruct likely invariants the
+   scope drift (§2.4) and, in **downgraded** mode, to reconstruct likely conditions the
    missing decision record would have carried. They **never** change a met/partial/unmet/
    contradicted verdict — the diff and the ACs decide that. Absent → ignore silently.
 
@@ -376,12 +399,14 @@ For `system` stories, the AC states a measurable threshold — confirm the code 
 exists; if the threshold needs a benchmark you cannot read from the diff, mark it **unverifiable here**
 and name the command that would measure it, do not pass it silently.
 
-## 2.2 Invariant conformance (full mode only)
+## 2.2 Guarantee and invariant conformance (full mode only)
 
-For each constraint/invariant in the decision record — the **record issue body** resolved in Phase
-0.5, or an old-contract entry's committed `decision-record.md` — and any security boundary it names,
-check the diff does not violate it. A change that breaks an invariant is **critical** — invariants
-are the decisions the build "must preserve". Cite the file/line in the diff that breaks it.
+For each condition Phase 0.5 step 6 listed — every guarantee of a new-format record, or each
+constraint/invariant of an old-format one — and any security boundary it names, check the diff does
+not violate it. The record is the **record issue body** resolved in Phase 0.5, or an old-contract
+entry's committed `decision-record.md`. A change that breaks a guarantee or an invariant is
+**critical**, because these are what the build "must preserve". Cite the file/line in the diff that
+breaks it, and name a broken guarantee by its ID.
 
 Skip this section only in **degraded** mode, which by Phase 0.5 means the epic genuinely has no
 record. That is now the exception rather than the norm: the record has a durable home (the record
@@ -402,7 +427,8 @@ epic claimed an outcome the build cannot demonstrate.
 ## 2.4 Scope drift (informational)
 
 Note material behavior in the diff that **no** story called for (unplanned scope), and any story whose
-implementation went meaningfully beyond its ACs. Informational unless it breaks an invariant.
+implementation went meaningfully beyond its ACs. Informational unless it breaks a guarantee or an
+invariant.
 
 # Phase 3 — Report (inline) and write the receipt
 
@@ -416,7 +442,8 @@ Surface: <N> files changed, <N> stories (<M> closed / <O> open)
 Per-story AC conformance:
   STORY <story-ref> <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted
 
-Invariant violations:   <decision-record invariant → file:line that breaks it, ...>  (full mode)
+Guarantee violations:   <G<n> → file:line that breaks it, ...>  (full mode, new-format record)
+Invariant violations:   <decision-record invariant → file:line that breaks it, ...>  (full mode, old format)
 Success metrics:         <metric → measurable? plausibly-moved?>
 Scope drift:             <unplanned behavior, ...>
 Notes:                   <stories still open → close before /nxs.close, ...>   (omit when none)

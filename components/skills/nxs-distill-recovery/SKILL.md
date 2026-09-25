@@ -43,7 +43,10 @@ are recovering, so an explicit invocation is sufficient and bounded.
    Rebuild `close-record.md` from these at `.nexus/tmp/epic-<n>/close-record.md`, beside the
    re-derived `epic.md`. The rebuilt entry then flows through the ordinary pipeline unchanged:
    Phase 0 hash-verifies the record against the recovered stamp, Phase 1 derives the diff from
-   the recovered range, Phase 5.6 re-aims the committed removal at the scratch dir.
+   the recovered range, Phase 5.6 re-aims the committed removal at the scratch dir. The record's
+   rationale is read from the same sections as in an ordinary run: Phase 0 lists the verified
+   body's parts with `nexus record-sections --body <why file>`, so a new-format record gives its
+   decisions, their reasons and its Concept-store changes, and an old-format one reads as before.
 3. **Where the epic has a linked PR**, recover the analyze verdict from that pull request rather
    than treating conformance as unknown. The verdict is whatever the command returns:
 

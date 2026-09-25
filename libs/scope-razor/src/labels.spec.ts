@@ -148,3 +148,59 @@ describe("the assertion over a body about to be filed", () => {
         expect(survivingTokens("# Epic\n\n## User Stories\n\n### Story 1: One\n")).toEqual([]);
     });
 });
+
+describe("a decision field written as `none` (epic #787, story #789)", () => {
+    const draft: string = [
+        "#### D3 — No match yields the empty value",
+        "",
+        "- **Decision:** A value with no match returns the empty value.",
+        "- **Why:** The epic asks for no fallback, and none was offered.",
+        "- **Refuted viable alternative:** none",
+        "- **Trade-off:** None.",
+        "- **Epic commitment affected:** none `[inferred]`",
+        "- **Delivered by:** #224",
+        "- **Guarantees:** none",
+        "",
+        "None of the rows is fetched twice.",
+    ].join("\n");
+
+    it("is absent from the derived filing body, whatever its case or trailing period", () => {
+        const filed: string = deriveFilingBody(draft);
+        expect(filed).not.toMatch(/Refuted viable alternative|Trade-off|Epic commitment affected|\*\*Guarantees:\*\*/);
+    });
+
+    it("leaves every field with content, and prose that uses the word none, in the derived body", () => {
+        const filed: string = deriveFilingBody(draft);
+        expect(filed).toContain("- **Why:** The epic asks for no fallback, and none was offered.");
+        expect(filed).toContain("- **Delivered by:** #224");
+        expect(filed).toContain("None of the rows is fetched twice.");
+    });
+
+    it("is reported by the clean-body assertion when it survives, naming its line", () => {
+        const found: Finding[] = survivingTokens("- **Decision:** a thing.\n- **Trade-off:** none\n");
+        expect(found).toHaveLength(1);
+        expect(found[0]).toMatchObject({ line: 2, kind: "none-field" });
+    });
+
+    it("is not reported in prose or in a field whose value merely starts with none", () => {
+        expect(survivingTokens("None of the rows is fetched twice.\n- **Why:** none of the options held.\n")).toEqual([]);
+    });
+
+    it("leaves an epic draft's ordering row alone, which the ordering rule still owns", () => {
+        expect(survivingTokens("- **One** — blocked by: none").map((f: Finding) => f.kind)).toEqual(["ordering"]);
+    });
+});
+
+describe("deriving an epic's filing body is unchanged by the `none` rule", () => {
+    it("keeps a story's fields and its criteria byte for byte", () => {
+        const epic: string = [
+            "### Story 1: One `[asked: \"the first thing\"]`",
+            "",
+            "- **story_type:** user",
+            "- **size:** M",
+            "",
+            "- [ ] **Given** no match, **when** it runs, **then** none is returned `[inferred]`",
+        ].join("\n");
+        expect(deriveFilingBody(epic)).toBe(stripLabels(epic));
+    });
+});

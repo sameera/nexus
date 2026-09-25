@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { canonicalizeRecordBody, recordDigest } from "./digest.js";
 
@@ -64,5 +67,24 @@ describe("canonicalizeRecordBody — the rule, applied and nothing else", () => 
 
     it("preserves interior blank lines and leading indentation", () => {
         expect(canonicalizeRecordBody("a\n\n    b\n")).toBe("a\n\n    b");
+    });
+});
+
+describe("recordDigest — both record formats hash by the one rule (epic #787, story #790, G21)", () => {
+    const TRIAL: string = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "docs", "features", "artifact-prose-style", "decision-record-trial");
+    const NEW_FORMAT: string = fs.readFileSync(path.join(TRIAL, "record-786.md"), "utf8");
+
+    it("canonicalises a new-format body by the stated rule and nothing else, reading no heading", () => {
+        const clean: string = NEW_FORMAT.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n+$/, "");
+        expect(canonicalizeRecordBody(NEW_FORMAT)).toBe(clean);
+    });
+
+    it("forgives the same renderings of a new-format body as of an old-format one", () => {
+        const rendered: string = NEW_FORMAT.split("\n").map((line) => line + "  ").join("\r\n") + "\r\n\r\n";
+        expect(recordDigest(rendered)).toBe(recordDigest(NEW_FORMAT));
+    });
+
+    it("gives a changed guarantee a different value", () => {
+        expect(recordDigest(NEW_FORMAT.replace("- G9. ", "- G9. Never: "))).not.toBe(recordDigest(NEW_FORMAT));
     });
 });

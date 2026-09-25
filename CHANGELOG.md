@@ -5,6 +5,86 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.74.0
+
+- **`/nxs.decision-record` now drafts every new record approval contract first.** The record opens
+  with How it works, a short explanation of the design in the epic's and stories' own words. An
+  Approval brief follows. It lists what must be resolved before approval, and every decision that
+  gives something up, with what it gives up. Then come the Guarantees, grouped by what a reviewer
+  checks and each naming the decisions behind it, and the Risks and dependencies. A Concept-store
+  changes section appears only when the design changes a concept-page statement. The full reasons
+  for each decision, a Terms list for every internal name, and the detailed mechanism move to an
+  appendix at the end. Each decision there states its trade-off, the exact old and new wording of
+  any epic or story text it changes, the story that delivers it, and the guarantees it supports.
+  The old Summary, Chosen Approach, Key Decisions, Constraints & Invariants and Open Clarifications
+  sections are gone from new records. How it works has a guideline of about 300 words, and runs
+  longer when the design needs it. A small or medium epic's record now always has a How it works
+  section, so the shortest records get a little longer.
+- **A revision of a record approved in the old format stays in the old format.**
+  `/nxs.decision-record --revise` drafts it from the old template, so its approved lines still
+  match. Records already filed are not rewritten.
+- **The record checkpoint's cut list reads the new sections.** For a new-format draft it lists
+  every refuted alternative under its decision, every guarantee the model added, each under its
+  group (Existing behaviour to preserve included), and every risk the model added. A decision whose
+  alternative is written as `none` adds no line. An old-format revision's list reads the old
+  sections and marks approved lines as frozen, as before. A guarantee or a risk with no provenance
+  label now blocks at the draft check, so none can drop off the list.
+- **Cutting a guarantee or a risk no longer renumbers the rest.** The gap stays, because decisions
+  and the Approval brief cite them by ID. The stage passes the cut IDs to the derive step. When a
+  surviving line still cites a cut ID, filing stops and names each such line, and the lead fixes it
+  by hand. An old-format revision still renumbers its invariants.
+- **A field written as `none` in the draft is absent from the filed record.** The draft states
+  every field of a decision, `none` where it is empty, and the derive step removes those lines. The
+  clean-body assertion fails on any that survives.
+- **A record draft that reads as neither format no longer files.** The checkpoint's draft check
+  now blocks a record with no Guarantees section and no Constraints & Invariants section, since no
+  later stage could read its parts.
+- **`/nxs.analyze`, `/nxs.close` and `/nxs.distill` read a new-format record.** Each asks the new
+  read-only `nexus record-sections` command for the record's format and parts. `/nxs.analyze`
+  checks every guarantee, Existing behaviour to preserve included, reports a broken one as critical
+  and names it by its ID in the report and the receipt. `/nxs.close` checks for deviations against
+  How it works, the Mechanism and the guarantees, takes each decision's reason and refuted
+  alternative from the appendix, and names a deviated decision by its ID. `/nxs.distill` builds
+  Decision Log entries from the appendix's decisions and reasons, and rewrites each statement named
+  under Concept-store changes as the record gives it, without reporting it as drift. A record
+  approved in the old format reads as before, and a record whose headings match neither format is
+  read whole, as before. The record hash is computed the same way for both formats, so every
+  stamped hash still verifies.
+- **The record checkpoint checks each promised epic or story change against the live issue.**
+  Before the cut list, `/nxs.decision-record` runs the new read-only `nexus record-amendments`
+  command. For each "Epic commitment affected" line it reads the named issue and reports whether
+  the exact new wording is there, after normalising whitespace and case only, and what the issue
+  says today. A change whose wording is present gets the status `amended (verified <date>)`. A
+  change whose wording is absent stays `pending`: the record gains a BLOCKER risk naming the issue,
+  the exact wording to apply and what the issue says today, and the change is listed first under
+  "Resolve before approval" with the date it was checked. A change applied in different words
+  still reads as pending. The lead applies the record's wording on GitHub, or revises the decision
+  to the wording used. An issue the command cannot read stops the checkpoint.
+- **The record checkpoint blocks a draft whose parts do not point at each other.** After the
+  amendment check and before the cut list, `/nxs.decision-record` runs the record checker again,
+  and `nexus razor-check --record` now blocks each of these gaps in a new-format draft, naming the
+  guarantee or decision and its line. A guarantee that cites no decision and is not under Existing
+  behaviour to preserve. In an epic of more than one story, a decision that names no delivering
+  story. An epic or story change whose status is not amended. Each of these three is allowed when
+  the Approval brief lists its ID under "Resolve before approval". Two more gaps block whatever the
+  brief says: a change that does not quote both the exact old and the exact new wording (an
+  addition quotes `Old: ""`), and a decision with a trade-off that the brief does not list, or lists
+  under both "Resolve before approval" and "Choices with trade-offs". A guarantee or a decision
+  written without its `G<n>` or `D<n>` ID also blocks whatever the brief says, since no check could
+  match it. An ID counts only as a whole
+  word in the right group, so `D31` does not stand for `D3`. The check proves that an ID is listed,
+  not that the brief's sentence about it is right. The new `--epic <path>` flag names the resolved
+  `epic.md`, whose stories are counted; without it the checker counts the stories in `--source`.
+  Old-format drafts get no new checks.
+- **`/nxs.decision-record` never edits the text of the epic issue or of a story issue.** It still
+  moves the epic's labels as before. A decision that changes what the epic or a story says is
+  recorded in the record for the lead to apply.
+- **Breaking: a repository seeded before this release must re-seed its decision-record
+  template.** Seeding never overwrites a project's copy, so the project's record template is still
+  the old one, and `/nxs.decision-record` now stops and says so instead of drafting from it. Move
+  that copy aside and run `nexus seed-templates`, which also adds the old-format template a revision
+  needs. Carry any local tuning over into the new copy.
+
 ## 0.73.2
 
 - **`/nxs.analyze --pr` now records a member's merged pull request on the hub's epic issue.** In a

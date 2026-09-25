@@ -188,6 +188,7 @@ run_agent() {
         prompt="${prompt//\/nxs.analyze/\$nxs-analyze}"
         prompt="${prompt//\/nxs.close/\$nxs-close}"
         prompt="${prompt//\/nxs.decision-record/\$nxs-decision-record}"
+        prompt="${prompt//\/nxs.distill/\$nxs-distill}"
         prompt="${prompt//\/nxs-epic-resolve/\$nxs-epic-resolve}"
         codex exec --sandbox "$CODEX_SANDBOX" --json "$@" -- "$prompt" \
             | node --input-type=module -e "$FORMATTER"
@@ -222,10 +223,19 @@ GOAL="/goal Every story sub-issue of epic #${N} is implemented on a new branch �
 one commit per story, in blocked_by order, each commit body ending with a line \
 reading exactly 'Closes #<that story's issue number>' — and the full test suite \
 passes. Prove it: git log shows one commit per story, each with its Closes line, \
-test command exits 0. Start by running /nxs-epic-resolve ${N}; the \
-decision-record sub-issue's invariants are binding; re-read the story's epic.md \
-section before starting each story. Do not push and do not open a PR — the \
-calling script does both. Stop after ${TURNS} turns."
+test command exits 0. Start by running /nxs-epic-resolve ${N}, then read the \
+decision-record sub-issue it names with gh issue view. The record is binding: \
+every guarantee (G<n>) under Guarantees must hold, including those under \
+'Existing behaviour to preserve'. Each decision (D<n>) under 'Design rationale \
+and mechanism' → 'Decisions and reasons' is built in the commit of the story \
+its 'Delivered by' line names, the way Mechanism describes; a decision \
+delivered by an issue outside this epic is not yours to build. Do the Approval \
+brief's 'Before implementation' items before the first story; if one cannot be \
+done from this checkout, name it and stop. Leave 'Committed follow-up' items \
+and Concept-store changes alone — other issues and /nxs.distill deliver them. \
+Before starting each story, re-read its epic.md section and the decisions it \
+delivers. Do not push and do not open a PR — the calling script does both. \
+Stop after ${TURNS} turns."
 
 ANALYZE_ARGS=("$@")
 
@@ -325,11 +335,11 @@ fix_prompt() {
     cat <<EOF
 /goal Every critical and high finding listed in ${receipt} is fixed in the code on this branch, the fixes are committed, and \`${TEST_CMD}\` exits 0. This is round ${round} of ${CONFORM_ROUNDS} on epic #${N}.
 
-Work from the receipt, not from the epic. \`${receipt}\` is the whole work list: read it first and restate each critical and high finding as one line — the file, what is wrong, and what the planning asked for. Then read only what a finding names: the acceptance criterion or the record invariant it cites, and the files it points at. Do not re-derive the analysis, do not read the epic or the decision record end to end, and do not run /nxs.analyze — the calling script re-runs it in a fresh context the moment you stop.
+Work from the receipt, not from the epic. \`${receipt}\` is the whole work list: read it first and restate each critical and high finding as one line — the file, what is wrong, and what the planning asked for. Then read only what a finding names: the acceptance criterion, or the record guarantee (G<n>) or decision (D<n>) it cites, and the files it points at. Do not re-derive the analysis, do not read the epic or the decision record end to end, and do not run /nxs.analyze — the calling script re-runs it in a fresh context the moment you stop.
 
 Fix critical findings first, then high, then any medium or low finding whose fix stays inside a file you have already touched. Each fix is the smallest change that satisfies the criterion the finding cites. Test first: write or amend the test that pins the behaviour before the code that satisfies it.
 
-Never make a finding disappear instead of fixing it. Do not edit ${receipt}, do not weaken, skip or delete a test, and do not edit epic.md or the decision record so that the code matches. If a finding is wrong, or the only honest fix is a planning change — a revised invariant, a re-filed acceptance criterion — leave the code as it is, name the finding in your final message, and stop. That is the lead's decision, taken through /nxs.decision-record --revise.
+Never make a finding disappear instead of fixing it. Do not edit ${receipt}, do not weaken, skip or delete a test, and do not edit epic.md or the decision record so that the code matches. If a finding is wrong, or the only honest fix is a planning change — a revised guarantee or decision, a re-filed acceptance criterion — leave the code as it is, name the finding in your final message, and stop. That is the lead's decision, taken through /nxs.decision-record --revise.
 
 Story issues that are still open are a note in the receipt, not a finding. Leave them open and do not act on them; the lead closes them before /nxs.close.
 

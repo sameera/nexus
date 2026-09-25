@@ -1,14 +1,6 @@
 <!--
-DECISION RECORD TEMPLATE — approval-first format.
-
-WHAT THIS IS
-    The focused architectural decision record /nxs.decision-record files as a sub-issue of the
-    epic (or, for an old-contract epic, writes into its committed queue entry). It is human prose
-    only. It is the distiller's primary rationale source (the "why"), and /nxs.analyze checks the
-    build against its guarantees.
-
-    A revision of a record approved in the old format (a body with "Constraints & Invariants") is
-    drafted from decision-record-template-v1.md instead. A revision keeps its record's format.
+DECISION RECORD TEMPLATE — TRIAL FORMAT (not shipped; the recordChecklist parser still reads
+the old headings).
 
 STRUCTURE
     The approval contract comes first; the explanation comes last.
@@ -17,43 +9,46 @@ STRUCTURE
     3. Guarantees                        the promised behaviour, checkable by /nxs.analyze
     4. Risks and dependencies
     5. Concept-store changes             only when non-empty
-    6. Design rationale and mechanism    appendix: Mechanism (with Terms), then Decisions and reasons
+    6. Design rationale and mechanism    appendix: Mechanism, then Decisions and reasons
 
     Sections 1-5 use only the vocabulary of the epic, its stories and How it works. Internal
-    names are defined in the appendix's Terms and used only in the appendix.
-
-REQUIRED SECTIONS (tier by the epic's complexity rating; explicit, not heuristic)
-    - rating S or M : How it works, Guarantees and the appendix's Decisions and reasons are
-                      required. Every other section is optional: omit it when empty.
-    - rating L or XL: every section is required. A required section left empty states why.
-    - At every size: the Approval brief appears whenever any of its groups has an entry, and
-      Concept-store changes appears only when it has an entry.
-    The `rating` frontmatter field selects the tier.
+    names are defined in the appendix's Mechanism and used only in the appendix.
 
 FILLING RULES
     - Replace every {{PLACEHOLDER}}. Delete guidance comments before filing.
-    - No file paths, type/function names, API or schema specs, or implementation steps. Those are
-      the engineer's, and they rot against source.
-    - Consume concept pages for current system state; do not regenerate a "System Context" here.
+    - No file paths, type/function names, API or schema specs, or implementation steps.
 
 DRAFT-ONLY RULES (checked at the lead's checkpoint, stripped from the filed body)
-    - Every optional field of a decision entry is written as `none` in the draft when it is
-      empty, so an omitted trade-off cannot pass for an asserted absence. `none` fields are
-      removed from the filed body.
+    - Every optional field is written as `none` in the draft, so an omitted trade-off cannot pass
+      for an asserted absence. `none` fields are removed from the filed body.
     - Every guarantee cites at least one decision, or sits under "Existing behaviour to
       preserve". A guarantee with neither goes under "Resolve before approval".
     - In a multi-story epic, every decision names the story that delivers it. A decision no story
       delivers is new scope and goes under "Resolve before approval".
     - Every "Epic commitment affected" line gives the exact old and new wording, and every one
       whose status is not "amended" appears under "Resolve before approval".
+
+CHECKS AT THE LEAD'S CHECKPOINT
+    - Cold read. A fresh reader gets the epic, its stories, the product context and sections
+      1-5. It lists every term it cannot explain, and every sentence in How it works that only
+      restates an epic or story outcome. IDs that point inside this record are allowed. An issue
+      number is allowed only with a plain statement of what it shows. Any hit blocks filing.
+    - Completeness. The same reader, from sections 1-5 only, states: what is being approved,
+      the behaviour promised, the material costs, and what blocks approval. Any
+      approval-relevant fact that first appears in the appendix blocks filing.
+    - The appendix is cold-read separately, with sections 1-5 added to the reader's inputs.
+
+    Tool vocabulary is the usual failure: the drafter knows the code, so its internal names
+    (a "filer", a "resolver", a "marker") feel like plain words. They are not, to the approver.
 -->
 ---
 title: "Decision Record: {{EPIC_TITLE}}"
-epic: {{EPIC_ISSUE_REF}}        # parent epic GitHub issue, e.g. #42
+epic: {{EPIC_ISSUE_REF}}
 feature: "{{FEATURE_NAME}}"
-rating: {{S|M|L|XL}}            # selects the required-section tier
-concepts: []                    # reading-list: concept slugs this design read
+rating: {{S|M|L|XL}}
+concepts: []
 date: {{YYYY-MM-DD}}
+issues_repo: {{ISSUES_REPO}}
 ---
 
 # Decision Record: {{EPIC_TITLE}}
@@ -66,8 +61,8 @@ date: {{YYYY-MM-DD}}
      - Never restate an outcome the epic or a story already states. Point to it if an anchor
        helps, e.g. "#223's failure cases".
      - No metaphors for plain actions ("mints", "hydrates", "walks"). Use the plain verb.
-     LENGTH. Aim for about 300 words. This is a guideline, not a limit: if a clear explanation
-     needs more, write more. Never cut content or a definition to get under it. Running over the
+     LENGTH. Aim for 250-300 words at most. A guideline, not a limit: if a clear explanation
+     needs more, write more. Never cut content or shorten a sentence to get under it. Over the
      guideline is a prompt to look for restated epic content, or for detail that belongs in the
      appendix. -->
 
@@ -82,8 +77,8 @@ date: {{YYYY-MM-DD}}
        decision; every decision no story delivers.
      - Choices with trade-offs: every decision with a trade-off, in plain words, with the
        trade-off as a sub-bullet. The rule is mechanical: the drafter does not pick which are
-       "material". A decision already listed under Resolve is not repeated here, but its
-       trade-off moves with it, as a sub-bullet of its Resolve entry.
+       "material". A decision already listed under Resolve is not repeated, but its trade-off
+       moves with it, as a sub-bullet of its Resolve entry.
      - Before implementation: every ADDRESS risk whose mitigation is a plan not yet made.
      - Committed follow-up: every ADDRESS risk whose mitigation is decided, with who delivers it.
      - Revision delta: changed and withdrawn decision IDs. Only when revising. -->
@@ -93,7 +88,6 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 **Resolve before approval**
 
 - {{BLOCKER_OR_COMMITMENT}} Checked {{YYYY-MM-DD}}: {{WHAT_THE_LIVE_ISSUE_SAYS}}.
-  - Trade-off: {{WHAT_IS_GIVEN_UP}}
 
 **Choices with trade-offs**
 
@@ -118,8 +112,6 @@ Approval covers the whole record. This brief lists what needs a decision and eve
      - Each guarantee ends with the decisions that support it, e.g. (D2, D5).
      - Plain vocabulary, as in How it works, without losing any condition.
      - Explanation, consequence and reasoning belong in the decision, not here.
-     - Per-subsystem only. A cross-cutting budget no single part of the system owns (e.g. a
-       global "page load < 2s") belongs in docs/system/standards/; reference it there.
      - IDs are stable across revisions; grouping does not renumber them. -->
 
 ### {{GROUP}}
@@ -132,9 +124,8 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 
 ## Risks and dependencies
 
-<!-- Only risks that force a human decision. BLOCKER: a decision required before approval.
-     ADDRESS: a risk with a mitigation, and who delivers it. No likelihood × severity matrix and
-     no speculative risks. Plain vocabulary. -->
+<!-- BLOCKER: a decision required before approval. ADDRESS: a risk with a mitigation, and who
+     delivers it. Plain vocabulary. -->
 
 - R1 BLOCKER — {{RISK}}. {{DECISION_NEEDED}}
 - R2 ADDRESS — {{RISK}}. {{MITIGATION}} Delivered by {{STORY | EPIC | existing behaviour}}.
@@ -143,7 +134,7 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 
 <!-- Only when the design changes or departs from a concept-store statement. Quote the old
      statement and give the new one, so the distiller rewrites it instead of reporting drift.
-     Omit when empty, at every size. -->
+     Omit when empty. -->
 
 - {{CONCEPT_PAGE}}: "{{OLD_STATEMENT}}" becomes "{{NEW_STATEMENT}}".
 
@@ -166,25 +157,21 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 
 ### Decisions and reasons
 
-<!-- One entry per real decision. Write every optional field; write `none` when it is empty.
-     - Refuted viable alternative: offered, not required (nxs-razor §9). Write
-       `- **Refuted viable alternative:** <what lost, and the trade-off it lost on>` directly
-       under Why, only where a competent engineer might genuinely have chosen it. Where no
-       alternative was viable, write `- **Refuted viable alternative:** none`. Never invent one
-       to fill the line.
+<!-- One entry per real decision.
+     - Refuted viable alternative: only where a competent engineer might genuinely have chosen it,
+       with the trade-off it lost on.
      - Trade-off: what this choice gives up. The brief's sub-bullet says the same in plain words.
      - Epic commitment affected: the exact old wording, the exact new wording, the issue, and a
        status: pending, amended (verified <date>), or unresolved (with the record's reason).
-     - Delivered by: the story. `none` when the epic has one story.
+     - Delivered by: the story. Omit when the epic has one story.
      - Guarantees: the IDs this decision supports. -->
 
 #### D1 — {{CHOICE}}
 
 - **Decision:** {{WHAT_WAS_DECIDED}}
 - **Why:** {{RATIONALE}}
-- **Trade-off:** {{WHAT_IS_GIVEN_UP | none}}
-- **Epic commitment affected:** {{ISSUE}}. Old: "{{OLD}}". New: "{{NEW}}". Status: {{STATUS}}. <!-- or none -->
-- **Delivered by:** {{STORY | none}}
-- **Guarantees:** {{G1, G2 | none}}
-
-<!-- repeat the block above per decision -->
+- **Refuted viable alternative:** {{ALTERNATIVE_AND_WHY_IT_LOST}}
+- **Trade-off:** {{WHAT_IS_GIVEN_UP}}
+- **Epic commitment affected:** {{ISSUE}}. Old: "{{OLD}}". New: "{{NEW}}". Status: {{STATUS}}.
+- **Delivered by:** {{STORY}}
+- **Guarantees:** G1
