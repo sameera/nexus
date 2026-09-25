@@ -10,3 +10,4 @@ Plain-language rules for every human-facing Nexus artifact, enforced without kee
 
 - **Prose translation agent with a resident density convention** — [#414](https://github.com/sameera/nexus/issues/414)
 - **Plain register by example and by lint, not by a resident skill** — [#634](https://github.com/sameera/nexus/issues/634)
+- **Decision Records That Are Quick to Review and Hide No Gaps** — [#787](https://github.com/sameera/nexus/issues/787)
