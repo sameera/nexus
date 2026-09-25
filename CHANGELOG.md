@@ -69,7 +69,9 @@ behaviour says so.
   the Approval brief lists its ID under "Resolve before approval". Two more gaps block whatever the
   brief says: a change that does not quote both the exact old and the exact new wording (an
   addition quotes `Old: ""`), and a decision with a trade-off that the brief does not list, or lists
-  under both "Resolve before approval" and "Choices with trade-offs". An ID counts only as a whole
+  under both "Resolve before approval" and "Choices with trade-offs". A guarantee or a decision
+  written without its `G<n>` or `D<n>` ID also blocks whatever the brief says, since no check could
+  match it. An ID counts only as a whole
   word in the right group, so `D31` does not stand for `D3`. The check proves that an ID is listed,
   not that the brief's sentence about it is right. The new `--epic <path>` flag names the resolved
   `epic.md`, whose stories are counted; without it the checker counts the stories in `--source`.

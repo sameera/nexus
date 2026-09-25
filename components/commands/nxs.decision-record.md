@@ -489,10 +489,14 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         - a decision whose "Epic commitment affected" does not quote both the exact old and the
           exact new wording (an addition quotes an empty old wording, `Old: ""`);
         - a decision with a trade-off that the Approval brief does not list, or lists under both
-          "Resolve before approval" and "Choices with trade-offs".
+          "Resolve before approval" and "Choices with trade-offs";
+        - a guarantee under `## Guarantees`, or a decision heading under "Decisions and reasons",
+          with no `G<n>` or `D<n>` ID. Every other check matches by ID, so it could not check this
+          item at all.
 
       The first three are allowed when the brief lists the item's ID under "Resolve before
-      approval". The last two are not: give the wording, and list the decision once. "Listed" means
+      approval". The last three are not: give the wording, list the decision once, and number the
+      item. "Listed" means
       the ID, such as `D3` or `G12`, appears as a whole word in the right group of the brief. An ID in
       another group does not count, and `D31` does not count for `D3`. The check proves that an ID is
       listed. It does not prove that the brief's sentence about it is right.
@@ -581,7 +585,8 @@ nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch
 verbatim. Each one names a guarantee or a decision and its line, and is one of the cross-reference
 gaps listed at Phase 3, step 4b. For each one, the lead either fixes the draft or lists the item
 under "Resolve before approval", where the approver decides it. A change without its exact old and
-new wording, or a trade-off missing from the brief, must be fixed; listing it does not clear it. Then
+new wording, a trade-off missing from the brief, or an item with no ID, must be fixed; listing it
+does not clear it. Then
 run the check again.
 
 The first step already lists every pending change under "Resolve before approval". So for a change

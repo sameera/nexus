@@ -97,3 +97,8 @@
 - **Choice:** `record-new.labelled.md`'s D2 commitment reads `Status: amended (verified 2026-09-20)`.
 - **Why:** Its pending change sat under Choices, not Resolve, which is exactly the gap #792 blocks; the fixture is used as a passing draft, and amending keeps every line number other specs pin.
 - **Refuted alternative:** Move D2 into "Resolve before approval"; also valid, but shifts the fixture's lines.
+
+## 2026-09-25 — A guarantee or decision with no ID blocks on its own
+- **Choice:** Any unnumbered guarantee or decision in a new-format draft is a blocking cross-reference finding, whatever else it says and whatever the brief lists.
+- **Why:** Every cross-reference check matches by ID, so an unnumbered item skipped them all and could not be listed under "Resolve before approval" either.
+- **Refuted alternative:** Block an unnumbered item only when it would fail a check if numbered; that re-implements every check a second time, by text, to reach the same fix (add the ID).

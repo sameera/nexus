@@ -257,6 +257,38 @@ describe("a decision with a trade-off (G14, G5)", () => {
     });
 });
 
+describe("a guarantee or decision with no ID (G12, G14)", () => {
+    it("blocks a guarantee with no ID, naming its line, even when it cites a decision", () => {
+        const body: string = record({ guarantees: ["- G1. A thing holds. (D1) `[inferred]`", "- Another thing holds. (D1) `[inferred]`"] });
+        const found: RazorFinding[] = crossRefs(body);
+        expect(found).toHaveLength(1);
+        expect(found[0].severity).toBe("blocking");
+        expect(found[0].where).toContain(`line ${lineOf(body, "- Another thing holds.")}`);
+    });
+
+    it("blocks a guarantee with no ID under Existing behaviour to preserve", () => {
+        const body: string = record({ existing: ["- Logins keep working. `[inferred]`"] });
+        expect(crossRefs(body).map((f: RazorFinding) => f.where)).toEqual([expect.stringContaining(`line ${lineOf(body, "- Logins keep working.")}`)]);
+    });
+
+    it("blocks a decision with no ID, even when it names its story and has no trade-off", () => {
+        const body: string = record({ decisions: [{ id: "D1", deliveredBy: "#100" }] }).replace("#### D1 — A choice", "#### A choice");
+        const found: RazorFinding[] = crossRefs(body, source(2));
+        expect(found).toHaveLength(1);
+        expect(found[0].severity).toBe("blocking");
+        expect(found[0].where).toContain(`line ${lineOf(body, "#### A choice")}`);
+    });
+
+    it("cannot be passed by listing the item in the brief, since it has no ID to list", () => {
+        const body: string = record({
+            guarantees: ["- A thing holds. `[inferred]`"],
+            decisions: [{ id: "D1", tradeOff: "a cost.", deliveredBy: "none" }],
+            resolve: ["- A thing holds, with no decision behind it.", "- A choice, delivered by no story.", "  - Trade-off: a cost."],
+        }).replace("#### D1 — A choice", "#### A choice");
+        expect(crossRefs(body, source(2))).toHaveLength(2);
+    });
+});
+
 describe("drafts the cross-reference checks do not read", () => {
     it("raises no cross-reference finding on an old-format draft", () => {
         const old: string = [

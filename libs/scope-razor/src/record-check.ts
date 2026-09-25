@@ -11,6 +11,9 @@
  * "Listed" means the item's ID appears, as a whole token, in the right group of the Approval brief.
  * The check proves that an ID is listed, not that the brief's sentence about it is right (D7's
  * trade-off). An ID listed in another group does not count.
+ *
+ * Because every check matches by ID, a guarantee or decision written without one could not be
+ * checked or listed at all. So a missing ID blocks filing on its own, and the brief cannot excuse it.
  */
 
 import { commitmentsIn, type Commitment, type UnreadableCommitment } from "./amendments.js";
@@ -88,7 +91,15 @@ export function crossReferenceFindings(draft: string, stories: number): RazorFin
     const gaps: Gap[] = [];
 
     for (const g of recordSections(draft).guarantees) {
-        if (g.id === undefined || g.decisions.length > 0 || PRESERVE.test(g.group) || listedIn(RESOLVE, g.id)) continue;
+        if (g.id === undefined) {
+            gaps.push({
+                id: "A guarantee",
+                line: g.line,
+                message: `A guarantee under "## Guarantees" has no ID, so no check can match it. Start it with the next free G<n>.`,
+            });
+            continue;
+        }
+        if (g.decisions.length > 0 || PRESERVE.test(g.group) || listedIn(RESOLVE, g.id)) continue;
         gaps.push({
             id: g.id,
             line: g.line,
@@ -97,7 +108,14 @@ export function crossReferenceFindings(draft: string, stories: number): RazorFin
     }
 
     for (const d of read.decisions) {
-        if (d.id === undefined) continue;
+        if (d.id === undefined) {
+            gaps.push({
+                id: "A decision",
+                line: d.line,
+                message: `The decision "${d.heading}" has no ID, so no check can match it. Start its heading with the next free D<n>, as in "D4 — ${d.heading}".`,
+            });
+            continue;
+        }
         const id: string = d.id;
 
         const delivered: RecordField | undefined = fieldOf(d, /^Delivered by$/i);
