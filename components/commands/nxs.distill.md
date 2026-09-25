@@ -264,15 +264,15 @@ When the run mode resolved at run-shape resolution is **continuation**, load the
         - **The record issue cannot be fetched** → same treatment: hard-error the entry, write
           nothing. Never fall back to a stale local copy.
 
-    2. **A committed `decision-record.md`** in the entry. This is an old-contract entry. Read it in
-       full exactly as today, so entries in flight before this change are processed unchanged. It is
-       already a readable path, so it is the entry's ***why* file** as it stands.
+    2. **A committed `decision-record.md`** in the entry, an old-contract entry, read in full as
+       today. It is already a readable path, so it is the entry's ***why* file** as it stands.
     3. **The close record alone** when the epic has no decision record at all. Its Key Decisions
-       and Deviation Rationale are then the sole *why* carrier, unchanged from today, and
-       `close-record.md` is the entry's ***why* file**.
+       and Deviation Rationale are then the sole *why* carrier, and `close-record.md` is the
+       entry's ***why* file**.
 
     Whichever branch resolves, the entry now has exactly one ***why* file** on disk. Phase 4.6
-    grounds its drafting in that file; nothing downstream re-fetches the record.
+    grounds its drafting in that file; nothing downstream re-fetches the record. List a record's
+    parts with `nexus record-sections --body <why file>` (read-only); Phase 3 reads its `format`.
 
     This stage stays **read-only** against the record issue: it fetches and hashes, never edits,
     closes, or comments.
@@ -439,11 +439,11 @@ Write each delta to the scratchpad for the Phase 6 digest; deltas are working ma
 committed.
 
 **Sources:** the *what* (behavior, integration points, behavioral invariants) from the diff; the
-*why* (key decisions, refuted alternatives, deviation rationale) from the **decision record resolved
-in Phase 0** (the hash-verified record issue body, an old-contract `decision-record.md`, or nothing
-at all) plus `close-record.md`. When the epic has no record, the close record's Key Decisions +
-Deviation Rationale are the sole *why* carrier. Do **not** read `<entry>/<username>/**`. Engineer
-scratch is not a distill input; the *why* comes only from the decision record and the close record.
+*why* (key decisions, refuted alternatives, deviation rationale) from the *why* file Phase 0
+resolved plus `close-record.md`. Engineer scratch is not a distill input (`<entry>/<username>/**`).
+A record is read by its `format`. `new` takes each Decision Log entry from its `decisions` and their reasons,
+and rewrites each statement its Concept-store changes name as given, not reported as drift: the
+lead approved that rewrite. `old` reads as today; `neither` reads the whole body.
 
 **The entry-kind contract bounds the deltas before any judgment starts.** Read this entry's
 recorded kind and take the delta vocabulary its row gives. A delta outside that vocabulary is

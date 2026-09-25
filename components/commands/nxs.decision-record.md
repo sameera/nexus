@@ -469,12 +469,15 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     - **Check the draft**, and fix what blocks before going on:
 
         ```bash
-        nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md"
+        nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md" --record
         ```
 
       This stage has no gate agent and gains none. It runs the same checker the epic gate runs, over
       its own draft. In a new-format draft it blocks every guarantee and every risk that carries no
-      label, so none can drop off the Phase 3.5 cut list.
+      label, so none can drop off the Phase 3.5 cut list. `--record` declares the draft a record, so
+      a draft that reads as neither format, with no `## Guarantees` and no `## Constraints &
+      Invariants` section, also blocks. Filed, it would give the later stages no parts to read. Fix
+      the draft's headings to its template's; do not file it.
 5. **Verify story coverage:** every story in the epic's `## User Stories` is addressed by a decision or a
    guarantee. If a story is uncovered, return to Phase 1 for that story rather than shipping a record
    that leaves a story undesigned.

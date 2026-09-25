@@ -36,6 +36,20 @@ behaviour says so.
 - **A field written as `none` in the draft is absent from the filed record.** The draft states
   every field of a decision, `none` where it is empty, and the derive step removes those lines. The
   clean-body assertion fails on any that survives.
+- **A record draft that reads as neither format no longer files.** The checkpoint's draft check
+  now blocks a record with no Guarantees section and no Constraints & Invariants section, since no
+  later stage could read its parts.
+- **`/nxs.analyze`, `/nxs.close` and `/nxs.distill` read a new-format record.** Each asks the new
+  read-only `nexus record-sections` command for the record's format and parts. `/nxs.analyze`
+  checks every guarantee, Existing behaviour to preserve included, reports a broken one as critical
+  and names it by its ID in the report and the receipt. `/nxs.close` checks for deviations against
+  How it works, the Mechanism and the guarantees, takes each decision's reason and refuted
+  alternative from the appendix, and names a deviated decision by its ID. `/nxs.distill` builds
+  Decision Log entries from the appendix's decisions and reasons, and rewrites each statement named
+  under Concept-store changes as the record gives it, without reporting it as drift. A record
+  approved in the old format reads as before, and a record whose headings match neither format is
+  read whole, as before. The record hash is computed the same way for both formats, so every
+  stamped hash still verifies.
 - **Breaking: a repository seeded before this release must re-seed its decision-record
   template.** Seeding never overwrites a project's copy, so the project's record template is still
   the old one, and `/nxs.decision-record` now stops and says so instead of drafting from it. Move

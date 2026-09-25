@@ -66,7 +66,7 @@ import { renderVerifyResult } from "@nexus/prose-verify/render";
 import { deriveFilingBody, survivingTokens, type Finding as RazorFinding } from "@nexus/scope-razor/labels";
 import { checkApplied, checkDraft, type RazorFinding as RazorRuleFinding } from "@nexus/scope-razor/check";
 import { renderChecklist, renderCutCitations, renderRazorFindings, renderRecordChecklist, renderSurvivingTokens } from "@nexus/scope-razor/render";
-import { cutCitations, type CutCitation } from "@nexus/scope-razor/record";
+import { cutCitations, recordSections, type CutCitation } from "@nexus/scope-razor/record";
 import { checklist, type ChecklistItem } from "@nexus/scope-razor/offer";
 import { recordChecklist, type RecordChecklistItem } from "@nexus/scope-razor/record-offer";
 import { verifyTranslation, type VerifyResult } from "@nexus/prose-verify/verify";
@@ -338,6 +338,19 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         run: runRecordDigest,
     },
+    "record-sections": {
+        summary: "Print a decision record's format and the parts the stages after approval read, as JSON.",
+        usage: [
+            "  nexus record-sections --body <path>",
+            "      Read-only. Print { format, decisions, guarantees, invariants, risks, conceptChanges }.",
+            "      format is new (a Guarantees section), old (a Constraints & Invariants section) or",
+            "      neither. A body in neither format lists no parts and exits 0: the stage reads it whole.",
+            "      A concept-store change carries old and new only when its line is exactly",
+            "      '<page> page: \"<old>\" becomes \"<new>\".'; otherwise read its text whole.",
+            "      Exits 1 when the body cannot be read.",
+        ].join("\n"),
+        run: runRecordSections,
+    },
     "prose-verify": {
         summary: "Prove a translated artifact kept its machine-read regions byte-identical and every tracked item intact.",
         usage: [
@@ -351,12 +364,14 @@ const REGISTRY: Record<string, VerbEntry> = {
     "razor-check": {
         summary: "Check a drafted artifact against the razor's mechanically decidable rules.",
         usage: [
-            "  nexus razor-check --draft <path> --source <path>",
+            "  nexus razor-check --draft <path> --source <path> [--record]",
             "  nexus razor-check --draft <path> --filed \"<title>; <title>\"",
             "  nexus razor-check --draft <path> --derive <path> [--cut <G3,R2,...>]",
             "  nexus razor-check --draft <path> --assert-clean [--asset-path <path>]...",
             "      Report every unlabelled item, broken counted limit, unresolved asked-citation and",
-            "      personas table, exiting 1 when any finding blocks. With --filed it instead runs the",
+            "      personas table, exiting 1 when any finding blocks. --record declares the draft a",
+            "      decision record, which then also blocks when it reads as neither format: no",
+            "      Guarantees section and no Constraints & Invariants section. With --filed it instead runs the",
             "      apply-time arm over the set the reviewer approved, before any edge is rewritten: the",
             "      set is closed under its blockers, every name in it is a story, and the complexity",
             "      rollup and the design warrant describe the stories actually filed. With --derive it",
@@ -1850,6 +1865,31 @@ async function runRecordDigest(argv: string[], io: CliIo): Promise<number> {
     return 0;
 }
 
+/**
+ * `nexus record-sections` — the one reader of an approved record's parts (epic #787, story #790,
+ * D4). `/nxs.analyze`, `/nxs.close` and `/nxs.distill` call it on the fetched body to learn its
+ * format and list its decisions, guarantees or invariants, risks and concept-store changes, so a
+ * guarantee under a group heading cannot be skipped by a stage reading for "invariants". It writes
+ * nothing; the hash is still taken by `record-digest` over the body as fetched.
+ */
+async function runRecordSections(argv: string[], io: CliIo): Promise<number> {
+    const at: number = argv.indexOf("--body");
+    const target: string | undefined = at === -1 ? undefined : argv[at + 1];
+    if (target === undefined || target === "") {
+        io.stderr("usage: nexus record-sections --body <path>");
+        return 2;
+    }
+    let body: string;
+    try {
+        body = fs.readFileSync(path.resolve(io.cwd, target), "utf8");
+    } catch {
+        io.stderr(`record-sections: cannot read ${target}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify(recordSections(body), null, 2));
+    return 0;
+}
+
 interface ProseVerifyFlags {
     before?: string;
     after?: string;
@@ -1909,7 +1949,10 @@ interface RazorCheckFlags {
     derive?: string;
     /** This run's declared local asset paths (epic #594): a survivor fails `--assert-clean`. */
     assetPaths: string[];
-    /** `--record`: offer over a decision-record draft rather than an epic draft (epic #722). */
+    /**
+     * `--record`: the draft is a decision record rather than an epic (epic #722). The offer reads
+     * the record's cut list; the check also blocks a record that reads as neither format (#790).
+     */
     record: boolean;
     /** `--approved-body`: the approved record body, passed only when the record sub-issue is closed. */
     approvedBody?: string;
@@ -2023,7 +2066,7 @@ async function runRazorCheck(argv: string[], io: CliIo): Promise<number> {
     const sourceText: string | undefined = readOr(flags.source as string);
     if (sourceText === undefined) return 1;
 
-    const findings: RazorRuleFinding[] = checkDraft(body, sourceText);
+    const findings: RazorRuleFinding[] = checkDraft(body, sourceText, { record: flags.record });
     const report: string = renderRazorFindings(flags.draft, findings);
     if (findings.some((f: RazorRuleFinding) => f.severity === "blocking")) {
         io.stderr(report);

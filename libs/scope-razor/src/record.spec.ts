@@ -2,10 +2,28 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { cutCitations, readRecord, recordFormat, type CutCitation, type RecordDecision, type RecordField, type RecordGuarantee, type RecordLine, type RecordReading } from "./record.js";
+import {
+    cutCitations,
+    readRecord,
+    recordFormat,
+    recordSections,
+    type CutCitation,
+    type RecordDecision,
+    type RecordField,
+    type RecordGuarantee,
+    type RecordLine,
+    type RecordReading,
+    type RecordSections,
+} from "./record.js";
 
 const HERE: string = path.dirname(fileURLToPath(import.meta.url));
 const NEW: string = fs.readFileSync(path.join(HERE, "__fixtures__", "record-new.labelled.md"), "utf8");
+/** Record #725 as filed on GitHub, approved in the old format. */
+const OLD_FILED: string = fs.readFileSync(path.join(HERE, "__fixtures__", "record-old.filed.md"), "utf8");
+/** The worked examples of the approval-first format, as the trial rewrote records #245 and #786. */
+const TRIAL: string = path.join(HERE, "..", "..", "..", "docs", "features", "artifact-prose-style", "decision-record-trial");
+const RECORD_245: string = fs.readFileSync(path.join(TRIAL, "record-245.md"), "utf8");
+const RECORD_786: string = fs.readFileSync(path.join(TRIAL, "record-786.md"), "utf8");
 
 const OLD: string = [
     "# Decision Record: Something",
@@ -135,5 +153,108 @@ describe("finding a surviving line that still cites a cut guarantee or risk", ()
 
     it("finds nothing when nothing cites a cut item", () => {
         expect(cutCitations(draft, ["G9", "R7"])).toEqual([]);
+    });
+});
+
+describe("the sections a later stage reads from an approved record (epic #787, story #790)", () => {
+    describe("a new-format record", () => {
+        const record: RecordSections = recordSections(RECORD_786);
+
+        it("reads as the new format and lists every decision of the appendix with its parts", () => {
+            expect(record.format).toBe("new");
+            expect(record.decisions.map((d) => d.id)).toEqual(["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11"]);
+            const d1 = record.decisions[0];
+            expect(d1.title).toBe("Propose the objective inside the existing consent gate");
+            expect(d1.decision).toMatch(/^Each consent option that files stubs/);
+            expect(d1.why).toMatch(/^The objective must be settled/);
+            expect(d1.refutedAlternatives).toEqual([expect.stringMatching(/^A second question about the objective/)]);
+            expect(d1.tradeOff).toBe("the lead gets no recommendation and judges the objective unaided.");
+            expect(d1.deliveredBy).toBe("#706");
+            expect(d1.guarantees).toEqual(["G2", "G3", "G4"]);
+        });
+
+        it("keeps an epic or story change a decision states", () => {
+            expect(record.decisions[1].commitmentAffected).toMatch(/^#706 criterion 1\. Old: /);
+            expect(record.decisions[0].commitmentAffected).toBeUndefined();
+        });
+
+        it("lists every guarantee in every group, with the decisions it cites, Existing behaviour to preserve included", () => {
+            expect(record.guarantees.map((g) => g.id)).toEqual(["G1", "G2", "G3", "G4", "G12", "G5", "G6", "G13", "G14", "G7", "G8", "G11", "G15", "G16", "G9", "G10"]);
+            const g3 = record.guarantees.find((g) => g.id === "G3");
+            expect(g3).toMatchObject({ group: "Consent", decisions: ["D1", "D3"] });
+            expect(g3?.text).toBe("Nothing is filed until the lead has accepted or declined the initiative. (D1, D3)");
+            expect(record.guarantees.filter((g) => g.group === "Existing behaviour to preserve").map((g) => g.id)).toEqual(["G9", "G10"]);
+            expect(record.guarantees.find((g) => g.id === "G9")?.decisions).toEqual([]);
+        });
+
+        it("lists the risks by ID and severity", () => {
+            expect(record.risks.map((r) => [r.id, r.severity])).toEqual([
+                ["R1", "ADDRESS"],
+                ["R2", "ADDRESS"],
+            ]);
+            expect(record.risks[0].text).toMatch(/^A repository that uses GitHub issue types/);
+        });
+
+        it("names the page, the old statement and the new one of each concept-store change it can split", () => {
+            expect(record.conceptChanges).toEqual([
+                expect.objectContaining({ page: "Epic stub", old: "no stub is ever a sub-issue", new: "no stub is ever a sub-issue of an epic" }),
+                expect.objectContaining({ page: "Issue kind", old: undefined, new: undefined, text: "Issue kind page: epic, story and record gain a fourth kind, the initiative." }),
+            ]);
+        });
+
+        it("has no invariants", () => {
+            expect(record.invariants).toEqual([]);
+        });
+    });
+
+    it("splits no change whose line says more after the new wording, so nothing of the rewrite is dropped", () => {
+        const body: string = '## Guarantees\n\n- G1. A thing.\n\n## Concept-store changes\n\n- Derived Filing Body page: "Five things" becomes "Six things", with a `none` field added as the sixth.\n';
+        expect(recordSections(body).conceptChanges[0]).toMatchObject({ page: "Derived Filing Body", old: undefined, new: undefined, text: expect.stringContaining("added as the sixth") });
+    });
+
+    it("reads a blocker risk and a guarantee that cites no decision in the other worked example", () => {
+        const record: RecordSections = recordSections(RECORD_245);
+        expect(record.format).toBe("new");
+        expect(record.decisions).toHaveLength(13);
+        expect(record.risks[0]).toMatchObject({ id: "R1", severity: "BLOCKER" });
+        expect(record.guarantees.filter((g) => g.group === "No supporting decision").every((g) => g.decisions.length === 0)).toBe(true);
+    });
+
+    it("drops the labels and the fields written as `none` from a labelled draft", () => {
+        const record: RecordSections = recordSections(NEW);
+        const d3 = record.decisions[2];
+        expect(d3.refutedAlternatives).toEqual([]);
+        expect(d3.tradeOff).toBeUndefined();
+        expect(d3.commitmentAffected).toBeUndefined();
+        expect(d3.guarantees).toEqual([]);
+        expect(record.guarantees[1].text).toBe("The table and column names sent to the database are the confirmed ones, never the author's raw text. (D1)");
+    });
+
+    describe("an old-format record, as filed", () => {
+        const record: RecordSections = recordSections(OLD_FILED);
+
+        it("reads as the old format and lists its Key Decisions with their reasons and refuted alternatives", () => {
+            expect(record.format).toBe("old");
+            expect(record.decisions).toHaveLength(8);
+            const first = record.decisions[0];
+            expect(first.id).toBeUndefined();
+            expect(first.title).toBe("The list is a render over the labelled draft, not a new artifact");
+            expect(first.decision).toMatch(/^The checkpoint sources its lines/);
+            expect(first.why).toMatch(/^The labels exist in exactly one place/);
+            expect(first.refutedAlternatives).toEqual([expect.stringMatching(/^Have the architect return/)]);
+        });
+
+        it("lists its invariants, numbered as written, and its risks, and no guarantees", () => {
+            expect(record.invariants).toHaveLength(16);
+            expect(record.invariants[0]).toMatchObject({ number: 1, text: expect.stringMatching(/^Every invariant and every risk in the draft/) });
+            expect(record.invariants[15].number).toBe(16);
+            expect(record.risks.map((r) => r.severity)).toEqual(["ADDRESS", "ADDRESS", "ADDRESS"]);
+            expect(record.guarantees).toEqual([]);
+            expect(record.conceptChanges).toEqual([]);
+        });
+    });
+
+    it("reads a body in neither format as nothing, for the caller to read whole", () => {
+        expect(recordSections("# Decision Record: X\n\n## Summary\n\nA thing.\n")).toEqual({ format: "neither", decisions: [], guarantees: [], invariants: [], risks: [], conceptChanges: [] });
     });
 });

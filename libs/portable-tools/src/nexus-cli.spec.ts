@@ -1473,6 +1473,113 @@ describe("the record checkpoint over a new-format draft (epic #787, story #789)"
     });
 });
 
+describe("nexus record-sections: the read-only section reader the later stages call (epic #787, story #790)", () => {
+    const REPO: string = path.resolve(import.meta.dirname, "..", "..", "..");
+    const TRIAL: string = path.join(REPO, "docs", "features", "artifact-prose-style", "decision-record-trial");
+    const FIXTURES: string = path.join(REPO, "libs", "scope-razor", "src", "__fixtures__");
+
+    const run = async (body: string): Promise<{ code: number; io: CapturedIo; json: () => Record<string, unknown> }> => {
+        const dir: string = makeTmpDir("cli-record-sections-");
+        fs.writeFileSync(path.join(dir, "record-body.md"), body);
+        const io: CapturedIo = makeIo(dir);
+        const code: number = await runNexusCli(["record-sections", "--body", "record-body.md"], io);
+        return { code, io, json: () => JSON.parse(io.out.join("\n")) as Record<string, unknown> };
+    };
+
+    it("prints a new-format record's decisions, guarantees, risks and concept-store changes as JSON", async () => {
+        const { code, json } = await run(fs.readFileSync(path.join(TRIAL, "record-786.md"), "utf8"));
+        expect(code).toBe(0);
+        const read = json() as { format: string; decisions: Array<{ id: string; why: string }>; guarantees: Array<{ id: string; group: string }>; invariants: unknown[]; risks: unknown[]; conceptChanges: Array<{ page: string }> };
+        expect(read.format).toBe("new");
+        expect(read.decisions).toHaveLength(11);
+        expect(read.decisions[0].why).toMatch(/^The objective must be settled/);
+        expect(read.guarantees.filter((g) => g.group === "Existing behaviour to preserve").map((g) => g.id)).toEqual(["G9", "G10"]);
+        expect(read.invariants).toEqual([]);
+        expect(read.risks).toHaveLength(2);
+        expect(read.conceptChanges.map((c) => c.page)).toEqual(["Epic stub", "Issue kind"]);
+    });
+
+    it("reads the other worked example too", async () => {
+        const { code, json } = await run(fs.readFileSync(path.join(TRIAL, "record-245.md"), "utf8"));
+        expect(code).toBe(0);
+        expect((json() as { decisions: unknown[] }).decisions).toHaveLength(13);
+    });
+
+    it("prints an old-format filed record's Key Decisions, invariants and risks, and no guarantees", async () => {
+        const { code, json } = await run(fs.readFileSync(path.join(FIXTURES, "record-old.filed.md"), "utf8"));
+        expect(code).toBe(0);
+        const read = json() as { format: string; decisions: unknown[]; guarantees: unknown[]; invariants: unknown[]; risks: unknown[] };
+        expect(read.format).toBe("old");
+        expect(read.decisions).toHaveLength(8);
+        expect(read.invariants).toHaveLength(16);
+        expect(read.risks).toHaveLength(3);
+        expect(read.guarantees).toEqual([]);
+    });
+
+    it("prints a labelled draft without its labels", async () => {
+        const { code, io } = await run(fs.readFileSync(path.join(FIXTURES, "record-new.labelled.md"), "utf8"));
+        expect(code).toBe(0);
+        expect(io.out.join("\n")).not.toContain("[inferred]");
+    });
+
+    it("reports a body in neither format and exits 0, so the stage reads that body whole", async () => {
+        const { code, json } = await run("# Decision Record: X\n\n## Summary\n\nA thing.\n");
+        expect(code).toBe(0);
+        expect(json()).toMatchObject({ format: "neither", decisions: [], guarantees: [], invariants: [] });
+    });
+
+    it("writes nothing, leaving the body it read unchanged", async () => {
+        const body: string = fs.readFileSync(path.join(TRIAL, "record-245.md"), "utf8");
+        const { io } = await run(body);
+        expect(fs.readdirSync(io.cwd)).toEqual(["record-body.md"]);
+        expect(fs.readFileSync(path.join(io.cwd, "record-body.md"), "utf8")).toBe(body);
+    });
+
+    it("exits 1 on a body it cannot read, naming the path", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-record-sections-"));
+        expect(await runNexusCli(["record-sections", "--body", "missing.md"], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("missing.md");
+    });
+
+    it("exits 2 with usage when no body is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-record-sections-"));
+        expect(await runNexusCli(["record-sections"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/usage: nexus record-sections --body/);
+    });
+
+    it("is listed in --help", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-cwd-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus record-sections --body <path>");
+    });
+});
+
+describe("the record checkpoint blocks a draft in neither format (epic #787, story #790, G20)", () => {
+    const inDir = (files: Record<string, string>): CapturedIo => {
+        const dir: string = makeTmpDir("cli-razor-record-format-");
+        for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body);
+        return makeIo(dir);
+    };
+    const neither: string = "# Decision Record: X\n\n## Summary\n\nA thing.\n\n## Key Decisions\n\n### A thing\n\n- **Decision:** a thing.\n";
+
+    it("exits 1 on a record draft that reads as neither format, naming the missing sections", async () => {
+        const io: CapturedIo = inDir({ "record.md": neither, "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/record-format/);
+    });
+
+    it("passes the same draft when it is not declared a record, as before", async () => {
+        const io: CapturedIo = inDir({ "record.md": neither, "source.md": "src" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md"], io)).toBe(0);
+    });
+
+    it("passes a new-format record draft", async () => {
+        const labelled: string = fs.readFileSync(path.join(path.resolve(import.meta.dirname, "..", "..", ".."), "libs", "scope-razor", "src", "__fixtures__", "record-new.labelled.md"), "utf8");
+        const io: CapturedIo = inDir({ "record.md": labelled, "source.md": "never the author's raw text keeps working unchanged alongside Query case-insensitive matching must use an index" });
+        expect(await runNexusCli(["razor-check", "--draft", "record.md", "--source", "source.md", "--record"], io)).toBe(0);
+    });
+});
+
 describe("nexus trunk", () => {
     function repoWithRemotes(remotes: Array<[string, string]>): string {
         const dir: string = makeTmpDir("cli-trunk-");

@@ -37,3 +37,23 @@
 - **Choice:** `checkDraft` adds provenance-label findings for every unlabelled guarantee and risk when the draft reads as the new format.
 - **Why:** G7 (D4) requires it, and an old-format draft is left exactly as today.
 - **Refuted alternative:** Leave it to #792's cross-reference findings; the cut list would then keep an unlabelled line only through the reader's default, with no finding.
+
+## 2026-09-25 — The section reader is a separate projection over `readRecord`
+- **Choice:** `recordSections` in scope-razor maps `readRecord`'s raw lines into named parts (decision, why, refuted alternatives, trade-off, delivered by, guarantee IDs; guarantee group and cited decisions; risk severity; concept-change page/old/new), with labels stripped and `none` fields absent; `nexus record-sections --body` prints it as JSON.
+- **Why:** The checkpoint needs the raw lines and their exact text for cuts and frozen marks, while the later stages need values by name, so one reading serves both without changing the checkpoint's shape.
+- **Refuted alternative:** Extend `RecordReading` itself with the named fields; one type, but every checkpoint caller then carries fields it never reads and a change for one reader risks the other.
+
+## 2026-09-25 — The reader prints no section text for close's baseline
+- **Choice:** `record-sections` lists parts only; `/nxs.close` reads How it works and the Mechanism from the body as prose.
+- **Why:** The record says the later stages "read the body as prose as before"; the reader's job is the lists a stage can drop a line from, and a prose section cannot lose a line that way.
+- **Refuted alternative:** Include `howItWorks` and `mechanism` text in the JSON; one fewer place to look, but it duplicates the body in the output and adds fields no check reads.
+
+## 2026-09-25 — The neither-format block is opt-in via `razor-check --source --record`
+- **Choice:** `checkDraft` takes `{ record: true }` and adds a blocking `record-format` finding when the draft reads as neither format; `/nxs.decision-record` passes `--record` at its draft check.
+- **Why:** The checker cannot tell a record draft from an epic draft by content, and an epic draft always reads as neither.
+- **Refuted alternative:** Infer "record" from a `# Decision Record:` heading; no flag, but a hand-edited heading would silently skip the check it exists for.
+
+## 2026-09-25 — Distill's additions paid for inside the ceiling
+- **Choice:** The distill base stage stays under its recorded load ceiling by condensing the Phase 3 Sources paragraph and the Phase 0 old-contract/no-record items that restated each other, rather than raising the ceiling.
+- **Why:** The ceiling record requires `replaces > bytes`, so it is designed only to go down.
+- **Refuted alternative:** Move the format rules into a new distill contract skill; it keeps the base stage small, but the rules apply to every ordinary drain, which the contract model reserves for no contract.

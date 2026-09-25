@@ -432,3 +432,22 @@ describe("a new-format decision-record draft (epic #787, story #789)", () => {
         expect(found.map((f: RazorFinding) => f.message).join("\n")).toMatch(/G2\. Logins keep working[\s\S]*R1 ADDRESS/);
     });
 });
+
+describe("a decision-record draft in neither format (epic #787, story #790, G20)", () => {
+    const neither: string = ["# Decision Record: A Capability", "", "## Summary", "", "One paragraph.", "", "## Key Decisions", "", "### A thing", "", "- **Decision:** a thing.", ""].join("\n");
+
+    it("blocks a record draft that has neither a Guarantees nor a Constraints & Invariants section", () => {
+        const found: RazorFinding[] = blocking(checkDraft(neither, "src", { record: true }));
+        expect(found.map((f: RazorFinding) => f.rule)).toEqual(["record-format"]);
+        expect(found[0].message).toMatch(/Guarantees/);
+    });
+
+    it("passes a new-format and an old-format record draft", () => {
+        expect(checkDraft("## Guarantees\n\n- G1. A thing. (D1) `[inferred]`\n", "src", { record: true })).toEqual([]);
+        expect(checkDraft("## Constraints & Invariants\n\n1. A thing. `[inferred]`\n", "src", { record: true })).toEqual([]);
+    });
+
+    it("says nothing about the format of a draft not declared a record", () => {
+        expect(checkDraft(neither, "src").some((f: RazorFinding) => f.rule === "record-format")).toBe(false);
+    });
+});

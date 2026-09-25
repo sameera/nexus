@@ -195,6 +195,150 @@ export function readRecord(body: string): RecordReading {
     return readRecordAs(body, format);
 }
 
+/** A decision as a later stage reads it: its parts by name, with every field written as `none` absent. */
+export interface SectionDecision {
+    /** 1-indexed line of the decision's heading. */
+    line: number;
+    /** `D4` in the new format; the old format's decisions carry no ID. */
+    id: string | undefined;
+    /** The heading without its ID. */
+    title: string;
+    decision: string | undefined;
+    why: string | undefined;
+    /** Every refuted alternative the decision states, in order. */
+    refutedAlternatives: string[];
+    tradeOff: string | undefined;
+    /** The epic or story change it makes, old and new wording and status, as written. */
+    commitmentAffected: string | undefined;
+    deliveredBy: string | undefined;
+    /** The guarantee IDs it supports. */
+    guarantees: string[];
+}
+
+/** A guarantee: its group, its text without the list marker and the ID, and the decisions it cites. */
+export interface SectionGuarantee {
+    line: number;
+    id: string | undefined;
+    group: string;
+    text: string;
+    decisions: string[];
+}
+
+/** An old-format invariant, with the number it is written under. */
+export interface SectionInvariant {
+    line: number;
+    number: number | undefined;
+    text: string;
+}
+
+/** A risk, with its severity. The new format gives it an ID; the old format names it in bold. */
+export interface SectionRisk {
+    line: number;
+    id: string | undefined;
+    severity: "BLOCKER" | "ADDRESS" | undefined;
+    text: string;
+}
+
+/**
+ * One statement the design changes in the concept store. `old` and `new` are set when the whole
+ * line reads `<page> page: "<old>" becomes "<new>".`; otherwise read the line whole, in `text`.
+ */
+export interface SectionConceptChange {
+    line: number;
+    page: string | undefined;
+    old: string | undefined;
+    new: string | undefined;
+    text: string;
+}
+
+/** What `nexus record-sections` prints: a record's format and the parts the later stages read. */
+export interface RecordSections {
+    format: RecordFormat;
+    decisions: SectionDecision[];
+    guarantees: SectionGuarantee[];
+    invariants: SectionInvariant[];
+    risks: SectionRisk[];
+    conceptChanges: SectionConceptChange[];
+}
+
+/** A value with its provenance labels removed, or undefined when it is written as `none`. */
+function valueOf(raw: string): string | undefined {
+    const value: string = stripLabels(raw).trim();
+    return NONE.test(value) ? undefined : value;
+}
+
+/** A list item's text with its marker, its ID and its provenance labels removed. */
+function itemText(text: string, id: string | undefined): string {
+    const bare: string = stripLabels(text).trim().replace(ITEM, "");
+    return id === undefined ? bare : bare.replace(new RegExp(`^${id}\\.?\\s*`), "");
+}
+
+function idsIn(text: string, letter: "G" | "D"): string[] {
+    return [...text.matchAll(new RegExp(`\\b${letter}\\d+\\b`, "g"))].map((m: RegExpMatchArray) => m[0]);
+}
+
+function sectionDecision(d: RecordDecision): SectionDecision {
+    const field = (name: RegExp): string | undefined => {
+        const found: RecordField | undefined = d.fields.find((f: RecordField) => name.test(f.name));
+        return found === undefined ? undefined : valueOf(found.value);
+    };
+    const guarantees: string | undefined = field(/^Guarantees$/i);
+    return {
+        line: d.line,
+        id: d.id,
+        title: d.id === undefined ? d.heading : d.heading.replace(new RegExp(`^${d.id}\\s*[—–-]\\s*`), ""),
+        decision: field(/^Decision$/i),
+        why: field(/^Why$/i),
+        refutedAlternatives: d.alternatives.map((a: RecordField) => valueOf(a.value)).filter((v: string | undefined): v is string => v !== undefined),
+        tradeOff: field(/^Trade-off$/i),
+        commitmentAffected: field(/^Epic commitment affected$/i),
+        deliveredBy: field(/^Delivered by$/i),
+        guarantees: guarantees === undefined ? [] : idsIn(guarantees, "G"),
+    };
+}
+
+function sectionRisk(r: RecordLine): SectionRisk {
+    const bare: string = itemText(r.text, r.id);
+    const severity: RegExpMatchArray | null = bare.match(/^(?:\*\*)?(BLOCKER|ADDRESS)\b/);
+    const text: string = r.id === undefined ? bare : bare.replace(/^(BLOCKER|ADDRESS)\s*[—–:-]\s*/, "");
+    return { line: r.line, id: r.id, severity: severity === null ? undefined : (severity[1] as "BLOCKER" | "ADDRESS"), text };
+}
+
+function sectionConceptChange(c: RecordLine): SectionConceptChange {
+    const text: string = itemText(c.text, undefined);
+    const page: string | undefined = text.match(/^([^:"]+?)(?: page)?:\s/)?.[1].trim();
+    // Split only a line that ends at the new wording: anything after it is part of the rewrite, and
+    // a split would drop it. Such a line is given whole in `text`.
+    const rewrite: RegExpMatchArray | null = text.match(/:\s*"([^"]+)"\s+becomes\s+"([^"]+)"\.?$/);
+    return { line: c.line, page, old: rewrite?.[1], new: rewrite?.[2], text };
+}
+
+/**
+ * A record's parts as the stages after approval read them (story #790, D4): `/nxs.analyze` takes its
+ * conditions from the guarantees or the invariants, and `/nxs.close` and `/nxs.distill` take their
+ * decisions, reasons and stated concept-store rewrites from here rather than finding them by hand.
+ * Values are given without provenance labels, and a field written as `none` is absent. A body in
+ * neither format has no parts; the stage reads it whole.
+ */
+export function recordSections(body: string): RecordSections {
+    const read: RecordReading = readRecord(body);
+    return {
+        format: read.format,
+        decisions: read.decisions.map(sectionDecision),
+        guarantees: read.guarantees.map((g: RecordGuarantee) => {
+            const text: string = itemText(g.text, g.id);
+            const cited: RegExpMatchArray | null = text.match(/\(((?:D\d+)(?:\s*,\s*D\d+)*)\)\.?$/);
+            return { line: g.line, id: g.id, group: g.group, text, decisions: cited === null ? [] : idsIn(cited[1], "D") };
+        }),
+        invariants: read.invariants.map((i: RecordLine) => {
+            const number: RegExpMatchArray | null = i.text.match(/^(\d+)\./);
+            return { line: i.line, number: number === null ? undefined : Number(number[1]), text: itemText(i.text, undefined) };
+        }),
+        risks: read.risks.map(sectionRisk),
+        conceptChanges: read.conceptChanges.map(sectionConceptChange),
+    };
+}
+
 /** One surviving line that still cites a guarantee or a risk the reviewer cut. */
 export interface CutCitation {
     /** 1-indexed line of the draft. */
