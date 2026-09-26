@@ -131,6 +131,19 @@ describe("deriving the filing body", () => {
     it("leaves a draft that carries no ordering block unchanged apart from its labels", () => {
         expect(deriveFilingBody("## Notes\n\n- A thing `[inferred]`")).toBe("## Notes\n\n- A thing");
     });
+
+    it("keeps a nested bullet nested, so it renders under its parent", () => {
+        const brief: string = ["- D1. A choice", "  - Trade-off: What it gives up", "    - A deeper point"].join("\n");
+        expect(deriveFilingBody(brief)).toBe(brief);
+    });
+
+    it("keeps a labelled nested bullet nested once its label is removed", () => {
+        expect(deriveFilingBody("- Parent\n  - A child `[inferred]`")).toBe("- Parent\n  - A child");
+    });
+
+    it("closes the gap a label leaves mid-line", () => {
+        expect(deriveFilingBody("- One `[inferred]` and two")).toBe("- One and two");
+    });
 });
 
 describe("the assertion over a body about to be filed", () => {

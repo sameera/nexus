@@ -83,11 +83,19 @@ function wholePath(declared: string): RegExp {
     return new RegExp(`(?<![A-Za-z0-9_./~-])${escaped}(?![A-Za-z0-9_./-])`);
 }
 
-/** Derive a filing body: the draft with every provenance label removed and nothing else changed. */
+/**
+ * Derive a filing body: the draft with every provenance label removed and nothing else changed. The
+ * gap a removed label leaves is closed after the line's first character only: leading indentation is
+ * what nests a bullet under its parent, and collapsing it would un-nest every sub-bullet.
+ */
 export function stripLabels(draft: string): string {
     return draft
         .split("\n")
-        .map((line: string) => line.replace(LABEL, " ").replace(/[ \t]+$/, "").replace(/[ \t]{2,}/g, " "))
+        .map((line: string) => {
+            const stripped: string = line.replace(LABEL, " ").replace(/[ \t]+$/, "");
+            const indent: string = stripped.match(/^[ \t]*/)?.[0] ?? "";
+            return indent + stripped.slice(indent.length).replace(/[ \t]{2,}/g, " ");
+        })
         .join("\n");
 }
 
