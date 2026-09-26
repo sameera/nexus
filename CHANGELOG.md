@@ -5,6 +5,15 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.74.1
+
+- **A filed record or epic keeps its nested bullets nested.** When `/nxs.decision-record` or
+  `/nxs.epic` removed the provenance labels from a draft before filing, it also shrank every
+  indentation to one space. GitHub then showed each sub-bullet, such as a trade-off under its
+  choice in a record's Approval brief, as a separate top-level bullet. Indentation now reaches the
+  filed issue as drafted. A body filed before this release keeps the flattened list until it is
+  edited.
+
 ## 0.74.0
 
 - **`/nxs.decision-record` now drafts every new record approval contract first.** The record opens
