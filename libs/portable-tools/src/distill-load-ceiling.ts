@@ -29,6 +29,7 @@ export const CONTRACTS: readonly string[] = [
     "nxs-distill-hub",
     "nxs-distill-nonepic-entries",
     "nxs-distill-taxonomy",
+    "nxs-distill-unattended",
 ];
 
 /** The committed ceiling record, beside this source. */
@@ -68,6 +69,8 @@ export const RESIDENCY: readonly ResidencyRule[] = [
     { rule: "domain filing against the registry's rubrics", contract: "nxs-distill-taxonomy", probe: "domain_fit" },
     { rule: "the taxonomy gate", contract: "nxs-distill-taxonomy", probe: "forced fit(s) resolved" },
     { rule: "the drift advisory", contract: "nxs-distill-taxonomy", probe: "nexus drift-advisory" },
+    { rule: "the unattended stop report", contract: "nxs-distill-unattended", probe: "DISTILLATION STOPPED (unattended)" },
+    { rule: "the unattended branch unwind", contract: "nxs-distill-unattended", probe: "START_HEAD" },
 ];
 
 function read(componentRoot: string, rel: string): string {

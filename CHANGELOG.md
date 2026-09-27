@@ -5,6 +5,54 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.79.0
+
+- **An unattended distill stops at any question instead of draining around it.** Under
+  `/nxs.distill --unattended`, a not-merged pull request or an ambiguous provenance repository now
+  stops the whole run, the same as a taxonomy forced fit already did. The run opens no pull
+  request and names each condition in its stop report. Before, the affected entry was left out and
+  the other entries still drained.
+- **Every distillation pull request description carries the run summary.** An attended run's
+  description now has the same `Run summary` section an unattended one gets: each entry's source
+  and deletion, sections changed, validator verdict and page count, skipped and blocked entries,
+  and the waiver line. An unattended run's description differs only by its first line.
+- **The close-epic script starts close only after analyze actually recorded the pull request.**
+  A headless analyze that stops and reports the stop in words still exits cleanly. The script now
+  reads the outcome from GitHub instead: the pull request must carry a verdict, and the epic issue
+  must carry this pull request's shipped record. Otherwise the script stops before close. Distill
+  also starts only when the hand-off note's worktree is registered with git on the note's branch,
+  not merely any git checkout at that path.
+
+## 0.78.0
+
+- **One command closes and distills a merged epic pull request.** The close-epic script runs
+  `/nxs.analyze --pr` unattended, then `/nxs.close --pr` interactively for its one checkpoint,
+  then `/nxs.distill --unattended` in the worktree close left, on claude or codex. The lead never
+  changes directory. Distill starts only when close's hand-off note matches GitHub and git: the
+  epic issue closed and the distill branch pushed. `--merge` merges an open pull request first,
+  but only a non-draft, mergeable one with a clean conformance verdict. `--background` returns once
+  close is verified and keeps distill's log and outcome in the checkout's scratch area.
+  `/nxs.close` gains `--handoff <path>` for this script; without it, close is unchanged.
+  Single-repo checkouts only.
+
+## 0.77.0
+
+- **The distill stage can run with nobody watching.** `/nxs.distill --unattended` skips its
+  checkpoint and opens the distillation pull request on its own once drafting finds nothing to ask
+  about. Every point that used to ask a question — a not-merged pull request, an ambiguous
+  provenance repository, a taxonomy concept that fits no domain — instead excludes the affected
+  entry (or, for the taxonomy case, stops the whole run before touching git) and is named in a
+  stop report, never guessed or defaulted. A blocked run pushes nothing. The pull request
+  description now shows every field the checkpoint would have shown, in both modes. Without the
+  flag, `/nxs.distill` is unchanged, including when nobody happens to be watching it run.
+
+## 0.76.0
+
+- **The close stage now refuses at once without a pull request.** Since 0.72 a close run this way
+  could never pass its own shipped-record check, and only reported that after resolving the epic
+  and writing its local artifacts. It now refuses before touching the epic or any file, and names
+  `/nxs.close --pr <N>` as the path that works. `/nxs.close --pr` itself is unchanged.
+
 ## 0.75.0
 
 - Decision-record drafting now stops if a seeded approval-first template has the right headings in the wrong order. The record checker blocks a choice repeated in one Approval brief group or listed without a cost sub-bullet, so the checkpoint cannot hide an accepted trade-off behind an ID alone.
