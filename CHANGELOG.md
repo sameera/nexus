@@ -41,6 +41,15 @@ behaviour says so.
   same rules and severities as `/nxs.analyze`, shows findings inline and leaves no file behind.
   The new `nexus ship-range` command works out the range.
 
+- **`/nxs.ship` drafts the close and the concept changes from the range it checked.** The close
+  comment's key decisions, deviations, deferred scope and process lesson are drafted from the same
+  commits the check read, and each deferred item becomes a stub draft. Concept pages are written
+  into the current checkout, with no branch and no pull request, under the same page rules,
+  reciprocity, anchor and atlas steps `/nxs.distill` uses; a validator failure blocks the
+  checkpoint. The epic's decision-stub notes in the queue are removed in the same change. A run
+  leaves no receipt, queue entry, record hash or shipped record. `/nxs.distill` itself is
+  unchanged and still never writes concept pages on the trunk.
+
 ## 0.74.1
 
 - **A filed record or epic keeps its nested bullets nested.** When `/nxs.decision-record` or

@@ -110,3 +110,38 @@ Judge it against the materialized epic's stories and success metrics and, in ful
 body (`gh issue view <record> --json body`) and its guarantees, with the rules and severities the
 skill states. An unmet acceptance criterion is a blocking finding. Hold the findings for the
 checkpoint. Write no receipt and no report file: nothing is left for a later stage.
+
+# Step 5 — Draft the close and the concept changes from the same range
+
+Everything here reads the Step 3 range and nothing else. The run folder is
+`.nexus/tmp/ship-<n>/` (ignored). It never holds a close record file.
+
+1. **Close comment prose**, drafted into `.nexus/tmp/ship-<n>/close-comment.md`:
+    - **Key decisions** — from the record's appendix (each decision's reason and refuted
+      alternative), named by ID; in degraded mode, from the story issue comments and the diff.
+    - **Deviation rationale** — where the range's diff departs from How it works, the Mechanism or
+      a guarantee, and why, from the story comments and the epic's decision-stub scratch
+      (`.nexus/queue/epic-<n>/*/decisions-*.md`). "none (implementation conformed)" when none.
+    - **Deferred scope** — work the epic named but the range does not deliver. Each item becomes a
+      stub work-item below; its number is filled in after filing.
+    - **Process lesson** — one short paragraph. It lives only in the comment; write no lessons file.
+2. **Deferred stubs.** Write one epic-stub work-item per deferred item into
+   `.nexus/tmp/ship-<n>/stubs/`, in the shape `nexus create-epic` files (title, `type`, labels
+   `epic` and the repository's unplanned label from `nexus config resolve unplanned-label`, a body
+   naming this epic as its source). Nothing is filed yet.
+3. **Concept changes.** Load the **`nxs-concept-write-rules`** skill. Map the range's diff and the
+   record to per-concept changes, and write the pages, anchors and atlas **into the current
+   checkout** — no branch, no pull request, no per-entry commit. Where the record has a
+   Concept-store changes section, rewrite each named statement as the record gives it. Read the
+   skill's branch, entry-commit and entry-removal wording as not applying here. Run every
+   deterministic step the skill states: reciprocity fan-out, anchor refresh, atlas regeneration,
+   and the validator. A non-zero validator exit blocks: fix the pages and re-validate; the
+   checkpoint never shows a failing page.
+4. **Scratch home.** Stage the removal of the epic's decision-stub scratch, after step 1 read it:
+
+    ```bash
+    git rm -r -q --ignore-unmatch ".nexus/queue/epic-<n>"
+    ```
+
+   This is the only queue content this stage removes. It writes no queue entry, no receipt, no
+   record hash and no shipped record.

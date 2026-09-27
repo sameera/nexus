@@ -107,3 +107,62 @@ describe("/nxs.ship checks conformance over one stated range (story #803)", () =
         expect(SHIP).not.toMatch(/nexus epic-verdicts (derive|record)/);
     });
 });
+
+/** Every span between a skill's copied-from markers, in order. */
+function spans(skill: string): string[] {
+    const body: string = fs.readFileSync(path.join(ROOT, "skills", skill, "SKILL.md"), "utf8");
+    return [...body.matchAll(/<!-- copied-from: [^>]+ -->\n\n([\s\S]*?)<!-- end-copied-from -->/g)].map((m) => m[1]);
+}
+
+/** The skills a command body loads, by the "Load the **`name`** skill" form. */
+function loadedSkills(body: string): string[] {
+    return [...body.matchAll(/Load the \*\*`([a-z0-9.-]+)`\*\* skill/g)].map((m) => m[1]);
+}
+
+function bytes(text: string): number {
+    return Buffer.byteLength(text, "utf8");
+}
+
+function skillBody(name: string): string {
+    return fs.readFileSync(path.join(ROOT, "skills", name, "SKILL.md"), "utf8");
+}
+
+describe("/nxs.ship drafts the close and the concept changes from the same range (story #804)", () => {
+    it("the concept write rule skill matches distill's passages word for word", () => {
+        const distill: string = command("nxs.distill.md");
+        expect(spans("nxs-concept-write-rules")).toEqual([
+            sectionOf(distill, "3. **Applying a delta** (0003 §2, §8.2 semantics):", "# Phase 5 — Deterministic steps"),
+            sectionOf(distill, "# Phase 5 — Deterministic steps", "6. **Remove the consumed entry, then commit it together"),
+        ]);
+    });
+
+    it("writes concepts in the current checkout, validator-gated, with no branch and no pull request", () => {
+        const draft: string = SHIP.slice(SHIP.indexOf("# Step 5"));
+        expect(draft).toMatch(/into the current\s+checkout/);
+        expect(draft).toMatch(/no branch, no pull request/);
+        expect(draft).toMatch(/validator exit blocks/);
+    });
+
+    it("leaves no receipt, queue entry, record hash or shipped record", () => {
+        expect(SHIP).toMatch(/no queue entry, no receipt, no\s+record hash and no shipped record/);
+        expect(SHIP).not.toMatch(/record_hash|nexus record-digest|epic-verdicts record/);
+    });
+
+    it("loads none of the analyze, close or distill command texts", () => {
+        const loaded: string[] = loadedSkills(SHIP);
+        expect(loaded).toEqual(expect.arrayContaining(["nxs-conformance-rules", "nxs-concept-write-rules"]));
+        for (const name of loaded) expect(name).not.toMatch(/^nxs\.(analyze|close|distill)$/);
+        expect(SHIP).not.toMatch(/commands\/nxs\.(analyze|close|distill)\.md/);
+    });
+
+    it("loads under one third of what the three stages it replaces load", () => {
+        const skills: string[] = fs.readdirSync(path.join(ROOT, "skills"));
+        const descriptions: number = skills
+            .map((s) => skillBody(s).split("\n").find((l) => l.startsWith("description: ")) ?? "")
+            .reduce((n, l) => n + bytes(`${l}\n`), 0);
+        const ship: number = bytes(SHIP) + loadedSkills(SHIP).reduce((n, s) => n + bytes(skillBody(s)), 0) + descriptions;
+        const replaced: number =
+            ["nxs.analyze.md", "nxs.close.md", "nxs.distill.md"].reduce((n, c) => n + bytes(command(c)), 0) + 3 * descriptions;
+        expect(ship, `/nxs.ship loads ${ship} authored bytes; the three stages it replaces load ${replaced}; the budget is ${Math.floor(replaced / 3)}`).toBeLessThan(replaced / 3);
+    });
+});
