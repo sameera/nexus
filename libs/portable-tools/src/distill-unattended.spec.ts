@@ -59,6 +59,27 @@ describe("every question point is a blocking condition under --unattended, never
         expect(block).toContain("Taxonomy forced-fit gate");
     });
 
+    it("stops the whole run at every question point, never excluding one entry and draining the rest", () => {
+        const table: number = UNATTENDED.indexOf("## The blocking-condition table");
+        const rows: string[] = UNATTENDED.slice(table, table + 2000)
+            .split("\n")
+            .filter((line) => /^\| (Not-merged|Provenance|Hub|Taxonomy)/.test(line));
+        expect(rows).toHaveLength(4);
+        for (const row of rows) {
+            expect(row).toMatch(/stops the whole run/i);
+        }
+        expect(UNATTENDED).not.toMatch(/still drain/i);
+        expect(UNATTENDED).not.toMatch(/`excluded`/);
+    });
+
+    it("opens no pull request once any question point was reached", () => {
+        const phase04: number = UNATTENDED.indexOf("## Phase 0.4 —");
+        const phase31: number = UNATTENDED.indexOf("## Phase 3.1 —");
+        const block: string = UNATTENDED.slice(phase04, phase31);
+        expect(block).toMatch(/stop report/);
+        expect(block).toMatch(/before Phase 4/);
+    });
+
     it("resolves the taxonomy forced-fit gate before Phase 4's first commit, never at Phase 6.1", () => {
         expect(UNATTENDED).toContain("## Phase 3.1 — unattended taxonomy precheck");
         expect(UNATTENDED).toMatch(/never fires under\s+this flag/i);
@@ -103,18 +124,23 @@ describe("the checkpoint is skipped under --unattended, the flag being advance a
 });
 
 describe("the pull request description carries every field in every mode (D3, G8, G9)", () => {
-    it("renders every run-summary field and adds the excluded-entries section", () => {
-        const phase7: number = UNATTENDED.indexOf("## Phase 7 —");
-        const phase8: number = UNATTENDED.indexOf("## Phase 8 —");
-        const block: string = UNATTENDED.slice(phase7, phase8);
-        expect(block).toMatch(/every field the Phase 6\.3 run-summary table defines/i);
-        expect(block).toContain("## Excluded (`--unattended` only)");
+    const phase7: number = DISTILL.indexOf("# Phase 7 —");
+    const baseBody: string = DISTILL.slice(phase7, DISTILL.indexOf("# Phase 8 —"));
+    const contractBody: string = UNATTENDED.slice(UNATTENDED.indexOf("## Phase 7 —"), UNATTENDED.indexOf("## Phase 8 —"));
+
+    it("renders the checkpoint layout in the base stage's own body, so every run carries it", () => {
+        expect(phase7).toBeGreaterThan(-1);
+        expect(baseBody).toContain("## Run summary");
+        expect(baseBody).toMatch(/Phase 6\.3 checkpoint layout/);
+        expect(baseBody).toMatch(/every field/i);
+    });
+
+    it("adds no section of its own under --unattended, so both modes share one layout", () => {
+        expect(contractBody.slice(contractBody.indexOf("\n"))).not.toMatch(/^## /m);
+        expect(contractBody).toMatch(/base stage's (Phase 7 )?layout/i);
     });
 
     it("states, only on an unattended run, that it opened without a checkpoint", () => {
-        const phase7: number = UNATTENDED.indexOf("## Phase 7 —");
-        const phase8: number = UNATTENDED.indexOf("## Phase 8 —");
-        const block: string = UNATTENDED.slice(phase7, phase8);
-        expect(block).toMatch(/opened without a checkpoint[\s\S]*this\s*\n?review is its only approval/);
+        expect(contractBody).toMatch(/opened without a checkpoint[\s\S]*this\s*\n?review is its only approval/);
     });
 });

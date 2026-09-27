@@ -774,11 +774,9 @@ Drained queue entries: `<entry paths>` (provenance: <ref(s)>) — <n> epic, <n> 
   seam, on both halves' sections — or, for a last-resort eviction, what was dropped and why no
   seam existed. Omit the line otherwise.>
 
-## Anchors refreshed (derived, never hand-edited)
-- `.nexus/anchors/<slug>.md` @ <source_sha>
-
-## Atlas regenerated (derived)
-- `<resolved-atlas-path>`
+## Run summary
+<the Phase 6.3 checkpoint layout, every field and line under its own omission and zero-case
+rules, without its `CHECKPOINT:` and `About to:` lines>
 
 ## Consumed queue entries (removed by this PR)
 This PR already removes the drained entries on the branch, so the merge deletes them from main

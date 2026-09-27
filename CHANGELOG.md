@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.78.0
+
+- **An unattended distill stops at any question instead of draining around it.** Under
+  `/nxs.distill --unattended`, a not-merged pull request or an ambiguous provenance repository now
+  stops the whole run, the same as a taxonomy forced fit already did. The run opens no pull
+  request and names each condition in its stop report. Before, the affected entry was left out and
+  the other entries still drained.
+- **Every distillation pull request description carries the run summary.** An attended run's
+  description now has the same `Run summary` section an unattended one gets: each entry's source
+  and deletion, sections changed, validator verdict and page count, skipped and blocked entries,
+  and the waiver line. An unattended run's description differs only by its first line.
+
 ## 0.77.0
 
 - **One command closes and distills a merged epic pull request.** The close-epic script runs

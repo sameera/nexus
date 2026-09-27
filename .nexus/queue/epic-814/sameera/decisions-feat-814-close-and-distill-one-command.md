@@ -38,3 +38,8 @@
   structured field, so no log parsing is needed and it works the same on both harnesses.
 - **Refuted alternative:** Extract the last block of the rendered log. Rejected: the rendered log
   differs by harness and a heuristic cut can clip or pad the message.
+
+## 2026-09-27 — PR body renders the checkpoint layout by reference
+- **Choice:** Base Phase 7 gets one `## Run summary` section that renders the Phase 6.3 checkpoint layout (minus its first and last lines), replacing the separate anchors/atlas sections.
+- **Why:** One layout for both modes (D3, G9) while the base stage stays under the distill load ceiling, which had 74 bytes of headroom.
+- **Refuted alternative:** Spell each run-summary field out in the PR body template — duplicates the checkpoint and exceeds the ceiling.

@@ -24,32 +24,30 @@ condition instead — never answered, never defaulted, never waived** (D2, G2):
 
 | Question point | Phase | Under `--unattended` |
 |---|---|---|
-| Not-merged waiver | 0.4 | Every not-merged entry is excluded from this run — never processed, never waived. Remaining entries still drain. |
-| Provenance-repository question | 0.6 | The affected entry is excluded from this run. Remaining entries still drain. |
-| Hub provenance question (`nxs-distill-hub` Phase 0.6) | 0.6 | Same: the affected entry is excluded. |
+| Not-merged waiver | 0.4 | Any not-merged entry stops the whole run — never waived. |
+| Provenance-repository question | 0.6 | Any entry the question would be asked about stops the whole run. |
+| Hub provenance question (`nxs-distill-hub` Phase 0.6) | 0.6 | Same: it stops the whole run. |
 | Taxonomy forced-fit gate (`nxs-distill-taxonomy` Phase 6.1) | resolved here, right after Phase 3, before Phase 4 cuts a branch | Any forced-fit delta, in any entry, stops the whole run before a branch is ever cut or a commit made. |
 
-Each of the first three excludes one **entry**, treated like a `derive-entry-diff` blocked entry
-(Phase 1): reported by name and reason, queue files untouched, the rest still drain. The taxonomy
-row stops the **whole run**, because a forced-fit concept is not attributable to a single entry
-once cross-entry `touches` exist.
+Every row stops the **whole run** and opens no pull request (D2): a question the run would have
+asked about one entry is still a question nobody answered, so no entry drains past it.
 
 The base stage's existing run-level stops are blocking conditions too, unchanged in when they
-fire: a dirty tree, missing GitHub authentication, nothing left to drain (also what the exclusions
-above can produce), a toolkit too old to derive the diff, and a blocking validator finding (Phase
+fire: a dirty tree, missing GitHub authentication, nothing left to drain, a toolkit too old to derive the diff, and a blocking validator finding (Phase
 5.5) this stage cannot resolve by fixing the page — the one condition that can fire after Phase 4
 has already committed an entry, so it alone needs the branch unwind below. A per-entry error such
 as a record-hash mismatch (Phase 0.1) keeps its existing per-entry treatment.
 
 ## Phase 0.4 — the not-merged waiver
 
-Skip the `AskUserQuestion` ask. Every not-merged entry is excluded (recorded in `excluded`); the
-remaining entries still drain.
+Skip the `AskUserQuestion` ask. Each not-merged entry is a blocking condition naming the entry.
+Finish Phase 0's other checks so every condition is listed, then go to the stop report below,
+before Phase 4 — no branch cut, nothing to unwind.
 
 ## Phase 0.6 — the provenance-repository question (base stage and hub contract alike)
 
-Skip the ask, whichever contract poses it. Exclude the affected entry (recorded in `excluded`) and
-keep draining the rest.
+Skip the ask, whichever contract poses it. Each affected entry is a blocking condition naming the
+entry; handle it as Phase 0.4 above — stop report, before Phase 4.
 
 ## Phase 3.1 — unattended taxonomy precheck (new; runs between Phase 3 and Phase 4)
 
@@ -58,8 +56,8 @@ loaded, so no delta carries a domain-fit classification).
 
 Once every entry's deltas are drafted (Phase 3), before Phase 4 does anything — no branch, no
 commit — collect every `create` delta, across every entry, that contract classified as a forced
-fit. Any such delta stops the whole run right here (D2, G2, G7): record it in `excluded` as a
-run-level blocking condition naming every forced-fit concept, and go straight to the stop report
+fit. Any such delta stops the whole run right here (D2, G2, G7): record it as a blocking condition
+naming every forced-fit concept, and go straight to the stop report
 below. Nothing this run has done up to this point ever touched git, so there is nothing to unwind.
 
 Zero forced-fit deltas → continue to Phase 4 exactly as an attended run would; the taxonomy
@@ -92,24 +90,15 @@ The flag is the lead's own approval, given in advance, to open the pull request 
 finishes with no blocking condition (D1, G1). Phase 6.3's run summary is still written in full —
 the pull request description below reads it — only the `AskUserQuestion` stop itself is skipped.
 
-## Phase 7 — the pull request description carries every field
+## Phase 7 — the pull request description
 
-**Every field the Phase 6.3 run-summary table defines is rendered in the pull request description,
-under the same omission and zero-case rules that table states** (D3, G8) — a reviewer of this
-checkpoint-skipped run sees exactly what the checkpoint would have shown, including the `skipped`,
-`blocked` and `waived` fields (the last of which is always empty here, since a not-merged entry is
-excluded rather than waived under this flag).
+The body is the base stage's Phase 7 layout, unchanged — its run summary already renders every
+Phase 6.3 field (D3, G8), so a reviewer of this checkpoint-skipped run sees exactly what the
+checkpoint would have shown. The `waived` line is always absent here: a not-merged entry stops the
+run rather than being waived.
 
 As the first line of the body, state: this run opened without a checkpoint (`--unattended`); this
 review is its only approval (G9).
-
-Add one more section the base stage's template does not have:
-
-```markdown
-## Excluded (`--unattended` only)
-<per entry: local id, the question point that would have asked; `none` when every entry resolved
-without a question>
-```
 
 ## Phase 8 — the stop report
 
@@ -130,6 +119,4 @@ without `--unattended` and answer interactively" for a question-type condition o
 validator finding, and the base stage's own named remedy for a run-level stop (dirty tree, missing
 authentication, a toolkit too old, nothing left to drain).
 
-**On no blocking condition**, the base stage's ordinary completion report runs unchanged, plus two
-lines this contract adds — a not-merged-waiver line (always empty here) and an excluded-entries
-line (`none` when every entry resolved without a question).
+**On no blocking condition**, the base stage's ordinary completion report runs unchanged.
