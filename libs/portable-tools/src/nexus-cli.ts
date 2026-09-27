@@ -97,6 +97,7 @@ import { detectEnvironmentDefects, makeEnvironmentGuard } from "./environment-gu
 import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
+import { soloCheck } from "./solo-lane.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import {
@@ -539,6 +540,18 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runTrunk(argv, io)),
     },
+    "solo-check": {
+        summary: "Check that this checkout may run the solo lane: a single repository that declared solo.",
+        usage: [
+            "  nexus solo-check [--root <path>]",
+            "      Ask the shared workspace resolver for the checkout's shape first — a hub or a",
+            "      member refuses before anything else is read — then read the solo declaration",
+            "      (`delivery.solo: true`) from the repository's own .nexus/config/settings.yml.",
+            "      Never inferred and never inherited. Prints { shape, solo, repoRoot } on success;",
+            "      a refusal is a named diagnostic that says how to proceed.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runSoloCheck(argv, io)),
+    },
     "drift-advisory": {
         summary: "Report concept pages whose domain filing looks stale.",
         usage: [
@@ -642,6 +655,28 @@ function runExcludedStores(argv: string[], io: CliIo): number {
     }
     io.stderr(`unknown form '${form}' for excluded-stores (expected pathspec, paths or reasons)\n${USAGE}`);
     return 2;
+}
+
+/**
+ * `nexus solo-check` — the solo lane's first two checks (epic #799, story #800): workspace shape
+ * through the shared resolver, then the repository's own solo declaration.
+ */
+function runSoloCheck(argv: string[], io: CliIo): number {
+    let root: string = io.cwd;
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--root" && argv[i + 1] !== undefined) root = path.resolve(io.cwd, argv[++i]);
+        else {
+            io.stderr(`unknown argument for solo-check: ${argv[i]}\n${USAGE}`);
+            return 2;
+        }
+    }
+    const result = soloCheck(root);
+    if (!result.ok) {
+        io.stderr(`solo-check ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ shape: result.shape, solo: true, repoRoot: result.repoRoot }));
+    return 0;
 }
 
 /**
