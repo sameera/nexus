@@ -98,6 +98,7 @@ import { runCli as runDeriveEntryDiff } from "./derive-entry-diff.js";
 import { runCli as runDriftAdvisory } from "./drift-advisory.js";
 import { EXCLUDED_STORES, excludePathspecs } from "./pipeline-stores.js";
 import { soloCheck } from "./solo-lane.js";
+import { resolveShipRange } from "./ship-range.js";
 import { runCli as runGenerateAtlas } from "./generate-atlas.js";
 import { runCli as runSeedRegistry } from "./seed-registry.js";
 import {
@@ -552,6 +553,18 @@ const REGISTRY: Record<string, VerbEntry> = {
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runSoloCheck(argv, io)),
     },
+    "ship-range": {
+        summary: "Fix the solo lane's checked range as two full commit identifiers, or refuse naming --since.",
+        usage: [
+            "  nexus ship-range [--since <ref>]",
+            "      With --since, the commits after <ref> up to HEAD; <ref> must be an ancestor of HEAD.",
+            "      Without it, the commits the trunk's local tracking ref (`nexus trunk`) lacks, read",
+            "      as it is, with no fetch. A range with no change outside the pipeline stores, no",
+            "      upstream and no --since, or a --since that is not an ancestor, is refused, and every",
+            "      refusal names --since. Prints { base, head, source, ref, commits }.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runShipRange(argv, io)),
+    },
     "drift-advisory": {
         summary: "Report concept pages whose domain filing looks stale.",
         usage: [
@@ -655,6 +668,29 @@ function runExcludedStores(argv: string[], io: CliIo): number {
     }
     io.stderr(`unknown form '${form}' for excluded-stores (expected pathspec, paths or reasons)\n${USAGE}`);
     return 2;
+}
+
+/**
+ * `nexus ship-range` — the solo lane's range resolver (epic #799, story #803, record #806 D6).
+ */
+function runShipRange(argv: string[], io: CliIo): number {
+    let since: string | undefined;
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--since" && argv[i + 1] !== undefined) since = argv[++i];
+        else {
+            io.stderr(`unknown argument for ship-range: ${argv[i]}\n${USAGE}`);
+            return 2;
+        }
+    }
+    const repoRoot: string = git(closeMigrationRunner, io.cwd, "rev-parse", "--show-toplevel") ?? io.cwd;
+    const trunkRef: string = `${canonicalRemote(closeMigrationRunner, repoRoot)}/main`;
+    const result = resolveShipRange(repoRoot, { since, trunkRef, excludePathspecs: excludePathspecs() });
+    if (!result.ok) {
+        io.stderr(`ship-range ${result.error.problem}: ${result.error.message}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify(result.range));
+    return 0;
 }
 
 /**

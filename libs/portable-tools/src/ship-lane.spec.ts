@@ -72,3 +72,38 @@ describe("/nxs.analyze without --pr is an advisory report (story #802)", () => {
         expect(ANALYZE).not.toMatch(/\/nxs\.close gates on it/);
     });
 });
+
+/** The text between a skill's copied-from markers. */
+function copied(skill: string): string {
+    const body: string = fs.readFileSync(path.join(ROOT, "skills", skill, "SKILL.md"), "utf8");
+    const start: number = body.indexOf("-->\n\n", body.indexOf("<!-- copied-from:")) + 5;
+    return body.slice(start, body.indexOf("<!-- end-copied-from -->"));
+}
+
+function sectionOf(text: string, from: string, to: string): string {
+    return text.slice(text.indexOf(from), text.indexOf(to)).trimEnd() + "\n";
+}
+
+describe("/nxs.ship checks conformance over one stated range (story #803)", () => {
+    it("the conformance rule skill matches analyze's Phase 2 word for word", () => {
+        const analyze: string = sectionOf(command("nxs.analyze.md"), "# Phase 2 — Conformance checks", "# Phase 3 — Report (inline)");
+        expect(copied("nxs-conformance-rules")).toBe(analyze);
+    });
+
+    it("checks every precondition before it fixes the range, and fixes it before the check", () => {
+        const pre: number = SHIP.indexOf("# Step 2 — Preconditions");
+        const rng: number = SHIP.indexOf("nexus ship-range");
+        const check: number = SHIP.indexOf("nxs-conformance-rules");
+        expect(pre).toBeGreaterThan(SHIP.indexOf("nexus solo-check"));
+        expect(rng).toBeGreaterThan(pre);
+        expect(check).toBeGreaterThan(rng);
+        for (const cause of ["uncommitted changes", "already closed", "close-record.md", "not approved", "neither a"]) {
+            expect(SHIP.slice(pre, rng)).toContain(cause);
+        }
+    });
+
+    it("leaves no file for a later stage", () => {
+        expect(SHIP).toMatch(/Write no receipt and no report file/);
+        expect(SHIP).not.toMatch(/nexus epic-verdicts (derive|record)/);
+    });
+});

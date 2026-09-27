@@ -30,6 +30,17 @@ behaviour says so.
   declared solo. A receipt an earlier release wrote stays where it is until the drain clears its
   entry. `/nxs.analyze --pr` is unchanged.
 
+- **`/nxs.ship` checks an epic over a range you name.** Run `/nxs.ship <epic> --since <ref>` to
+  check the commits after `<ref>`, or leave out `--since` to check the commits the upstream trunk
+  does not have yet, as this machine last saw it. It refuses before anything is written when the
+  working tree has uncommitted changes, the epic is already closed, an earlier local close left an
+  entry for it, the decision record is not approved or is claimed but not filed, or an open
+  sub-issue is neither a story nor the record. It also refuses a range with no change outside the
+  Nexus stores, a repository with no upstream and no `--since`, and a `--since` that is not an
+  ancestor of the current commit, and each of those refusals names `--since`. The check uses the
+  same rules and severities as `/nxs.analyze`, shows findings inline and leaves no file behind.
+  The new `nexus ship-range` command works out the range.
+
 ## 0.74.1
 
 - **A filed record or epic keeps its nested bullets nested.** When `/nxs.decision-record` or
