@@ -393,6 +393,13 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       The checkpoint marks the approved lines as frozen by matching their text, and a record
       converted to the new format would match none of them.
 
+    For the default template, verify it keeps the approval-first section order: How it works,
+    Approval brief, Guarantees, Risks and dependencies, optional Concept-store changes, and Design
+    rationale and mechanism. A template with those headings out of order stops the draft; move the old copy
+    aside, run `nexus seed-templates`, then carry local tuning into the new copy. This check matters
+    even when the Guarantees heading exists, because a reordered brief can hide the approval surface
+    below the appendix.
+
     If the default template has no `## Guarantees` section, it is a copy seeded before the
     approval-first format shipped, because seeding never overwrites a project's copy. Stop and say
     so: the lead moves that copy aside, runs `nexus seed-templates`, and carries any local tuning
@@ -488,8 +495,9 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         - an epic or story change whose status is not *amended*;
         - a decision whose "Epic commitment affected" does not quote both the exact old and the
           exact new wording (an addition quotes an empty old wording, `Old: ""`);
-        - a decision with a trade-off that the Approval brief does not list, or lists under both
-          "Resolve before approval" and "Choices with trade-offs";
+        - a decision with a trade-off that the Approval brief does not list exactly once as a
+          top-level entry with a non-empty Trade-off sub-bullet, or lists under both "Resolve before
+          approval" and "Choices with trade-offs";
         - a guarantee under `## Guarantees`, or a decision heading under "Decisions and reasons",
           with no `G<n>` or `D<n>` ID. Every other check matches by ID, so it could not check this
           item at all.

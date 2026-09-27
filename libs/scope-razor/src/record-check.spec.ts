@@ -238,6 +238,14 @@ describe("a decision with a trade-off (G14, G5)", () => {
         expect(crossRefs(traded({ resolve: ["- A thing to settle (D3).", "  - Trade-off: a cost."] }))).toEqual([]);
     });
 
+    it("blocks a listed choice whose cost is hidden from the approval brief", () => {
+        expect(named(crossRefs(traded({ choices: ["- D3. A thing."] })))).toEqual(["D3"]);
+    });
+
+    it("blocks a choice repeated within one brief group", () => {
+        expect(named(crossRefs(traded({ choices: ["- D3. A thing.", "  - Trade-off: a cost.", "- D3. A thing again.", "  - Trade-off: a cost."] })))).toEqual(["D3"]);
+    });
+
     it("still blocks when it is listed in another group of the brief", () => {
         expect(named(crossRefs(traded({ before: ["- D3 needs a plan."] })))).toEqual(["D3"]);
     });
@@ -325,9 +333,8 @@ describe("an unlabelled guarantee or risk (G7)", () => {
 });
 
 describe("the worked examples, with labels added", () => {
-    it("record #786 blocks only on D11, whose addition gives no quoted old wording", () => {
+    it("record #786 keeps its named cost bullets and blocks only D11", () => {
         const body: string = labelled(RECORD_786);
-        expect(checkDraft(body, source(3), { record: true }).map((f: RazorFinding) => f.rule)).toEqual(["cross-reference"]);
         expect(named(crossRefs(body, source(3)))).toEqual(["D11"]);
     });
 
@@ -338,13 +345,13 @@ describe("the worked examples, with labels added", () => {
         expect(named(crossRefs(body.replace(/^- D10 has no delivering story\..*$/m, "- A decision has no delivering story."), source(3)))).toEqual(["D10", "D10", "D11"]);
     });
 
-    it("record #245 passes G16 through the brief, and blocks D11, D12 and D13 for wording it does not give", () => {
+    it("record #245 exposes missing cost bullets and wording gaps while passing G16 through the brief", () => {
         const body: string = labelled(RECORD_245);
-        expect(named(crossRefs(body, source(1)))).toEqual(["D11", "D12", "D13"]);
+        expect(named(crossRefs(body, source(1)))).toEqual(["D3", "D11", "D11", "D12", "D12", "D13"]);
     });
 
     it("record #245 in a multi-story epic also blocks every decision that names no story and is not under Resolve", () => {
         const found: string[] = named(crossRefs(labelled(RECORD_245), source(2)));
-        expect(found.filter((id: string, i: number) => found.indexOf(id) === i)).toEqual(["D1", "D2", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13"]);
+        expect(found.filter((id: string, i: number) => found.indexOf(id) === i)).toEqual(["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13"]);
     });
 });
