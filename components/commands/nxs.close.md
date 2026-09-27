@@ -61,6 +61,14 @@ close** — materialized into a fresh committed queue entry in Phase 0.5. If a p
 old-contract epic whose committed entry rode the PR), it resolves as above and is re-rooted into the
 worktree (invariant 14).
 
+**`--handoff <path>`** (story #817; only meaningful alongside `--pr`, ignored otherwise): strip the
+token and its value before resolving the epic. It names where the close-and-distill command
+(`utils/close-epic.sh`) wants its hand-off note written — never a path a lead passes by hand. Its
+only effects, both in Phase 9: the note is written **only on full success** (the epic issue closed
+and the distill branch pushed), and the final instruction tells the lead to end this session instead
+of naming a `cd`/`/nxs.distill` follow-up. Without this argument, Phase 9 is exactly as it reads
+below.
+
 **Never** run `find`, `ls`, or any search to locate the epic. When a committed `epic.md` is resolved
 it fixes the **queue entry directory** (its parent); `close-record.md` is its sibling there (and, for
 an old-contract entry only, `decision-record.md`). On the born-at-close path the entry directory is **created** in Phase 0.5 (the
@@ -1107,6 +1115,22 @@ record**: 8.1 attempted nothing, and an absent record is not a missing amendment
 `none` for an epic that has no record — that would claim a conformance check that never ran.
 
 
+**When `--handoff <path>` was given and the branch push above succeeded**, write the note now,
+before rendering anything below — its presence is what the calling command trusts (D4, D5):
+
+```bash
+mkdir -p "$(dirname "<path>")"
+cat > "<path>" <<EOF
+epic: <epic-issue>
+branch: distill/<date>-<slug>
+worktree: <wtPath>
+EOF
+```
+
+A push failure means the note is **not** written — the calling command's own verification (reading
+this note against GitHub and git) is what tells a failed run from a succeeded one, so a note written
+on failure would lie about it.
+
 End with the distill-branch state and the hand-off (the artifacts live on the pushed distill
 branch, and distill continues in the worktree):
 
@@ -1117,6 +1141,13 @@ branch, and distill continues in the worktree):
         cd <wtPath> && /nxs.distill
 
     (If the push failed:  ACTION REQUIRED — git -C <wtPath> push)
+
+**When `--handoff <path>` was given and the note above was written**, replace the two lines starting
+at `NEXT` with:
+
+    Hand-off note written: <path>
+
+    NEXT — end this session now; utils/close-epic.sh continues from here.
 
 # Recovery — re-stamp a closed entry whose record was revised after close
 

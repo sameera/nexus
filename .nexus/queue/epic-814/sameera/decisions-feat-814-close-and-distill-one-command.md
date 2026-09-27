@@ -28,3 +28,13 @@
   higher. Rejected: the committed test asserts the new ceiling must be *smaller* than the one it
   replaces, so this is mechanically not an option, and raising it by editing the test's own
   assertion would be gaming the guardrail epic #714 built for exactly this failure mode.
+
+## 2026-09-27 — Outcome record quotes distill's final message from the stream formatter
+
+- **Choice:** The stream formatter writes the stage's final message (claude `result`, codex last
+  `agent_message`) to a file named by `FINAL_OUT`, and the outcome record quotes that file when no
+  distillation pull request opened. Success itself is still read from GitHub (D9).
+- **Why:** D9 asks for distill's final message word for word; the formatter already sees it as one
+  structured field, so no log parsing is needed and it works the same on both harnesses.
+- **Refuted alternative:** Extract the last block of the rendered log. Rejected: the rendered log
+  differs by harness and a heuristic cut can clip or pad the message.

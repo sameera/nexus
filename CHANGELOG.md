@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.77.0
+
+- **One command closes and distills a merged epic pull request.** The close-epic script runs
+  `/nxs.analyze --pr` unattended, then `/nxs.close --pr` interactively for its one checkpoint,
+  then `/nxs.distill --unattended` in the worktree close left, on claude or codex. The lead never
+  changes directory. Distill starts only when close's hand-off note matches GitHub and git: the
+  epic issue closed and the distill branch pushed. `--merge` merges an open pull request first,
+  but only a non-draft, mergeable one with a clean conformance verdict. `--background` returns once
+  close is verified and keeps distill's log and outcome in the checkout's scratch area.
+  `/nxs.close` gains `--handoff <path>` for this script; without it, close is unchanged.
+  Single-repo checkouts only.
+
 ## 0.76.0
 
 - **The distill stage can run with nobody watching.** `/nxs.distill --unattended` skips its
