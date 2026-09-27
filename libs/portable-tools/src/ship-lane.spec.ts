@@ -60,7 +60,7 @@ describe("/nxs.analyze without --pr is an advisory report (story #802)", () => {
     const ANALYZE: string = command("nxs.analyze.md");
 
     it("writes nothing a close stage reads, on every path", () => {
-        expect(ANALYZE).toMatch(/writes no\s+receipt and no file of any kind, on every path/);
+        expect(ANALYZE).toMatch(/writes no\s+receipt, on every path/);
         expect(ANALYZE).not.toMatch(/Write it to \*\*`analyze-receipt\.md`\*\*/);
         expect(ANALYZE).toContain("nexus epic-verdicts coverage --epic <epic-issue>");
         expect(ANALYZE).not.toContain("nexus epic-verdicts derive --epic <epic-issue>\n```");
@@ -70,6 +70,60 @@ describe("/nxs.analyze without --pr is an advisory report (story #802)", () => {
         expect(ANALYZE).toMatch(/Advisory only[\s\S]{0,200}\/nxs\.analyze --pr <N>[\s\S]{0,200}\/nxs\.ship <epic>/);
         expect(ANALYZE).not.toMatch(/same-sitting `\/nxs\.close`/);
         expect(ANALYZE).not.toMatch(/\/nxs\.close gates on it/);
+    });
+});
+
+describe("/nxs.analyze without --pr leaves an advisory report (story #802, record #806 D5)", () => {
+    const ANALYZE: string = command("nxs.analyze.md");
+    const LOCAL: string = sectionOf(ANALYZE, "**Without `--pr`, ", "**With `--pr`, the receipt");
+    const REPORT: string = ".nexus/tmp/epic-<N>/advisory-report.md";
+
+    /** The front-matter lines of the advisory report's documented shape. */
+    function frontMatter(): string[] {
+        const block: string = LOCAL.match(/```yaml\n---\n([\s\S]*?)\n---\n/)?.[1] ?? "";
+        return block.split("\n");
+    }
+
+    it("writes the report under the ignored scratch area, never committed, on every completed path (G33, G34)", () => {
+        expect(LOCAL).toContain(REPORT);
+        expect(LOCAL).toMatch(/old-contract/);
+        expect(LOCAL).toMatch(/never committed/);
+        expect(LOCAL).toMatch(/replaces any earlier/);
+        const aggregate: string = sectionOf(ANALYZE, "## Phase 0.6", "# Phase 1 — Gather");
+        expect(aggregate).toContain("advisory-report.md");
+        expect(aggregate).not.toContain("nexus epic-verdicts derive --epic <epic-issue>\n```");
+    });
+
+    it("marks the report advisory and carries the analysed commit and the tally, one line each (G35)", () => {
+        const lines: string[] = frontMatter();
+        expect(lines.find((l) => l.startsWith("advisory: "))).toMatch(/^advisory: true\b/);
+        expect(lines.find((l) => l.startsWith("head: "))).toMatch(/full/);
+        expect(lines.find((l) => l.startsWith("findings: "))).toMatch(
+            /^findings: \{ critical: <\w+>, high: <\w+>, medium: <\w+>, low: <\w+> \}/,
+        );
+        expect(lines.some((l) => l.startsWith("epic: "))).toBe(true);
+        expect(LOCAL).toMatch(/critical and high finding[\s\S]{0,300}file:line/);
+    });
+
+    it("never takes the receipt's name and never says the local run feeds a close (G8, G9, G34)", () => {
+        expect(LOCAL).not.toMatch(/writes? (?:an? |the )?`?analyze-receipt\.md/);
+        expect(LOCAL).not.toMatch(/feeds (?:a|the|\/nxs\.close)\b/);
+        expect(LOCAL).not.toMatch(/Advisory only — nothing was written/);
+        expect(LOCAL).toMatch(/\/nxs\.analyze --pr <N>[\s\S]{0,200}\/nxs\.ship <epic>/);
+    });
+
+    it("a blocked run and a --pr run write no report (G29, G36)", () => {
+        expect(ANALYZE).toMatch(/emit nothing at all[^\n]*advisory report/);
+        const refusal: string = sectionOf(ANALYZE, "## Phase 0.1", "## Phase 0.5");
+        expect(refusal).toMatch(/Write no[\s\S]{0,80}advisory-report\.md/);
+        expect(sectionOf(ANALYZE, "## PR mode — publish a review", "## Asking an epic")).not.toContain("advisory");
+        expect(LOCAL).toMatch(/cannot be fetched/);
+    });
+
+    it("no close stage, /nxs.ship or /nxs.distill reads the report (G34)", () => {
+        for (const name of ["nxs.close.md", "nxs.ship.md", "nxs.distill.md"]) {
+            expect(command(name)).not.toContain("advisory-report");
+        }
     });
 });
 

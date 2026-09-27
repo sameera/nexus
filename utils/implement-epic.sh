@@ -32,7 +32,9 @@
 #
 # Local mode while iterating, --pr mode once to certify: rounds 1..k run
 # `/nxs.analyze <N>` against the checkout already on disk — no worktree
-# spin-up, no PR traffic, a local `analyze-receipt.md` to read straight back.
+# spin-up, no PR traffic, a local advisory report
+# (`.nexus/tmp/epic-<N>/advisory-report.md`) to read straight back. No close
+# stage reads that report; it exists only so this loop gets a stable file.
 # Publishing every round as a PR review (or, since this identity is the PR's
 # own author, the near-certain self-review fallback comment) bought nothing
 # most of those rounds would use, at the cost of a worktree fetch/teardown and
@@ -50,7 +52,7 @@
 # Context discipline: every stage — and every half of every conformance round
 # — is its own `claude -p` or `codex exec` invocation, so no context is carried between them.
 # The state that crosses a round boundary is on disk (the branch, the local
-# receipt) until the loop goes clean, then on GitHub (the certifying review) —
+# advisory report) until the loop goes clean, then on GitHub (the certifying review) —
 # never a growing conversation. A late round reads as little as the first one
 # did, and the certifying run costs exactly one extra worktree, not one per
 # round.
@@ -293,32 +295,22 @@ run_analyze "/nxs.analyze ${N}"
 
 # --- stage 3: conformance rounds (local mode) -------------------------------
 #
-# /nxs.analyze writes analyze-receipt.md and gates on its tally: a critical or
-# high finding means the code does not yet do what the planning said. One round
-# is two fresh contexts — a fix context that works only from the receipt, then
-# an analyze context that rewrites it — repeated until the tally is clean, the
-# round cap is reached, or a round changes nothing. Open story issues are a note
-# in the receipt, not a finding, so they never keep this loop spinning.
+# A local /nxs.analyze writes an advisory report and this loop gates on its
+# tally: a critical or high finding means the code does not yet do what the
+# planning said. One round is two fresh contexts — a fix context that works only
+# from the report, then an analyze context that replaces it — repeated until the
+# tally is clean, the round cap is reached, or a round changes nothing. Open
+# story issues are a note in the report, not a finding, so they never keep this
+# loop spinning.
 
-# The receipt sits beside the resolved epic.md: under .nexus/tmp/ for an
-# issue-sourced epic (the norm), inside the committed entry for an old-contract
-# one, which need not be named for the epic — hence the front-matter search.
-receipt_path() {
-    local p
-    for p in ".nexus/tmp/epic-${N}/analyze-receipt.md" \
-             ".nexus/queue/epic-${N}/analyze-receipt.md"; do
-        if [[ -f "$p" ]]; then
-            echo "$p"
-            return 0
-        fi
-    done
-    # `|| true`: no match must leave the caller's assignment succeeding, or
-    # `set -e` would kill the run before the missing-receipt message below.
-    grep -l "^epic: \"#${N}\"" .nexus/queue/*/analyze-receipt.md 2>/dev/null | head -1 || true
-}
+# The advisory report always sits under the ignored .nexus/tmp/, even for an
+# old-contract epic with a committed entry. Nothing else is read: a receipt left
+# by an earlier release, here or in the committed queue, is never the current
+# round.
+ADVISORY_REPORT=".nexus/tmp/epic-${N}/advisory-report.md"
 
 # Front matter → CRIT / HIGH (the gating tally) and RHEAD (the commit analyzed).
-read_receipt() {
+read_advisory_report() {
     local f="$1" line
     line="$(grep -m1 '^findings:' "$f" || true)"
     CRIT="$(sed -n 's/.*critical: *\([0-9][0-9]*\).*/\1/p' <<<"$line")"
@@ -327,21 +319,21 @@ read_receipt() {
     [[ -n "$CRIT" && -n "$HIGH" ]]
 }
 
-# The fix half of a round. Everything it needs is in the text: the receipt path,
+# The fix half of a round. Everything it needs is in the text: the report path,
 # the round, the suite. Nothing is inherited from an earlier context, which is
 # the whole point — a late round reads as little as the first one did.
 fix_prompt() {
-    local receipt="$1" round="$2"
+    local report="$1" round="$2"
     cat <<EOF
-/goal Every critical and high finding listed in ${receipt} is fixed in the code on this branch, the fixes are committed, and \`${TEST_CMD}\` exits 0. This is round ${round} of ${CONFORM_ROUNDS} on epic #${N}.
+/goal Every critical and high finding listed in ${report} is fixed in the code on this branch, the fixes are committed, and \`${TEST_CMD}\` exits 0. This is round ${round} of ${CONFORM_ROUNDS} on epic #${N}.
 
-Work from the receipt, not from the epic. \`${receipt}\` is the whole work list: read it first and restate each critical and high finding as one line — the file, what is wrong, and what the planning asked for. Then read only what a finding names: the acceptance criterion, or the record guarantee (G<n>) or decision (D<n>) it cites, and the files it points at. Do not re-derive the analysis, do not read the epic or the decision record end to end, and do not run /nxs.analyze — the calling script re-runs it in a fresh context the moment you stop.
+Work from the advisory report, not from the epic. \`${report}\` is the whole work list: read it first and restate each critical and high finding as one line — the file, what is wrong, and what the planning asked for. Then read only what a finding names: the acceptance criterion, or the record guarantee (G<n>) or decision (D<n>) it cites, and the files it points at. Do not re-derive the analysis, do not read the epic or the decision record end to end, and do not run /nxs.analyze — the calling script re-runs it in a fresh context the moment you stop.
 
 Fix critical findings first, then high, then any medium or low finding whose fix stays inside a file you have already touched. Each fix is the smallest change that satisfies the criterion the finding cites. Test first: write or amend the test that pins the behaviour before the code that satisfies it.
 
-Never make a finding disappear instead of fixing it. Do not edit ${receipt}, do not weaken, skip or delete a test, and do not edit epic.md or the decision record so that the code matches. If a finding is wrong, or the only honest fix is a planning change — a revised guarantee or decision, a re-filed acceptance criterion — leave the code as it is, name the finding in your final message, and stop. That is the lead's decision, taken through /nxs.decision-record --revise.
+Never make a finding disappear instead of fixing it. Do not edit ${report}, do not weaken, skip or delete a test, and do not edit epic.md or the decision record so that the code matches. If a finding is wrong, or the only honest fix is a planning change — a revised guarantee or decision, a re-filed acceptance criterion — leave the code as it is, name the finding in your final message, and stop. That is the lead's decision, taken through /nxs.decision-record --revise.
 
-Story issues that are still open are a note in the receipt, not a finding. Leave them open and do not act on them; the lead closes them before /nxs.close.
+Story issues that are still open are a note in the report, not a finding. Leave them open and do not act on them; the lead closes them before /nxs.close.
 
 Before committing, run the tests your change touches, then \`${TEST_CMD}\` once. Commit on this branch with a subject naming what now holds. Leave the per-story commits and their \`Closes #<n>\` lines alone — this is a follow-up commit, never an amend and never a rebase. Append a decision stub per CLAUDE.md for any non-obvious choice. Do not push and do not touch the pull request; the calling script does both.
 
@@ -352,24 +344,31 @@ EOF
 ROUND=1
 LAST_STATE=""
 while :; do
-    RECEIPT="$(receipt_path)"
-    if [[ -z "$RECEIPT" ]]; then
-        echo "!!! no analyze-receipt.md for epic #${N} — analyze blocked, or never wrote one" >&2
+    REPORT="$ADVISORY_REPORT"
+    if [[ ! -f "$REPORT" ]]; then
+        echo "!!! no advisory report for epic #${N} at ${REPORT} — analyze blocked, or never wrote one" >&2
         exit 1
     fi
-    if ! read_receipt "$RECEIPT"; then
-        echo "!!! cannot read the findings tally from ${RECEIPT}" >&2
+    if ! read_advisory_report "$REPORT"; then
+        echo "!!! cannot read the findings tally from ${REPORT}" >&2
+        exit 1
+    fi
+    # A blocked round writes no report, so one left from an earlier commit would
+    # otherwise pass for this round's verdict.
+    CURRENT_HEAD="$(git rev-parse HEAD)"
+    if [[ "$RHEAD" != "$CURRENT_HEAD" ]]; then
+        echo "!!! stale advisory report ${REPORT}: it analysed ${RHEAD:-no commit}, HEAD is ${CURRENT_HEAD} — this analyze round blocked or wrote nothing" >&2
         exit 1
     fi
 
     if (( CRIT == 0 && HIGH == 0 )); then
         echo "" >&2
-        echo ">>> conformance clean at ${RHEAD} — 0 critical, 0 high (${RECEIPT})" >&2
+        echo ">>> conformance clean at ${RHEAD} — 0 critical, 0 high (${REPORT})" >&2
         break
     fi
 
     if [[ "$CONFORM" != "1" ]]; then
-        echo "!!! conformance blocked: ${CRIT} critical, ${HIGH} high (${RECEIPT})" >&2
+        echo "!!! conformance blocked: ${CRIT} critical, ${HIGH} high (${REPORT})" >&2
         exit 1
     fi
 
@@ -386,7 +385,7 @@ while :; do
 
     echo "" >&2
     echo ">>> stage 3.${ROUND}a: fix ${CRIT} critical / ${HIGH} high (fresh context)" >&2
-    run_agent "$(fix_prompt "$RECEIPT" "$ROUND")" "$@"
+    run_agent "$(fix_prompt "$REPORT" "$ROUND")" "$@"
 
     echo "" >&2
     echo ">>> pushing ${BRANCH} to origin" >&2
@@ -401,8 +400,8 @@ done
 
 # --- stage 4: certify to the PR, then finalize it ---------------------------
 #
-# Local analyze just went clean, but /nxs.close --pr never reads a local
-# receipt (#171) — it reads a PR review. One `/nxs.analyze --pr` run, in its
+# Local analyze just went clean, but /nxs.close --pr never reads the local
+# advisory report (#171) — it reads a PR review. One `/nxs.analyze --pr` run, in its
 # own worktree and its own context, publishes that review (or, when this
 # identity is the PR's own author and GitHub refuses a self-review, the
 # documented fallback comment) for the same commit local mode just cleared.
@@ -430,7 +429,7 @@ into \`${BASE}\` closes the stories it implements. The epic itself closes throug
 >
 > ${reason}
 >
-> Local analyze last read ${LAST_LOCAL:-no receipt}. This PR stays in draft until a
+> Local analyze last read ${LAST_LOCAL:-no advisory report}. This PR stays in draft until a
 > \`/nxs.analyze --pr ${PR_NUM}\` run publishes a clean machine block for its head commit.
 EOF
 )" >/dev/null || echo "!!! could not annotate PR #${PR_NUM} with the failure" >&2
@@ -438,7 +437,7 @@ EOF
 }
 
 # What the local loop last saw, for the annotation above.
-LAST_LOCAL="${CRIT:-?} critical / ${HIGH:-?} high at ${RHEAD:-unknown} (${RECEIPT:-no receipt})"
+LAST_LOCAL="${CRIT:-?} critical / ${HIGH:-?} high at ${RHEAD:-unknown} (${REPORT:-no advisory report})"
 
 echo "" >&2
 echo ">>> stage 4: certifying via /nxs.analyze --pr ${PR_NUM} (fresh context)" >&2

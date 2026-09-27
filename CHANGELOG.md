@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.76.0
+
+- **`/nxs.analyze` without `--pr` leaves its findings in an advisory report.** A local run that
+  completes now writes `.nexus/tmp/epic-<N>/advisory-report.md`, on every path, including an epic
+  whose stories already shipped their own verdicts. The report is marked advisory and carries the
+  commit it analysed and the findings tally, and lists each critical and high finding with the
+  criterion or guarantee it cites and the file it points at. Each run replaces the last one. It is
+  never committed, even for an epic with a committed queue entry, and it never takes the receipt's
+  name: `/nxs.close`, `/nxs.ship` and `/nxs.distill` do not read it, so it still feeds no close. A
+  run that blocks writes no report. `/nxs.analyze --pr` is unchanged. The unattended implementation
+  loop script now reads this report, and only this report, and stops when the report names a
+  commit other than the current one.
+
 ## 0.75.0
 
 - **A repository can declare itself solo.** Add `delivery:` with `solo: true` under it to the

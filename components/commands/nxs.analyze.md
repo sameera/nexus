@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings. Without `--pr` the run is advisory: it writes nothing and feeds no close. With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings. Without `--pr` the run is advisory: it reports inline, leaves its findings in an advisory report under the ignored `.nexus/tmp/`, and feeds no close. With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -156,7 +156,8 @@ none of the three, so the check is not optional here, it is undefined.
 ```
 
 Stopping is the honest outcome; degrading into a pass would be misleading. **Write no
-`analyze-receipt.md` and modify no file in the entry.** A fix entry already records the state in
+`analyze-receipt.md` and modify no file in the entry.** Write no `advisory-report.md` either: a
+refused run writes nothing. A fix entry already records the state in
 words: its close record's `analyze:` value is the literal `n/a — fix entry (no acceptance
 criteria)`. An intake entry does the same with `n/a — intake entry (no acceptance criteria)`. Either
 way the state stays greppable and can never be read as a waiver.
@@ -208,10 +209,11 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
 
     A **fetch failure** — the record issue cannot be read, the body cannot be fetched — never reaches
     degraded mode. Report the diagnostic and stop: degraded is for an epic that genuinely has no
-    record, never for one whose record could not be read.
+    record, never for one whose record could not be read. A fetch failure emits nothing, the same as
+    a block.
 
-4. **On either block state, emit nothing at all** — no `analyze-receipt.md`, no PR review, no PR
-   comment. Report the block inline, naming the record issue and what to do:
+4. **On either block state, emit nothing at all** — no `analyze-receipt.md`, no advisory report, no
+   PR review, no PR comment. Report the block inline, naming the record issue and what to do:
 
     ```
     Conformance blocked: epic #<epic-issue> — decision record #<record> is <open | closed as not planned>.
@@ -272,7 +274,7 @@ nexus epic-verdicts coverage --epic <epic-issue>
 ```
 
 This read-only reader writes nothing (never call `nexus epic-verdicts derive` here: it writes the
-receipt `/nxs.close --pr` reads) — it reads the **records on the epic issue**, and nothing else. No published review, no head-branch name and no
+receipt `/nxs.close --pr` reads; the local run's only file is the `advisory-report.md` of Phase 3) — it reads the **records on the epic issue**, and nothing else. No published review, no head-branch name and no
 same-repository issue link is consulted to establish what the epic shipped (epic #769). Read its
 `stories` list as one of two states:
 
@@ -295,8 +297,9 @@ same-repository issue link is consulted to establish what the epic shipped (epic
     combined set cannot decide is reported as **unverifiable**, naming what would decide it — never
     passed silently. Then go to Phase 3 and report both: the findings summed per record (never per
     story — a record covering two stories counts once, and a story that shipped as two pull requests
-    contributes both) plus this cross-story judgment, and the pull requests the receipt was derived
-    from.
+    contributes both) plus this cross-story judgment, and the pull requests the records name. Write
+    the Phase 3 `advisory-report.md` yourself from what these readers returned: its tally is that
+    same sum plus the cross-story findings.
 -   **none** — the epic carries no record at all: it never shipped story by story. **Fall through to Phase 1 and run exactly as today** — this is the ordinary
     full-epic path, not a gap.
 
@@ -466,13 +469,50 @@ the epic. Fix the implementation (or, if the epic's intent changed during build,
 re-file the affected story issues) before `/nxs.close`. This command does not edit code, issues, or
 the epic; it reports so the user can gate.
 
-**Without `--pr`, the inline report is the whole result.** A local run is advisory: it writes no
-receipt and no file of any kind, on every path, including an epic that already carries records.
-Nothing it produces is read by a close stage. End the local report with this line:
+**Without `--pr`, the result is the inline report and one advisory report.** A local run is
+advisory: it writes no receipt, on every path, including an epic that already carries records.
+Nothing it produces is read by a close stage, `/nxs.ship` or `/nxs.distill`. It leaves its findings
+in one file, so an unattended loop can hand them to a fresh context without parsing terminal output:
 
 ```
-Advisory only — nothing was written. The paths to a close: /nxs.analyze --pr <N> over the merged
-pull request, then /nxs.close --pr <N>; or, in a repository declared solo, /nxs.ship <epic>.
+.nexus/tmp/epic-<N>/advisory-report.md
+```
+
+- **Where.** Beside the resolved `epic.md` for an issue-sourced epic. For an old-contract epic
+  whose entry is committed, it still goes under the ignored `.nexus/tmp/epic-<N>/`, never inside the
+  committed entry, so the report is never committed.
+- **Name.** Always `advisory-report.md`, never `analyze-receipt.md`. The receipt's name belongs to
+  `nexus epic-verdicts derive`, which writes it into the same folder for the aggregate close path.
+  The two names must never converge.
+- **When.** On every local run that completes, including the aggregate path of Phase 0.6, where you
+  write it yourself from what the read-only readers returned. Each run replaces any earlier report
+  for the epic. A run that stops writes none: a fix or intake entry (Phase 0.1), an unapproved
+  record, a record claimed but not filed, or a record that cannot be fetched (Phase 0.5). A `--pr`
+  run never writes one.
+
+Write it in this shape. Keep each front-matter line on one line; the loop script reads them:
+
+```yaml
+---
+advisory: true   # not a receipt; no close stage reads this file
+epic: "<epic-ref>"
+head: <git rev-parse HEAD>            # the full SHA analysed, never abbreviated
+date: <YYYY-MM-DD>
+findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
+---
+```
+
+The body lists each critical and high finding on its own: its severity, the acceptance criterion
+it cites (story and AC) or the guarantee (`G<n>`), what is wrong, and the file:line it points at.
+Medium and low findings may follow in a shorter list. Open story issues stay a note, never a
+finding, exactly as in the inline summary.
+
+End the local report with this line:
+
+```
+Advisory only — findings in .nexus/tmp/epic-<N>/advisory-report.md, which feeds no close. The
+paths to a close: /nxs.analyze --pr <N> over the merged pull request, then /nxs.close --pr <N>;
+or, in a repository declared solo, /nxs.ship <epic>.
 ```
 
 **With `--pr`, the receipt is a published PR review** (below) — the proof this gate ran, which
@@ -677,10 +717,10 @@ Re-running analyze publishes a fresh review; `/nxs.close` takes the latest machi
   a security audit (that is `security-review`), do not run the app.
 - **Read-only, one exception.** Never edit code, the epic, the decision record, or GitHub issues —
   in particular, never close, reopen, or comment on the record sub-issue. Findings are inline; a
-  local run writes no file at all, and a `--pr` run publishes a review — never `task-review.md` or
-  any other report file.
-- **An unapproved record blocks, and a block emits nothing.** No receipt file, no PR review, no PR
-  comment — so a missing receipt keeps its single downstream meaning ("analyze never ran"). Approval
+  local run that completes writes one file, `.nexus/tmp/epic-<N>/advisory-report.md`, and a `--pr`
+  run publishes a review — never `task-review.md` or any other report file.
+- **An unapproved record blocks, and a block emits nothing.** No receipt file, no advisory report,
+  no PR review, no PR comment — so a missing receipt keeps its single downstream meaning ("analyze never ran"). Approval
   is the close of the record sub-issue; a not-planned closure is a withdrawn design and blocks too.
 - **Degraded mode is the exception, not the norm.** It is reachable only when the epic genuinely has
   no record and makes no needs-design claim — never from a fetch failure, an unreadable record, a
@@ -695,7 +735,8 @@ Re-running analyze publishes a fresh review; `/nxs.close` takes the latest machi
   existed for as long as the key did, and was followed everywhere except the one case it was
   written for.
 - **Receipt placement is contractual.** `--pr` → PR review only, no receipt file. A local run
-  writes no receipt anywhere and feeds no close.
+  writes no receipt anywhere and feeds no close; its advisory report never takes the receipt's name
+  and always sits under the ignored `.nexus/tmp/`.
 - **No task analysis (0009).** There is no task layer: do not look for `TASK-*` files, `story_ref`, or
   task↔story traceability.
 - **An open story is a note, not a blocker.** Story issues close on merge and this gate runs before
