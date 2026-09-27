@@ -393,6 +393,13 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       The checkpoint marks the approved lines as frozen by matching their text, and a record
       converted to the new format would match none of them.
 
+    For the default template, verify it keeps the approval-first section order: How it works,
+    Approval brief, Guarantees, Risks and dependencies, optional Concept-store changes, and Design
+    rationale and mechanism. A template with those headings out of order stops the draft; move the old copy
+    aside, run `nexus seed-templates`, then carry local tuning into the new copy. This check matters
+    even when the Guarantees heading exists, because a reordered brief can hide the approval surface
+    below the appendix.
+
     If the default template has no `## Guarantees` section, it is a copy seeded before the
     approval-first format shipped, because seeding never overwrites a project's copy. Stop and say
     so: the lead moves that copy aside, runs `nexus seed-templates`, and carries any local tuning
@@ -435,7 +442,9 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       component: no term from the appendix's Terms list appears here. Do not restate an outcome the
       epic or a story already states; point to it when an anchor helps. About 300 words is a
       guideline, not a limit. When a clear explanation needs more, the section runs longer. Never
-      cut content or a definition to meet the guideline.
+      cut content or a definition to meet the guideline. Before filing, check that a reader who skips
+      the appendix can locate blockers, pending amendments, accepted costs, and guarantees here and
+      in the other front sections, using the epic's vocabulary.
     - **Approval brief.** Build it mechanically from the decisions, guarantees and risks. Omit an
       empty group.
         - **Resolve before approval:** every BLOCKER risk; every epic or story commitment whose
@@ -488,8 +497,9 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
         - an epic or story change whose status is not *amended*;
         - a decision whose "Epic commitment affected" does not quote both the exact old and the
           exact new wording (an addition quotes an empty old wording, `Old: ""`);
-        - a decision with a trade-off that the Approval brief does not list, or lists under both
-          "Resolve before approval" and "Choices with trade-offs";
+        - a decision with a trade-off that the Approval brief does not list exactly once as a
+          top-level entry with a non-empty Trade-off sub-bullet, or lists under both "Resolve before
+          approval" and "Choices with trade-offs";
         - a guarantee under `## Guarantees`, or a decision heading under "Decisions and reasons",
           with no `G<n>` or `D<n>` ID. Every other check matches by ID, so it could not check this
           item at all.
@@ -539,7 +549,9 @@ than not filing it.
 
 **First, check every promised epic or story change against the live issue** (new format only; an
 old-format revision has no "Epic commitment affected" field). A link to the epic does not prove the
-epic was changed, so the check reads the issue itself. Run the amendment check on the labelled draft:
+epic was changed, so the check reads the issue itself. Run the amendment check on the labelled draft
+before rendering the checkpoint. Keep every missing amendment pending and list it first under "Resolve
+before approval"; never present the remaining choices ahead of it:
 
 ```bash
 nexus record-amendments --draft "<scratch>/record-body.labelled.md" --root "<root>"
@@ -606,6 +618,8 @@ marker is one asserted string.
 **removal**; a refuted alternative is not scope, so there is nothing here to add to. The list holds
 **every refuted alternative, and every guarantee and every risk the model added**, because a gate that
 shows the reviewer only part of what the model added leaves the rest of the labelling as decoration.
+Show each offered line for an explicit keep-or-cut decision; do not filter the list by perceived
+importance.
 Every group of guarantees is read, "Existing behaviour to preserve" included. A decision whose refuted
 viable alternative is `none` contributes no line, because `none` states that there was no
 alternative. **A guarantee or a risk the lead asked for is not listed** — that is the lead's own
