@@ -43,6 +43,20 @@ solo declaration. On a non-zero exit, print its diagnostic verbatim and stop:
 
 Only a repository that declares solo mode runs the rest of this stage.
 
+# Step 1b — Resume check
+
+Read the epic's state (`gh issue view <epic> --json state`) and search the history for its ship mark:
+
+```bash
+git log --format=%H --grep="^Nexus-Ship: #<n>$" -1
+```
+
+- **Epic open, ship mark found** — a resume run: an earlier approval committed, then a GitHub write
+  failed. Go straight to Step 8. Draft nothing.
+- **Epic closed, ship mark found** — report "epic #<n> is already shipped by <commit>" and stop.
+- **Epic closed, no ship mark** — another lane closed it; Step 2 refuses.
+- **Epic open, no ship mark** — a fresh run; continue.
+
 # Step 2 — Preconditions, all before anything is drafted or written
 
 Check each of these in order. The first that fails refuses, names its cause, and stops. Nothing has
@@ -145,3 +159,79 @@ Everything here reads the Step 3 range and nothing else. The run folder is
 
    This is the only queue content this stage removes. It writes no queue entry, no receipt, no
    record hash and no shipped record.
+
+# Step 6 — Checkpoint (one approval; nothing committed or sent yet)
+
+Record the working tree's starting state before Step 5 writes anything (it is clean, by Step 2).
+Render, as ordinary markdown, then carry the same digest into the `AskUserQuestion` call itself:
+
+```
+Ship epic #<n> — <title>
+Range:     <base>..<head> (<commits> commits, from <--since ref | upstream <ref>>)
+Record:    #<r> (approved) | none (degraded mode)
+Findings:  critical <C> · high <H> · medium <M> · low <L>
+           <each finding, blocking ones first; an unmet acceptance criterion is blocking>
+Close comment: <the drafted comment, in full>
+Deferred stubs: <N> — <titles>
+Concept changes: <the full `git diff` of .nexus/concepts, .nexus/anchors and the atlas>
+Scratch removed: .nexus/queue/epic-<n>/ (<files>)
+Nothing is committed, pushed or written to GitHub yet.
+```
+
+Options:
+
+- **stop and fix** — recommended whenever a critical or high finding exists. Treated as decline.
+- **approve** — apply Step 7. With a critical or high finding, approval is an **override**: the
+  close comment records it, naming each finding, and every story still closes as completed.
+- **decline** — restore every path this run wrote in the working tree to its starting state
+  (`git restore --staged --worktree` over the written paths and `git clean` over files it created),
+  delete `.nexus/tmp/ship-<n>/`, and stop. No commit, no issue touched.
+
+# Step 7 — Apply, in this order
+
+1. **One commit**, carrying the concept changes and the staged scratch removal, with the ship mark
+   as its last trailer:
+
+    ```bash
+    git add .nexus/concepts .nexus/anchors <atlas-path>
+    git commit -m "ship: epic #<n> — <title>" -m "Nexus-Ship: #<n>"
+    ```
+
+   Never push. The lead can amend or revert this one commit before pushing.
+2. Continue with Step 8, which performs every GitHub write.
+
+# Step 8 — GitHub writes, each detected on its own
+
+This step is the whole of a resume run, and the tail of a fresh one. It never makes a second commit.
+If `.nexus/tmp/ship-<n>/` is missing on a resume run, refuse: list which writes below are done and
+which are left, say the lead must finish the rest by hand, and draft nothing.
+
+1. **Stubs** — file them through the resumable filer, whose ledger lives in the run folder, so a
+   re-run never files one twice:
+
+    ```bash
+    nexus create-story .nexus/tmp/ship-<n>/stubs --yes
+    ```
+
+   Fill the filed numbers into the close comment's deferred scope.
+2. **Close comment** — skip if the epic already carries a comment with `<!-- nexus:solo-close -->`.
+   Otherwise post the drafted prose followed by its own marker block (never the pipeline
+   close-record marker, and no record hash):
+
+    ```
+    <!-- nexus:solo-close -->
+    lane: solo
+    record: "#<r>" | none
+    verdict: conformed | override (<C> critical, <H> high)
+    range: <base>..<head>
+    ship_commit: <full sha>
+    nexus_version: <nexus version>
+    ```
+
+3. **Stories** — close each still-open story as completed.
+4. **Epic, last** — close it as completed. Then delete `.nexus/tmp/ship-<n>/`.
+
+# Step 9 — Report
+
+Print the ship commit, the stub numbers, the comment link, the issues closed, and "not pushed —
+push when ready".

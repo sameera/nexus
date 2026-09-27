@@ -50,6 +50,15 @@ behaviour says so.
   leaves no receipt, queue entry, record hash or shipped record. `/nxs.distill` itself is
   unchanged and still never writes concept pages on the trunk.
 
+- **`/nxs.ship` closes an epic with one approval.** One checkpoint shows the findings, the close
+  comment, the deferred stubs and the full concept-page diff, before anything is committed or sent.
+  An unmet acceptance criterion is a blocking finding; approving anyway is recorded as an override
+  in the close comment. On approval it makes one commit, files the stubs, posts the close comment
+  with the process lesson in it, closes the stories, and closes the epic last. It never pushes. A
+  decline puts the working tree back as it was and touches no issue. If a GitHub write fails, run
+  `/nxs.ship <epic>` again: it finds its commit and does only the writes still missing, with no
+  second commit, comment or stub. The solo close comment has its own marker and no record hash.
+
 ## 0.74.1
 
 - **A filed record or epic keeps its nested bullets nested.** When `/nxs.decision-record` or

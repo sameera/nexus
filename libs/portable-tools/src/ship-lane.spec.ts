@@ -166,3 +166,45 @@ describe("/nxs.ship drafts the close and the concept changes from the same range
         expect(ship, `/nxs.ship loads ${ship} authored bytes; the three stages it replaces load ${replaced}; the budget is ${Math.floor(replaced / 3)}`).toBeLessThan(replaced / 3);
     });
 });
+
+describe("/nxs.ship applies everything after one checkpoint (story #805)", () => {
+    const at = (probe: string): number => {
+        const i: number = SHIP.indexOf(probe);
+        expect(i, probe).toBeGreaterThan(-1);
+        return i;
+    };
+
+    it("shows findings, close comment, stubs and the concept diff before anything is committed", () => {
+        const cp: string = SHIP.slice(at("# Step 6 — Checkpoint"), at("# Step 7"));
+        for (const part of ["Findings:", "Close comment:", "Deferred stubs:", "Concept changes:"]) expect(cp).toContain(part);
+        expect(cp).toContain("Nothing is committed, pushed or written to GitHub yet.");
+    });
+
+    it("commits once first, then files stubs, posts the comment, closes stories, and the epic last", () => {
+        const order: number[] = [at("git commit -m \"ship:"), at("nexus create-story"), at("<!-- nexus:solo-close -->"), at("3. **Stories**"), at("4. **Epic, last**")];
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+        expect(SHIP).toMatch(/Never push/);
+    });
+
+    it("a decline restores the tree and touches no issue", () => {
+        expect(SHIP).toMatch(/\*\*decline\*\* — restore every path this run wrote[\s\S]{0,300}No commit, no issue touched/);
+    });
+
+    it("a resume run finds the ship mark and does only the missing writes", () => {
+        expect(SHIP).toContain("Nexus-Ship: #<n>");
+        expect(SHIP).toMatch(/never makes a second commit/);
+        expect(SHIP).toMatch(/skip if the epic already carries a comment/);
+        expect(SHIP).toMatch(/missing on a resume run, refuse: list which writes/);
+    });
+
+    it("an override with blocking findings is recorded and every story closes as completed", () => {
+        expect(SHIP).toMatch(/approval is an \*\*override\*\*: the\s+close comment records it/);
+    });
+
+    it("the solo close comment has its own marker and no record hash", () => {
+        const block: string = SHIP.slice(at("    <!-- nexus:solo-close -->\n    lane: solo"), at("3. **Stories**"));
+        expect(block).not.toContain("nexus:close-record");
+        expect(block).not.toMatch(/hash/);
+        for (const key of ["record:", "verdict:", "range:", "ship_commit:", "nexus_version:"]) expect(block).toContain(key);
+    });
+});
