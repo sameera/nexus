@@ -55,3 +55,20 @@ describe("/nxs.close refuses without --pr, up front (story #801)", () => {
         expect(CLOSE).toContain("# Recovery — re-stamp a closed entry whose record was revised after close");
     });
 });
+
+describe("/nxs.analyze without --pr is an advisory report (story #802)", () => {
+    const ANALYZE: string = command("nxs.analyze.md");
+
+    it("writes nothing a close stage reads, on every path", () => {
+        expect(ANALYZE).toMatch(/writes no\s+receipt and no file of any kind, on every path/);
+        expect(ANALYZE).not.toMatch(/Write it to \*\*`analyze-receipt\.md`\*\*/);
+        expect(ANALYZE).toContain("nexus epic-verdicts coverage --epic <epic-issue>");
+        expect(ANALYZE).not.toContain("nexus epic-verdicts derive --epic <epic-issue>\n```");
+    });
+
+    it("names the two paths to a close and does not say the local run feeds one", () => {
+        expect(ANALYZE).toMatch(/Advisory only[\s\S]{0,200}\/nxs\.analyze --pr <N>[\s\S]{0,200}\/nxs\.ship <epic>/);
+        expect(ANALYZE).not.toMatch(/same-sitting `\/nxs\.close`/);
+        expect(ANALYZE).not.toMatch(/\/nxs\.close gates on it/);
+    });
+});

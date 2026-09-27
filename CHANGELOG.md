@@ -23,6 +23,13 @@ behaviour says so.
   is unchanged, and so is the manual re-stamp procedure for an entry whose record was revised
   after close. An entry an earlier local close left behind still drains with `/nxs.distill`.
 
+- **`/nxs.analyze` without `--pr` is now an advisory report.** It reports its findings inline and
+  writes nothing, including for an epic whose stories already shipped their own verdicts, where it
+  now reads the verdicts without writing the receipt. Its report ends by naming the paths to a
+  close: `/nxs.analyze --pr <N>` then `/nxs.close --pr <N>`, or `/nxs.ship` in a repository
+  declared solo. A receipt an earlier release wrote stays where it is until the drain clears its
+  entry. `/nxs.analyze --pr` is unchanged.
+
 ## 0.74.1
 
 - **A filed record or epic keeps its nested bullets nested.** When `/nxs.decision-record` or
