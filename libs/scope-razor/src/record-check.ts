@@ -61,6 +61,21 @@ function briefGroups(draft: string): Map<string, string[]> {
     return groups;
 }
 
+/** Top-level brief entries for a decision, retaining each entry's cost sub-bullet. */
+function tradeOffEntries(groups: Map<string, string[]>, group: string, id: string): string[][] {
+    const entries: string[][] = [];
+    let entry: string[] | undefined;
+    for (const line of groups.get(group.toLowerCase()) ?? []) {
+        if (/^- /.test(line)) {
+            entry = [line];
+            if (wholeId(id).test(line)) entries.push(entry);
+        } else {
+            entry?.push(line);
+        }
+    }
+    return entries;
+}
+
 /** A value with its labels removed, or undefined when it is absent or written as `none`. */
 function stated(field: RecordField | undefined): string | undefined {
     if (field === undefined) return undefined;
@@ -143,6 +158,15 @@ export function crossReferenceFindings(draft: string, stories: number): RazorFin
                     line: tradeOff.line,
                     message: `${id} is listed under both "${RESOLVE}" and "${CHOICES}". A decision appears in the brief once: under Resolve, with its trade-off there. Remove it from "${CHOICES}".`,
                 });
+            } else {
+                const entries: string[][] = tradeOffEntries(groups, inResolve ? RESOLVE : CHOICES, id);
+                if (entries.length !== 1 || !entries[0].some((line: string) => /^\s+- Trade-off(?:\s+\([^)]*\)|\s+if kept)?:\s*\S/i.test(line))) {
+                    gaps.push({
+                        id,
+                        line: tradeOff.line,
+                        message: `${id} must appear exactly once in the Approval brief with its cost as a Trade-off sub-bullet.`,
+                    });
+                }
             }
         }
     }

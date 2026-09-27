@@ -516,13 +516,17 @@ any not already captured in the decision record. **Sources (C6), in priority ord
     nexus record-sections --body "<scratch>/record-body.md"   # or "${QDIR}/decision-record.md"
     ```
 
-   Its `format` fixes what the record contributes to this phase and to Phase 3:
+   A non-zero section-reader exit stops close: name the record and the diagnostic, and do not
+   continue with a guessed baseline. Its `format` fixes what the record contributes to this phase
+   and to Phase 3:
 
-    - `new` — the planned decisions are its `decisions`, the appendix's **Decisions and reasons**,
-      each with its ID, decision, reason and refuted viable alternatives. The deviation baseline is
-      the body's **How it works**, its appendix **Mechanism**, and its `guarantees`.
-    - `old` — the planned decisions are its Key Decisions, and the baseline is its chosen approach,
-      constraints and invariants, read exactly as before.
+    - `new` — carry every `decisions` entry and `guarantees` entry by ID into the close checks;
+      the appendix's **Decisions and reasons** supplies each decision, reason and refuted viable
+      alternative. The deviation baseline is the body's **How it works**, its appendix **Mechanism**,
+      and its `guarantees`. Preserve the approved body hash using `nexus record-digest`.
+    - `old` — carry its Key Decisions into the close checks and use its chosen approach, constraints
+      and invariants as the baseline, read exactly as before. Preserve the same approved-body hash
+      check; do not translate the old format.
     - `neither` — the headings match neither format, so read the whole body as the baseline, as
       before the approval-first format existed.
 2. **Story issue comments** — read the comment thread on each child story issue for decisions recorded

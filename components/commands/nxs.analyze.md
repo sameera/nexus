@@ -401,12 +401,12 @@ and name the command that would measure it, do not pass it silently.
 
 ## 2.2 Guarantee and invariant conformance (full mode only)
 
-For each condition Phase 0.5 step 6 listed — every guarantee of a new-format record, or each
-constraint/invariant of an old-format one — and any security boundary it names, check the diff does
-not violate it. The record is the **record issue body** resolved in Phase 0.5, or an old-contract
-entry's committed `decision-record.md`. A change that breaks a guarantee or an invariant is
-**critical**, because these are what the build "must preserve". Cite the file/line in the diff that
-breaks it, and name a broken guarantee by its ID.
+For a new-format record, check every guarantee returned by `nexus record-sections --body` by
+its ID; for an old-format record, check every returned constraint and invariant. Also check each
+security boundary the record names. The record is the **record issue body** resolved in Phase 0.5,
+or an old-contract entry's committed `decision-record.md`. A change that breaks a guarantee or an
+invariant is **critical**, because these are what the build "must preserve". For a broken
+new-format guarantee, name its `G<n>` ID and cite the changed file and line.
 
 Skip this section only in **degraded** mode, which by Phase 0.5 means the epic genuinely has no
 record. That is now the exception rather than the norm: the record has a durable home (the record

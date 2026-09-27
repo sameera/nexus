@@ -5,7 +5,7 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
-## 0.78.0
+## 0.79.0
 
 - **An unattended distill stops at any question instead of draining around it.** Under
   `/nxs.distill --unattended`, a not-merged pull request or an ambiguous provenance repository now
@@ -17,7 +17,7 @@ behaviour says so.
   and deletion, sections changed, validator verdict and page count, skipped and blocked entries,
   and the waiver line. An unattended run's description differs only by its first line.
 
-## 0.77.0
+## 0.78.0
 
 - **One command closes and distills a merged epic pull request.** The close-epic script runs
   `/nxs.analyze --pr` unattended, then `/nxs.close --pr` interactively for its one checkpoint,
@@ -29,7 +29,7 @@ behaviour says so.
   `/nxs.close` gains `--handoff <path>` for this script; without it, close is unchanged.
   Single-repo checkouts only.
 
-## 0.76.0
+## 0.77.0
 
 - **The distill stage can run with nobody watching.** `/nxs.distill --unattended` skips its
   checkpoint and opens the distillation pull request on its own once drafting finds nothing to ask
@@ -40,12 +40,17 @@ behaviour says so.
   description now shows every field the checkpoint would have shown, in both modes. Without the
   flag, `/nxs.distill` is unchanged, including when nobody happens to be watching it run.
 
-## 0.75.0
+## 0.76.0
 
 - **The close stage now refuses at once without a pull request.** Since 0.72 a close run this way
   could never pass its own shipped-record check, and only reported that after resolving the epic
   and writing its local artifacts. It now refuses before touching the epic or any file, and names
   `/nxs.close --pr <N>` as the path that works. `/nxs.close --pr` itself is unchanged.
+
+## 0.75.0
+
+- Decision-record drafting now stops if a seeded approval-first template has the right headings in the wrong order. The record checker blocks a choice repeated in one Approval brief group or listed without a cost sub-bullet, so the checkpoint cannot hide an accepted trade-off behind an ID alone.
+- Close and distill now stop with a named diagnostic if the shared section reader fails, instead of continuing with an assumed record baseline. New and old approved records continue through the same reader and hash checks.
 
 ## 0.74.1
 
