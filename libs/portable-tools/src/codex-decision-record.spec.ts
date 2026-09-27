@@ -33,6 +33,7 @@ describe('Codex decision-record pipeline', () => {
     ]);
     expect(draft).toContain('.nexus/config/templates/decision-record-template.md');
     expect(draft).toContain('For the default template, verify it keeps the approval-first section order');
+    expect(draft).toMatch(/reader who skips\s+the appendix can locate blockers, pending amendments, accepted costs, and guarantees/);
     expect(draft).toMatch(/How it works.+epic's vocabulary/s);
     expect(draft).toMatch(/every decision whose trade-off is not `none`/);
     expect(draft).toMatch(/Every decision with a trade-off appears in the brief exactly once/);
@@ -46,6 +47,8 @@ describe('Codex decision-record pipeline', () => {
 
     expect(approval).toContain('nexus record-amendments --draft');
     expect(approval).toMatch(/pending.+list the change \*\*first\*\* under "Resolve before approval"/s);
+    expect(approval).toContain('before rendering the checkpoint');
+    expect(approval).toMatch(/Show each offered line for an explicit keep-or-cut decision/);
     expect(approval).toContain('nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md" --record');
     expect(approval).toMatch(/A non-zero exit stops the run before the cut list is rendered: file nothing/);
     expect(approval).toContain('nexus razor-offer --draft "<scratch>/record-body.labelled.md" --record');
@@ -84,11 +87,15 @@ describe('Codex decision-record pipeline', () => {
     expect(recordSections(oldBody).format).toBe('old');
     expect(recordSections(oldBody).invariants).toHaveLength(16);
     expect(analyze).toMatch(/broken.+guarantee.+\*\*critical\*\*/is);
+    expect(analyze).toMatch(/check every guarantee returned by `nexus record-sections --body` by\s+its ID/);
     expect(analyze).toContain('Guarantee violations:   <G<n>');
     expect(close).toContain('nexus record-digest');
     expect(close).toContain('A non-zero section-reader exit stops close');
+    expect(close).toMatch(/carry every `decisions` entry and `guarantees` entry by ID/);
     expect(distill).toContain('record_hash');
     expect(distill).toMatch(/A non-zero\s+section-reader exit stops distill/);
+    expect(distill).toMatch(/For `new`, carry\s+How it works, Mechanism, decisions and reasons, and guarantees/);
+    expect(distill).toMatch(/For `old`, carry the chosen approach, Key Decisions and constraints\/invariants/);
     expect(distill).toMatch(/Hashes differ.+hard-error/s);
   });
 });

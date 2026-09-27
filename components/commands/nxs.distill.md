@@ -271,9 +271,12 @@ When the run mode resolved at run-shape resolution is **continuation**, load the
        entry's ***why* file**.
 
     Each branch yields one ***why* file**. Phase 4.6 drafts from it; later steps do not re-fetch.
-    Run `nexus record-sections --body <why file>`; Phase 3 uses its `format`. A non-zero
-    section-reader exit stops distill: name the file and diagnostic. Fetch and hash the record
-    issue only; never edit, close, or comment.
+    Run `nexus record-sections --body <why file>`; Phase 3 uses its `format`. For `new`, carry
+    How it works, Mechanism, decisions and reasons, and guarantees into the entry's rationale. For
+    `old`, carry the chosen approach, Key Decisions and constraints/invariants. Neither path may drop
+    a decision or condition or rewrite the approved record body. A non-zero section-reader exit stops
+    distill: name the file and diagnostic. Fetch and hash the record issue only; never edit, close, or
+    comment.
 
 2. Verify `gh auth status` succeeds and the working tree is clean (`git status --porcelain`).
    A dirty tree blocks: this stage creates a branch and must not entangle unrelated work.

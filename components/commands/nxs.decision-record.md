@@ -442,7 +442,9 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       component: no term from the appendix's Terms list appears here. Do not restate an outcome the
       epic or a story already states; point to it when an anchor helps. About 300 words is a
       guideline, not a limit. When a clear explanation needs more, the section runs longer. Never
-      cut content or a definition to meet the guideline.
+      cut content or a definition to meet the guideline. Before filing, check that a reader who skips
+      the appendix can locate blockers, pending amendments, accepted costs, and guarantees here and
+      in the other front sections, using the epic's vocabulary.
     - **Approval brief.** Build it mechanically from the decisions, guarantees and risks. Omit an
       empty group.
         - **Resolve before approval:** every BLOCKER risk; every epic or story commitment whose
@@ -547,7 +549,9 @@ than not filing it.
 
 **First, check every promised epic or story change against the live issue** (new format only; an
 old-format revision has no "Epic commitment affected" field). A link to the epic does not prove the
-epic was changed, so the check reads the issue itself. Run the amendment check on the labelled draft:
+epic was changed, so the check reads the issue itself. Run the amendment check on the labelled draft
+before rendering the checkpoint. Keep every missing amendment pending and list it first under "Resolve
+before approval"; never present the remaining choices ahead of it:
 
 ```bash
 nexus record-amendments --draft "<scratch>/record-body.labelled.md" --root "<root>"
@@ -614,6 +618,8 @@ marker is one asserted string.
 **removal**; a refuted alternative is not scope, so there is nothing here to add to. The list holds
 **every refuted alternative, and every guarantee and every risk the model added**, because a gate that
 shows the reviewer only part of what the model added leaves the rest of the labelling as decoration.
+Show each offered line for an explicit keep-or-cut decision; do not filter the list by perceived
+importance.
 Every group of guarantees is read, "Existing behaviour to preserve" included. A decision whose refuted
 viable alternative is `none` contributes no line, because `none` states that there was no
 alternative. **A guarantee or a risk the lead asked for is not listed** — that is the lead's own
