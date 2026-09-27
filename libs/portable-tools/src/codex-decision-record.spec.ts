@@ -38,4 +38,20 @@ describe('Codex decision-record pipeline', () => {
     expect(draft).toMatch(/Resolve before approval.+BLOCKER risk/s);
     expect(draft).toMatch(/Before implementation.+ADDRESS risk/s);
   });
+
+  it('checks live amendments and offers the complete labelled draft before filing', () => {
+    const approval = skill('nxs-decision-record');
+
+    expect(approval).toContain('nexus record-amendments --draft');
+    expect(approval).toMatch(/pending.+list the change \*\*first\*\* under "Resolve before approval"/s);
+    expect(approval).toContain('nexus razor-check --draft "<scratch>/record-body.labelled.md" --source "<scratch>/source.md" --record');
+    expect(approval).toMatch(/A non-zero exit stops the run before the cut list is rendered: file nothing/);
+    expect(approval).toContain('nexus razor-offer --draft "<scratch>/record-body.labelled.md" --record');
+    expect(approval).toMatch(/every refuted alternative, and every guarantee and every risk the model added/);
+    expect(approval).toContain('"Existing behaviour to preserve" included');
+    expect(approval).toMatch(/A new-format record keeps its numbers/);
+    expect(approval).toMatch(/--cut "G3,R2"/);
+    expect(approval).toMatch(/A non-zero exit stops the run: file nothing/);
+    expect(approval).toMatch(/complete decision surface and choices in the same final response/);
+  });
 });
