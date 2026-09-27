@@ -16,6 +16,12 @@ behaviour says so.
   description now has the same `Run summary` section an unattended one gets: each entry's source
   and deletion, sections changed, validator verdict and page count, skipped and blocked entries,
   and the waiver line. An unattended run's description differs only by its first line.
+- **The close-epic script starts close only after analyze actually recorded the pull request.**
+  A headless analyze that stops and reports the stop in words still exits cleanly. The script now
+  reads the outcome from GitHub instead: the pull request must carry a verdict, and the epic issue
+  must carry this pull request's shipped record. Otherwise the script stops before close. Distill
+  also starts only when the hand-off note's worktree is registered with git on the note's branch,
+  not merely any git checkout at that path.
 
 ## 0.78.0
 

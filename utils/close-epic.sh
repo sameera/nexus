@@ -245,15 +245,34 @@ rm -f "$HANDOFF" "$LOG" "$OUTCOME" "$FINAL"
 # --- Phase 3: certify conformance against the merged code, unattended -----------------------------
 echo "" >&2
 echo ">>> stage 1: /nxs.analyze --pr ${PR} (unattended, fresh context)" >&2
-if ! run_headless "/nxs.analyze --pr ${PR}" "${ARGS[@]}"; then
+if ! run_headless "/nxs.analyze --pr ${PR}" ${ARGS[@]+"${ARGS[@]}"}; then
     echo "!!! /nxs.analyze --pr ${PR} failed — not starting close." >&2
+    exit 1
+fi
+
+# A headless stage exits 0 even when it stops and reports the stop in words (an unapproved record, a
+# failed ledger write, no stories resolved). Read the outcome from GitHub instead: the epic issue must
+# now carry this pull request's shipped record, which close's own hard block requires anyway.
+REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+VERDICT_JSON="$(nexus pr-verdict --pr "$PR" --repo "$REPO")"
+EPIC_ISSUE="$(json_get receipt.epic <<<"$VERDICT_JSON" | sed -n 's/^.*#\([0-9][0-9]*\)$/\1/p')"
+if [[ "$(json_get found <<<"$VERDICT_JSON")" != "true" || -z "$EPIC_ISSUE" ]]; then
+    echo "!!! /nxs.analyze --pr ${PR} published no conformance verdict — not starting close. See its report above." >&2
+    exit 1
+fi
+COVERAGE_JSON="$(nexus epic-verdicts coverage --epic "$EPIC_ISSUE")"
+if ! PR="$PR" node -e '
+const c = JSON.parse(require("fs").readFileSync(0, "utf8"));
+process.exit((c.recorded ?? []).some((r) => r.pr === Number(process.env.PR)) ? 0 : 1);
+' <<<"$COVERAGE_JSON"; then
+    echo "!!! epic issue #${EPIC_ISSUE} carries no shipped record for PR #${PR} — /nxs.analyze stopped short; not starting close. See its report above." >&2
     exit 1
 fi
 
 # --- Phase 4: close, interactively — the one checkpoint the lead answers --------------------------
 echo "" >&2
 echo ">>> stage 2: /nxs.close --pr ${PR} --handoff ${HANDOFF} (interactive — answer its checkpoint, then end the session)" >&2
-run_interactive "/nxs.close --pr ${PR} --handoff ${HANDOFF}" "${ARGS[@]}"
+run_interactive "/nxs.close --pr ${PR} --handoff ${HANDOFF}" ${ARGS[@]+"${ARGS[@]}"}
 
 # --- Phase 5: verify the hand-off note against GitHub and git --------------------------------------
 echo "" >&2
@@ -262,20 +281,33 @@ if [[ ! -f "$HANDOFF" ]]; then
     echo "!!! no hand-off note at ${HANDOFF} — distill was not started. See close's own report above for why." >&2
     exit 1
 fi
-EPIC_ISSUE="$(sed -n 's/^epic: *//p' "$HANDOFF" | head -1)"
+NOTE_EPIC="$(sed -n 's/^epic: *//p' "$HANDOFF" | head -1)"
 DISTILL_BRANCH="$(sed -n 's/^branch: *//p' "$HANDOFF" | head -1)"
 WTPATH="$(sed -n 's/^worktree: *//p' "$HANDOFF" | head -1)"
-if [[ -z "$EPIC_ISSUE" || -z "$DISTILL_BRANCH" || -z "$WTPATH" ]]; then
+if [[ -z "$NOTE_EPIC" || -z "$DISTILL_BRANCH" || -z "$WTPATH" ]]; then
     echo "!!! hand-off note at ${HANDOFF} is incomplete — distill was not started." >&2
     exit 1
 fi
-EPIC_STATE="$(gh issue view "$EPIC_ISSUE" --json state --jq .state)"
+EPIC_STATE="$(gh issue view "$NOTE_EPIC" --json state --jq .state)"
 if [[ "$EPIC_STATE" != "CLOSED" ]]; then
-    echo "!!! epic issue #${EPIC_ISSUE} is not closed (${EPIC_STATE}) — distill was not started." >&2
+    echo "!!! epic issue #${NOTE_EPIC} is not closed (${EPIC_STATE}) — distill was not started." >&2
     exit 1
 fi
-if ! git -C "$WTPATH" rev-parse --git-dir >/dev/null 2>&1; then
-    echo "!!! worktree ${WTPATH} named in the hand-off note does not exist — distill was not started." >&2
+# The note must name a worktree git has registered, checked out on the note's branch (D5).
+if ! git worktree list --porcelain | WTPATH="$WTPATH" BRANCH="$DISTILL_BRANCH" node -e '
+const fs = require("fs");
+const path = require("path");
+const real = (p) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+const want = real(process.env.WTPATH);
+const blocks = fs.readFileSync(0, "utf8").split(/\n\n+/);
+const hit = blocks.some((b) => {
+    const wt = /^worktree (.+)$/m.exec(b)?.[1];
+    const br = /^branch (.+)$/m.exec(b)?.[1];
+    return wt !== undefined && real(wt) === want && br === `refs/heads/${process.env.BRANCH}`;
+});
+process.exit(hit ? 0 : 1);
+'; then
+    echo "!!! ${WTPATH} named in the hand-off note is not a registered worktree on ${DISTILL_BRANCH} — distill was not started." >&2
     exit 1
 fi
 if ! git ls-remote --exit-code --heads origin "$DISTILL_BRANCH" >/dev/null 2>&1; then

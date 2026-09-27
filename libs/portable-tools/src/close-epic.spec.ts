@@ -17,8 +17,13 @@ const fs = require("node:fs");
 const args = process.argv.slice(2);
 fs.appendFileSync(process.env.NEXUS_TEST_LOG, JSON.stringify({name: "git", args}) + "\\n");
 if (args[0] === "fetch") process.exit(0);
-if (args[0] === "-C" && args[2] === "rev-parse" && args[3] === "--git-dir") {
-    process.exit(process.env.WT_OK === "0" ? 1 : 0);
+if (args[0] === "worktree" && args[1] === "list") {
+    if (process.env.WT_OK !== "0") {
+        const branch = process.env.WT_BRANCH || "distill/2026-01-01-epic-7";
+        console.log("worktree /main/checkout\\nHEAD abc\\nbranch refs/heads/main\\n");
+        console.log("worktree ${worktree.replace(/\\/g, "\\\\")}\\nHEAD def\\nbranch refs/heads/" + branch + "\\n");
+    }
+    process.exit(0);
 }
 if (args[0] === "rev-parse" && args.includes("--git-common-dir")) { console.log("/main/checkout/.git"); process.exit(0); }
 if (args[0] === "ls-remote") {
@@ -56,8 +61,13 @@ if (args[0] === "trunk") { console.log("origin"); process.exit(0); }
 if (args[0] === "pr-verdict") {
     console.log(JSON.stringify({
         found: process.env.VERDICT_FOUND !== "0",
-        receipt: { findings: { critical: Number(process.env.VERDICT_CRIT || "0"), high: Number(process.env.VERDICT_HIGH || "0") } },
+        receipt: { epic: "#7", findings: { critical: Number(process.env.VERDICT_CRIT || "0"), high: Number(process.env.VERDICT_HIGH || "0") } },
     }));
+    process.exit(0);
+}
+if (args[0] === "epic-verdicts" && args[1] === "coverage") {
+    const recorded = process.env.RECORDED === "0" ? [] : [{ repo: "acme/repo", pr: 42, stories: [8], mergeCommit: "abc" }];
+    console.log(JSON.stringify({ command: "coverage", epic: 7, fullyShipped: recorded.length > 0, recorded }));
     process.exit(0);
 }
 process.exit(0);
@@ -180,6 +190,20 @@ describe("close-epic.sh — analyze, close and the hand-off note (D4, D5, D6)", 
         expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
     });
 
+    it("stops before close when analyze exits cleanly but the epic carries no shipped record for the pull request", () => {
+        const result = run("42", [], { RECORDED: "0" });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toMatch(/no shipped record for PR #42/);
+        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
+    });
+
+    it("stops before close when analyze exits cleanly but published no verdict", () => {
+        const result = run("42", [], { VERDICT_FOUND: "0" });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toMatch(/not starting close/);
+        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
+    });
+
     it("runs close interactively (no -p / exec) with --handoff, after analyze succeeds", () => {
         const result = run("42");
         const interactive = result.calls.find((c) => c.name === "claude" && !c.args.includes("-p"));
@@ -204,6 +228,13 @@ describe("close-epic.sh — analyze, close and the hand-off note (D4, D5, D6)", 
         const result = run("42", [], { WT_OK: "0" });
         expect(result.status).not.toBe(0);
         expect(result.stderr).toMatch(/worktree/);
+    });
+
+    it("stops when the hand-off note's worktree is registered on a different branch", () => {
+        const result = run("42", [], { WT_BRANCH: "feat/something-else" });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toMatch(/not a registered worktree/);
+        expect(result.calls.some((c) => c.args.some((a) => a.includes("/nxs.distill")))).toBe(false);
     });
 
     it("stops when the hand-off note's branch was not pushed", () => {
