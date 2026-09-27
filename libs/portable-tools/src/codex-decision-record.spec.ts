@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { recordSections } from '@nexus/scope-razor/record';
 import { renderCodexComponents } from './codex-components';
 import { authoredComponentRoot } from './vendor-components';
 
@@ -53,5 +54,38 @@ describe('Codex decision-record pipeline', () => {
     expect(approval).toMatch(/--cut "G3,R2"/);
     expect(approval).toMatch(/A non-zero exit stops the run: file nothing/);
     expect(approval).toMatch(/complete decision surface and choices in the same final response/);
+  });
+
+  it('carries new guarantees and old invariants through every generated later stage', () => {
+    const analyze = skill('nxs-analyze');
+    const close = skill('nxs-close');
+    const distill = skill('nxs-distill');
+    const newBody = fs.readFileSync(
+      path.join(repo, 'libs/scope-razor/src/__fixtures__/record-new.labelled.md'),
+      'utf8',
+    );
+    const oldBody = fs.readFileSync(
+      path.join(repo, 'libs/scope-razor/src/__fixtures__/record-old.filed.md'),
+      'utf8',
+    );
+
+    for (const stage of [analyze, close, distill]) {
+      expect(stage).toContain('nexus record-sections --body');
+      expect(stage).toMatch(/`new`/);
+      expect(stage).toMatch(/`old`/);
+    }
+    expect(recordSections(newBody).guarantees.map((g) => g.id)).toEqual([
+      'G1', 'G2', 'G3', 'G4', 'G5',
+    ]);
+    expect(recordSections(newBody).decisions.map((d) => d.id)).toEqual([
+      'D1', 'D2', 'D3',
+    ]);
+    expect(recordSections(oldBody).format).toBe('old');
+    expect(recordSections(oldBody).invariants).toHaveLength(16);
+    expect(analyze).toMatch(/broken.+guarantee.+\*\*critical\*\*/is);
+    expect(analyze).toContain('Guarantee violations:   <G<n>');
+    expect(close).toContain('nexus record-digest');
+    expect(distill).toContain('record_hash');
+    expect(distill).toMatch(/Hashes differ.+hard-error/s);
   });
 });
