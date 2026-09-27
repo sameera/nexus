@@ -15,6 +15,14 @@ behaviour says so.
   declare it. `/nxs.analyze --pr` and `/nxs.close --pr` never read the value, so they behave the
   same in a solo repository. The new `nexus solo-check` command runs both checks.
 
+- **`/nxs.close` without `--pr` now refuses at once.** Since 0.72 a local close could not pass
+  its own shipped-record gate and reported every story as `story-unrecorded` at the end of the run.
+  It now refuses before it resolves the epic, writes any file or touches any issue, and names the
+  two paths that work: `/nxs.close --pr <N>` over a merged pull request, and `/nxs.ship` in a
+  repository declared solo. The command's text no longer describes a local mode. `/nxs.close --pr`
+  is unchanged, and so is the manual re-stamp procedure for an entry whose record was revised
+  after close. An entry an earlier local close left behind still drains with `/nxs.distill`.
+
 ## 0.74.1
 
 - **A filed record or epic keeps its nested bullets nested.** When `/nxs.decision-record` or

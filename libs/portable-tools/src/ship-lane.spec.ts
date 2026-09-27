@@ -31,3 +31,27 @@ describe("/nxs.ship checks the workspace shape, then the solo declaration (story
         }
     });
 });
+
+describe("/nxs.close refuses without --pr, up front (story #801)", () => {
+    const CLOSE: string = command("nxs.close.md");
+
+    it("refuses before resolving the epic, and names both working paths", () => {
+        const refusal: number = CLOSE.indexOf("runs only against a pull request");
+        expect(refusal).toBeGreaterThan(-1);
+        expect(refusal).toBeLessThan(CLOSE.indexOf("nexus epic-resolve"));
+        expect(refusal).toBeLessThan(CLOSE.indexOf("# Phase 0"));
+        const block: string = CLOSE.slice(refusal, refusal + 600);
+        expect(block).toContain("/nxs.close --pr <N>");
+        expect(block).toContain("/nxs.ship");
+    });
+
+    it("describes no resolution path or receipt source that runs without --pr", () => {
+        expect(CLOSE).not.toMatch(/No path, no `--pr`/);
+        expect(CLOSE).not.toMatch(/\*\*Local mode\*\* — read/);
+        expect(CLOSE).not.toMatch(/issue-sourced local close: resolve epic/);
+    });
+
+    it("keeps the re-stamp recovery procedure", () => {
+        expect(CLOSE).toContain("# Recovery — re-stamp a closed entry whose record was revised after close");
+    });
+});
