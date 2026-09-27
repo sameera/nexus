@@ -5,6 +5,17 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.76.0
+
+- **The distill stage can run with nobody watching.** `/nxs.distill --unattended` skips its
+  checkpoint and opens the distillation pull request on its own once drafting finds nothing to ask
+  about. Every point that used to ask a question — a not-merged pull request, an ambiguous
+  provenance repository, a taxonomy concept that fits no domain — instead excludes the affected
+  entry (or, for the taxonomy case, stops the whole run before touching git) and is named in a
+  stop report, never guessed or defaulted. A blocked run pushes nothing. The pull request
+  description now shows every field the checkpoint would have shown, in both modes. Without the
+  flag, `/nxs.distill` is unchanged, including when nobody happens to be watching it run.
+
 ## 0.75.0
 
 - **The close stage now refuses at once without a pull request.** Since 0.72 a close run this way

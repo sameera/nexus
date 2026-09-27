@@ -91,6 +91,7 @@ the resolved value instead of re-deriving it.
     This mirrors workspace resolution's own role determination (a checkout carrying both files is
     the hub); distill re-derives no workspace shape of its own.
 3. **Each discovered entry's kind**, resolved and recorded at discovery (step 2 below).
+4. **Unattended flag** — `--unattended` in `$ARGUMENTS` → strip it, load **`nxs-distill-unattended`**.
 
 ### Contract selection table
 
@@ -106,6 +107,7 @@ entry's kind `epic`, and no domain registry — selects no contract at all.
 | workspace shape is `hub` | `nxs-distill-hub` | run-shape resolution |
 | any discovered entry's kind is `fix` or `intake` | `nxs-distill-nonepic-entries` | entry discovery, at kind resolution |
 | the concept store has a domain registry | `nxs-distill-taxonomy` | Phase 2, the store survey |
+| `--unattended` was passed | `nxs-distill-unattended` | run-shape resolution |
 
 A contract states its rules against this document's phase numbers and overrides this document at
 those numbers. This document's phase order and numbering do not change, and no contract cuts a
@@ -384,18 +386,14 @@ derivation tool with each argument its own quoted token, never a shell-interpola
       `unreachable-sha`, `unorderable-range`, `git-diff-failed`.
 
       **`unreachable-sha` is a recorded base or head this checkout cannot resolve**, and it blocks
-      that entry exactly like every other class. The remedy is the operator's and the diagnostic
-      names both halves of it: update that checkout, or correct the recorded range stamp in the
-      entry's `close-record.md`, then re-run. An unreachable recorded revision is far more often a
-      checkout that is behind than an entry whose history was rewritten, so substituting any other
-      diff here would write a confidently wrong page into the store permanently. An entry blocked
-      this way is never auto-deleted and stays rediscoverable on a later run.
+      that entry exactly like every other class. The remedy: update that checkout, or correct the recorded range stamp in the entry's `close-record.md`,
+      then re-run. Never substitute another diff here — that would write a confidently wrong page
+      into the store. The entry is never auto-deleted and stays rediscoverable on a later run.
 
 Every **pipeline store** is withheld from the behavioral analysis, entire, never a slice of one.
-The set is closed and reviewed and is stated in exactly one place, the toolkit (record #450,
-invariant 4); `nexus excluded-stores --form reasons` prints it with its reasons. Never write the
-paths out here. A second statement of the set could drift from the code's, and the drift would be
-silent: the stage would quietly read the pipeline's own working surface as shipped behaviour.
+The set is closed and stated in exactly one place, the toolkit (record #450, invariant 4);
+`nexus excluded-stores --form reasons` prints it with its reasons. Never write the paths out here —
+a second statement could silently drift from the code's.
 
 # Phase 2 — Survey the concept store
 
