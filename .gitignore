@@ -1,3 +1,4 @@
+.tmp/
 .nexus/tmp/
 __pycache__/
 tmp/**
