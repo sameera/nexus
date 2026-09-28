@@ -1,15 +1,15 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close", "shipped-ledger", "published-verdict-selection"]
-last_updated_by: "#769"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close", "shipped-ledger", "published-verdict-selection", "close-and-distill-command"]
+last_updated_by: "#814"
 status: active
 verification: verified
 ---
 
 # PR-Driven Post-Merge Flow
 
-The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch. Conformance checks the pull request while it may still be open; after it merges, closure and distillation run against the merged pull request in one shared isolated worktree, so the diff the drain reads cannot drift. It runs in single-repo and hub checkouts; conformance also runs against a declared member's pull request, which closure and distillation still refuse. The local flow is untouched.
+The lead can run the conformance, closure, and distillation stages against a pull request instead of a live branch. Conformance checks the pull request while it may still be open; after it merges, closure and distillation run against the merged pull request in one shared isolated worktree, so the diff the drain reads cannot drift. It runs in single-repo and hub checkouts; conformance also runs against a declared member's pull request, which closure and distillation still refuse. Closure has no local path.
 
 ## How It Works
 
@@ -21,7 +21,7 @@ A conformance run takes one pull-request reference. A bare number means this che
 
 1. Only conformance runs against a member repository; closure and distillation refuse one, a member epic closing from the hub instead.
 2. The stamped range anchors on commits permanent on the trunk, never the pull-request branch tip; an empty, non-ancestor, or unverifiable range is refused rather than guessed.
-3. The flow is additive and mutually exclusive with the local path.
+3. ~~The flow is additive and mutually exclusive with the local path.~~
 4. A conformance verdict is trusted only from a maintainer-authored review or comment in the pull request's own repository, and only when its stamped repository and pull request match those read. Nothing compares the analysed commit against the pull request's current head.
 5. Closure and distillation share one worktree on the distillation branch.
 6. A conformance run reads its diff, its code and the engineer's scratch from the target repository's checkout, and everything it is judged against from a main checkout. An undeclared repository, or a declared member absent from its expected checkout, stops the run.
@@ -42,6 +42,7 @@ A conformance run takes one pull-request reference. A bare number means this che
 - [multi-pr-close](multi-pr-close.md) — generalizes this flow's closure stage to an epic that shipped as several pull requests; one pull request is the one-entry case.
 
 - [published-verdict-selection](published-verdict-selection.md) — decides which of the verdicts this flow publishes on a pull request is the one a later stage reads.
+- [close-and-distill-command](close-and-distill-command.md) — runs this whole flow for a merged pull request with one command and one approval.
 
 ## Decision Log
 
@@ -106,3 +107,7 @@ that comparison is gone from this flow along with the waiver it used to demand.
 Mechanical reciprocity fan-out: the shipped ledger names this flow's post-merge run as the only
 thing that writes a record, so a reader arriving at either page learns when in the flow the fact
 is captured.
+
+### 2026-09-27 — #814 — Closure runs only against a pull request
+
+Since the post-merge conformance run became required, a closure without a pull request could never pass its own shipped-record check. Every such run did work and then stopped. Closure without a pull request now refuses before it resolves the epic or writes anything, and it names the pull-request form. The passages that described a local closure are removed. The conformance stage is unchanged and keeps its local path. The close-and-distill command now runs this flow end to end: conformance, closure and distillation in one worktree, with one approval.

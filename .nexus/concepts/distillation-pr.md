@@ -1,8 +1,8 @@
 ---
 title: "Distillation PR"
 aliases: ["distillation pull request", "reviewed concept write", "gated apply", "curated apply"]
-touches: ["distiller", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "intake-lane"]
-last_updated_by: "#483"
+touches: ["distiller", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "intake-lane", "drain-invocation"]
+last_updated_by: "#814"
 status: active
 verification: verified
 ---
@@ -22,6 +22,7 @@ On its post-merge drain, the distiller builds the deltas and lands them on a bra
 3. Consumed queue entries are deleted only when that merge lands.
 4. For an epic entry, review targets the what-abstraction and the page mapping; the why was already reviewed earlier — at feature merge, or on the pull request in the post-merge flow.
 5. A fix or an intake entry carries no earlier why-review, so this pull request is its only one; an intake-sourced write is flagged in the body for that reason, so the reviewer can give it a closer look.
+6. The description shows everything the checkpoint shows, in one layout for both modes; an unattended run says it opened without a checkpoint.
 
 ## Integration Points
 
@@ -30,6 +31,7 @@ On its post-merge drain, the distiller builds the deltas and lands them on a bra
 - [drift-advisory](drift-advisory.md) — its findings are written into this pull request's body for the reviewer.
 - [pr-driven-flow](pr-driven-flow.md) — the post-merge flow whose closure prepares this branch for distillation to continue on and open.
 - [intake-lane](intake-lane.md) — its writes are flagged in this pull request's body, since their why was reviewed only here, never earlier.
+- [drain-invocation](drain-invocation.md) — decides whether this pull request opens after a checkpoint or, in an unattended run, with its review as the only approval.
 
 ## Decision Log
 
@@ -48,3 +50,7 @@ When the closure and distillation run post-merge against a pull request there is
 ### 2026-09-08 — #483 — A write with no earlier why-review is flagged in the body
 
 Review here already targeted the what-abstraction and the page mapping on the claim that the why was reviewed earlier, at a feature merge or a decision record. An intake entry has neither: its reasoning is approved for the first time at this very pull request, bought with one review instead of an epic's two. The invariant is corrected to say so, and an intake-sourced write is now flagged in the body — the compensating control, since the person who recorded the entry may also be its sole reviewer here. A fix entry shares the same gap and was already left unstated; naming it now rather than leaving the correction half made.
+
+### 2026-09-27 — #814 — The description carries the whole run summary in both modes
+
+An unattended run skips the checkpoint, so its reviewer must see everything the checkpoint would have shown. The description now renders the run summary the checkpoint renders, in place of the separate anchors and atlas sections. An unattended run adds one line saying it opened without a checkpoint and that this review is its only approval. The run summary was already the one definition behind the checkpoint, the description and the report, so one layout for both modes cannot drift apart. Refuted alternative: add the extra fields only when the run is unattended. It keeps interactive descriptions shorter, but it creates two layouts to keep in step and hides from the interactive reviewer information they would also use.

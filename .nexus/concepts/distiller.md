@@ -1,8 +1,8 @@
 ---
 title: "Distiller"
 aliases: ["System B", "distillation engine", "concept distiller", "the drain"]
-touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder", "on-demand-stage-contract"]
-last_updated_by: "#714"
+touches: ["concept-store", "committed-queue", "distillation-pr", "code-anchors", "scratch-capture", "portable-tooling", "taxonomy-filing-gate", "drift-advisory", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "ephemeral-handoff-entry", "durable-close-record", "concept-page-capacity", "finding-severity", "pre-epic-discovery", "verb-reachability", "prose-translation", "prose-verification", "fix-lane", "fix-razor", "pipeline-store-exclusion", "intake-lane", "multi-pr-close", "range-entry-diff", "planning-run-folder", "on-demand-stage-contract", "drain-invocation"]
+last_updated_by: "#814"
 status: active
 verification: verified
 ---
@@ -22,7 +22,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 3. ~~Judgment is the model's; the reciprocity, anchor, and validator steps are deterministic.~~ Judgment is the model's; the reciprocity, anchor, prose-verification and validator steps are deterministic.
 4. ~~A validation failure blocks the apply; a failing page is never shipped.~~ A blocking validation result stops the apply and a failing page is never shipped; an advisory never blocks and is carried to the reviewer.
 5. It infers the concept mapping itself. The pipeline emits no structured concept list.
-6. Draining is a manually-invoked curated step, not an automated trigger; recovery from a closed epic issue is an explicit per-entry request, never a discovery scan.
+6. ~~Draining is a manually-invoked curated step, not an automated trigger; recovery from a closed epic issue is an explicit per-entry request, never a discovery scan.~~
 7. Input is only gated entries and the recomputed diff, never plans or ungated capture; decision-only memos drain diff-less into logs.
 
 ## Integration Points
@@ -55,6 +55,7 @@ It runs after merges, scanning unconsumed entries in the committed queue and the
 - [range-entry-diff](range-entry-diff.md) — the reader that turns a stamped range list into one change set per pull request, in landed order.
 - [planning-run-folder](planning-run-folder.md) — a planning draft sitting under the same scratch area; neither its shape nor a close record matches what this scan looks for, so it is never listed, aged or drained.
 - [on-demand-stage-contract](on-demand-stage-contract.md) — the way this stage is partitioned: it resolves its run shape first and reads only the contracts that shape names, so an ordinary drain reads none of them.
+- [drain-invocation](drain-invocation.md) — who starts a drain and what approves its pull request, split from this page.
 
 ## Decision Log
 
@@ -181,3 +182,7 @@ The stage stated every rule it might need in one document, and the whole documen
 Nothing any path does has changed. Every refusal, gate, diagnostic and ordered step is the same one, in the same order, reached from the contract that now states it, and the stage's phase order and numbering are untouched so every reference a sibling stage or a concept page carries stays valid.
 
 The six paths became five contracts. Fix and intake share one, because loading a contract loads its whole body and an all-epic queue loads neither under either shape, so splitting them would have bought a saving on a path this change was not optimising while breaking apart the single entry-kind comparison the preceding change had just consolidated. Refuted alternative: one contract per named path, which is how the work was described when it was filed. It loses because the axes the two non-epic kinds differ on are defined once across all three kinds, and two contracts cannot both own that definition.
+
+### 2026-09-27 — #814 — Who starts a drain and what approves it moves to its own page
+
+The drain gained an unattended run, which the close-and-distill command starts right after an approved close. Stating that here would push this page past its size cap, and a task about who starts a drain or what approves its pull request does not need the diff, the why or the page-writing rules. So the invocation invariant moved to the drain-invocation page, rewritten there as the decision record gives it, and it is struck here. Everything else on this page stays.

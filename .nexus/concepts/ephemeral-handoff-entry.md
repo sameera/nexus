@@ -2,18 +2,18 @@
 title: "Ephemeral Hand-Off Entry"
 aliases: ["ephemeral entry", "hand-off entry", "same-sitting entry", "ephemeral area", "tmp-first close", "entry kind"]
 touches: ["committed-queue", "distiller", "durable-close-record", "scratch-capture", "conformance-gate", "fix-lane", "intake-lane", "entry-slot-ownership"]
-last_updated_by: "#515"
+last_updated_by: "#814"
 status: active
 verification: verified
 ---
 
 # Ephemeral Hand-Off Entry
 
-An ephemeral hand-off entry is the version-ignored directory a local close leaves for the very next drain: the materialized epic, the conformance receipt, and the close record, none of them committed. It passes state from one command to the next in the same sitting, and nothing durable depends on it surviving. The fix lane writes its entries into the same area, on the same terms.
+An ephemeral hand-off entry is a version-ignored directory holding an epic file and a close record, none of them committed, for the very next drain. The fix and intake lanes write their entries here; close no longer does. It passes state from one command to the next in the same sitting, and nothing durable depends on it surviving.
 
 ## How It Works
 
-Under issue-sourced planning nothing is committed at planning, so a local run materializes the epic into the ephemeral area and writes its receipt and close record beside it. No throwaway commit or manual hand-off step is needed. Because nothing can commit the deletion of a version-ignored path, consumption is derived rather than marked: the entry is consumed exactly when the concept store at the fetched trunk carries that epic's provenance in a structured position. A consumed directory is then removed with no commit; an unconsumed one never is, so a distillation abandoned before merge stays rediscoverable. They stay out of drain-health accounting. A local directory says nothing about any other machine. What an entry is comes from the kind recorded in its own header, not from its location or what its directory name is. When the two disagree, the entry stops outright. The epic kind alone records nothing, so a missing kind under an epic-named directory reads as epic.
+A local conformance run still writes the epic and its receipt here, but a pair with no close record is never drained. An epic entry an earlier local close left here still drains. No throwaway commit or manual hand-off step is needed. Because nothing can commit the deletion of a version-ignored path, consumption is derived rather than marked: the entry is consumed exactly when the concept store at the fetched trunk carries that epic's provenance in a structured position. A consumed directory is then removed with no commit; an unconsumed one never is, so a distillation abandoned before merge stays rediscoverable. They stay out of drain-health accounting. A local directory says nothing about any other machine. What an entry is comes from the kind recorded in its own header, not from its location or what its directory name is. When the two disagree, the entry stops outright. The epic kind alone records nothing, so a missing kind under an epic-named directory reads as epic.
 
 ## Key Invariants
 
@@ -57,3 +57,7 @@ Mechanical reciprocity fan-out: the member path that migrated these artifacts an
 ### 2026-09-12 — #515 — The epic kind records nothing, so its directory name answers for it
 
 Reading an entry's kind from its own header leaves one kind unanswerable. An epic's materialization is written by the resolver, which records no kind at all, so a lookup that consulted only the header could never identify an epic, and the refusal that stops a lane from shadowing one would quietly stop firing. A missing kind under an epic-named directory therefore reads as epic, which is how the stages that already read these entries treat it. The rule itself is unchanged: every other kind states its own kind, and a stated kind that disagrees with its directory still stops the entry. An entry whose recorded reference cannot be read at all still holds its number rather than reading as absent, so a half-written entry is never written over. This reading closes a gap the design left open rather than reversing a decision the design made.
+
+### 2026-09-27 — #814 — Close no longer writes here
+
+A close without a pull request could never pass its own shipped-record check, so close now refuses without one, before it writes anything. Close therefore no longer leaves its epic and close record in this area; its entry is born at close and committed to the queue. The fix and intake lanes remain the writers of drainable entries here. An epic entry an earlier local close left here still drains, because discovery and consumption are unchanged.
