@@ -1,8 +1,8 @@
 ---
 title: "Shipped Ledger"
 aliases: ["shipped record", "what an epic shipped", "ledger of what shipped", "per-pull-request record", "epic-issue record", "shipped coverage states"]
-touches: ["conformance-gate", "multi-pr-close", "aggregated-epic-receipt", "durable-close-record", "pr-driven-flow", "remote-identity-normalization"]
-last_updated_by: "#769"
+touches: ["conformance-gate", "multi-pr-close", "aggregated-epic-receipt", "durable-close-record", "pr-driven-flow", "remote-identity-normalization", "close-and-distill-command"]
+last_updated_by: "#814"
 status: active
 verification: verified
 ---
@@ -37,9 +37,14 @@ Addressed at an epic, the gate reports each story as shipped, unrecorded, unship
 - [durable-close-record](durable-close-record.md) — stamps the range these records carry onto the epic issue, verbatim.
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose post-merge conformance run is what writes a record at all.
 - [remote-identity-normalization](remote-identity-normalization.md) — the rule by which a record names its code repository, so two readers cannot disagree about which repository it stamps.
+- [close-and-distill-command](close-and-distill-command.md) — requires this pull request's record on the epic issue before it starts close.
 
 ## Decision Log
 
 ### 2026-09-22 — #769 — What an epic shipped is recorded where it shipped, not rediscovered
 
 The list of what an epic shipped was rebuilt from scratch on every gate run, and it came back wrong four ways: a story's pull requests were searched for only in repositories the lead happened to hold, merge state was asked of the wrong repository so merged work read as unmerged, one pull request per story was kept so a later fix displaced the feature it fixed, and the analysed commit was compared against a branch that kept moving and called stale. Each made a gate state something false that a person then had to overrule. All four fall out of the same omission: nobody wrote the fact down while it was cheap and certain. A record per merged pull request, on the issue that owns the work, written by the run holding the merged code, removes the search, the wrong-repository question, the per-story slot a second pull request could evict, and the staleness axis at once. Keying on the pull request rather than the story is what makes displacement unrepresentable rather than guarded against. Refuted alternative: one ledger comment per epic holding every entry, rewritten on each run. It reads better, because one fetch answers the whole epic and ordering is trivial. It loses because every write becomes a read-modify-write over shared state, so two gate runs minutes apart silently drop one of the two records, which is the class of failure this exists to end. Refuted alternative: write the record before the merge from the head commit and amend it at merge. That keeps the lead to one gate run per pull request. It loses because nothing in this pipeline runs at merge time, so the amendment has no owner and every reader would have to handle a permanently provisional record.
+
+### 2026-09-27 — #814 — Reciprocal link from close-and-distill-command
+
+The close-and-distill command declared an interaction with this concept, so this page mirrors it.

@@ -2,18 +2,18 @@
 title: "Committed Queue"
 aliases: ["queue handoff", "distillation queue", "planning artifact queue", "queue entry"]
 touches: ["distiller", "nexus-pipeline", "scratch-capture", "workspace-resolution", "pr-driven-flow", "issue-sourced-planning", "decision-record", "record-digest", "durable-close-record", "ephemeral-handoff-entry", "pre-epic-discovery", "pipeline-store-exclusion"]
-last_updated_by: "#669"
+last_updated_by: "#814"
 status: active
 verification: verified
 ---
 
 # Committed Queue
 
-The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts. It reaches the trunk with the work and the distiller drains it afterward — no longer the only handoff shape, since a local close hands off through an ephemeral counterpart.
+The committed queue is the durable handoff surface between the delivery pipeline and the knowledge store: one committed folder per epic holding its human planning artifacts. It reaches the trunk with the work and the distiller drains it afterward. Every close commits its entry here, because close runs only against a merged pull request and refuses without one before it writes anything; the fix and intake lanes hand off through an ephemeral counterpart instead.
 
 ## How It Works
 
-The folder is the directory scratch capture already created during implementation — nothing moved or adopted. It holds the epic and close record; an old-contract entry alone still carries a decision-record file. Entries arrive from the pull-request flow and from old-contract epics. A local close commits nothing here but the epic's per-user scratch, the target of the drain's removal. A member checkout can still hold an entry left over from before member closes were retired, and the workspace status read-out names it until the member-side copy is gone. Under issue-sourced planning the entry is born at close, so the queue holds only closed, drainable entries. It holds only gated artifacts, never an ungated machine block.
+The folder is the directory scratch capture already created during implementation — nothing moved or adopted. It holds the epic and close record; an old-contract entry alone still carries a decision-record file. Entries arrive from the pull-request flow and from old-contract epics. A member checkout can still hold an entry left over from before member closes were retired, and the workspace status read-out names it until the member-side copy is gone. Under issue-sourced planning the entry is born at close, so the queue holds only closed, drainable entries. It holds only gated artifacts, never an ungated machine block.
 
 ## Key Invariants
 
@@ -36,7 +36,7 @@ The folder is the directory scratch capture already created during implementatio
 - [decision-record](decision-record.md) — no longer stored here; old-contract entries alone still carry its file.
 - [record-digest](record-digest.md) — the approved-body hash the close record stamps for the drain.
 - [durable-close-record](durable-close-record.md) — the close comment carrying this entry's rationale durably.
-- [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored counterpart a local close uses.
+- [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — the version-ignored counterpart the fix and intake lanes use.
 - [pre-epic-discovery](pre-epic-discovery.md) — the discovery store, a deliberate sibling of this queue rather than an entry inside it.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — the set this queue belongs to, withheld from every diff a Nexus stage derives.
 
@@ -97,3 +97,7 @@ A second remover existed: the member close relocated an entry into the hub and t
 ### 2026-09-18 — #669 — In-flight entries travel with the code they plan
 
 Two unclosed entries holding Prime's terminal work moved to sameera/prime with the code. Left here they would name issues that now live in another repository, so no drain could ever resolve them and no close could ever be run against them. This was a repository split done by hand, not a shipped command, so the rule that the drain's own merge is the only remover in the toolkit is untouched. Refuted alternative: close the two epics as not planned and re-plan them in the new repository, which reaches the same place but discards one approved epic and one approved decision record to save a directory move.
+
+### 2026-09-27 — #814 — Every close commits its entry here
+
+A close without a pull request could never pass its own shipped-record check, so close now refuses without one, before it writes anything. The local close that left its entry in the ephemeral area is gone, and every close's entry is born at close on the distillation branch and committed here. The ephemeral counterpart remains for the fix and intake lanes.
