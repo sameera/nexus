@@ -21,7 +21,9 @@ export type EpicVerdictsProblem =
     /** The drafted verdict names no issues repository (epic #751, invariant 1). */
     | "issues-repo-missing"
     /** A stated issues repository that is not the one resolved here. */
-    | "issues-repo-mismatch";
+    | "issues-repo-mismatch"
+    /** A story's claiming pull requests could not be read (epic #827) — never "no pull request". */
+    | "story-read-failed";
 
 export interface EpicVerdictsDiagnostic {
     problem: EpicVerdictsProblem;

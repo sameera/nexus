@@ -28,7 +28,7 @@
  * analyze run that already happened, because a missing verdict has exactly one meaning here.
  */
 
-import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
+import { type AnalyzeReceipt, type VerifyReceiptOptions } from "@nexus/pr-acceptance/verify";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
@@ -54,8 +54,15 @@ export type ReadPrVerdictResult = { ok: true; verdict: PrVerdict } | { ok: false
  * Read the verdict `pr` carries in `repo`, from the checkout at `cwd`, resolving its story numbers
  * against `issuesRepo`.
  */
-export function readPrVerdict(run: Runner, cwd: string, pr: number, repo: string, issuesRepo: string): ReadPrVerdictResult {
-    const r = verifyReceipt(run, cwd, pr, repo, issuesRepo);
+export function readPrVerdict(
+    run: Runner,
+    cwd: string,
+    pr: number,
+    repo: string,
+    issuesRepo: string,
+    opts: VerifyReceiptOptions = {},
+): ReadPrVerdictResult {
+    const r = verifyReceipt(run, cwd, pr, repo, issuesRepo, opts);
     if (!r.ok) {
         // A pull request carrying no verdict is not a failure — it is reported as found: false
         // below. Only a broken tool or a block that cannot be parsed reaches here.

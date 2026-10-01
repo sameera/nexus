@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.80.0
+
+- **A story's pull requests are read in full, and a failed read stops the run.** Analyze and close
+  share one read of the merged pull requests that claim a story. It now reads every page of the
+  closing links and the cross-references, so a busy story no longer loses the pull request that
+  shipped it. A failed read, on any page, is an error that names the story and the cause, and is
+  never reported as "no pull request". `nexus epic-verdicts coverage` then reads every remaining
+  story, names every failed one, prints no coverage and exits 1, and the close-epic script stops
+  before close.
+- **Close gains a per-story evidence report.** `/nxs.close` runs `nexus epic-verdicts evidence`
+  after the ledger gate passes and repeats what it prints. If any story's pull requests or
+  receipts cannot be read, close stops before mining anything and names the story. The report
+  decides nothing else; the ledger gate is unchanged.
+
 ## 0.79.0
 
 - **An unattended distill stops at any question instead of draining around it.** Under

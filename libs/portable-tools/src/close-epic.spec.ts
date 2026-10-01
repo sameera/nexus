@@ -66,6 +66,10 @@ if (args[0] === "pr-verdict") {
     process.exit(0);
 }
 if (args[0] === "epic-verdicts" && args[1] === "coverage") {
+    if (process.env.COVERAGE_READ_FAILS === "1") {
+        console.error("epic-verdicts story-read-failed: the pull requests claiming 1 story could not be read:\\n  acme/repo#8 — HTTP 502");
+        process.exit(1);
+    }
     const recorded = process.env.RECORDED === "0" ? [] : [{ repo: "acme/repo", pr: 42, stories: [8], mergeCommit: "abc" }];
     console.log(JSON.stringify({ command: "coverage", epic: 7, fullyShipped: recorded.length > 0, recorded }));
     process.exit(0);
@@ -194,6 +198,14 @@ describe("close-epic.sh — analyze, close and the hand-off note (D4, D5, D6)", 
         const result = run("42", [], { RECORDED: "0" });
         expect(result.status).not.toBe(0);
         expect(result.stderr).toMatch(/no shipped record for PR #42/);
+        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
+    });
+
+    it("stops before close when a story's pull requests could not be read, rather than reading it as covered", () => {
+        const result = run("42", [], { COVERAGE_READ_FAILS: "1" });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toMatch(/story-read-failed/);
+        expect(result.stderr).toMatch(/not starting close/);
         expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
     });
 

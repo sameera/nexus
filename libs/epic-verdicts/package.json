@@ -64,6 +64,11 @@
       "import": "./src/verdict-repos.ts",
       "default": "./src/verdict-repos.ts"
     },
+    "./evidence": {
+      "types": "./src/evidence.ts",
+      "import": "./src/evidence.ts",
+      "default": "./src/evidence.ts"
+    },
     "./publish-check": {
       "types": "./src/publish-check.ts",
       "import": "./src/publish-check.ts",
