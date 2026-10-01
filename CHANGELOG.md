@@ -5,6 +5,11 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.75.0
+
+- Decision-record drafting now stops if a seeded approval-first template has the right headings in the wrong order. The record checker blocks a choice repeated in one Approval brief group or listed without a cost sub-bullet, so the checkpoint cannot hide an accepted trade-off behind an ID alone.
+- Close and distill now stop with a named diagnostic if the shared section reader fails, instead of continuing with an assumed record baseline. New and old approved records continue through the same reader and hash checks.
+
 ## 0.74.1
 
 - **A filed record or epic keeps its nested bullets nested.** When `/nxs.decision-record` or

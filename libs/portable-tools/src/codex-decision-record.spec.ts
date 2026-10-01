@@ -32,6 +32,7 @@ describe('Codex decision-record pipeline', () => {
       'Design rationale and mechanism',
     ]);
     expect(draft).toContain('.nexus/config/templates/decision-record-template.md');
+    expect(draft).toContain('For the default template, verify it keeps the approval-first section order');
     expect(draft).toMatch(/How it works.+epic's vocabulary/s);
     expect(draft).toMatch(/every decision whose trade-off is not `none`/);
     expect(draft).toMatch(/Every decision with a trade-off appears in the brief exactly once/);
@@ -85,7 +86,9 @@ describe('Codex decision-record pipeline', () => {
     expect(analyze).toMatch(/broken.+guarantee.+\*\*critical\*\*/is);
     expect(analyze).toContain('Guarantee violations:   <G<n>');
     expect(close).toContain('nexus record-digest');
+    expect(close).toContain('A non-zero section-reader exit stops close');
     expect(distill).toContain('record_hash');
+    expect(distill).toMatch(/A non-zero\s+section-reader exit stops distill/);
     expect(distill).toMatch(/Hashes differ.+hard-error/s);
   });
 });

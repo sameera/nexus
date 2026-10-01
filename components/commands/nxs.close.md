@@ -540,7 +540,9 @@ any not already captured in the decision record. **Sources (C6), in priority ord
     nexus record-sections --body "<scratch>/record-body.md"   # or "${QDIR}/decision-record.md"
     ```
 
-   Its `format` fixes what the record contributes to this phase and to Phase 3:
+   A non-zero section-reader exit stops close: name the record and the diagnostic, and do not
+   continue with a guessed baseline. Its `format` fixes what the record contributes to this phase
+   and to Phase 3:
 
     - `new` — the planned decisions are its `decisions`, the appendix's **Decisions and reasons**,
       each with its ID, decision, reason and refuted viable alternatives. The deviation baseline is
