@@ -1,19 +1,19 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "aggregated-epic-receipt", "pinned-sources"]
-last_updated_by: "#459"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "aggregated-epic-receipt", "pinned-sources", "story-evidence-report"]
+last_updated_by: "#827"
 status: active
 verification: verified
 ---
 
 # Canonical Record Digest
 
-One digest implementation computes the canonical hash of a decision-record body, and every stage that stamps or verifies the value invokes it. The hash turns "the design changed after it was analysed" into a detectable condition — a record staleness axis independent of the code axis the gates already track.
+One digest implementation computes the canonical hash of a decision-record body or a story body, and every stage that stamps or verifies either value invokes it. The hash turns "the design changed after it was analysed" into a detectable condition — a record staleness axis independent of the code axis the gates already track.
 
 ## How It Works
 
-The canonicalisation rule is stated, not incidental, and fixed for the lifetime of any stamped value: line endings normalise, trailing whitespace strips from each line, trailing blank lines strip from the end — and nothing else, because a rule that forgave interior churn would also hide genuine edits. The digest is a lowercase hexadecimal hash, never truncated on any surface, and always computed over the body as fetched back from the platform, never locally submitted text, so storage normalisation cannot make a fresh record read stale. Conformance stamps the record reference and hash into its receipt beside the analysed commit. Close re-hashes the current body and names a mismatch as record staleness, separate from code staleness; both axes take the same explicit waiver. The drain re-verifies before writing the knowledge store and hard-errors on a mismatch with no waiver — the softest control must not sit on the most durable write; the remedy is upstream re-approval and a re-stamp. The fetch-and-hash step is read-only against the record issue.
+The canonicalisation rule is stated, not incidental, and fixed for the lifetime of any stamped value: line endings normalise, trailing whitespace strips from each line, trailing blank lines strip from the end — and nothing else, because a rule that forgave interior churn would also hide genuine edits. The digest is a lowercase hexadecimal hash, never truncated on any surface, and always computed over the body as fetched back from the platform, never locally submitted text, so storage normalisation cannot make a fresh record read stale. Conformance stamps the record reference and hash into its receipt beside the analysed commit. Close re-hashes the current body and names a mismatch as record staleness, separate from code staleness; both axes take the same explicit waiver. The drain re-verifies before writing the knowledge store and hard-errors on a mismatch with no waiver — the softest control must not sit on the most durable write; the remedy is upstream re-approval and a re-stamp. The fetch-and-hash step is read-only against the record issue. Analyze applies the same program to each story's issue body to fingerprint the text its receipt checked, and close re-hashes that body to report a story changed since analysis.
 
 ## Key Invariants
 
@@ -36,6 +36,7 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 - [writer-stamp](writer-stamp.md) — sits beside this digest, outside the bytes it covers, so stamping changes no hash and this rule needed no exception.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — compares each story verdict's stamped digest against the record's current digest, one story at a time.
 - [pinned-sources](pinned-sources.md) — reuses this record fetch's approval reading, so a record closed as not planned pins nothing.
+- [story-evidence-report](story-evidence-report.md) — takes each story fingerprint with this program, over the story's issue body.
 
 ## Decision Log
 
@@ -67,3 +68,7 @@ Mechanical reciprocity fan-out: the record-staleness axis is now evaluated once 
 ### 2026-09-17 — #459 — Reciprocal link from pinned-sources
 
 Source pinning reads a record's approval through the same fetch this digest uses, and does not add a second reading of the issue state. Two approval rules could drift apart, and one of them would then pin sources from a withdrawn record.
+
+### 2026-10-01 — #827 — The digest also fingerprints a story's text
+
+A receipt now records which story text it checked, so close can report a story edited after its pull request was analyzed. The fingerprint is this same program applied to the story's issue body. A second hashing rule would drift from this one. A raw byte hash was refuted: it would report GitHub's own line-ending normalisation as a change, and that false report would become a false block once a later epic acts on it. The cost is that a story whose only edit is to line endings or trailing whitespace, or which is only retitled, is not reported as changed. Nothing about the record digest itself changed.

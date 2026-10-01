@@ -1,8 +1,8 @@
 ---
 title: "Verdict Repository Scoping"
 aliases: ["issues repository key", "which repository a story number belongs to", "effective issues repository", "unknown accepts", "rejected candidate", "publish boundary check"]
-touches: ["conformance-gate", "aggregated-epic-receipt", "provenance-reference"]
-last_updated_by: "#751"
+touches: ["conformance-gate", "aggregated-epic-receipt", "provenance-reference", "story-evidence-report"]
+last_updated_by: "#827"
 status: active
 verification: verified
 ---
@@ -34,9 +34,14 @@ A reader takes the verdict's effective repository: the name it states, or the co
 - [conformance-gate](conformance-gate.md) — the gate that publishes the verdict; its publish step is the boundary the check sits at, and a refusal there fails the step.
 - [aggregated-epic-receipt](aggregated-epic-receipt.md) — the epic-wide derivation, which drops a candidate belonging to another repository with the rest of its trust checks and names it.
 - [provenance-reference](provenance-reference.md) — the reference forms; a verdict's story list stays bare because its repository is declared once, immediately above it.
+- [story-evidence-report](story-evidence-report.md) — adds a story fingerprint check at the same publish boundary this page's check sits at.
 
 ## Decision Log
 
 ### 2026-09-21 — #751 — The repository a bare story number belongs to is written on every publish and compared on every read
 
 A verdict stamped only its code repository and named its stories as bare numbers, and readers matched those numbers without asking which repository they belonged to. Two repositories sharing a number cross-matched: on one live epic, a verdict named an epic and a story that existed as unrelated items in the code repository while the real ones lived in the issues repository. The rule that should have prevented it existed as stage prose, and was followed everywhere except the one case it was written for. It is now a check the gate must pass to publish, and the conditional it was guarding — write the name only when the two repositories differ — is deleted rather than verified, because a check that confirms a conditional was applied correctly still contains the conditional. Refuted alternative: keep that conditional and have the check enforce it, which leaves every newly published verdict byte-identical to an old one in the common case. It lost because the reader's fallback has to survive for the whole published population regardless, so omitting the name buys no reader anything it could act on, while keeping the shape that failed.
+
+### 2026-10-01 — #827 — Reciprocal link from story-evidence-report
+
+Mechanical reciprocity fan-out: the publish check now also refuses a receipt whose story fingerprints do not match each named story's current text, at the same boundary as the repository check.
