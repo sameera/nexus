@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command"]
-last_updated_by: "#814"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command", "story-evidence-report"]
+last_updated_by: "#827"
 status: active
 verification: verified
 ---
@@ -66,6 +66,7 @@ as a literal value no reader can mistake for a waiver.
 - [verdict-repository-scoping](verdict-repository-scoping.md) — names the repository this gate's published verdict resolves its story numbers against, and the check the gate must pass before publishing one.
 - [shipped-ledger](shipped-ledger.md) — the record this gate writes on the epic issue for a merged pull request, and the source every later gate reads what shipped from.
 - [close-and-distill-command](close-and-distill-command.md) — the stage that runs this gate with nobody watching before close, and reads its outcome from the published verdict and the shipped record, never from the exit status.
+- [story-evidence-report](story-evidence-report.md) — the close report that reads the story fingerprints this gate records in its pull-request receipt.
 
 ## Decision Log
 
@@ -142,3 +143,7 @@ surface a lead reads at close.
 ### 2026-09-27 — #814 — Reciprocal link from close-and-distill-command
 
 The close-and-distill command declared an interaction with this concept, so this page mirrors it.
+
+### 2026-10-01 — #827 — Reciprocal link from story-evidence-report
+
+Mechanical reciprocity fan-out: the receipt this gate publishes on a pull request now records a fingerprint of each named story's text, and the close stage's evidence report compares those fingerprints with each story's current text.
