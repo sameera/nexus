@@ -16,11 +16,18 @@
  * report says so. Reading it as "the whole epic" is the one way an old receipt could vouch for a
  * story added after it was written, which nobody checked.
  *
+ * Each receipt that names a story is compared with the story's current fingerprint on its own
+ * (D8): a story can ship as a feature and then a fix, each analysed against different text, and
+ * collapsing them would hide which pull request's analysis is out of date. A receipt recording no
+ * fingerprint for the story is unknown, never changed or unchanged. A fingerprint for a story the
+ * receipt does not name is ignored.
+ *
  * The report gates nothing else. The shipped-ledger gate keeps deciding whether the epic can close.
  */
 
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
+import { storyFingerprint, type StoryFingerprintRead } from "./fingerprint.js";
 import { readPrVerdict } from "./pr-verdict.js";
 import { type Runner } from "./run.js";
 import { resolveStoryMergedPrs, type StoryMergedPr, type StoryMergedPrsRead, type StoryReadFailure } from "./story-prs.js";
@@ -32,6 +39,8 @@ export type ReceiptRead = { ok: true; receipt: AnalyzeReceipt | null } | { ok: f
 export interface EvidenceDeps {
     readClaims(story: number): StoryMergedPrsRead;
     readReceipt(pr: StoryMergedPr): ReceiptRead;
+    /** The fingerprint of the story's current body. */
+    fingerprint(story: number): StoryFingerprintRead;
 }
 
 export interface EvidencePr {
@@ -46,11 +55,20 @@ export interface EvidencePr {
 /** `has-receipt`: some claiming pull request's receipt names the story. `no-receipt`: none does. */
 export type StoryEvidenceState = "has-receipt" | "no-receipt";
 
+export interface PrRef {
+    repo: string;
+    pr: number;
+}
+
 export interface StoryEvidence {
     story: number;
     state: StoryEvidenceState;
     /** Every merged pull request that claims the story. */
     prs: EvidencePr[];
+    /** Pull requests whose receipt names the story with a fingerprint other than its current one. */
+    changed: PrRef[];
+    /** Pull requests whose receipt names the story but records no fingerprint for it. */
+    unknown: PrRef[];
 }
 
 export interface EvidenceReport {
@@ -111,7 +129,24 @@ export function collectEvidence(deps: EvidenceDeps, input: CollectEvidenceInput)
             prs.push({ repo: pr.repo, pr: pr.pr, receipt: read.receipt !== null, namesStory: named.includes(story) });
         }
         if (failed) continue;
-        stories.push({ story, state: prs.some((p) => p.namesStory) ? "has-receipt" : "no-receipt", prs });
+
+        const changed: PrRef[] = [];
+        const unknown: PrRef[] = [];
+        const naming = prs.filter((p) => p.namesStory);
+        if (naming.length > 0) {
+            const current = deps.fingerprint(story);
+            if (!current.ok) {
+                failures.push({ story, cause: `its current text could not be fetched: ${current.cause}` });
+                continue;
+            }
+            for (const p of naming) {
+                const r = receipts.get(prKey(p));
+                const recorded = r !== undefined && r.ok ? r.receipt?.storyFingerprints[story] : undefined;
+                if (recorded === undefined) unknown.push({ repo: p.repo, pr: p.pr });
+                else if (recorded !== current.digest) changed.push({ repo: p.repo, pr: p.pr });
+            }
+        }
+        stories.push({ story, state: naming.length > 0 ? "has-receipt" : "no-receipt", prs, changed, unknown });
     }
 
     if (failures.length > 0) return { ok: false, failures };
@@ -127,9 +162,13 @@ function storyRef(story: number, issuesRepo: string | undefined): string {
 function renderLines(stories: readonly StoryEvidence[], coversNone: ReadonlyArray<{ repo: string; pr: number }>, issuesRepo: string | undefined): string[] {
     const lines: string[] = [];
     for (const s of stories) {
+        const ref = storyRef(s.story, issuesRepo);
+        const prs = (list: readonly PrRef[]) => list.map((p) => `${p.repo}#${p.pr}`).join(", ");
         if (s.state === "no-receipt") {
-            lines.push(`${storyRef(s.story, issuesRepo)} — no receipt: no pull request claiming it carries an analyze receipt that names it`);
+            lines.push(`${ref} — no receipt: no pull request claiming it carries an analyze receipt that names it`);
         }
+        if (s.changed.length > 0) lines.push(`${ref} — changed since analysis: its text differs from the receipt on ${prs(s.changed)}`);
+        if (s.unknown.length > 0) lines.push(`${ref} — unknown: the receipt on ${prs(s.unknown)} records no fingerprint of its text`);
     }
     for (const r of coversNone) {
         lines.push(`${r.repo}#${r.pr} — its receipt names no story, so it counts for none`);
@@ -153,5 +192,6 @@ export function evidenceDeps(run: Runner, cwd: string, issuesRepo: string): Evid
             if (!v.ok) return { ok: false, cause: v.error.message };
             return { ok: true, receipt: v.verdict.found ? v.verdict.receipt : null };
         },
+        fingerprint: (story) => storyFingerprint(run, cwd, issuesRepo, story),
     };
 }

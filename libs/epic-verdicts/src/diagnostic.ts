@@ -23,7 +23,15 @@ export type EpicVerdictsProblem =
     /** A stated issues repository that is not the one resolved here. */
     | "issues-repo-mismatch"
     /** A story's claiming pull requests could not be read (epic #827) — never "no pull request". */
-    | "story-read-failed";
+    | "story-read-failed"
+    /** A story the drafted verdict names carries no fingerprint (epic #827). */
+    | "story-fingerprint-missing"
+    /** The drafted verdict fingerprints a story it does not name. */
+    | "story-fingerprint-extra"
+    /** A fingerprint differs from the digest of the story's current body. */
+    | "story-fingerprint-mismatch"
+    /** A named story's current body could not be fetched, so its fingerprint cannot be checked. */
+    | "story-unreadable";
 
 export interface EpicVerdictsDiagnostic {
     problem: EpicVerdictsProblem;

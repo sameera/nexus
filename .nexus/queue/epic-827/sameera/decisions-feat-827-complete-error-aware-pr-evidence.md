@@ -22,3 +22,13 @@
 - **Choice:** The evidence report keeps receipts that name no story in one `coversNone` list keyed by pull request, with one line each.
 - **Why:** A pull request claiming several stories would otherwise repeat the same "counts for none" line for each story.
 - **Refuted alternative:** Attach a "names no story" line to every story the pull request claims.
+
+## 2026-09-30 — Fingerprints come from a dedicated command that resolves the issues repository
+- **Choice:** Analyze takes fingerprints with a new `nexus story-fingerprints --stories`, which resolves the issues repository itself and reuses `fetchRecord` and the record digest.
+- **Why:** A stage handing a repository to `nexus record-digest` per story could fingerprint against the code repository (G22), and one call covers every story.
+- **Refuted alternative:** Have analyze call `nexus record-digest --issue <story> --repo <issues repo>` once per story.
+
+## 2026-09-30 — Receipt fingerprints are a YAML flow map on one line
+- **Choice:** `story_fingerprints: { <n>: <digest>, ... }`, parsed by the existing one-line key reader.
+- **Why:** The receipt parser reads one `key: value` per line, and `findings` already uses this shape.
+- **Refuted alternative:** A nested YAML block, which the line parser cannot read without a new parser.

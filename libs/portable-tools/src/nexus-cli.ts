@@ -42,6 +42,7 @@ import { type UntrustedRecord } from "@nexus/epic-verdicts/ledger";
 import { ledgerCloseGate, sumLedgerFindings } from "@nexus/epic-verdicts/close-ledger";
 import { describeStoryReadFailures, readEveryStoryClaims } from "@nexus/epic-verdicts/story-prs";
 import { collectEvidence, evidenceDeps } from "@nexus/epic-verdicts/evidence";
+import { fingerprintStories } from "@nexus/epic-verdicts/fingerprint";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { resolveVerdictRepos, resolveVerdictRoots } from "@nexus/epic-verdicts/verdict-repos";
@@ -296,7 +297,8 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      exits 1 as story-read-failed, naming every such story, and prints no coverage.",
             "  nexus epic-verdicts evidence --epic <N> [--root <startDir>]",
             "      Close's per-story evidence report: each live story's claiming pull requests and the",
-            "      receipt each one carries. A receipt counts only for the stories it names. Prints",
+            "      receipt each one carries. A receipt counts only for the stories it names, and each",
+            "      one naming a story is compared with the story's current fingerprint. Prints",
             "      { command: \"evidence\", stories, coversNone, excluded, lines };",
             "      close repeats `lines` verbatim. A failed read exits 1 as story-read-failed.",
             "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
@@ -335,9 +337,21 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      repository, parse the drafted body with the same parser readers use, and approve",
             "      it or refuse. Prints { command, issuesRepo, repo } on approval. Exits 1 when the",
             "      body names no issues repository or names the wrong one, naming the value it should",
-            "      have carried. Both repositories are resolved here, never taken as arguments.",
+            "      have carried. Both repositories are resolved here, never taken as arguments. Also",
+            "      exits 1 unless the body records exactly one fingerprint per story it names, each",
+            "      equal to the digest of that story's current body.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runVerdictCheck(argv, io)),
+    },
+    "story-fingerprints": {
+        summary: "Print the fingerprint of each story's issue body, for the analyze receipt to record.",
+        usage: [
+            "  nexus story-fingerprints --stories <n,n> [--dir <startDir>]",
+            "      Resolve this checkout's issues repository, fetch each story's issue body from it,",
+            "      and print { command, issuesRepo, fingerprints: { <n>: <digest> } } — the record",
+            "      digest over each body, in full. Exits 1 naming every story that could not be read.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runStoryFingerprints(argv, io)),
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -1889,6 +1903,38 @@ function runVerdictCheck(argv: string[], io: CliIo): number {
         return 1;
     }
     io.stdout(JSON.stringify({ command: "verdict-check", ...result.repos }));
+    return 0;
+}
+
+/**
+ * `nexus story-fingerprints` — the fingerprints analyze takes when it first reads the stories
+ * (epic #827, decision record #837, D7). The issues repository is resolved here, never passed in,
+ * so a story number cannot be fingerprinted against the code repository.
+ */
+function runStoryFingerprints(argv: string[], io: CliIo): number {
+    let stories: number[] = [];
+    let dir: string | undefined;
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--stories") stories = [...(argv[++i] ?? "").matchAll(/\d+/g)].map((m) => Number(m[0]));
+        else if (argv[i] === "--dir" || argv[i] === "--root") dir = argv[++i];
+    }
+    if (stories.length === 0) {
+        io.stderr("usage: nexus story-fingerprints --stories <n,n> [--dir <startDir>]");
+        return 2;
+    }
+    const cwd = dir ?? io.cwd;
+    const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+    if (!repos.ok) {
+        io.stderr(`story-fingerprints ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+    const issuesRepo = repos.repos.issuesRepo;
+    const result = fingerprintStories(closeMigrationRunner, cwd, issuesRepo, stories);
+    if (!result.ok) {
+        io.stderr(`story-fingerprints story-unreadable: ${result.failures.map((f) => `${issuesRepo}#${f.story} — ${f.cause}`).join("; ")}`);
+        return 1;
+    }
+    io.stdout(JSON.stringify({ command: "story-fingerprints", issuesRepo, fingerprints: result.fingerprints }));
     return 0;
 }
 

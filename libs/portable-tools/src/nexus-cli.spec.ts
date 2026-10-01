@@ -1789,3 +1789,11 @@ describe("nexus epic-verdicts — the retired checks report their own removal (s
         expect(io.err.join("\n")).not.toContain("no longer exists");
     });
 });
+
+describe("nexus story-fingerprints (epic #827, story #836)", () => {
+    it("exits 2 with a usage diagnostic when no story is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-story-fingerprints-"));
+        expect(await runNexusCli(["story-fingerprints"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--stories");
+    });
+});

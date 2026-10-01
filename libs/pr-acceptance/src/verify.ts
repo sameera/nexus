@@ -305,6 +305,13 @@ export interface AnalyzeReceipt {
      * existed; either way a reader falls back to resolving those numbers against `repo`.
      */
     issuesRepo: string | null;
+    /**
+     * The fingerprint of each named story's issue body the analysis judged, by story number — the
+     * record digest over the body as fetched (epic #827, decision record #837, D6). Empty for a
+     * receipt written before fingerprints existed, which a reader reports as unknown, never as
+     * changed or unchanged.
+     */
+    storyFingerprints: Record<number, string>;
 }
 
 export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
@@ -325,6 +332,10 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
     }
     const storiesRaw = fields.get("stories") ?? "";
     const stories = [...storiesRaw.matchAll(/\d+/g)].map((m) => Number(m[0]));
+    const storyFingerprints: Record<number, string> = {};
+    for (const [, n, digest] of (fields.get("story_fingerprints") ?? "").matchAll(/#?(\d+)\s*:\s*([0-9A-Za-z]+)/g)) {
+        storyFingerprints[Number(n)] = digest;
+    }
     return {
         epic: fields.get("epic") ?? "",
         nexusVersion: fields.get("nexus_version")?.trim() || null,
@@ -338,6 +349,7 @@ export function parseReceiptBlock(body: string): AnalyzeReceipt | null {
         record: fields.get("record")?.trim() || null,
         recordHash: fields.get("record_hash")?.trim() || null,
         issuesRepo: fields.get("issues_repo")?.trim() || null,
+        storyFingerprints,
     };
 }
 

@@ -416,7 +416,12 @@ should have run yet.
    report" when `lines` is empty. A receipt counts only for the stories its `stories:` list names,
    so the lines say which stories have **no receipt** naming them, and which receipts **name no
    story** and so count for none. A receipt with an empty or missing list never covers the whole
-   epic. **The report decides nothing else.** Do not block, waive or
+   epic. For each receipt that names a story, the command compares the fingerprint the receipt
+   recorded with the story's current text. A story whose text **changed since analysis** is named
+   with the pull request whose receipt is out of date. A receipt that records **no fingerprint**
+   for the story (written before fingerprints existed) is named as **unknown**, never as changed
+   or unchanged. A story that matches every receipt naming it produces no line.
+   **The report decides nothing else.** Do not block, waive or
    re-check on any of its lines; the ledger's gate above stays the only close gate.
 
    Once the ledger's gate passes, there is nothing further to re-check about the code. The record
