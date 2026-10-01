@@ -21,6 +21,14 @@
  *
  * Only merged pull requests come back. An open or closed-unmerged pull request shipped nothing, and
  * every caller here is asking what shipped.
+ *
+ * The read is complete or it fails (epic #827, decision record #837, D1). Both edges are read to
+ * their last page, because cross-references include mentions from plain issues and a busy story can
+ * fill its first page before the pull request that shipped it appears. A failure on any page — a
+ * refused call, an unparseable answer, a story the platform does not know — fails the whole read
+ * and names the story and the cause. There is no third outcome, so an empty list means only that
+ * nothing merged claims the story. Analyze and close both read through here and keep no query of
+ * their own (D2).
  */
 
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
@@ -50,14 +58,40 @@ export interface StoryMergedPrsResult {
     prs: StoryMergedPr[];
 }
 
-const STORY_PRS_QUERY =
-    "query($owner:String!,$repo:String!,$num:Int!){" +
-    "repository(owner:$owner,name:$repo){issue(number:$num){" +
-    "closedByPullRequestsReferences(first:50,includeClosedPrs:true){nodes{" +
-    "number merged mergedAt mergeCommit{oid} body repository{nameWithOwner}}}" +
-    "timelineItems(first:100,itemTypes:[CROSS_REFERENCED_EVENT]){nodes{...on CrossReferencedEvent{source{...on PullRequest{" +
-    "number merged mergedAt mergeCommit{oid} body repository{nameWithOwner}}}}}}" +
-    "}}}";
+/** The claiming read could not produce a complete answer for `story`. */
+export interface StoryReadFailure {
+    story: number;
+    /** What went wrong, in words a lead can act on: the platform's own message where it gave one. */
+    cause: string;
+}
+
+export type StoryMergedPrsRead = { ok: true; result: StoryMergedPrsResult } | { ok: false; failure: StoryReadFailure };
+
+const PR_FIELDS = "number merged mergedAt mergeCommit{oid} body repository{nameWithOwner}";
+
+/** One query per edge, each paged on its own cursor. */
+const EDGE_QUERIES: ReadonlyArray<{ edge: StoryPrEdge; field: string; query: string }> = [
+    {
+        edge: "closing",
+        field: "closedByPullRequestsReferences",
+        query:
+            "query($owner:String!,$repo:String!,$num:Int!,$cursor:String){" +
+            "repository(owner:$owner,name:$repo){issue(number:$num){" +
+            "closedByPullRequestsReferences(first:100,after:$cursor,includeClosedPrs:true){" +
+            `pageInfo{hasNextPage endCursor} nodes{${PR_FIELDS}}}` +
+            "}}}",
+    },
+    {
+        edge: "cross-reference",
+        field: "timelineItems",
+        query:
+            "query($owner:String!,$repo:String!,$num:Int!,$cursor:String){" +
+            "repository(owner:$owner,name:$repo){issue(number:$num){" +
+            "timelineItems(first:100,after:$cursor,itemTypes:[CROSS_REFERENCED_EVENT]){" +
+            `pageInfo{hasNextPage endCursor} nodes{...on CrossReferencedEvent{source{...on PullRequest{${PR_FIELDS}}}}}}` +
+            "}}}",
+    },
+];
 
 interface RawPr {
     number: number;
@@ -94,12 +128,53 @@ function readPr(node: unknown): RawPr | null {
     };
 }
 
-function nodesOf(container: unknown, key: string): unknown[] {
-    if (container === null || typeof container !== "object") return [];
-    const inner = (container as Record<string, unknown>)[key];
-    if (inner === null || typeof inner !== "object") return [];
-    const nodes = (inner as Record<string, unknown>)["nodes"];
-    return Array.isArray(nodes) ? nodes : [];
+type EdgeRead = { ok: true; nodes: unknown[] } | { ok: false; cause: string };
+
+/** Every node one edge holds for `story`, read to the last page, or the reason it could not be. */
+function readEdge(run: Runner, cwd: string, slug: RepoSlug, story: number, edge: (typeof EDGE_QUERIES)[number]): EdgeRead {
+    const nodes: unknown[] = [];
+    let cursor: string | null = null;
+    for (let pageNo = 1; ; pageNo++) {
+        const args = ["api", "graphql", "-f", `query=${edge.query}`, "-F", `owner=${slug.owner}`, "-F", `repo=${slug.repo}`, "-F", `num=${story}`];
+        if (cursor !== null) args.push("-f", `cursor=${cursor}`);
+        const r = run("gh", args, { cwd });
+        const where = `the ${edge.edge === "closing" ? "closing links" : "cross-references"} (page ${pageNo})`;
+        if (r.status !== 0) return { ok: false, cause: `reading ${where} failed: ${r.stderr.trim() || `gh exited ${r.status}`}` };
+
+        let doc: Record<string, unknown>;
+        try {
+            const parsed: unknown = JSON.parse(r.stdout);
+            if (parsed === null || typeof parsed !== "object") throw new Error("expected an object");
+            doc = parsed as Record<string, unknown>;
+        } catch (e) {
+            return { ok: false, cause: `reading ${where} returned unparseable JSON: ${e instanceof Error ? e.message : String(e)}` };
+        }
+        if (Array.isArray(doc["errors"]) && doc["errors"].length > 0) {
+            return { ok: false, cause: `reading ${where} returned errors: ${JSON.stringify(doc["errors"])}` };
+        }
+        const data = doc["data"] as Record<string, unknown> | undefined;
+        const repository = data?.["repository"] as Record<string, unknown> | null | undefined;
+        if (repository === null || repository === undefined) {
+            return { ok: false, cause: `${slug.owner}/${slug.repo} could not be read while reading ${where}.` };
+        }
+        const issue = repository["issue"];
+        if (issue === null || issue === undefined || typeof issue !== "object") {
+            return { ok: false, cause: `GitHub does not know issue #${story} in ${slug.owner}/${slug.repo}.` };
+        }
+        const conn = (issue as Record<string, unknown>)[edge.field] as Record<string, unknown> | null | undefined;
+        const pageNodes = conn?.["nodes"];
+        const pageInfo = conn?.["pageInfo"] as Record<string, unknown> | null | undefined;
+        if (!Array.isArray(pageNodes) || pageInfo === null || typeof pageInfo !== "object") {
+            return { ok: false, cause: `reading ${where} returned no ${edge.field} page.` };
+        }
+        nodes.push(...pageNodes);
+        if (pageInfo["hasNextPage"] !== true) return { ok: true, nodes };
+        const next = pageInfo["endCursor"];
+        if (typeof next !== "string" || next.length === 0 || next === cursor) {
+            return { ok: false, cause: `reading ${where} reported a further page but no cursor to reach it.` };
+        }
+        cursor = next;
+    }
 }
 
 /**
@@ -109,25 +184,7 @@ function nodesOf(container: unknown, key: string): unknown[] {
  * repository this ever queries. The repositories the pull requests merged in come back from the
  * platform; none of them has to be checked out, or even reachable, for this to answer.
  */
-export function resolveStoryMergedPrs(run: Runner, cwd: string, slug: RepoSlug, story: number): StoryMergedPrsResult {
-    const r = run(
-        "gh",
-        ["api", "graphql", "-f", `query=${STORY_PRS_QUERY}`, "-F", `owner=${slug.owner}`, "-F", `repo=${slug.repo}`, "-F", `num=${story}`],
-        { cwd },
-    );
-    if (r.status !== 0) return { story, prs: [] };
-
-    let issue: unknown;
-    try {
-        const doc = JSON.parse(r.stdout) as Record<string, unknown>;
-        const data = doc["data"] as Record<string, unknown> | undefined;
-        const repository = data?.["repository"] as Record<string, unknown> | undefined;
-        issue = repository?.["issue"];
-    } catch {
-        return { story, prs: [] };
-    }
-    if (issue === null || issue === undefined || typeof issue !== "object") return { story, prs: [] };
-
+export function resolveStoryMergedPrs(run: Runner, cwd: string, slug: RepoSlug, story: number): StoryMergedPrsRead {
     const byKey = new Map<string, StoryMergedPr>();
     const add = (raw: RawPr | null, edge: StoryPrEdge): void => {
         if (raw === null || !raw.merged) return;
@@ -146,10 +203,15 @@ export function resolveStoryMergedPrs(run: Runner, cwd: string, slug: RepoSlug, 
         });
     };
 
-    for (const node of nodesOf(issue, "closedByPullRequestsReferences")) add(readPr(node), "closing");
-    for (const node of nodesOf(issue, "timelineItems")) {
-        if (node === null || typeof node !== "object") continue;
-        add(readPr((node as Record<string, unknown>)["source"]), "cross-reference");
+    // The closing edge is read in full before any cross-reference, so it wins wherever both carry
+    // the same pull request, however the two edges happen to page.
+    for (const edge of EDGE_QUERIES) {
+        const read = readEdge(run, cwd, slug, story, edge);
+        if (!read.ok) return { ok: false, failure: { story, cause: read.cause } };
+        for (const node of read.nodes) {
+            if (edge.edge === "closing") add(readPr(node), "closing");
+            else if (node !== null && typeof node === "object") add(readPr((node as Record<string, unknown>)["source"]), "cross-reference");
+        }
     }
 
     // Merge time is the platform's, so ordering never needs a copy of the repository it merged in
@@ -157,5 +219,38 @@ export function resolveStoryMergedPrs(run: Runner, cwd: string, slug: RepoSlug, 
     const prs = [...byKey.values()].sort(
         (a, b) => a.mergedAt.localeCompare(b.mergedAt) || a.repo.localeCompare(b.repo) || a.pr - b.pr,
     );
-    return { story, prs };
+    return { ok: true, result: { story, prs } };
+}
+
+export type EveryStoryClaimsRead =
+    | { ok: true; byStory: Record<number, StoryMergedPr[]> }
+    | { ok: false; failures: StoryReadFailure[] };
+
+/**
+ * The claiming read for each of `stories`. Every story is read even after one fails, so a single
+ * run names every unreadable story rather than only the first (decision record #837, D3).
+ */
+export function readEveryStoryClaims(run: Runner, cwd: string, slug: RepoSlug, stories: readonly number[]): EveryStoryClaimsRead {
+    const byStory: Record<number, StoryMergedPr[]> = {};
+    const failures: StoryReadFailure[] = [];
+    for (const story of stories) {
+        const read = resolveStoryMergedPrs(run, cwd, slug, story);
+        if (read.ok) byStory[story] = read.result.prs;
+        else failures.push(read.failure);
+    }
+    return failures.length > 0 ? { ok: false, failures } : { ok: true, byStory };
+}
+
+/**
+ * The one way a failed claiming read is told to the lead: every failed story, qualified by the
+ * issues repository its number belongs to, with its cause. The remedy is a plain re-run once the
+ * read succeeds — nothing here retries on its own (R2).
+ */
+export function describeStoryReadFailures(failures: readonly StoryReadFailure[], issuesRepo: string): string {
+    const lines = failures.map((f) => `  ${issuesRepo}#${f.story} — ${f.cause}`);
+    return [
+        `the pull requests claiming ${failures.length} stor${failures.length === 1 ? "y" : "ies"} could not be read:`,
+        ...lines,
+        "A failed read is not the same as no pull request. Re-run once the read succeeds.",
+    ].join("\n");
 }

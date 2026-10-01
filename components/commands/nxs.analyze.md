@@ -666,6 +666,13 @@ entries — records on the epic issue whose author cannot speak for the issues r
 The issue graph answers the *unrecorded* question and nothing else. It is a reconciliation aid: a
 wrong answer from it costs you a prompt, never a wrong close.
 
+**A failed read is never a fifth state.** Each story's claiming pull requests are read to the last
+page, and a read either completes or fails. When any story's read fails, the command still reads
+the rest, then exits 1 with `epic-verdicts story-read-failed`, naming every failed story and its
+cause, and prints **no coverage**. Report that diagnostic verbatim and stop. Never report the
+failed stories as *unshipped*: a failed read is not "no pull request". The remedy is a plain re-run
+once the read succeeds.
+
 `head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so the commit the
 analysis judged is named without ambiguity, and so the range a record stamps is anchored to it.
 `/nxs.close` no longer compares it against the pull request's current head (epic #769, story #776).

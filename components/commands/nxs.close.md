@@ -400,6 +400,22 @@ should have run yet.
     non-empty; `#<pr>` stays bare — its own `<repo>` column already names where it lives, the same
     disambiguation a qualifier would add.
 
+   **The evidence report (epic #827) — run it once the ledger's gate passes, before anything else.**
+
+    ```bash
+    nexus epic-verdicts evidence --epic <epic-issue>
+    ```
+
+   It reads, for each live story that is not excluded, every merged pull request that claims it
+   and the receipt each one carries. Analyze reads the same pull requests through the same read.
+   **Exit 1 (`epic-verdicts story-read-failed`) stops this command here, before it mines anything:**
+   report the diagnostic verbatim. It names each story whose evidence could not be read and the
+   cause. A failed read is never "no pull request". The remedy is a plain re-run once the read
+   succeeds; offer no waiver and do not retry on your own. On exit 0, repeat every entry of
+   `lines` verbatim under an **Evidence report** heading, or say "Evidence report: nothing to
+   report" when `lines` is empty. **The report decides nothing else.** Do not block, waive or
+   re-check on any of its lines; the ledger's gate above stays the only close gate.
+
    Once the ledger's gate passes, there is nothing further to re-check about the code. The record
    axis alone remains, and it is checked against the record's current digest below — never against
    a pull request's current head, and never against a branch tip.

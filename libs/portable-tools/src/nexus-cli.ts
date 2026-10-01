@@ -40,7 +40,8 @@ import { epicRefForRecord, fetchShippedRecords, postShippedRecord, type FindingC
 import { assessEpicCoverage } from "@nexus/epic-verdicts/coverage";
 import { type UntrustedRecord } from "@nexus/epic-verdicts/ledger";
 import { ledgerCloseGate, sumLedgerFindings } from "@nexus/epic-verdicts/close-ledger";
-import { resolveStoryMergedPrs, type StoryMergedPr } from "@nexus/epic-verdicts/story-prs";
+import { describeStoryReadFailures, readEveryStoryClaims } from "@nexus/epic-verdicts/story-prs";
+import { collectEvidence, evidenceDeps } from "@nexus/epic-verdicts/evidence";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { resolveVerdictRepos, resolveVerdictRoots } from "@nexus/epic-verdicts/verdict-repos";
@@ -291,7 +292,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Ask an epic what it has shipped. Re-reads the live story set and classifies each",
             "      story as shipped, unrecorded, unshipped or excluded against the epic's records.",
             "      Prints { command: \"coverage\", fullyShipped, stories, unshipped, unrecorded,",
-            "      recorded, excluded, untrusted }.",
+            "      recorded, excluded, untrusted }. A story whose pull requests could not be read",
+            "      exits 1 as story-read-failed, naming every such story, and prints no coverage.",
+            "  nexus epic-verdicts evidence --epic <N> [--root <startDir>]",
+            "      Close's per-story evidence report: each live story's claiming pull requests and the",
+            "      receipt each one carries. Prints { command: \"evidence\", stories, excluded, lines };",
+            "      close repeats `lines` verbatim. A failed read exits 1 as story-read-failed.",
             "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
             "      Decide merge state and the close range from the epic's records. Prints { command:",
             "      \"close-gate\", ok, merged, range, blocking }. Blocks — never waives — on a recorded",
@@ -302,7 +308,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
             "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "combined", "record", "coverage", "close-gate", "waive-story", "merge-gate", "currency"],
+        subverbs: ["derive", "combined", "record", "coverage", "evidence", "close-gate", "waive-story", "merge-gate", "currency"],
         run: runEpicVerdicts,
     },
     "pr-verdict": {
@@ -1397,6 +1403,7 @@ const EPIC_VERDICTS_SUBVERBS = [
     "combined",
     "record",
     "coverage",
+    "evidence",
     "close-gate",
     "waive-story",
     ...Object.keys(RETIRED_EPIC_VERDICTS_SUBVERBS),
@@ -1569,7 +1576,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive|combined|coverage|close-gate --epic <N> [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|combined|coverage|evidence|close-gate --epic <N> [--root <startDir>]");
         return 2;
     }
 
@@ -1657,15 +1664,22 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         const slash = issuesRepo.indexOf("/");
         const issuesSlug = { owner: issuesRepo.slice(0, slash), repo: issuesRepo.slice(slash + 1) };
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded: number[] = [];
-        const mergedPrsByStory: Record<number, StoryMergedPr[]> = {};
-        for (const story of stories) {
-            if (noPrLabel.length > 0 && storyCarriesLabel(root, issuesRepo, story, noPrLabel)) {
-                excluded.push(story);
-                continue;
-            }
-            mergedPrsByStory[story] = resolveStoryMergedPrs(closeMigrationRunner, root, issuesSlug, story).prs;
+        const excluded: number[] = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+
+        // A failed read is never a coverage state (decision record #837, D3): the one-command close
+        // script stops on this exit, and a fifth state would read as no gap to any reader that
+        // ignored it. Every story is read first, so one run names every unreadable story.
+        const claims = readEveryStoryClaims(
+            closeMigrationRunner,
+            root,
+            issuesSlug,
+            stories.filter((story) => !excluded.includes(story)),
+        );
+        if (!claims.ok) {
+            io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(claims.failures, issuesRepo)} No coverage is printed.`);
+            return 1;
         }
+        const mergedPrsByStory = claims.byStory;
 
         const coverage = assessEpicCoverage({
             epic: flags.epic,
@@ -1676,6 +1690,34 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             untrusted: collected.collected.untrusted,
         });
         io.stdout(JSON.stringify({ command: "coverage", issuesRepo, ...coverage }));
+        return 0;
+    }
+
+    // `evidence` — close's per-story evidence report (epic #827, decision record #837, D4). Close
+    // runs this and repeats `lines`; a failed read behind it stops close before it mines anything.
+    // It decides nothing else: the ledger gate above keeps deciding whether the epic can close.
+    if (argv[0] === "evidence") {
+        const repos = resolveVerdictRepos(closeMigrationRunner, root);
+        if (!repos.ok) {
+            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+            return 1;
+        }
+        const issuesRepo = repos.repos.issuesRepo;
+        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        if (!resolved.ok) {
+            io.stderr(renderEpicResolveDiagnostic(resolved.error));
+            return 1;
+        }
+        const stories = resolved.resolved.stories.map((st) => st.number);
+        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+
+        const evidence = collectEvidence(evidenceDeps(closeMigrationRunner, root, issuesRepo), { stories, excluded });
+        if (!evidence.ok) {
+            io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(evidence.failures, issuesRepo)} Close stops here.`);
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "evidence", epic: flags.epic, issuesRepo, ...evidence.report }));
         return 0;
     }
 

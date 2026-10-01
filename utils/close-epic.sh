@@ -260,7 +260,12 @@ if [[ "$(json_get found <<<"$VERDICT_JSON")" != "true" || -z "$EPIC_ISSUE" ]]; t
     echo "!!! /nxs.analyze --pr ${PR} published no conformance verdict — not starting close. See its report above." >&2
     exit 1
 fi
-COVERAGE_JSON="$(nexus epic-verdicts coverage --epic "$EPIC_ISSUE")"
+# A story whose pull requests could not be read exits coverage 1 and prints no coverage; that is
+# a stop, never a pass (decision record #837, D3).
+if ! COVERAGE_JSON="$(nexus epic-verdicts coverage --epic "$EPIC_ISSUE")"; then
+    echo "!!! could not read the pull requests of every story of epic #${EPIC_ISSUE} — not starting close. Re-run once the read succeeds." >&2
+    exit 1
+fi
 if ! PR="$PR" node -e '
 const c = JSON.parse(require("fs").readFileSync(0, "utf8"));
 process.exit((c.recorded ?? []).some((r) => r.pr === Number(process.env.PR)) ? 0 : 1);

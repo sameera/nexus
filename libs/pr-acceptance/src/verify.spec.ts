@@ -462,6 +462,33 @@ describe("verifyReceipt", () => {
         expect(r.value.current).toBe(true);
     });
 
+    it("selects the newest receipt on a busy pull request with more reviews and comments than one page holds (epic #827, R1)", () => {
+        const newer = "e".repeat(40);
+        const chatter = (n: number, key: string) =>
+            Array.from({ length: n }, (_, i) => ({ body: `comment ${i}`, [key]: `2026-07-25T11:${String(i % 60).padStart(2, "0")}:00Z` }));
+        const run = fakeRunner([
+            view({
+                reviews: [...chatter(150, "submittedAt"), { body: body(head), submittedAt: "2026-07-25T10:00:00Z" }],
+                comments: [...chatter(250, "createdAt"), { body: body(newer), createdAt: "2026-07-25T12:00:00Z" }],
+                headRefOid: newer,
+            }),
+        ]);
+        const r = verifyReceipt(run, "/clone", 13, undefined, null);
+        expect(r.ok && r.value.receipt?.head).toBe(newer);
+    });
+
+    it("reads the pull request from the repository it names when one is given", () => {
+        const seen: string[][] = [];
+        const base = fakeRunner([view({ reviews: [], comments: [{ body: body(head), createdAt: "2026-07-25T10:00:00Z" }], headRefOid: head })]);
+        const run: typeof base = (cmd, args, opts) => {
+            seen.push(args);
+            return base(cmd, args, opts);
+        };
+        const r = verifyReceipt(run, "/clone", 13, "acme/member", null, { ghRepo: "acme/member" });
+        expect(r.ok && r.value.found).toBe(true);
+        expect(seen[0]).toEqual(expect.arrayContaining(["--repo", "acme/member"]));
+    });
+
     it("detects staleness when a commit landed after analysis — never silently accepts it", () => {
         const later = "f".repeat(40);
         const run = fakeRunner([

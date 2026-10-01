@@ -437,14 +437,30 @@ function trustBlock(
     return "trusted";
 }
 
+export interface VerifyReceiptOptions {
+    /**
+     * The repository to read the pull request from, when it is not the checkout's own — a pull
+     * request the issue graph tied to a story can have merged anywhere (epic #827). Omitted, the
+     * read targets the checkout at `cwd`, as it always has.
+     */
+    ghRepo?: string;
+}
+
+/**
+ * `gh pr view --json reviews,comments` follows every page of both connections before it answers,
+ * so the selection below sees every review and comment on a busy pull request, not the first page
+ * of them (epic #827, decision record #837, R1).
+ */
 export function verifyReceipt(
     run: Runner,
     cwd: string,
     prNumber: number,
     expectedRepo: string | null | undefined,
     expectedIssuesRepo: string | null,
+    opts: VerifyReceiptOptions = {},
 ): Result<ReceiptVerdict> {
-    const r = run("gh", ["pr", "view", String(prNumber), "--json", "reviews,comments,headRefOid"], { cwd });
+    const repoArgs: string[] = opts.ghRepo === undefined ? [] : ["--repo", opts.ghRepo];
+    const r = run("gh", ["pr", "view", String(prNumber), ...repoArgs, "--json", "reviews,comments,headRefOid"], { cwd });
     if (r.status !== 0) return fail("gh-failed", `gh pr view ${prNumber} --json reviews,comments failed: ${r.stderr.trim()}`);
     let doc: Record<string, unknown>;
     try {
