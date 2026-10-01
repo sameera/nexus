@@ -1,8 +1,8 @@
 ---
 title: "Aggregated Epic Receipt"
 aliases: ["epic receipt", "aggregate mode", "story verdicts", "per-story staleness", "combined change set", "no-pull-request marker"]
-touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection"]
-last_updated_by: "#769"
+touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "story-evidence-report", "epic-coverage-run"]
+last_updated_by: "#827"
 status: active
 verification: verified
 ---
@@ -13,7 +13,7 @@ An epic whose stories were each judged on their own pull request gets one receip
 
 ## How It Works
 
-The conformance stage, addressed at an epic, reads the records on the epic issue for what shipped, and consults the issue graph only to notice a merged pull request that carries no record. It reports each story as shipped, unrecorded, unshipped or excluded, re-reading the live story set each run, so a story added after a record was written is reported without anything invalidating the records already there. A story marked on its issue as shipping without a pull request of its own is excluded rather than reported unshipped. One currency axis remains, checked per story: the stamped record digest against the record's current digest. The close gate reads the receipt and re-runs that check at gate time, naming each stale story rather than the whole epic.
+The conformance stage, addressed at an epic, reads the records on the epic issue for what shipped, and consults the issue graph to notice a merged pull request that carries no record. The close stage reads the same issue graph, through the same complete read, to find each story's receipts for its evidence report. A failed read of the issue graph is an error naming the story, never an empty answer. The four coverage states this stage reports for each story are stated in the epic coverage run. One currency axis remains, checked per story: the stamped record digest against the record's current digest. The close gate reads the receipt and re-runs that check at gate time, naming each stale story rather than the whole epic.
 
 ## Key Invariants
 
@@ -38,6 +38,8 @@ The conformance stage, addressed at an epic, reads the records on the epic issue
 - [published-verdict-selection](published-verdict-selection.md) — the shared trust and recency rule this derivation applies per story, so the repository a verdict stamps is read in either written form.
 - [verdict-repository-scoping](verdict-repository-scoping.md) — decides which candidate verdicts this derivation may count, and requires each one it drops for belonging elsewhere to be named.
 - [shipped-ledger](shipped-ledger.md) — the records this receipt now reads what shipped from, in place of searching repositories for a published verdict.
+- [story-evidence-report](story-evidence-report.md) — reads each story's claiming pull requests through the same complete read this derivation uses.
+- [epic-coverage-run](epic-coverage-run.md) — the four coverage states this stage reports per story, split out of this page.
 
 ## Decision Log
 
@@ -76,3 +78,9 @@ reported in four states rather than two, because a story with nothing recorded a
 merged pull request carries no record need different remedies. Findings are summed once per
 record rather than once per verdict, which is the same rule stated against the thing that now
 carries them. The per-story code-staleness axis is gone with the rest of it.
+
+### 2026-10-01 — #827 — The read of a story's pull requests is complete or it fails
+
+The read stopped after a fixed number of results, and it returned an empty list when the read itself failed. A busy story could fill its first page with mentions from plain issues before the pull request that shipped it appeared, and a network error looked exactly like "nothing merged". The read now goes through every page of the closing links and the cross-references, and a failure on any page fails the whole read with the story and the cause. Analyze and close share this one read, so they cannot drift on paging or errors. When analyze checks a whole epic and any story's read fails, it still reads the rest, names every failed story, prints no coverage and exits with an error. Refuted alternative: return the partial list with a flag saying it was cut short. It lost because every caller must remember to check the flag, and a caller that forgets brings the defect back. Refuted alternative: report unreadable stories as a fifth coverage state. It lost because the one-command close script checks coverage mechanically and would let that state through. The cost is that one failed page stops the run instead of giving a partial answer.
+
+The page's own content went over the 400-word cap with this change. The two sentences on the four coverage states and the excluded story moved to the new epic-coverage-run page, which shipped-ledger's statement of the same states joined. A reader asking what an epic-addressed run reports loads that page without the derivation's mechanics.
