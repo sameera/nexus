@@ -5,6 +5,14 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.81.0
+
+- **A receipt counts only for the stories it names.** Close's evidence report now reports a story
+  as having no receipt unless a receipt on a pull request that claims it names that story. A story
+  added to the epic after its receipt was written therefore shows as having no receipt. A receipt
+  that names no story is listed as covering none, never as covering the whole epic. The report
+  still blocks nothing; the ledger gate is unchanged.
+
 ## 0.80.0
 
 - **A story's pull requests are read in full, and a failed read stops the run.** Analyze and close

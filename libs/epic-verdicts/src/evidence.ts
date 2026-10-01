@@ -11,6 +11,11 @@
  * failing is a failure of the whole report, naming the story, and close stops before it mines
  * anything. Every remaining story is still read first, so one run names every unreadable story.
  *
+ * A receipt counts for exactly the stories it names (D5). A receipt whose story list is empty or
+ * missing — the shape of a receipt written before story lists existed — counts for none, and the
+ * report says so. Reading it as "the whole epic" is the one way an old receipt could vouch for a
+ * story added after it was written, which nobody checked.
+ *
  * The report gates nothing else. The shipped-ledger gate keeps deciding whether the epic can close.
  */
 
@@ -34,16 +39,24 @@ export interface EvidencePr {
     pr: number;
     /** Whether the pull request carries a selected receipt at all. */
     receipt: boolean;
+    /** Whether that receipt names this story — the only way it counts for it. */
+    namesStory: boolean;
 }
+
+/** `has-receipt`: some claiming pull request's receipt names the story. `no-receipt`: none does. */
+export type StoryEvidenceState = "has-receipt" | "no-receipt";
 
 export interface StoryEvidence {
     story: number;
+    state: StoryEvidenceState;
     /** Every merged pull request that claims the story. */
     prs: EvidencePr[];
 }
 
 export interface EvidenceReport {
     stories: StoryEvidence[];
+    /** Selected receipts on claiming pull requests that name no story, and so count for none. */
+    coversNone: Array<{ repo: string; pr: number }>;
     /** Stories marked as shipping without a pull request of their own; never read. */
     excluded: number[];
     /** The report as close repeats it, one line per finding. */
@@ -56,6 +69,8 @@ export interface CollectEvidenceInput {
     /** The epic's live story set, re-read on this run. */
     stories: readonly number[];
     excluded?: readonly number[];
+    /** The repository story numbers resolve against, used to qualify them in `lines`. */
+    issuesRepo?: string;
 }
 
 function prKey(pr: { repo: string; pr: number }): string {
@@ -68,6 +83,7 @@ export function collectEvidence(deps: EvidenceDeps, input: CollectEvidenceInput)
     const failures: StoryReadFailure[] = [];
     const stories: StoryEvidence[] = [];
     const receipts = new Map<string, ReceiptRead>();
+    const coversNone = new Map<string, { repo: string; pr: number }>();
 
     for (const story of [...input.stories].sort((a, b) => a - b)) {
         if (excluded.includes(story)) continue;
@@ -90,13 +106,35 @@ export function collectEvidence(deps: EvidenceDeps, input: CollectEvidenceInput)
                 failed = true;
                 break;
             }
-            prs.push({ repo: pr.repo, pr: pr.pr, receipt: read.receipt !== null });
+            const named = read.receipt?.stories ?? [];
+            if (read.receipt !== null && named.length === 0) coversNone.set(key, { repo: pr.repo, pr: pr.pr });
+            prs.push({ repo: pr.repo, pr: pr.pr, receipt: read.receipt !== null, namesStory: named.includes(story) });
         }
-        if (!failed) stories.push({ story, prs });
+        if (failed) continue;
+        stories.push({ story, state: prs.some((p) => p.namesStory) ? "has-receipt" : "no-receipt", prs });
     }
 
     if (failures.length > 0) return { ok: false, failures };
-    return { ok: true, report: { stories, excluded, lines: [] } };
+    const none = [...coversNone.values()];
+    return { ok: true, report: { stories, coversNone: none, excluded, lines: renderLines(stories, none, input.issuesRepo) } };
+}
+
+function storyRef(story: number, issuesRepo: string | undefined): string {
+    return issuesRepo ? `${issuesRepo}#${story}` : `#${story}`;
+}
+
+/** The report as close repeats it. A story with nothing to say produces no line. */
+function renderLines(stories: readonly StoryEvidence[], coversNone: ReadonlyArray<{ repo: string; pr: number }>, issuesRepo: string | undefined): string[] {
+    const lines: string[] = [];
+    for (const s of stories) {
+        if (s.state === "no-receipt") {
+            lines.push(`${storyRef(s.story, issuesRepo)} — no receipt: no pull request claiming it carries an analyze receipt that names it`);
+        }
+    }
+    for (const r of coversNone) {
+        lines.push(`${r.repo}#${r.pr} — its receipt names no story, so it counts for none`);
+    }
+    return lines;
 }
 
 /**
