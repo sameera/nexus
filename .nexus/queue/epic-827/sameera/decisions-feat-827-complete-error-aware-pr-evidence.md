@@ -17,3 +17,8 @@
 - **Choice:** Re-wrap two distill lines a codex spec matches literally, and re-record the distill load ceiling at 53024 bytes.
 - **Why:** The suite was red on main before this branch (run-summary rules from 0.79.0 grew distill), and the epic's goal requires a green suite.
 - **Refuted alternative:** Trim 136 bytes of distill prose, which edits a stage this epic does not own.
+
+## 2026-09-30 — A receipt naming no story is listed once, not once per claimed story
+- **Choice:** The evidence report keeps receipts that name no story in one `coversNone` list keyed by pull request, with one line each.
+- **Why:** A pull request claiming several stories would otherwise repeat the same "counts for none" line for each story.
+- **Refuted alternative:** Attach a "names no story" line to every story the pull request claims.

@@ -62,8 +62,8 @@ describe("collectEvidence — the claiming read behind close's report (story #83
         expect(out.ok).toBe(true);
         if (!out.ok) return;
         expect(out.report.stories.map((s) => s.story)).toEqual([1, 2]);
-        expect(out.report.stories[0].prs).toEqual([{ repo: "acme/hub", pr: 10, receipt: true }]);
-        expect(out.report.stories[1].prs).toEqual([{ repo: "acme/hub", pr: 20, receipt: false }]);
+        expect(out.report.stories[0].prs).toEqual([{ repo: "acme/hub", pr: 10, receipt: true, namesStory: true }]);
+        expect(out.report.stories[1].prs).toEqual([{ repo: "acme/hub", pr: 20, receipt: false, namesStory: false }]);
         expect(seen.receipts.sort()).toEqual([10, 20]);
     });
 
@@ -136,7 +136,7 @@ describe("evidenceDeps — the platform-backed reads (story #834)", () => {
         const out = collectEvidence(evidenceDeps(platform({}, seen), "/hub", "acme/hub"), { stories: [834] });
         expect(out.ok).toBe(true);
         if (!out.ok) return;
-        expect(out.report.stories[0].prs).toEqual([{ repo: "acme/member", pr: 12, receipt: true }]);
+        expect(out.report.stories[0].prs).toEqual([{ repo: "acme/member", pr: 12, receipt: true, namesStory: true }]);
         const prView = seen.find((c) => c[1] === "pr");
         expect(prView).toEqual(expect.arrayContaining(["--repo", "acme/member"]));
         const graph = seen.find((c) => c[1] === "api") ?? [];
@@ -150,5 +150,53 @@ describe("evidenceDeps — the platform-backed reads (story #834)", () => {
             if (out.ok) continue;
             expect(out.failures[0].story).toBe(834);
         }
+    });
+});
+
+describe("collectEvidence — a receipt counts only for the stories it names (story #835)", () => {
+    it("reports a story added after the receipt was written as having no receipt", () => {
+        // PR 10 shipped stories 1 and 2 and its receipt names both; story 3 was added to the epic
+        // later and a later pull request that claims it carries the old receipt's story list.
+        const out = collectEvidence(
+            deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 10)], 3: [merged(3, 10)] }, receipts: { 10: receipt([1, 2]) } }),
+            { stories: [1, 2, 3], issuesRepo: "acme/hub" },
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.report.stories.map((s) => [s.story, s.state])).toEqual([
+            [1, "has-receipt"],
+            [2, "has-receipt"],
+            [3, "no-receipt"],
+        ]);
+        expect(out.report.lines).toEqual([expect.stringContaining("acme/hub#3")]);
+        expect(out.report.lines[0]).toMatch(/no receipt/);
+    });
+
+    it("counts a receipt naming A and B for A and B and for no other story", () => {
+        const out = collectEvidence(
+            deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 10)], 4: [merged(4, 10)], 5: [] }, receipts: { 10: receipt([1, 2]) } }),
+            { stories: [1, 2, 4, 5] },
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        const noReceipt = out.report.stories.filter((s) => s.state === "no-receipt").map((s) => s.story);
+        expect(noReceipt).toEqual([4, 5]);
+    });
+
+    it("reports a receipt that names no story as covering none, never as covering the whole epic", () => {
+        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 10)] }, receipts: { 10: receipt([]) } }), {
+            stories: [1, 2],
+        });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.report.stories.every((s) => s.state === "no-receipt")).toBe(true);
+        expect(out.report.coversNone).toEqual([{ repo: "acme/hub", pr: 10 }]);
+        expect(out.report.lines.filter((l) => l.includes("acme/hub#10"))).toHaveLength(1);
+        expect(out.report.lines.find((l) => l.includes("acme/hub#10"))).toMatch(/names no story/);
+    });
+
+    it("prints nothing for a story whose claiming pull request carries a receipt naming it", () => {
+        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)] }, receipts: { 10: receipt([1]) } }), { stories: [1] });
+        expect(out.ok && out.report.lines).toEqual([]);
     });
 });

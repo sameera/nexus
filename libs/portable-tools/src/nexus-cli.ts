@@ -296,7 +296,8 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      exits 1 as story-read-failed, naming every such story, and prints no coverage.",
             "  nexus epic-verdicts evidence --epic <N> [--root <startDir>]",
             "      Close's per-story evidence report: each live story's claiming pull requests and the",
-            "      receipt each one carries. Prints { command: \"evidence\", stories, excluded, lines };",
+            "      receipt each one carries. A receipt counts only for the stories it names. Prints",
+            "      { command: \"evidence\", stories, coversNone, excluded, lines };",
             "      close repeats `lines` verbatim. A failed read exits 1 as story-read-failed.",
             "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
             "      Decide merge state and the close range from the epic's records. Prints { command:",
@@ -1712,7 +1713,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
         const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
 
-        const evidence = collectEvidence(evidenceDeps(closeMigrationRunner, root, issuesRepo), { stories, excluded });
+        const evidence = collectEvidence(evidenceDeps(closeMigrationRunner, root, issuesRepo), { stories, excluded, issuesRepo });
         if (!evidence.ok) {
             io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(evidence.failures, issuesRepo)} Close stops here.`);
             return 1;

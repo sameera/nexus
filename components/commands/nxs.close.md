@@ -413,7 +413,10 @@ should have run yet.
    cause. A failed read is never "no pull request". The remedy is a plain re-run once the read
    succeeds; offer no waiver and do not retry on your own. On exit 0, repeat every entry of
    `lines` verbatim under an **Evidence report** heading, or say "Evidence report: nothing to
-   report" when `lines` is empty. **The report decides nothing else.** Do not block, waive or
+   report" when `lines` is empty. A receipt counts only for the stories its `stories:` list names,
+   so the lines say which stories have **no receipt** naming them, and which receipts **name no
+   story** and so count for none. A receipt with an empty or missing list never covers the whole
+   epic. **The report decides nothing else.** Do not block, waive or
    re-check on any of its lines; the ledger's gate above stays the only close gate.
 
    Once the ledger's gate passes, there is nothing further to re-check about the code. The record
