@@ -605,9 +605,9 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     publish nothing, report the diagnostic verbatim, and do not report the run as successful.
     `story-fingerprint-mismatch` or `story-unreadable` means a story was edited during this run, or
     could not be read to check. Tell the lead to run `/nxs.analyze --pr <N>` again; never refresh a
-    fingerprint to pass the check. The refusal names the value the
-    block should have carried, so the correction is mechanical — rewrite the block with that value
-    and run the check again. This runs on the review path and the comment fallback path alike; the
+    fingerprint to pass the check. Only `issues-repo-missing` and `issues-repo-mismatch` have a
+    mechanical correction: the refusal names the issues repository the block should have carried, so
+    rewrite the block with that value and run the check again. This runs on the review path and the comment fallback path alike; the
     body it judges is the exact body that goes on the wire.
 
 3. Publish it as a **PR review**, so the verdict lands in the merge box:
