@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.82.0
+
+- **Each analyze receipt records the story text it checked, and close sees when it changed.**
+  `/nxs.analyze --pr` takes a fingerprint of each story's issue body when it first reads the
+  stories, with the new `nexus story-fingerprints`, and writes one per story into the receipt it
+  publishes. The fingerprint is the decision-record digest, so a change only to line endings or
+  trailing spaces, or to the title, is not a change. Before publishing, `nexus verdict-check` now
+  refuses a receipt whose fingerprints are missing, extra, or differ from the story's current text,
+  and the lead runs analyze again. Close's evidence report names a story changed since analysis,
+  with the pull request whose receipt is out of date, and names a receipt written before
+  fingerprints existed as unknown. The report still blocks nothing, and the shipped record and the
+  ledger gate are unchanged.
+
 ## 0.81.0
 
 - **A receipt counts only for the stories it names.** Close's evidence report now reports a story
