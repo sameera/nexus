@@ -60,6 +60,14 @@ interface FakePr {
     base: string;
     head: string;
     merge: string;
+    /** The head the pull request's trusted receipt says was analyzed; no receipt when absent. */
+    analyzed?: string;
+}
+
+function receiptReview(p: FakePr): Array<Record<string, string>> {
+    if (p.analyzed === undefined) return [];
+    const yaml = ["epic: \"#828\"", `pr: ${p.number}`, "date: 2026-09-01", `head: ${p.analyzed}`, "mode: full", `stories: [${p.story}]`].join("\n");
+    return [{ body: `<!-- nexus:analyze-receipt -->\n\`\`\`yaml\n${yaml}\n\`\`\`\n`, authorAssociation: "OWNER", submittedAt: "2026-09-01T00:00:00Z" }];
 }
 
 /** Real git for everything but fetches, which are refused; canned answers for the platform. */
@@ -100,6 +108,8 @@ function platform(prs: FakePr[], seen: string[]): Runner {
                     author: { login: "dev" },
                     body: "",
                     closingIssuesReferences: [],
+                    reviews: receiptReview(p),
+                    comments: [],
                 }),
                 stderr: "",
             };
@@ -171,5 +181,98 @@ describe("deriveCloseRanges in a hub with a member not checked out (story #841, 
         expect(out.missing[0].message).toContain(path.resolve(parent, "web"));
         expect(seen).toEqual([]);
         expect(fs.readdirSync(parent)).toEqual(["hub"]);
+    });
+});
+
+/** Merge `branch`, already committed, into main with a merge commit; return the merge-anchored facts. */
+function mergeExisting(repo: string, branch: string): { base: string; head: string; merge: string } {
+    const base = sh(repo, "rev-parse", "main");
+    const head = sh(repo, "rev-parse", branch);
+    sh(repo, "merge", "-q", "--no-ff", "-m", `merge ${branch}`, branch);
+    return { base, head, merge: sh(repo, "rev-parse", "HEAD") };
+}
+
+/** A branch off `from` with one commit writing `file`; leaves main checked out. */
+function branchWith(repo: string, branch: string, from: string, file: string, content: string): void {
+    sh(repo, "checkout", "-qb", branch, from);
+    commitFile(repo, file, content, `${branch} change`);
+    sh(repo, "checkout", "-q", "main");
+}
+
+describe("the landed check in a real checkout (story #846)", () => {
+    const lines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
+    const withLine = (n: number, value: string) => `${lines.map((l, i) => (i === n - 1 ? value : l)).join("\n")}\n`;
+
+    it("keeps both stories unchanged when sibling pull requests edit the same file, merged one after the other (G9)", () => {
+        const repo = buildRepo();
+        commitFile(repo, "src/shared.ts", withLine(0, ""), "shared");
+        const fork = sh(repo, "rev-parse", "main");
+        branchWith(repo, "b10", fork, "src/shared.ts", withLine(20, "story 841"));
+        branchWith(repo, "b11", fork, "src/shared.ts", withLine(5, "story 842"));
+        const first = mergeExisting(repo, "b11");
+        const second = mergeExisting(repo, "b10");
+        const prs: FakePr[] = [
+            { number: 11, story: 842, mergedAt: "2026-09-01T00:00:00Z", ...first, analyzed: first.head },
+            { number: 10, story: 841, mergedAt: "2026-09-02T00:00:00Z", ...second, analyzed: second.head },
+        ];
+
+        const out = deriveCloseRanges(closeRangesDeps(platform(prs, []), repo, "acme/web"), { stories: [841, 842], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(true);
+        expect(out.ranges.landed.map((s) => [s.story, s.result])).toEqual([
+            [841, "unchanged"],
+            [842, "unchanged"],
+        ]);
+        expect(out.ranges.landed[0].prs[0]).toMatchObject({ pr: 10, result: "unchanged", files: [{ path: "src/shared.ts", status: "unchanged" }] });
+    });
+
+    it("reports a reviewed file the merge landed deleted as changed, without blocking (G8)", () => {
+        const repo = buildRepo();
+        const fork = sh(repo, "rev-parse", "main");
+        sh(repo, "checkout", "-qb", "b10", fork);
+        commitFile(repo, "src/a.ts", "a\n", "a");
+        commitFile(repo, "src/b.ts", "b\n", "b");
+        sh(repo, "checkout", "-q", "main");
+        const base = sh(repo, "rev-parse", "main");
+        const head = sh(repo, "rev-parse", "b10");
+        sh(repo, "merge", "-q", "--no-ff", "--no-commit", "b10");
+        sh(repo, "rm", "-qf", "src/b.ts");
+        sh(repo, "commit", "-qm", "merge b10 without b");
+        const merge = sh(repo, "rev-parse", "HEAD");
+        const prs: FakePr[] = [{ number: 10, story: 841, mergedAt: "2026-09-01T00:00:00Z", base, head, merge, analyzed: head }];
+
+        const out = deriveCloseRanges(closeRangesDeps(platform(prs, []), repo, "acme/web"), { stories: [841], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(true);
+        expect(out.ranges.landed[0].result).toBe("changed");
+        expect(out.ranges.landed[0].prs[0]).toMatchObject({
+            files: [
+                { path: "src/a.ts", status: "unchanged" },
+                { path: "src/b.ts", status: "changed" },
+            ],
+        });
+    });
+
+    it("reports a merge commit the checkout holds but trunk does not reach as not landed, and blocks its story (G7)", () => {
+        const repo = buildRepo();
+        const fork = sh(repo, "rev-parse", "main");
+        branchWith(repo, "stack-base", fork, "src/base.ts", "base\n");
+        branchWith(repo, "b10", "stack-base", "src/stacked.ts", "stacked\n");
+        sh(repo, "checkout", "-q", "stack-base");
+        const base = sh(repo, "rev-parse", "HEAD");
+        sh(repo, "merge", "-q", "--no-ff", "-m", "merge b10 into stack-base", "b10");
+        const merge = sh(repo, "rev-parse", "HEAD");
+        sh(repo, "checkout", "-q", "main");
+        const head = sh(repo, "rev-parse", "b10");
+        const prs: FakePr[] = [{ number: 10, story: 841, mergedAt: "2026-09-01T00:00:00Z", base, head, merge, analyzed: head }];
+
+        const out = deriveCloseRanges(closeRangesDeps(platform(prs, []), repo, "acme/web"), { stories: [841], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(false);
+        expect(out.ranges.blocking).toEqual([{ kind: "not-landed", repo: "acme/web", pr: 10, mergeCommit: merge, trunkRef: "main", checkout: repo }]);
+        expect(out.ranges.landed[0].result).toBe("not-landed");
     });
 });

@@ -306,8 +306,10 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Derive each story's commit ranges for close, one path for every epic. Reads every",
             "      merged pull request claiming each live story, then takes a shipped record's stamped",
             "      range or derives it in the checkout of the repository it merged in. Prints { command:",
-            "      \"ranges\", ok, stories, range, blocking, excluded, lines }; a pull request with no",
-            "      attributable commits is listed as no range. A failed read exits 1 as",
+            "      \"ranges\", ok, stories, range, landed, blocking, excluded, lines }; a pull request with",
+            "      no attributable commits is listed as no range. `landed` is each story's landed check:",
+            "      whether each pull request landed every reviewed file as its trusted receipt's analyzed",
+            "      head changed it. A merge commit trunk does not reach blocks as not-landed. A failed read exits 1 as",
             "      story-read-failed; a repository with no checkout exits 1 as checkout-missing,",
             "      naming the expected path, before anything is fetched.",
             "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
@@ -1750,6 +1752,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // record #849, D1–D3). One enumeration path for every epic: the claiming read, then a shipped
     // record's stamped range where one exists, else the merge-anchored derivation in the checkout
     // of the repository the pull request merged in. A missing checkout stops before any fetch.
+    // Each pull request's landed check rides on the same output (story #846, D4).
     if (argv[0] === "ranges") {
         const repos = resolveVerdictRepos(closeMigrationRunner, root);
         if (!repos.ok) {
