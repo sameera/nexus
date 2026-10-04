@@ -869,6 +869,20 @@ describe("the close record keeps today's shape for distill (story #865, AC2, D4,
         expect(comment).not.toMatch(/lesson/i);
     });
 
+    it("writes no lesson file and names no lesson in anything it commits, posts or prints (story #868, G34)", () => {
+        const h = twoPrHarness(emptyJudgments({ items: [departure("DV1")] }), emptyJudgments());
+        const { stdout } = closed(h);
+        const files = (dir: string): string[] =>
+            fs.readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => path.join(e.parentPath, e.name));
+        const written = [...files(h.repoRoot), ...files(h.wtPath), ...h.commits.flatMap((c) => c.files)];
+        expect(written.length).toBeGreaterThan(0);
+        expect(written.filter((f) => /lesson/i.test(f))).toEqual([]);
+        expect(h.commits.map((c) => c.message).join("\n")).not.toMatch(/lesson/i);
+        expect(h.posted.length).toBeGreaterThan(0);
+        expect(h.posted.map((p) => p.body).join("\n")).not.toMatch(/lesson/i);
+        expect(stdout).not.toMatch(/lesson/i);
+    });
+
     it("stamps analyze as ran <date> @ <head> from the completing pull request's verdict (G14)", () => {
         const { record } = closed(twoPrHarness(emptyJudgments(), emptyJudgments()));
         expect(frontmatterOf(record)).toContain(`analyze: ran 2026-10-02 @ ${"2".repeat(40)}`);

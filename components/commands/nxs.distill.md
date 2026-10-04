@@ -70,7 +70,7 @@ the resolved value instead of re-deriving it.
     - **recovery** — `$ARGUMENTS` contains `--recover <epic-issue>`.
     - **continuation** — the current branch matches `distill/*`, the working tree is clean, and the
       branch's commits vs the trunk ref (`nexus trunk`) touch **only** queue/docs artifacts (a close
-      just prepared it: the close record, backlog append, and lesson).
+      just prepared it: the close record and backlog append).
     - **ordinary** — neither of the above.
 2. **Workspace shape**, from the same committed artifacts the deterministic steps read for their
    mode-conditional rules (Phase 5.3). Never use a new heuristic (e.g. never "no `package.json`"):
