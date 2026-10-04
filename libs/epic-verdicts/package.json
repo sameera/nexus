@@ -79,6 +79,11 @@
       "import": "./src/publish-check.ts",
       "default": "./src/publish-check.ts"
     },
+    "./verdict-items": {
+      "types": "./src/verdict-items.ts",
+      "import": "./src/verdict-items.ts",
+      "default": "./src/verdict-items.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

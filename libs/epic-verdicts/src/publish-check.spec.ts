@@ -12,11 +12,16 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { TWO_VERDICT_REPO, TWO_VERDICT_STORY, verdictBody } from "@nexus/pr-acceptance/verdict-fixtures";
+import { type Departure, JUDGMENTS_MARKER, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { TWO_VERDICT_REPO, TWO_VERDICT_STORY, type VerdictBodyOptions, verdictBody as fixtureBody } from "@nexus/pr-acceptance/verdict-fixtures";
 import { checkVerdictPublish } from "./publish-check.js";
 import { type Runner } from "./run.js";
 
 const made: string[] = [];
+
+/** A drafted verdict as analyze now writes it: the verdict block, then a judgments block (epic #829). */
+const NO_DEPARTURES: string = renderJudgmentsBlock({ items: [] });
+const verdictBody = (opts: VerdictBodyOptions): string => fixtureBody({ judgments: NO_DEPARTURES, ...opts });
 
 function checkout(settings?: string): string {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-check-"));
@@ -121,5 +126,69 @@ describe("checkVerdictPublish — a published receipt records no story text (epi
         if (r.ok) return;
         expect(r.error.problem).toBe("story-text-recorded");
         expect(r.error.message).toContain("story_fingerprints");
+    });
+});
+
+describe("checkVerdictPublish — a published verdict carries its departures (epic #829, story #858; D2, G7, G14)", () => {
+    const departure = (over: Partial<Departure> = {}): Departure => ({
+        id: "DV1",
+        kind: "departure",
+        found: true,
+        severity: "high",
+        departsFrom: "D4",
+        summary: "keeps total counts",
+        files: ["libs/a.ts"],
+        stub: null,
+        supersedes: null,
+        answer: null,
+        ...over,
+    });
+    const check = (body: string) => checkVerdictPublish(ghRepo("geo-nexus/giccp"), checkout(), body);
+    const draft = (high: number, items: Departure[]) => fixtureBody({ high, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items }) });
+
+    it("refuses a verdict with no judgments block, which would leave the next run no ID registry", () => {
+        const r = check(fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp" }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("judgments-missing");
+        expect(r.error.message).toContain("nexus verdict-items");
+    });
+
+    it("refuses a judgments block that cannot be read, naming why", () => {
+        const r = check(fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp", judgments: `${JUDGMENTS_MARKER}\n\`\`\`json\n{ nope\n\`\`\`` }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("judgments-malformed");
+    });
+
+    it("refuses one ID naming two departures (G7)", () => {
+        const r = check(draft(2, [departure(), departure({ departsFrom: "G9" })]).replace('"DV2"', '"DV1"'));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("judgments-malformed");
+    });
+
+    it("refuses a judgments block placed before the verdict block", () => {
+        const verdict = fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp" });
+        const r = check(`${NO_DEPARTURES}\n${verdict}`);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("judgments-malformed");
+    });
+
+    it("refuses severity counts that leave out an unanswered departure, which blocks (G14)", () => {
+        const r = check(draft(0, [departure()]));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("departures-uncounted");
+        expect(r.error.message).toContain("DV1");
+    });
+
+    it("approves counts that include every unanswered departure still found", () => {
+        expect(check(draft(1, [departure(), departure({ id: "DV2", found: false, departsFrom: "G9" })])).ok).toBe(true);
+    });
+
+    it("approves a verdict listing no departure when the code matches the record (G2)", () => {
+        expect(check(draft(0, [])).ok).toBe(true);
     });
 });

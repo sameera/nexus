@@ -17,6 +17,7 @@
 
 import { parseReceiptBlock } from "@nexus/pr-acceptance/verify";
 import { RECEIPT_MARKER } from "@nexus/pr-acceptance/receipt-blocks";
+import { JUDGMENTS_MARKER, parseJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
@@ -80,5 +81,44 @@ export function checkVerdictPublish(run: Runner, cwd: string, body: string): Che
         };
     }
 
-    return { ok: true, repos: resolved.repos };
+    return checkJudgments(body, parsed.findings) ?? { ok: true, repos: resolved.repos };
+}
+
+/**
+ * The judgments block (epic #829, story #858; decision record #871, D2, G7, G14). Every verdict
+ * carries one, even with no departure in it, because it is the next run's ID registry: a verdict
+ * published without it would reset the numbering, and an ID could then name two items on one pull
+ * request. It must follow the verdict block, so the deployed readers' first-fence parse still finds
+ * the verdict block. An unanswered departure is a blocking finding, so the severity counts must
+ * cover every one still found.
+ */
+function checkJudgments(body: string, findings: Record<string, number>): CheckVerdictPublishResult | null {
+    const at = body.indexOf(JUDGMENTS_MARKER);
+    if (at < 0) {
+        return refuse(
+            "judgments-missing",
+            `the drafted verdict carries no ${JUDGMENTS_MARKER} block. Write its departures through \`nexus verdict-items\`, append the block it writes after the verdict block, and check again; a verdict with no departure still carries the block.`,
+        );
+    }
+    if (at < body.indexOf(RECEIPT_MARKER)) {
+        return refuse("judgments-malformed", `the drafted verdict puts its ${JUDGMENTS_MARKER} block before the verdict block; it must follow it.`);
+    }
+    const judgments = parseJudgmentsBlock(body);
+    if (!judgments.ok) return refuse("judgments-malformed", `the drafted verdict's judgments block cannot be read: ${judgments.message}.`);
+
+    for (const severity of ["critical", "high"] as const) {
+        const open = (judgments.judgments?.items ?? []).filter((d) => d.found && d.answer === null && d.severity === severity);
+        const counted = findings[severity] ?? 0;
+        if (open.length > counted) {
+            return refuse(
+                "departures-uncounted",
+                `the drafted verdict counts ${counted} ${severity} finding(s), but ${open.length} unanswered ${severity} departure(s) are listed (${open.map((d) => d.id).join(", ")}). An unanswered departure is a blocking finding; count each one and check again.`,
+            );
+        }
+    }
+    return null;
+}
+
+function refuse(problem: EpicVerdictsDiagnostic["problem"], message: string): CheckVerdictPublishResult {
+    return { ok: false, error: { problem, message } };
 }

@@ -317,6 +317,40 @@ describe("nexus pr-verdict (registration only — the selection rule is covered 
     });
 });
 
+describe("nexus verdict-items (epic #829, story #858 — the numbering rule is covered by its own unit specs)", () => {
+    const usage = (dir: string) => ["verdict-items", "--pr", "7", "--repo", "acme/widget", "--draft", path.join(dir, "draft.json"), "--out", path.join(dir, "block.md")];
+
+    it("is a registered verb the help names", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-verdict-items-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus verdict-items");
+        expect(VERB_NAMES).toContain("verdict-items");
+    });
+
+    it("refuses without the repository it reads the registry from, so the trust check is never inert", async () => {
+        const dir = makeTmpDir("cli-verdict-items-");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(usage(dir).filter((a, i, all) => a !== "--repo" && all[i - 1] !== "--repo"), io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--repo");
+    });
+
+    it("refuses without a draft or an output path", async () => {
+        const dir = makeTmpDir("cli-verdict-items-");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["verdict-items", "--pr", "7", "--repo", "acme/widget"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--draft");
+    });
+
+    it("refuses a draft departure that names nothing it departs from, before reading the pull request", async () => {
+        const dir = makeTmpDir("cli-verdict-items-");
+        fs.writeFileSync(path.join(dir, "draft.json"), JSON.stringify({ departures: [{ departsFrom: "", summary: "x", breaksGuarantee: false, files: [] }] }));
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(usage(dir), io)).toBe(1);
+        expect(io.err.join("\n")).toContain("draft-malformed");
+        expect(fs.existsSync(path.join(dir, "block.md"))).toBe(false);
+    });
+});
+
 describe("nexus merge-precheck (registration only — the four receipt states are covered by its own unit specs)", () => {
     it("is a registered verb the help names", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-merge-precheck-"));

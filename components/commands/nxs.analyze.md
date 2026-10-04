@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each gets a DV ID that later runs reuse. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -371,10 +371,11 @@ Determine what was actually built for this epic. Use, in order of availability:
    old-contract committed entry also read `${QDIR}/*/`. If stubs are
    present — `decisions-*.md`, `notes-*.md` — read them as *context only*.
    They surface the engineer's stated rationale for a divergence at review time (visible now
-   because the scratch is committed to the PR head, not machine-local). Use them to explain
-   scope drift (§2.4) and, in **downgraded** mode, to reconstruct likely conditions the
-   missing decision record would have carried. They **never** change a met/partial/unmet/
-   contradicted verdict — the diff and the ACs decide that. Absent → ignore silently.
+   because the scratch is committed to the PR head, not machine-local). Use a stub's reason to
+   explain a departure (§2.5) — shown beside it, never accepting it — and scope drift (§2.4), and,
+   in **downgraded** mode, to reconstruct likely conditions the missing decision record would
+   have carried. They **never** change a met/partial/unmet/contradicted verdict — the diff and
+   the ACs decide that. Absent → ignore silently.
 
 Do not run the application or the test suite. You are reading the change, not exercising it.
 
@@ -405,8 +406,10 @@ For a new-format record, check every guarantee returned by `nexus record-section
 its ID; for an old-format record, check every returned constraint and invariant. Also check each
 security boundary the record names. The record is the **record issue body** resolved in Phase 0.5,
 or an old-contract entry's committed `decision-record.md`. A change that breaks a guarantee or an
-invariant is **critical**, because these are what the build "must preserve". For a broken
-new-format guarantee, name its `G<n>` ID and cite the changed file and line.
+invariant is **critical**, because these are what the build "must preserve". It is reported
+**once, as a departure** (§2.5) citing the guarantee's `G<n>` ID (or the invariant's text) and the
+changed file and line — **never also as a separate finding** — so one fact carries one ID and
+needs one answer.
 
 Skip this section only in **degraded** mode, which by Phase 0.5 means the epic genuinely has no
 record. That is now the exception rather than the norm: the record has a durable home (the record
@@ -428,7 +431,60 @@ epic claimed an outcome the build cannot demonstrate.
 
 Note material behavior in the diff that **no** story called for (unplanned scope), and any story whose
 implementation went meaningfully beyond its ACs. Informational unless it breaks a guarantee or an
-invariant.
+invariant, or departs from the record — then it is a departure (§2.5).
+
+## 2.5 Departures from the decision record
+
+List every place the change **departs** from the approved design (epic #829, record #871, D1). A
+departure is where the code differs from what the baseline says: an approach changed, a named
+component replaced, a constraint relaxed, a guarantee or an invariant broken. Code that matches
+the baseline lists **no** departure — an empty list is the conformant result, not a gap.
+
+**The baseline depends on the record's format** (the `format` Phase 0.5 read):
+
+- `new` — the body's **How it works**, its appendix **Mechanism**, and every guarantee.
+- `old` — the chosen approach, the constraints and the invariants.
+- `neither` — the whole body.
+- **degraded** (the epic has no record) — the epic's description. Departures still run here.
+
+**Each departure names what it departs from**: a decision or guarantee by its ID (`D4`, `G3`), an
+old-format decision by its title, or a named section of the record or the epic (`How it works`).
+A departure that names nothing is never listed. A broken guarantee or invariant is one departure
+(§2.2), never also a finding.
+
+**A decision stub explains; it never answers.** When a stub read in Phase 1 explains a departure,
+show the stub's path and reason beside it. The departure stays **unanswered**: only a trusted
+comment on the pull request naming its ID, or a record revision, answers it.
+
+**The superseding mark** goes on a departure only when the code does the **opposite** of what a
+record decision chose — an approved choice refuted, replaced or inverted. Name the decision and
+what the code does instead. A departure that elaborates, extends or implements something the
+record left unstated is **never** marked superseding.
+
+**An unanswered departure is a blocking finding**: **critical** when it breaks a guarantee or an
+invariant, **high** otherwise. Count each one in the severity tally, once.
+
+**IDs are numbered per pull request, by the toolkit, never by you** (D2). In `--pr` mode, write the
+departures to a draft and hand it to the ID step — it reads the newest trusted verdict on this pull
+request as the registry, so a departure found again keeps its ID and an answer survives a re-run:
+
+```bash
+nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<scratch>/departures.json" --out "<scratch>/judgments.md" --dir "$wtPath"
+```
+
+The draft is `{ "departures": [ ... ] }`, one entry per departure:
+`{ "departsFrom": "<D<n>, G<n>, title or section>", "summary": "<what the code does>",
+"breaksGuarantee": <true|false>, "files": ["<path>", ...], "stub": { "path": "<stub>", "reason":
+"<its reason>" } | null, "supersedes": { "decision": "<D<n> or title>", "instead": "<what the code
+does instead>" } | null }`. Cite the same element and the files the departure was judged on each
+run: two departures are the same when they cite the same element and share a file. The step
+prints `{ registry, items }` and writes the judgments block to `--out`. Each item carries its `DV<n>`
+ID and its severity; one the last verdict listed and this run did not find again comes back with
+`found: false` and its answer, and is reported as **no longer found** — never dropped. A non-zero
+exit stops the publish: report the diagnostic verbatim. `draft-malformed` names the entry to fix;
+`judgments-malformed` means the newest verdict's registry cannot be read.
+
+Without a pull request there is no registry: list the departures without IDs.
 
 # Phase 3 — Report (inline) and write the receipt
 
@@ -442,14 +498,21 @@ Surface: <N> files changed, <N> stories (<M> closed / <O> open)
 Per-story AC conformance:
   STORY <story-ref> <title>: <met>/<total> met · <partial> partial · <unmet> unmet · <contradicted> contradicted
 
-Guarantee violations:   <G<n> → file:line that breaks it, ...>  (full mode, new-format record)
-Invariant violations:   <decision-record invariant → file:line that breaks it, ...>  (full mode, old format)
+Departures:              <none> | one line per departure (§2.5):
+  DV<n> (<critical|high>) from <G<n> | D<n> | title | section> · <file:line> · <what the code does>
+    stub: <stub path> says "<reason>"                              (when a stub explains it)
+    supersedes <D<n>>: <what the code does instead>                (when superseding)
+  DV<n> no longer found · answered by <who> (<link>)              (listed, never dropped)
 Success metrics:         <metric → measurable? plausibly-moved?>
 Scope drift:             <unplanned behavior, ...>
 Notes:                   <stories still open → close before /nxs.close, ...>   (omit when none)
 
 Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
 ```
+
+A broken guarantee appears on the `Departures:` line with its `G<n>` ID (an invariant by its text),
+and nowhere else. Write the `DV<n>` IDs `nexus verdict-items` printed, in `--pr` mode; locally, list
+the departures without IDs.
 
 `<epic-ref>`, `<record-ref>` and every `<story-ref>` are written under the **`nxs-issue-reference`**
 skill loaded in Phase 0.5: bare when this summary is published into `$ISSUES_REPO` (local mode),
@@ -578,6 +641,12 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     `record_hash`. Receipts written by 0.82.0 to 0.86.0 carry that line, and every reader still
     accepts it and ignores it.
 
+    Then append the **judgments block** — the file `nexus verdict-items` wrote to `--out` in §2.5,
+    verbatim, **after** the verdict block. It starts with the `<!-- nexus:analyze-judgments -->`
+    marker and carries every departure with its ID. Every verdict carries it, a verdict with no
+    departure included: it is the ID registry the next run on this pull request reads. Never edit
+    it by hand and never fold its content into the verdict block above, whose keys stay as they are.
+
 2. **Check the drafted body before publishing anything:**
 
     ```bash
@@ -592,7 +661,11 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     correction. `issues-repo-missing` and `issues-repo-mismatch` name the issues repository the
     block should have carried, so rewrite the block with that value and run the check again.
     `story-text-recorded` means the block still has a `story_fingerprints` line; drop it and run
-    the check again. This runs on the review path and the comment fallback path alike; the
+    the check again. `judgments-missing` means the judgments block was not appended: run §2.5's
+    ID step and append its output. `departures-uncounted` means the severity tally leaves out an
+    unanswered departure: count it and check again. `judgments-malformed` means the judgments block
+    was edited or misplaced: append the ID step's output again, unedited, after the verdict block.
+    This runs on the review path and the comment fallback path alike; the
     body it judges is the exact body that goes on the wire.
 
 3. Publish it as a **PR review**, so the verdict lands in the merge box:
@@ -693,7 +766,8 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
 - **Planning consistency is out of scope.** AC-quality-by-`story_type` belongs to the `nxs-epic-gate`
   agent (`/nxs.epic`); story↔design coverage is verified in `/nxs.decision-record`. Not here.
 - **Engineer scratch is soft.** The per-user stubs are read-only context that can explain a
-  divergence but never decide a verdict or gate the receipt; a missing scratch dir changes
+  departure — its reason is shown beside it — but never answer one, decide a verdict or gate the
+  receipt; a missing scratch dir changes
   nothing (floor: conformance from the diff + ACs). The receipt schema does not record scratch. Its
   home is `.nexus/queue/epic-<epic-issue>/` — resolved from the epic issue number, never from `QDIR`,
   which under issue-sourced planning is a gitignored `.nexus/tmp/` materialization.

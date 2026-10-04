@@ -88,7 +88,7 @@ describe('Codex decision-record pipeline', () => {
     expect(recordSections(oldBody).invariants).toHaveLength(16);
     expect(analyze).toMatch(/broken.+guarantee.+\*\*critical\*\*/is);
     expect(analyze).toMatch(/check every guarantee returned by `nexus record-sections --body` by\s+its ID/);
-    expect(analyze).toContain('Guarantee violations:   <G<n>');
+    expect(analyze).toMatch(/DV<n> \(<critical\|high>\) from <G<n>/);
     expect(close).toContain('nexus record-digest');
     expect(close).toContain('A non-zero section-reader exit stops close');
     expect(close).toMatch(/carry every `decisions` entry and `guarantees` entry by ID/);
