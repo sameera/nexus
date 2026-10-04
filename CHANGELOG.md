@@ -68,8 +68,8 @@ behaviour says so.
 - **Recording answers is a short run.** `/nxs.analyze --pr <N> --resolve` records the answers on a
   pull request without judging it all again; the new `nexus verdict-scope` decides what it may skip.
   When the head has not moved, it reads no code: it copies the answers in and publishes a complete
-  new verdict. When the head moved, it judges again only the answered departures and what the
-  changed files affect, and carries every other result forward. A file counts as changed only when
+  new verdict. When the head moved, it judges again only the answered departures (including those
+  answered in a comment since the last verdict) and what the changed files affect, and carries every other result forward. A file counts as changed only when
   the pull request's own change to it differs, so merging trunk into the branch or rebasing it
   changes nothing by itself. A file no result was judged on is checked for new departures and
   against every guarantee.

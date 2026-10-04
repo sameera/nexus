@@ -117,3 +117,8 @@
 - **Choice:** `libs/epic-verdicts/src/write.ts` (writer and reader) is deleted; `epic-verdicts derive` prints the receipt and close reads it from the output.
 - **Why:** Its reader had no caller and its writer's only caller was the derive write D12 removes.
 - **Refuted alternative:** Keep the module and stop calling it — dead code that names the local file.
+
+## 2026-10-04 — A moved-head scope applies the posted answers before picking what to judge again
+- **Choice:** `planAnswerRun` reads the pull request's answers through `readPrWaivers` and runs them through `applyAnswers` before `selectRejudge`, so a departure answered since the last verdict is judged again like one the verdict already carried.
+- **Why:** G19 and AC2 of #861 say every answered departure is judged again, and a first-time answer is the common case of `--resolve`; reusing `applyAnswers` keeps "answered" meaning the same thing in the scope and in the ID step.
+- **Refuted alternative:** Treat any answer line naming the ID as answered, which would re-judge on untrusted or malformed lines that apply nothing.
