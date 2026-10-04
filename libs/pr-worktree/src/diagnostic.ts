@@ -14,6 +14,7 @@ export type PrWorktreeProblem =
     | "member-unsupported"
     | "malformed-pr-reference"
     | "member-checkout-missing"
+    | "repo-checkout-unknown"
     | "no-story-candidates"
     | "classification-mode-mismatch"
     | "story-candidates-multiple-epics"

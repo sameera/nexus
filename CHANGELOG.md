@@ -5,6 +5,24 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.83.0
+
+- **Close derives each story's commit ranges itself.** `/nxs.close --pr` now runs the new
+  `nexus epic-verdicts ranges` for every epic, whether it shipped as one pull request or several.
+  It reads every merged pull request that claims each story and lists each story's ranges in merge
+  order, with no range supplied by the lead. Where a shipped record exists, close uses the range it
+  stamped and still stops hard on a merge commit that moved. Otherwise close derives the range in
+  the checkout of the repository the pull request merged in. A pull request with no commits that
+  belong to the story is listed as "no range", never dropped. The close record and the close
+  comment's machine block both carry the range list and a new per-story list; the new key is added
+  beside the existing one, so `/nxs.distill` reads the record as before and computes its diff from
+  those ranges.
+- **Close now needs a checkout of every repository a story merged in.** In a hub, a member with no
+  checkout stops close before it writes anything, and the stop names the path the checkout was
+  expected at. Close fetches nothing in its place. A checkout that does not hold a pull request's
+  merge commit stops close as "checkout behind" and names the fetch to run. A hub lead must hold
+  each member checkout, up to date, before closing. The shipped-record gate is unchanged.
+
 ## 0.82.0
 
 - **Each analyze receipt records the story text it checked, and close sees when it changed.**

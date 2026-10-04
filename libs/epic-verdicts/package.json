@@ -64,6 +64,11 @@
       "import": "./src/verdict-repos.ts",
       "default": "./src/verdict-repos.ts"
     },
+    "./close-ranges": {
+      "types": "./src/close-ranges.ts",
+      "import": "./src/close-ranges.ts",
+      "default": "./src/close-ranges.ts"
+    },
     "./evidence": {
       "types": "./src/evidence.ts",
       "import": "./src/evidence.ts",

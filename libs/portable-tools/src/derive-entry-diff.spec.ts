@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Runner } from "@nexus/workspace/run";
+import { defaultRunner, type Runner } from "@nexus/workspace/run";
 import { DERIVE_PROBLEMS, deriveEntryDiff, parseRange, renderDeriveFailure, renderRepoDiffs, runCli } from "./derive-entry-diff";
 
 const REPO_ROOT: string = path.resolve(__dirname, "../../..");
@@ -125,6 +125,38 @@ describe("deriveEntryDiff — happy paths", () => {
         expect(result.diffs.map((d) => d.repo)).toEqual(["github.com/acme/web-app", "github.com/acme/api"]);
         expect(result.diffs[0].diff).toContain("src/app.ts");
         expect(result.diffs[1].pr).toBe(512);
+    });
+
+    it("computes the diff from the ranges close derived, reading no shipped record (epic #828, story #841, G4)", () => {
+        const parent = makeParent();
+        const { hubRoot, web, api } = buildHubFixture(parent);
+        const entryDir = path.join(hubRoot, ".nexus", "queue", "epic-828");
+        write(hubRoot, ".nexus/queue/epic-828/epic.md", "---\nlink: \"#828\"\n---\n# epic\n");
+        // The machine block close now writes: the range list in owner/repo form, and the additive
+        // per-story list, which names a pull request with no attributable commits as no range.
+        write(hubRoot, ".nexus/queue/epic-828/close-record.md",
+            "# Close Record: Demo\n\n<!-- nexus:close-record -->\n```yaml\nepic: \"#828\"\nanalyze: clean\nrange:\n" +
+            `  - repo: acme/web-app\n    pr: 12\n    base: ${web.base}\n    head: ${web.head}\n` +
+            `  - repo: acme/api\n    pr: 15\n    base: ${api.base}\n    head: ${api.head}\n` +
+            "story_ranges:\n  - story: \"#841\"\n    ranges:\n" +
+            `      - { repo: acme/web-app, pr: 12, base: ${web.base}, head: ${web.head} }\n` +
+            "      - { repo: acme/web-app, pr: 13, range: none }\n" +
+            "  - story: \"#846\"\n    ranges:\n" +
+            `      - { repo: acme/api, pr: 15, base: ${api.base}, head: ${api.head} }\n` +
+            "```\n");
+        const commands: string[] = [];
+        const spy: Runner = (cmd, args, opts) => {
+            commands.push(cmd);
+            return defaultRunner(cmd, args, opts);
+        };
+
+        const result = deriveEntryDiff(entryDir, hubRoot, spy);
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.diffs.map((d) => [d.repo, d.pr])).toEqual([["acme/web-app", 12], ["acme/api", 15]]);
+        expect(result.diffs[0].diff).toContain("src/app.ts");
+        expect(result.diffs[1].diff).toContain("lib/server.ts");
+        expect(commands.every((c) => c === "git")).toBe(true);
     });
 
     it("excludes .nexus/discovery from the emitted diff (record #235, invariant 2)", () => {

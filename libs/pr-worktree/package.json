@@ -29,6 +29,11 @@
       "import": "./src/range-read.ts",
       "default": "./src/range-read.ts"
     },
+    "./repo-checkout": {
+      "types": "./src/repo-checkout.ts",
+      "import": "./src/repo-checkout.ts",
+      "default": "./src/repo-checkout.ts"
+    },
     "./range-list": {
       "types": "./src/range-list.ts",
       "import": "./src/range-list.ts",
