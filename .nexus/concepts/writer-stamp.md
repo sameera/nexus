@@ -2,7 +2,7 @@
 title: "Writer Stamp"
 aliases: ["writer stamp", "toolkit version stamp", "which toolkit wrote this", "unknown writer", "nexus_version field"]
 touches: ["release-identity", "conformance-gate", "durable-close-record", "record-digest"]
-last_updated_by: "#251"
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -13,9 +13,9 @@ Every artifact the toolkit writes that a later stage reads back records which re
 
 ## How It Works
 
-Four artifacts carry data a later stage reads and checks: the conformance receipt, the close record, and the machine blocks in the close comment and the published review. Each now carries the writing release under one field name.
+Three artifacts carry data a later stage reads and checks: the close record, and the machine blocks in the close comment and the published review. Each carries the writing release under one field name. A local conformance receipt was a fourth until analyze stopped writing one.
 
-Three of the four are written by prose commands that cannot import a shared constant, so a constant alone would not stop the name drifting. The name is declared once and pinned by a test that enumerates every writing and reading surface — the enumeration is the mechanism, not the constant.
+They are written by prose commands that cannot import a shared constant, so a constant alone would not stop the name drifting. The name is declared once and pinned by a test that enumerates every writing and reading surface — the enumeration is the mechanism, not the constant.
 
 An artifact written before the stamp existed carries none, and a reader treats that as a writer it cannot name and proceeds. So does a reader whose own release differs from the stamp: this introduces no refusal, no waiver and no block. Deciding what to do about a detected difference can follow the evidence.
 
@@ -33,7 +33,7 @@ The stamp stays outside every hash a stage verifies by placement rather than by 
 ## Integration Points
 
 - [release-identity](release-identity.md) — the version a stamp records, and the unresolved case that makes a writer unknown rather than wrong.
-- [conformance-gate](conformance-gate.md) — the receipt and its published-review form both carry the stamp; an unstamped receipt still gates normally.
+- [conformance-gate](conformance-gate.md) — the published verdict carries the stamp; an unstamped verdict still gates normally.
 - [durable-close-record](durable-close-record.md) — the close comment's machine block and the mirrored close-record file both carry the stamp beside the record hash.
 - [record-digest](record-digest.md) — the digest whose covered bytes the stamp is placed outside of, which is why no canonicalisation rule changed.
 
@@ -42,3 +42,7 @@ The stamp stays outside every hash a stage verifies by placement rather than by 
 ### 2026-08-26 — #251 — One field name pinned by surface enumeration; the stamp placed outside every hash
 
 The stamp's field name lives in one module, and every writing and reading surface is pinned against it by a test that names those surfaces — because three of the four stamped artifacts are written by prose commands that cannot import a constant, so a shared constant alone would not prevent drift. The stamp stays outside every verified hash by placement rather than by an exclusion rule: it sits beside the digests, never inside the bytes a digest covers, pinned by a test asserting a stamped artifact parses to the same values as an unstamped one. Refuted: a separate library depended on by both writing packages to deduplicate one string literal the prose writers still could not import; and teaching the record canonicalisation to strip stamp lines — a forever-carried change to a rule stated as covering everything, made for a stamp that is never written into that body.
+
+### 2026-10-04 — #829 — The local conformance receipt is gone, so three artifacts carry the stamp
+
+Analyze run without a pull request now writes nothing, so the local conformance receipt no longer exists to carry a stamp. The published verdict still carries one, and so do the close record and the close comment's block. Nothing about the field name, its placement outside every hash, or how a reader treats an absent or different stamp changed.

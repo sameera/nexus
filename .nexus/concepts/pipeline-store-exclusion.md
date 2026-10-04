@@ -1,8 +1,8 @@
 ---
 title: "Pipeline Store Exclusion"
 aliases: ["excluded stores", "withheld stores", "behavioural diff exclusion", "pipeline store set", "what a stage never reads back"]
-touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record", "aggregated-epic-receipt", "range-entry-diff"]
-last_updated_by: "#214"
+touches: ["committed-queue", "pre-epic-discovery", "workbook-store", "distiller", "conformance-gate", "durable-close-record", "range-entry-diff"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -33,7 +33,6 @@ Three stores are members: the close-time queue, the pre-epic discovery store, an
 - [distiller](distiller.md) — derives its behavioural diff from this one definition rather than restating the store paths.
 - [conformance-gate](conformance-gate.md) — analyze now draws its verdict from a diff with every member withheld; it withheld none before.
 - [durable-close-record](durable-close-record.md) — close derives its deviation rationale from the same filtered diff.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — withholds every member of the set from each per-pull-request change set it unions into the epic's combined code.
 - [range-entry-diff](range-entry-diff.md) — withholds the whole set from every range entry's change set, read from this one definition.
 
 ## Decision Log
@@ -55,3 +54,7 @@ Mechanical reciprocity fan-out: the drain's reader now emits one change set per 
 Invariant 1 held, and the derived diff was still unfiltered for some of the people running it. Three bodies asked the toolkit for the set, put the answer into a shell variable, and passed the variable to the diff. Bash splits an unquoted variable into the several paths it holds, and zsh does not, so on zsh the tool received one nonsense path, withheld nothing, and still reported success. The failure direction is open and silent: a conformance verdict and a close record's deviation rationale could each be drawn from a diff carrying queue and discovery churn, and the refusal that stops a landed-change entry with nothing to record would pass a change whose only content was pipeline-store edits. Nothing would have said so. No verdict and no close record had in fact been drawn from an unfiltered diff when this was caught.
 
 The bodies now substitute the call on the diff line itself rather than through a variable, and a test reads every command body and fails on the captured form, so a body written later cannot adopt it unnoticed. That test covers the intake body too, which reads the set as the three named here do.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt and its combined change set are retired, so the edge is removed. The conformance gate, which this page already names, still withholds every member of the set from the diff it judges.

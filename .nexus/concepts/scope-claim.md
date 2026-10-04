@@ -1,8 +1,8 @@
 ---
 title: "Claim of Scope"
 aliases: ["mention is not a claim", "repository qualifier", "closing keyword", "implements", "part of", "body reference", "commit trailer", "explicit story reference", "scope grammar"]
-touches: ["pr-story-resolution", "aggregated-epic-receipt"]
-last_updated_by: "#564"
+touches: ["pr-story-resolution"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -32,10 +32,13 @@ The platform's own closing links are same-repository by construction, so they ar
 ## Integration Points
 
 - [pr-story-resolution](pr-story-resolution.md) — the ladder that gathers under this grammar, and then validates whatever it gathered against the live issue graph.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — reads a story as analyzed when a trusted receipt names it, which is why a mention must never reach the list a receipt stamps.
 
 ## Decision Log
 
 ### 2026-09-12 — #564 — Split from pull-request story resolution: a reference must claim the work
 
 Split from pr-story-resolution, which was at its capacity and was describing two things: what a source must say to be read, and how a read candidate becomes a resolved story. The seam holds because each half is loadable alone — a question about why a body reference did not count never needs the validation rules, and a question about why a multi-story pull request resolved to a whole epic never needs the grammar. The rule itself repairs a resolver whose two text rungs had drifted. The commit-trailer rung already skipped a trailer qualified to another repository; the body rung matched the qualifier and then discarded it, so a member pull request citing a sibling in its own repository produced a number looked up against the hub, where it usually means nothing. Worse, merely appearing in a body counted as implementation, so a body citing three sibling stories as background marked all three analyzed and the close gate then passed over code nobody read. Refuted alternative: accept the platform's closing keywords and nothing else, matching the commit-trailer rung exactly. It is the smallest rule and it is provably consistent between the two rungs. It loses because this project's own pull requests introduce a reference with "Implements", which is not a platform keyword, so real pull requests would stop the gate on the day the narrowing shipped.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt that read a story as analyzed when a trusted receipt named it is retired, so the edge is removed. Narrowing a pull request's story list to the stories it claims is unchanged.

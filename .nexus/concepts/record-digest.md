@@ -1,8 +1,8 @@
 ---
 title: "Canonical Record Digest"
 aliases: ["record hash", "record digest", "record staleness axis", "approved-body hash"]
-touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "aggregated-epic-receipt", "pinned-sources"]
-last_updated_by: "#459"
+touches: ["decision-record", "committed-queue", "distiller", "conformance-gate", "durable-close-record", "verb-reachability", "writer-stamp", "pinned-sources"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -34,7 +34,6 @@ The canonicalisation rule is stated, not incidental, and fixed for the lifetime 
 - [conformance-gate](conformance-gate.md) — the receipt this digest is stamped into.
 - [verb-reachability](verb-reachability.md) — this capability is now also reachable as a verb on the shared executable, matched byte-for-byte against its script form.
 - [writer-stamp](writer-stamp.md) — sits beside this digest, outside the bytes it covers, so stamping changes no hash and this rule needed no exception.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — compares each story verdict's stamped digest against the record's current digest, one story at a time.
 - [pinned-sources](pinned-sources.md) — reuses this record fetch's approval reading, so a record closed as not planned pins nothing.
 
 ## Decision Log
@@ -67,3 +66,7 @@ Mechanical reciprocity fan-out: the record-staleness axis is now evaluated once 
 ### 2026-09-17 — #459 — Reciprocal link from pinned-sources
 
 Source pinning reads a record's approval through the same fetch this digest uses, and does not add a second reading of the issue state. Two approval rules could drift apart, and one of them would then pin sources from a withdrawn record.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt that compared each story verdict's stamped digest with the record's current digest is retired, so the edge is removed. Close still compares that digest per story when it gathers its evidence.

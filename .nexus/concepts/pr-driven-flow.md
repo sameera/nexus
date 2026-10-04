@@ -1,8 +1,8 @@
 ---
 title: "PR-Driven Post-Merge Flow"
 aliases: ["pr mode", "pull-request post-merge flow", "worktree pr flow", "merge-commit range derivation", "conformance against a pull request"]
-touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "aggregated-epic-receipt", "multi-pr-close", "shipped-ledger", "published-verdict-selection", "close-and-distill-command"]
-last_updated_by: "#814"
+touches: ["nexus-pipeline", "distiller", "distillation-pr", "committed-queue", "conformance-gate", "pr-worktree", "pre-epic-discovery", "pr-story-resolution", "multi-pr-close", "shipped-ledger", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -38,11 +38,11 @@ A conformance run takes one pull-request reference. A bare number means this che
 - [pr-worktree](pr-worktree.md) — the worktree these stages run in: where it lands, its isolation, reuse, and removal.
 - [pre-epic-discovery](pre-epic-discovery.md) — excluded from the stamped range too, so that range matches the diff the drain later recomputes.
 - [pr-story-resolution](pr-story-resolution.md) — resolves which stories a conformance run covers, and narrows that run's findings to them.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — collects the per-story verdicts this flow publishes into one answer for the epic they belong to.
 - [multi-pr-close](multi-pr-close.md) — generalizes this flow's closure stage to an epic that shipped as several pull requests; one pull request is the one-entry case.
 
 - [published-verdict-selection](published-verdict-selection.md) — decides which of the verdicts this flow publishes on a pull request is the one a later stage reads.
 - [close-and-distill-command](close-and-distill-command.md) — runs this whole flow for a merged pull request with one command and one approval.
+- [pr-verdict-answers](pr-verdict-answers.md) — the answers an engineer posts on the open pull request, which the next conformance run records in a new verdict.
 
 ## Decision Log
 
@@ -111,3 +111,7 @@ is captured.
 ### 2026-09-27 — #814 — Closure runs only against a pull request
 
 Since the post-merge conformance run became required, a closure without a pull request could never pass its own shipped-record check. Every such run did work and then stopped. Closure without a pull request now refuses before it resolves the epic or writes anything, and it names the pull-request form. The passages that described a local closure are removed. The conformance stage is unchanged and keeps its local path. The close-and-distill command now runs this flow end to end: conformance, closure and distillation in one worktree, with one approval.
+
+### 2026-10-04 — #829 — Reciprocal links: aggregated-epic-receipt retired, pr-verdict-answers added
+
+Mechanical reciprocity fan-out, two edges. The epic-wide receipt that collected this flow's per-story verdicts is retired, so that edge is removed; the pull request that completes the epic carries the epic-level judgment instead. The pull-request verdict answers page declared an interaction with this flow, so this page mirrors it: the engineer answers each departure and finding on the open pull request, before the merge.

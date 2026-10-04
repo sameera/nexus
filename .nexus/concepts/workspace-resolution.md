@@ -1,8 +1,8 @@
 ---
 title: "Workspace Resolution"
 aliases: ["multi-repo workspace", "workspace manifest", "hub pointer", "single-repo fallback", "workspace resolver"]
-touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "aggregated-epic-receipt", "range-entry-diff", "committed-queue"]
-last_updated_by: "#215"
+touches: ["remote-identity-normalization", "bare-name-guard", "portable-tooling", "nexus-setup-cli", "issue-sourced-planning", "publishing-config-resolution", "workbook-store", "range-entry-diff", "committed-queue"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -40,7 +40,6 @@ Resolution now walks upward from wherever it's given, bounded to the checkout's 
 - [issue-sourced-planning](issue-sourced-planning.md) — the epic resolver reads this for its target.
 - [publishing-config-resolution](publishing-config-resolution.md) — the defaults carried here are that resolver's hub layer, inherited per key.
 - [workbook-store](workbook-store.md) — the resolver decides which member checkout a workbook belongs in; a hub checkout is refused.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — searches every repository this resolver declares for a story's published verdict, not only the invoking checkout.
 - [range-entry-diff](range-entry-diff.md) — resolves each repository a range entry names to its checkout, in a hub.
 
 - [committed-queue](committed-queue.md) — the status read-out names a member checkout still holding one of that queue's entries, until the copy is gone.
@@ -106,3 +105,7 @@ Mechanical reciprocity fan-out: the drain's range reader asks this resolver for 
 ### 2026-09-11 — #215 — Reciprocal links: the member close goes, the queue read-out arrives
 
 Mechanical reciprocity fan-out, both directions in one entry. A member close no longer reads a role and hub location here before relocating an entry, because that close is retired, so that edge is removed; the role this resolver reports is now what refuses a close in a member checkout outright. In its place, the status read-out gained a line naming any member checkout whose committed queue still holds an entry, and saying whether it has already been relocated to the hub. That line persists until the member-side copy is gone, so a leftover copy cannot become silently permanent. Resolution itself is unchanged.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt that searched every declared repository for a story's verdict is retired, so the edge is removed. The pull request that completes an epic now carries the epic-level judgment.

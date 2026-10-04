@@ -1,15 +1,15 @@
 ---
 title: "Aggregated Epic Receipt"
 aliases: ["epic receipt", "aggregate mode", "story verdicts", "per-story staleness", "combined change set", "no-pull-request marker"]
-touches: ["conformance-gate", "pr-driven-flow", "pr-story-resolution", "record-digest", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close", "scope-claim", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection"]
-last_updated_by: "#769"
-status: active
+touches: []
+last_updated_by: "#829"
+status: deprecated
 verification: verified
 ---
 
 # Aggregated Epic Receipt
 
-An epic whose stories were each judged on their own pull request gets one receipt derived from those verdicts, never a second conformance run. Coverage decides what happens next: every story judged produces the receipt, no story judged falls back to the ordinary whole-epic run, and a mixture stops and names the stories still missing a verdict. Only what no single story could answer is judged afresh, against the combined code of every story pull request.
+Retired by #829: the success metrics and cross-story guarantees are judged on the pull request that completes the epic, and no epic-wide receipt is derived. The sections below describe the receipt as it stood before it was retired.
 
 ## How It Works
 
@@ -27,17 +27,7 @@ The conformance stage, addressed at an epic, reads the records on the epic issue
 
 ## Integration Points
 
-- [conformance-gate](conformance-gate.md) — the gate this receipt is a second shape of: analyze writes it, close reads it back, and a stale one still needs an explicit waiver.
-- [pr-driven-flow](pr-driven-flow.md) — the flow that publishes the per-story verdicts this receipt collects, one review per story pull request.
-- [pr-story-resolution](pr-story-resolution.md) — the same validated-candidate idea run in the opposite direction: that page resolves a pull request to its stories, this one resolves a story to its pull requests.
-- [record-digest](record-digest.md) — supplies the record's current digest, which each story's stamped digest is compared against on the design-staleness axis.
-- [pipeline-store-exclusion](pipeline-store-exclusion.md) — the closed set withheld from every per-pull-request change set the combined code unions.
-- [workspace-resolution](workspace-resolution.md) — names the repositories the search for a story's verdict spans, so a story whose pull request lives in a member repository is found.
-- [multi-pr-close](multi-pr-close.md) — reads this receipt as the authoritative pull-request set for the epic, and its close-time waiver is what writes the no-pull-request marker onto a story issue.
-- [scope-claim](scope-claim.md) — narrows what reaches a pull request's story list, so a story this aggregate reads as analyzed was one that pull request actually took on.
-- [published-verdict-selection](published-verdict-selection.md) — the shared trust and recency rule this derivation applies per story, so the repository a verdict stamps is read in either written form.
-- [verdict-repository-scoping](verdict-repository-scoping.md) — decides which candidate verdicts this derivation may count, and requires each one it drops for belonging elsewhere to be named.
-- [shipped-ledger](shipped-ledger.md) — the records this receipt now reads what shipped from, in place of searching repositories for a published verdict.
+None. This page is retired, and the pages it named no longer link to it.
 
 ## Decision Log
 
@@ -76,3 +66,7 @@ reported in four states rather than two, because a story with nothing recorded a
 merged pull request carries no record need different remedies. Findings are summed once per
 record rather than once per verdict, which is the same rule stated against the thing that now
 carries them. The per-story code-staleness axis is gone with the rest of it.
+
+### 2026-10-04 — #829 — Retired: the pull request that completes the epic carries the epic-level judgment
+
+Analyze no longer combines the story verdicts into one receipt for the epic. Addressed by epic number once any story has merged, it names the pull request to analyze instead. The two judgments only the whole epic could make moved to that pull request. The success metrics and the guarantees that span stories are judged on the pull request that completes the epic, before the epic's last merge, against code that must already contain every merged sibling. That reads the code as it will be after the merge, so the combined change set of separate pull requests is no longer needed. Close still derives a receipt from the epic's records once, to notice a story that shipped inside a sibling's pull request, and writes no file. That check belongs to the close over several pull requests. The page's links are dropped because an archived page keeps no live edges. Refuted alternative: judge the epic level against the platform's test-merge commit. That commit is missing when the merge conflicts, and it differs from the head the verdict stamps.

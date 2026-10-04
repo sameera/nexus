@@ -1,8 +1,8 @@
 ---
 title: "Published Verdict Selection"
 aliases: ["which verdict a pull request carries", "newest-wins verdict", "verdict trust", "repository stamp matching", "superseded verdict"]
-touches: ["conformance-gate", "aggregated-epic-receipt", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command"]
-last_updated_by: "#814"
+touches: ["conformance-gate", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command", "pr-verdict-answers"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -28,11 +28,11 @@ Every review and comment carrying the verdict marker is collected, each with the
 ## Integration Points
 
 - [conformance-gate](conformance-gate.md) — the gate whose pull-request verdict this rule selects, and which reports what the command returns rather than choosing a block itself.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the derivation that applies this same trust and recency rule per story, across every candidate pull request.
 - [provenance-reference](provenance-reference.md) — the adjacent two-form grammar for naming an issue; this rule is the same shape one level up, for naming a repository.
 - [remote-identity-normalization](remote-identity-normalization.md) — supplies the canonical host-qualified identity a verdict stamps, which this rule compares against a possibly bare one.
 - [pr-driven-flow](pr-driven-flow.md) — the flow that publishes the verdicts this rule chooses between, one review per pull request.
 - [close-and-distill-command](close-and-distill-command.md) — uses this rule to require a clean verdict before its merge option merges an open pull request.
+- [pr-verdict-answers](pr-verdict-answers.md) — reads its item IDs and earlier answers from the verdict this rule picks.
 
 ## Decision Log
 
@@ -45,3 +45,7 @@ Separately, a close reported a superseded verdict's severity counts. Both compil
 ### 2026-09-27 — #814 — Reciprocal link from close-and-distill-command
 
 The close-and-distill command declared an interaction with this concept, so this page mirrors it.
+
+### 2026-10-04 — #829 — Reciprocal links: aggregated-epic-receipt retired, pr-verdict-answers added
+
+Mechanical reciprocity fan-out, two edges. The epic-wide derivation that applied this rule per story is retired, so that edge is removed. The pull-request verdict answers page declared an interaction with this rule, so this page mirrors it: the newest trusted verdict this rule picks is the registry the next run reads its item IDs and earlier answers from.

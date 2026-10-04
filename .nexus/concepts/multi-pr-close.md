@@ -1,8 +1,8 @@
 ---
 title: "Close Over Several Pull Requests"
 aliases: ["multi-pull-request close", "epic-wide close", "merge gate", "story pull-request set", "range list", "one entry per pull request", "storyless story waiver", "trunk head verification"]
-touches: ["aggregated-epic-receipt", "pr-driven-flow", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff", "remote-identity-normalization", "shipped-ledger"]
-last_updated_by: "#769"
+touches: ["pr-driven-flow", "pr-worktree", "durable-close-record", "distiller", "range-entry-diff", "remote-identity-normalization", "shipped-ledger"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -31,7 +31,6 @@ No range is derived here: each was stamped by the run that held the merged code,
 
 ## Integration Points
 
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the authoritative record of which story shipped in which pull request. This close reads its set from there, and writes the marker that page defines.
 - [pr-driven-flow](pr-driven-flow.md) — the single-pull-request post-merge flow this generalizes. One pull request is now the one-entry case of the same close.
 - [pr-worktree](pr-worktree.md) — the worktree now opened once for the whole epic, and only after every gate and every range derivation has passed.
 - [durable-close-record](durable-close-record.md) — carries the list-shaped range and every waived story with its date onto the epic issue.
@@ -79,3 +78,7 @@ this declined — the lead's only remedy would be cloning repositories they have
 Mechanical reciprocity fan-out: the shipped ledger names this close as the reader that takes merge
 state and the close range from its records, so a reader arriving at either page learns which side
 writes the fact and which side spends it.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt is retired, so the edge is removed. This close already reads its pull-request set from the epic's records. It still derives a receipt from those records once, writing no file, to notice a story that shipped inside a sibling's pull request, and the storyless-story waiver this page states is unchanged.

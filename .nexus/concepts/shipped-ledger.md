@@ -1,8 +1,8 @@
 ---
 title: "Shipped Ledger"
 aliases: ["shipped record", "what an epic shipped", "ledger of what shipped", "per-pull-request record", "epic-issue record", "shipped coverage states"]
-touches: ["conformance-gate", "multi-pr-close", "aggregated-epic-receipt", "durable-close-record", "pr-driven-flow", "remote-identity-normalization", "close-and-distill-command"]
-last_updated_by: "#814"
+touches: ["conformance-gate", "multi-pr-close", "durable-close-record", "pr-driven-flow", "remote-identity-normalization", "close-and-distill-command"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -33,7 +33,6 @@ Addressed at an epic, the gate reports each story as shipped, unrecorded, unship
 
 - [conformance-gate](conformance-gate.md) — the gate that writes a record, and the run whose findings each record carries.
 - [multi-pr-close](multi-pr-close.md) — reads merge state and the close range from these records rather than from live pull-request state.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the receipt shape whose story-to-pull-request answer these records replaced.
 - [durable-close-record](durable-close-record.md) — stamps the range these records carry onto the epic issue, verbatim.
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose post-merge conformance run is what writes a record at all.
 - [remote-identity-normalization](remote-identity-normalization.md) — the rule by which a record names its code repository, so two readers cannot disagree about which repository it stamps.
@@ -48,3 +47,7 @@ The list of what an epic shipped was rebuilt from scratch on every gate run, and
 ### 2026-09-27 — #814 — Reciprocal link from close-and-distill-command
 
 The close-and-distill command declared an interaction with this concept, so this page mirrors it.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt this ledger once replaced as the source of what shipped is retired, so the edge is removed.
