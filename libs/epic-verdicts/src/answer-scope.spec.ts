@@ -63,7 +63,7 @@ const results = (): Result[] => [
 const judgments = (over: Partial<Judgments> = {}): Judgments => ({
     items: [dv(), dv({ id: "DV2", departsFrom: "G9", severity: "critical", files: ["libs/d.ts"], answer: ACCEPTED })],
     findings: [f()],
-    other: [],
+    deferred: [],
     results: results(),
     epicLevel: "skip",
     ...over,
@@ -337,5 +337,35 @@ describe("readEarlierVerdict — the newest trusted verdict, read by the reader 
         const body = `${verdictBody({ high: 0, repo: REPO, pr: PR, issuesRepo: REPO })}\n\n<!-- nexus:analyze-judgments -->\n\`\`\`json\n{ nope\n\`\`\`\n`;
         const r = readEarlierVerdict(runner([{ body, createdAt: "2026-10-02T00:00:00Z", authorAssociation: "OWNER" }]), "/repo", PR, REPO, REPO);
         expect(r.ok).toBe(false);
+    });
+});
+
+describe("an answer-recording run carries the key decisions and the deferred scope (epic #829, story #862; G24)", () => {
+    const APPROVED = { verb: "approved", author: "lead", link: "https://x/c/9", reason: "" };
+    const KEY = {
+        record: { digest: DIGEST, format: "new" as const, decisions: [{ id: "D1" }] },
+        stubs: [{ path: ".nexus/queue/epic-829/lead/decisions-b.md", choice: "c", reason: "r", refuted: "none" }],
+    };
+    const ds = { id: "DS1", kind: "deferred-scope" as const, found: true, settles: "F1", summary: "the rest of AC2", answer: APPROVED };
+
+    it("carries the key decisions and every proposal unchanged when the head has not moved", () => {
+        const j = judgments({ deferred: [ds], keyDecisions: KEY });
+        expect(mergeAnswerRun(j, scopeOf(j, "unchanged"), null)).toEqual({ ok: true, judgments: j });
+    });
+
+    it("judges again a departure whose deferral was approved, like any answered departure", () => {
+        const j = judgments({ deferred: [{ ...ds, settles: "DV1" }] });
+        expect(selectRejudge(j, []).items).toContain("DV1");
+    });
+
+    it("carries a proposal with its unaffected item, and keeps the key decisions unless the stubs are handed in again", () => {
+        const j = judgments({ deferred: [ds], keyDecisions: KEY });
+        const scope = scopeOf(j, "moved", ["libs/d.ts"]);
+        const draft = { departures: [{ departsFrom: "G9", summary: "s", breaksGuarantee: true, files: ["libs/d.ts"], stub: null, supersedes: null }], findings: [], results: [] };
+        const r = mergeAnswerRun(j, scope, draft);
+        expect(r.ok && r.judgments.deferred).toEqual([ds]);
+        expect(r.ok && r.judgments.keyDecisions).toEqual(KEY);
+        const restubbed = mergeAnswerRun(j, scope, { ...draft, stubs: [] });
+        expect(restubbed.ok && restubbed.judgments.keyDecisions).toEqual({ ...KEY, stubs: [] });
     });
 });

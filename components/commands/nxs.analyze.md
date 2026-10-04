@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. With `--pr <N> --resolve` it records those answers without judging unchanged code again: on an unchanged head it reads no code, on a moved head it judges again only the answered departures and what the files whose own change differs affect (a trunk merge or rebase changes nothing by itself), and it judges the whole pull request again, saying why, when the record or story set changed or the last verdict cannot say what a change affects; with no verdict to carry it stops and names a full run. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. With `--pr <N> --resolve` it records those answers without judging unchanged code again: on an unchanged head it reads no code, on a moved head it judges again only the answered departures and what the files whose own change differs affect (a trunk merge or rebase changes nothing by itself), and it judges the whole pull request again, saying why, when the record or story set changed or the last verdict cannot say what a change affects; with no verdict to carry it stops and names a full run. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block, followed by a judgments block that carries what close writes into its record: the key decisions (each record decision by ID, tied to the stamped record digest, plus each confirmed decision stub), every departure with its answer, and deferred-scope proposals with DS IDs, each tied to the finding or departure it would settle, which a trusted approved answer marks for filing and stops blocking; a verdict over the platform's size limit drops its file lists first, and one still too large is not published. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -340,11 +340,12 @@ and publishes nothing — a failed read is never "no verdict". Follow `mode`:
     step with the scope and no draft:
 
     ```bash
-    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<scratch>/scope.json" --out "<scratch>/judgments.md" --dir "$wtPath"
+    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<scratch>/scope.json" --out "<scratch>/judgments.md" --record-body "<scratch>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
     ```
 
-    It carries every item, answer and result of the last verdict forward and applies the answers
-    posted since (§2.6).
+    It carries every item, answer, result, deferred-scope proposal and confirmed stub of the last
+    verdict forward and applies the answers posted since (§2.6). Omit `--record-body` and
+    `--record-hash` only in degraded mode.
 -   **`moved`** — the head moved. `changedFiles` are the files whose **own change** differs between
     the two heads: what each head changed against the point where it left trunk, the comparison
     close's landed check makes. So a trunk merge or a rebase changes nothing by itself. Read only
@@ -357,10 +358,13 @@ and publishes nothing — a failed read is never "no verdict". Follow `mode`:
     result in `rejudge.results`. Then:
 
     ```bash
-    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<scratch>/scope.json" --draft "<scratch>/items.json" --out "<scratch>/judgments.md" --dir "$wtPath"
+    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<scratch>/scope.json" --draft "<scratch>/items.json" --out "<scratch>/judgments.md" --record-body "<scratch>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
     ```
 
-    Every other item and result is carried forward unchanged, with its answer. An item in scope you
+    Every other item and result is carried forward unchanged, with its answer, and each
+    deferred-scope proposal travels with the item it would settle. The confirmed stubs are carried
+    too, unless a changed file bears on one or a stub file itself changed: then hand the whole
+    `confirmedStubs` list again in the draft (§2.7). An item in scope you
     do not find again is listed as no longer found, with its answer. `draft-malformed` names a
     result in scope the draft left out, or one out of scope it judged again: fix the draft.
 
@@ -430,7 +434,8 @@ Determine what was actually built for this epic. Use, in order of availability:
    because the scratch is committed to the PR head, not machine-local). Use a stub's reason to
    explain a departure (§2.5) — shown beside it, never accepting it — and scope drift (§2.4), and,
    in **downgraded** mode, to reconstruct likely conditions the missing decision record would
-   have carried. They **never** change a met/partial/unmet/contradicted verdict — the diff and
+   have carried. A stub whose choice the diff actually implements is a **confirmed stub**, and a
+   key decision the verdict carries (§2.7); a stub the code contradicts is not. They **never** change a met/partial/unmet/contradicted verdict — the diff and
    the ACs decide that. Absent → ignore silently.
 
 Do not run the application or the test suite. You are reading the change, not exercising it.
@@ -451,6 +456,12 @@ Classify the AC:
 - **unmet** — no implementing code found in the change set. **(high)** An open story issue is never
   the reason — the diff decides.
 - **contradicted** — the code implements the opposite of, or breaks, the stated criterion. **(critical)**
+
+**Propose the missing part for deferral** (record #871, D7) when a criterion is **unmet** or
+**partial** in a story this pull request covers and the missing part could ship later on its own:
+put it on that criterion's finding as `deferred` (§2.5). It becomes a deferred-scope proposal with
+a `DS<n>` ID that belongs to the finding. Never propose a criterion of a story this run does not
+cover — that is a sibling's scope, and the sibling will deliver it.
 
 For `system` stories, the AC states a measurable threshold — confirm the code path that would meet it
 exists; if the threshold needs a benchmark you cannot read from the diff, mark it **unverifiable here**
@@ -540,6 +551,11 @@ A departure that names nothing is never listed. A broken guarantee or invariant 
 show the stub's path and reason beside it. The departure stays **unanswered**: only a trusted
 comment on the pull request naming its ID, or a record revision, answers it.
 
+**Record scope the delivered stories leave out is a departure** too, citing what it departs from,
+and it may carry that scope as `deferred` (§2.7) — unless another live story of the epic will
+deliver it (its decision's **Delivered by** line names that story): a sibling's scope is never a
+departure here and never proposed.
+
 **The superseding mark** goes on a departure only when the code does the **opposite** of what a
 record decision chose — an approved choice refuted, replaced or inverted. Name the decision and
 what the code does instead. A departure that elaborates, extends or implements something the
@@ -554,17 +570,25 @@ trusted verdict on this pull request as the registry, so an item found again kee
 answer survives a re-run, and it then applies the answers posted on the pull request (§2.6):
 
 ```bash
-nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<scratch>/items.json" --out "<scratch>/judgments.md" --dir "$wtPath"
+nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<scratch>/items.json" --out "<scratch>/judgments.md" --record-body "<scratch>/record-body.md" --record-hash "$RECORD_HASH" --dir "$wtPath"
 ```
 
-The draft is `{ "departures": [ ... ], "findings": [ ... ] }`. One entry per departure:
-`{ "departsFrom": "<D<n>, G<n>, title or section>", "summary": "<what the code does>",
-"breaksGuarantee": <true|false>, "files": ["<path>", ...], "stub": { "path": "<stub>", "reason":
-"<its reason>" } | null, "supersedes": { "decision": "<D<n> or title>", "instead": "<what the code
-does instead>" } | null }`. One entry per **finding** — every finding of §2.1 to §2.4 at any
-severity, an unmet criterion, a metric not moved, "epic-level check not run" alike:
-`{ "about": "<what it judges: the criterion (#<story> AC<k>), the metric, or the named check>",
-"severity": "<critical|high|medium|low>", "summary": "<what is wrong>", "files": ["<path>", ...] }`.
+`--record-body` is the record body Phase 0.5 wrote to scratch, and `--record-hash` the digest the
+verdict block stamps; omit both only in degraded mode. The step builds the record half of the key
+decisions from them (§2.7).
+
+The draft is `{ "departures": [ ... ], "findings": [ ... ], "confirmedStubs": [ ... ] }`. One entry
+per departure: `{ "departsFrom": "<D<n>, G<n>, title or section>", "summary": "<what the code
+does>", "breaksGuarantee": <true|false>, "files": ["<path>", ...], "stub": { "path": "<stub>",
+"reason": "<its reason>" } | null, "supersedes": { "decision": "<D<n> or title>", "instead": "<what
+the code does instead>" } | null, "deferred": "<the record scope left out>" | null }`. One entry
+per **finding** — every finding of §2.1 to §2.4 at any severity, an unmet criterion, a metric not
+moved, "epic-level check not run" alike: `{ "about": "<what it judges: the criterion (#<story>
+AC<k>), the metric, or the named check>", "severity": "<critical|high|medium|low>", "summary":
+"<what is wrong>", "files": ["<path>", ...], "deferred": "<the missing part of the criterion>" |
+null }`. `deferred` is set only as §2.7 allows. One entry per **confirmed stub**: `{ "path":
+"<stub>", "choice": "<what was chosen>", "reason": "<why>", "refuted": "<the alternative not
+taken, or none>" }`.
 Cite the same element, or name the same thing judged, and the files it was judged on each run: two
 items are the same when they name the same thing and share a file. The step prints `{ registry,
 items, findings, results, open, answers }` and writes the judgments block to `--out`. Each
@@ -607,6 +631,7 @@ F1 — waived: the flaky check is tracked in #901
 
 Each verb fits one kind of item: **accepted** for a departure, **waived** for a **critical or high**
 finding, **approved** for a deferred-scope proposal. A reason is required for accepted and waived.
+An approval marks the proposal for filing by close and stops the item it settles blocking (§2.7).
 A record revision also answers a departure: the next run judges against the revised record.
 
 **You never read answers yourself.** The ID step reads them through the one waiver reader close
@@ -634,6 +659,48 @@ A comment that carries a verdict is never read as an answer, so write the item l
 the form Phase 3 shows: an answered item reads `DV<n> (<severity>) accepted by @<who> ...`, never
 in the answer form.
 
+## 2.7 What the verdict carries for close (`--pr` mode)
+
+The verdict carries what close writes into its record (epic #829, record #871, D5–D7), so close
+never reads the diff or asks the lead for it: the key decisions, every departure with its answer,
+who gave it and the link, the record decisions the code supersedes, and the deferred scope.
+
+**The key decisions** (D6) are every record decision plus every confirmed stub. **You never list
+the record's decisions yourself**: the ID step builds them from `--record-body`, every decision by
+its ID (by title in an old-format record), tied to the digest the verdict stamps as
+`record_hash` — close resolves their text from the record body that digest pins. Only a record in
+neither format is carried in full. A confirmed stub is carried in full, with its choice, reason
+and refuted alternative, from the draft's `confirmedStubs`. **A stub the code contradicts is not a
+key decision**: it may explain a departure instead (§2.5). A decision recorded only in a story-issue
+comment, or visible only in the code, is not a key decision; the code's own choices surface as
+departures or scope drift.
+
+**Deferred scope** (D7) is proposed from exactly two places, and nowhere else:
+
+1. the missing part of an **unmet or partial criterion in a story this pull request covers** —
+   `deferred` on that criterion's finding;
+2. **record scope the epic's stories, as delivered, leave out** — `deferred` on the departure that
+   names it.
+
+Each proposal gets a `DS<n>` ID from the same per-pull-request registry, and names the `F<n>` or
+`DV<n>` it would settle. **Never propose scope another live story of the epic will deliver** — not
+on a story pull request, and not as record scope; `nexus verdict-check` refuses a proposal that
+settles a criterion of a story the verdict does not cover (`deferred-scope-sibling`). The ID step
+prints each proposal's state under `deferred`:
+
+- `to-file` — a trusted `approved` answer marked it for filing by close; it names the approver,
+  and the item it settles no longer blocks (the `open` counts drop it).
+- `not-filed` — its item was accepted or waived without approving it. **Nothing is filed**, and
+  the verdict says so, naming who answered the item.
+- `proposed` — unanswered; the item it settles still blocks.
+- `no-longer-found` — a later run did not propose it again; listed with its answer, never dropped.
+
+**The judgments block is built and read by the toolkit only.** Its one parser is what
+`nexus verdict-check` runs on the exact bytes to be published, and what close reads. Answer text is
+copied into it as written, and it cannot change how either block parses: the fence is longer than
+any run of backticks inside, and no marker can appear inside it. A verdict published before this
+block existed reads as having no judgments, never as an error, for close and the merge pre-check.
+
 # Phase 3 — Report (inline) and write the receipt
 
 Return a concise summary:
@@ -658,6 +725,12 @@ Findings:                <none> | one line per finding (--pr: with the ID the ID
 Recorded:                <the scope's lines>   (--resolve only)
 Answers not applied:     <none> | one line per entry of answers.unapplied (--pr mode):
   @<author> on <ID> (<link>): <untrusted | unknown-id | wrong-verb | no-reason | not-waivable>
+Key decisions:           <record decisions, by ID or title, @ <RECORD_HASH>> (--pr mode, §2.7):
+  stub <path>: <choice> — <reason> (refuted: <alternative>)       (one line per confirmed stub)
+Deferred scope:          <none> | one line per entry of deferred (--pr mode, §2.7):
+  DS<n> settles <F<n>|DV<n>> · <scope> · to file, approved by @<who> (<link>)
+  DS<n> settles <F<n>|DV<n>> · <scope> · proposed
+  DS<n> settles <F<n>|DV<n>> · <scope> · not filed: <ID> was <accepted|waived> by @<who> without approving it
 Epic level:              <the completion check's lines> (--pr mode)
 Success metrics:         <metric → met | not moved | unverifiable: what would decide it>   (--pr: only when judged)
                          <metric → measurable? plausibly-moved?>                           (local)
@@ -808,8 +881,9 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
 
     Then append the **judgments block** — the file `nexus verdict-items` wrote to `--out` in §2.5,
     verbatim, **after** the verdict block. It starts with the `<!-- nexus:analyze-judgments -->`
-    marker and carries every departure and finding with its ID and its answer, each answer with who
-    gave it and the link to the comment. Every verdict carries it, a verdict with no item included:
+    marker and carries every departure, finding and deferred-scope proposal with its ID and its
+    answer, each answer with who gave it and the link to the comment, the key decisions (§2.7) and
+    each result's file list. Every verdict carries it, a verdict with no item included:
     it is the ID registry the next run on this pull request reads. Never edit it by hand and never
     fold its content into the verdict block above, whose keys stay as they are.
 
@@ -832,8 +906,22 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     counts — they leave out an unanswered item, or count an answered or unlisted one: write the
     `open` counts the ID step printed, and list every finding through it, then check again. `judgments-malformed` means the judgments block
     was edited or misplaced: append the ID step's output again, unedited, after the verdict block.
-    This runs on the review path and the comment fallback path alike; the
-    body it judges is the exact body that goes on the wire.
+    `marker-repeated` means text copied into the summary — an answer's reason, most often —
+    carries a verdict marker: write its `<!--` as `&lt;!--` in the summary and check again.
+    `key-decisions-missing` and `key-decisions-stale` mean the ID step ran without the record body
+    and digest, or with a digest other than the one the verdict block stamps: run it again with
+    `--record-body` and `--record-hash "$RECORD_HASH"`. `deferred-scope-sibling` means a proposal
+    settles a criterion of a story this pull request does not cover: drop its `deferred`, run the
+    ID step again and check again.
+
+    **The size budget** (D5). The platform takes at most 65,536 characters. When the body is over,
+    the check drops every file list first, puts a line saying so above the verdict block, records
+    `filesDropped` in the judgments block — so the next `--resolve` run on a moved head judges the
+    whole pull request again — and **writes the result back to the body file**: those are the bytes
+    to publish, and it prints `filesDropped: true` and the `size`. If the body is still too large,
+    it exits 1 with `verdict-too-large`, naming the size: **publish nothing**, report the size, and
+    shorten the summary prose before checking again. This runs on the review path and the comment
+    fallback path alike; the body it approves is the exact body that goes on the wire.
 
 3. Publish it as a **PR review**, so the verdict lands in the merge box:
 

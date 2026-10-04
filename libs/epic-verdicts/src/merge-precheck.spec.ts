@@ -72,6 +72,22 @@ describe("mergePrecheck — the four receipt states (D10)", () => {
         expect(r.merge).toBe(true);
     });
 
+    it("reads a verdict published before the judgments block existed with no change (epic #829, G40)", () => {
+        const r = check(atAnalyzedHead({ newerBody: verdictBody({ high: 0 }) }));
+        expect(r.result).toBe("clean");
+        expect(r.merge).toBe(true);
+    });
+
+    it("allows the merge once a trusted person approves the deferral of the only blocking finding (epic #829, story #862, G26)", () => {
+        const judgments = renderJudgmentsBlock({
+            items: [],
+            findings: [{ id: "F1", kind: "finding", found: true, severity: "high", about: "#117 AC1", summary: "y", files: [], answer: null }],
+            deferred: [{ id: "DS1", kind: "deferred-scope", found: true, settles: "F1", summary: "the rest of AC1", answer: { verb: "approved", author: "lead", link: "https://x/9", reason: "" } }],
+        });
+        const r = check(atAnalyzedHead({ newerBody: verdictBody({ high: 0, judgments }) }));
+        expect(r.result).toBe("clean");
+    });
+
     it("reports a failed read as a read failure, never as analysis not having run", () => {
         const failing: Runner = () => ({ status: 1, stdout: "", stderr: "HTTP 502" });
         const r = mergePrecheck(failing, "/repo", TWO_VERDICT_PR, TWO_VERDICT_REPO, TWO_VERDICT_REPO);
