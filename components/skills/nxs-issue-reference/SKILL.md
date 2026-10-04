@@ -12,8 +12,8 @@ anywhere else. This skill states the one rule every stage that writes an issue n
 the reference resolves correctly wherever it lands.
 
 Load it before composing any surface that names an epic, a decision record, a story, or a stub
-issue: a PR review or comment, a GitHub issue body, a materialized `epic.md`, an
-`analyze-receipt.md` or `close-record.md`, or a line printed to the lead's terminal.
+issue: a PR review or comment, a GitHub issue body, a materialized `epic.md`, a
+`close-record.md`, or a line printed to the lead's terminal.
 
 ## Section A — Resolving the repositories
 
@@ -50,7 +50,7 @@ repository the surface is published into.**
 | Context | Examples | Published into | Rule |
 | --- | --- | --- | --- |
 | GitHub surface | a PR review or comment, an issue body | the repository hosting that issue or PR | qualify when it differs from that repository |
-| Local file | `epic.md`, `analyze-receipt.md`, `close-record.md` | the repository its own `issues_repo:` frontmatter declares | qualify only a reference naming a *different* repository than that declaration; every reference to the file's own declared repository stays bare |
+| Local file | `epic.md`, `close-record.md` | the repository its own `issues_repo:` frontmatter declares | qualify only a reference naming a *different* repository than that declaration; every reference to the file's own declared repository stays bare |
 | Terminal report | a checkpoint, a block report, a completion summary | nothing — there is no ambient repository a reader resolves a bare number against | qualify whenever the reference's repository is known |
 
 Two corollaries follow directly and are easy to get backwards:

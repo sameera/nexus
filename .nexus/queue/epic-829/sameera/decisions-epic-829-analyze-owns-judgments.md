@@ -107,3 +107,13 @@
 - **Choice:** The judgments block writes every `<` as `<`, and the publish check refuses a body in which either verdict marker appears more than once.
 - **Why:** An answer's reason is also copied into the summary above the verdict block, where a marker would make the first-occurrence verdict parser read the prose.
 - **Refuted alternative:** Make each reader search for the last marker, which changes every deployed reader.
+
+## 2026-10-04 — The local result line's form, and where the implement scripts capture reports
+- **Choice:** Analyze's local report ends with `Analyze result: critical=<C> high=<H> medium=<M> low=<L> head=<full HEAD>`; the implement script captures each run's final message (Claude's result, Codex's last agent message) into `.nexus/tmp/implement-epic-<N>/analyze-<k>.md` and reads the last such line by one grep pattern a spec pins against analyze's template.
+- **Why:** A key=value line is unambiguous to parse and survives decoration, and a gitignored directory not named `epic-<n>`/`fix-<n>`/`intake-<n>` is invisible to distill and close.
+- **Refuted alternative:** Capture under the system temp directory — the fix round's agent would then read outside the workspace, which a Codex workspace-write sandbox is not guaranteed to allow.
+
+## 2026-10-04 — Delete the epic receipt writer and reader outright
+- **Choice:** `libs/epic-verdicts/src/write.ts` (writer and reader) is deleted; `epic-verdicts derive` prints the receipt and close reads it from the output.
+- **Why:** Its reader had no caller and its writer's only caller was the derive write D12 removes.
+- **Refuted alternative:** Keep the module and stop calling it — dead code that names the local file.

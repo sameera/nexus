@@ -32,7 +32,7 @@ const STAMPED_SURFACES: readonly {
     readonly component?: true;
     readonly section?: string;
 }[] = [
-    { surface: "the analyze receipt", path: "commands/nxs.analyze.md", component: true, section: "# Phase 3 — Report (inline) and write the receipt" },
+    { surface: "the analyze verdict", path: "commands/nxs.analyze.md", component: true, section: "# Phase 3 — Report, and on a pull request publish the verdict" },
     { surface: "the close record", path: "commands/nxs.close.md", component: true, section: "# Phase 4 — Write the close record" },
     { surface: "the close comment's machine block", path: "commands/nxs.close.md", component: true, section: "# Phase 8 — Post the comments and close the epic issue" },
     { surface: "the seeded close-record template", path: "common/templates/close-record-template.md" },

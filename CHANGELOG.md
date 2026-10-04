@@ -102,6 +102,19 @@ behaviour says so.
   over the platform's 65,536-character limit has its file lists dropped and says so, and the check
   writes those bytes back to publish; one still too large is not published, and the check names
   its size. A verdict published before this release still reads, as having no judgments.
+- **Analyze without a pull request reports in the terminal only (breaking).** `/nxs.analyze` run
+  without `--pr` no longer writes `analyze-receipt.md`, in `.nexus/tmp/` or in an old-contract
+  committed entry; it writes no file at all. Its report now ends with one fixed line, `Analyze
+  result: critical=<C> high=<H> medium=<M> low=<L> head=<full HEAD>`, giving the open counts and
+  the commit it read. A run that stops before judging prints no such line. `nexus epic-verdicts
+  derive` prints its receipt and no longer writes one beside the epic.
+- **Close never reads a local analysis file.** `/nxs.close` reads the analysis only from the
+  verdict on the pull request, and behaves the same when a file an older release wrote is still
+  beside the epic. The fix lane, the intake lane and the issue-reference rules no longer name one.
+- **The implement scripts work from analyze's terminal report.** The headless implement script and
+  its Codex entry point capture each local analyze run's final report in their own scratch space,
+  which no stage reads, and read the result line from it; each fix round works from that report. A
+  run that printed no result line stops the script and names the report.
 
 ## 0.90.1
 
