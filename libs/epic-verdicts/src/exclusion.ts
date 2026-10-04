@@ -36,3 +36,13 @@ export function waiveStory(run: Runner, cwd: string, story: number, noPrLabel: s
     }
     return { ok: true };
 }
+
+/**
+ * Whether a story issue carries `label` in the issues repository. A story whose labels cannot be
+ * read is read as not carrying it, so it stays live and the evidence gate reads its pull requests.
+ */
+export function storyCarriesLabel(run: Runner, cwd: string, issuesRepo: string, story: number, label: string): boolean {
+    const r = run("gh", ["issue", "view", String(story), "--repo", issuesRepo, "--json", "labels", "--jq", ".labels[].name"], { cwd });
+    const labels = r.status === 0 ? r.stdout.split("\n").map((l) => l.trim()).filter(Boolean) : [];
+    return isExcludedStory(labels, label);
+}
