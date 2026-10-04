@@ -87,3 +87,23 @@
 - **Choice:** A landed check that failed on a pull request with a range adds an `unreadable` finding (`evidence: landed-check`) to each story its receipt names, beside the existing `landed-unreadable` block.
 - **Why:** The story was otherwise reported `current` while close could not read whether its files landed as reviewed, and G10 reserves "unknown" for exactly that.
 - **Refuted alternative:** Leave the state current and rely on the range block to stop close, which reports a story as current on evidence close never read.
+
+## 2026-10-04 — The waiver reader lives beside the receipt reader, and reads comments only
+- **Choice:** Add `readPrWaivers` to the pr-acceptance library next to the receipt reader, reusing its `maintainerAuthored` rule, and read only the pull request's comments (`gh pr view --json comments`), not its reviews.
+- **Why:** Trust stays one function (G23), and a comment carries its own link, which close must stamp with each waiver (G33); a review body has no link of its own in that payload.
+- **Refuted alternative:** Read reviews as well, which would stamp a review waiver with only the pull request's link.
+
+## 2026-10-04 — The reader only reads; matching is two separate exported functions
+- **Choice:** `readPrWaivers` returns every marker-bearing comment with its author, link, trust and parsed terms; `matchLandedChangeWaiver` and `matchRecordWaiver` decide which one clears a stop.
+- **Why:** #829 reuses the read for answers on a pull request, and it should not inherit close's covering rules.
+- **Refuted alternative:** One reader that takes the stop and returns cleared/not cleared, which ties the read to close's two causes.
+
+## 2026-10-04 — A waiver must cover the stop on its own; waivers are not combined
+- **Choice:** One trusted landed-change comment must name every changed file, and the newest such comment is the one applied; two comments that together name every file clear nothing.
+- **Why:** G31 reads "a waiver that leaves any changed file unnamed clears nothing", and one comment is then the one stamped record of what the lead accepted.
+- **Refuted alternative:** Take the union of every trusted waiver's files, which lets a stamped waiver name fewer files than it cleared.
+
+## 2026-10-04 — Phase 1.2 no longer judges the record axis
+- **Choice:** Remove the record-axis classification and its "Proceed against the revised record" choice from Phase 1.2; keep only the `nexus record-digest` call that feeds Phase 4's `record_hash`.
+- **Why:** Phase 0.5 already stops on every revised record unless a posted waiver clears it, so a second check in Phase 1.2 would stop again on a waived record or ask the lead, which G34 forbids.
+- **Refuted alternative:** Keep the Phase 1.2 check and skip it when Phase 0.5 applied a waiver, which leaves two places deciding the same digest.

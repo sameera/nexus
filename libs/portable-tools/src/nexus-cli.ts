@@ -306,13 +306,18 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Derive each story's commit ranges for close, one path for every epic. Reads every",
             "      pull request claiming each live story, then, for each merged one, takes a shipped record's",
             "      stamped range or derives it in the checkout of the repository it merged in. Prints { command:",
-            "      \"ranges\", ok, stories, range, landed, blocking, excluded, states, closable, lines }; a pull",
+            "      \"ranges\", ok, stories, range, landed, blocking, excluded, states, closable, waivers, lines }; a pull",
             "      request with no attributable commits is listed as no range. `landed` is each story's landed",
             "      check: whether each pull request landed every reviewed file as its trusted receipt's analyzed",
             "      head changed it. A merge commit trunk does not reach blocks as not-landed. `states` sorts each",
             "      story as current, stale, never-reviewed, unshipped, unknown or excluded. A stale story names",
             "      each cause — a reviewed file that did not land as reviewed, a merged head that is not the",
             "      analyzed head, a decision record revised since the receipt — and the remedy for each;",
+            "      a trusted close-waiver comment on the pull request clears a landed-change cause when it",
+            "      names every changed file, or a record-revised cause when it names the current digest, on",
+            "      that pull request only; `waivers` lists each one applied, with its author and link, and a",
+            "      waiver that clears nothing is named on its finding. Waiver comments that cannot be read",
+            "      make the story unknown;",
             "      `closable` is true only when nothing blocks and every story is current or excluded. A failed read exits 1 as",
             "      story-read-failed; a repository with no checkout exits 1 as checkout-missing,",
             "      naming the expected path, before anything is fetched.",
@@ -1760,6 +1765,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // record's stamped range where one exists, else the merge-anchored derivation in the checkout
     // of the repository the pull request merged in. A missing checkout stops before any fetch.
     // Each pull request's landed check rides on the same output (story #846, D4).
+    // Waivers posted on a pull request are read through the one waiver reader (story #856, D11).
     if (argv[0] === "ranges") {
         const repos = resolveVerdictRepos(closeMigrationRunner, root);
         if (!repos.ok) {

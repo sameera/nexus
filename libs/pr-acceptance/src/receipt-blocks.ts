@@ -74,11 +74,12 @@ export function newestReceiptBlock<T extends { at: string }>(blocks: readonly T[
 export const MAINTAINER_ASSOCIATIONS: readonly string[] = ["OWNER", "MEMBER", "COLLABORATOR"];
 
 /**
- * Whether a block's author may publish this repository's verdict. An association GitHub did not
+ * Whether a block's author may publish this repository's verdict — and, through the one waiver
+ * reader, waive a stop on its behalf (epic #828, decision record #849, D11). An association GitHub did not
  * state is unknown and is accepted, on the same terms as an unstated repository stamp: a payload
  * that never carried the field cannot be read as a claim either way. A stated association outside
  * the maintainer set is a positive "not a maintainer" and is rejected.
  */
-export function maintainerAuthored(block: ReceiptBlock): boolean {
+export function maintainerAuthored(block: Pick<ReceiptBlock, "authorAssociation">): boolean {
     return block.authorAssociation === null || MAINTAINER_ASSOCIATIONS.includes(block.authorAssociation.toUpperCase());
 }

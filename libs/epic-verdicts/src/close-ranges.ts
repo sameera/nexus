@@ -45,10 +45,19 @@
  * the remedy that can clear it, and evidence close could not read — the record's current digest,
  * or the landed check — makes the story unknown rather than guessed at. A story's text plays no
  * part (D12).
+ *
+ * Two of the stale causes can be waived, and only on the pull request (story #856, D6, D11): a
+ * reviewed file that did not land as reviewed, and a revised record. For each, the one trusted
+ * waiver reader reads that pull request's waiver comments. A trusted waiver that matches clears
+ * that cause on that pull request only, and is stated in `waivers`. A landed-change waiver must
+ * name every changed file; a revised-record waiver must name the record's current digest. A waiver
+ * that clears nothing is named on the finding with why, and waiver comments that could not be read
+ * make the story unknown. A moved head is never waivable, and close never asks for a waiver.
  */
 
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
+import { matchLandedChangeWaiver, matchRecordWaiver, readPrWaivers, type PrWaivers, type RejectedWaiver, type WaiverMatch } from "@nexus/pr-acceptance/waiver";
 import { compareLandedChange, landedOnTrunk, type LandedChangeInput, type LandedChangeResult, type LandedFile } from "@nexus/pr-worktree/landed-change";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -69,6 +78,9 @@ export type TrunkOutcome = { ok: true; onTrunk: boolean; trunkRef: string } | { 
 
 /** A pull request's selected trusted receipt (null when it carries none) and its head, or why they could not be read. */
 export type LandedReceiptRead = { ok: true; receipt: AnalyzeReceipt | null; prHead: string } | { ok: false; cause: string };
+
+/** The waiver comments on a pull request, or why they could not be read. */
+export type WaiverRead = { ok: true; waivers: PrWaivers } | { ok: false; cause: string };
 
 /** The epic's decision record as it reads now (null when the epic has none), or why it could not be read. */
 export type CurrentRecordRead = { ok: true; record: { issue: number; digest: string } | null } | { ok: false; cause: string };
@@ -93,6 +105,8 @@ export interface CloseRangesDeps {
     compareLanded(checkout: string, pr: StoryMergedPr, input: LandedChangeInput): LandedChangeResult;
     /** The epic's decision record and its current digest, through the one digest implementation. */
     readRecord(): CurrentRecordRead;
+    /** The one trusted waiver reader, on the pull request. */
+    readWaivers(pr: StoryMergedPr): WaiverRead;
 }
 
 /** One pull request's range as listed under a story. */
@@ -134,7 +148,7 @@ export interface StoryLanded {
 export type StoryStateName = "current" | "stale" | "never-reviewed" | "unshipped" | "unknown" | "excluded";
 
 /** Which piece of evidence close could not read. */
-export type UnreadableEvidence = "receipt" | "record" | "landed-check";
+export type UnreadableEvidence = "receipt" | "record" | "landed-check" | "waiver";
 
 /** One thing close found about a pull request claiming a story, with the remedy it names. */
 export type StoryStateFinding =
@@ -144,14 +158,23 @@ export type StoryStateFinding =
     | { repo: string; pr: number; finding: "closed-unmerged" }
     /** The merged pull request's selected receipt, if any, does not name the story. */
     | { repo: string; pr: number; finding: "no-receipt"; remedy: string }
-    /** Evidence about the merged pull request could not be read: its receipt, the record's current digest, or its landed check. */
+    /** Evidence about the merged pull request could not be read: its receipt, the record's current digest, its landed check, or its waiver comments. */
     | { repo: string; pr: number; finding: "unreadable"; evidence: UnreadableEvidence; cause: string }
     /** Stale: the receipt names the story, but analyzed another head than the one that merged. */
     | { repo: string; pr: number; finding: "head-mismatch"; analyzedHead: string; mergedHead: string; remedies: string[] }
-    /** Stale: the receipt names the story, but the decision record was revised after it was written. */
-    | { repo: string; pr: number; finding: "record-revised"; record: number; stampedDigest: string; currentDigest: string; remedies: string[] }
+    /**
+     * Stale: the receipt names the story, but the decision record was revised after it was written.
+     * `waivers`, when present, names each waiver comment on the pull request that cleared nothing.
+     */
+    | { repo: string; pr: number; finding: "record-revised"; record: number; stampedDigest: string; currentDigest: string; remedies: string[]; waivers?: RejectedWaiver[] }
     /** Stale: the receipt names the story, but these reviewed files did not land as reviewed. */
-    | { repo: string; pr: number; finding: "landed-change"; files: string[]; remedies: string[] };
+    | { repo: string; pr: number; finding: "landed-change"; files: string[]; remedies: string[]; waivers?: RejectedWaiver[] };
+
+/** A trusted waiver comment that cleared a stale cause on its pull request, for the stories named. */
+export type AppliedWaiver = { repo: string; pr: number; author: string; url: string; at: string; reason: string | null; stories: number[] } & (
+    | { cause: "landed-change"; files: string[] }
+    | { cause: "record-revised"; record: number; digest: string }
+);
 
 /** The finding kinds that make a story stale. */
 const STALE_FINDINGS: ReadonlySet<StoryStateFinding["finding"]> = new Set(["head-mismatch", "record-revised", "landed-change"]);
@@ -197,6 +220,8 @@ export interface CloseRanges {
     states: StoryState[];
     /** True when nothing blocks and every story is current or excluded: the only state close proceeds on. */
     closable: boolean;
+    /** Every waiver close applied, each once per pull request and cause, which close stamps (G33). */
+    waivers: AppliedWaiver[];
     /** What close repeats, one line per story and per block. */
     lines: string[];
 }
@@ -318,7 +343,15 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
     const currentRecord: CurrentRecordRead = stamped ? deps.readRecord() : { ok: true, record: null };
 
     // 7. Every story's state (D5, D7).
-    const evidence: Evidence = { receipts, outcomes, checks, currentRecord, issuesRepo: input.issuesRepo };
+    // Waiver comments are read lazily, once per pull request, and only for a cause one can clear.
+    const waiverReads = new Map<string, WaiverRead>();
+    const waiversOf = (pr: StoryMergedPr): WaiverRead => {
+        let read = waiverReads.get(prKey(pr));
+        if (read === undefined) waiverReads.set(prKey(pr), (read = deps.readWaivers(pr)));
+        return read;
+    };
+    const applied = new Map<string, AppliedWaiver>();
+    const evidence: Evidence = { receipts, outcomes, checks, currentRecord, issuesRepo: input.issuesRepo, waiversOf, applied };
     const states: StoryState[] = [...input.stories]
         .sort((a, b) => a - b)
         .map((story) =>
@@ -339,7 +372,8 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
             ok,
             states,
             closable: ok && states.every((s) => s.state === "current" || s.state === "excluded"),
-            lines: renderLines(stories, landed, blocking, states, input.issuesRepo),
+            waivers: [...applied.values()],
+            lines: renderLines(stories, landed, blocking, states, [...applied.values()], input.issuesRepo),
         },
     };
 }
@@ -351,6 +385,10 @@ interface Evidence {
     checks: ReadonlyMap<string, PrLandedCheck>;
     currentRecord: CurrentRecordRead;
     issuesRepo: string | undefined;
+    /** The pull request's waiver comments, read once. */
+    waiversOf(pr: StoryMergedPr): WaiverRead;
+    /** The waivers applied so far, keyed by pull request and cause. */
+    applied: Map<string, AppliedWaiver>;
 }
 
 /**
@@ -377,7 +415,7 @@ function classify(story: number, merged: readonly StoryMergedPr[], unmerged: rea
             continue;
         }
         if (naming(pr)) {
-            findings.push(...staleness(pr, r.receipt as AnalyzeReceipt, r.prHead, evidence));
+            findings.push(...staleness(story, pr, r.receipt as AnalyzeReceipt, r.prHead, evidence));
             continue;
         }
         const o = outcomes.get(prKey(pr));
@@ -404,9 +442,9 @@ function classify(story: number, merged: readonly StoryMergedPr[], unmerged: rea
  * (D5), with the remedy that can clear each cause that does not (D6). A moved head is cleared by
  * re-analyzing the merged head; a revised record by that run or by a trusted waiver on the pull
  * request; a reviewed file that did not land as reviewed only by a waiver, because re-analyzing the
- * same head cannot change what landed.
+ * same head cannot change what landed. A waiver already posted clears its cause here (D11).
  */
-function staleness(pr: StoryMergedPr, receipt: AnalyzeReceipt, prHead: string, evidence: Evidence): StoryStateFinding[] {
+function staleness(story: number, pr: StoryMergedPr, receipt: AnalyzeReceipt, prHead: string, evidence: Evidence): StoryStateFinding[] {
     const ref = { repo: pr.repo, pr: pr.pr };
     const where = `${pr.repo}#${pr.pr}`;
     const analyze = `/nxs.analyze --pr ${pr.pr}`;
@@ -426,28 +464,68 @@ function staleness(pr: StoryMergedPr, receipt: AnalyzeReceipt, prHead: string, e
                 cause: "its receipt stamps a decision-record digest, but the epic has no decision record to compare it with",
             });
         } else if (current.record.digest !== receipt.recordHash) {
-            const record = evidence.issuesRepo ? `${evidence.issuesRepo}#${current.record.issue}` : `#${current.record.issue}`;
-            out.push({
+            const { issue, digest } = current.record;
+            const record = evidence.issuesRepo ? `${evidence.issuesRepo}#${issue}` : `#${issue}`;
+            const finding: StoryStateFinding = {
                 ...ref,
                 finding: "record-revised",
-                record: current.record.issue,
+                record: issue,
                 stampedDigest: receipt.recordHash,
-                currentDigest: current.record.digest,
-                remedies: [analyze, `a trusted waiver comment a lead posts on ${where} accepting decision record ${record} at digest ${current.record.digest}`],
-            });
+                currentDigest: digest,
+                remedies: [analyze, `a trusted waiver comment a lead posts on ${where} in the close-waiver form, waive: record-revised, record: "${record}", digest: ${digest}`],
+            };
+            out.push(...waived(story, pr, finding, evidence, (w) => matchRecordWaiver(w, issue, digest), { cause: "record-revised", record: issue, digest }));
         }
     }
 
     const check = evidence.checks.get(prKey(pr));
     if (check?.result === "changed") {
         const files = check.files.filter((f) => f.status === "changed").map((f) => f.path);
-        out.push({ ...ref, finding: "landed-change", files, remedies: [`a trusted waiver comment a lead posts on ${where} naming ${files.join(", ")}`] });
+        const finding: StoryStateFinding = {
+            ...ref,
+            finding: "landed-change",
+            files,
+            remedies: [`a trusted waiver comment a lead posts on ${where} in the close-waiver form, waive: landed-change, naming every file under files: ${files.join(", ")}`],
+        };
+        out.push(...waived(story, pr, finding, evidence, (w) => matchLandedChangeWaiver(w, files), { cause: "landed-change", files }));
     } else if (check?.result === "unknown") {
         const o = evidence.outcomes.get(prKey(pr));
         // A pull request with no range established already stops close for the block's own reason.
         if (o !== undefined && "entry" in o) out.push({ ...ref, finding: "unreadable", evidence: "landed-check", cause: check.cause });
     }
     return out;
+}
+
+/**
+ * A waivable stale finding after the pull request's waiver comments are read: nothing when a
+ * trusted waiver clears it (recorded in `applied`), the finding naming each waiver that cleared
+ * nothing otherwise, and the finding plus an unreadable one when the comments could not be read —
+ * never the finding alone, which would read a failed read as "no waiver".
+ */
+function waived(
+    story: number,
+    pr: StoryMergedPr,
+    finding: Extract<StoryStateFinding, { finding: "landed-change" | "record-revised" }>,
+    evidence: Evidence,
+    match: (w: PrWaivers) => WaiverMatch,
+    terms: { cause: "landed-change"; files: string[] } | { cause: "record-revised"; record: number; digest: string },
+): StoryStateFinding[] {
+    const read = evidence.waiversOf(pr);
+    if (!read.ok) {
+        return [finding, { repo: pr.repo, pr: pr.pr, finding: "unreadable", evidence: "waiver", cause: read.cause }];
+    }
+    const m = match(read.waivers);
+    if (m.applied === null) return [m.rejected.length > 0 ? { ...finding, waivers: m.rejected } : finding];
+    const key = `${prKey(pr)}:${terms.cause}`;
+    const known = evidence.applied.get(key);
+    if (known !== undefined) {
+        if (!known.stories.includes(story)) known.stories.push(story);
+    } else {
+        const { author, url, at } = m.applied;
+        const reason = m.applied.waiver.ok ? m.applied.waiver.reason : null;
+        evidence.applied.set(key, { repo: pr.repo, pr: pr.pr, author, url, at, reason, stories: [story], ...terms });
+    }
+    return [];
 }
 
 function landedCheckOf(deps: CloseRangesDeps, pr: StoryMergedPr, o: Outcome, read: LandedReceiptRead): { check: PrLandedCheck; block?: CloseRangeBlock } {
@@ -547,8 +625,27 @@ function describeUnreadable(f: Extract<StoryStateFinding, { finding: "unreadable
             return `${pr}: ${f.cause}`;
         case "landed-check":
             return `the landed check of ${pr} could not be read: ${f.cause}`;
+        case "waiver":
+            return `the waiver comments on ${pr} could not be read: ${f.cause}`;
     }
 }
+
+/** Why one waiver comment cleared nothing. */
+function describeRejected(r: RejectedWaiver): string {
+    const who = `the waiver comment ${r.url} by @${r.author || "unknown"}`;
+    switch (r.why) {
+        case "untrusted":
+            return `${who} cleared nothing: its author cannot speak for the repository`;
+        case "malformed":
+            return `${who} cleared nothing: ${r.problem}`;
+        case "incomplete":
+            return `${who} cleared nothing: it does not name ${r.uncovered.join(", ")}`;
+        case "other-revision":
+            return `${who} cleared nothing: it accepts record ${r.record} at digest ${r.digest}, not the current revision`;
+    }
+}
+
+const rejectedOf = (f: { waivers?: RejectedWaiver[] }): string => (f.waivers ?? []).map((r) => `; ${describeRejected(r)}`).join("");
 
 /** One stale cause, naming the pull request, the reason and every remedy that can clear it. */
 function describeStale(f: StoryStateFinding): string | null {
@@ -557,9 +654,9 @@ function describeStale(f: StoryStateFinding): string | null {
         case "head-mismatch":
             return `${pr} analyzed head ${f.analyzedHead} is not the merged head ${f.mergedHead}; run ${f.remedies[0]}`;
         case "record-revised":
-            return `${pr} receipt was written against an earlier decision record (${f.stampedDigest} → ${f.currentDigest}); run ${f.remedies[0]}, or ${f.remedies[1]}`;
+            return `${pr} receipt was written against an earlier decision record (${f.stampedDigest} → ${f.currentDigest}); run ${f.remedies[0]}, or post ${f.remedies[1]}${rejectedOf(f)}`;
         case "landed-change":
-            return `${pr} did not land ${f.files.join(", ")} as reviewed; no analyze run can clear this, only ${f.remedies[0]}`;
+            return `${pr} did not land ${f.files.join(", ")} as reviewed; no analyze run can clear this, only ${f.remedies[0]}${rejectedOf(f)}`;
         default:
             return null;
     }
@@ -611,6 +708,7 @@ function renderLines(
     landed: readonly StoryLanded[],
     blocking: readonly CloseRangeBlock[],
     states: readonly StoryState[],
+    waivers: readonly AppliedWaiver[],
     issuesRepo: string | undefined,
 ): string[] {
     const lines: string[] = [];
@@ -629,6 +727,11 @@ function renderLines(
         if (s.prs.length === 0) continue;
         const ref = issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`;
         lines.push(`${ref} — landed check: ${s.prs.map(describeCheck).join("; ")}`);
+    }
+    for (const w of waivers) {
+        const stories = w.stories.map((s) => (issuesRepo ? `${issuesRepo}#${s}` : `#${s}`)).join(", ");
+        const terms = w.cause === "landed-change" ? `landed-change naming ${w.files.join(", ")}` : `record-revised accepting record #${w.record} at digest ${w.digest}`;
+        lines.push(`${w.repo}#${w.pr} — waiver applied for ${stories}: ${terms}, by @${w.author || "unknown"} (${w.url})`);
     }
     for (const s of states) lines.push(...describeState(s, issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`));
     for (const b of blocking) {
@@ -694,6 +797,10 @@ export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, r
             // The one digest implementation, over the record body as fetched back (nxs-record-digest).
             const fetched = fetchRecord(run, root, record, issuesRepo);
             return fetched.ok ? { ok: true, record: { issue: record, digest: fetched.record.digest } } : { ok: false, cause: fetched.error.message };
+        },
+        readWaivers: (pr) => {
+            const read = readPrWaivers(run, root, pr.pr, { ghRepo: pr.repo });
+            return read.ok ? { ok: true, waivers: read.value } : { ok: false, cause: read.error.message };
         },
     };
 }

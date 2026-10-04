@@ -67,6 +67,8 @@ interface FakePr {
     state?: "OPEN" | "CLOSED";
     /** Extra receipt lines, verbatim — an older receipt's fields. */
     receiptExtra?: string;
+    /** The pull request's comments, as the platform returns them. */
+    comments?: Array<Record<string, unknown>>;
 }
 
 function receiptReview(p: FakePr): Array<Record<string, string>> {
@@ -118,7 +120,7 @@ function platform(prs: FakePr[], seen: string[]): Runner {
                     body: "",
                     closingIssuesReferences: [],
                     reviews: receiptReview(p),
-                    comments: [],
+                    comments: p.comments ?? [],
                 }),
                 stderr: "",
             };
@@ -353,5 +355,40 @@ describe("deriveCloseRanges — a decision record revised after the receipt (sto
         });
         expect(revised.ok && revised.ranges.states[0]).toMatchObject({ state: "stale", findings: [{ pr: 10, finding: "record-revised", record: 849 }] });
         expect(revised.ok && revised.ranges.closable).toBe(false);
+    });
+});
+
+describe("deriveCloseRanges — a waiver comment posted on the pull request (story #856; D11, G30, G33)", () => {
+    it("reads the waiver through the one reader and clears the landed change it names, stating its author and link", () => {
+        const repo = buildRepo();
+        const fork = sh(repo, "rev-parse", "main");
+        sh(repo, "checkout", "-qb", "b10", fork);
+        commitFile(repo, "src/a.ts", "a\n", "a");
+        sh(repo, "checkout", "-q", "main");
+        const base = sh(repo, "rev-parse", "main");
+        const head = sh(repo, "rev-parse", "b10");
+        sh(repo, "merge", "-q", "--no-ff", "--no-commit", "b10");
+        fs.writeFileSync(path.join(repo, "src/a.ts"), "a, reformatted on merge\n");
+        sh(repo, "add", "-A");
+        sh(repo, "commit", "-qm", "merge b10, reformatted");
+        const merge = sh(repo, "rev-parse", "HEAD");
+        const waiver = {
+            body: "Formatter ran on merge.\n\n<!-- nexus:close-waiver -->\n```yaml\nwaive: landed-change\nfiles:\n  - src/a.ts\n```\n",
+            author: { login: "lead" },
+            authorAssociation: "MEMBER",
+            createdAt: "2026-09-02T00:00:00Z",
+            url: "https://github.com/acme/web/pull/10#issuecomment-7",
+        };
+        const pr: FakePr = { number: 10, story: 841, mergedAt: "2026-09-01T00:00:00Z", base, head, merge, analyzed: head };
+
+        const without = deriveCloseRanges(closeRangesDeps(platform([pr], []), repo, "acme/web"), { stories: [841], records: [] });
+        expect(without.ok && without.ranges.states[0].state).toBe("stale");
+
+        const waived = deriveCloseRanges(closeRangesDeps(platform([{ ...pr, comments: [waiver] }], []), repo, "acme/web"), { stories: [841], records: [] });
+        expect(waived.ok && waived.ranges.states[0].state).toBe("current");
+        expect(waived.ok && waived.ranges.closable).toBe(true);
+        expect(waived.ok && waived.ranges.waivers).toEqual([
+            { repo: "acme/web", pr: 10, cause: "landed-change", files: ["src/a.ts"], author: "lead", url: waiver.url, at: waiver.createdAt, reason: null, stories: [841] },
+        ]);
     });
 });

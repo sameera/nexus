@@ -24,6 +24,21 @@ behaviour says so.
   receipt, the decision record's current revision, or the landed-file check, it reports the story
   as unknown, names what it could not read, and stops. It never guesses a state from a failed read.
   A story's text is still never a reason.
+- **Close reads waivers from the pull request and no longer asks for them (breaking).** A lead who
+  accepts a revised record or a file that did not land as reviewed now posts a waiver comment on
+  that pull request, in the fixed form `/nxs.close` documents, before running close. Close reads
+  it and goes on, and never asks. Its checkpoint no longer offers "Proceed against the revised
+  record". A lead who used to answer that question must post the waiver comment instead. The
+  override for open critical or high findings stays at the checkpoint, as before.
+- **A waiver covers only what it names.** A waiver clears one reason, on the pull request it is
+  posted on. A waiver for a landed change must name every changed file, or close still stops and
+  names the files it leaves out. A waiver for a revised record names the revision it accepts, so a
+  later revision stops close again. A waiver from someone who cannot speak for the repository is
+  named and clears nothing. A moved head can never be waived. If close cannot read the comments, it
+  reports the story as unknown and stops.
+- **Close states every waiver it applied.** The close record and the close comment on the epic
+  list each waiver with its author, a link to the comment, and the files or the record revision
+  it accepted.
 
 ## 0.87.0
 
