@@ -161,6 +161,26 @@ describe("parseItemDraft — what analyze hands the ID step", () => {
         expect(r.ok).toBe(false);
     });
 
+    it("reads each criterion and guarantee result with its file list, and the epic-level state (story #861, D8)", () => {
+        const results = [
+            { kind: "criterion", about: "#861 AC1", verdict: "met", files: ["a.ts"] },
+            { kind: "guarantee", about: "G20", verdict: "held", files: [] },
+        ];
+        const r = parseItemDraft(JSON.stringify({ departures: [], results, epicLevel: "skip" }));
+        expect(r).toEqual({ ok: true, departures: [], findings: [], results, epicLevel: "skip" });
+    });
+
+    it("refuses a result with no file list, naming the entry", () => {
+        const r = parseItemDraft(JSON.stringify({ departures: [], results: [{ kind: "criterion", about: "#861 AC1", verdict: "met" }] }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.message).toContain("result 0");
+    });
+
+    it("refuses an epic-level state other than judge, not-run or skip", () => {
+        expect(parseItemDraft(JSON.stringify({ departures: [], epicLevel: "maybe" })).ok).toBe(false);
+    });
+
     it("refuses a departure that does not say whether it breaks a guarantee, which decides its severity", () => {
         const rest: Partial<DepartureDraft> = draft();
         delete rest.breaksGuarantee;

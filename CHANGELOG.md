@@ -65,6 +65,24 @@ behaviour says so.
   entry point tell each fix round never to answer, and after each round list the pull request's
   answer comments with the new `nexus pr-answers`; a new one stops the run and names its link. The
   scripts now need `nexus` on the PATH.
+- **Recording answers is a short run.** `/nxs.analyze --pr <N> --resolve` records the answers on a
+  pull request without judging it all again; the new `nexus verdict-scope` decides what it may skip.
+  When the head has not moved, it reads no code: it copies the answers in and publishes a complete
+  new verdict. When the head moved, it judges again only the answered departures and what the
+  changed files affect, and carries every other result forward. A file counts as changed only when
+  the pull request's own change to it differs, so merging trunk into the branch or rebasing it
+  changes nothing by itself. A file no result was judged on is checked for new departures and
+  against every guarantee.
+- **It judges everything again when it cannot tell what changed, and says why.** A revised decision
+  record, a changed story set, a change in whether the pull request completes its epic, or an
+  earlier verdict that recorded no file lists or whose head cannot be read makes the run a full
+  one, naming the reason. With no earlier verdict, or only one published before this release, it
+  stops and names a full `/nxs.analyze --pr <N>` run. Close now names `--resolve` as the run that
+  records answers.
+- **Every verdict records what each result was judged on.** A full run on a pull request now records
+  each criterion, guarantee and success-metric result with the files it read, so a later
+  `--resolve` run can tell what a change affects. A verdict without them still reads; the next
+  `--resolve` run on it is a full one.
 
 ## 0.90.1
 

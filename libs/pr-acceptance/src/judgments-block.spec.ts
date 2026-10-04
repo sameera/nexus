@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { parseReceiptBlock } from "./verify.js";
 import { verdictBody } from "./verdict-fixtures.js";
-import { type Departure, type Finding, JUDGMENTS_MARKER, parseJudgmentsBlock, renderJudgmentsBlock } from "./judgments-block.js";
+import { type Departure, type Finding, JUDGMENTS_MARKER, type Result, parseJudgmentsBlock, renderJudgmentsBlock } from "./judgments-block.js";
 
 const departure = (over: Partial<Departure> = {}): Departure => ({
     id: "DV1",
@@ -130,5 +130,37 @@ describe("a judgments block that cannot serve as an ID registry is refused, neve
 
     it("refuses a finding that names nothing it judges", () => {
         expect(parseJudgmentsBlock(raw({ schema: 1, items: [finding({ about: "" })] })).ok).toBe(false);
+    });
+});
+
+describe("the judgments block carries each criterion and guarantee result with its file list (epic #829, story #861, D8)", () => {
+    const results: Result[] = [
+        { kind: "criterion", about: "#861 AC1", verdict: "met", files: ["libs/a.ts"] },
+        { kind: "guarantee", about: "G20", verdict: "held", files: [] },
+        { kind: "metric", about: "SM3", verdict: "unverifiable", files: ["libs/c.ts"] },
+    ];
+
+    it("reads back every result, the epic-level state and whether the file lists were dropped", () => {
+        const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results, epicLevel: "judge", filesDropped: true }));
+        expect(r.ok && r.judgments).toEqual({ items: [], findings: [], other: [], results, epicLevel: "judge", filesDropped: true });
+    });
+
+    it("reads a block written before results were recorded as recording none, so a later run cannot carry them", () => {
+        const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [] }));
+        expect(r.ok && r.judgments?.results).toBeUndefined();
+    });
+
+    it("refuses two results judging the same thing", () => {
+        const raw = renderJudgmentsBlock({ items: [], results: [results[0], { ...results[0], verdict: "unmet" }] });
+        expect(parseJudgmentsBlock(raw).ok).toBe(false);
+    });
+
+    it("refuses a result with a verdict its kind does not take", () => {
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results: [{ ...results[1], verdict: "met" }] })).ok).toBe(false);
+    });
+
+    it("refuses a result with no file list", () => {
+        const raw = renderJudgmentsBlock({ items: [], results: [{ ...results[0], files: undefined as unknown as string[] }] });
+        expect(parseJudgmentsBlock(raw).ok).toBe(false);
     });
 });

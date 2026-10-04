@@ -45,7 +45,8 @@ import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { applyAnswers, assignItemIds, openCounts, parseItemDraft, readItemRegistry } from "@nexus/epic-verdicts/verdict-items";
-import { renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { type Judgments, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { answerScopeDeps, mergeAnswerRun, parseAnswerScope, planAnswerRun, readEarlierVerdict } from "@nexus/epic-verdicts/answer-scope";
 import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
@@ -376,6 +377,14 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Number a pull request's departures and findings, apply the answers posted on it, and write the judgments block.",
         usage: [
             "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path> [--dir <startDir>]",
+            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --scope <path> [--draft <path>] --out <path> [--dir <startDir>]",
+            "      With --scope (the file nexus verdict-scope wrote), record answers without a full judgment:",
+            "      on an unchanged head take no draft and carry the newest verdict's judgments forward; on a",
+            "      moved head the draft holds only what the scope names to judge again, and every other item",
+            "      and result is carried forward unchanged. Refuses a scope whose verdict is no longer the",
+            "      newest (scope-stale), and a draft that leaves out or adds a result (draft-malformed).",
+            "      The draft may carry results: [{ kind: criterion|guarantee|metric, about, verdict, files }]",
+            "      and epicLevel (judge|not-run|skip); the block records both for the next answer run.",
             "      Read what analyze judged from --draft ({ departures: [{ departsFrom, summary,",
             "      breaksGuarantee, files, stub?, supersedes? }], findings?: [{ about, severity, summary,",
             "      files }] }) and number it against the registry: the judgments block of the pull",
@@ -393,6 +402,27 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      writes nothing then.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runVerdictItems(argv, io)),
+    },
+    "verdict-scope": {
+        summary: "Decide what an answer-recording analyze run may carry forward, and what it must judge again.",
+        usage: [
+            "  nexus verdict-scope --pr <N> --repo <owner/repo or host/owner/repo> --head <sha> --base <sha> --stories <n,...>",
+            "                      --epic-level <judge|not-run|skip> [--record-hash <digest>] [--out <path>] [--dir <startDir>]",
+            "      Read the pull request's newest trusted verdict and compare it with this run: the analyzed",
+            "      --head, the pull request's --base, the --stories it covers, the epic-level state and the",
+            "      record digest (omit --record-hash in degraded mode). Prints { command, pr, mode, reason,",
+            "      earlier, changedFiles, rejudge: { items, results }, unlisted, lines } and writes it to --out.",
+            "      mode stop: no verdict, or one with no judgments block; run the full analyze. mode full: the",
+            "      record, the story set or the epic-level state changed, the verdict recorded no results, or",
+            "      on a moved head it dropped its file lists or its head cannot be read; reason says which.",
+            "      mode unchanged: same head, read no code. mode moved: changedFiles are the files whose own",
+            "      change (against --base) differs between the two heads, so a trunk merge or a rebase changes",
+            "      nothing by itself; rejudge names the answered departures and every item and result they",
+            "      touch, an empty file list counting as touched by any change; unlisted names changed files no",
+            "      list names, to check for new departures and against every guarantee. Run in the pull",
+            "      request's worktree. Exits 1 when the verdict cannot be read.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runVerdictScope(argv, io)),
     },
     "pr-answers": {
         summary: "List the comments on a pull request that hold an answer line, through the one waiver reader.",
@@ -1871,12 +1901,13 @@ function runVerdictCheck(argv: string[], io: CliIo): number {
  */
 function runVerdictItems(argv: string[], io: CliIo): number {
     const usage =
-        "usage: nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path> [--dir <startDir>]";
-    const flags: { pr?: number; repo?: string; draft?: string; out?: string; dir?: string } = {};
+        "usage: nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> [--scope <path>] --draft <path> --out <path> [--dir <startDir>]";
+    const flags: { pr?: number; repo?: string; draft?: string; scope?: string; out?: string; dir?: string } = {};
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
         else if (argv[i] === "--repo") flags.repo = argv[++i];
         else if (argv[i] === "--draft") flags.draft = argv[++i];
+        else if (argv[i] === "--scope") flags.scope = argv[++i];
         else if (argv[i] === "--out") flags.out = argv[++i];
         else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
     }
@@ -1888,6 +1919,7 @@ function runVerdictItems(argv: string[], io: CliIo): number {
         io.stderr(`${usage}\n--repo names the repository the pull request lives in; without it the trust check would be inert.`);
         return 2;
     }
+    if (flags.scope !== undefined) return runVerdictItemsScoped(flags as typeof flags & { pr: number; repo: string; scope: string }, usage, io);
     if (flags.draft === undefined || flags.out === undefined) {
         io.stderr(`${usage}\n--draft is the departures analyze judged; --out is where the judgments block is written.`);
         return 2;
@@ -1923,20 +1955,174 @@ function runVerdictItems(argv: string[], io: CliIo): number {
         io.stderr(`verdict-items gh-failed: ${comments.error.message} The answers on the pull request cannot be read, so nothing was written.`);
         return 1;
     }
-    const answered = applyAnswers(assignItemIds(registry.registry, draft.departures, draft.findings), comments.value.answers);
+    const judged: Judgments = assignItemIds(registry.registry, draft.departures, draft.findings);
+    if (draft.results !== undefined) judged.results = draft.results;
+    if (draft.epicLevel !== undefined) judged.epicLevel = draft.epicLevel;
+    return writeJudgments(judged, comments.value.answers, { pr: flags.pr, out: flags.out, registry: registry.source }, io);
+}
+
+/** Apply the answers to `judged`, write the judgments block and print what the stage reports. */
+function writeJudgments(
+    judged: Judgments,
+    answers: Parameters<typeof applyAnswers>[1],
+    run: { pr: number; out: string; registry: string; scope?: string },
+    io: CliIo,
+): number {
+    const answered = applyAnswers(judged, answers);
     const judgments = answered.judgments;
-    fs.writeFileSync(flags.out, renderJudgmentsBlock(judgments));
+    fs.writeFileSync(run.out, renderJudgmentsBlock(judgments));
     io.stdout(
         JSON.stringify({
             command: "verdict-items",
-            pr: flags.pr,
-            registry: registry.source,
+            pr: run.pr,
+            registry: run.registry,
+            ...(run.scope === undefined ? {} : { scope: run.scope }),
             items: judgments.items,
             findings: judgments.findings,
+            results: judgments.results ?? null,
             open: openCounts(judgments),
             answers: { applied: answered.applied, unapplied: answered.unapplied },
         }),
     );
+    return 0;
+}
+
+/**
+ * `nexus verdict-items --scope` — the ID step of an answer-recording run (epic #829, story #861;
+ * decision record #871, D8). The scope `nexus verdict-scope` wrote says what was judged again; the
+ * rest of the newest verdict is carried forward here, so the new verdict is complete (G24).
+ */
+function runVerdictItemsScoped(flags: { pr: number; repo: string; scope: string; draft?: string; out?: string; dir?: string }, usage: string, io: CliIo): number {
+    if (flags.out === undefined) {
+        io.stderr(`${usage}\n--out is where the judgments block is written.`);
+        return 2;
+    }
+    let scopeText: string;
+    try {
+        scopeText = fs.readFileSync(flags.scope, "utf8");
+    } catch (e) {
+        io.stderr(`verdict-items scope-malformed: ${flags.scope} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+        return 1;
+    }
+    const scope = parseAnswerScope(scopeText);
+    if (!scope.ok) {
+        io.stderr(`verdict-items scope-malformed: ${scope.message}. Run nexus verdict-scope again and pass the file it wrote.`);
+        return 1;
+    }
+    let draft: ReturnType<typeof parseItemDraft> | null = null;
+    if (flags.draft !== undefined) {
+        let text: string;
+        try {
+            text = fs.readFileSync(flags.draft, "utf8");
+        } catch (e) {
+            io.stderr(`verdict-items draft-malformed: ${flags.draft} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+            return 1;
+        }
+        draft = parseItemDraft(text);
+        if (!draft.ok) {
+            io.stderr(`verdict-items draft-malformed: ${draft.message}.`);
+            return 1;
+        }
+    }
+
+    const cwd = flags.dir ?? io.cwd;
+    const repo = flags.repo.trim();
+    const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+    if (!repos.ok) {
+        io.stderr(`verdict-items ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+    const read = readEarlierVerdict(closeMigrationRunner, cwd, flags.pr, repo, repos.repos.issuesRepo);
+    if (!read.ok) {
+        io.stderr(`verdict-items ${read.error.problem}: ${read.error.message}`);
+        return 1;
+    }
+    const earlier = read.earlier;
+    const expected = scope.scope.earlier;
+    if (earlier === null || earlier.judgments === null || expected === null || earlier.head !== expected.head || earlier.at !== expected.at) {
+        io.stderr(
+            `verdict-items scope-stale: the newest verdict on PR #${flags.pr} is not the one the scope was computed against (${expected?.head ?? "none"} at ${expected?.at ?? "none"}). Run nexus verdict-scope again.`,
+        );
+        return 1;
+    }
+    const merged = mergeAnswerRun(earlier.judgments, scope.scope, draft === null || !draft.ok ? null : draft);
+    if (!merged.ok) {
+        io.stderr(`verdict-items draft-malformed: ${merged.message}.`);
+        return 1;
+    }
+    const comments = readPrWaivers(closeMigrationRunner, cwd, flags.pr, { ghRepo: repo });
+    if (!comments.ok) {
+        io.stderr(`verdict-items gh-failed: ${comments.error.message} The answers on the pull request cannot be read, so nothing was written.`);
+        return 1;
+    }
+    return writeJudgments(merged.judgments, comments.value.answers, { pr: flags.pr, out: flags.out, registry: "verdict", scope: scope.scope.mode }, io);
+}
+
+/**
+ * `nexus verdict-scope` — what an answer-recording analyze run may carry forward (epic #829, story
+ * #861; decision record #871, D8). Every rule that decides it is in `@nexus/epic-verdicts/answer-scope`;
+ * this reads the flags, resolves the issues repository and prints the scope.
+ */
+function runVerdictScope(argv: string[], io: CliIo): number {
+    const usage =
+        "usage: nexus verdict-scope --pr <N> --repo <owner/repo or host/owner/repo> --head <sha> --base <sha> --stories <n,...> --epic-level <judge|not-run|skip> [--record-hash <digest>] [--out <path>] [--dir <startDir>]";
+    const flags: { pr?: number; repo?: string; head?: string; base?: string; stories?: string; epicLevel?: string; recordHash?: string; out?: string; dir?: string } = {};
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
+        else if (argv[i] === "--repo") flags.repo = argv[++i];
+        else if (argv[i] === "--head") flags.head = argv[++i];
+        else if (argv[i] === "--base") flags.base = argv[++i];
+        else if (argv[i] === "--stories") flags.stories = argv[++i];
+        else if (argv[i] === "--epic-level") flags.epicLevel = argv[++i];
+        else if (argv[i] === "--record-hash") flags.recordHash = argv[++i];
+        else if (argv[i] === "--out") flags.out = argv[++i];
+        else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
+    }
+    if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
+        io.stderr(usage);
+        return 2;
+    }
+    const repo = flags.repo?.trim();
+    if (repo === undefined || repo.length === 0) {
+        io.stderr(`${usage}\n--repo names the repository the pull request lives in; without it the trust check would be inert.`);
+        return 2;
+    }
+    for (const [flag, value] of [["--head", flags.head], ["--base", flags.base]] as const) {
+        if (value === undefined || !/^[0-9a-f]{40}$/i.test(value)) {
+            io.stderr(`${usage}\n${flag} is the commit the worktree was opened at (head) or the pull request's base (base), as \`nexus pr-worktree open\` printed it.`);
+            return 2;
+        }
+    }
+    const stories = (flags.stories ?? "").split(",").map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n > 0);
+    if (stories.length === 0) {
+        io.stderr(`${usage}\n--stories is the story list \`nexus pr-worktree stories\` resolved.`);
+        return 2;
+    }
+    const epicLevel = flags.epicLevel;
+    if (epicLevel !== "judge" && epicLevel !== "not-run" && epicLevel !== "skip") {
+        io.stderr(`${usage}\n--epic-level is the epicLevel \`nexus epic-verdicts completion\` printed.`);
+        return 2;
+    }
+
+    const cwd = flags.dir ?? io.cwd;
+    const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+    if (!repos.ok) {
+        io.stderr(`verdict-scope ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+    const deps = answerScopeDeps(closeMigrationRunner, cwd, { pr: flags.pr, repo, issuesRepo: repos.repos.issuesRepo, base: flags.base as string, excludes: excludePathspecs() });
+    const recordHash = flags.recordHash?.trim();
+    const planned = planAnswerRun(deps, {
+        pr: flags.pr,
+        current: { head: flags.head as string, stories, recordHash: recordHash === undefined || recordHash.length === 0 ? null : recordHash, epicLevel },
+    });
+    if (!planned.ok) {
+        io.stderr(`verdict-scope ${planned.error.problem}: ${planned.error.message}`);
+        return 1;
+    }
+    const out = JSON.stringify({ command: "verdict-scope", pr: flags.pr, ...planned.scope });
+    if (flags.out !== undefined) fs.writeFileSync(flags.out, out);
+    io.stdout(out);
     return 0;
 }
 

@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. With `--pr <N> --resolve` it records those answers without judging unchanged code again: on an unchanged head it reads no code, on a moved head it judges again only the answered departures and what the files whose own change differs affect (a trunk merge or rebase changes nothing by itself), and it judges the whole pull request again, saying why, when the record or story set changed or the last verdict cannot say what a change affects; with no verdict to carry it stops and names a full run. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -305,6 +305,74 @@ requests of the named stories could not be read: report it verbatim and publish 
 review, no comment — then remove the worktree. Treating the failure as "not the last pull request"
 would skip the epic judgment silently.
 
+## Phase 0.8 — Recording answers (`--pr <ref> --resolve`)
+
+**Only when `$ARGUMENTS` also contains `--resolve`.** Engineers answered items on the pull request
+(§2.6), and this run records the answers without judging unchanged code again (epic #829, record
+#871, D8). Run Phase 0 to 0.7 first, exactly as for a full run: an unapproved record (Phase 0.5) or
+a failed claiming read (Phase 0.7) stops this run too, and publishes nothing. Then ask the toolkit
+what this run may carry forward from the newest trusted verdict on the pull request — **never
+decide the mode yourself**:
+
+```bash
+nexus verdict-scope --pr <N> --repo <repoIdentity> --head <analyzedHead> --base <base> --stories <n,...> --epic-level <epicLevel> --record-hash "$RECORD_HASH" --out "<scratch>/scope.json" --dir "$wtPath"
+```
+
+`analyzedHead`, `base` and `repoIdentity` are what `nexus pr-worktree open` printed, `--stories`
+the sorted list `nexus pr-worktree stories` resolved, and `<epicLevel>` Phase 0.7's `epicLevel`.
+Omit `--record-hash` only in degraded mode. It prints `{ mode, reason, earlier, changedFiles,
+rejudge: { items, results }, unlisted, lines }` and writes the same to `--out`; repeat `lines` on
+the report's `Recorded:` line. A non-zero exit (`gh-failed`, `judgments-malformed`) stops the run
+and publishes nothing — a failed read is never "no verdict". Follow `mode`:
+
+-   **`stop`** — the pull request has no trusted verdict, or only one published before verdicts
+    carried judgments (`no-verdict`, `no-judgments`). There is nothing to carry forward. Publish
+    nothing, remove the worktree, and name `/nxs.analyze --pr <ref>` without `--resolve` — a full
+    analyze run — as the next step.
+-   **`full`** — judge the whole pull request again: continue at Phase 1 as a full run, and say
+    why in the report, from `reason` and its line. `record-revised`: the decision record changed
+    since the last verdict, and a revision is also an answer. `stories-changed`: the pull
+    request's story set changed. `epic-level-changed`: whether it gets the epic-level judgment
+    changed. `results-unrecorded`, `file-lists-dropped`: the last verdict cannot say which results
+    a change affects. `earlier-head-unreadable`: the head it analyzed cannot be read here.
+-   **`unchanged`** — the head, the record and the story set are as the last verdict stamped them.
+    **Read no code**: skip Phase 1 and every judgment of Phase 2. Record the answers through the ID
+    step with the scope and no draft:
+
+    ```bash
+    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<scratch>/scope.json" --out "<scratch>/judgments.md" --dir "$wtPath"
+    ```
+
+    It carries every item, answer and result of the last verdict forward and applies the answers
+    posted since (§2.6).
+-   **`moved`** — the head moved. `changedFiles` are the files whose **own change** differs between
+    the two heads: what each head changed against the point where it left trunk, the comparison
+    close's landed check makes. So a trunk merge or a rebase changes nothing by itself. Read only
+    the own change of those files (`git -C "$wtPath" diff "$BASE"...HEAD -- <changedFiles>`) and
+    the code the items in scope cite. Judge again every item in `rejudge.items` — each answered
+    departure, and every item whose file list a changed file touches — and every result in
+    `rejudge.results`. Check each file in `unlisted`, which no file list names, for new departures
+    and against every guarantee (every guarantee result is in scope then). Write the draft in
+    §2.5's form with **only** those: the re-judged and new departures and findings, and every
+    result in `rejudge.results`. Then:
+
+    ```bash
+    nexus verdict-items --pr <N> --repo <repoIdentity> --scope "<scratch>/scope.json" --draft "<scratch>/items.json" --out "<scratch>/judgments.md" --dir "$wtPath"
+    ```
+
+    Every other item and result is carried forward unchanged, with its answer. An item in scope you
+    do not find again is listed as no longer found, with its answer. `draft-malformed` names a
+    result in scope the draft left out, or one out of scope it judged again: fix the draft.
+
+In either recording mode, `scope-stale` means a newer verdict was published after the scope was
+computed: run `nexus verdict-scope` again. Then publish exactly as Phase 3's pull-request path
+does: write the summary from what the ID step printed — its `items`, `findings` and `results`, with
+each result's verdict on the per-story and `Departures:` lines — then the verdict block with `head`
+the analyzed head, the same `record` and `stories`, and `findings:` the `open` counts, then the
+judgments block verbatim, checked by `nexus verdict-check` before it goes out. The new verdict is
+complete — every result, item and answer, so no reader needs an earlier one — and it supersedes the
+last one by the newest trusted rule close and the merge pre-check already apply.
+
 # Phase 1 — Gather the implementation surface
 
 Determine what was actually built for this epic. Use, in order of availability:
@@ -499,13 +567,30 @@ severity, an unmet criterion, a metric not moved, "epic-level check not run" ali
 "severity": "<critical|high|medium|low>", "summary": "<what is wrong>", "files": ["<path>", ...] }`.
 Cite the same element, or name the same thing judged, and the files it was judged on each run: two
 items are the same when they name the same thing and share a file. The step prints `{ registry,
-items, findings, open, answers }` and writes the judgments block to `--out`. Each departure carries
-its `DV<n>` ID and each finding its `F<n>` ID, with its severity and its answer; one the last
+items, findings, results, open, answers }` and writes the judgments block to `--out`. Each
+departure carries its `DV<n>` ID and each finding its `F<n>` ID, with its severity and its answer; one the last
 verdict listed and this run did not find again comes back with `found: false` and its answer, and
 is reported as **no longer found** — never dropped. A non-zero exit stops the publish: report the
 diagnostic verbatim. `draft-malformed` names the entry to fix; `judgments-malformed` means the
 newest verdict's registry cannot be read; `gh-failed` means the pull request or its comments could
 not be read, which is never "no answer".
+
+**Every full run also records each result with its file list** (D8), so a later answer-recording
+run (Phase 0.8) can tell what a change affects. Add to the same draft one entry per acceptance
+criterion of §2.1, per guarantee or invariant of §2.2, and per success metric judged in §2.3:
+
+```json
+"results": [
+  { "kind": "<criterion|guarantee|metric>", "about": "<#<story> AC<k> | G<n> or the invariant | the metric>",
+    "verdict": "<criterion: met|partial|unmet|contradicted|unverifiable; guarantee: held|broken; metric: met|not-moved|unverifiable>",
+    "files": ["<path>", ...] }
+],
+"epicLevel": "<Phase 0.7's epicLevel>"
+```
+
+List the files each judgment actually read. An empty list counts as affected by any change, so it
+is safe but costly; a list that leaves out a file the result depends on can carry a stale result
+across a moved head (record #871, R5).
 
 Without a pull request there is no registry: list the departures without IDs.
 
@@ -570,6 +655,7 @@ Departures:              <none> | one line per departure (§2.5):
 Findings:                <none> | one line per finding (--pr: with the ID the ID step printed):
   F<n> (<critical|high|medium|low>) <about> · <what is wrong>
   F<n> (<critical|high>) waived by @<who> (<link>): <reason>      (answered — counts nothing)
+Recorded:                <the scope's lines>   (--resolve only)
 Answers not applied:     <none> | one line per entry of answers.unapplied (--pr mode):
   @<author> on <ID> (<link>): <untrusted | unknown-id | wrong-verb | no-reason | not-waivable>
 Epic level:              <the completion check's lines> (--pr mode)
@@ -602,8 +688,9 @@ not the issue has been closed yet.
 
 **Severity gate:** an open critical or high item **blocks** the merge pre-check and close — the
 code does not yet satisfy the epic. Fix the implementation, or answer the item on the pull request
-(§2.6: accept a departure, waive a critical or high finding, each with a reason) and run analyze
-again to record the answer; if the design changed, revise the record. This command does not edit
+(§2.6: accept a departure, waive a critical or high finding, each with a reason) and run
+`/nxs.analyze --pr <N> --resolve` to record the answers (Phase 0.8); if the design changed, revise
+the record. This command does not edit
 code, issues, or the epic, and never posts an answer; it reports so the user can gate.
 
 Then write the **receipt** — the proof this gate ran, which `/nxs.close` checks as a precondition.
@@ -808,6 +895,7 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
 /nxs.analyze path/to/epic-entry   # explicit queue entry / epic directory
 /nxs.analyze --pr 123             # conformance against PR #123 in a worktree; epic from the PR's linked issue
 /nxs.analyze --pr acme/widget#7   # from the hub, conformance against PR #7 in declared member acme/widget
+/nxs.analyze --pr 123 --resolve   # record the answers posted on PR #123, judging only what changed since its last verdict
 ```
 
 # Constraints

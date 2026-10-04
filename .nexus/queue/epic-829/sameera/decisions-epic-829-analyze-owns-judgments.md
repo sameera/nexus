@@ -72,3 +72,23 @@
 - **Choice:** `nexus pr-answers --urls` is read before and after each fix round; any link present only after stops the run. A failed read stops it too.
 - **Why:** Comparing links avoids clock skew between the machine and the platform, and the read reuses the one reader.
 - **Refuted alternative:** Filter comments by a `--since` timestamp taken on the local clock.
+
+## 2026-10-04 — The answer-recording run's scope is a separate verb, handed back to the ID step
+- **Choice:** `nexus verdict-scope` decides the mode and what to judge again and writes it to a file; `nexus verdict-items --scope <file>` carries the rest forward and applies the answers, refusing a scope whose verdict is no longer the newest (`scope-stale`).
+- **Why:** The stage must know the mode before it reads any code, and the merge must use exactly the scope that was computed.
+- **Refuted alternative:** One verb that decides and merges in a single call, which would need the re-judged draft before the stage knows what to judge.
+
+## 2026-10-04 — A change in the epic-level state forces a full run
+- **Choice:** The judgments block records the run's `epicLevel`; a `--resolve` run whose Phase 0.7 answer differs (or the earlier one is unrecorded) judges the whole pull request again.
+- **Why:** A pull request that became the completing one must have its success metrics judged (G30), and carrying the earlier results forward would skip them.
+- **Refuted alternative:** Treat only the story set as the trigger, as D8 lists, and let a sibling's merge go unjudged until the next full run.
+
+## 2026-10-04 — A verdict with judgments but no results makes a `--resolve` run full, even on the same head
+- **Choice:** A judgments block with no `results` list reads as `results-unrecorded`, and the run judges in full.
+- **Why:** G24 needs every verdict to carry every result; one that recorded none cannot pass them on.
+- **Refuted alternative:** Carry the empty result set forward on an unchanged head, publishing a verdict with no criterion results.
+
+## 2026-10-04 — Own change is measured from the pull request's current base for both heads
+- **Choice:** `compareOwnChange` diffs `<base>...<earlierHead>` against `<base>...<head>` with the base `nexus pr-worktree open` printed, normalized as the landed check does, leaving out every pipeline store.
+- **Why:** The three-dot form resolves to each head's own fork point, so a trunk merge or rebase changes nothing by itself (G20), reusing #849 D4's patch normalization.
+- **Refuted alternative:** Diff the two heads directly, which marks every file trunk changed after a merge.

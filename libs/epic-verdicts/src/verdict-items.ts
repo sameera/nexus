@@ -20,7 +20,17 @@
  * that breaks a guarantee or an invariant is critical, any other is high (G14).
  */
 
-import { type Departure, type Finding, type ItemAnswer, type Judgments, parseJudgmentsBlock, splitItemId } from "@nexus/pr-acceptance/judgments-block";
+import {
+    type Departure,
+    type EpicLevel,
+    type Finding,
+    type ItemAnswer,
+    type Judgments,
+    type Result,
+    parseJudgmentsBlock,
+    readResults,
+    splitItemId,
+} from "@nexus/pr-acceptance/judgments-block";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { type AnswerVerb, type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
@@ -46,11 +56,21 @@ export interface FindingDraft {
     files: string[];
 }
 
-export type ParsedDraft = { ok: true; departures: DepartureDraft[]; findings: FindingDraft[] } | { ok: false; message: string };
+export type ParsedDraft =
+    | {
+          ok: true;
+          departures: DepartureDraft[];
+          findings: FindingDraft[];
+          /** Every criterion, guarantee and metric result with its files (story #861, D8); absent when the draft records none. */
+          results?: Result[];
+          epicLevel?: EpicLevel;
+      }
+    | { ok: false; message: string };
 
 /**
- * Read the draft analyze wrote: `{ "departures": [ ... ], "findings": [ ... ] }`. A draft with no
- * findings list has none. Every refusal names the entry.
+ * Read the draft analyze wrote: `{ "departures": [ ... ], "findings": [ ... ], "results": [ ... ],
+ * "epicLevel": ... }`. A draft with no findings list has none; one with no results list records
+ * none, which makes the next answer-recording run a full one. Every refusal names the entry.
  */
 export function parseItemDraft(text: string): ParsedDraft {
     let doc: unknown;
@@ -74,7 +94,18 @@ export function parseItemDraft(text: string): ParsedDraft {
         if (typeof f === "string") return { ok: false, message: `finding ${i} ${f}` };
         findings.push(f);
     }
-    return { ok: true, departures, findings };
+    const parsed: ParsedDraft = { ok: true, departures, findings };
+    if (doc["results"] !== undefined) {
+        const results = readResults(doc["results"]);
+        if (typeof results === "string") return { ok: false, message: results };
+        parsed.results = results;
+    }
+    if (doc["epicLevel"] !== undefined) {
+        const level = doc["epicLevel"];
+        if (level !== "judge" && level !== "not-run" && level !== "skip") return { ok: false, message: "the draft's epicLevel is not judge, not-run or skip" };
+        parsed.epicLevel = level;
+    }
+    return parsed;
 }
 
 const SEVERITIES: readonly string[] = ["critical", "high", "medium", "low"];
@@ -118,10 +149,22 @@ function readDraft(raw: unknown): DepartureDraft | string {
  * Number the drafted departures and findings against `registry`, the judgments of the newest
  * trusted verdict on the same pull request, or null when it has none. Returns the complete
  * judgments the new verdict carries, before this run's answers are applied.
+ *
+ * `rejudge` scopes an answer-recording run on a moved head (story #861, D8): only the registry items
+ * it names were judged again, so only they can be found again or go unfound; every other item is
+ * carried forward unchanged, and a new item still takes a number above every one ever issued.
  */
-export function assignItemIds(registry: Judgments | null, departures: readonly DepartureDraft[], findings: readonly FindingDraft[] = []): Judgments {
+export function assignItemIds(
+    registry: Judgments | null,
+    departures: readonly DepartureDraft[],
+    findings: readonly FindingDraft[] = [],
+    rejudge?: ReadonlySet<string>,
+): Judgments {
+    const judged = <T extends { id: string }>(xs: readonly T[]): T[] => (rejudge === undefined ? [...xs] : xs.filter((x) => rejudge.has(x.id)));
+    const carried = <T extends { id: string }>(xs: readonly T[]): T[] => (rejudge === undefined ? [] : xs.filter((x) => !rejudge.has(x.id)));
     const items = numberAgainst(
-        registry?.items ?? [],
+        judged(registry?.items ?? []),
+        carried(registry?.items ?? []),
         departures,
         "DV",
         (d) => d.departsFrom,
@@ -139,7 +182,8 @@ export function assignItemIds(registry: Judgments | null, departures: readonly D
         }),
     );
     const judgedFindings = numberAgainst(
-        registry?.findings ?? [],
+        judged(registry?.findings ?? []),
+        carried(registry?.findings ?? []),
         findings,
         "F",
         (f) => f.about,
@@ -160,16 +204,18 @@ export function assignItemIds(registry: Judgments | null, departures: readonly D
 
 /**
  * Give each draft the ID of the earlier item it is the same as, or the next unused number under
- * `prefix`. Every earlier item not found again stays listed with `found: false`.
+ * `prefix`, above every number `prior` and `carried` hold. Every earlier item not found again stays
+ * listed with `found: false`; every `carried` item stays exactly as it was.
  */
 function numberAgainst<T extends { id: string; files: string[]; found: boolean }, D extends { files: string[] }>(
     prior: readonly T[],
+    carried: readonly T[],
     drafts: readonly D[],
     prefix: string,
     anchorOf: (x: T | D) => string,
     make: (draft: D, id: string, match: T | null) => T,
 ): T[] {
-    let next = 1 + Math.max(0, ...prior.map((d) => splitItemId(d.id)?.n ?? 0));
+    let next = 1 + Math.max(0, ...[...prior, ...carried].map((d) => splitItemId(d.id)?.n ?? 0));
     const claimed = new Set<string>();
     const found: T[] = [];
     for (const draft of drafts) {
@@ -179,7 +225,7 @@ function numberAgainst<T extends { id: string; files: string[]; found: boolean }
         found.push(make(draft, id, match));
     }
     const gone = prior.filter((d) => !claimed.has(d.id)).map((d) => ({ ...d, found: false }));
-    return [...found, ...gone].sort((a, b) => (splitItemId(a.id)?.n ?? 0) - (splitItemId(b.id)?.n ?? 0));
+    return [...found, ...gone, ...carried].sort((a, b) => (splitItemId(a.id)?.n ?? 0) - (splitItemId(b.id)?.n ?? 0));
 }
 
 /**
@@ -287,6 +333,7 @@ export function applyAnswers(judgments: Judgments, answers: readonly PrAnswer[])
     const applied = [...newest.values()].map((a) => ({ id: a.id, verb: a.verb, author: a.author, url: a.url, reason: a.reason }));
     return {
         judgments: {
+            ...judgments,
             items: judgments.items.map((d) => ({ ...d, answer: answerFor(d.id, d.answer) })),
             findings: judgments.findings.map((f) => ({ ...f, answer: answerFor(f.id, f.answer) })),
             other: judgments.other.map((o) => (newest.has(o.id) ? { ...o, answer: answerFor(o.id, null) } : o)),

@@ -351,6 +351,50 @@ describe("nexus verdict-items (epic #829, story #858 — the numbering rule is c
     });
 });
 
+describe("nexus verdict-scope (epic #829, story #861 — the scoping rules are covered by answer-scope's own specs)", () => {
+    const args = ["verdict-scope", "--pr", "7", "--repo", "acme/widget", "--head", "a".repeat(40), "--base", "b".repeat(40), "--stories", "861", "--epic-level", "skip"];
+
+    it("is a registered verb the help names", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-verdict-scope-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus verdict-scope");
+        expect(VERB_NAMES).toContain("verdict-scope");
+    });
+
+    it("refuses without the repository the trust check reads against", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-verdict-scope-"));
+        expect(await runNexusCli(args.filter((a, i, all) => a !== "--repo" && all[i - 1] !== "--repo"), io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--repo");
+    });
+
+    it("refuses without the heads, the story set or the epic-level state it compares", async () => {
+        for (const flag of ["--head", "--base", "--stories", "--epic-level"]) {
+            const io: CapturedIo = makeIo(makeTmpDir("cli-verdict-scope-"));
+            expect(await runNexusCli(args.filter((a, i, all) => a !== flag && all[i - 1] !== flag), io)).toBe(2);
+            expect(io.err.join("\n")).toContain(flag);
+        }
+    });
+});
+
+describe("nexus verdict-items --scope (epic #829, story #861)", () => {
+    it("refuses a scope file that cannot be read, before reading the pull request", async () => {
+        const dir = makeTmpDir("cli-verdict-items-scope-");
+        fs.writeFileSync(path.join(dir, "scope.json"), "{ nope");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["verdict-items", "--pr", "7", "--repo", "acme/widget", "--scope", path.join(dir, "scope.json"), "--out", path.join(dir, "block.md")], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("scope-malformed");
+        expect(fs.existsSync(path.join(dir, "block.md"))).toBe(false);
+    });
+
+    it("refuses a scope that records no answers: a stop or a full run", async () => {
+        const dir = makeTmpDir("cli-verdict-items-scope-");
+        fs.writeFileSync(path.join(dir, "scope.json"), JSON.stringify({ mode: "full", reason: "record-revised", earlier: null, changedFiles: [], rejudge: { items: [], results: [] }, unlisted: [], lines: [] }));
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["verdict-items", "--pr", "7", "--repo", "acme/widget", "--scope", path.join(dir, "scope.json"), "--out", path.join(dir, "block.md")], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("scope-malformed");
+    });
+});
+
 describe("nexus pr-answers (epic #829, story #860 — the answer form is covered by the waiver reader's own specs)", () => {
     it("is a registered verb the help names", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-pr-answers-"));

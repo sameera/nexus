@@ -53,8 +53,8 @@ function fail(message: string): LandedChangeResult {
 }
 
 /** Changed paths for a diff spec, pipeline stores excluded; null on git error. */
-function changedPaths(run: Runner, cwd: string, spec: string[]): string[] | null {
-    const r = run("git", ["diff", ...DIFF_FLAGS, "--name-only", "-z", ...spec, "--", ...PIPELINE_EXCLUDES], { cwd });
+function changedPaths(run: Runner, cwd: string, spec: string[], excludes: readonly string[]): string[] | null {
+    const r = run("git", ["diff", ...DIFF_FLAGS, "--name-only", "-z", ...spec, "--", ...excludes], { cwd });
     if (r.status !== 0) return null;
     return r.stdout.split("\0").filter((p) => p.length > 0);
 }
@@ -90,23 +90,78 @@ export function compareLandedChange(run: Runner, cwd: string, input: LandedChang
             return fail(`commit ${sha} is not in ${cwd}, so the landed check cannot compare against it.`);
         }
     }
-    const reviewedSpec = [`${input.base}...${input.analyzedHead}`];
-    const landedSpec = [input.base, input.head];
+    return compareChanges(run, cwd, [`${input.base}...${input.analyzedHead}`], [input.base, input.head], {
+        list: `the reviewed change ${input.base}...${input.analyzedHead} or the landed change ${input.base}..${input.head}`,
+        between: "the reviewed and the landed change",
+    });
+}
 
-    const reviewed = changedPaths(run, cwd, reviewedSpec);
-    const landed = changedPaths(run, cwd, landedSpec);
-    if (reviewed === null || landed === null) {
-        return fail(`could not list the reviewed change ${input.base}...${input.analyzedHead} or the landed change ${input.base}..${input.head} in ${cwd}.`);
-    }
+/** Compare two changes file by file, as normalized patches; every file either touches is reported. */
+function compareChanges(
+    run: Runner,
+    cwd: string,
+    firstSpec: string[],
+    secondSpec: string[],
+    names: { list: string; between: string },
+    excludes: readonly string[] = PIPELINE_EXCLUDES,
+): LandedChangeResult {
+    const first = changedPaths(run, cwd, firstSpec, excludes);
+    const second = changedPaths(run, cwd, secondSpec, excludes);
+    if (first === null || second === null) return fail(`could not list ${names.list} in ${cwd}.`);
 
     const files: LandedFile[] = [];
-    for (const file of [...new Set([...reviewed, ...landed])].sort()) {
-        const r = reviewed.includes(file) ? normalizedPatch(run, cwd, reviewedSpec, file) : "";
-        const l = landed.includes(file) ? normalizedPatch(run, cwd, landedSpec, file) : "";
-        if (r === null || l === null) return fail(`could not compare ${file} between the reviewed and the landed change in ${cwd}.`);
-        files.push({ path: file, status: r === l ? "unchanged" : "changed" });
+    for (const file of [...new Set([...first, ...second])].sort()) {
+        const a = first.includes(file) ? normalizedPatch(run, cwd, firstSpec, file) : "";
+        const b = second.includes(file) ? normalizedPatch(run, cwd, secondSpec, file) : "";
+        if (a === null || b === null) return fail(`could not compare ${file} between ${names.between} in ${cwd}.`);
+        files.push({ path: file, status: a === b ? "unchanged" : "changed" });
     }
     return { ok: true, files };
+}
+
+export interface OwnChangeInput {
+    /** The tip of the branch the pull request targets: the point each head's own change is measured from. */
+    base: string;
+    /** The head an earlier verdict analyzed. */
+    earlierHead: string;
+    /** The pull request's head now. */
+    head: string;
+    /**
+     * Pathspecs the comparison leaves out. Defaults to the queue and discovery stores, as range
+     * derivation leaves them out; a caller that knows the whole pipeline-store set passes it.
+     */
+    excludes?: readonly string[];
+}
+
+/**
+ * Which files the pull request's own change touches differently at `head` than at `earlierHead`
+ * (epic #829, story #861, decision record #871, D8, G20). Each head's own change is what it changed
+ * against the point where it left trunk, `git diff <base>...<head>` — #849 D4's comparison, the one
+ * the landed check above makes. Merging trunk into the branch moves that point forward and adds
+ * nothing to the own change, and a rebase replays the same change onto a later point, so neither
+ * marks a file changed by itself. The patches are compared with positions and context dropped, as
+ * above, so trunk shifting the lines around a change does not count either.
+ *
+ * A head the checkout does not hold — the earlier head of a force-pushed branch, most often — is a
+ * failure, never "nothing changed".
+ */
+export function compareOwnChange(run: Runner, cwd: string, input: OwnChangeInput): LandedChangeResult {
+    for (const sha of [input.base, input.earlierHead, input.head]) {
+        if (git(run, cwd, "rev-parse", "--verify", "--quiet", `${sha}^{commit}`) === null) {
+            return fail(`commit ${sha} is not in ${cwd}, so the own change at it cannot be read.`);
+        }
+    }
+    return compareChanges(
+        run,
+        cwd,
+        [`${input.base}...${input.earlierHead}`],
+        [`${input.base}...${input.head}`],
+        {
+            list: `the own change ${input.base}...${input.earlierHead} or ${input.base}...${input.head}`,
+            between: `the own change at ${input.earlierHead} and at ${input.head}`,
+        },
+        input.excludes === undefined ? PIPELINE_EXCLUDES : [".", ...input.excludes],
+    );
 }
 
 export type LandedOnTrunkResult = { ok: true; onTrunk: boolean; trunkRef: string } | { ok: false; error: PrWorktreeDiagnostic };

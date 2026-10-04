@@ -79,6 +79,11 @@
       "import": "./src/verdict-items.ts",
       "default": "./src/verdict-items.ts"
     },
+    "./answer-scope": {
+      "types": "./src/answer-scope.ts",
+      "import": "./src/answer-scope.ts",
+      "default": "./src/answer-scope.ts"
+    },
     "./epic-completion": {
       "types": "./src/epic-completion.ts",
       "import": "./src/epic-completion.ts",

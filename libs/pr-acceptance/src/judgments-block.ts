@@ -12,6 +12,12 @@
  * The block is also the ID registry: the next run on the same pull request reads it back from the
  * newest trusted verdict and reuses each ID (D2). That is why a block that cannot serve as one —
  * unparseable, or one ID naming two items — is refused rather than read in part.
+ *
+ * Story #861 adds what an answer-recording run needs to judge only what a change affects (D8):
+ * every criterion, guarantee and success-metric result with the files it was judged on, the
+ * epic-level state the run judged under, and whether the file lists were dropped to fit the
+ * platform's size limit. A block written before that records no results, which reads as "cannot
+ * say what a change affects", never as "no results".
  */
 
 /** The marker the judgments block is published under. It never contains the verdict block's marker. */
@@ -76,11 +82,42 @@ export interface Finding {
 /** An item of a kind this release does not judge, kept exactly as it was read. */
 export type OtherItem = { id: string; kind: string } & Record<string, unknown>;
 
+/** What a result judges: an acceptance criterion, a guarantee or invariant, or a success metric. */
+export type ResultKind = "criterion" | "guarantee" | "metric";
+
+/** The verdicts each kind of result takes. A broken guarantee is also a departure (D1). */
+const RESULT_VERDICTS: Readonly<Record<ResultKind, readonly string[]>> = {
+    criterion: ["met", "partial", "unmet", "contradicted", "unverifiable"],
+    guarantee: ["held", "broken"],
+    metric: ["met", "not-moved", "unverifiable"],
+};
+
+/**
+ * One criterion, guarantee or metric result, with the files it was judged on (D8). An empty file
+ * list counts as affected by any change (R5).
+ */
+export interface Result {
+    kind: ResultKind;
+    /** What it judges: `#<story> AC<k>`, `G<n>` (an invariant by its text), or the metric. */
+    about: string;
+    verdict: string;
+    files: string[];
+}
+
+/** Phase 0.7's answer for the pull request: judge the epic level, report it not run, or skip it. */
+export type EpicLevel = "judge" | "not-run" | "skip";
+
 export interface Judgments {
     /** The departures. */
     items: Departure[];
     findings: Finding[];
     other: OtherItem[];
+    /** Every result the verdict judged; absent in a block written before results were recorded. */
+    results?: Result[];
+    /** The epic-level state the results were judged under; absent when not recorded. */
+    epicLevel?: EpicLevel;
+    /** True when the file lists were dropped to fit the platform's size limit (D5). */
+    filesDropped?: boolean;
 }
 
 export type ParsedJudgments = { ok: true; judgments: Judgments | null } | { ok: false; message: string };
@@ -92,8 +129,19 @@ export function splitItemId(id: string): { prefix: string; n: number } | null {
 }
 
 /** The published form of `judgments`: the marker, then the JSON in a fence nothing inside can close. */
-export function renderJudgmentsBlock(judgments: { items: readonly Departure[]; findings?: readonly Finding[]; other?: readonly OtherItem[] }): string {
-    const json = JSON.stringify({ schema: SCHEMA, items: [...judgments.items, ...(judgments.findings ?? []), ...(judgments.other ?? [])] }, null, 2);
+export function renderJudgmentsBlock(judgments: {
+    items: readonly Departure[];
+    findings?: readonly Finding[];
+    other?: readonly OtherItem[];
+    results?: readonly Result[];
+    epicLevel?: EpicLevel;
+    filesDropped?: boolean;
+}): string {
+    const doc: Record<string, unknown> = { schema: SCHEMA, items: [...judgments.items, ...(judgments.findings ?? []), ...(judgments.other ?? [])] };
+    if (judgments.results !== undefined) doc["results"] = judgments.results;
+    if (judgments.epicLevel !== undefined) doc["epicLevel"] = judgments.epicLevel;
+    if (judgments.filesDropped === true) doc["filesDropped"] = true;
+    const json = JSON.stringify(doc, null, 2);
     const longest = Math.max(0, ...[...json.matchAll(/`+/g)].map((m) => m[0].length));
     const fence = "`".repeat(Math.max(3, longest + 1));
     return `${JUDGMENTS_MARKER}\n${fence}json\n${json}\n${fence}\n`;
@@ -151,7 +199,55 @@ export function parseJudgmentsBlock(body: string): ParsedJudgments {
         if (typeof d === "string") return fail(`departure ${id} ${d}`);
         items.push(d);
     }
-    return { ok: true, judgments: { items, findings, other } };
+    const judgments: Judgments = { items, findings, other };
+    if (doc["results"] !== undefined) {
+        const results = readResults(doc["results"]);
+        if (typeof results === "string") return fail(results);
+        judgments.results = results;
+    }
+    if (doc["epicLevel"] !== undefined) {
+        const level = doc["epicLevel"];
+        if (level !== "judge" && level !== "not-run" && level !== "skip") return fail("the judgments block's epicLevel is not judge, not-run or skip");
+        judgments.epicLevel = level;
+    }
+    if (doc["filesDropped"] !== undefined) {
+        if (typeof doc["filesDropped"] !== "boolean") return fail("the judgments block's filesDropped is not true or false");
+        judgments.filesDropped = doc["filesDropped"];
+    }
+    return { ok: true, judgments };
+}
+
+/** The key two results are the same under: their kind and what they judge. */
+export function resultKey(r: { kind: string; about: string }): string {
+    return `${r.kind}:${r.about.trim().replace(/\s+/g, " ").toLowerCase()}`;
+}
+
+/** Read one result as a draft or a block writes it; a string names what is wrong with it. */
+export function readResult(raw: unknown): Result | string {
+    if (!isRecord(raw)) return "is not an object";
+    const { kind, about, verdict, files } = raw;
+    if (kind !== "criterion" && kind !== "guarantee" && kind !== "metric") return "has no kind of criterion, guarantee or metric (kind)";
+    if (!nonEmpty(about)) return "names nothing it judges (about)";
+    if (typeof verdict !== "string" || !RESULT_VERDICTS[kind].includes(verdict)) {
+        return `has no ${kind} verdict of ${RESULT_VERDICTS[kind].join(", ")} (verdict)`;
+    }
+    if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
+    return { kind, about, verdict, files: files as string[] };
+}
+
+/** Read a results list, refusing an unreadable entry or two results judging the same thing. */
+export function readResults(raw: unknown): Result[] | string {
+    if (!Array.isArray(raw)) return "the results are not a list";
+    const results: Result[] = [];
+    const seen = new Set<string>();
+    for (const [i, entry] of raw.entries()) {
+        const r = readResult(entry);
+        if (typeof r === "string") return `result ${i} ${r}`;
+        if (seen.has(resultKey(r))) return `result ${i} judges ${r.kind} ${r.about}, which an earlier result already judges`;
+        seen.add(resultKey(r));
+        results.push(r);
+    }
+    return results;
 }
 
 const SEVERITIES: readonly string[] = ["critical", "high", "medium", "low"];

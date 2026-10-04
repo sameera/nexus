@@ -606,8 +606,9 @@ should have run yet.
        comment from someone who can speak for the repository: `<ID> — accepted: <reason>` for a
        departure, `<ID> — waived: <reason>` for a critical or high finding. The IDs are the ones
        the verdict on that pull request lists.
-    2. Then run analyze on that pull request again to record the answers (`/nxs.analyze --pr <N>`),
-       which publishes a new verdict whose counts leave the answered items out.
+    2. Then run analyze on that pull request again to record the answers (`/nxs.analyze --pr <N> --resolve`,
+       which judges only what changed since the last verdict), which publishes a new verdict whose
+       counts leave the answered items out.
     3. Then re-run `/nxs.close --pr <N>`.
 
    Never ask the lead to override, never proceed on a blocking receipt, and **offer no other
