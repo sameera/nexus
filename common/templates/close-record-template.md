@@ -19,8 +19,9 @@ CLOSE-FROM-DIFF FORCING FUNCTION
 
 RANGE STAMPING (unconditional — every mode)
     The range records the exact diff /nxs.close derived: git diff <base>...<head>
-    in the named repo reproduces the epic's landed change. It is a LIST (one
-    entry per touched repo); a single-code-repo epic populates exactly one.
+    in the named repo reproduces the epic's landed change. It is a LIST, one
+    entry per merged pull request that has a range; story_ranges lists the
+    same ranges per story.
     Full SHAs only — symbolic refs stop resolving once the branch is deleted.
     After a workspace migration this range is the only thing the hub-side
     drain can recompute the diff from.
@@ -51,7 +52,7 @@ record: {{RECORD_ISSUE_REF}}    # the decision record this epic was built agains
                                 # Bare, in {{ISSUES_REPO}} — same rule as `epic` above.
                                 # Omit both record keys when the epic legitimately has no record.
 record_hash: {{RECORD_HASH}}    # the FULL canonical digest of the approved record body, never truncated
-range:                          # exact diff range of the landed change — one entry per touched repo.
+range:                          # exact diff range of the landed change — one entry per merged pull request.
                                 # `range[].repo` is the CODE repository the change landed in — a
                                 # different repository than `issues_repo` above whenever the epic
                                 # was filed into a separate issues repo; in a single-repo project
@@ -59,6 +60,10 @@ range:                          # exact diff range of the landed change — one 
   - repo: {{REPO_IDENTITY}}     # normalized code-repo identity (host/owner/repo), from the close preflight
     base: {{BASE_SHA}}          # FULL commit SHA of the merge-base the branch forked from — never a ref
     head: {{HEAD_SHA}}          # FULL commit SHA of the branch head the close-from-diff pass diffed — never HEAD/main
+story_ranges:                   # per story, its merged pull requests in merge order (close derives them).
+  - story: {{STORY_ISSUE_REF}}  # A pull request with no attributable commits is written
+    ranges:                     # `{ repo, pr, range: none }` — named, never dropped.
+      - { repo: {{REPO_IDENTITY}}, pr: {{PR_NUMBER}}, base: {{BASE_SHA}}, head: {{HEAD_SHA}} }
 ---
 
 # Close Record: {{EPIC_TITLE}}

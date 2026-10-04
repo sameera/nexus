@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); and /nxs.analyze ran (missing / revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. It derives each story's commit ranges itself, in the checkout of each repository a story merged in, and stamps them into both the close record and the close comment. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); and /nxs.analyze ran (missing / revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -133,28 +133,54 @@ single-repo and hub mode only.
       the PR closes, then that issue's **parent epic** (`gh pr view <N> --json ...`). If it cannot be
       determined unambiguously, stop and ask.
 
-3. **Open the worktree on the distill branch** and derive the range:
+3. **Derive every story's commit ranges — one path for every epic** (epic #828, story #841;
+   record #849, D1–D3). Run it from the checkout you started in, before any worktree exists:
 
     ```bash
-    nexus pr-worktree open --pr <N> --mode close \
-      --branch "distill/$(date +%Y-%m-%d)-<epic-slug-or-epic-issue>"
+    nexus epic-verdicts ranges --epic <epic-issue>
     ```
 
-    It prints `{ wtPath, range: { repo, base, head } }`. The branch is cut from the trunk
-    (post-merge, at the trunk ref `nexus trunk` names), so `wtPath` holds the merged code. `range`
-    is the merge-commit-anchored, squash/merge/rebase-safe range (full SHAs) — **keep it for Phase 3
-    and the Phase 4 stamp.**
+    It reads every merged pull request that claims each live story from the issue graph, through
+    the same claiming read analyze uses, so an epic that shipped as one pull request is simply the
+    one-entry case. For each merged pull request it takes the range a shipped record stamped, where
+    one exists, verbatim. Otherwise it derives the range itself, with the one merge-anchored
+    derivation, in the checkout of the repository the pull request merged in. The lead supplies no
+    range. It prints `{ ok, stories, range, blocking, excluded, lines, untrusted }`:
 
-    **Multi-PR case (epic #213, story #503; epic #769) — when the epic shipped as several story pull
-    requests, step 3 above does not apply.** Merge state and the range both come from the epic's own
-    records, not from a search over repositories you happen to hold:
+    - `stories` — per live story, its merged pull requests **in platform merge order**, each with
+      `{ repo, pr, source, base, head, checkout }`. `source` is `record`, `derived` or `no-range`.
+      A merged pull request with no commits attributable to the story is `no-range`. It is listed,
+      never skipped.
+    - `range` — one `{ repo, pr, base, head }` per merged pull request that has a range, each once
+      even when it implements two stories, in merge order. A `no-range` pull request is not in it.
+
+    **Exit 1 stops this command here, before it writes anything.** Report the diagnostic verbatim:
+    - `epic-verdicts story-read-failed` — a story's claiming pull requests could not be read. A
+      failed read is never "no pull request". The remedy is a plain re-run once the read succeeds;
+      offer no waiver and do not retry on your own.
+    - `epic-verdicts checkout-missing` — a repository a story merged in has no checkout. In a hub
+      the diagnostic names the declared member and the path its checkout was expected at. Nothing
+      was fetched and no temporary store was created. Tell the lead to check it out at that path
+      and re-run.
+
+    **`ok` must be `true` before you go further.** Each `blocking` entry is a hard block with **no
+    waiver offered**. Name it and stop:
+    - `merge-commit-moved` — the platform no longer reports the merge commit a shipped record
+      stamped. The recorded range describes commits that are not on the trunk.
+    - `checkout-behind` — the checkout does not hold the pull request's merge commit. The checkout
+      is behind; it is never evidence that the pull request did not land. Name the `fetch` the
+      entry carries and tell the lead to run it and re-run.
+    - `range-underivable` — the derivation refused for another reason. Name the pull request and
+      the message.
+
+    Repeat every entry of `lines` verbatim under a **Ranges** heading. **Keep `stories` and `range`
+    for Phase 3 and the Phase 4 stamp**, and never re-derive or edit a range afterwards.
+
+4. **The shipped ledger's gate** (epic #769), which stays until close no longer requires a record:
 
     ```bash
     nexus epic-verdicts close-gate --epic <epic-issue>
     ```
-
-    It prints `{ ok, merged, range: [{ repo, pr, base, head }, ...], blocking, excluded, untrusted }`.
-    More than one entry in `range` is the multi-PR case.
 
     **`ok` must be `true` before you go further.** `blocking` is a hard block on both its kinds, with
     **no waiver offered** on either (Phase 1.2 cross-references this and does not restate it):
@@ -167,38 +193,29 @@ single-repo and hub mode only.
       a published review to fill the gap.
 
     Name any `untrusted` entries too — records on the epic issue whose author cannot speak for the
-    issues repository — rather than ignoring them.
+    issues repository — rather than ignoring them. `findings` is summed once per record, so a pull
+    request implementing two stories counts once. **Its `range` is not stamped**: the range list
+    comes from step 3 alone.
 
-    A story that shipped as **two** pull requests contributes **both** — the record's identity is the
-    pull request, so there is no per-story slot a later fix could evict, and the feature it fixed
-    reaches the range beside it. Two entries of one story in one repository are ordered by the merge
-    time each record stamped, never by pull-request number: two pull requests can be numbered in one
-    order and merged in the other, and it is the merge order the range follows. `findings` is summed
-    once per record, so a pull request implementing two stories counts once.
-
-    **Every SHA in `range` is the stamp** — keep it for Phase 3 and the Phase 4 stamp. Do not
-    re-derive a range: it was stamped by the run that held the merged code, which is what lets this
-    close an epic whose code merged in a repository you hold no copy of. Each entry is attributed to
-    the repository **its record names**, never the repository you started the close from.
-
-    Once `ok` is `true`, open **ONE worktree/branch for the whole epic — never one per pull request**:
+5. **Open ONE worktree/branch for the whole epic — never one per pull request**:
 
     ```bash
     nexus pr-worktree open --pr <prs whose range entry names THIS repository> --mode close \
       --branch "distill/$(date +%Y-%m-%d)-<epic-slug-or-epic-issue>"
     ```
 
-    Trunk verification narrows to the repository the distillation branch is cut in (decision record
-    #777): pass only the pull requests whose `range` entry names that repository, and pass none at
-    all when no entry does. **When no entry names this repository, omit `--pr` entirely** — the call
-    then cuts the branch here and prints `ranges: []`, because this is where the epic issue and the
-    concept store live even when every story merged somewhere else. For every other repository the
-    `merge-commit-moved` check above stands in its place — weaker than ancestry, and honestly
-    weaker, because this stage declines to obtain a copy of a repository you do not hold.
+    It prints `{ wtPath, ... }`. The branch is cut from the trunk (post-merge, at the trunk ref
+    `nexus trunk` names), so `wtPath` holds the merged code. Trunk verification narrows to the
+    repository the distillation branch is cut in (decision record #777): pass only the pull
+    requests whose step-3 `range` entry names that repository, and pass none at all when no entry
+    does. **When no entry names this repository, omit `--pr` entirely** — the call then cuts the
+    branch here and prints `ranges: []`, because this is where the epic issue and the concept store
+    live even when every story merged somewhere else. Every other repository's checkout was already
+    checked in step 3.
 
     On exit 1, the diagnostic names a trunk missing a stamped head: tell the lead the local trunk is
     behind a recent merge and re-run once the fetch it names has brought it up to date — never
-    proceed on a stale one. Keep `close-gate`'s `range`, not anything this call prints.
+    proceed on a stale one. Keep step 3's `range`, not anything this call prints.
 
     Because every story branch commits its per-user scratch into this same epic-keyed path
     (`.nexus/queue/epic-<epic-issue>/<user>/notes-*.md`, read unchanged in Phase 2) and every story
@@ -206,7 +223,7 @@ single-repo and hub mode only.
     engineer's notes is present at that one path **by construction** — nothing here gathers notes
     separately.
 
-4. **Resolve `QDIR` — dual: born-at-close, else a committed entry (invariant 14, 15).** Operate
+6. **Resolve `QDIR` — dual: born-at-close, else a committed entry (invariant 14, 15).** Operate
    inside `wtPath` for every path operation below.
     - **Committed entry present** — a path was given, or a directory **containing `epic.md`** for this
       epic already exists under `wtPath/.nexus/queue/…` (an old-contract epic whose entry rode the PR):
@@ -243,7 +260,7 @@ single-repo and hub mode only.
    resolve **inside `wtPath`**. The role from step 1 **replaces the Phase 1.3 preflight** — do not run
    `nexus close-role` again in `--pr` mode (single-repo/hub only; a member is already rejected above).
 
-5. `--pr` is **mutually exclusive** with the local on-branch flow. If the preflight rejects the
+7. `--pr` is **mutually exclusive** with the local on-branch flow. If the preflight rejects the
    mode, **stop** — never silently fall back to the local path.
 
 # Phase 1 — Preconditions
@@ -344,8 +361,8 @@ should have run yet.
         nexus pr-verdict --pr <N> --repo <repoIdentity>
         ```
 
-      `<repoIdentity>` is the `range.repo` Phase 0.5 printed — the repository the pull request
-      lives in, which is what the command runs its trust check against. The repository the
+      `<repoIdentity>` is the `repo` Phase 0.5's `ranges` output names for pull request `<N>` — the
+      repository the pull request lives in, which is what the command runs its trust check against. The repository the
       verdict's bare story numbers resolve against is **not** an argument: the command resolves it
       from the checkout it runs in (the configured issues repository, else that checkout's own), so
       it can never be forgotten or fed a wrong value. It prints `{ found, source, at, prHead,
@@ -517,7 +534,8 @@ should have run yet.
 ## 1.3 Workspace preflight (role gate)
 
 Phase 0.5 already resolved the role (single-repo or hub; member is rejected) and no migration ever
-runs. Use the Phase 0.5 `range.repo` as the range identity and continue to Phase 2.
+runs. Each range entry already carries its own repository identity (Phase 0.5 step 3); continue
+to Phase 2.
 
 # Phase 2 — Mine the key decisions
 
@@ -622,10 +640,10 @@ summary"). That rationale lands in the close record's **Deviation Rationale** se
     **In `--pr` mode, do NOT use `merge-base HEAD "$(nexus trunk)"`** — the distill branch was cut
     from the trunk ref, so that diff is empty and would detect **zero** deviations (a false-clean
     close).
-    Instead take `$BASE` = the Phase 0.5 `range.base` and `$HEAD_SHA` = `range.head`, and compute the
-    diff inside the worktree —
-    `git -C <wtPath> diff "$BASE"..."$HEAD_SHA" -- . $(nexus excluded-stores)` — using this one diff
-    for **both** the deviation detection below and the Phase 4 range stamp.
+    Instead diff **each entry of the Phase 0.5 `range` list** in the checkout its `stories` entry
+    names — `git -C <checkout> diff "<base>...<head>" -- . $(nexus excluded-stores)` — and use
+    those diffs for the deviation detection below. Phase 4 stamps exactly those entries, so the
+    stamped ranges are the ranges this pass diffed.
 
 2. **Auto-derive the *what*** from the diff — the behavioral changes, the files touched. This is
    code-derivable, so you derive it; **you do not ask the human to write it**.
@@ -699,28 +717,30 @@ Fill the seeded template and write it into the queue entry.
       `$ISSUES_REPO` resolves to nothing — the epic lives in the current repo, never pinned. This
       is the repository `epic` and `record` above resolve against; `range[].repo` above is the
       **code** repository and is not compared against it.
-    - `range` — **unconditional, every mode**: exactly one list entry with `repo` = the Phase 1.3
-      preflight's repo identity, `base` = `$BASE`, `head` = `$HEAD_SHA` (Phase 3) — **full commit
-      SHAs**, never `HEAD` or a branch name. The list shape is deliberate: a future cross-repo
-      epic appends entries; this epic always writes exactly one (the home repo). **In `--pr` mode**,
-      `repo`/`base`/`head` are exactly the Phase 0.5 `range` output (the helper already resolved the
-      identity and the merge-commit-anchored SHAs).
+    - `range` — **unconditional, every mode**: **the `range` list Phase 0.5 step 3 printed,
+      verbatim** — one `{ repo, pr, base, head }` entry per merged pull request that has a range,
+      in merge order, with **full commit SHAs**. Never one entry per repository: two story pull
+      requests landed in the same repo each keep their own entry. Each entry names the repository
+      the pull request merged in, never the repository you started the close from. A stamped range
+      from a shipped record is carried as it was stamped; every other entry was derived in that
+      repository's checkout. Do not re-derive, merge or edit an entry here, and never take a range
+      from the lead. Phase 0.5 already stopped on any pull request whose range could not be
+      established, so there is nothing left to fail here: never a partial `range:` list.
+    - `story_ranges` — written whether or not the template carries a placeholder: one entry per
+      live story from Phase 0.5's `stories`, its merged pull requests in merge order. A pull request
+      with a range is `{ repo, pr, base, head }`; a `no-range` one is `{ repo, pr, range: none }`,
+      so the story is named rather than dropped:
 
-      **Several story pull requests (epic #213, story #501; epic #769, story #773).** When the
-      epic shipped as more than one story pull request, the single-entry shape above does not
-      apply. Write **one `range:` entry per story pull request** instead, never one entry per
-      repository: even two story pull requests landed in the same repo each keep their own entry.
+        ```yaml
+        story_ranges:
+          - story: "#<story>"
+            ranges:
+              - { repo: <repo>, pr: <N>, base: <full sha>, head: <full sha> }
+              - { repo: <repo>, pr: <N>, range: none }
+        ```
 
-      **Stamp the `range` list Phase 0.5's `close-gate` printed, verbatim.** Every entry was
-      already stamped by the conformance run that held the merged code, and each names the
-      repository **its own record names**. Do not re-derive it here. In particular do not resolve
-      the entries with `nexus pr-worktree range`: that path attributes every entry to the
-      repository the close was started from and reads each pull request against that same local
-      copy, so on the shape this epic exists for — the epic issue here, the story pull requests
-      merged in a repository you hold no copy of — it either stops or stamps the wrong repository
-      on every entry. Phase 0.5 already hard-stopped on any entry that could not be verified, so
-      there is nothing left to fail here: never a partial `range:` list, and never a substitute
-      range supplied by the lead.
+      Qualify `story` under the **`nxs-issue-reference`** skill when `$ISSUES_REPO` names another
+      repository than the one the close record is committed in.
     - **Waived Stories (epic #213, story #502)** — an additional field, not part of the seeded
       template's placeholder set (the note above): add a `## Waived Stories` body section, one line
       per story waived in Phase 1.2's storyless-story gate — `#<story> — waived <YYYY-MM-DD>`, the
@@ -1062,17 +1082,24 @@ date: <YYYY-MM-DD>
 record: "#<record>"              # omit when the epic has no record
 record_hash: <RECORD_HASH>       # full digest, never truncated; omit with `record`
 analyze: <clean | the Phase 1.2 waiver text>
-range:
+range:                           # the close record's `range:` list, entry for entry
   - repo: <the Phase 4 range repo identity>
-    base: <full 40-hex $BASE>
-    head: <full 40-hex $HEAD_SHA>
+    pr: <N>
+    base: <full 40-hex base>
+    head: <full 40-hex head>
+story_ranges:                    # the close record's `story_ranges:` list, entry for entry
+  - story: "#<story>"
+    ranges:
+      - { repo: <repo>, pr: <N>, base: <full sha>, head: <full sha> }
+      - { repo: <repo>, pr: <N>, range: none }   # a merged pull request with no attributable commits
 ```
 `````
 
 The marker-anchored fenced block is **mandatory in every mode** (record #176, invariant 5): it stamps
 the facts the prose cannot recover — the record reference and its full approved-body hash, the
-conformance verdict, and the **full-SHA landed range**, exactly the range Phase 3 diffed, never
-recomputed later. It makes the epic issue a complete substitute for the close-record file, which is
+conformance verdict, and the **full-SHA landed ranges**, exactly the ranges Phase 3 diffed, never
+recomputed later. `range` and `story_ranges` state the same list the close record states, entry for
+entry. `story_ranges` is an added key: a reader that knows only `range` reads the block as before. It makes the epic issue a complete substitute for the close-record file, which is
 what `/nxs.distill`'s GitHub recovery reads (#174). The shape mirrors the `nexus:analyze-receipt`
 block `/nxs.analyze --pr` already publishes; the prose sections above it stay unchanged and in full.
 
@@ -1293,15 +1320,22 @@ state, but a closed epic with an open issue misreports the pipeline.
   member checkout is refused outright (epic #215 retired the close-and-migrate path): no hub write
   is ever attempted from a member, and its close runs from the hub instead, over its merged pull
   requests.
-- **Range stamping is unconditional** — every close record carries the full-SHA `range:` list, in
-  every mode, taken from the same base/head Phase 3 diffed.
+- **Range stamping is unconditional** — every close record carries the full-SHA `range:` list and
+  the per-story `story_ranges:` list, in every mode, taken from Phase 0.5's `nexus epic-verdicts
+  ranges` and diffed by Phase 3. The close comment's machine block states the same two lists.
+- **Close derives its ranges itself, through one path for every epic** (record #849, D1–D3). The
+  lead never supplies a range. A shipped record's stamped range is used verbatim; every other range
+  is derived in the checkout of the repository its pull request merged in. A missing checkout stops
+  close before any write and names the expected path; close never fetches trunk or creates a
+  temporary store in its place. A merge commit the checkout lacks is "checkout behind", never
+  "not landed".
 - **No committed queue entry is ever removed here** — the drain's own staged deletion, on its own
   branch, is the only code path anywhere in the toolkit that removes one (epic #215).
 - **Cross-repo mutations run only between the Phase 7 checkpoint and the Phase 8 GitHub writes**,
   and the checkpoint summary names them with the target hub root and branch.
 - **`--pr` mode is post-merge, single-repo/hub, in a worktree.** Phase 0.5 gates on a merged PR and
-  rejects member repos; every phase runs inside the worktree; the role and range come from the helper
-  (Phase 1.3 preflight is skipped). The conformance gate reads the PR review's machine block, not the
+  rejects member repos; every phase runs inside the worktree; the role comes from the helper and the
+  ranges from `nexus epic-verdicts ranges` (Phase 1.3 preflight is skipped). The conformance gate reads the PR review's machine block, not the
   file. The close record + lesson are committed on the distill branch and **pushed** (they
   have no feature PR to ride); the close record is later `git rm`'d by `/nxs.distill` on the same
   branch, so the epic-issue comment is its durable copy. Never fall back to the local path when

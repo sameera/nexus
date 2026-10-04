@@ -42,6 +42,7 @@ import { type UntrustedRecord } from "@nexus/epic-verdicts/ledger";
 import { ledgerCloseGate, sumLedgerFindings } from "@nexus/epic-verdicts/close-ledger";
 import { describeStoryReadFailures, readEveryStoryClaims } from "@nexus/epic-verdicts/story-prs";
 import { collectEvidence, evidenceDeps } from "@nexus/epic-verdicts/evidence";
+import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-ranges";
 import { fingerprintStories } from "@nexus/epic-verdicts/fingerprint";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
@@ -301,6 +302,14 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      one naming a story is compared with the story's current fingerprint. Prints",
             "      { command: \"evidence\", stories, coversNone, excluded, lines };",
             "      close repeats `lines` verbatim. A failed read exits 1 as story-read-failed.",
+            "  nexus epic-verdicts ranges --epic <N> [--root <startDir>]",
+            "      Derive each story's commit ranges for close, one path for every epic. Reads every",
+            "      merged pull request claiming each live story, then takes a shipped record's stamped",
+            "      range or derives it in the checkout of the repository it merged in. Prints { command:",
+            "      \"ranges\", ok, stories, range, blocking, excluded, lines }; a pull request with no",
+            "      attributable commits is listed as no range. A failed read exits 1 as",
+            "      story-read-failed; a repository with no checkout exits 1 as checkout-missing,",
+            "      naming the expected path, before anything is fetched.",
             "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
             "      Decide merge state and the close range from the epic's records. Prints { command:",
             "      \"close-gate\", ok, merged, range, blocking }. Blocks — never waives — on a recorded",
@@ -311,7 +320,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
             "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "combined", "record", "coverage", "evidence", "close-gate", "waive-story", "merge-gate", "currency"],
+        subverbs: ["derive", "combined", "record", "coverage", "evidence", "ranges", "close-gate", "waive-story", "merge-gate", "currency"],
         run: runEpicVerdicts,
     },
     "pr-verdict": {
@@ -1419,6 +1428,7 @@ const EPIC_VERDICTS_SUBVERBS = [
     "record",
     "coverage",
     "evidence",
+    "ranges",
     "close-gate",
     "waive-story",
     ...Object.keys(RETIRED_EPIC_VERDICTS_SUBVERBS),
@@ -1591,7 +1601,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive|combined|coverage|evidence|close-gate --epic <N> [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|combined|coverage|evidence|ranges|close-gate --epic <N> [--root <startDir>]");
         return 2;
     }
 
@@ -1733,6 +1743,56 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             return 1;
         }
         io.stdout(JSON.stringify({ command: "evidence", epic: flags.epic, issuesRepo, ...evidence.report }));
+        return 0;
+    }
+
+    // `ranges` — close derives each story's commit ranges itself (epic #828, story #841, decision
+    // record #849, D1–D3). One enumeration path for every epic: the claiming read, then a shipped
+    // record's stamped range where one exists, else the merge-anchored derivation in the checkout
+    // of the repository the pull request merged in. A missing checkout stops before any fetch.
+    if (argv[0] === "ranges") {
+        const repos = resolveVerdictRepos(closeMigrationRunner, root);
+        if (!repos.ok) {
+            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+            return 1;
+        }
+        const issuesRepo = repos.repos.issuesRepo;
+        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        if (!resolved.ok) {
+            io.stderr(renderEpicResolveDiagnostic(resolved.error));
+            return 1;
+        }
+        const stories = resolved.resolved.stories.map((st) => st.number);
+        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+        const collected = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
+        if (!collected.ok) {
+            io.stderr(`epic-verdicts ${collected.error.problem}: ${collected.error.message}`);
+            return 1;
+        }
+
+        const derived = deriveCloseRanges(closeRangesDeps(closeMigrationRunner, root, issuesRepo), {
+            stories,
+            excluded,
+            records: collected.collected.records.map((f) => f.record),
+            issuesRepo,
+        });
+        if (!derived.ok && derived.problem === "story-read-failed") {
+            io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(derived.failures, issuesRepo)} Close stops here.`);
+            return 1;
+        }
+        if (!derived.ok) {
+            const lines = derived.missing.map((m) => `  ${m.repo} — ${m.message}`);
+            io.stderr(
+                [
+                    `epic-verdicts checkout-missing: ${derived.missing.length} repositor${derived.missing.length === 1 ? "y" : "ies"} a story merged in ha${derived.missing.length === 1 ? "s" : "ve"} no checkout:`,
+                    ...lines,
+                    "Close derives every range in the checkout of the repository it merged in. Nothing was fetched and nothing was written.",
+                ].join("\n"),
+            );
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "ranges", epic: flags.epic, issuesRepo, ...derived.ranges, untrusted: collected.collected.untrusted }));
         return 0;
     }
 

@@ -1790,6 +1790,15 @@ describe("nexus epic-verdicts — the retired checks report their own removal (s
     });
 });
 
+describe("nexus epic-verdicts ranges (epic #828, story #841)", () => {
+    it("exits 2 with a usage diagnostic naming the subverb when no epic is named", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-ranges-"));
+        expect(await runNexusCli(["epic-verdicts", "ranges"], io)).toBe(2);
+        expect(io.out).toEqual([]);
+        expect(io.err.join("\n")).toContain("ranges");
+    });
+});
+
 describe("nexus story-fingerprints (epic #827, story #836)", () => {
     it("exits 2 with a usage diagnostic when no story is named", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-story-fingerprints-"));
