@@ -107,3 +107,18 @@
 - **Choice:** Remove the record-axis classification and its "Proceed against the revised record" choice from Phase 1.2; keep only the `nexus record-digest` call that feeds Phase 4's `record_hash`.
 - **Why:** Phase 0.5 already stops on every revised record unless a posted waiver clears it, so a second check in Phase 1.2 would stop again on a waived record or ask the lead, which G34 forbids.
 - **Refuted alternative:** Keep the Phase 1.2 check and skip it when Phase 0.5 applied a waiver, which leaves two places deciding the same digest.
+
+## 2026-10-04 — The retired `record`, `coverage` and `close-gate` verbs refuse by name
+- **Choice:** Move the three verbs into the retired-subverb table, so each exits 1 naming what replaced it (`/nxs.close --pr`, `nexus epic-verdicts ranges`), and delete their code paths, `coverage.ts` and the write half of `ledger.ts`.
+- **Why:** The script and older stage copies call these names; a refusal that names the replacement is the pattern #775 set for retired checks, and an unknown verb reads as a broken install.
+- **Refuted alternative:** Keep `close-gate` live minus its unrecorded block, which leaves a second close gate nothing runs and duplicates the moved-merge-commit block `ranges` already holds.
+
+## 2026-10-04 — The ledger gate function stays for aggregate mode, minus the unrecorded block
+- **Choice:** Keep `ledgerCloseGate` (its range and moved-merge-commit check) because analyze's `combined` still takes its range from it, drop only the `story-unrecorded` block, and keep its story inputs as optional, ignored fields.
+- **Why:** G15 keeps aggregate mode unchanged until #829, and keeping the inputs leaves every pre-epic ledger test unchanged except the one that pinned the retired block (G29).
+- **Refuted alternative:** Replace it with a range-only helper, which changes aggregate mode's code path and rewrites the existing ledger tests.
+
+## 2026-10-04 — `resolveVerdictRoots` is removed with the writer
+- **Choice:** Delete `resolveVerdictRoots` and its tests; `resolveVerdictRepos` keeps its two-directory form.
+- **Why:** It existed only so the record writer could find the member and hub sides (#783); every remaining reader resolves one root.
+- **Refuted alternative:** Keep it exported and unused, which is dead code tied to a write that no longer exists.

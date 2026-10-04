@@ -4,8 +4,6 @@ import {
     collectShippedRecords,
     fetchShippedRecords,
     parseShippedRecord,
-    postShippedRecord,
-    renderShippedRecord,
     shippedRecordKey,
     type ShippedRecord,
 } from "./ledger.js";
@@ -24,6 +22,35 @@ const RECORD: ShippedRecord = {
     recordHash: "deadbeef",
     nexusVersion: "0.73.0",
 };
+
+/**
+ * A record body as analyze's post-merge run wrote it until epic #828 retired the write (story
+ * #843). Records like this are still on the issues of epics in flight, and are still read.
+ */
+function renderShippedRecord(record: ShippedRecord): string {
+    const key = shippedRecordKey(record.repo, record.pr);
+    const f = record.findings;
+    return [
+        SHIPPED_MARKER,
+        `<!-- nexus:shipped-key ${key} -->`,
+        "",
+        `**Shipped** — ${key} merged as \`${record.mergeCommit}\`, covering ${record.stories.map((s) => `#${s}`).join(", ") || "no story"}.`,
+        "",
+        "```yaml",
+        `epic: "${record.epic}"`,
+        `stories: [${record.stories.join(", ")}]`,
+        `repo: ${record.repo}`,
+        `pr: ${record.pr}`,
+        `merge_commit: ${record.mergeCommit}`,
+        `merged_at: ${record.mergedAt}`,
+        `range: { base: ${record.base}, head: ${record.head} }`,
+        `findings: { critical: ${f.critical}, high: ${f.high}, medium: ${f.medium}, low: ${f.low} }`,
+        `record_hash: ${record.recordHash ?? ""}`,
+        `nexus_version: ${record.nexusVersion ?? ""}`,
+        "```",
+        "",
+    ].join("\n");
+}
 
 function comment(body: string, opts: { id?: string; association?: string; login?: string } = {}): Record<string, unknown> {
     return {
@@ -78,56 +105,6 @@ describe("collectShippedRecords — trust is the author's association, never the
         });
         expect(collected.records).toHaveLength(1);
         expect(collected.records[0].commentId).toBe("IC_2");
-    });
-});
-
-describe("postShippedRecord — one record per pull request, replaced in place (invariant 2)", () => {
-    function recorder(status = 0): { run: Runner; calls: string[][] } {
-        const calls: string[][] = [];
-        const run: Runner = (cmd, args) => {
-            calls.push([cmd, ...args]);
-            return { status, stdout: "", stderr: status === 0 ? "" : "gh: forbidden" };
-        };
-        return { run, calls };
-    }
-
-    it("adds a record when the epic issue carries none for this pull request", () => {
-        const { run, calls } = recorder();
-        const result = postShippedRecord(run, "/wt", "acme/hub", 769, RECORD, []);
-        expect(result.ok && result.action).toBe("created");
-        expect(calls[0].slice(0, 5)).toEqual(["gh", "issue", "comment", "769", "--repo"]);
-        expect(calls[0][5]).toBe("acme/hub");
-    });
-
-    it("replaces that record's body alone on a re-run, leaving every other record untouched", () => {
-        const { run, calls } = recorder();
-        const existing = collectShippedRecords({
-            comments: [
-                comment(renderShippedRecord(RECORD), { id: "IC_mine" }),
-                comment(renderShippedRecord({ ...RECORD, pr: 13 }), { id: "IC_other" }),
-            ],
-        }).records;
-        const result = postShippedRecord(run, "/wt", "acme/hub", 769, RECORD, existing);
-        expect(result.ok && result.action).toBe("updated");
-        expect(calls).toHaveLength(1);
-        expect(calls[0].join(" ")).toContain("id=IC_mine");
-        expect(calls[0].join(" ")).not.toContain("IC_other");
-    });
-
-    it("writes on the epic issue in the issues repository even though the pull request merged elsewhere", () => {
-        const { run, calls } = recorder();
-        postShippedRecord(run, "/member-worktree", "acme/hub", 769, RECORD, []);
-        expect(calls[0][calls[0].indexOf("--repo") + 1]).toBe("acme/hub");
-        // The code repository is named *in* the record, never used as a target to write against.
-        expect(calls[0].filter((a) => a === "acme/member")).toEqual([]);
-    });
-
-    it("keeps the composed body and reports the failure when the post does not land (invariant 10)", () => {
-        const { run } = recorder(1);
-        const result = postShippedRecord(run, "/wt", "acme/hub", 769, RECORD, []);
-        expect(result.ok).toBe(false);
-        expect(result.body).toContain(SHIPPED_MARKER);
-        if (!result.ok) expect(result.error.message).toContain("acme/member#12");
     });
 });
 

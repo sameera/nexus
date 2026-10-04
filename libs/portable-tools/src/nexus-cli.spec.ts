@@ -1827,6 +1827,52 @@ describe("nexus epic-verdicts ranges (epic #828, story #841)", () => {
     });
 });
 
+/**
+ * Story #843 (decision record #849, D8, G16, G19) — analyze no longer writes a shipped record,
+ * close no longer requires one, and analyze reports no coverage of its own. Each retired verb
+ * still answers, naming what replaced it, so a lead or a script calling it learns why.
+ */
+describe("nexus epic-verdicts — the ledger write, the coverage report and the ledger gate are retired (epic #828, story #843)", () => {
+    const retired = async (argv: string[]): Promise<{ code: number; io: CapturedIo }> => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-retired-843-"));
+        return { code: await runNexusCli(["epic-verdicts", ...argv], io), io };
+    };
+
+    it("writes no shipped record: `record` reports its removal and touches nothing", async () => {
+        const { code, io } = await retired(["record", "--epic", "828", "--pr", "12", "--stories", "843", "--findings", "c:0,h:0"]);
+        expect(code).toBe(1);
+        expect(io.out).toEqual([]);
+        expect(io.err.join("\n")).toContain("no longer exists");
+        expect(io.err.join("\n")).toContain("/nxs.close");
+    });
+
+    it("reports no coverage, and names close as the place that reports each story's state", async () => {
+        const { code, io } = await retired(["coverage", "--epic", "828"]);
+        expect(code).toBe(1);
+        expect(io.out).toEqual([]);
+        const err = io.err.join("\n");
+        expect(err).toContain("no longer exists");
+        expect(err).toContain("/nxs.close");
+        expect(err).toContain("nexus epic-verdicts ranges --epic");
+    });
+
+    it("no longer runs the ledger gate that blocked a story with no record, and names close's own gate", async () => {
+        const { code, io } = await retired(["close-gate", "--epic", "828"]);
+        expect(code).toBe(1);
+        expect(io.out).toEqual([]);
+        expect(io.err.join("\n")).toContain("no longer exists");
+        expect(io.err.join("\n")).toContain("nexus epic-verdicts ranges --epic");
+    });
+
+    it("no longer lists the retired verbs as live in its usage", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-retired-843-"));
+        expect(await runNexusCli(["epic-verdicts", "derive"], io)).toBe(2);
+        const usage = io.err.join("\n");
+        expect(usage).not.toContain("coverage");
+        expect(usage).not.toContain("close-gate");
+    });
+});
+
 describe("nexus story-fingerprints is gone (epic #828, story #857)", () => {
     it("is no longer a registered verb: analyze records no story text", () => {
         expect(VERB_NAMES).not.toContain("story-fingerprints");

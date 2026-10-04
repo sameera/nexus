@@ -15,7 +15,7 @@ const CLOSE: string = fs.readFileSync(path.join(authoredComponentRoot(import.met
 /** Phase 0.5's range step, where the derivation's output is acted on. */
 function rangeStep(): string {
     const start = CLOSE.indexOf("nexus epic-verdicts ranges --epic");
-    return CLOSE.slice(start, CLOSE.indexOf("nexus epic-verdicts close-gate --epic", start));
+    return CLOSE.slice(start, CLOSE.indexOf("nexus pr-worktree open --pr", start));
 }
 
 /** The stop for a stale story, inside the range step. */

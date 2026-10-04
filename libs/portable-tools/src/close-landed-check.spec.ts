@@ -21,7 +21,7 @@ function machineBlock(): string {
 /** Phase 0.5's range step, where the derivation's output is acted on. */
 function rangeStep(): string {
     const start = CLOSE.indexOf("nexus epic-verdicts ranges --epic");
-    return CLOSE.slice(start, CLOSE.indexOf("nexus epic-verdicts close-gate --epic", start));
+    return CLOSE.slice(start, CLOSE.indexOf("nexus pr-worktree open --pr", start));
 }
 
 describe("/nxs.close's landed check (story #846)", () => {

@@ -36,17 +36,16 @@ import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write
 import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/epic-resolve/planning-dir";
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
-import { epicRefForRecord, fetchShippedRecords, postShippedRecord, type FindingCounts, type ShippedRecord } from "@nexus/epic-verdicts/ledger";
-import { assessEpicCoverage, readCoverageClaims } from "@nexus/epic-verdicts/coverage";
+import { fetchShippedRecords } from "@nexus/epic-verdicts/ledger";
 import { type UntrustedRecord } from "@nexus/epic-verdicts/ledger";
-import { ledgerCloseGate, sumLedgerFindings } from "@nexus/epic-verdicts/close-ledger";
+import { ledgerCloseGate } from "@nexus/epic-verdicts/close-ledger";
 import { describeStoryReadFailures } from "@nexus/epic-verdicts/story-prs";
 import { collectEvidence, evidenceDeps } from "@nexus/epic-verdicts/evidence";
 import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-ranges";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
-import { resolveVerdictRepos, resolveVerdictRoots } from "@nexus/epic-verdicts/verdict-repos";
+import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { buildEpicReceipt } from "@nexus/epic-verdicts/receipt";
 import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
@@ -277,7 +276,7 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runPlanningDir,
     },
     "epic-verdicts": {
-        summary: "Read what an epic shipped from the records on its issue: coverage, the close gate, one receipt.",
+        summary: "Close's evidence gate and ranges, and analyze's aggregate receipt from the records already on an epic issue.",
         usage: [
             "  nexus epic-verdicts derive --epic <N> [--root <startDir>]",
             "      Print { epic, state: aggregate|none, receipt, outPath } from the epic's records and,",
@@ -285,17 +284,6 @@ const REGISTRY: Record<string, VerbEntry> = {
             "  nexus epic-verdicts combined --epic <N> [--root <startDir>]",
             "      Print the union of every recorded pull request's own changed-file set, for judging",
             "      the epic's success metrics and cross-story invariants against the combined code.",
-            "  nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0]",
-            "                            [--record-hash <hex>] [--root <startDir>]",
-            "      Record what a merged pull request shipped, on the epic issue itself. One record per",
-            "      code repository and pull-request number; a re-run replaces that record alone. An",
-            "      unmerged pull request writes nothing and prints { written: false, state }.",
-            "  nexus epic-verdicts coverage --epic <N> [--root <startDir>]",
-            "      Ask an epic what it has shipped. Re-reads the live story set and classifies each",
-            "      story as shipped, unrecorded, unshipped or excluded against the epic's records.",
-            "      Prints { command: \"coverage\", fullyShipped, stories, unshipped, unrecorded,",
-            "      recorded, excluded, untrusted }. A story whose pull requests could not be read",
-            "      exits 1 as story-read-failed, naming every such story, and prints no coverage.",
             "  nexus epic-verdicts evidence --epic <N> [--root <startDir>]",
             "      Close's per-story evidence report: each live story's claiming pull requests and the",
             "      receipt each one carries. A receipt counts only for the stories it names; a story's",
@@ -321,17 +309,12 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      `closable` is true only when nothing blocks and every story is current or excluded. A failed read exits 1 as",
             "      story-read-failed; a repository with no checkout exits 1 as checkout-missing,",
             "      naming the expected path, before anything is fetched.",
-            "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
-            "      Decide merge state and the close range from the epic's records. Prints { command:",
-            "      \"close-gate\", ok, merged, range, blocking }. Blocks — never waives — on a recorded",
-            "      pull request whose merge commit the platform no longer reports, and on a live story",
-            "      with no record.",
             "  nexus epic-verdicts waive-story --story <N> [--root <startDir>]",
             "      Write the resolved no-pull-request marker label onto a story issue via `gh issue",
             "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
             "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "combined", "record", "coverage", "evidence", "ranges", "close-gate", "waive-story", "merge-gate", "currency"],
+        subverbs: ["derive", "combined", "evidence", "ranges", "waive-story", "merge-gate", "currency", "record", "coverage", "close-gate"],
         run: runEpicVerdicts,
     },
     "pr-verdict": {
@@ -1388,22 +1371,6 @@ async function runPlanningDir(argv: string[], io: CliIo): Promise<number> {
 }
 
 
-/**
- * The severity counts a gate hands the ledger, read from one compact flag. Absent is zero, never
- * an error: a pull request that produced no finding of a severity is the ordinary case.
- */
-function parseFindingCounts(text: string | undefined): FindingCounts {
-    const counts: FindingCounts = { critical: 0, high: 0, medium: 0, low: 0 };
-    for (const [, k, v] of (text ?? "").matchAll(/([a-z]+)\s*[:=]\s*(\d+)/gi)) {
-        const key = k.toLowerCase();
-        for (const name of Object.keys(counts) as Array<keyof FindingCounts>) {
-            if (name === key || name[0] === key) counts[name] = Number(v);
-        }
-    }
-    return counts;
-}
-
-
 /** Does a story issue carry `label` in the issues repository? Absent or unreadable is "no". */
 function storyCarriesLabel(cwd: string, issuesRepo: string, story: number, label: string): boolean {
     const r = closeMigrationRunner("gh", ["issue", "view", String(story), "--repo", issuesRepo, "--json", "labels", "--jq", ".labels[].name"], {
@@ -1416,12 +1383,7 @@ function storyCarriesLabel(cwd: string, issuesRepo: string, story: number, label
 interface EpicVerdictsFlags {
     epic?: number;
     root: string;
-    record?: number;
     story?: number;
-    pr?: number;
-    stories?: number[];
-    findings?: string;
-    recordHash?: string;
 }
 
 /**
@@ -1432,18 +1394,26 @@ interface EpicVerdictsFlags {
  * names what replaced it.
  */
 const RETIRED_EPIC_VERDICTS_SUBVERBS: Record<string, string> = {
-    "merge-gate": "Merge state now comes from the epic's records, which exist only for a merged pull request. Run `nexus epic-verdicts close-gate --epic <N>` instead.",
-    currency: "The code-staleness axis is gone: the record is written by the run that saw the merge, so the judged code and the shipped code are the same code. The decision record's revision is still reported, by `/nxs.close` reading the record hash the ledger stamped.",
+    "merge-gate":
+        "Merge state now comes from close's own claiming read, which is `nexus epic-verdicts ranges --epic <N>`. The `close-gate` that replaced this check is retired too (epic #828).",
+    currency:
+        "The code-staleness axis moved into close's evidence gate: `nexus epic-verdicts ranges --epic <N>` names a story stale when its merged head is not the analyzed head, when a reviewed file did not land as reviewed, or when the decision record was revised (epic #828).",
+    // Epic #828, story #843 (decision record #849, D8): analyze no longer writes the shipped
+    // ledger, close no longer requires it, and analyze reports no coverage of its own. Records an
+    // epic in flight already carries are still read, by `ranges` and by analyze's aggregate mode.
+    record:
+        "Analyze no longer writes a shipped record to the epic issue (epic #828). `/nxs.close --pr <N>` derives each story's range itself; records already on an epic issue are still read.",
+    coverage:
+        "Analyze no longer reports what an epic has shipped (epic #828). `/nxs.close --pr <N>` reports each story's state — current, stale, never-reviewed, unshipped, unknown or excluded — through `nexus epic-verdicts ranges --epic <N>`.",
+    "close-gate":
+        "Close no longer requires a shipped record for every story (epic #828). Its gate is `nexus epic-verdicts ranges --epic <N>`, which still reads a record's stamped range and still blocks on a recorded merge commit that moved.",
 };
 
 const EPIC_VERDICTS_SUBVERBS = [
     "derive",
     "combined",
-    "record",
-    "coverage",
     "evidence",
     "ranges",
-    "close-gate",
     "waive-story",
     ...Object.keys(RETIRED_EPIC_VERDICTS_SUBVERBS),
 ];
@@ -1455,12 +1425,7 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
         const a = args[i];
         if (a === "--epic") flags.epic = Number(args[++i]);
         else if (a === "--root") flags.root = args[++i];
-        else if (a === "--record") flags.record = Number(args[++i]);
         else if (a === "--story") flags.story = Number(args[++i]);
-        else if (a === "--pr") flags.pr = Number(args[++i]);
-        else if (a === "--stories") flags.stories = [...(args[++i] ?? "").matchAll(/\d+/g)].map((m) => Number(m[0]));
-        else if (a === "--findings") flags.findings = args[++i];
-        else if (a === "--record-hash") flags.recordHash = args[++i];
     }
     return flags;
 }
@@ -1470,118 +1435,6 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
  * trust, recency and coverage as one program, called by both `/nxs.analyze` (which writes the
  * receipt this prints) and `/nxs.close` (which re-checks currency against the same story set).
  */
-// `record` — the shipped ledger's writer (epic #769). A record is written only against a
-// merged pull request: the merge commit and the range anchored to it do not exist before the
-// merge, and a run against an open pull request is the engineer's review, which writes nothing
-// on the epic issue. Everything the record states about conformance is passed in by the gate
-// that just produced it; nothing here reads a published review back to find out what shipped.
-function runEpicVerdictsRecord(flags: EpicVerdictsFlags, epic: number, io: CliIo): number {
-    if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
-        io.stderr(
-            "usage: nexus epic-verdicts record --epic <N> --pr <N> --stories <n,n> [--findings c:0,h:0,m:0,l:0] " +
-                "[--record-hash <hex>] [--root <startDir>]",
-        );
-        return 2;
-    }
-    // The two sides of a record live in different checkouts in a workspace (#783): the pull
-    // request, its merge and its range in the member it merged in, and the epic in the hub.
-    const roots = resolveVerdictRoots(closeMigrationRunner, flags.root);
-    if (!roots.ok) {
-        io.stderr(renderWorkspaceStatus(roots));
-        return 1;
-    }
-    const { codeRoot, issuesRoot } = roots.roots;
-
-    const repos = resolveVerdictRepos(closeMigrationRunner, issuesRoot, codeRoot);
-    if (!repos.ok) {
-        io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
-        return 1;
-    }
-    const { issuesRepo, repo } = repos.repos;
-
-    const pr = resolvePr(closeMigrationRunner, codeRoot, flags.pr, { requireMerged: false });
-    if (!pr.ok) {
-        io.stderr(renderPrWorktreeDiagnostic(pr.error));
-        return 1;
-    }
-    if (!pr.pr.merged || pr.pr.mergeCommitOid === null) {
-        io.stdout(
-            JSON.stringify({
-                command: "record",
-                epic: epic,
-                pr: flags.pr,
-                repo,
-                issuesRepo,
-                written: false,
-                state: pr.pr.state,
-                reason: "not-merged",
-            }),
-        );
-        return 0;
-    }
-
-    // The range comes from the one merge-anchored derivation with its existing exclusions
-    // (decision record #777, invariant 4). There is deliberately no way for a caller to hand
-    // one in: a range the derivation never produced would disagree with the diff the distiller
-    // later recomputes from it, one stage after the branch was cut.
-    const prHead: string | undefined = fetchPrHead(closeMigrationRunner, codeRoot, flags.pr);
-    const derived = deriveRange(closeMigrationRunner, codeRoot, pr.pr, { verifyAgainstPrHead: prHead });
-    if (!derived.ok) {
-        io.stderr(renderPrWorktreeDiagnostic(derived.error));
-        return 1;
-    }
-    const base: string = derived.range.base;
-    const head: string = derived.range.head;
-
-    const existing = fetchShippedRecords(closeMigrationRunner, issuesRoot, issuesRepo, epic);
-    if (!existing.ok) {
-        io.stderr(`epic-verdicts ${existing.error.problem}: ${existing.error.message}`);
-        return 1;
-    }
-
-    const record: ShippedRecord = {
-        epic: epicRefForRecord(epic, issuesRepo, repo),
-        stories: [...(flags.stories ?? [])].sort((a, b) => a - b),
-        repo,
-        pr: flags.pr,
-        mergeCommit: pr.pr.mergeCommitOid,
-        // The ordering key (story #774 AC2) comes from the repository-qualified `gh pr view`
-        // this path already made. A second, unqualified query could answer for the wrong
-        // repository or fail into an empty string, and an empty key drops the record to the
-        // tiebreak that is explicitly not the order (invariant 14).
-        mergedAt: pr.pr.mergedAt,
-        base,
-        head,
-        findings: parseFindingCounts(flags.findings),
-        recordHash: flags.recordHash?.trim() || null,
-        nexusVersion: releaseVersion(),
-    };
-
-    const posted = postShippedRecord(closeMigrationRunner, issuesRoot, issuesRepo, epic, record, existing.collected.records);
-    if (!posted.ok) {
-        // Invariant 10: the composed body survives the failed post, so the retry is a re-run
-        // rather than a re-derivation, and the run never reads as a success.
-        io.stderr(`epic-verdicts ${posted.error.problem}: ${posted.error.message}`);
-        io.stderr(`the record body was composed and not posted; re-run this command to retry:\n${posted.body}`);
-        return 1;
-    }
-    io.stdout(
-        JSON.stringify({
-            command: "record",
-            epic: epic,
-            pr: flags.pr,
-            repo,
-            issuesRepo,
-            written: true,
-            action: posted.action,
-            key: posted.key,
-            record,
-            untrusted: existing.collected.untrusted,
-        }),
-    );
-    return 0;
-}
-
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
 
@@ -1615,126 +1468,16 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive|combined|coverage|evidence|ranges|close-gate --epic <N> [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|combined|evidence|ranges --epic <N> [--root <startDir>]");
         return 2;
     }
-
-    // `record` resolves its own two roots: the hub-only root below would drop the member checkout
-    // the pull request lives in (#783).
-    if (argv[0] === "record") return runEpicVerdictsRecord(flags, flags.epic, io);
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
 
-    // `close-gate` — the shipped ledger read at close (epic #769, story #773). Merge state and the
-    // range come from the records; the only live question is whether the platform still reports the
-    // same merge commit, which is a hard block because a moved merge commit means the recorded range
-    // describes commits that are not on the trunk.
-    if (argv[0] === "close-gate") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
-            return 1;
-        }
-        const issuesRepo = repos.repos.issuesRepo;
-
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
-        if (!resolved.ok) {
-            io.stderr(renderEpicResolveDiagnostic(resolved.error));
-            return 1;
-        }
-        const collected = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
-        if (!collected.ok) {
-            io.stderr(`epic-verdicts ${collected.error.problem}: ${collected.error.message}`);
-            return 1;
-        }
-
-        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const storyNumbers = resolved.resolved.stories.map((st) => st.number);
-        const excludedStories = noPrLabel.length > 0 ? storyNumbers.filter((st) => storyCarriesLabel(root, issuesRepo, st, noPrLabel)) : [];
-
-        const gate = ledgerCloseGate(closeMigrationRunner, root, {
-            stories: storyNumbers,
-            excluded: excludedStories,
-            records: collected.collected.records.map((f) => f.record),
-        });
-        io.stdout(
-            JSON.stringify({
-                command: "close-gate",
-                epic: flags.epic,
-                issuesRepo,
-                ...gate,
-                // Summed once per record, so a pull request that implements two stories counts once
-                // and a story that shipped as two pull requests counts both (invariant 13).
-                findings: sumLedgerFindings(collected.collected.records.map((f) => f.record)),
-                excluded: excludedStories,
-                untrusted: collected.collected.untrusted,
-            }),
-        );
-        return 0;
-    }
-
-    // `coverage` — the shipped ledger's epic-wide reader (epic #769, story #772). The live story
-    // set is re-read here on every run, so a story added after a record was written is reported as
-    // unshipped with nothing having to invalidate the records already there. The issue graph is
-    // consulted here and nowhere else: it answers whether a merged pull request exists for a story
-    // and carries no record, which is a prompt to the lead, never an input to the close gate.
-    if (argv[0] === "coverage") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
-            return 1;
-        }
-        const issuesRepo = repos.repos.issuesRepo;
-
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
-        if (!resolved.ok) {
-            io.stderr(renderEpicResolveDiagnostic(resolved.error));
-            return 1;
-        }
-        const stories = resolved.resolved.stories.map((st) => st.number);
-
-        const collected = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
-        if (!collected.ok) {
-            io.stderr(`epic-verdicts ${collected.error.problem}: ${collected.error.message}`);
-            return 1;
-        }
-
-        const slash = issuesRepo.indexOf("/");
-        const issuesSlug = { owner: issuesRepo.slice(0, slash), repo: issuesRepo.slice(slash + 1) };
-        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded: number[] = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
-
-        // A failed read is never a coverage state (decision record #837, D3): the one-command close
-        // script stops on this exit, and a fifth state would read as no gap to any reader that
-        // ignored it. Every story is read first, so one run names every unreadable story.
-        const claims = readCoverageClaims(
-            closeMigrationRunner,
-            root,
-            issuesSlug,
-            stories.filter((story) => !excluded.includes(story)),
-        );
-        if (!claims.ok) {
-            io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(claims.failures, issuesRepo)} No coverage is printed.`);
-            return 1;
-        }
-        const mergedPrsByStory = claims.mergedPrsByStory;
-
-        const coverage = assessEpicCoverage({
-            epic: flags.epic,
-            stories,
-            excluded,
-            records: collected.collected.records.map((f) => f.record),
-            mergedPrsByStory,
-            untrusted: collected.collected.untrusted,
-        });
-        io.stdout(JSON.stringify({ command: "coverage", issuesRepo, ...coverage }));
-        return 0;
-    }
-
     // `evidence` — close's per-story evidence report (epic #827, decision record #837, D4). Close
     // runs this and repeats `lines`; a failed read behind it stops close before it mines anything.
-    // It decides nothing else: the ledger gate above keeps deciding whether the epic can close.
+    // It decides nothing else: `ranges` below is close's gate.
     if (argv[0] === "evidence") {
         const repos = resolveVerdictRepos(closeMigrationRunner, root);
         if (!repos.ok) {

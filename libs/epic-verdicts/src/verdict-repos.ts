@@ -10,19 +10,15 @@
  * passing an empty value through — a caller that does not know which repository it is reading
  * would leave every comparison built on this inert.
  *
- * In a multi-repo workspace the two sides live in different checkouts (#783): the code side is the
- * member the pull request merged in, and the issues side is the hub. {@link resolveVerdictRoots}
- * finds both, and {@link resolveVerdictRepos} reads each repository from its own side.
+ * In a multi-repo workspace the two sides can live in different checkouts (#783): the code side is
+ * the member the pull request merged in, and the issues side is the hub. {@link resolveVerdictRepos}
+ * reads each repository from its own side.
  */
-
-import * as fs from "node:fs";
-import * as path from "node:path";
 
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
-import { resolveWorkspace, type ResolveResult } from "@nexus/workspace/resolve";
-import { git, type Runner } from "./run.js";
+import { type Runner } from "./run.js";
 
 export interface VerdictRepos {
     /** Where `epic`, `record` and `stories` resolve — never empty. */
@@ -60,39 +56,4 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
             message: `the repository at ${cwd} could not be resolved, so the repositories a verdict names cannot be established: ${detail}`,
         },
     };
-}
-
-/** The two checkouts a shipped record is written from. */
-export interface VerdictRoots {
-    /** The checkout the pull request lives in — the one the caller pointed at, worktree included. */
-    codeRoot: string;
-    /** The checkout whose issues hold the epic: the workspace hub, or the checkout itself. */
-    issuesRoot: string;
-}
-
-export type ResolveVerdictRootsResult = { ok: true; roots: VerdictRoots } | Extract<ResolveResult, { ok: false }>;
-
-/**
- * Split `startDir` into its code side and its issues side (#783).
- *
- * A member checkout is its own code side, and its hub is the issues side. The hub is found from
- * the member's main worktree, because an analyze worktree sits under the temp directory where no
- * hub is its sibling. Any other checkout resolves exactly as the other epic-verdicts subverbs do.
- */
-export function resolveVerdictRoots(run: Runner, startDir: string): ResolveVerdictRootsResult {
-    const codeRoot = git(run, startDir, "rev-parse", "--show-toplevel") ?? path.resolve(startDir);
-    const config = path.join(codeRoot, ".nexus", "config");
-    const isMember = fs.existsSync(path.join(config, "hub.yml")) && !fs.existsSync(path.join(config, "workspace.yml"));
-
-    const resolved = resolveWorkspace(isMember ? mainWorktree(run, codeRoot) : startDir);
-    if (!resolved.ok) return resolved;
-    const issuesRoot = resolved.workspace.mode === "workspace" ? resolved.workspace.hubRoot : resolved.workspace.root;
-    return { ok: true, roots: { codeRoot, issuesRoot } };
-}
-
-/** The repository's primary worktree: the first entry `git worktree list` prints. */
-function mainWorktree(run: Runner, fromDir: string): string {
-    const listed = git(run, fromDir, "worktree", "list", "--porcelain") ?? "";
-    const first = listed.split("\n").find((line) => line.startsWith("worktree "));
-    return first !== undefined ? first.slice("worktree ".length) : fromDir;
 }

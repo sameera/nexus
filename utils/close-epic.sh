@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #
 # close-epic.sh — take a merged epic pull request from close through an unattended distillation
-# run in one command: check the pull request, certify its conformance, run /nxs.close
-# interactively for its one checkpoint, verify what close left behind, then run /nxs.distill
-# --unattended in the worktree close prepared.
+# run in one command: check the pull request, run /nxs.close interactively for its one checkpoint,
+# verify what close left behind, then run /nxs.distill --unattended in the worktree close prepared.
+#
+# There is no analyze stage (decision record #849, D9). The pull request was analyzed before the
+# merge, with /nxs.analyze --pr; close's own evidence gate decides whether that analysis still
+# holds, and needs no shipped record on the epic issue.
 #
 # Usage:
 #   utils/close-epic.sh <PR> [--merge] [--background] [extra harness args...]
@@ -12,7 +15,7 @@
 # Environment:
 #   HARNESS          claude (default) or codex; install Nexus for that harness first
 #   CODEX_SANDBOX    Codex sandbox mode (default workspace-write)
-#   PERMISSION_MODE  claude permission mode for the headless stages (default bypassPermissions —
+#   PERMISSION_MODE  claude permission mode for the headless stage (default bypassPermissions —
 #                    required for unattended runs; tool calls cannot be approved interactively)
 #   MERGE_METHOD     merge | squash | rebase, used only with --merge (default merge)
 #   BASE             trunk branch name (default main)
@@ -146,7 +149,7 @@ rl.on("line", (line) => {
 });
 '
 
-# A headless (nobody-watching) stage: analyze, and distill. Every fresh context carries this
+# The headless (nobody-watching) stage: distill. Every fresh context carries this
 # clause — an omitted answer never approves an action, on either harness (D1).
 UNATTENDED="
 
@@ -158,7 +161,6 @@ run_headless() {
     local prompt="$1${UNATTENDED}"
     shift
     if [[ "$HARNESS" == "codex" ]]; then
-        prompt="${prompt//\/nxs.analyze/\$nxs-analyze}"
         prompt="${prompt//\/nxs.distill/\$nxs-distill}"
         codex exec --sandbox "$CODEX_SANDBOX" --json "$@" -- "$prompt" \
             | node --input-type=module -e "$FORMATTER"
@@ -251,44 +253,12 @@ OUTCOME="${RUN_DIR}/outcome.txt"
 FINAL="${RUN_DIR}/distill-final.txt"
 rm -f "$HANDOFF" "$LOG" "$OUTCOME" "$FINAL"
 
-# --- Phase 3: certify conformance against the merged code, unattended -----------------------------
+# --- Phase 3: close, interactively — the one checkpoint the lead answers --------------------------
 echo "" >&2
-echo ">>> stage 1: /nxs.analyze --pr ${PR} (unattended, fresh context)" >&2
-if ! run_headless "/nxs.analyze --pr ${PR}" ${ARGS[@]+"${ARGS[@]}"}; then
-    echo "!!! /nxs.analyze --pr ${PR} failed — not starting close." >&2
-    exit 1
-fi
-
-# A headless stage exits 0 even when it stops and reports the stop in words (an unapproved record, a
-# failed ledger write, no stories resolved). Read the outcome from GitHub instead: the epic issue must
-# now carry this pull request's shipped record, which close's own hard block requires anyway.
-REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-VERDICT_JSON="$(nexus pr-verdict --pr "$PR" --repo "$REPO")"
-EPIC_ISSUE="$(json_get receipt.epic <<<"$VERDICT_JSON" | sed -n 's/^.*#\([0-9][0-9]*\)$/\1/p')"
-if [[ "$(json_get found <<<"$VERDICT_JSON")" != "true" || -z "$EPIC_ISSUE" ]]; then
-    echo "!!! /nxs.analyze --pr ${PR} published no conformance verdict — not starting close. See its report above." >&2
-    exit 1
-fi
-# A story whose pull requests could not be read exits coverage 1 and prints no coverage; that is
-# a stop, never a pass (decision record #837, D3).
-if ! COVERAGE_JSON="$(nexus epic-verdicts coverage --epic "$EPIC_ISSUE")"; then
-    echo "!!! could not read the pull requests of every story of epic #${EPIC_ISSUE} — not starting close. Re-run once the read succeeds." >&2
-    exit 1
-fi
-if ! PR="$PR" node -e '
-const c = JSON.parse(require("fs").readFileSync(0, "utf8"));
-process.exit((c.recorded ?? []).some((r) => r.pr === Number(process.env.PR)) ? 0 : 1);
-' <<<"$COVERAGE_JSON"; then
-    echo "!!! epic issue #${EPIC_ISSUE} carries no shipped record for PR #${PR} — /nxs.analyze stopped short; not starting close. See its report above." >&2
-    exit 1
-fi
-
-# --- Phase 4: close, interactively — the one checkpoint the lead answers --------------------------
-echo "" >&2
-echo ">>> stage 2: /nxs.close --pr ${PR} --handoff ${HANDOFF} (interactive — answer its checkpoint, then end the session)" >&2
+echo ">>> stage 1: /nxs.close --pr ${PR} --handoff ${HANDOFF} (interactive — answer its checkpoint, then end the session)" >&2
 run_interactive "/nxs.close --pr ${PR} --handoff ${HANDOFF}" ${ARGS[@]+"${ARGS[@]}"}
 
-# --- Phase 5: verify the hand-off note against GitHub and git --------------------------------------
+# --- Phase 4: verify the hand-off note against GitHub and git --------------------------------------
 echo "" >&2
 echo ">>> verifying the hand-off note" >&2
 if [[ ! -f "$HANDOFF" ]]; then
@@ -329,7 +299,7 @@ if ! git ls-remote --exit-code --heads origin "$DISTILL_BRANCH" >/dev/null 2>&1;
     exit 1
 fi
 
-# --- Phase 6: distill, unattended, in the worktree close left ---------------------------------------
+# --- Phase 5: distill, unattended, in the worktree close left ---------------------------------------
 # Distill commits inside the worktree, and git writes those commits into the main checkout's git
 # folder, outside the worktree. Codex's workspace-write sandbox gets that folder as an extra
 # writable place (R2).
@@ -360,7 +330,7 @@ run_distill_and_record() {
 
 if [[ "$BACKGROUND" == "1" ]]; then
     echo "" >&2
-    echo ">>> stage 3: /nxs.distill --unattended, in the background (log: ${LOG})" >&2
+    echo ">>> stage 2: /nxs.distill --unattended, in the background (log: ${LOG})" >&2
     ( run_distill_and_record ) >"$LOG" 2>&1 </dev/null &
     disown
     echo ">>> close-epic.sh returns now; outcome will land in ${OUTCOME}" >&2
@@ -368,7 +338,7 @@ if [[ "$BACKGROUND" == "1" ]]; then
 fi
 
 echo "" >&2
-echo ">>> stage 3: /nxs.distill --unattended (fresh context, in ${WTPATH})" >&2
+echo ">>> stage 2: /nxs.distill --unattended (fresh context, in ${WTPATH})" >&2
 run_distill_and_record 2>&1 | tee "$LOG"
 echo "" >&2
 cat "$OUTCOME" >&2
