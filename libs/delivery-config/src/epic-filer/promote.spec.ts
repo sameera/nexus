@@ -113,6 +113,21 @@ describe("promotion keeps the key close filed the stub under (epic #830, story #
         expect(run.code).toBe(0);
         expect(run.edited).not.toContain("nexus:close-stub");
     });
+
+    it("refuses, writing nothing, when the stub's body cannot be read, so its key is never dropped", () => {
+        const root: string = checkoutWith({ classification: "labels", project: "none" });
+        const file: string = writeDraft(root, draft({ epic: '"The Promoted Epic"' }));
+        const labels = stub(["needs-refinement"]);
+        const fake = fakeEnvironment({
+            answer: (args: string[]) => (args[0] === "issue" && args[1] === "view" && args.includes("body") ? FAIL("HTTP 502") : labels(args)),
+        });
+        const io = recordingIo(root);
+        const code: number = runCreateEpic([file, "--promote", "42"], io, fake.env);
+        const calls: string[] = fake.calls.map((call) => call.join(" "));
+        expect(code).not.toBe(0);
+        expect(io.all()).toContain("Cannot promote #42");
+        expect(calls.filter((call) => call.startsWith("issue edit") || call.startsWith("issue create") || call.startsWith("label"))).toEqual([]);
+    });
 });
 
 describe("promotion is refused before any write", () => {
