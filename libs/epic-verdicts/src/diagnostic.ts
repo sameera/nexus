@@ -30,8 +30,12 @@ export type EpicVerdictsProblem =
     | "judgments-malformed"
     /** The drafted verdict carries no judgments block, so the next run would have no ID registry (epic #829, D2). */
     | "judgments-missing"
-    /** The drafted verdict's severity counts leave out an unanswered departure, which blocks (epic #829, G14). */
-    | "departures-uncounted"
+    /**
+     * The drafted verdict's severity counts are not the counts of its open items: they leave out an
+     * unanswered departure or finding, which blocks (epic #829, G14), or count one already answered
+     * or never listed (G15).
+     */
+    | "counts-not-open"
     /** The departures analyze handed the ID step cannot be read (epic #829, story #858). */
     | "draft-malformed";
 

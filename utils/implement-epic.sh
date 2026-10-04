@@ -45,7 +45,10 @@
 # Unattended discipline: every analyze invocation carries a clause saying nobody can answer a
 # question, and a stage-4 failure annotates the pull request before exiting. A `-p` run that ends
 # by asking which option to take produces nothing, and a draft PR with an untouched body looks
-# exactly like a run that never reached stage 4 — both happened, five epics in a row.
+# exactly like a run that never reached stage 4 — both happened, five epics in a row. A fix round
+# must also never answer an item on the pull request, since it posts as the lead: the prompt forbids
+# it, and the script stops the run, naming the comment, if one holding an answer line appears during
+# the round (read with `nexus pr-answers`, so the `nexus` executable must be on PATH).
 #
 # Context discipline: every stage — and every half of every conformance round
 # — is its own `claude -p` or `codex exec` invocation, so no context is carried between them.
@@ -343,10 +346,40 @@ Never make a finding disappear instead of fixing it. Do not edit ${receipt}, do 
 
 Story issues that are still open are a note in the receipt, not a finding. Leave them open and do not act on them; the lead closes them before /nxs.close.
 
+Never answer a departure, a finding or a deferred-scope proposal. Post no comment on the pull request, and above all no answer line (\`<ID> — accepted: <reason>\`, \`<ID> — waived: <reason>\`, \`<ID> — approved\`): this run posts as a person who can speak for the repository, so an answer it posts would count as theirs, and only that person may accept, waive or approve. The calling script stops the run if a comment holding an answer line appears on the pull request during this round.
+
 Before committing, run the tests your change touches, then \`${TEST_CMD}\` once. Commit on this branch with a subject naming what now holds. Leave the per-story commits and their \`Closes #<n>\` lines alone — this is a follow-up commit, never an amend and never a rebase. Append a decision stub per CLAUDE.md for any non-obvious choice. Do not push and do not touch the pull request; the calling script does both.
 
 Finish with one line per finding: fixed, or left alone with the reason. Stop after ${FIX_TURNS} turns.
 EOF
+}
+
+# The comments on the pull request that hold an answer line, one link per line, read through the
+# same reader analyze applies answers with (`nexus pr-answers`), never a second one. A failed read
+# stops the run: it is never "no answer".
+answer_comments() {
+    local out
+    if ! out="$(nexus pr-answers --pr "$PR_NUM" --urls)"; then
+        echo "!!! cannot read the comments on PR #${PR_NUM} to check for answers — stopping" >&2
+        exit 1
+    fi
+    printf '%s' "$out"
+}
+
+# An unattended run must never answer (record #871, D13). The trusted-author filter trusts the
+# account, and this run posts as the lead, so an answer it posted would count as the lead's own.
+# The fix prompt forbids it; this check is what holds when the prompt is not followed: any comment
+# holding an answer line that appeared during the round stops the run, named.
+stop_on_new_answers() {
+    local before="$1" round="$2" after posted
+    after="$(answer_comments)"
+    posted="$(comm -13 <(sort <<<"$before") <(sort <<<"$after") | sed '/^$/d')"
+    if [[ -n "$posted" ]]; then
+        echo "!!! fix round ${round} posted a comment answering an ID on PR #${PR_NUM} — an unattended run" >&2
+        echo "!!! must never accept, waive or approve; a person must review and delete it. Stopping:" >&2
+        while IFS= read -r url; do echo "!!!   ${url}" >&2; done <<<"$posted"
+        exit 1
+    fi
 }
 
 ROUND=1
@@ -386,7 +419,9 @@ while :; do
 
     echo "" >&2
     echo ">>> stage 3.${ROUND}a: fix ${CRIT} critical / ${HIGH} high (fresh context)" >&2
+    ANSWERS_BEFORE="$(answer_comments)"
     run_agent "$(fix_prompt "$RECEIPT" "$ROUND")" "$@"
+    stop_on_new_answers "$ANSWERS_BEFORE" "$ROUND"
 
     echo "" >&2
     echo ">>> pushing ${BRANCH} to origin" >&2

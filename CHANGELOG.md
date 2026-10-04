@@ -43,6 +43,28 @@ behaviour says so.
   `/nxs.analyze --pr` on the open pull request that completes the epic, or on the most recently
   merged one when every story has merged. `nexus epic-verdicts pr-target --epic <N>` prints that
   answer on its own.
+- **An engineer answers a departure or a finding on the pull request.** A comment line of the
+  form `DV2 — accepted: <reason>` accepts a departure, and `F1 — waived: <reason>` waives a
+  critical or high finding; one comment may hold several. On the next `/nxs.analyze --pr` run,
+  `nexus verdict-items` reads them through the same reader close reads waivers with, applies the
+  newest answer per ID from an author who can speak for the repository, and the verdict lists each
+  answered item with who answered and a link. An answer from anyone else, with an unknown ID, a verb
+  that does not fit the item, no reason, or a waiver of a medium or low finding applies nothing and
+  is named in the verdict. A decision stub still answers nothing.
+- **Every finding on a pull request has an ID too.** Findings are numbered `F1`, `F2`, ... against
+  the pull request's newest verdict, the way departures are, so a waiver survives a re-run.
+- **The severity counts cover only open items (breaking).** The verdict's critical, high, medium and
+  low counts now leave out an accepted departure and a waived finding, so the review approves, and
+  the merge pre-check and close stop blocking, once every blocking item is answered. They read the
+  verdict exactly as before. `nexus verdict-check` now refuses counts that differ from the open
+  items, in either direction, as `counts-not-open`; that replaces `departures-uncounted`.
+- **Close no longer offers to override blocking findings (breaking).** A receipt with open critical
+  or high items stops `/nxs.close` with no "Override and close" choice. It names answering each item
+  on the pull request, then running `/nxs.analyze --pr <N>` again to record the answers.
+- **An unattended implement run stops if it posts an answer.** The implement script and its Codex
+  entry point tell each fix round never to answer, and after each round list the pull request's
+  answer comments with the new `nexus pr-answers`; a new one stops the run and names its link. The
+  scripts now need `nexus` on the PATH.
 
 ## 0.90.1
 

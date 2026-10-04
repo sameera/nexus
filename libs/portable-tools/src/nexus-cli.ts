@@ -44,8 +44,9 @@ import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-r
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
-import { assignDepartureIds, parseDepartureDraft, readItemRegistry } from "@nexus/epic-verdicts/verdict-items";
+import { applyAnswers, assignItemIds, openCounts, parseItemDraft, readItemRegistry } from "@nexus/epic-verdicts/verdict-items";
 import { renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { buildEpicReceipt } from "@nexus/epic-verdicts/receipt";
@@ -372,20 +373,39 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: (argv, io) => Promise.resolve(runVerdictCheck(argv, io)),
     },
     "verdict-items": {
-        summary: "Number a pull request's departures against its newest verdict and write the judgments block.",
+        summary: "Number a pull request's departures and findings, apply the answers posted on it, and write the judgments block.",
         usage: [
             "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path> [--dir <startDir>]",
-            "      Read the departures analyze judged from --draft ({ departures: [{ departsFrom, summary,",
-            "      breaksGuarantee, files, stub?, supersedes? }] }) and number them against the registry:",
-            "      the judgments block of the pull request's newest trusted verdict. A departure citing the",
-            "      same element with a shared file keeps its ID; a new one takes the next unused DV number;",
-            "      one no longer found stays listed, with its answer. Severity is critical when it breaks a",
-            "      guarantee or invariant, high otherwise. Writes the judgments block to --out and prints",
-            "      { command, pr, registry, items }. registry is none, no-judgments or verdict. Exits 1 on an",
-            "      unreadable draft (draft-malformed), a failed read, or an unreadable registry",
-            "      (judgments-malformed), and writes nothing then.",
+            "      Read what analyze judged from --draft ({ departures: [{ departsFrom, summary,",
+            "      breaksGuarantee, files, stub?, supersedes? }], findings?: [{ about, severity, summary,",
+            "      files }] }) and number it against the registry: the judgments block of the pull",
+            "      request's newest trusted verdict. An item judging the same thing with a shared file",
+            "      keeps its ID; a new one takes the next unused DV or F number; one no longer found stays",
+            "      listed, with its answer. A departure is critical when it breaks a guarantee or",
+            "      invariant, high otherwise. Then read the answer lines on the pull request's comments",
+            "      (<ID> — accepted|waived|approved: <reason>) through the one waiver reader and apply the",
+            "      newest trusted one per ID. Writes the judgments block to --out and prints { command, pr,",
+            "      registry, items, findings, open, answers: { applied, unapplied } }. open is the severity",
+            "      counts of the items still open — the verdict block's counts. unapplied names each answer",
+            "      that applied nothing, with why (untrusted, unknown-id, wrong-verb, no-reason,",
+            "      not-waivable). registry is none, no-judgments or verdict. Exits 1 on an unreadable draft",
+            "      (draft-malformed), a failed read, or an unreadable registry (judgments-malformed), and",
+            "      writes nothing then.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runVerdictItems(argv, io)),
+    },
+    "pr-answers": {
+        summary: "List the comments on a pull request that hold an answer line, through the one waiver reader.",
+        usage: [
+            "  nexus pr-answers --pr <N> [--repo <owner/repo or host/owner/repo>] [--urls] [--dir <startDir>]",
+            "      Read the pull request's comments through the same reader close and analyze use, and",
+            "      print { command, pr, comments: [{ url, author, at, trusted, ids }] } for every comment",
+            "      that holds an answer line (<ID> — accepted|waived|approved: <reason>), trusted or not.",
+            "      A comment carrying a verdict marker holds none. With --urls, print one comment link per",
+            "      line instead. The implement scripts use it to stop an unattended run that posted an",
+            "      answer. Exits 1 when the comments cannot be read; that is never \"no answer\".",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runPrAnswers(argv, io)),
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -1880,7 +1900,7 @@ function runVerdictItems(argv: string[], io: CliIo): number {
         io.stderr(`verdict-items draft-malformed: ${flags.draft} could not be read (${e instanceof Error ? e.message : String(e)}).`);
         return 1;
     }
-    const draft = parseDepartureDraft(text);
+    const draft = parseItemDraft(text);
     if (!draft.ok) {
         io.stderr(`verdict-items draft-malformed: ${draft.message}.`);
         return 1;
@@ -1897,9 +1917,66 @@ function runVerdictItems(argv: string[], io: CliIo): number {
         io.stderr(`verdict-items ${registry.error.problem}: ${registry.error.message}`);
         return 1;
     }
-    const judgments = assignDepartureIds(registry.registry, draft.drafts);
+    // The answers come through the one comment reader close reads waivers through (D3).
+    const comments = readPrWaivers(closeMigrationRunner, cwd, flags.pr, { ghRepo: flags.repo.trim() });
+    if (!comments.ok) {
+        io.stderr(`verdict-items gh-failed: ${comments.error.message} The answers on the pull request cannot be read, so nothing was written.`);
+        return 1;
+    }
+    const answered = applyAnswers(assignItemIds(registry.registry, draft.departures, draft.findings), comments.value.answers);
+    const judgments = answered.judgments;
     fs.writeFileSync(flags.out, renderJudgmentsBlock(judgments));
-    io.stdout(JSON.stringify({ command: "verdict-items", pr: flags.pr, registry: registry.source, items: judgments.items }));
+    io.stdout(
+        JSON.stringify({
+            command: "verdict-items",
+            pr: flags.pr,
+            registry: registry.source,
+            items: judgments.items,
+            findings: judgments.findings,
+            open: openCounts(judgments),
+            answers: { applied: answered.applied, unapplied: answered.unapplied },
+        }),
+    );
+    return 0;
+}
+
+/**
+ * `nexus pr-answers` — the comments on a pull request that hold an answer line (epic #829, story
+ * #860; decision record #871, D13). The implement scripts list them around each fix round, so an
+ * unattended run that posted an answer stops: the trusted-author filter trusts the account, and
+ * only a person may accept. Read through the one waiver reader, never a second one.
+ */
+function runPrAnswers(argv: string[], io: CliIo): number {
+    const usage = "usage: nexus pr-answers --pr <N> [--repo <owner/repo or host/owner/repo>] [--urls] [--dir <startDir>]";
+    const flags: { pr?: number; repo?: string; urls: boolean; dir?: string } = { urls: false };
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
+        else if (argv[i] === "--repo") flags.repo = argv[++i];
+        else if (argv[i] === "--urls") flags.urls = true;
+        else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
+    }
+    if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
+        io.stderr(usage);
+        return 2;
+    }
+    const repo = flags.repo?.trim();
+    const read = readPrWaivers(closeMigrationRunner, flags.dir ?? io.cwd, flags.pr, repo ? { ghRepo: repo } : {});
+    if (!read.ok) {
+        io.stderr(`pr-answers gh-failed: ${read.error.message}`);
+        return 1;
+    }
+    const byComment = new Map<string, { url: string; author: string; at: string; trusted: boolean; ids: string[] }>();
+    for (const a of read.value.answers) {
+        const c = byComment.get(a.url) ?? { url: a.url, author: a.author, at: a.at, trusted: a.trusted, ids: [] };
+        c.ids.push(a.id);
+        byComment.set(a.url, c);
+    }
+    const comments = [...byComment.values()];
+    if (flags.urls) {
+        for (const c of comments) io.stdout(c.url);
+    } else {
+        io.stdout(JSON.stringify({ command: "pr-answers", pr: flags.pr, comments }));
+    }
     return 0;
 }
 

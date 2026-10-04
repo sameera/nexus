@@ -1,14 +1,16 @@
 /**
- * The ID step of the conformance gate's departure pass (epic #829, story #858, decision record
- * #871, D2; G6–G8).
+ * The ID step of the conformance gate (epic #829, decision record #871, D2–D4; G6–G17): story #858
+ * numbered departures, story #860 adds findings and the answers on the pull request.
  *
- * Analyze judges which places the code departs from the decision record. It does not number them:
- * the engineer answers a departure by its ID, so an ID must survive a re-run, and a model asked to
- * produce the same numbering twice will not. The numbering is done here instead, against a
- * registry — the items in the newest trusted verdict on the same pull request.
+ * Analyze judges which places the code departs from the decision record, and what else it finds
+ * wrong. It does not number them: the engineer answers an item by its ID, so an ID must survive a
+ * re-run, and a model asked to produce the same numbering twice will not. The numbering is done
+ * here instead, against a registry — the items in the newest trusted verdict on the same pull
+ * request.
  *
- * - A departure found again keeps its ID. Two count as the same when they cite the same record
- *   element and share a file (or neither names a file).
+ * - An item found again keeps its ID. Two departures count as the same when they cite the same
+ *   record element and share a file (or neither names a file); two findings, when they judge the
+ *   same thing and share a file.
  * - A new departure takes the next unused number. Every number ever issued stays in the registry,
  *   so none is reused and one ID never names two items on a pull request.
  * - A departure a later run does not find again stays listed as no longer found, with its answer.
@@ -18,8 +20,9 @@
  * that breaks a guarantee or an invariant is critical, any other is high (G14).
  */
 
-import { type Departure, type Judgments, parseJudgmentsBlock, splitItemId } from "@nexus/pr-acceptance/judgments-block";
+import { type Departure, type Finding, type ItemAnswer, type Judgments, parseJudgmentsBlock, splitItemId } from "@nexus/pr-acceptance/judgments-block";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
+import { type AnswerVerb, type PrAnswer } from "@nexus/pr-acceptance/waiver";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -34,10 +37,22 @@ export interface DepartureDraft {
     supersedes: { decision: string; instead: string } | null;
 }
 
-export type ParsedDraft = { ok: true; drafts: DepartureDraft[] } | { ok: false; message: string };
+/** One finding as analyze judged it, before it has an ID. */
+export interface FindingDraft {
+    /** What it judges: an acceptance criterion, a success metric, or a named check. */
+    about: string;
+    severity: Finding["severity"];
+    summary: string;
+    files: string[];
+}
 
-/** Read the draft analyze wrote: `{ "departures": [ ... ] }`. Every refusal names the entry. */
-export function parseDepartureDraft(text: string): ParsedDraft {
+export type ParsedDraft = { ok: true; departures: DepartureDraft[]; findings: FindingDraft[] } | { ok: false; message: string };
+
+/**
+ * Read the draft analyze wrote: `{ "departures": [ ... ], "findings": [ ... ] }`. A draft with no
+ * findings list has none. Every refusal names the entry.
+ */
+export function parseItemDraft(text: string): ParsedDraft {
     let doc: unknown;
     try {
         doc = JSON.parse(text);
@@ -45,13 +60,33 @@ export function parseDepartureDraft(text: string): ParsedDraft {
         return { ok: false, message: `the draft is not valid JSON (${e instanceof Error ? e.message : String(e)})` };
     }
     if (!isRecord(doc) || !Array.isArray(doc["departures"])) return { ok: false, message: "the draft carries no departures list" };
-    const drafts: DepartureDraft[] = [];
+    const rawFindings = doc["findings"] ?? [];
+    if (!Array.isArray(rawFindings)) return { ok: false, message: "the draft's findings is not a list" };
+    const departures: DepartureDraft[] = [];
     for (const [i, raw] of doc["departures"].entries()) {
         const d = readDraft(raw);
         if (typeof d === "string") return { ok: false, message: `departure ${i} ${d}` };
-        drafts.push(d);
+        departures.push(d);
     }
-    return { ok: true, drafts };
+    const findings: FindingDraft[] = [];
+    for (const [i, raw] of rawFindings.entries()) {
+        const f = readFindingDraft(raw);
+        if (typeof f === "string") return { ok: false, message: `finding ${i} ${f}` };
+        findings.push(f);
+    }
+    return { ok: true, departures, findings };
+}
+
+const SEVERITIES: readonly string[] = ["critical", "high", "medium", "low"];
+
+function readFindingDraft(raw: unknown): FindingDraft | string {
+    if (!isRecord(raw)) return "is not an object";
+    const { about, severity, summary, files } = raw;
+    if (!nonEmpty(about)) return "names nothing it judges (about)";
+    if (typeof severity !== "string" || !SEVERITIES.includes(severity)) return "has no severity of critical, high, medium or low (severity)";
+    if (!nonEmpty(summary)) return "says nothing about what is wrong (summary)";
+    if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
+    return { about, severity: severity as Finding["severity"], summary, files: files as string[] };
 }
 
 function readDraft(raw: unknown): DepartureDraft | string {
@@ -80,19 +115,17 @@ function readDraft(raw: unknown): DepartureDraft | string {
 }
 
 /**
- * Number `drafts` against `registry`, the judgments of the newest trusted verdict on the same pull
- * request, or null when it has none. Returns the complete judgments the new verdict carries.
+ * Number the drafted departures and findings against `registry`, the judgments of the newest
+ * trusted verdict on the same pull request, or null when it has none. Returns the complete
+ * judgments the new verdict carries, before this run's answers are applied.
  */
-export function assignDepartureIds(registry: Judgments | null, drafts: readonly DepartureDraft[]): Judgments {
-    const prior = registry?.items ?? [];
-    let next = 1 + Math.max(0, ...prior.map((d) => splitItemId(d.id)?.n ?? 0));
-    const claimed = new Set<string>();
-    const found: Departure[] = [];
-    for (const draft of drafts) {
-        const match = bestMatch(prior, claimed, draft);
-        const id = match?.id ?? `DV${next++}`;
-        claimed.add(id);
-        found.push({
+export function assignItemIds(registry: Judgments | null, departures: readonly DepartureDraft[], findings: readonly FindingDraft[] = []): Judgments {
+    const items = numberAgainst(
+        registry?.items ?? [],
+        departures,
+        "DV",
+        (d) => d.departsFrom,
+        (draft, id, match): Departure => ({
             id,
             kind: "departure",
             found: true,
@@ -103,24 +136,70 @@ export function assignDepartureIds(registry: Judgments | null, drafts: readonly 
             stub: draft.stub,
             supersedes: draft.supersedes,
             answer: match?.answer ?? null,
-        });
-    }
-    const gone = prior.filter((d) => !claimed.has(d.id)).map((d) => ({ ...d, found: false }));
-    const items = [...found, ...gone].sort((a, b) => (splitItemId(a.id)?.n ?? 0) - (splitItemId(b.id)?.n ?? 0));
-    return { items, other: registry?.other ?? [] };
+        }),
+    );
+    const judgedFindings = numberAgainst(
+        registry?.findings ?? [],
+        findings,
+        "F",
+        (f) => f.about,
+        (draft, id, match): Finding => ({
+            id,
+            kind: "finding",
+            found: true,
+            severity: draft.severity,
+            about: draft.about,
+            summary: draft.summary,
+            files: draft.files,
+            // A waiver holds only while the finding can be waived (G13).
+            answer: draft.severity === "critical" || draft.severity === "high" ? (match?.answer ?? null) : null,
+        }),
+    );
+    return { items, findings: judgedFindings, other: registry?.other ?? [] };
 }
 
 /**
- * The earlier departure `draft` is the same as: same cited element, and a shared file or no file
- * on either side. An identical file set beats a larger overlap, which beats a smaller one; a tie
- * goes to the lower number, so the choice never depends on the order the registry was written in.
+ * Give each draft the ID of the earlier item it is the same as, or the next unused number under
+ * `prefix`. Every earlier item not found again stays listed with `found: false`.
  */
-function bestMatch(prior: readonly Departure[], claimed: ReadonlySet<string>, draft: DepartureDraft): Departure | null {
-    const anchor = normalizeAnchor(draft.departsFrom);
-    const files = new Set(draft.files.map(normalizePath));
-    let best: { d: Departure; score: number } | null = null;
+function numberAgainst<T extends { id: string; files: string[]; found: boolean }, D extends { files: string[] }>(
+    prior: readonly T[],
+    drafts: readonly D[],
+    prefix: string,
+    anchorOf: (x: T | D) => string,
+    make: (draft: D, id: string, match: T | null) => T,
+): T[] {
+    let next = 1 + Math.max(0, ...prior.map((d) => splitItemId(d.id)?.n ?? 0));
+    const claimed = new Set<string>();
+    const found: T[] = [];
+    for (const draft of drafts) {
+        const match = bestMatch(prior, claimed, anchorOf(draft), draft.files, anchorOf);
+        const id = match?.id ?? `${prefix}${next++}`;
+        claimed.add(id);
+        found.push(make(draft, id, match));
+    }
+    const gone = prior.filter((d) => !claimed.has(d.id)).map((d) => ({ ...d, found: false }));
+    return [...found, ...gone].sort((a, b) => (splitItemId(a.id)?.n ?? 0) - (splitItemId(b.id)?.n ?? 0));
+}
+
+/**
+ * The earlier item a draft is the same as: same anchor (the cited element, or what a finding
+ * judges), and a shared file or no file on either side. An identical file set beats a larger
+ * overlap, which beats a smaller one; a tie goes to the lower number, so the choice never depends on
+ * the order the registry was written in.
+ */
+function bestMatch<T extends { id: string; files: string[] }>(
+    prior: readonly T[],
+    claimed: ReadonlySet<string>,
+    draftAnchor: string,
+    draftFiles: readonly string[],
+    anchorOf: (x: T) => string,
+): T | null {
+    const anchor = normalizeAnchor(draftAnchor);
+    const files = new Set(draftFiles.map(normalizePath));
+    let best: { d: T; score: number } | null = null;
     for (const d of prior) {
-        if (claimed.has(d.id) || normalizeAnchor(d.departsFrom) !== anchor) continue;
+        if (claimed.has(d.id) || normalizeAnchor(anchorOf(d)) !== anchor) continue;
         const theirs = new Set(d.files.map(normalizePath));
         const shared = [...files].filter((f) => theirs.has(f)).length;
         const same = shared === files.size && shared === theirs.size;
@@ -131,6 +210,110 @@ function bestMatch(prior: readonly Departure[], claimed: ReadonlySet<string>, dr
         if (better) best = { d, score };
     }
     return best?.d ?? null;
+}
+
+/** The verb that answers each kind of item (D3). */
+const VERB_FOR: Readonly<Record<string, AnswerVerb>> = { departure: "accepted", finding: "waived", "deferred-scope": "approved" };
+
+/** Why an answer line on the pull request applied nothing. The verdict names each one (G10, G11, G13). */
+export type UnappliedWhy = "untrusted" | "unknown-id" | "wrong-verb" | "no-reason" | "not-waivable";
+
+export interface UnappliedAnswer {
+    id: string;
+    verb: AnswerVerb;
+    author: string;
+    url: string;
+    why: UnappliedWhy;
+}
+
+export interface AppliedAnswer {
+    id: string;
+    verb: AnswerVerb;
+    author: string;
+    url: string;
+    reason: string;
+}
+
+export interface AnsweredJudgments {
+    judgments: Judgments;
+    /** The answer each answered item now carries from a comment, one per ID: the newest trusted one. */
+    applied: AppliedAnswer[];
+    /** Every answer line that applied nothing, with why. */
+    unapplied: UnappliedAnswer[];
+}
+
+/**
+ * Apply the answers read from the pull request's comments to `judgments` (D3; G9–G11, G13). An
+ * answer applies only when its author is trusted, its ID names an item, its verb fits the item's
+ * kind, it gives a reason where one is required, and — for a waiver — the finding is critical or
+ * high. Of the answers that apply to one ID, the newest wins. Every other answer is named, never
+ * dropped, even when a trusted answer applies to the same ID. An item no comment answers keeps the
+ * answer the registry carried.
+ */
+export function applyAnswers(judgments: Judgments, answers: readonly PrAnswer[]): AnsweredJudgments {
+    const kinds = new Map<string, { kind: string; severity?: unknown }>();
+    for (const d of judgments.items) kinds.set(d.id, d);
+    for (const f of judgments.findings) kinds.set(f.id, f);
+    for (const o of judgments.other) kinds.set(o.id, o);
+
+    const newest = new Map<string, PrAnswer>();
+    const unapplied: UnappliedAnswer[] = [];
+    for (const a of answers) {
+        const item = kinds.get(a.id);
+        const why: UnappliedWhy | null = !a.trusted
+            ? "untrusted"
+            : item === undefined
+              ? "unknown-id"
+              : VERB_FOR[item.kind] !== a.verb
+                ? "wrong-verb"
+                : a.verb !== "approved" && a.reason.length === 0
+                  ? "no-reason"
+                  : item.kind === "finding" && item.severity !== "critical" && item.severity !== "high"
+                    ? "not-waivable"
+                    : null;
+        if (why !== null) {
+            unapplied.push({ id: a.id, verb: a.verb, author: a.author, url: a.url, why });
+            continue;
+        }
+        const held = newest.get(a.id);
+        // A later line in the same comment, or a later comment, wins.
+        if (held === undefined || a.at.localeCompare(held.at) >= 0) newest.set(a.id, a);
+    }
+
+    const answerFor = (id: string, kept: ItemAnswer | null): ItemAnswer | null => {
+        const a = newest.get(id);
+        return a === undefined ? kept : { verb: a.verb, author: a.author, link: a.url, reason: a.reason };
+    };
+    const applied = [...newest.values()].map((a) => ({ id: a.id, verb: a.verb, author: a.author, url: a.url, reason: a.reason }));
+    return {
+        judgments: {
+            items: judgments.items.map((d) => ({ ...d, answer: answerFor(d.id, d.answer) })),
+            findings: judgments.findings.map((f) => ({ ...f, answer: answerFor(f.id, f.answer) })),
+            other: judgments.other.map((o) => (newest.has(o.id) ? { ...o, answer: answerFor(o.id, null) } : o)),
+        },
+        applied,
+        unapplied,
+    };
+}
+
+export interface OpenCounts {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+}
+
+/**
+ * The verdict block's severity counts (D4; G15): only items still open — found again and
+ * unanswered. An accepted departure or a waived finding counts nothing, so the merge pre-check and
+ * close, which block on these counts, stop blocking on it without changing how they read them.
+ */
+export function openCounts(judgments: Judgments): OpenCounts {
+    const counts: OpenCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const item of [...judgments.items, ...judgments.findings]) {
+        if (item.found && item.answer === null) counts[item.severity] += 1;
+    }
+    return counts;
 }
 
 const normalizeAnchor = (s: string): string => s.trim().replace(/\s+/g, " ").toLowerCase();

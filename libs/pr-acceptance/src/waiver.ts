@@ -31,13 +31,26 @@
  * Trust is the receipt reader's rule (`maintainerAuthored`), not a second copy of it: a comment
  * counts only from an author who can speak for the repository. An untrusted or unreadable waiver is
  * reported, never dropped, so the lead can see why it cleared nothing. The reader only reads; which
- * waiver clears which stop is the matchers' answer, so a later reader of answers on a pull request
- * (#829) can reuse the read without inheriting close's rules.
+ * waiver clears which stop is the matchers' answer.
+ *
+ * The same read also yields the **answers** on the pull request (epic #829, story #860, decision
+ * record #871, D3). An engineer answers an item a verdict lists — a departure, a finding or a
+ * deferred-scope proposal — with one line per answer, and a comment may hold several:
+ *
+ *     DV2 — accepted: the platform has no batch endpoint, so one call per item is the only option
+ *     F1 — waived: the flaky check is tracked in #901
+ *     DS1 — approved
+ *
+ * The ID, a dash, a verb, a colon and a reason. There is no second comment reader: an answer line
+ * is read here, from the same comments, with the same trust rule. Which answer applies to which
+ * item is the item registry's question, not this reader's. A comment that carries either verdict
+ * marker is never read for answers, so a verdict published as a comment cannot answer itself.
  */
 
 import { parseIssueRef } from "@nexus/workspace/issue-ref";
 import { type Result, fail, ok } from "./diagnostic.js";
-import { maintainerAuthored, newestReceiptBlock } from "./receipt-blocks.js";
+import { JUDGMENTS_MARKER } from "./judgments-block.js";
+import { RECEIPT_MARKER, maintainerAuthored, newestReceiptBlock } from "./receipt-blocks.js";
 import { type Runner } from "./run.js";
 
 /** The comment marker a waiver is posted under. */
@@ -69,10 +82,31 @@ export interface WaiverComment {
     waiver: ParsedWaiver;
 }
 
+/** The verbs an answer line carries. Each fits one kind of item: departure, finding, deferred scope. */
+export type AnswerVerb = "accepted" | "waived" | "approved";
+
+/** One answer line as written: the ID it names, its verb, and its reason ("" when it gave none). */
+export interface AnswerLine {
+    id: string;
+    verb: AnswerVerb;
+    reason: string;
+}
+
+/** One answer line on the pull request, with the comment it was read from. */
+export interface PrAnswer extends AnswerLine {
+    author: string;
+    url: string;
+    at: string;
+    /** Whether its author can speak for the repository, by the receipt reader's rule. */
+    trusted: boolean;
+}
+
 export interface PrWaivers {
     pr: number;
     /** Every comment carrying the waiver marker, in the order the platform returned them. */
     comments: WaiverComment[];
+    /** Every answer line in the pull request's comments, trusted or not, in the order they were read. */
+    answers: PrAnswer[];
 }
 
 /** Why a waiver comment cleared nothing. */
@@ -128,15 +162,38 @@ export function parseWaiverBlock(body: string): ParsedWaiver | null {
     return { ok: false, problem: `\`waive: ${waive}\` is not a cause a waiver can clear (landed-change or record-revised)` };
 }
 
+/**
+ * The answer form: an ID numbered under its kind's prefix, a dash (an em dash, an en dash or one or
+ * two hyphens), a verb, then a colon and the reason. A line with no colon or nothing after it is
+ * still read, with no reason, so the verdict can name it rather than ignore it.
+ */
+const ANSWER_LINE = /^[ \t]*((?:DV|DS|F)[1-9]\d*)[ \t]*(?:\u2014|\u2013|--?)[ \t]*(accepted|waived|approved)[ \t]*(?::(.*))?$/i;
+
+/**
+ * The answer lines in `body`, in the order written. A body that carries the verdict block's or the
+ * judgments block's marker is a verdict and holds no answer (G12). Anything that is not exactly the
+ * form — a freely worded reply, a quoted line — answers nothing.
+ */
+export function parseAnswerLines(body: string): AnswerLine[] {
+    if (body.includes(RECEIPT_MARKER) || body.includes(JUDGMENTS_MARKER)) return [];
+    const answers: AnswerLine[] = [];
+    for (const line of body.split(/\r?\n/)) {
+        const m = ANSWER_LINE.exec(line);
+        if (m === null) continue;
+        answers.push({ id: m[1].toUpperCase(), verb: m[2].toLowerCase() as AnswerVerb, reason: (m[3] ?? "").trim() });
+    }
+    return answers;
+}
+
 export interface ReadPrWaiversOptions {
     /** The repository the pull request lives in, when it is not the checkout's own. */
     ghRepo?: string;
 }
 
 /**
- * Every waiver comment on pull request `pr`. `gh pr view --json comments` follows every page before
- * it answers, as the receipt reader's read does. A failed or unparseable read fails: it is never "no
- * waiver".
+ * Every waiver comment and every answer line on pull request `pr`. `gh pr view --json comments`
+ * follows every page before it answers, as the receipt reader's read does. A failed or unparseable
+ * read fails: it is never "no waiver" and never "no answer".
  */
 export function readPrWaivers(run: Runner, cwd: string, pr: number, opts: ReadPrWaiversOptions = {}): Result<PrWaivers> {
     const repoArgs = opts.ghRepo === undefined ? [] : ["--repo", opts.ghRepo];
@@ -149,21 +206,23 @@ export function readPrWaivers(run: Runner, cwd: string, pr: number, opts: ReadPr
         return fail("gh-failed", `gh pr view ${pr} returned unparseable JSON: ${e instanceof Error ? e.message : String(e)}`);
     }
     const comments: WaiverComment[] = [];
+    const answers: PrAnswer[] = [];
     for (const item of Array.isArray(doc["comments"]) ? doc["comments"] : []) {
         if (item === null || typeof item !== "object") continue;
         const c = item as Record<string, unknown>;
-        const waiver = parseWaiverBlock(typeof c["body"] === "string" ? c["body"] : "");
-        if (waiver === null) continue;
+        const body = typeof c["body"] === "string" ? c["body"] : "";
         const author = c["author"] !== null && typeof c["author"] === "object" ? (c["author"] as Record<string, unknown>)["login"] : undefined;
-        comments.push({
+        const from = {
             author: typeof author === "string" ? author : "",
             url: typeof c["url"] === "string" ? c["url"] : "",
             at: typeof c["createdAt"] === "string" ? c["createdAt"] : "",
             trusted: maintainerAuthored({ authorAssociation: typeof c["authorAssociation"] === "string" ? c["authorAssociation"] : null }),
-            waiver,
-        });
+        };
+        for (const line of parseAnswerLines(body)) answers.push({ ...line, ...from });
+        const waiver = parseWaiverBlock(body);
+        if (waiver !== null) comments.push({ ...from, waiver });
     }
-    return ok({ pr, comments });
+    return ok({ pr, comments, answers });
 }
 
 /**

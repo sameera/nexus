@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each gets a DV ID that later runs reuse. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each departure gets a DV ID and each finding an F ID that later runs reuse. An engineer answers one with a fixed line in a pull-request comment — accepted for a departure, waived for a critical or high finding — which the verdict applies only from an author who can speak for the repository, naming every answer it did not apply; its severity counts cover only items still open. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -481,26 +481,73 @@ record left unstated is **never** marked superseding.
 invariant, **high** otherwise. Count each one in the severity tally, once.
 
 **IDs are numbered per pull request, by the toolkit, never by you** (D2). In `--pr` mode, write the
-departures to a draft and hand it to the ID step — it reads the newest trusted verdict on this pull
-request as the registry, so a departure found again keeps its ID and an answer survives a re-run:
+departures **and every finding** to one draft and hand it to the ID step — it reads the newest
+trusted verdict on this pull request as the registry, so an item found again keeps its ID and an
+answer survives a re-run, and it then applies the answers posted on the pull request (§2.6):
 
 ```bash
-nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<scratch>/departures.json" --out "<scratch>/judgments.md" --dir "$wtPath"
+nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<scratch>/items.json" --out "<scratch>/judgments.md" --dir "$wtPath"
 ```
 
-The draft is `{ "departures": [ ... ] }`, one entry per departure:
+The draft is `{ "departures": [ ... ], "findings": [ ... ] }`. One entry per departure:
 `{ "departsFrom": "<D<n>, G<n>, title or section>", "summary": "<what the code does>",
 "breaksGuarantee": <true|false>, "files": ["<path>", ...], "stub": { "path": "<stub>", "reason":
 "<its reason>" } | null, "supersedes": { "decision": "<D<n> or title>", "instead": "<what the code
-does instead>" } | null }`. Cite the same element and the files the departure was judged on each
-run: two departures are the same when they cite the same element and share a file. The step
-prints `{ registry, items }` and writes the judgments block to `--out`. Each item carries its `DV<n>`
-ID and its severity; one the last verdict listed and this run did not find again comes back with
-`found: false` and its answer, and is reported as **no longer found** — never dropped. A non-zero
-exit stops the publish: report the diagnostic verbatim. `draft-malformed` names the entry to fix;
-`judgments-malformed` means the newest verdict's registry cannot be read.
+does instead>" } | null }`. One entry per **finding** — every finding of §2.1 to §2.4 at any
+severity, an unmet criterion, a metric not moved, "epic-level check not run" alike:
+`{ "about": "<what it judges: the criterion (#<story> AC<k>), the metric, or the named check>",
+"severity": "<critical|high|medium|low>", "summary": "<what is wrong>", "files": ["<path>", ...] }`.
+Cite the same element, or name the same thing judged, and the files it was judged on each run: two
+items are the same when they name the same thing and share a file. The step prints `{ registry,
+items, findings, open, answers }` and writes the judgments block to `--out`. Each departure carries
+its `DV<n>` ID and each finding its `F<n>` ID, with its severity and its answer; one the last
+verdict listed and this run did not find again comes back with `found: false` and its answer, and
+is reported as **no longer found** — never dropped. A non-zero exit stops the publish: report the
+diagnostic verbatim. `draft-malformed` names the entry to fix; `judgments-malformed` means the
+newest verdict's registry cannot be read; `gh-failed` means the pull request or its comments could
+not be read, which is never "no answer".
 
 Without a pull request there is no registry: list the departures without IDs.
+
+## 2.6 Answers on the pull request (`--pr` mode)
+
+An engineer answers an item on the pull request, while the reason is still fresh (D3). An answer
+is **one line** in a pull-request comment — the ID, a dash, a verb, a colon and a reason — and one
+comment may hold several:
+
+```text
+DV2 — accepted: the platform has no batch endpoint, so one call per item is the only option
+F1 — waived: the flaky check is tracked in #901
+```
+
+Each verb fits one kind of item: **accepted** for a departure, **waived** for a **critical or high**
+finding, **approved** for a deferred-scope proposal. A reason is required for accepted and waived.
+A record revision also answers a departure: the next run judges against the revised record.
+
+**You never read answers yourself.** The ID step reads them through the one waiver reader close
+uses, with the same rule about who can speak for the repository, and applies them: the newest
+trusted answer per ID wins, and a lead working alone answers and accepts in one act. It prints the
+answers it applied under `answers.applied`, and every answer line that applied nothing under
+`answers.unapplied`, with why:
+
+- `untrusted` — its author cannot speak for the repository. It accepts, waives or approves nothing;
+  a trusted person must answer.
+- `unknown-id` — no item on this pull request has that ID.
+- `wrong-verb` — the verb does not fit the ID's kind.
+- `no-reason` — an accepted or waived answer gave no reason.
+- `not-waivable` — only a critical or high finding can be waived.
+
+**Name every unapplied answer in the verdict**, on the `Answers not applied:` line, with its
+comment's author and link — never drop one, and never apply one by judgment. A decision stub
+explains a departure and answers nothing; a freely worded reply answers nothing either.
+
+**The severity counts are the open counts** (D4). An item is open while it is found and
+unanswered: an accepted departure and a waived finding count nothing. Write the counts the step
+printed as `open` into the `Severity:` line and the machine block's `findings:` — never totals, and
+never a count of your own. List each answered item separately, with who answered and the link.
+A comment that carries a verdict is never read as an answer, so write the item listing exactly in
+the form Phase 3 shows: an answered item reads `DV<n> (<severity>) accepted by @<who> ...`, never
+in the answer form.
 
 # Phase 3 — Report (inline) and write the receipt
 
@@ -518,7 +565,13 @@ Departures:              <none> | one line per departure (§2.5):
   DV<n> (<critical|high>) from <G<n> | D<n> | title | section> · <file:line> · <what the code does>
     stub: <stub path> says "<reason>"                              (when a stub explains it)
     supersedes <D<n>>: <what the code does instead>                (when superseding)
+  DV<n> (<critical|high>) accepted by @<who> (<link>): <reason>   (answered — counts nothing)
   DV<n> no longer found · answered by <who> (<link>)              (listed, never dropped)
+Findings:                <none> | one line per finding (--pr: with the ID the ID step printed):
+  F<n> (<critical|high|medium|low>) <about> · <what is wrong>
+  F<n> (<critical|high>) waived by @<who> (<link>): <reason>      (answered — counts nothing)
+Answers not applied:     <none> | one line per entry of answers.unapplied (--pr mode):
+  @<author> on <ID> (<link>): <untrusted | unknown-id | wrong-verb | no-reason | not-waivable>
 Epic level:              <the completion check's lines> (--pr mode)
 Success metrics:         <metric → met | not moved | unverifiable: what would decide it>   (--pr: only when judged)
                          <metric → measurable? plausibly-moved?>                           (local)
@@ -529,8 +582,10 @@ Severity: ⛔ critical <C> · ⚠️ high <H> · medium <M> · low <L>
 ```
 
 A broken guarantee appears on the `Departures:` line with its `G<n>` ID (an invariant by its text),
-and nowhere else. Write the `DV<n>` IDs `nexus verdict-items` printed, in `--pr` mode; locally, list
-the departures without IDs.
+and nowhere else. Write the `DV<n>` and `F<n>` IDs `nexus verdict-items` printed, in `--pr` mode;
+locally, list the departures and findings without IDs. In `--pr` mode the `Severity:` line is the
+step's `open` counts (§2.6); an answered item is listed, never counted. Never write a listed item
+as `<ID> — <verb>:` — that is the answer form, and a verdict never holds an answer.
 
 `<epic-ref>`, `<record-ref>` and every `<story-ref>` are written under the **`nxs-issue-reference`**
 skill loaded in Phase 0.5: bare when this summary is published into `$ISSUES_REPO` (local mode),
@@ -545,10 +600,11 @@ closed. An open sub-issue is `/nxs.close`'s hard block (its §1.1), not this gat
 is whether the code does what the planning said, and the code is readable from the diff whether or
 not the issue has been closed yet.
 
-**Severity gate:** critical or high findings should **block close** — the code does not yet satisfy
-the epic. Fix the implementation (or, if the epic's intent changed during build, amend `epic.md` and
-re-file the affected story issues) before `/nxs.close`. This command does not edit code, issues, or
-the epic; it reports so the user can gate.
+**Severity gate:** an open critical or high item **blocks** the merge pre-check and close — the
+code does not yet satisfy the epic. Fix the implementation, or answer the item on the pull request
+(§2.6: accept a departure, waive a critical or high finding, each with a reason) and run analyze
+again to record the answer; if the design changed, revise the record. This command does not edit
+code, issues, or the epic, and never posts an answer; it reports so the user can gate.
 
 Then write the **receipt** — the proof this gate ran, which `/nxs.close` checks as a precondition.
 Write it to **`analyze-receipt.md`** beside the resolved `epic.md`, overwriting any previous receipt
@@ -659,11 +715,16 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     `record_hash`. Receipts written by 0.82.0 to 0.86.0 carry that line, and every reader still
     accepts it and ignores it.
 
+    `findings:` is the `open` counts `nexus verdict-items` printed (§2.6): only items still open,
+    never a total. The merge pre-check and close block on these counts unchanged, so an accepted
+    departure or a waived finding stops blocking them with no change to how they read a verdict.
+
     Then append the **judgments block** — the file `nexus verdict-items` wrote to `--out` in §2.5,
     verbatim, **after** the verdict block. It starts with the `<!-- nexus:analyze-judgments -->`
-    marker and carries every departure with its ID. Every verdict carries it, a verdict with no
-    departure included: it is the ID registry the next run on this pull request reads. Never edit
-    it by hand and never fold its content into the verdict block above, whose keys stay as they are.
+    marker and carries every departure and finding with its ID and its answer, each answer with who
+    gave it and the link to the comment. Every verdict carries it, a verdict with no item included:
+    it is the ID registry the next run on this pull request reads. Never edit it by hand and never
+    fold its content into the verdict block above, whose keys stay as they are.
 
 2. **Check the drafted body before publishing anything:**
 
@@ -680,8 +741,9 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     block should have carried, so rewrite the block with that value and run the check again.
     `story-text-recorded` means the block still has a `story_fingerprints` line; drop it and run
     the check again. `judgments-missing` means the judgments block was not appended: run §2.5's
-    ID step and append its output. `departures-uncounted` means the severity tally leaves out an
-    unanswered departure: count it and check again. `judgments-malformed` means the judgments block
+    ID step and append its output. `counts-not-open` means the severity counts are not the open
+    counts — they leave out an unanswered item, or count an answered or unlisted one: write the
+    `open` counts the ID step printed, and list every finding through it, then check again. `judgments-malformed` means the judgments block
     was edited or misplaced: append the ID step's output again, unedited, after the verdict block.
     This runs on the review path and the comment fallback path alike; the
     body it judges is the exact body that goes on the wire.
@@ -689,9 +751,9 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
 3. Publish it as a **PR review**, so the verdict lands in the merge box:
 
     ```bash
-    # clean — no critical/high findings:
+    # clean — no open critical/high item (the `open` counts):
     gh pr review <N> -R <repoIdentity> --approve --body-file "<scratch>/analyze-review.md"
-    # critical or high present:
+    # an open critical or high item:
     gh pr review <N> -R <repoIdentity> --request-changes --body-file "<scratch>/analyze-review.md"
     ```
 

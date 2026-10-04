@@ -11,6 +11,7 @@ import {
     WAIVER_MARKER,
     matchLandedChangeWaiver,
     matchRecordWaiver,
+    parseAnswerLines,
     parseWaiverBlock,
     readPrWaivers,
     type PrWaivers,
@@ -178,5 +179,62 @@ describe("matchRecordWaiver — a waiver accepts only the record revision it nam
         const m = matchRecordWaiver(read([{ body: recordBody("#849", "abc"), association: "FIRST_TIME_CONTRIBUTOR" }]), 849, "abc");
         expect(m.applied).toBeNull();
         expect(m.rejected.map((r) => r.why)).toEqual(["untrusted"]);
+    });
+});
+
+/**
+ * The answers on a pull request come through this same reader (epic #829, story #860, decision
+ * record #871, D3): one line per answer, the ID, a dash, a verb, a colon and a reason. There is no
+ * second comment reader, so the trust rule is the one the waivers above already use.
+ */
+describe("parseAnswerLines — the fixed answer form", () => {
+    it("reads every answer line in a comment, in the order written, with its reason", () => {
+        const body = [
+            "Thanks for the review.",
+            "",
+            "DV2 — accepted: the platform has no batch endpoint",
+            "F1 – waived: tracked in #901",
+            "DS3 - approved",
+            "dv4 -- Accepted:   kept on purpose  ",
+        ].join("\n");
+        expect(parseAnswerLines(body)).toEqual([
+            { id: "DV2", verb: "accepted", reason: "the platform has no batch endpoint" },
+            { id: "F1", verb: "waived", reason: "tracked in #901" },
+            { id: "DS3", verb: "approved", reason: "" },
+            { id: "DV4", verb: "accepted", reason: "kept on purpose" },
+        ]);
+    });
+
+    it("reads an answer with no reason as one with an empty reason, so the verdict can name it", () => {
+        expect(parseAnswerLines("DV1 — accepted:")).toEqual([{ id: "DV1", verb: "accepted", reason: "" }]);
+    });
+
+    it("reads nothing from a freely worded reply, a quoted answer or an unknown verb", () => {
+        const body = ["I accept DV1, it is fine.", "> DV1 — accepted: quoting the lead", "DV1 — rejected: no", "DV1 accepted: no dash", "DV1 — accepted by @lead: the listing form"].join("\n");
+        expect(parseAnswerLines(body)).toEqual([]);
+    });
+
+    it("never reads a body carrying either verdict marker as an answer (G12)", () => {
+        expect(parseAnswerLines(`DV1 — accepted: looks like an answer\n\n<!-- nexus:analyze-receipt -->\n\`\`\`yaml\npr: 1\n\`\`\``)).toEqual([]);
+        expect(parseAnswerLines(`DV1 — accepted: looks like an answer\n\n<!-- nexus:analyze-judgments -->\n\`\`\`json\n{}\n\`\`\``)).toEqual([]);
+    });
+});
+
+describe("readPrWaivers — every answer line on one pull request", () => {
+    it("reads each answer with the author, link, time and trust of the comment it came from", () => {
+        const w = read([
+            { body: "DV1 — accepted: by design\nF2 — waived: flaky upstream", login: "lead", url: "https://x/10", at: "2026-10-02T00:00:00Z" },
+            { body: "DV1 — accepted: I think it is fine", login: "drive-by", association: "NONE", url: "https://x/11" },
+        ]);
+        expect(w.answers).toEqual([
+            { id: "DV1", verb: "accepted", reason: "by design", author: "lead", url: "https://x/10", at: "2026-10-02T00:00:00Z", trusted: true },
+            { id: "F2", verb: "waived", reason: "flaky upstream", author: "lead", url: "https://x/10", at: "2026-10-02T00:00:00Z", trusted: true },
+            { id: "DV1", verb: "accepted", reason: "I think it is fine", author: "drive-by", url: "https://x/11", at: "2026-10-01T00:00:00Z", trusted: false },
+        ]);
+    });
+
+    it("reads no answer from a verdict published as a comment, even one listing answered items (G12)", () => {
+        const verdict = "DV1 (high) accepted by @lead (https://x/10): by design\n\n<!-- nexus:analyze-receipt -->\n```yaml\npr: 10\n```";
+        expect(read([{ body: verdict }]).answers).toEqual([]);
     });
 });

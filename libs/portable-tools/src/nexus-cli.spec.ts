@@ -351,6 +351,21 @@ describe("nexus verdict-items (epic #829, story #858 — the numbering rule is c
     });
 });
 
+describe("nexus pr-answers (epic #829, story #860 — the answer form is covered by the waiver reader's own specs)", () => {
+    it("is a registered verb the help names", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-answers-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus pr-answers");
+        expect(VERB_NAMES).toContain("pr-answers");
+    });
+
+    it("refuses without the pull request to read", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-pr-answers-"));
+        expect(await runNexusCli(["pr-answers", "--urls"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--pr");
+    });
+});
+
 describe("nexus merge-precheck (registration only — the four receipt states are covered by its own unit specs)", () => {
     it("is a registered verb the help names", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-merge-precheck-"));

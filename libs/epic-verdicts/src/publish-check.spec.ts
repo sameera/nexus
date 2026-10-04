@@ -180,8 +180,32 @@ describe("checkVerdictPublish — a published verdict carries its departures (ep
         const r = check(draft(0, [departure()]));
         expect(r.ok).toBe(false);
         if (r.ok) return;
-        expect(r.error.problem).toBe("departures-uncounted");
+        expect(r.error.problem).toBe("counts-not-open");
         expect(r.error.message).toContain("DV1");
+    });
+
+    it("refuses counts that still include an accepted departure, since they count only open items (G15)", () => {
+        const accepted = { verb: "accepted", author: "lead", link: "https://x/1", reason: "by design" };
+        const r = check(draft(1, [departure({ severity: "high", answer: accepted })]));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("counts-not-open");
+    });
+
+    it("approves counts of zero once every blocking item is answered (G15, G16)", () => {
+        const accepted = { verb: "accepted", author: "lead", link: "https://x/1", reason: "by design" };
+        const waived = { verb: "waived", author: "lead", link: "https://x/2", reason: "tracked" };
+        const f = { id: "F1", kind: "finding" as const, found: true, severity: "critical" as const, about: "#860 AC1", summary: "x", files: [], answer: waived };
+        const body = fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items: [departure({ answer: accepted })], findings: [f] }) });
+        expect(check(body).ok).toBe(true);
+    });
+
+    it("refuses counts that leave out an unanswered finding", () => {
+        const f = { id: "F1", kind: "finding" as const, found: true, severity: "high" as const, about: "#860 AC1", summary: "x", files: [], answer: null };
+        const r = check(fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items: [], findings: [f] }) }));
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.message).toContain("F1");
     });
 
     it("approves counts that include every unanswered departure still found", () => {

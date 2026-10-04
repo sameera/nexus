@@ -43,8 +43,8 @@ describe("/nxs.close's posted waivers (story #856)", () => {
         expect(gate).not.toMatch(/AskUserQuestion[^\n]*record/);
     });
 
-    it("keeps the blocking-findings override at the checkpoint (G26)", () => {
-        expect(conformanceGate()).toContain('"Override and close"');
+    it("no longer offers the blocking-findings override: an answer on the pull request replaces it (record #871, G17)", () => {
+        expect(conformanceGate()).not.toContain("Override and close");
     });
 
     it("stamps every applied waiver into the close comment's machine block and the close record (G33)", () => {
