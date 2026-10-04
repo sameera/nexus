@@ -545,8 +545,8 @@ Resolve `<docs-root>` as Phase 0 does, then write **one** note:
 <docs-root>/delivery/lessons/<YYYY-MM-DD>-<slug>.md
 ```
 
-That folder already holds dated outcome notes written by a pipeline stage, so this introduces no new
-convention. The note is the **only durable carrier** of everything this discovery learned, so it
+Create the folder when it is absent: no other stage writes into it, so a repository may not have it
+yet. The note is the **only durable carrier** of everything this discovery learned, so it
 carries all three of:
 
 ````markdown

@@ -83,6 +83,12 @@ behaviour says so.
   Seeding no longer places that template, and a copy already in your repository is left as it is.
   The close record and the close comment `nexus close` writes have no Process Lesson section and
   no lesson pointer.
+- **No lesson is written (breaking).** Nothing read the process lesson, so no close writes one any
+  more: neither `nexus close` nor `/nxs.close` writes a lesson file, and neither the close record
+  nor the close comment points at one. Setup no longer creates the lessons folder or its README,
+  and its summary no longer lists them. A discovery closed with no build still writes its note
+  there, and now creates the folder when it is missing. Lesson files already in your repository
+  stay as they are.
 
 ## 0.91.0
 
