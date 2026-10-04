@@ -171,7 +171,17 @@ export type StoryStateFinding =
     | { repo: string; pr: number; finding: "landed-change"; files: string[]; remedies: string[]; waivers?: RejectedWaiver[] };
 
 /** A trusted waiver comment that cleared a stale cause on its pull request, for the stories named. */
-export type AppliedWaiver = { repo: string; pr: number; author: string; url: string; at: string; reason: string | null; stories: number[] } & (
+export type AppliedWaiver = {
+    repo: string;
+    pr: number;
+    author: string;
+    url: string;
+    at: string;
+    reason: string | null;
+    stories: number[];
+    /** Each untrusted or unreadable waiver comment beside it, which cleared nothing (G32); absent when none. */
+    rejected?: RejectedWaiver[];
+} & (
     | { cause: "landed-change"; files: string[] }
     | { cause: "record-revised"; record: number; digest: string }
 );
@@ -474,7 +484,7 @@ function staleness(story: number, pr: StoryMergedPr, receipt: AnalyzeReceipt, pr
                 currentDigest: digest,
                 remedies: [analyze, `a trusted waiver comment a lead posts on ${where} in the close-waiver form, waive: record-revised, record: "${record}", digest: ${digest}`],
             };
-            out.push(...waived(story, pr, finding, evidence, (w) => matchRecordWaiver(w, issue, digest), { cause: "record-revised", record: issue, digest }));
+            out.push(...waived(story, pr, finding, evidence, (w) => matchRecordWaiver(w, issue, digest, evidence.issuesRepo), { cause: "record-revised", record: issue, digest }));
         }
     }
 
@@ -523,7 +533,8 @@ function waived(
     } else {
         const { author, url, at } = m.applied;
         const reason = m.applied.waiver.ok ? m.applied.waiver.reason : null;
-        evidence.applied.set(key, { repo: pr.repo, pr: pr.pr, author, url, at, reason, stories: [story], ...terms });
+        const rejected = m.rejected.length > 0 ? { rejected: m.rejected } : {};
+        evidence.applied.set(key, { repo: pr.repo, pr: pr.pr, author, url, at, reason, stories: [story], ...terms, ...rejected });
     }
     return [];
 }
@@ -731,7 +742,7 @@ function renderLines(
     for (const w of waivers) {
         const stories = w.stories.map((s) => (issuesRepo ? `${issuesRepo}#${s}` : `#${s}`)).join(", ");
         const terms = w.cause === "landed-change" ? `landed-change naming ${w.files.join(", ")}` : `record-revised accepting record #${w.record} at digest ${w.digest}`;
-        lines.push(`${w.repo}#${w.pr} — waiver applied for ${stories}: ${terms}, by @${w.author || "unknown"} (${w.url})`);
+        lines.push(`${w.repo}#${w.pr} — waiver applied for ${stories}: ${terms}, by @${w.author || "unknown"} (${w.url})${(w.rejected ?? []).map((r) => `; ${describeRejected(r)}`).join("")}`);
     }
     for (const s of states) lines.push(...describeState(s, issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`));
     for (const b of blocking) {

@@ -132,6 +132,18 @@ describe("matchLandedChangeWaiver — a waiver covers only the files it names (G
         expect(m.rejected).toEqual([{ author: "mallory", url: "https://x/3", why: "untrusted" }]);
     });
 
+    it("still names an untrusted waiver comment when a trusted waiver on the same pull request applies (G32)", () => {
+        const m = matchLandedChangeWaiver(
+            read([
+                { body: landedBody(["src/a.ts"]), login: "mallory", association: "NONE", url: "https://x/6" },
+                { body: landedBody(["src/a.ts"]), login: "alice", url: "https://x/7" },
+            ]),
+            ["src/a.ts"],
+        );
+        expect(m.applied?.author).toBe("alice");
+        expect(m.rejected).toEqual([{ author: "mallory", url: "https://x/6", why: "untrusted" }]);
+    });
+
     it("ignores a waiver for the other cause, and names a waiver comment it could not read", () => {
         const m = matchLandedChangeWaiver(
             read([{ body: recordBody("#849", "abc") }, { body: `${WAIVER_MARKER}\n\`\`\`yaml\nwaive: everything\n\`\`\``, url: "https://x/4" }]),
@@ -152,6 +164,14 @@ describe("matchRecordWaiver — a waiver accepts only the record revision it nam
         const m = matchRecordWaiver(read([{ body: recordBody("#849", "abc"), url: "https://x/5" }]), 849, "def");
         expect(m.applied).toBeNull();
         expect(m.rejected).toEqual([{ author: "lead", url: "https://x/5", why: "other-revision", record: "#849", digest: "abc" }]);
+    });
+
+    it("applies nothing to a waiver naming the same issue number in another repository", () => {
+        const w = read([{ body: recordBody("other/repo#849", "abc"), url: "https://x/8" }]);
+        expect(matchRecordWaiver(w, 849, "abc", "acme/issues").applied).toBeNull();
+        expect(matchRecordWaiver(w, 849, "abc", "acme/issues").rejected.map((r) => r.why)).toEqual(["other-revision"]);
+        expect(matchRecordWaiver(read([{ body: recordBody("Acme/Issues#849", "abc") }]), 849, "abc", "acme/issues").applied).not.toBeNull();
+        expect(matchRecordWaiver(read([{ body: recordBody("#849", "abc") }]), 849, "abc", "acme/issues").applied).not.toBeNull();
     });
 
     it("applies nothing from an author who cannot speak for the repository", () => {

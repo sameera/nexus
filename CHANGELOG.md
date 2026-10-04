@@ -5,6 +5,16 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.90.0
+
+- **Close names an untrusted waiver comment even when a trusted one clears the stop.** When
+  `/nxs.close --pr` applies a lead's waiver on a pull request, it now also names every waiver
+  comment on that pull request from an author who cannot speak for the repository, or that it
+  could not read. Before, those comments went unmentioned once a trusted waiver applied.
+- **Close refuses a record waiver that names another repository's issue.** A `record-revised`
+  waiver whose `record:` names the right issue number in a different repository now clears nothing,
+  and close names it. A bare `#<n>` reference still names the epic's own decision record.
+
 ## 0.89.0
 
 - **Close takes one run, and starts no analyze run (breaking).** The one-command close script no

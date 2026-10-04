@@ -170,7 +170,8 @@ export function readPrWaivers(run: Runner, cwd: string, pr: number, opts: ReadPr
  * Sort the waiver comments that address `cause` into the one that clears it — the newest trusted
  * comment `covers` accepts — and every other one, with why it cleared nothing. A comment that
  * waives the other cause is not about this stop and is left out; an unreadable one is named,
- * because close cannot tell which stop it meant.
+ * because close cannot tell which stop it meant. When a waiver applies, an untrusted or unreadable
+ * comment is still named (G32); a trusted one the applied waiver supersedes is not.
  */
 function match(waivers: PrWaivers, cause: WaiverCause, covers: (terms: WaiverTerms, c: WaiverComment) => RejectedWaiver | null): WaiverMatch {
     const accepted: WaiverComment[] = [];
@@ -191,7 +192,7 @@ function match(waivers: PrWaivers, cause: WaiverCause, covers: (terms: WaiverTer
         else rejected.push(refused);
     }
     const applied = newestReceiptBlock(accepted);
-    return applied === null ? { applied: null, rejected } : { applied, rejected: [] };
+    return applied === null ? { applied: null, rejected } : { applied, rejected: rejected.filter((r) => r.why === "untrusted" || r.why === "malformed") };
 }
 
 /** The waiver that clears a landed-change stop on `changed` files: it must name every one (G31). */
@@ -203,11 +204,17 @@ export function matchLandedChangeWaiver(waivers: PrWaivers, changed: readonly st
     });
 }
 
-/** The waiver that clears a revised-record stop: it must name record `issue` at its `digest` now (G35). */
-export function matchRecordWaiver(waivers: PrWaivers, issue: number, digest: string): WaiverMatch {
+/**
+ * The waiver that clears a revised-record stop: it must name record `issue` at its `digest` now
+ * (G35). When the record's repository `issuesRepo` is known, a waiver that names another repository
+ * clears nothing; a bare `#<n>` reference names the record's own.
+ */
+export function matchRecordWaiver(waivers: PrWaivers, issue: number, digest: string, issuesRepo?: string): WaiverMatch {
     return match(waivers, "record-revised", (terms, c) => {
         if (terms.cause !== "record-revised") return null;
-        return parseIssueRef(terms.record)?.number === issue && terms.digest === digest.toLowerCase()
+        const ref = parseIssueRef(terms.record);
+        const sameRepo = ref?.repo == null || issuesRepo === undefined || ref.repo === issuesRepo.toLowerCase();
+        return ref?.number === issue && sameRepo && terms.digest === digest.toLowerCase()
             ? null
             : { author: c.author, url: c.url, why: "other-revision", record: terms.record, digest: terms.digest };
     });
