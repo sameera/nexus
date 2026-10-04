@@ -70,12 +70,14 @@ function currentStates(stories: number[]): StoryState[] {
 
 function ranges(over: Partial<CloseRanges> = {}): CloseRanges {
     const states = over.states ?? currentStates([864, 865]);
+    const range = over.range ?? [{ repo: ISSUES, pr: PR, base: "b".repeat(40), head: "m".repeat(40) }];
     return {
         stories: [
             { story: 864, ranges: [{ repo: ISSUES, pr: PR, source: "derived", base: "b".repeat(40), head: "m".repeat(40), checkout: "/repo" }] },
             { story: 865, ranges: [{ repo: ISSUES, pr: PR, source: "derived", base: "b".repeat(40), head: "m".repeat(40), checkout: "/repo" }] },
         ],
-        range: [{ repo: ISSUES, pr: PR, base: "b".repeat(40), head: "m".repeat(40) }],
+        range,
+        merged: range.map((r) => ({ repo: r.repo, pr: r.pr })),
         landed: [],
         blocking: [],
         excluded: [],
@@ -254,6 +256,18 @@ describe("nexus close — a merged pull request whose every story is current (AC
         expect(err).toContain("the configured epic-repo is not this checkout's issues repository");
         expect(err).toMatch(/configured epic-repo/);
         expect(err).not.toContain("/nxs.analyze");
+    });
+
+    it("asks for the epic in the issues repository when it differs from the code repository (G46)", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: "acme/code" } }) });
+        const asked: string[] = [];
+        const resolve = h.deps.resolveEpic;
+        h.deps.resolveEpic = (root, repo, epic) => {
+            asked.push(repo);
+            return resolve(root, repo, epic);
+        };
+        runCloseCommand(h.deps, input(h));
+        expect(asked).toEqual([ISSUES]);
     });
 
     it("names the issues repository it resolved (G46)", () => {
@@ -902,6 +916,32 @@ describe("the close record keeps today's shape for distill (story #865, AC2, D4,
 
     it("stamps analyze as ran <date> @ <head> from the completing pull request's verdict (G14)", () => {
         const { record } = closed(twoPrHarness(emptyJudgments(), emptyJudgments()));
+        expect(frontmatterOf(record)).toContain(`analyze: ran 2026-10-02 @ ${"2".repeat(40)}`);
+    });
+
+    it("keeps a pull request with no range in its merge-order place, so it neither lists last nor completes the epic out of turn (D6, D7)", () => {
+        // PR merged first with no range of its own; PR2 merged last with one.
+        const h = twoPrHarness(emptyJudgments({ items: [departure("DV1")] }), emptyJudgments({ items: [departure("DV1", { departsFrom: "D1" })] }), {
+            ranges: () => ({
+                ok: true,
+                untrusted: [],
+                ranges: ranges({
+                    stories: [
+                        { story: 864, ranges: [{ repo: ISSUES, pr: PR, source: "no-range", checkout: "/repo" }] },
+                        { story: 865, ranges: [{ repo: ISSUES, pr: PR2, source: "derived", base: "c".repeat(40), head: "n".repeat(40), checkout: "/repo" }] },
+                    ],
+                    range: [{ repo: ISSUES, pr: PR2, base: "c".repeat(40), head: "n".repeat(40) }],
+                    merged: [
+                        { repo: ISSUES, pr: PR },
+                        { repo: ISSUES, pr: PR2 },
+                    ],
+                }),
+            }),
+        });
+        const { record } = closed(h);
+        const dr = sectionOf(record, "## Deviation Rationale").split("\n");
+        expect(dr[0]).toContain(`${ISSUES}#${PR} DV1`);
+        expect(dr[1]).toContain(`${ISSUES}#${PR2} DV1`);
         expect(frontmatterOf(record)).toContain(`analyze: ran 2026-10-02 @ ${"2".repeat(40)}`);
     });
 
@@ -1711,6 +1751,96 @@ describe("once the close comment exists, a re-run regenerates nothing (story #86
         expect(text(rendered.stderr)).toContain("origin unreachable");
     });
 
+    describe("a re-run posts an amendment an earlier run did not (G26, G28)", () => {
+        const stamped = (hash = RECORD_DIGEST) => ({
+            body: [
+                "## Close Record",
+                "",
+                "<!-- nexus:close-record -->",
+                "```yaml",
+                `epic: "#${EPIC}"`,
+                `record: "#${RECORD}"`,
+                `record_hash: ${hash}`,
+                "range:",
+                `  - repo: ${ISSUES}`,
+                `    pr: ${PR}`,
+                `    base: ${"b".repeat(40)}`,
+                `    head: ${"m".repeat(40)}`,
+                "```",
+            ].join("\n"),
+            authorAssociation: "OWNER",
+        });
+        const superseding = (): Judgments => emptyJudgments({ items: [departure("DV1", { supersedes: { decision: "D2", instead: "falls back to a model pass" } })] });
+        const rerun = (over: Partial<CloseCommandDeps> = {}, closeComment = stamped()): Harness => {
+            const h = harness({
+                issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [closeComment] : [] }),
+                findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+                openWorktree: () => ({ ok: true, wtPath: h.wtPath, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+                verdict: () => present(superseding()),
+                ...over,
+            });
+            return h;
+        };
+
+        it("posts the missing amendment once, before closing the epic, and still regenerates nothing else", () => {
+            const h = rerun();
+            const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+            expect(rendered.exitCode).toBe(0);
+            expect(h.writes).toEqual(["amendment", `close #${EPIC}`]);
+            expect(amendments(h)).toHaveLength(1);
+            expect(amendments(h)[0].body).toContain("**D2 — No model fallback: A verdict without judgments stops close.** → **shipped:** falls back to a model pass.");
+            expect(amendments(h)[0].body).toContain(`<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`);
+            expect(text(rendered.stdout)).toMatch(/Record amendment: .*1 superseding decision\(s\) posted/);
+        });
+
+        it("reads no verdict and posts nothing when the amendment is already on the record", () => {
+            let verdictReads = 0;
+            const h = rerun({
+                issueComments: (_r, _repo, issue) => ({
+                    ok: true,
+                    comments: issue === EPIC ? [stamped()] : [{ body: `<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`, authorAssociation: "MEMBER" }],
+                }),
+                verdict: () => {
+                    verdictReads += 1;
+                    return present(superseding());
+                },
+            });
+            expect(renderCloseOutcome(runCloseCommand(h.deps, input(h))).exitCode).toBe(0);
+            expect(verdictReads).toBe(0);
+            expect(h.writes).toEqual([`close #${EPIC}`]);
+        });
+
+        it("posts nothing when no departure is marked superseding", () => {
+            const h = rerun({ verdict: () => present(emptyJudgments({ items: [departure("DV1")] })) });
+            expect(renderCloseOutcome(runCloseCommand(h.deps, input(h))).exitCode).toBe(0);
+            expect(h.writes).toEqual([`close #${EPIC}`]);
+        });
+
+        it("reports, prints nothing to post by hand it cannot build, and still finishes when a verdict cannot be read (G48)", () => {
+            const h = rerun({ verdict: () => ({ ok: false, cause: "HTTP 502" }) });
+            const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+            expect(rendered.exitCode).toBe(0);
+            expect(h.writes).toEqual([`close #${EPIC}`]);
+            expect(text(rendered.stdout)).toMatch(/Record amendment: .*NOT CHECKED[^\n]*HTTP 502/);
+        });
+
+        it("posts nothing, and says so, when the record was revised since the close", () => {
+            const h = rerun({}, stamped("0".repeat(64)));
+            const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+            expect(rendered.exitCode).toBe(0);
+            expect(h.writes).toEqual([`close #${EPIC}`]);
+            expect(text(rendered.stdout)).toMatch(/Record amendment: .*NOT CHECKED[^\n]*revised since the close[^\n]*nexus close --recover/);
+        });
+
+        it("prints the amendment to post by hand when the re-run's post fails", () => {
+            const h = rerun({ postComment: (_root, _repo, issue) => (issue === RECORD ? { ok: false, message: "HTTP 403" } : { ok: true }) });
+            const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+            expect(rendered.exitCode).toBe(0);
+            expect(text(rendered.stdout)).toMatch(/NOT POSTED — HTTP 403/);
+            expect(text(rendered.stdout)).toContain("## Amended at close — 1 decision(s) superseded");
+        });
+    });
+
     it("stops when the epic's comments cannot be read, before anything is created", () => {
         const h = harness({ issueComments: () => ({ ok: false, message: "HTTP 502" }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
@@ -1751,6 +1881,20 @@ describe("nexus close — the back-references, the epic close, the marker and th
         expect(call).not.toMatch(/search/);
         expect(deps(recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 502" })).run).epicMentions("/repo", ISSUES, EPIC)).toEqual({ ok: false, message: "HTTP 502" });
         expect(deps(recorder(() => ({ status: 0, stdout: "{not json\n", stderr: "" })).run).epicMentions("/repo", ISSUES, EPIC).ok).toBe(false);
+    });
+
+    it("resolves the epic from the issues repository, not the checkout's own (G46)", () => {
+        const rec = recorder((args) => {
+            if (args[0] === "issue" && args[1] === "view") {
+                return { status: 0, stdout: JSON.stringify({ number: EPIC, title: "t", body: "b", state: "OPEN", stateReason: "", labels: [] }), stderr: "" };
+            }
+            return { status: 0, stdout: "", stderr: "" };
+        });
+        deps(rec.run).resolveEpic("/repo", "acme/issues", EPIC);
+        const gh = rec.calls.filter((c) => c[0] === "gh").map((c) => c.slice(1).join(" "));
+        expect(gh.length).toBeGreaterThan(0);
+        expect(gh.filter((c) => c.startsWith("repo view"))).toEqual([]);
+        expect(gh.find((c) => c.startsWith(`issue view ${EPIC}`))).toContain("--repo acme/issues");
     });
 
     it("closes an open epic issue as completed in the issues repository, and leaves a closed one alone", () => {

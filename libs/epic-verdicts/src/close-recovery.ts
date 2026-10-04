@@ -30,7 +30,6 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parse as parseYaml } from "yaml";
 import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { matchRecordWaiver, readPrWaivers, type PrWaivers } from "@nexus/pr-acceptance/waiver";
 import { findEpicDistillBranch, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
@@ -40,7 +39,7 @@ import { git } from "@nexus/workspace/run";
 import { type PreflightResult } from "@nexus/workspace/close-role";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { closeCommandDeps, describeRejected, linkedEpic, verdictStops, waiverComment, type CloseStop, type CloseVerdictRead } from "./close-command.js";
-import { assembleCloseContent, CLOSE_RECORD_MARKER, renderDeviationRationale, renderKeyDecisions, scalar, type CloseContent, type CloseVerdict } from "./close-record.js";
+import { assembleCloseContent, CLOSE_RECORD_MARKER, machineBlock, recordNumber, renderDeviationRationale, renderKeyDecisions, scalar, stampedPrs, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { type AppliedWaiver } from "./close-ranges.js";
 import { inertLines } from "./close-text.js";
 import { type Runner } from "./run.js";
@@ -92,52 +91,6 @@ type Pr = { repo: string; pr: number };
 
 /** How one merged pull request clears the revision: a verdict judged against it, or a waiver accepting it. */
 type Cleared = { pr: { repo: string; pr: number }; by: "verdict"; verdict: CloseVerdict } | { pr: { repo: string; pr: number }; by: "waiver"; verdict: CloseVerdict; waiver: AppliedWaiver & { cause: "record-revised" } };
-
-/** The machine block of a close comment, parsed: null when it carries none that reads. */
-function machineBlock(comment: string): Record<string, unknown> | null {
-    const at = comment.indexOf(CLOSE_RECORD_MARKER);
-    if (at < 0) return null;
-    const fence = /^\n```ya?ml\n([\s\S]*?)\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));
-    if (fence === null) return null;
-    try {
-        const doc: unknown = parseYaml(fence[1]);
-        return doc !== null && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>) : null;
-    } catch {
-        return null;
-    }
-}
-
-function recordNumber(v: unknown): number | null {
-    const m = /^#?(\d+)$/.exec(String(v ?? "").trim());
-    return m === null ? null : Number(m[1]);
-}
-
-/** The merged pull requests a close stamped, in merge order: the range, then any with no range of its own. */
-function stampedPrs(block: Record<string, unknown>): { prs: { repo: string; pr: number }[]; unnamed: number } {
-    const out: { repo: string; pr: number }[] = [];
-    const seen = new Set<string>();
-    let unnamed = 0;
-    const add = (e: unknown): void => {
-        if (e === null || typeof e !== "object") return;
-        const rec = e as Record<string, unknown>;
-        const repo = typeof rec["repo"] === "string" ? rec["repo"] : "";
-        const pr = typeof rec["pr"] === "number" ? rec["pr"] : null;
-        if (pr === null || repo === "") {
-            unnamed += 1;
-            return;
-        }
-        const key = `${repo.toLowerCase()}#${pr}`;
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push({ repo, pr });
-    };
-    for (const e of Array.isArray(block["range"]) ? block["range"] : []) add(e);
-    for (const s of Array.isArray(block["story_ranges"]) ? block["story_ranges"] : []) {
-        const ranges = s !== null && typeof s === "object" ? (s as Record<string, unknown>)["ranges"] : undefined;
-        for (const e of Array.isArray(ranges) ? ranges : []) add(e);
-    }
-    return { prs: out, unnamed };
-}
 
 /** Run recovery. Asks nothing; every outcome is returned. */
 export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): RecoveryOutcome {

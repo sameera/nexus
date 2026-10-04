@@ -92,6 +92,18 @@ export interface ResolveEpicOptions {
      * inferring it, which would need a filesystem read this otherwise fs-free module does not make.
      */
     singleRepo?: boolean;
+    /**
+     * The repository the epic's issues live in, as `owner/repo`, when it is not the checkout's own
+     * (a configured `epic-repo`). Every read then names it; left out, each read uses the checkout's
+     * repository exactly as before.
+     */
+    repo?: string;
+}
+
+/** `owner/repo`, or a host-qualified `host/owner/repo`, as a slug; null for anything else. */
+function parseRepo(repo: string): { owner: string; repo: string } | null {
+    const parts = repo.trim().split("/").filter((p) => p !== "");
+    return parts.length < 2 ? null : { owner: parts[parts.length - 2], repo: parts[parts.length - 1] };
 }
 
 /**
@@ -108,10 +120,15 @@ export function resolveEpic(
     epicNumber: number,
     opts: ResolveEpicOptions = {},
 ): ResolveEpicResult {
-    const slug = resolveRepoSlug(run, targetRoot);
+    const named = opts.repo === undefined ? null : parseRepo(opts.repo);
+    if (opts.repo !== undefined && named === null) {
+        return { ok: false, error: { problem: "gh-failed", message: `the issues repository "${opts.repo}" is not of the form owner/repo` } };
+    }
+    const slug = named === null ? resolveRepoSlug(run, targetRoot) : ({ ok: true, slug: named } as const);
     if (!slug.ok) return slug;
+    const on = named ?? undefined;
 
-    const epic = fetchIssue(run, targetRoot, epicNumber, "epic-not-found");
+    const epic = fetchIssue(run, targetRoot, epicNumber, "epic-not-found", on);
     if (!epic.ok) return epic;
 
     if (opts.requireEpic) {
@@ -196,7 +213,7 @@ export function resolveEpic(
     const withdrawn = new Set<number>();
     let record: EpicRecord | null = null;
     for (const subNumber of subs.numbers) {
-        const sub = fetchIssue(run, targetRoot, subNumber, "subissue-fetch-failed");
+        const sub = fetchIssue(run, targetRoot, subNumber, "subissue-fetch-failed", on);
         if (!sub.ok) return sub;
 
         const kind =
@@ -234,7 +251,7 @@ export function resolveEpic(
 
         stories.push({ number: sub.issue.number, title: sub.issue.title, body: sub.issue.body });
 
-        const deps = fetchBlockedBy(run, targetRoot, subNumber);
+        const deps = fetchBlockedBy(run, targetRoot, subNumber, on);
         if (!deps.ok) return deps;
         blockedBy.set(subNumber, deps.numbers);
     }

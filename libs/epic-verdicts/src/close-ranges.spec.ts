@@ -226,6 +226,21 @@ describe("deriveCloseRanges — a pull request with no attributable commits (G2)
         expect(out.ranges.lines.join("\n")).toMatch(/#841[\s\S]*acme\/web#13[^\n]*no range/);
     });
 
+    it("keeps it in its merge-order place among every merged pull request (D6)", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: { 841: [merged(841, 12, "2026-09-02T00:00:00Z"), merged(841, 13, "2026-09-01T00:00:00Z")] },
+                derive: { 13: { ok: false, problem: "range-empty-diff", message: "empty diff" } },
+            }),
+            { stories: [841], records: [] },
+        );
+        if (!out.ok) throw new Error("expected ranges");
+        expect(out.ranges.merged).toEqual([
+            { repo: "acme/web", pr: 13 },
+            { repo: "acme/web", pr: 12 },
+        ]);
+    });
+
     it("blocks, naming the pull request, when the range cannot be derived for any other reason", () => {
         const out = deriveCloseRanges(
             deps({ claims: { 841: [merged(841, 12, "2026-09-01T00:00:00Z")] }, derive: { 12: { ok: false, problem: "range-ambiguous", message: "squash or rebase" } } }),

@@ -220,6 +220,8 @@ export interface CloseRanges {
     stories: StoryRanges[];
     /** One entry per merged pull request that has a range, each once, in merge order. */
     range: CloseRangeEntry[];
+    /** Every merged claiming pull request whose range is not blocked, each once, in merge order, with a range of its own or not (D6). */
+    merged: { repo: string; pr: number }[];
     /** Per live story, the landed check of each merged pull request claiming it. */
     landed: StoryLanded[];
     blocking: CloseRangeBlock[];
@@ -376,6 +378,7 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
         ranges: {
             stories,
             range,
+            merged: ordered.filter((pr) => "entry" in (outcomes.get(prKey(pr)) as Outcome)).map((pr) => ({ repo: pr.repo, pr: pr.pr })),
             landed,
             blocking,
             excluded,

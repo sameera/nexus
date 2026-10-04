@@ -40,8 +40,11 @@ behaviour says so.
   no diff, no decision stub, no engineer note and no story-issue comment, and it asks nothing. Key
   Decisions lists every decision of the record whose hash it stamps, in record order, then each
   decision stub a verdict confirmed, once. Deviation Rationale has one entry per accepted departure
-  per pull request, naming what it departs from, the pull request and the departure's ID, the
-  reason, and who accepted it. A waived critical or high finding is listed with who waived it.
+  per pull request, in merge order, naming what it departs from, the pull request and the
+  departure's ID, the reason, and who accepted it. A pull request that changed no files keeps its
+  merge-order place. A waived critical or high finding is listed with who waived it. Close reads the
+  epic, its stories and its record from the configured issues repository, also when `epic-repo`
+  names one other than the checkout's.
   `analyze:` reads `ran <date> @ <head>` from the most recently merged pull request's verdict, as
   before. Text copied from an answer, a stub or a proposal can no longer add a close-record marker
   or a fenced block.
@@ -49,8 +52,8 @@ behaviour says so.
   accepted departure as superseding a record decision, `nexus close` posts one amendment comment on
   the decision record, naming each superseded decision, what shipped instead and why. A re-run
   finds that comment and does not post a second. No mark, no comment. A failed post is reported
-  and does not stop the close. A later re-run does not post a missing amendment, so close prints
-  the amendment's exact text and the record issue to post it on by hand.
+  and does not stop the close: close prints the amendment's exact text and the record issue to post
+  it on by hand, and a later re-run of `nexus close` posts it if it is still missing.
 - **`nexus close` files the approved scope, posts the close comment, closes the epic and hands
   off.** Each deferred-scope proposal a trusted person approved on a merged pull request is filed
   once as an unplanned epic stub, with the repository's epic classification and unplanned label
