@@ -36,6 +36,15 @@
  * reviewed; otherwise it is current. Excluded stories are listed as excluded and never read. The
  * claiming read returns every state, and only this classification looks past the merged pull
  * requests: ranges, checkouts, receipts and the landed check are asked of merged ones alone.
+ *
+ * Between never reviewed and current sits stale (story #842, D5, D6): a receipt names the story,
+ * but its evidence no longer holds, for any of three named causes on each pull request — the
+ * landed check found a reviewed file that did not land as reviewed, the merged head is not the
+ * analyzed head, or the receipt's record digest is not the decision record's current digest. A
+ * revised record makes every story its receipt names stale. Every cause is reported, each with
+ * the remedy that can clear it, and evidence close could not read — the record's current digest,
+ * or the landed check — makes the story unknown rather than guessed at. A story's text plays no
+ * part (D12).
  */
 
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
@@ -48,6 +57,7 @@ import { resolveRepoCheckout, type RepoCheckoutResult } from "@nexus/pr-worktree
 import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { shippedRecordKey, type ShippedRecord } from "./ledger.js";
 import { readPrVerdict } from "./pr-verdict.js";
+import { fetchRecord } from "@nexus/record-digest/fetch";
 import { type Runner } from "./run.js";
 import { mergedClaims, readStoryClaims, type StoryClaimingPr, type StoryClaimsRead, type StoryMergedPr, type StoryReadFailure } from "./story-prs.js";
 
@@ -59,6 +69,9 @@ export type TrunkOutcome = { ok: true; onTrunk: boolean; trunkRef: string } | { 
 
 /** A pull request's selected trusted receipt (null when it carries none) and its head, or why they could not be read. */
 export type LandedReceiptRead = { ok: true; receipt: AnalyzeReceipt | null; prHead: string } | { ok: false; cause: string };
+
+/** The epic's decision record as it reads now (null when the epic has none), or why it could not be read. */
+export type CurrentRecordRead = { ok: true; record: { issue: number; digest: string } | null } | { ok: false; cause: string };
 
 /** The reads and git operations the derivation depends on, injected so a spec can stand in for them. */
 export interface CloseRangesDeps {
@@ -78,6 +91,8 @@ export interface CloseRangesDeps {
     readReceipt(pr: StoryMergedPr): LandedReceiptRead;
     /** The landed check, run in `checkout`. May fetch the pull request's head ref, never trunk. */
     compareLanded(checkout: string, pr: StoryMergedPr, input: LandedChangeInput): LandedChangeResult;
+    /** The epic's decision record and its current digest, through the one digest implementation. */
+    readRecord(): CurrentRecordRead;
 }
 
 /** One pull request's range as listed under a story. */
@@ -115,11 +130,11 @@ export interface StoryLanded {
     prs: PrLandedCheck[];
 }
 
-/**
- * Where a story stands at close (decision record #849, D5). Any state but `current` and
- * `excluded` stops close. Stale and its causes are story #842's to add.
- */
-export type StoryStateName = "current" | "never-reviewed" | "unshipped" | "unknown" | "excluded";
+/** Where a story stands at close (decision record #849, D5). Any state but `current` and `excluded` stops close. */
+export type StoryStateName = "current" | "stale" | "never-reviewed" | "unshipped" | "unknown" | "excluded";
+
+/** Which piece of evidence close could not read. */
+export type UnreadableEvidence = "receipt" | "record" | "landed-check";
 
 /** One thing close found about a pull request claiming a story, with the remedy it names. */
 export type StoryStateFinding =
@@ -129,8 +144,17 @@ export type StoryStateFinding =
     | { repo: string; pr: number; finding: "closed-unmerged" }
     /** The merged pull request's selected receipt, if any, does not name the story. */
     | { repo: string; pr: number; finding: "no-receipt"; remedy: string }
-    /** The merged pull request's receipt could not be read. */
-    | { repo: string; pr: number; finding: "unreadable"; cause: string };
+    /** Evidence about the merged pull request could not be read: its receipt, the record's current digest, or its landed check. */
+    | { repo: string; pr: number; finding: "unreadable"; evidence: UnreadableEvidence; cause: string }
+    /** Stale: the receipt names the story, but analyzed another head than the one that merged. */
+    | { repo: string; pr: number; finding: "head-mismatch"; analyzedHead: string; mergedHead: string; remedies: string[] }
+    /** Stale: the receipt names the story, but the decision record was revised after it was written. */
+    | { repo: string; pr: number; finding: "record-revised"; record: number; stampedDigest: string; currentDigest: string; remedies: string[] }
+    /** Stale: the receipt names the story, but these reviewed files did not land as reviewed. */
+    | { repo: string; pr: number; finding: "landed-change"; files: string[]; remedies: string[] };
+
+/** The finding kinds that make a story stale. */
+const STALE_FINDINGS: ReadonlySet<StoryStateFinding["finding"]> = new Set(["head-mismatch", "record-revised", "landed-change"]);
 
 export interface StoryState {
     story: number;
@@ -288,13 +312,19 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
         return { story, result, prs };
     });
 
-    // 6. Every story's state (D5, D7).
+    // 6. The decision record's current digest, read once, and only when a receipt stamped one to
+    // compare it with (D5).
+    const stamped = [...receipts.values()].some((r) => r.ok && r.receipt !== null && r.receipt.recordHash !== null);
+    const currentRecord: CurrentRecordRead = stamped ? deps.readRecord() : { ok: true, record: null };
+
+    // 7. Every story's state (D5, D7).
+    const evidence: Evidence = { receipts, outcomes, checks, currentRecord, issuesRepo: input.issuesRepo };
     const states: StoryState[] = [...input.stories]
         .sort((a, b) => a - b)
         .map((story) =>
             excluded.includes(story)
                 ? { story, state: "excluded" as const, findings: [] }
-                : classify(story, claims.get(story) ?? [], unmerged.get(story) ?? [], receipts, outcomes),
+                : classify(story, claims.get(story) ?? [], unmerged.get(story) ?? [], evidence),
         );
 
     const ok = blocking.length === 0;
@@ -314,18 +344,22 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
     };
 }
 
+/** What the classification reads, each gathered once for the whole epic. */
+interface Evidence {
+    receipts: ReadonlyMap<string, LandedReceiptRead>;
+    outcomes: ReadonlyMap<string, Outcome>;
+    checks: ReadonlyMap<string, PrLandedCheck>;
+    currentRecord: CurrentRecordRead;
+    issuesRepo: string | undefined;
+}
+
 /**
  * One story's state, in the record's order: unknown, then unshipped, then never reviewed, then
- * current (Mechanism step 4). Every finding is kept whichever state wins, so the lead sees each
- * one in a single pass.
+ * stale, then current (Mechanism step 4). Every finding is kept whichever state wins, so the lead
+ * sees each one in a single pass.
  */
-function classify(
-    story: number,
-    merged: readonly StoryMergedPr[],
-    unmerged: readonly StoryClaimingPr[],
-    receipts: ReadonlyMap<string, LandedReceiptRead>,
-    outcomes: ReadonlyMap<string, Outcome>,
-): StoryState {
+function classify(story: number, merged: readonly StoryMergedPr[], unmerged: readonly StoryClaimingPr[], evidence: Evidence): StoryState {
+    const { receipts, outcomes } = evidence;
     const findings: StoryStateFinding[] = [];
     for (const pr of unmerged) findings.push({ repo: pr.repo, pr: pr.pr, finding: pr.state === "open" ? "open" : "closed-unmerged" });
 
@@ -339,10 +373,13 @@ function classify(
     for (const pr of merged) {
         const r = receipts.get(prKey(pr)) as LandedReceiptRead;
         if (!r.ok) {
-            findings.push({ repo: pr.repo, pr: pr.pr, finding: "unreadable", cause: r.cause });
+            findings.push({ repo: pr.repo, pr: pr.pr, finding: "unreadable", evidence: "receipt", cause: r.cause });
             continue;
         }
-        if (naming(pr)) continue;
+        if (naming(pr)) {
+            findings.push(...staleness(pr, r.receipt as AnalyzeReceipt, r.prHead, evidence));
+            continue;
+        }
         const o = outcomes.get(prKey(pr));
         const noRange = o !== undefined && "entry" in o && o.entry.source === "no-range";
         if (noRange && namedAnywhere) continue;
@@ -356,8 +393,61 @@ function classify(
           ? "unshipped"
           : has("no-receipt")
             ? "never-reviewed"
-            : "current";
+            : findings.some((x) => STALE_FINDINGS.has(x.finding))
+              ? "stale"
+              : "current";
     return { story, state, findings };
+}
+
+/**
+ * Whether a receipt that names the story still holds for the pull request it was published on
+ * (D5), with the remedy that can clear each cause that does not (D6). A moved head is cleared by
+ * re-analyzing the merged head; a revised record by that run or by a trusted waiver on the pull
+ * request; a reviewed file that did not land as reviewed only by a waiver, because re-analyzing the
+ * same head cannot change what landed.
+ */
+function staleness(pr: StoryMergedPr, receipt: AnalyzeReceipt, prHead: string, evidence: Evidence): StoryStateFinding[] {
+    const ref = { repo: pr.repo, pr: pr.pr };
+    const where = `${pr.repo}#${pr.pr}`;
+    const analyze = `/nxs.analyze --pr ${pr.pr}`;
+    const out: StoryStateFinding[] = [];
+
+    if (receipt.head !== prHead) out.push({ ...ref, finding: "head-mismatch", analyzedHead: receipt.head, mergedHead: prHead, remedies: [analyze] });
+
+    if (receipt.recordHash !== null) {
+        const current = evidence.currentRecord;
+        if (!current.ok) {
+            out.push({ ...ref, finding: "unreadable", evidence: "record", cause: `the decision record's current digest could not be read: ${current.cause}` });
+        } else if (current.record === null) {
+            out.push({
+                ...ref,
+                finding: "unreadable",
+                evidence: "record",
+                cause: "its receipt stamps a decision-record digest, but the epic has no decision record to compare it with",
+            });
+        } else if (current.record.digest !== receipt.recordHash) {
+            const record = evidence.issuesRepo ? `${evidence.issuesRepo}#${current.record.issue}` : `#${current.record.issue}`;
+            out.push({
+                ...ref,
+                finding: "record-revised",
+                record: current.record.issue,
+                stampedDigest: receipt.recordHash,
+                currentDigest: current.record.digest,
+                remedies: [analyze, `a trusted waiver comment a lead posts on ${where} accepting decision record ${record} at digest ${current.record.digest}`],
+            });
+        }
+    }
+
+    const check = evidence.checks.get(prKey(pr));
+    if (check?.result === "changed") {
+        const files = check.files.filter((f) => f.status === "changed").map((f) => f.path);
+        out.push({ ...ref, finding: "landed-change", files, remedies: [`a trusted waiver comment a lead posts on ${where} naming ${files.join(", ")}`] });
+    } else if (check?.result === "unknown") {
+        const o = evidence.outcomes.get(prKey(pr));
+        // A pull request with no range established already stops close for the block's own reason.
+        if (o !== undefined && "entry" in o) out.push({ ...ref, finding: "unreadable", evidence: "landed-check", cause: check.cause });
+    }
+    return out;
 }
 
 function landedCheckOf(deps: CloseRangesDeps, pr: StoryMergedPr, o: Outcome, read: LandedReceiptRead): { check: PrLandedCheck; block?: CloseRangeBlock } {
@@ -448,15 +538,52 @@ function describeCheck(c: PrLandedCheck): string {
     }
 }
 
-/** The line close repeats for a story that stops it, naming every finding and its remedy. */
-function describeState(s: StoryState, ref: string): string | null {
+function describeUnreadable(f: Extract<StoryStateFinding, { finding: "unreadable" }>): string {
+    const pr = `${f.repo}#${f.pr}`;
+    switch (f.evidence) {
+        case "receipt":
+            return `the receipt on ${pr} could not be read: ${f.cause}`;
+        case "record":
+            return `${pr}: ${f.cause}`;
+        case "landed-check":
+            return `the landed check of ${pr} could not be read: ${f.cause}`;
+    }
+}
+
+/** One stale cause, naming the pull request, the reason and every remedy that can clear it. */
+function describeStale(f: StoryStateFinding): string | null {
+    const pr = `${f.repo}#${f.pr}`;
+    switch (f.finding) {
+        case "head-mismatch":
+            return `${pr} analyzed head ${f.analyzedHead} is not the merged head ${f.mergedHead}; run ${f.remedies[0]}`;
+        case "record-revised":
+            return `${pr} receipt was written against an earlier decision record (${f.stampedDigest} → ${f.currentDigest}); run ${f.remedies[0]}, or ${f.remedies[1]}`;
+        case "landed-change":
+            return `${pr} did not land ${f.files.join(", ")} as reviewed; no analyze run can clear this, only ${f.remedies[0]}`;
+        default:
+            return null;
+    }
+}
+
+/** The lines close repeats for a story that stops it, naming every finding and its remedy. */
+function describeState(s: StoryState, ref: string): string[] {
+    const stale = s.findings.map(describeStale).filter((x): x is string => x !== null);
+    const head = describeHead(s, ref, stale);
+    if (head === null) return [];
+    // A story stopped for another reason still names its stale causes, so one pass fixes all of them.
+    return s.state === "stale" || stale.length === 0 ? [head] : [head, `${ref} — also stale: ${stale.join("; ")}`];
+}
+
+function describeHead(s: StoryState, ref: string, stale: readonly string[]): string | null {
     const named = (f: StoryStateFinding["finding"]) => s.findings.filter((x) => x.finding === f).map((x) => `${x.repo}#${x.pr}`);
     switch (s.state) {
         case "current":
         case "excluded":
             return null;
+        case "stale":
+            return `${ref} — stale: ${stale.join("; ")}`;
         case "unknown": {
-            const causes = s.findings.flatMap((f) => (f.finding === "unreadable" ? [`the receipt on ${f.repo}#${f.pr} could not be read: ${f.cause}`] : []));
+            const causes = s.findings.flatMap((f) => (f.finding === "unreadable" ? [describeUnreadable(f)] : []));
             return `${ref} — unknown: ${causes.join("; ")}. Re-run once the read succeeds`;
         }
         case "unshipped": {
@@ -503,10 +630,7 @@ function renderLines(
         const ref = issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`;
         lines.push(`${ref} — landed check: ${s.prs.map(describeCheck).join("; ")}`);
     }
-    for (const s of states) {
-        const line = describeState(s, issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`);
-        if (line !== null) lines.push(line);
-    }
+    for (const s of states) lines.push(...describeState(s, issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`));
     for (const b of blocking) {
         if (b.kind === "merge-commit-moved") {
             lines.push(`${b.repo}#${b.pr} — the platform no longer reports the merge commit its record stamped (recorded ${b.recorded}, reports ${b.reported ?? "none"})`);
@@ -531,7 +655,7 @@ function renderLines(
  * The claiming read is passed through in every state: close is the one caller that classifies an
  * open or closed-unmerged pull request, and the derivation narrows to merged ones itself (D7).
  */
-export function closeRangesDeps(run: Runner, root: string, issuesRepo: string): CloseRangesDeps {
+export function closeRangesDeps(run: Runner, root: string, issuesRepo: string, record: number | null = null): CloseRangesDeps {
     const slash = issuesRepo.lastIndexOf("/");
     const owner = issuesRepo.slice(0, slash).split("/").pop() ?? "";
     const slug: RepoSlug = { owner, repo: issuesRepo.slice(slash + 1) };
@@ -564,6 +688,12 @@ export function closeRangesDeps(run: Runner, root: string, issuesRepo: string): 
             // in when the checkout lacks it — the one fetch close may make (D3).
             if (run("git", ["cat-file", "-e", `${input.analyzedHead}^{commit}`], { cwd: checkout }).status !== 0) fetchPrHead(run, checkout, pr.pr);
             return compareLandedChange(run, checkout, input);
+        },
+        readRecord: () => {
+            if (record === null) return { ok: true, record: null };
+            // The one digest implementation, over the record body as fetched back (nxs-record-digest).
+            const fetched = fetchRecord(run, root, record, issuesRepo);
+            return fetched.ok ? { ok: true, record: { issue: record, digest: fetched.record.digest } } : { ok: false, cause: fetched.error.message };
         },
     };
 }

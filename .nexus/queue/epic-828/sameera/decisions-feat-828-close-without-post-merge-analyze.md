@@ -72,3 +72,18 @@
 - **Choice:** The pre-publish check refuses a block with a `story_fingerprints` line (`story-text-recorded`) instead of merely tolerating it.
 - **Why:** It makes G38 hold mechanically at the one gate every publish passes, not only through analyze's prose.
 - **Refuted alternative:** Accept such a block silently, which leaves G38 resting on prose the stage could drift from.
+
+## 2026-10-04 — Each stale cause is its own finding, and a story keeps every finding
+- **Choice:** Add `head-mismatch`, `record-revised` and `landed-change` as finding kinds beside `no-receipt`, each carrying its `remedies`; `stale` is decided after never reviewed, and a story in an earlier state still lists (and prints, as an "also stale" line) its stale causes.
+- **Why:** G10 asks for every cause with its pull request and reason, and listing them whichever state wins lets a lead clear everything in one pass, as #847's findings already do.
+- **Refuted alternative:** One `stale` finding per pull request with a list of causes, which mixes a remedy that only a waiver can meet with ones an analyze run clears.
+
+## 2026-10-04 — The record's current digest is read once, through `fetchRecord`, only when a receipt stamps one
+- **Choice:** `ranges` reads the epic's record sub-issue (from the resolver) through the record-digest library's fetch-and-hash, once per run and only when some receipt stamps a `record_hash`; a failed read, or a stamped digest on an epic with no record, makes each story that receipt names `unknown`.
+- **Why:** That library is the one digest implementation `nexus record-digest` runs, and G10 forbids guessing current or stale from a digest close could not take.
+- **Refuted alternative:** Re-hash the record the receipt's own `record` key names, which can be a qualified reference to another repository and is not the record the epic carries now.
+
+## 2026-10-04 — An unreadable landed check makes its story unknown
+- **Choice:** A landed check that failed on a pull request with a range adds an `unreadable` finding (`evidence: landed-check`) to each story its receipt names, beside the existing `landed-unreadable` block.
+- **Why:** The story was otherwise reported `current` while close could not read whether its files landed as reviewed, and G10 reserves "unknown" for exactly that.
+- **Refuted alternative:** Leave the state current and rely on the range block to stop close, which reports a story as current on evidence close never read.

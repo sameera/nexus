@@ -310,8 +310,10 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      request with no attributable commits is listed as no range. `landed` is each story's landed",
             "      check: whether each pull request landed every reviewed file as its trusted receipt's analyzed",
             "      head changed it. A merge commit trunk does not reach blocks as not-landed. `states` sorts each",
-            "      story as current, never-reviewed, unshipped, unknown or excluded; `closable` is true only when",
-            "      nothing blocks and every story is current or excluded. A failed read exits 1 as",
+            "      story as current, stale, never-reviewed, unshipped, unknown or excluded. A stale story names",
+            "      each cause — a reviewed file that did not land as reviewed, a merged head that is not the",
+            "      analyzed head, a decision record revised since the receipt — and the remedy for each;",
+            "      `closable` is true only when nothing blocks and every story is current or excluded. A failed read exits 1 as",
             "      story-read-failed; a repository with no checkout exits 1 as checkout-missing,",
             "      naming the expected path, before anything is fetched.",
             "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
@@ -1779,7 +1781,8 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             return 1;
         }
 
-        const derived = deriveCloseRanges(closeRangesDeps(closeMigrationRunner, root, issuesRepo), {
+        // The record's current digest is compared with each receipt's stamped one (story #842, D5).
+        const derived = deriveCloseRanges(closeRangesDeps(closeMigrationRunner, root, issuesRepo, resolved.record?.number ?? null), {
             stories,
             excluded,
             records: collected.collected.records.map((f) => f.record),

@@ -45,7 +45,9 @@ interface World {
     /** Merge commits the checkout holds but trunk does not reach. */
     offTrunk?: string[];
     /** The analyzed head of each pull request's selected receipt, or a read failure; none by default. */
-    receipts?: Record<number, { head: string; stories?: number[] } | { fail: string }>;
+    receipts?: Record<number, { head: string; stories?: number[]; recordHash?: string } | { fail: string }>;
+    /** The epic's decision record as read now: its digest, a read failure, or none (the default). */
+    record?: { digest: string } | { fail: string } | null;
     /** Each pull request's head; defaults to `head-<pr>`. */
     prHeads?: Record<number, string>;
     /** The landed check's answer per pull request; defaults to every file unchanged. */
@@ -59,8 +61,21 @@ interface Seen {
     compared?: Array<{ pr: number; analyzedHead: string; base: string; head: string }>;
 }
 
-function receipt(head: string, stories: number[] = []): AnalyzeReceipt {
-    return { epic: "#828", nexusVersion: null, pr: null, date: "2026-09-01", head, mode: "full", findings: {}, repo: null, stories, record: null, recordHash: null, issuesRepo: null };
+function receipt(head: string, stories: number[] = [], recordHash: string | null = null): AnalyzeReceipt {
+    return {
+        epic: "#828",
+        nexusVersion: null,
+        pr: null,
+        date: "2026-09-01",
+        head,
+        mode: "full",
+        findings: {},
+        repo: null,
+        stories,
+        record: recordHash === null ? null : "#849",
+        recordHash,
+        issuesRepo: null,
+    };
 }
 
 function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [] }): CloseRangesDeps {
@@ -94,7 +109,13 @@ function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [
             const prHead = world.prHeads?.[pr.pr] ?? `head-${pr.pr}`;
             if (r === undefined) return { ok: true, receipt: null, prHead };
             if ("fail" in r) return { ok: false, cause: r.fail };
-            return { ok: true, receipt: receipt(r.head, r.stories), prHead };
+            return { ok: true, receipt: receipt(r.head, r.stories, r.recordHash ?? null), prHead };
+        },
+        readRecord() {
+            const r = world.record ?? null;
+            if (r === null) return { ok: true, record: null };
+            if ("fail" in r) return { ok: false, cause: r.fail };
+            return { ok: true, record: { issue: 849, digest: r.digest } };
         },
         compareLanded(_checkout, pr, input) {
             seen.compared?.push({ pr: pr.pr, ...input });
@@ -341,7 +362,7 @@ describe("deriveCloseRanges — the landed check (D4; G8, G9)", () => {
         expect(out.ranges.lines.join("\n")).toMatch(/#1 — landed check:[^\n]*acme\/web#10 changed[^\n]*src\/b\.ts/);
     });
 
-    it("reports a changed file without blocking close on it", () => {
+    it("reports a changed file as a landed result, not a range block (the stale gate stops on it)", () => {
         const out = deriveCloseRanges(deps({ claims: one, receipts: { 10: { head: "head-10" } }, landed: { 10: { ok: true, files: [{ path: "x", status: "changed" }] } } }), {
             stories: [1],
             records: [],
@@ -560,5 +581,177 @@ describe("deriveCloseRanges — each story's state (story #847; D5, D6, D7; G13,
         });
         expect(out.ok && out.ranges.ok).toBe(false);
         expect(out.ok && out.ranges.closable).toBe(false);
+    });
+});
+
+describe("deriveCloseRanges — a story whose evidence is stale (story #842; D5, D6; G10, G11, G12)", () => {
+    const one = { 1: [merged(1, 10, "2026-09-02T00:00:00Z")] };
+    const stateOf = (out: ReturnType<typeof deriveCloseRanges>, story = 1) => (out.ok ? out.ranges.states.find((s) => s.story === story) : undefined);
+    const lineOf = (out: ReturnType<typeof deriveCloseRanges>, story = 1) => (out.ok ? (out.ranges.lines.find((l) => l.startsWith(`#${story} — stale`)) ?? "") : "");
+
+    it("stops on a story whose pull request landed a reviewed file differently, naming only a waiver on that pull request", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "head-10", stories: [1] } },
+                landed: { 10: { ok: true, files: [{ path: "src/a.ts", status: "unchanged" }, { path: "src/b.ts", status: "changed" }] } },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)).toEqual({
+            story: 1,
+            state: "stale",
+            findings: [{ repo: "acme/web", pr: 10, finding: "landed-change", files: ["src/b.ts"], remedies: [expect.stringContaining("waiver")] }],
+        });
+        expect(out.ok && out.ranges.closable).toBe(false);
+        const line = lineOf(out);
+        expect(line).toContain("acme/web#10");
+        expect(line).toContain("src/b.ts");
+        expect(line).toMatch(/waiver/i);
+        expect(line).not.toContain("/nxs.analyze");
+    });
+
+    it("stops on a story whose merged head is not the head its receipt analyzed, naming /nxs.analyze --pr on that pull request", () => {
+        const out = deriveCloseRanges(deps({ claims: one, receipts: { 10: { head: "old-head", stories: [1] } } }), { stories: [1], records: [] });
+        expect(stateOf(out)).toEqual({
+            story: 1,
+            state: "stale",
+            findings: [{ repo: "acme/web", pr: 10, finding: "head-mismatch", analyzedHead: "old-head", mergedHead: "head-10", remedies: ["/nxs.analyze --pr 10"] }],
+        });
+        expect(out.ok && out.ranges.closable).toBe(false);
+        const line = lineOf(out);
+        expect(line).toContain("acme/web#10");
+        expect(line).toContain("/nxs.analyze --pr 10");
+        expect(line).not.toMatch(/waiver/i);
+    });
+
+    it("names every story a receipt covers as stale when the decision record was revised after it, with analyze or a waiver as the remedy", () => {
+        const pr = (story: number) => merged(story, 40, "2026-09-03T00:00:00Z");
+        const out = deriveCloseRanges(
+            deps({ claims: { 1: [pr(1)], 2: [pr(2)] }, receipts: { 40: { head: "head-40", stories: [1, 2], recordHash: "old" } }, record: { digest: "new" } }),
+            { stories: [1, 2], records: [] },
+        );
+        for (const story of [1, 2]) {
+            expect(stateOf(out, story)).toEqual({
+                story,
+                state: "stale",
+                findings: [
+                    {
+                        repo: "acme/web",
+                        pr: 40,
+                        finding: "record-revised",
+                        record: 849,
+                        stampedDigest: "old",
+                        currentDigest: "new",
+                        remedies: ["/nxs.analyze --pr 40", expect.stringContaining("waiver")],
+                    },
+                ],
+            });
+            const line = lineOf(out, story);
+            expect(line).toContain("acme/web#40");
+            expect(line).toContain("/nxs.analyze --pr 40");
+            expect(line).toMatch(/waiver/i);
+        }
+        expect(out.ok && out.ranges.closable).toBe(false);
+    });
+
+    it("leaves a story current when its receipt's record digest is the record's current digest", () => {
+        const out = deriveCloseRanges(deps({ claims: one, receipts: { 10: { head: "head-10", stories: [1], recordHash: "same" } }, record: { digest: "same" } }), {
+            stories: [1],
+            records: [],
+        });
+        expect(stateOf(out)?.state).toBe("current");
+        expect(out.ok && out.ranges.closable).toBe(true);
+    });
+
+    it("does not make a story stale through a revised record behind a receipt that does not name it", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z")], 2: [merged(2, 11, "2026-09-03T00:00:00Z")] },
+                receipts: { 10: { head: "head-10", stories: [1], recordHash: "new" }, 11: { head: "head-11", stories: [2], recordHash: "old" } },
+                record: { digest: "new" },
+            }),
+            { stories: [1, 2], records: [] },
+        );
+        expect(stateOf(out, 1)?.state).toBe("current");
+        expect(stateOf(out, 2)?.state).toBe("stale");
+    });
+
+    it("reads the current record once however many receipts stamp a digest, and not at all when none does", () => {
+        let reads = 0;
+        const counting = (world: World): CloseRangesDeps => {
+            const d = deps(world);
+            return { ...d, readRecord: () => (reads++, d.readRecord()) };
+        };
+        const two = { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), merged(1, 11, "2026-09-03T00:00:00Z")] };
+        deriveCloseRanges(
+            counting({ claims: two, receipts: { 10: { head: "head-10", stories: [1], recordHash: "a" }, 11: { head: "head-11", stories: [1], recordHash: "a" } }, record: { digest: "a" } }),
+            { stories: [1], records: [] },
+        );
+        expect(reads).toBe(1);
+        reads = 0;
+        deriveCloseRanges(counting({ claims: one, receipts: { 10: { head: "head-10", stories: [1] } } }), { stories: [1], records: [] });
+        expect(reads).toBe(0);
+    });
+
+    it("names every cause of a story stale for more than one, across its pull requests", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), merged(1, 11, "2026-09-03T00:00:00Z")] },
+                receipts: { 10: { head: "old-head", stories: [1], recordHash: "old" }, 11: { head: "head-11", stories: [1], recordHash: "new" } },
+                record: { digest: "new" },
+                landed: { 11: { ok: true, files: [{ path: "src/c.ts", status: "changed" }] } },
+            }),
+            { stories: [1], records: [] },
+        );
+        const s = stateOf(out);
+        expect(s?.state).toBe("stale");
+        expect(s?.findings.map((f) => [f.pr, f.finding])).toEqual([
+            [10, "head-mismatch"],
+            [10, "record-revised"],
+            [11, "landed-change"],
+        ]);
+        const line = lineOf(out);
+        for (const reason of [/analyzed head/, /record/, /src\/c\.ts/]) expect(line).toMatch(reason);
+    });
+
+    it("calls a story unknown, never stale or current, when the current record digest could not be read, and still names every other cause", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: one, receipts: { 10: { head: "old-head", stories: [1], recordHash: "old" } }, record: { fail: "gh: HTTP 502" } }),
+            { stories: [1], records: [] },
+        );
+        const s = stateOf(out);
+        expect(s?.state).toBe("unknown");
+        expect(s?.findings).toEqual([
+            { repo: "acme/web", pr: 10, finding: "head-mismatch", analyzedHead: "old-head", mergedHead: "head-10", remedies: ["/nxs.analyze --pr 10"] },
+            { repo: "acme/web", pr: 10, finding: "unreadable", evidence: "record", cause: expect.stringContaining("gh: HTTP 502") },
+        ]);
+        expect(out.ok && out.ranges.closable).toBe(false);
+    });
+
+    it("calls a story unknown when its receipt stamps a record digest but the epic has no decision record to compare it with", () => {
+        const out = deriveCloseRanges(deps({ claims: one, receipts: { 10: { head: "head-10", stories: [1], recordHash: "old" } }, record: null }), {
+            stories: [1],
+            records: [],
+        });
+        expect(stateOf(out)?.state).toBe("unknown");
+    });
+
+    it("calls a story unknown, never current, when its pull request's landed check could not be read", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: one, receipts: { 10: { head: "head-10", stories: [1] } }, landed: { 10: { ok: false, error: { problem: "git-failed", message: "no such commit" } } } }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("unknown");
+        expect(stateOf(out)?.findings).toEqual([{ repo: "acme/web", pr: 10, finding: "unreadable", evidence: "landed-check", cause: expect.stringContaining("no such commit") }]);
+    });
+
+    it("decides never reviewed before stale, keeping the stale finding for the lead", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), merged(1, 11, "2026-09-03T00:00:00Z")] }, receipts: { 10: { head: "old-head", stories: [1] } } }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("never-reviewed");
+        expect(stateOf(out)?.findings.map((f) => f.finding)).toEqual(["head-mismatch", "no-receipt"]);
     });
 });
