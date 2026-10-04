@@ -17,8 +17,8 @@
  * - **blocking** — critical or high findings; reports the counts and refuses (G20).
  * - **clean** — reports the verdict; the only result that allows the merge.
  *
- * Story fingerprints a receipt records are parsed and ignored here (G37): the pre-check gates on
- * nothing but the head and the finding counts.
+ * Story text a receipt written by 0.82.0 to 0.86.0 records is read past and ignored here (D12,
+ * G37): the pre-check gates on nothing but the head and the finding counts.
  */
 
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";

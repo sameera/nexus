@@ -19,7 +19,6 @@ import { parseReceiptBlock } from "@nexus/pr-acceptance/verify";
 import { RECEIPT_MARKER } from "@nexus/pr-acceptance/receipt-blocks";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
-import { storyFingerprint } from "./fingerprint.js";
 import { type Runner } from "./run.js";
 import { resolveVerdictRepos, type VerdictRepos } from "./verdict-repos.js";
 
@@ -67,53 +66,18 @@ export function checkVerdictPublish(run: Runner, cwd: string, body: string): Che
         };
     }
 
-    // Story fingerprints (epic #827, decision record #837, D7). Analyze took them when it first
-    // read the stories; checking them again here catches a story edited while the run was in
-    // progress and a fingerprint copied wrongly into the block. Exactly one per named story, each
-    // equal to the digest of that story's current body in the issues repository.
-    const named = [...new Set(parsed.stories)].sort((a, b) => a - b);
-    const extra = Object.keys(parsed.storyFingerprints)
-        .map(Number)
-        .filter((n) => !named.includes(n));
-    if (extra.length > 0) {
+    // A receipt records no story text (epic #828, decision record #849, D12, G38). Story text no
+    // longer decides anything at close, so a drafted block that still records it is refused here,
+    // where the publish gate already stands, rather than published as a value a later gate could
+    // creep back onto. Readers keep accepting the key on receipts written by 0.82.0 to 0.86.0.
+    if (/^\s*story_fingerprints\s*:/m.test(body.slice(body.indexOf(RECEIPT_MARKER)))) {
         return {
             ok: false,
             error: {
-                problem: "story-fingerprint-extra",
-                message: `the drafted verdict fingerprints ${extra.map((n) => `#${n}`).join(", ")}, which its \`stories:\` list does not name; record a fingerprint for exactly the stories it covers.`,
+                problem: "story-text-recorded",
+                message: "the drafted verdict records `story_fingerprints:`; a receipt no longer records the text of the stories it covers. Drop that line and check again.",
             },
         };
-    }
-    for (const story of named) {
-        const recorded = parsed.storyFingerprints[story];
-        if (recorded === undefined) {
-            return {
-                ok: false,
-                error: {
-                    problem: "story-fingerprint-missing",
-                    message: `the drafted verdict names story #${story} in ${issuesRepo} but records no fingerprint for it; add it from \`nexus story-fingerprints\` taken at the start of the run.`,
-                },
-            };
-        }
-        const current = storyFingerprint(run, cwd, issuesRepo, story);
-        if (!current.ok) {
-            return {
-                ok: false,
-                error: {
-                    problem: "story-unreadable",
-                    message: `the current text of story #${story} in ${issuesRepo} could not be fetched, so its fingerprint cannot be checked: ${current.cause}. Run analyze again once it can be read.`,
-                },
-            };
-        }
-        if (recorded !== current.digest) {
-            return {
-                ok: false,
-                error: {
-                    problem: "story-fingerprint-mismatch",
-                    message: `story #${story} in ${issuesRepo} does not match the fingerprint the drafted verdict records (recorded ${recorded}, current ${current.digest}). The story was edited during the run or the fingerprint was copied wrongly; run analyze again.`,
-                },
-            };
-        }
     }
 
     return { ok: true, repos: resolved.repos };

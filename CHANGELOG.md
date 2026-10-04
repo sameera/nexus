@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.87.0
+
+- **Editing a story after analysis no longer flags it at close.** `/nxs.close --pr` no longer
+  reports a story as "changed since analysis" because its text changed after its receipt was
+  written. It no longer reports a story as "unknown" because its receipt records no story text.
+  A wording fix to a story no longer calls for an analyze run per pull request. A revised decision
+  record still makes every story stale, as before.
+- **Analyze no longer records story text in its receipt.** `/nxs.analyze --pr` no longer takes a
+  fingerprint of each story before reading it, and the published receipt no longer carries one.
+  The pre-publish check now refuses a drafted receipt that still records story text, and no
+  longer fetches the stories it names.
+- **Older receipts keep working.** A receipt an earlier release wrote that records story text is
+  still read without error by close and by the merge pre-check, and the recorded text changes no
+  outcome.
+
 ## 0.86.0
 
 - **The one-command close script refuses to merge over a head analysis never saw (breaking).** When

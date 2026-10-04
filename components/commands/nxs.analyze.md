@@ -98,18 +98,6 @@ target repository.
     names win. **Zero validated stories stops the run and names every candidate it considered and
     why each was dropped; do not proceed.** Two or more stories is not an error: the run covers all
     of them. Two or more *epics* is: the PR spans epics and the run stops.
-
-    **Take each story's fingerprint now, before you read any story text** (epic #827):
-
-    ```bash
-    nexus story-fingerprints --stories <the stories just printed> --dir "$wtPath"
-    ```
-
-    It prints `{ issuesRepo, fingerprints }`: the record digest of each story's issue body, fetched
-    from the issues repository. Keep `fingerprints` for the machine block. It is how a later close
-    tells whether a story changed after this analysis, so it must describe the text this run
-    judges. Never take it again later in the run. A non-zero exit names each unreadable story; stop
-    and publish nothing.
 3. Resolve the epic from a **main checkout** (the hub when `<ref>` names a member, this checkout
    otherwise) with the same dual-read as the local flow: if a committed queue entry is present
    there (an old-contract epic whose entry rode the PR), use it; otherwise materialize the `epic`
@@ -552,7 +540,6 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     issues_repo: <ISSUES_REPO>           # where epic/record/stories live; ALWAYS written, never omitted
     repo: <repoIdentity>                 # the target repo actually read — the member, not the hub
     stories: [<n>, ...]                  # the story issue number(s) this verdict covers, in issues_repo
-    story_fingerprints: { <n>: <DIGEST>, ... }  # one per story above, verbatim from story-fingerprints
     pr: <N>
     date: <YYYY-MM-DD>
     head: <full 40-hex analyzedHead>     # the commit actually analyzed
@@ -586,10 +573,10 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     is `issues_repo`, declared once, immediately above. Stamp the **full**, un-abbreviated repo
     identity and every covered story number; never truncate either.
 
-    `story_fingerprints` carries exactly one entry per number in `stories` and no other. Copy each
-    digest **in full** from the `nexus story-fingerprints` output taken in PR-mode step 2. Never
-    take it again here, and never shorten it. Only this pull-request receipt carries fingerprints.
-    The shipped record `epic-verdicts record` writes and a local `analyze-receipt.md` do not.
+    The block records **no story text** (epic #828): no `story_fingerprints` line. A story edited
+    after this analysis is not stale for that reason; a design change still is, through
+    `record_hash`. Receipts written by 0.82.0 to 0.86.0 carry that line, and every reader still
+    accepts it and ignores it.
 
 2. **Check the drafted body before publishing anything:**
 
@@ -600,14 +587,12 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     It resolves this checkout's issues repository and the analyzed pull request's code repository
     **itself** — you hand it neither — parses the body with the same parser every reader uses, and
     prints `{ issuesRepo, repo }` when the body names the repository its story numbers resolve
-    against, and only when it records exactly one fingerprint per named story, each equal to the
-    digest of that story's **current** body. A non-zero exit is a **failure of the publish step**:
-    publish nothing, report the diagnostic verbatim, and do not report the run as successful.
-    `story-fingerprint-mismatch` or `story-unreadable` means a story was edited during this run, or
-    could not be read to check. Tell the lead to run `/nxs.analyze --pr <N>` again; never refresh a
-    fingerprint to pass the check. Only `issues-repo-missing` and `issues-repo-mismatch` have a
-    mechanical correction: the refusal names the issues repository the block should have carried, so
-    rewrite the block with that value and run the check again. This runs on the review path and the comment fallback path alike; the
+    against. A non-zero exit is a **failure of the publish step**: publish nothing, report the
+    diagnostic verbatim, and do not report the run as successful. Three refusals have a mechanical
+    correction. `issues-repo-missing` and `issues-repo-mismatch` name the issues repository the
+    block should have carried, so rewrite the block with that value and run the check again.
+    `story-text-recorded` means the block still has a `story_fingerprints` line; drop it and run
+    the check again. This runs on the review path and the comment fallback path alike; the
     body it judges is the exact body that goes on the wire.
 
 3. Publish it as a **PR review**, so the verdict lands in the merge box:

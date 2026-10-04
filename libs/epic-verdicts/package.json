@@ -79,11 +79,6 @@
       "import": "./src/evidence.ts",
       "default": "./src/evidence.ts"
     },
-    "./fingerprint": {
-      "types": "./src/fingerprint.ts",
-      "import": "./src/fingerprint.ts",
-      "default": "./src/fingerprint.ts"
-    },
     "./publish-check": {
       "types": "./src/publish-check.ts",
       "import": "./src/publish-check.ts",

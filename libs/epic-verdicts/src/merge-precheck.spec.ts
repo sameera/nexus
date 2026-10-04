@@ -132,4 +132,12 @@ describe("mergePrecheck — a receipt that records story text (G37)", () => {
         expect(r.result).toBe("clean");
         expect(r.merge).toBe(true);
     });
+
+    it("gives the same result for a receipt with and without story text, blocking or clean (story #857)", () => {
+        for (const high of [0, 2]) {
+            const withText = check(atAnalyzedHead({ newerBody: verdictBody({ high, storyFingerprints: `{ 117: ${"e".repeat(64)} }` }) }));
+            const without = check(atAnalyzedHead({ newerBody: verdictBody({ high }) }));
+            expect(withText).toEqual(without);
+        }
+    });
 });
