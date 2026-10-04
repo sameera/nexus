@@ -109,7 +109,7 @@ describe("/nxs.intake writes a two-file entry stamped with the pull request's fi
     });
 
     it("carries no record key, no record_hash key, no receipt and no process lesson", () => {
-        expect(INTAKE).toMatch(/a `record` key, a `record_hash` key, an `analyze-receipt\.md`, or a process\s*\n?lesson/);
+        expect(INTAKE).toMatch(/a `record` key or a `record_hash` key, and the entry holds no conformance\s*\n?result and no process lesson/);
     });
 
     it("reports completion and confirms nothing durable was written", () => {

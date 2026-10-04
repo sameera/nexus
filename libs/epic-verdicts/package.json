@@ -24,11 +24,6 @@
       "import": "./src/receipt.ts",
       "default": "./src/receipt.ts"
     },
-    "./write": {
-      "types": "./src/write.ts",
-      "import": "./src/write.ts",
-      "default": "./src/write.ts"
-    },
     "./pr-verdict": {
       "types": "./src/pr-verdict.ts",
       "import": "./src/pr-verdict.ts",

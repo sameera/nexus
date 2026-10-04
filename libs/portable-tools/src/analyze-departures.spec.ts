@@ -80,7 +80,7 @@ describe("IDs come from the toolkit's registry, never from the stage (D2; G6–G
     });
 
     it("appends the judgments block after the verdict block on every publish, and hands it to the publish check", () => {
-        const publish = section("## PR mode — publish a review, not a receipt file");
+        const publish = section("## PR mode — publish a review, not a file");
         const appendAt = publish.indexOf("<!-- nexus:analyze-judgments -->");
         expect(appendAt).toBeGreaterThan(publish.indexOf("<!-- nexus:analyze-receipt -->"));
         expect(appendAt).toBeLessThan(publish.indexOf("nexus verdict-check"));

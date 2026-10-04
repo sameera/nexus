@@ -1866,9 +1866,9 @@ describe("nexus epic-verdicts — every state names the records it refused to tr
     });
 
     it("keeps untrusted when a state supplies fields of its own", () => {
-        const payload = epicVerdictsPayload(751, "aggregate", [refused], { outPath: "/tmp/r.md", receipt: { epic: "#751" } });
+        const payload = epicVerdictsPayload(751, "aggregate", [refused], { receipt: { epic: "#751" } });
         expect(payload["untrusted"]).toEqual([refused]);
-        expect(payload["outPath"]).toBe("/tmp/r.md");
+        expect(payload["receipt"]).toEqual({ epic: "#751" });
         expect(payload["state"]).toBe("aggregate");
         expect(payload["epic"]).toBe(751);
     });

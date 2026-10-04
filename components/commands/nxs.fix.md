@@ -150,8 +150,8 @@ the three.
 
 There is **no approval checkpoint.** Under the forcing-function razor, generating and stopping is
 one gate and persisting is another; this command writes nothing durable and nothing to GitHub, so a
-second gate over a scratch directory would be ceremony that forces no decision. Write **no**
-`analyze-receipt.md`.
+second gate over a scratch directory would be ceremony that forces no decision. Write no
+conformance result: a fix entry has none.
 
 Report and stop:
 

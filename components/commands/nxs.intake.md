@@ -274,8 +274,8 @@ compute it over a locally held copy of the body; the digest program always fetch
 **`.nexus/tmp/intake-<n>/close-record.md`** — the Phase 5 draft, with its Deferred Scope section
 filled by Phase 6.5.
 
-Neither file carries a `record` key, a `record_hash` key, an `analyze-receipt.md`, or a process
-lesson: an intake entry has no decision record, no conformance check, and no process to distil a
+Neither file carries a `record` key or a `record_hash` key, and the entry holds no conformance
+result and no process lesson: an intake entry has no decision record, no conformance check, and no process to distil a
 lesson from.
 
 # Phase 8 — Report, and stop

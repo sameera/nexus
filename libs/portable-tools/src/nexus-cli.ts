@@ -32,7 +32,7 @@ import { resolveKindClassification } from "@nexus/epic-resolve/classify";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
-import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
+import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
 import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/epic-resolve/planning-dir";
 import { epicCompletion, epicCompletionDeps, epicPrTarget } from "@nexus/epic-verdicts/epic-completion";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
@@ -49,7 +49,6 @@ import { type Judgments, type RecordKeyDecisions, deferredScopeStatus, renderJud
 import { answerScopeDeps, mergeAnswerRun, parseAnswerScope, planAnswerRun, readEarlierVerdict } from "@nexus/epic-verdicts/answer-scope";
 import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
-import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { buildEpicReceipt } from "@nexus/epic-verdicts/receipt";
 import { ASSETS_SUBVERBS, runAssets } from "@nexus/delivery-config/assets-cli";
 import { CONFIG_COMMANDS, runConfig } from "@nexus/delivery-config/config-cli";
@@ -282,8 +281,7 @@ const REGISTRY: Record<string, VerbEntry> = {
         summary: "Close's evidence gate and ranges, the receipt derived from an epic's records, and whether a pull request completes its epic.",
         usage: [
             "  nexus epic-verdicts derive --epic <N> [--root <startDir>]",
-            "      Print { epic, state: aggregate|none, receipt, outPath } from the epic's records and,",
-            "      on aggregate, write the per-story analyze-receipt.md beside the resolved epic.md.",
+            "      Print { epic, state: aggregate|none, receipt } from the epic's records. Writes no file.",
             "  nexus epic-verdicts completion --epic <N> --pr <N> --repo <owner/repo> --stories <n,...>",
             "                                 --worktree <wtPath> [--root <startDir>]",
             "      Whether the analyzed pull request completes its epic: it covers every live story, or",
@@ -1540,8 +1538,8 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
 
 /**
  * `nexus epic-verdicts derive` — the shared helper decision record #505 calls for: collection,
- * trust, recency and coverage as one program, called by both `/nxs.analyze` (which writes the
- * receipt this prints) and `/nxs.close` (which re-checks currency against the same story set).
+ * trust, recency and coverage as one program, now called by `/nxs.close` alone, which reads the
+ * receipt this prints. It writes no file (epic #829, decision record #871, D12).
  */
 async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     const flags = parseEpicVerdictsFlags(argv, io.cwd);
@@ -1762,10 +1760,10 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "none", ledger.collected.untrusted)));
         return 0;
     }
+    // The receipt is printed, never written (epic #829, story #863, decision record #871, D12):
+    // close reads it from this output, and no local analysis file exists for anything to read.
     const receipt = buildEpicReceipt(flags.epic, ledgerRecords, excludedHere, { issuesRepo: repos.repos.issuesRepo });
-    const dir = path.dirname(defaultOutPath(root, flags.epic));
-    const outPath = writeEpicReceipt(dir, receipt, { date: new Date().toISOString().slice(0, 10) });
-    io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", ledger.collected.untrusted, { outPath, receipt })));
+    io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", ledger.collected.untrusted, { receipt })));
     return 0;
 }
 

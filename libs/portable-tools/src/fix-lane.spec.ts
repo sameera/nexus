@@ -236,7 +236,7 @@ describe("/nxs.fix creates the entry from a resolved range (story #267)", () => 
 
     it("presents no approval checkpoint and writes no analyze receipt", () => {
         expect(FIX).toMatch(/no approval checkpoint/i);
-        expect(FIX).toMatch(/Write \*\*no\*\*\s*\n?`analyze-receipt\.md`/);
+        expect(FIX).toMatch(/Write no\s*\n?conformance result: a fix entry has none/);
     });
 });
 
@@ -350,7 +350,7 @@ describe("/nxs.analyze refuses a fix entry (story #270, inverted to run only for
     });
 
     it("writes no receipt and modifies no file in the entry", () => {
-        expect(ANALYZE).toMatch(/Write no\s*\n?`analyze-receipt\.md` and modify no file in the entry/);
+        expect(ANALYZE).toMatch(/Write no\s*\n?file and modify no file in the entry/);
     });
 
     it("leaves an epic entry's behaviour unchanged", () => {

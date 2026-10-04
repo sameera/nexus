@@ -25,7 +25,7 @@ function between(text: string, from: string, to: string): string {
 
 const CARRY = (): string => between(ANALYZE, "## 2.7 What the verdict carries for close", "# Phase 3");
 const ID_STEP = (): string => between(ANALYZE, "## 2.5 Departures from the decision record", "## 2.6 Answers on the pull request");
-const PUBLISH = (): string => between(ANALYZE, "## PR mode — publish a review, not a receipt file", "## Asking an epic what it has shipped");
+const PUBLISH = (): string => between(ANALYZE, "## PR mode — publish a review, not a file", "## Asking an epic what it has shipped");
 const RESOLVE = (): string => between(ANALYZE, "## Phase 0.8 — Recording answers", "# Phase 1");
 
 describe("the key decisions are the record's decisions by ID plus confirmed stubs (D5, D6; G25)", () => {
