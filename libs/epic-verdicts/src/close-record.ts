@@ -285,7 +285,7 @@ export function proposalKey(p: { repo: string; pr: number; id: string }): string
 // ---------------------------------------------------------------------------------------------
 
 /** A YAML scalar: plain when it is plainly safe, else double-quoted (JSON is valid YAML). */
-function scalar(s: string): string {
+export function scalar(s: string): string {
     return /^[A-Za-z0-9][A-Za-z0-9 ._/@+-]*$/.test(s) && !/ $/.test(s) ? s : JSON.stringify(s);
 }
 

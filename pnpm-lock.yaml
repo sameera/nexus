@@ -323,6 +323,9 @@ importers:
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
   libs/origin: {}
 

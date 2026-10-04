@@ -29,6 +29,7 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand } from "@nexus/epic-verdicts/close-command";
+import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
@@ -624,6 +625,16 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      posts the record amendment and the close comment, and closes the epic issue. Every",
             "      write looks first for what an earlier run did, so a plain re-run finishes a partial",
             "      close without duplicates. --handoff <path> writes the hand-off note only on success.",
+            "  nexus close --recover <epic>",
+            "      Recovery: re-stamps a CLOSED epic whose decision record was revised after close, so",
+            "      distill accepts its entry again. Stops, before writing anything, when the record is",
+            "      not approved, or when a merged pull request has neither a verdict judged against the",
+            "      current revision nor a trusted revised-record waiver on it (the stop names both, with",
+            "      the exact waiver to post). Then it takes the record's decisions from the new body,",
+            "      rebuilds a re-judged pull request's departures from its verdict and keeps a waived",
+            "      one's, re-stamps record_hash and analyze, commits and pushes the entry on its distill",
+            "      branch, and posts a fresh close comment. It changes nothing else, files nothing and",
+            "      amends nothing.",
         ].join("\n"),
         run: runClose,
     },
@@ -2986,20 +2997,36 @@ function localDate(now: Date = new Date()): string {
 /**
  * `nexus close` — close as a plain command (epic #830, story #864, decision record #872, D1, D3).
  * It takes the arguments `/nxs.close` takes: `--pr <N>`, an optional entry path and `--handoff`.
+ * `--recover <epic>` is its recovery mode, addressed at the closed epic (story #867, D13).
  */
 async function runClose(argv: string[], io: CliIo): Promise<number> {
-    const usage = "usage: nexus close --pr <N> [<path to epic.md>] [--handoff <path>]  (closes the epic of merged pull request <N>)";
+    const usage =
+        "usage: nexus close --pr <N> [<path to epic.md>] [--handoff <path>]  (closes the epic of merged pull request <N>)\n" +
+        "       nexus close --recover <epic>  (re-stamps a closed epic whose decision record was revised)";
     let pr: number | undefined;
+    let recover: number | undefined;
     let handoff: string | null = null;
     const positional: string[] = [];
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
         if (a === "--pr") pr = Number(argv[++i]);
+        else if (a === "--recover") recover = Number(argv[++i]);
         else if (a === "--handoff") handoff = argv[++i] ?? "";
         else if (a.startsWith("--")) {
             io.stderr(`close: unknown option ${a}\n${usage}`);
             return 2;
         } else positional.push(a);
+    }
+    if (recover !== undefined) {
+        if (!Number.isInteger(recover) || recover <= 0 || pr !== undefined || handoff !== null || positional.length > 0) {
+            io.stderr(`close --recover takes only the closed epic's issue number: nexus close --recover <epic>.\n${usage}`);
+            return 2;
+        }
+        const outcome = runCloseRecovery(closeRecoveryDeps(closeMigrationRunner), { cwd: io.cwd, epic: recover, date: localDate() });
+        const rendered = renderCloseOutcome(outcome);
+        for (const line of rendered.stdout) io.stdout(line);
+        for (const line of rendered.stderr) io.stderr(line);
+        return rendered.exitCode;
     }
     if (pr === undefined || !Number.isInteger(pr) || pr <= 0 || positional.length > 1 || handoff === "") {
         io.stderr(`close runs only against a merged pull request: nexus close --pr <N>.\n${usage}`);

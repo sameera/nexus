@@ -249,7 +249,7 @@ function stubRef(p: Pick<ApprovedProposal, "repo" | "pr" | "id">): string {
 }
 
 /** The epic number an `epic.md`'s `link` names, or null. */
-function linkedEpic(markdown: string): number | null {
+export function linkedEpic(markdown: string): number | null {
     const fm = /^---\n([\s\S]*?)\n---/.exec(markdown);
     if (fm === null) return null;
     const line = /^link:\s*(.+)$/m.exec(fm[1]);
@@ -763,7 +763,8 @@ function blockStop(b: CloseRangeBlock, rerun: string): CloseStop {
     }
 }
 
-function describeRejected(r: RejectedWaiver): string {
+/** Why one waiver comment cleared nothing, as a stop names it. */
+export function describeRejected(r: RejectedWaiver): string {
     const who = `the waiver comment ${r.url} by @${r.author || "unknown"} cleared nothing`;
     switch (r.why) {
         case "untrusted":
@@ -778,7 +779,7 @@ function describeRejected(r: RejectedWaiver): string {
 }
 
 /** The exact close-waiver comment for one cause, as the one waiver reader reads it. */
-function waiverComment(lines: string[]): string {
+export function waiverComment(lines: string[]): string {
     return [WAIVER_MARKER, "```yaml", ...lines, "reason: <optional, one line>", "```"].join("\n");
 }
 
@@ -852,7 +853,7 @@ function storyStops(s: StoryState, issuesRepo: string, record: number | null, re
 }
 
 /** The verdict gate on one merged claiming pull request (G7, G8). */
-function verdictStops(v: CloseVerdictRead, repo: string, n: number, rerun: string): CloseStop[] {
+export function verdictStops(v: CloseVerdictRead, repo: string, n: number, rerun: string): CloseStop[] {
     const ref = `${repo}#${n}`;
     const item = `pull request ${ref}`;
     if (!v.ok) return [{ reason: `the verdict on ${ref} could not be read: ${v.cause}`, item, remedy: `re-run ${rerun} once the read succeeds` }];
@@ -882,8 +883,8 @@ function verdictStops(v: CloseVerdictRead, repo: string, n: number, rerun: strin
     return out;
 }
 
-/** What the command prints, and its exit code: 0 when every gate passed, 1 on a stop. */
-export function renderCloseOutcome(outcome: CloseOutcome): { stdout: string[]; stderr: string[]; exitCode: number } {
+/** What the command prints, and its exit code: 0 when every gate passed, 1 on a stop. Recovery's outcome prints the same way. */
+export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok: false; stops: CloseStop[]; done?: string[] }): { stdout: string[]; stderr: string[]; exitCode: number } {
     if (outcome.ok) return { stdout: outcome.lines, stderr: [], exitCode: 0 };
     const things = `${outcome.stops.length} thing${outcome.stops.length === 1 ? "" : "s"} to fix`;
     const err: string[] =

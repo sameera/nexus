@@ -1,6 +1,6 @@
 /**
- * The contract between `nexus close` and distill (epic #830, story #865, decision record #872:
- * D4, D7, D8; G15, G16, G18; risks R3, R4).
+ * The contract between `nexus close` and distill (epic #830, stories #865 and #867, decision
+ * record #872: D4, D7, D8, D13; G15, G16, G18, G33; risks R3, R4).
  *
  * Close's record and comment are now rendered by code, and distill does not change (G51). A
  * heading or a key that drifted would break distill silently, so these specs feed the output of
@@ -15,6 +15,7 @@ import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { type CloseCommandDeps, closeCommandDeps, runCloseCommand } from "@nexus/epic-verdicts/close-command";
+import { type CloseRecoveryDeps, closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { type CloseRanges } from "@nexus/epic-verdicts/close-ranges";
 import { type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { fetchRecord } from "@nexus/record-digest/fetch";
@@ -105,7 +106,7 @@ function gate(): CloseRanges {
 }
 
 /** Run `nexus close` over stand-ins for every read but the record fetch, which is the real one. */
-function runClose(reason: string): { entry: string; comment: string } {
+function runClose(reason: string): { entry: string; comment: string; wtPath: string } {
     const repoRoot = makeDir();
     const wtPath = makeDir();
     const real = closeCommandDeps(gh, { singleRepo: () => true });
@@ -145,7 +146,7 @@ function runClose(reason: string): { entry: string; comment: string } {
     };
     const out = runCloseCommand(deps, { cwd: repoRoot, pr: PR, entryPath: null, handoff: null, date: "2026-10-04", nexusVersion: "0.92.0" });
     if (!out.ok || out.resumed) throw new Error(JSON.stringify(out));
-    return { entry: path.dirname(out.recordPath), comment: out.closeComment };
+    return { entry: path.dirname(out.recordPath), comment: out.closeComment, wtPath: out.wtPath };
 }
 
 /** The close comment as distill's recovery rebuilds an entry from it: the comment's body as the file. */
@@ -218,5 +219,81 @@ describe("distill's recovery from the epic issue reads the close comment (G15, G
         const block = parse((new RegExp(`${CLOSE_RECORD_MARKER}\\n\`\`\`yaml\\n([\\s\\S]*?)\\n\`\`\``).exec(comment) as RegExpExecArray)[1]) as Record<string, unknown>;
         expect(block).toMatchObject({ epic: `#${EPIC}`, issues_repo: ISSUES, record: `#${RECORD}`, analyze: `ran 2026-10-03 @ ${HEAD}` });
         expect(String(block["record_hash"])).toMatch(/^[0-9a-f]{64}$/);
+    });
+});
+
+// Story #867 (D13, G33): after the record is revised and approved again, `nexus close --recover`
+// re-stamps the entry and posts a fresh close comment. Distill's own record-hash check must then
+// accept the entry, and its recovery from the epic issue — the newest trusted close comment — must
+// find the new hash.
+describe("distill accepts what nexus close --recover re-stamps (G33)", () => {
+    const REVISED = RECORD_BODY.replace("Habit.", "Habit, and recovery is a mode of it.");
+    const revised: Runner = (cmd, args) =>
+        cmd === "gh" && args[0] === "api" && args[1] === `repos/${ISSUES}/issues/${RECORD}`
+            ? { status: 0, stdout: JSON.stringify({ body: REVISED, state: "closed", state_reason: "completed" }), stderr: "" }
+            : { status: 1, stdout: "", stderr: `unexpected: ${cmd} ${args.join(" ")}` };
+
+    function recovered(): { entry: string; comments: { body: string; authorAssociation: string }[]; digest: string } {
+        const closed = runClose("plain");
+        const fetched = fetchRecord(revised, "/repo", RECORD, ISSUES);
+        if (!fetched.ok) throw new Error(fetched.error.message);
+        const digest = fetched.record.digest;
+        const comments = [{ body: closed.comment, authorAssociation: "OWNER" }];
+        const deps: CloseRecoveryDeps = {
+            ...closeRecoveryDeps(revised),
+            role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot: "/repo", repo: { identity: CODE, source: "origin" } as never } }),
+            issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: CODE } }),
+            issueComments: () => ({ ok: true, comments }),
+            verdict: () => ({ ok: true, found: true, critical: 0, high: 0, judgments: "present", read: judgments("plain"), date: "2026-10-03", head: HEAD, recordHash: null }),
+            prWaivers: (_root, pr) => ({
+                ok: true,
+                waivers: {
+                    pr: pr.pr,
+                    answers: [],
+                    comments: [{ author: "lead", url: "https://x/w", at: "2026-10-04T00:00:00Z", trusted: true, waiver: { ok: true, terms: { cause: "record-revised", record: `#${RECORD}`, digest }, reason: null } }],
+                },
+            }),
+            findEntry: () => ({ ok: true, at: "branch", branch: "distill/2026-10-04-epic-830" }),
+            openWorktree: () => ({ ok: true, wtPath: closed.wtPath, branch: "distill/2026-10-04-epic-830", source: "local" }),
+            commitEntry: () => ({ ok: true, committed: true }),
+            push: () => ({ ok: true }),
+            postComment: (_root, _repo, _issue, body) => {
+                comments.push({ body, authorAssociation: "OWNER" });
+                return { ok: true };
+            },
+        };
+        const out = runCloseRecovery(deps, { cwd: "/repo", epic: EPIC, date: "2026-10-05" });
+        if (!out.ok) throw new Error(JSON.stringify(out));
+        return { entry: closed.entry, comments, digest };
+    }
+
+    function block(comment: string): Record<string, unknown> {
+        return parse((new RegExp(`${CLOSE_RECORD_MARKER}\\n\`\`\`yaml\\n([\\s\\S]*?)\\n\`\`\``).exec(comment) as RegExpExecArray)[1]) as Record<string, unknown>;
+    }
+
+    it("stamps the digest `nexus record-digest` computes over the revised body, so distill's hash check passes", () => {
+        const { entry, digest } = recovered();
+        const fm = frontmatter(entry);
+        expect(fm["record"]).toBe(`#${RECORD}`);
+        expect(fm["record_hash"]).toBe(digest);
+    });
+
+    it("leaves the range distill's range reader reads exactly as close stamped it", () => {
+        const { entry, comments } = recovered();
+        expect(parseRange(entry)).toEqual({ ok: true, range: [{ repo: CODE, base: BASE, head: HEAD, pr: PR }] });
+        expect(parseRange(commentAsEntry(comments[comments.length - 1].body))).toEqual({ ok: true, range: [{ repo: CODE, base: BASE, head: HEAD, pr: PR }] });
+    });
+
+    it("posts a fresh close comment that distill's recovery takes as the newest trusted one, with the new hash", () => {
+        const { entry, comments, digest } = recovered();
+        // Distill's recovery rule: the newest comment carrying the marker from a maintainer.
+        const newest = [...comments].reverse().find((c) => ["OWNER", "MEMBER", "COLLABORATOR"].includes(c.authorAssociation) && c.body.includes(CLOSE_RECORD_MARKER));
+        expect(newest).toBe(comments[1]);
+        const b = block(newest?.body ?? "");
+        expect(b["record_hash"]).toBe(digest);
+        const fm = frontmatter(entry);
+        for (const key of ["record", "record_hash", "analyze", "range", "story_ranges", "landed_check"]) expect(b[key], key).toEqual(fm[key]);
+        expect(newest?.body).toContain("\n### Key Decisions\n");
+        expect(newest?.body).toContain("recovery is a mode of it");
     });
 });
