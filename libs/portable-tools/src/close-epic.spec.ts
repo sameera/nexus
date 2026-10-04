@@ -67,6 +67,27 @@ if (args[0] === "merge-precheck") {
     }));
     process.exit(0);
 }
+// The deterministic close (decision record #872, D16): on success it writes the three-line
+// hand-off note at --handoff and exits 0; on a stop it prints its stop block and exits 1.
+if (args[0] === "close") {
+    if (process.env.CLOSE_STOPS === "1") {
+        console.log("nexus close: checking the gates");
+        console.error("nexus close stopped: 1 thing to fix. Nothing was created or written.");
+        console.error("");
+        console.error("STOP");
+        console.error("  reason: the verdict on acme/repo#42 has 1 open high item");
+        console.error("  item:   acme/repo#42 F3");
+        console.error("  remedy: answer F3 on the pull request, run /nxs.analyze --pr 42 --resolve, then re-run nexus close --pr 42");
+        process.exit(1);
+    }
+    const at = args.indexOf("--handoff");
+    if (at > -1 && process.env.WRITE_HANDOFF !== "0") {
+        fs.mkdirSync(require("node:path").dirname(args[at + 1]), { recursive: true });
+        fs.writeFileSync(args[at + 1], "epic: 7\\nbranch: distill/2026-01-01-epic-7\\nworktree: ${worktree.replace(/\\/g, "\\\\")}\\n");
+    }
+    console.log("Hand-off note written");
+    process.exit(0);
+}
 process.exit(0);
 `;
 
@@ -77,14 +98,6 @@ const args = process.argv.slice(2);
 fs.appendFileSync(process.env.NEXUS_TEST_LOG, JSON.stringify({name, args, cwd: process.cwd()}) + "\\n");
 const headless = args.includes("-p") || args.includes("exec");
 const prompt = args.find((a) => typeof a === "string" && (a.includes("/nxs.") || a.includes("$nxs-")));
-if (!headless && prompt && (prompt.includes("/nxs.close") || prompt.includes("$nxs-close"))) {
-    const m = prompt.match(/--handoff (\\S+)/);
-    if (m && process.env.WRITE_HANDOFF !== "0") {
-        fs.mkdirSync(require("node:path").dirname(m[1]), { recursive: true });
-        fs.writeFileSync(m[1], "epic: 7\\nbranch: distill/2026-01-01-epic-7\\nworktree: ${worktree.replace(/\\/g, "\\\\")}\\n");
-    }
-    process.exit(process.env.CLOSE_FAILS === "1" ? 1 : 0);
-}
 if (headless) {
     const text = prompt && prompt.includes("distill") ? (process.env.DISTILL_FINAL || "done") : "done";
     console.log(JSON.stringify(name === "codex"
@@ -105,10 +118,10 @@ afterEach(() => {
     fs.rmSync(worktree, { recursive: true, force: true });
 });
 
-function run(pr: string, extraArgs: string[] = [], env: NodeJS.ProcessEnv = {}) {
+function run(pr: string, extraArgs: string[] = [], env: NodeJS.ProcessEnv = {}, entry: string = script) {
     const log = path.join(scratch, "calls.jsonl");
     const cwd = fs.mkdtempSync(path.join(scratch, "repo-"));
-    const result = spawnSync("bash", [script, pr, ...extraArgs], {
+    const result = spawnSync("bash", [entry, pr, ...extraArgs], {
         cwd,
         env: {
             ...process.env,
@@ -124,6 +137,19 @@ function run(pr: string, extraArgs: string[] = [], env: NodeJS.ProcessEnv = {}) 
         : [];
     return { ...result, calls };
 }
+
+type Call = { name: string; args: string[]; cwd?: string };
+const codexEntry = path.resolve(import.meta.dirname, "../../../utils/codex/close-epic.sh");
+/** The close stage: a direct call to the deterministic command. */
+const closeCall = (calls: Call[]) => calls.find((c) => c.name === "nexus" && c.args[0] === "close");
+/** Any harness session that is not headless — the interactive stage D16 removes. */
+const interactiveSession = (calls: Call[]) =>
+    calls.some((c) => (c.name === "claude" && !c.args.includes("-p")) || (c.name === "codex" && !c.args.includes("exec")));
+/** Any harness call that carries close — close must never run through a model. */
+const closeThroughHarness = (calls: Call[]) =>
+    calls.some((c) => (c.name === "claude" || c.name === "codex") && c.args.some((a) => a.includes("/nxs.close") || a.includes("$nxs-close")));
+const distillCall = (calls: Call[]) =>
+    calls.findIndex((c) => (c.name === "claude" || c.name === "codex") && c.args.some((a) => a.includes("/nxs.distill") || a.includes("$nxs-distill")));
 
 describe("close-epic.sh — the pull request gate", () => {
     it("refuses a member checkout before any stage runs", () => {
@@ -148,7 +174,7 @@ describe("close-epic.sh — the pull request gate", () => {
     it("continues past a merged pull request straight to close", () => {
         const result = run("42", [], { PR_STATE: "MERGED" });
         expect(result.status).toBe(0);
-        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(true);
+        expect(closeCall(result.calls)).toBeDefined();
     });
 });
 
@@ -229,7 +255,7 @@ describe("close-epic.sh — close and the hand-off note (D4, D5, D6)", () => {
         expect(headlessAnalyze(result.calls)).toBe(false);
         expect(result.calls.some((c) => c.name === "nexus" && c.args[0] === "epic-verdicts")).toBe(false);
         expect(result.calls.some((c) => c.name === "nexus" && c.args[0] === "pr-verdict")).toBe(false);
-        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(true);
+        expect(closeCall(result.calls)).toBeDefined();
     });
 
     it("starts close after merging a pull request analyzed before the merge, with no analyze stage", () => {
@@ -237,7 +263,7 @@ describe("close-epic.sh — close and the hand-off note (D4, D5, D6)", () => {
         expect(result.status).toBe(0);
         expect(headlessAnalyze(result.calls)).toBe(false);
         const mergeAt = result.calls.findIndex((c) => c.name === "gh" && c.args[0] === "pr" && c.args[1] === "merge");
-        const closeAt = result.calls.findIndex((c) => c.name === "claude" && !c.args.includes("-p"));
+        const closeAt = result.calls.findIndex((c) => c.name === "nexus" && c.args[0] === "close");
         expect(mergeAt).toBeGreaterThan(-1);
         expect(closeAt).toBeGreaterThan(mergeAt);
     });
@@ -248,15 +274,7 @@ describe("close-epic.sh — close and the hand-off note (D4, D5, D6)", () => {
         expect(headlessAnalyze(result.calls)).toBe(false);
     });
 
-    it("runs close interactively (no -p / exec) with --handoff", () => {
-        const result = run("42");
-        const interactive = result.calls.find((c) => c.name === "claude" && !c.args.includes("-p"));
-        expect(interactive).toBeDefined();
-        expect(interactive!.args.some((a) => a.includes("--handoff"))).toBe(true);
-        expect(interactive!.args.some((a) => a.includes("/nxs.close --pr 42"))).toBe(true);
-    });
-
-    it("stops when close wrote no hand-off note", () => {
+    it("stops when close exits 0 but wrote no hand-off note (G50)", () => {
         const result = run("42", [], { WRITE_HANDOFF: "0" });
         expect(result.status).not.toBe(0);
         expect(result.stderr).toMatch(/no hand-off note/);
@@ -301,8 +319,8 @@ describe("close-epic.sh — distill runs unattended in the worktree (D1, D8, D9)
 
     it("hands close an absolute hand-off path", () => {
         const result = run("42");
-        const close = result.calls.find((c) => c.name === "claude" && !c.args.includes("-p"))!;
-        const handoff = close.args.join(" ").match(/--handoff (\S+)/)![1];
+        const close = closeCall(result.calls)!;
+        const handoff = close.args[close.args.indexOf("--handoff") + 1];
         expect(path.isAbsolute(handoff)).toBe(true);
     });
 
@@ -328,18 +346,13 @@ describe("close-epic.sh — distill runs unattended in the worktree (D1, D8, D9)
 });
 
 describe("close-epic.sh — Codex harness parity (D10)", () => {
-    it("runs distill via codex exec, and close via plain codex, when HARNESS=codex", () => {
+    it("runs distill via codex exec, and close as nexus close, when HARNESS=codex", () => {
         const result = run("42", [], { HARNESS: "codex" });
         expect(result.status).toBe(0);
         expect(result.calls.some((c) => c.name === "codex" && c.args.includes("exec"))).toBe(true);
-        expect(result.calls.some((c) => c.name === "codex" && !c.args.includes("exec"))).toBe(true);
+        expect(closeCall(result.calls)).toBeDefined();
+        expect(interactiveSession(result.calls)).toBe(false);
         expect(result.calls.some((c) => c.name === "claude")).toBe(false);
-    });
-
-    it("sends close to codex as the $nxs-close skill", () => {
-        const result = run("42", [], { HARNESS: "codex" });
-        const close = result.calls.find((c) => c.name === "codex" && !c.args.includes("exec"))!;
-        expect(close.args.some((a) => a.includes("$nxs-close --pr 42"))).toBe(true);
     });
 
     it("gives codex distill the main checkout's git folder as a writable place (R2)", () => {
@@ -350,5 +363,64 @@ describe("close-epic.sh — Codex harness parity (D10)", () => {
         const at = distill.args.indexOf("--add-dir");
         expect(at).toBeGreaterThan(-1);
         expect(distill.args[at + 1]).toBe("/main/checkout/.git");
+    });
+});
+
+// Story #870 (decision record #872, D16): the close stage is a direct call to `nexus close`, read
+// through its exit status. No harness session runs close, so both entry points run unattended.
+const entryPoints: Array<[string, string, NodeJS.ProcessEnv]> = [
+    ["the Claude entry point", script, {}],
+    ["HARNESS=codex", script, { HARNESS: "codex" }],
+    ["the Codex entry point", codexEntry, {}],
+];
+
+describe("close-epic.sh — close runs unattended, as nexus close (G40)", () => {
+    for (const [label, entry, env] of entryPoints) {
+        it(`${label}: runs nexus close then distill, with no interactive stage`, () => {
+            const result = run("42", [], env, entry);
+            expect(result.status).toBe(0);
+            const close = closeCall(result.calls);
+            expect(close).toBeDefined();
+            expect(close!.args).toEqual(expect.arrayContaining(["--pr", "42", "--handoff"]));
+            expect(interactiveSession(result.calls)).toBe(false);
+            expect(closeThroughHarness(result.calls)).toBe(false);
+            const closeAt = result.calls.indexOf(close!);
+            expect(distillCall(result.calls)).toBeGreaterThan(closeAt);
+        });
+    }
+
+    it("the Codex entry point sends distill to codex, not claude", () => {
+        const result = run("42", [], {}, codexEntry);
+        expect(result.calls.some((c) => c.name === "codex" && c.args.includes("exec"))).toBe(true);
+        expect(result.calls.some((c) => c.name === "claude")).toBe(false);
+    });
+
+    it("passes extra harness arguments to distill only, never to nexus close", () => {
+        const result = run("42", ["--model", "opus"]);
+        expect(result.status).toBe(0);
+        expect(closeCall(result.calls)!.args).not.toContain("--model");
+        const distill = result.calls[distillCall(result.calls)];
+        expect(distill.args).toEqual(expect.arrayContaining(["--model", "opus"]));
+    });
+});
+
+describe("close-epic.sh — a close stop starts no distill (G41)", () => {
+    for (const [label, entry, env] of entryPoints) {
+        it(`${label}: prints close's reason and remedy and starts no distill`, () => {
+            const result = run("42", [], { ...env, CLOSE_STOPS: "1" }, entry);
+            expect(result.status).not.toBe(0);
+            const repeat = result.stderr.slice(result.stderr.lastIndexOf("distill was not started"));
+            expect(repeat).toContain("the verdict on acme/repo#42 has 1 open high item");
+            expect(repeat).toContain("answer F3 on the pull request, run /nxs.analyze --pr 42 --resolve");
+            expect(distillCall(result.calls)).toBe(-1);
+            expect(result.calls.some((c) => c.name === "claude" || c.name === "codex")).toBe(false);
+        });
+    }
+
+    it("checks no hand-off note after a stop", () => {
+        const result = run("42", [], { CLOSE_STOPS: "1" });
+        expect(result.status).not.toBe(0);
+        expect(result.calls.some((c) => c.name === "gh" && c.args[0] === "issue")).toBe(false);
+        expect(distillCall(result.calls)).toBe(-1);
     });
 });

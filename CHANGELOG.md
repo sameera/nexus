@@ -14,11 +14,16 @@ behaviour says so.
   reads answers only from the verdict. Post a revised-record or landed-change waiver on the pull
   request in its fixed form. When something is missing, close stops before writing anything, prints
   the reason, the item and the remedy, and exits with an error. Fix it and run close again.
-- **The direct command is `nexus close`; `/nxs.close` relays to it.** `/nxs.close --pr <N>` now
-  runs `nexus close` with the same arguments, shows its output unchanged, and ends with one line
-  telling you to call `nexus close` directly next time. It does not interpret, retry or fix a stop.
-  Without `--pr` it refuses as before. Its recovery section now names
-  `nexus close --recover <epic>`, the command that replaces the hand-run re-stamp steps.
+- **The direct command is `nexus close`; `/nxs.close` relays to it, and the close-epic script calls
+  it.** `/nxs.close --pr <N>` now runs `nexus close` with the same arguments, shows its output
+  unchanged, and ends with one line telling you to call `nexus close` directly next time. It does
+  not interpret, retry or fix a stop. Without `--pr` it refuses as before. Its recovery section now
+  names `nexus close --recover <epic>`, the command that replaces the hand-run re-stamp steps. The
+  close-epic script calls `nexus close` directly too, under Claude and Codex alike, so it runs from
+  merge to distill with nobody at the terminal. When close stops, the script prints close's reason
+  and remedy again and starts no distill. When close succeeds, the script still checks the hand-off
+  note against GitHub and git before it starts distill. Extra harness arguments now go to distill
+  only.
 - **What `nexus close --pr <N>` checks.** It closes the epic of a merged pull request. Every gate
   runs before it creates anything: the checkout is a single repository or a hub, the pull request
   merged, the pull request names one epic (otherwise it names passing the epic's entry path), every
