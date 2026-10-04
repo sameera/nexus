@@ -12,10 +12,13 @@
   "exclude": ["src/**/*.spec.ts", "src/**/*-fixtures.ts", "vitest.config.mts"],
   "references": [
     {
-      "path": "../scope-razor/tsconfig.lib.json"
+      "path": "../prose-verify/tsconfig.lib.json"
     },
     {
-      "path": "../prose-verify/tsconfig.lib.json"
+      "path": "../pr-acceptance/tsconfig.lib.json"
+    },
+    {
+      "path": "../scope-razor/tsconfig.lib.json"
     },
     {
       "path": "../workspace/tsconfig.lib.json"

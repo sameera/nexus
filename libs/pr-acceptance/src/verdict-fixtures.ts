@@ -49,6 +49,8 @@ export interface VerdictBodyOptions {
     proseHigh?: number;
     /** The `story_fingerprints` line, verbatim after the key: the older receipt shape 0.82.0 to 0.86.0 wrote (epics #827, #828). */
     storyFingerprints?: string;
+    /** A judgments block appended after the machine block, verbatim (epic #829). */
+    judgments?: string;
 }
 
 /** One published verdict: the summary prose a lead reads, then the machine block a gate parses. */
@@ -76,6 +78,7 @@ export function verdictBody(opts: VerdictBodyOptions): string {
         `record_hash: ${TWO_VERDICT_RECORD_HASH}`,
         `findings: { critical: 0, high: ${opts.high}, medium: 0, low: 0 }`,
         "```",
+        ...(opts.judgments === undefined ? [] : ["", opts.judgments]),
     ].join("\n");
 }
 

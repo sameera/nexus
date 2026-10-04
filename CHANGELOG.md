@@ -5,6 +5,27 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.91.0
+
+- **Analyze names every departure from the decision record.** `/nxs.analyze` now lists each place
+  the code departs from the approved record — or from the epic's description when it has none —
+  and names what it departs from: a decision or guarantee by its ID, an old-format decision by its
+  title, or a named section. A decision stub that explains a departure is shown beside it but
+  answers nothing. A departure where the code does the opposite of a record decision is marked as
+  superseding it, with what the code does instead. Code that matches the record lists none.
+- **An unanswered departure blocks (breaking).** It counts as a critical finding when it breaks a
+  guarantee or an invariant and a high one otherwise, so the review requests changes and the merge
+  pre-check and close stop on it. A broken guarantee is now reported once, as a departure, and no
+  longer also as a separate finding; the report's "Guarantee violations" line is gone.
+- **Each departure on a pull request has an ID that later runs keep.** On `/nxs.analyze --pr`, the
+  new `nexus verdict-items` numbers departures `DV1`, `DV2`, ... against the pull request's newest
+  verdict: a departure found again keeps its ID, a new one takes the next unused number, and one no
+  longer found stays listed with its answer. The verdict carries them in a second machine block
+  after the verdict block, whose keys are unchanged.
+- **The publish check refuses a verdict without its departures (breaking).** `nexus verdict-check`
+  refuses a drafted verdict with no judgments block, with one it cannot read, or whose severity
+  counts leave out an unanswered departure. A verdict published before this release still reads.
+
 ## 0.90.1
 
 - **The merge pre-check names blocking findings even when the head has moved.** When the one-command

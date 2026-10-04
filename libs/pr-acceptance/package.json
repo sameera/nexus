@@ -69,6 +69,11 @@
       "import": "./src/receipt-blocks.ts",
       "default": "./src/receipt-blocks.ts"
     },
+    "./judgments-block": {
+      "types": "./src/judgments-block.ts",
+      "import": "./src/judgments-block.ts",
+      "default": "./src/judgments-block.ts"
+    },
     "./verdict-fixtures": {
       "types": "./src/verdict-fixtures.ts",
       "import": "./src/verdict-fixtures.ts",

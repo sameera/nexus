@@ -45,6 +45,8 @@ import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-r
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
+import { assignDepartureIds, parseDepartureDraft, readItemRegistry } from "@nexus/epic-verdicts/verdict-items";
+import { renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
 import { buildEpicReceipt } from "@nexus/epic-verdicts/receipt";
@@ -358,6 +360,22 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      exits 1 when the body still records story text (story_fingerprints).",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runVerdictCheck(argv, io)),
+    },
+    "verdict-items": {
+        summary: "Number a pull request's departures against its newest verdict and write the judgments block.",
+        usage: [
+            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path> [--dir <startDir>]",
+            "      Read the departures analyze judged from --draft ({ departures: [{ departsFrom, summary,",
+            "      breaksGuarantee, files, stub?, supersedes? }] }) and number them against the registry:",
+            "      the judgments block of the pull request's newest trusted verdict. A departure citing the",
+            "      same element with a shared file keeps its ID; a new one takes the next unused DV number;",
+            "      one no longer found stays listed, with its answer. Severity is critical when it breaks a",
+            "      guarantee or invariant, high otherwise. Writes the judgments block to --out and prints",
+            "      { command, pr, registry, items }. registry is none, no-judgments or verdict. Exits 1 on an",
+            "      unreadable draft (draft-malformed), a failed read, or an unreadable registry",
+            "      (judgments-malformed), and writes nothing then.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runVerdictItems(argv, io)),
     },
     "record-digest": {
         summary: "Print the canonical digest and approval state of a decision-record sub-issue.",
@@ -1749,6 +1767,65 @@ function runVerdictCheck(argv: string[], io: CliIo): number {
         return 1;
     }
     io.stdout(JSON.stringify({ command: "verdict-check", ...result.repos }));
+    return 0;
+}
+
+/**
+ * `nexus verdict-items` — the ID step of the departure pass (epic #829, story #858; decision record
+ * #871, D2). Analyze judges the departures; the numbering, the registry read and the severity are
+ * done here, so an ID survives a re-run without relying on a model to number the same way twice.
+ */
+function runVerdictItems(argv: string[], io: CliIo): number {
+    const usage =
+        "usage: nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path> [--dir <startDir>]";
+    const flags: { pr?: number; repo?: string; draft?: string; out?: string; dir?: string } = {};
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
+        else if (argv[i] === "--repo") flags.repo = argv[++i];
+        else if (argv[i] === "--draft") flags.draft = argv[++i];
+        else if (argv[i] === "--out") flags.out = argv[++i];
+        else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
+    }
+    if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
+        io.stderr(usage);
+        return 2;
+    }
+    if (flags.repo === undefined || flags.repo.trim().length === 0) {
+        io.stderr(`${usage}\n--repo names the repository the pull request lives in; without it the trust check would be inert.`);
+        return 2;
+    }
+    if (flags.draft === undefined || flags.out === undefined) {
+        io.stderr(`${usage}\n--draft is the departures analyze judged; --out is where the judgments block is written.`);
+        return 2;
+    }
+
+    let text: string;
+    try {
+        text = fs.readFileSync(flags.draft, "utf8");
+    } catch (e) {
+        io.stderr(`verdict-items draft-malformed: ${flags.draft} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+        return 1;
+    }
+    const draft = parseDepartureDraft(text);
+    if (!draft.ok) {
+        io.stderr(`verdict-items draft-malformed: ${draft.message}.`);
+        return 1;
+    }
+
+    const cwd = flags.dir ?? io.cwd;
+    const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+    if (!repos.ok) {
+        io.stderr(`verdict-items ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+    const registry = readItemRegistry(closeMigrationRunner, cwd, flags.pr, flags.repo.trim(), repos.repos.issuesRepo);
+    if (!registry.ok) {
+        io.stderr(`verdict-items ${registry.error.problem}: ${registry.error.message}`);
+        return 1;
+    }
+    const judgments = assignDepartureIds(registry.registry, draft.drafts);
+    fs.writeFileSync(flags.out, renderJudgmentsBlock(judgments));
+    io.stdout(JSON.stringify({ command: "verdict-items", pr: flags.pr, registry: registry.source, items: judgments.items }));
     return 0;
 }
 

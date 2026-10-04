@@ -25,7 +25,15 @@ export type EpicVerdictsProblem =
     /** A story's claiming pull requests could not be read (epic #827) — never "no pull request". */
     | "story-read-failed"
     /** The drafted verdict still records story text, which a receipt no longer carries (epic #828, D12). */
-    | "story-text-recorded";
+    | "story-text-recorded"
+    /** A verdict's judgments block cannot be read, so it can serve as no ID registry (epic #829, D2). */
+    | "judgments-malformed"
+    /** The drafted verdict carries no judgments block, so the next run would have no ID registry (epic #829, D2). */
+    | "judgments-missing"
+    /** The drafted verdict's severity counts leave out an unanswered departure, which blocks (epic #829, G14). */
+    | "departures-uncounted"
+    /** The departures analyze handed the ID step cannot be read (epic #829, story #858). */
+    | "draft-malformed";
 
 export interface EpicVerdictsDiagnostic {
     problem: EpicVerdictsProblem;

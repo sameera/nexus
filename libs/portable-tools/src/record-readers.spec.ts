@@ -33,8 +33,8 @@ describe("/nxs.analyze reads a record through the section reader", () => {
         expect(analyze).toMatch(/breaks a guarantee[^.]*\*\*critical\*\*/i);
     });
 
-    it("names a broken guarantee by its ID in the report", () => {
-        expect(analyze).toMatch(/Guarantee violations: .*G<n>/);
+    it("names a broken guarantee by its ID in the report, as a departure (epic #829, G3)", () => {
+        expect(analyze).toMatch(/Departures: [\s\S]*DV<n> \(<critical\|high>\) from <G<n>/);
     });
 
     it("keeps the invariants of an old-format record and reads a body in neither format whole", () => {
