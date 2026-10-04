@@ -317,6 +317,34 @@ describe("nexus pr-verdict (registration only — the selection rule is covered 
     });
 });
 
+describe("nexus merge-precheck (registration only — the four receipt states are covered by its own unit specs)", () => {
+    it("is a registered verb the help names", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-merge-precheck-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        expect(io.out.join("\n")).toContain("nexus merge-precheck");
+        expect(VERB_NAMES).toContain("merge-precheck");
+    });
+
+    it("refuses without a pull request number", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-merge-precheck-"));
+        expect(await runNexusCli(["merge-precheck", "--repo", "acme/widget"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--pr");
+    });
+
+    it("refuses without the repository it is reading, so the trust check is never inert", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-merge-precheck-"));
+        expect(await runNexusCli(["merge-precheck", "--pr", "665"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--repo");
+    });
+
+    it("accepts a well-formed invocation and gets past flag parsing", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-merge-precheck-"));
+        const code: number = await runNexusCli(["merge-precheck", "--pr", "665", "--repo", "acme/widget"], io);
+        expect(io.err.join("\n")).not.toContain("usage:");
+        expect(code).not.toBe(2);
+    });
+});
+
 describe("nexus record-digest (registration only — network path covered by the migration-axis parity corpus)", () => {
     it("exits 2 with a usage diagnostic when --issue is missing", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-record-digest-"));

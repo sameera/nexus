@@ -39,6 +39,11 @@
       "import": "./src/pr-verdict.ts",
       "default": "./src/pr-verdict.ts"
     },
+    "./merge-precheck": {
+      "types": "./src/merge-precheck.ts",
+      "import": "./src/merge-precheck.ts",
+      "default": "./src/merge-precheck.ts"
+    },
     "./close-ledger": {
       "types": "./src/close-ledger.ts",
       "import": "./src/close-ledger.ts",

@@ -407,6 +407,13 @@ export interface ReceiptVerdict {
      * from one whose verdict was rejected.
      */
     issuesRepoRejected: string[];
+    /**
+     * How many blocks were dropped as untrusted — an author who cannot speak for the repository, or
+     * a block naming another pull request or repository (epic #828, decision record #849, D10). The
+     * merge pre-check reports a pull request carrying only such blocks as a read failure, never as
+     * one analysis has not run on.
+     */
+    untrustedBlocks: number;
 }
 
 /**
@@ -486,9 +493,11 @@ export function verifyReceipt(
     // comparison among them, so an untrusted block can never shadow a trusted, older one.
     const kept: ReceiptBlock[] = [];
     const issuesRepoRejected: string[] = [];
+    let untrustedBlocks = 0;
     for (const block of collectReceiptBlocks(doc)) {
         const trust = trustBlock(block, prNumber, expectedRepo, expectedIssuesRepo);
         if (trust === "trusted") kept.push(block);
+        else if (trust === "untrusted") untrustedBlocks++;
         else if (trust === "issues-repo-mismatch") {
             const parsed = parseReceiptBlock(block.body);
             const stated = parsed === null ? null : effectiveIssuesRepo(parsed);
@@ -509,6 +518,7 @@ export function verifyReceipt(
             staleNote: null,
             rawBody: "",
             issuesRepoRejected,
+            untrustedBlocks,
         });
     }
     const receipt = parseReceiptBlock(newest.body);
@@ -540,6 +550,7 @@ export function verifyReceipt(
             staleNote,
             rawBody: newest.body,
             issuesRepoRejected,
+            untrustedBlocks,
         },
     };
 }

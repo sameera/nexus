@@ -65,6 +65,15 @@ if (args[0] === "pr-verdict") {
     }));
     process.exit(0);
 }
+if (args[0] === "merge-precheck") {
+    if (process.env.PRECHECK_EXIT) { console.error("merge-precheck repo-unresolved: no remote"); process.exit(Number(process.env.PRECHECK_EXIT)); }
+    const result = process.env.PRECHECK_RESULT || "clean";
+    console.log(JSON.stringify({
+        command: "merge-precheck", pr: 42, result, merge: result === "clean",
+        message: process.env.PRECHECK_MESSAGE || ("precheck says " + result),
+    }));
+    process.exit(0);
+}
 if (args[0] === "epic-verdicts" && args[1] === "coverage") {
     if (process.env.COVERAGE_READ_FAILS === "1") {
         console.error("epic-verdicts story-read-failed: the pull requests claiming 1 story could not be read:\\n  acme/repo#8 — HTTP 502");
@@ -173,10 +182,48 @@ describe("close-epic.sh — the --merge readiness checks (D7)", () => {
         expect(result.stderr).toMatch(/not mergeable/);
     });
 
-    it("refuses to merge a pull request with no clean conformance verdict", () => {
-        const result = run("42", ["--merge"], { PR_STATE: "OPEN", VERDICT_CRIT: "1" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/no clean conformance verdict/);
+    const merged = (calls: Array<{ name: string; args: string[] }>) =>
+        calls.some((c) => c.name === "gh" && c.args[0] === "pr" && c.args[1] === "merge");
+
+    for (const result of ["not-run", "read-failure", "head-moved", "blocking"]) {
+        it(`refuses to merge when the pre-check reports ${result}, printing what it reports`, () => {
+            const r = run("42", ["--merge"], { PR_STATE: "OPEN", PRECHECK_RESULT: result, PRECHECK_MESSAGE: `PR #42: ${result} detail` });
+            expect(r.status).not.toBe(0);
+            expect(r.stderr).toContain(`PR #42: ${result} detail`);
+            expect(merged(r.calls)).toBe(false);
+            expect(r.calls.some((c) => c.name === "claude" || c.name === "codex")).toBe(false);
+        });
+    }
+
+    it("reports a pre-check that could not run as a read failure, and does not merge", () => {
+        const r = run("42", ["--merge"], { PR_STATE: "OPEN", PRECHECK_EXIT: "1" });
+        expect(r.status).not.toBe(0);
+        expect(r.stderr).toMatch(/could not be read/);
+        expect(r.stderr).not.toMatch(/has not run/);
+        expect(merged(r.calls)).toBe(false);
+    });
+
+    it("reports the clean verdict before merging", () => {
+        const r = run("42", ["--merge"], { PR_STATE: "OPEN", PRECHECK_MESSAGE: "PR #42: the receipt is clean (critical 0, high 0)" });
+        expect(r.status).toBe(0);
+        expect(r.stderr).toContain("PR #42: the receipt is clean (critical 0, high 0)");
+        expect(merged(r.calls)).toBe(true);
+    });
+
+    it("reads the receipt only — no shipped record and no analyze run before the merge", () => {
+        const r = run("42", ["--merge"], { PR_STATE: "OPEN" });
+        const mergeAt = r.calls.findIndex((c) => c.name === "gh" && c.args[0] === "pr" && c.args[1] === "merge");
+        const before = r.calls.slice(0, mergeAt);
+        expect(before.some((c) => c.name === "nexus" && c.args[0] === "merge-precheck")).toBe(true);
+        expect(before.some((c) => c.name === "nexus" && c.args[0] === "epic-verdicts")).toBe(false);
+        expect(before.some((c) => c.name === "claude" || c.name === "codex")).toBe(false);
+    });
+
+    it("never runs the pre-check for an open pull request without --merge", () => {
+        const r = run("42", [], { PR_STATE: "OPEN" });
+        expect(r.status).not.toBe(0);
+        expect(r.calls.some((c) => c.name === "nexus" && c.args[0] === "merge-precheck")).toBe(false);
+        expect(merged(r.calls)).toBe(false);
     });
 
     it("merges a ready, clean, open pull request and continues", () => {
