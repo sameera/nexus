@@ -318,3 +318,69 @@ describe("a verdict too large for the platform drops its file lists first (D5; G
         expect(r.ok && r.judgments?.results?.[0]?.files).toEqual([]);
     });
 });
+
+describe("the published judgments are encoded, so a pull request shows none of their content (#877)", () => {
+    const distinct = "zebra-quartz-unlikely-summary";
+    const legacy = (doc: unknown): string => `${JUDGMENTS_MARKER}\n\`\`\`json\n${JSON.stringify(doc, null, 2)}\n\`\`\`\n`;
+
+    it("publishes none of the judgments' content in the visible text", () => {
+        const block = renderJudgmentsBlock({ items: [departure({ summary: distinct, files: ["libs/secret-file.ts"] })], findings: [finding({ about: distinct })] });
+        expect(block.startsWith(JUDGMENTS_MARKER)).toBe(true);
+        expect(block).not.toContain(distinct);
+        expect(block).not.toContain("libs/secret-file.ts");
+        expect(block).not.toContain("```");
+    });
+
+    it("reads a verdict published in the earlier, visible form as the same judgments", () => {
+        const judgments: Judgments = {
+            items: [departure({ answer: { verb: "accepted", author: "lead", link: "https://x/1", reason: "ok" } })],
+            findings: [finding()],
+            deferred: [proposal()],
+            results: [{ kind: "criterion", about: "#877 AC1", verdict: "met", files: ["libs/a.ts"] }],
+            epicLevel: "judge",
+            keyDecisions: KEY,
+        };
+        const visible = legacy({ schema: 1, items: [...judgments.items, ...judgments.findings, ...judgments.deferred], keyDecisions: KEY, results: judgments.results, epicLevel: "judge" });
+        const old = parseJudgmentsBlock(visible);
+        const now = parseJudgmentsBlock(renderJudgmentsBlock(judgments));
+        expect(old.ok && old.judgments).toEqual(judgments);
+        expect(now.ok && now.judgments).toEqual(old.ok && old.judgments);
+    });
+
+    it("keeps an epic's judgments of #829's size, with every file list, under 20,000 characters", () => {
+        const dirs = ["libs/epic-verdicts/src", "libs/pr-acceptance/src", "libs/portable-tools/src", "components/commands", "docs/delivery", "apps/renderer/src"];
+        const files = (n: number): string[] => Array.from({ length: 6 }, (_, k) => `${dirs[(n + k) % dirs.length]}/module-${(n * 7 + k * 13) % 97}-${n}.ts`);
+        const sentence = (n: number): string => `Item ${n}: the code resolves the case ${(n * 31) % 17} by a path the record names differently, so a reader sees ${(n * 53) % 29} steps.`;
+        const items = Array.from({ length: 12 }, (_, i) => departure({ id: `DV${i + 1}`, summary: sentence(i), files: files(i) }));
+        const findings = Array.from({ length: 12 }, (_, i) => finding({ id: `F${i + 1}`, summary: sentence(i + 40), files: files(i + 40) }));
+        const results: Result[] = Array.from({ length: 60 }, (_, i) => ({ kind: "criterion", about: `#${800 + (i % 9)} AC${i}`, verdict: "met", files: files(i + 80) }));
+        const judgments: Judgments = { items, findings, deferred: [], results };
+        const plain = JSON.stringify({ schema: 1, items: [...items, ...findings], results }, null, 2);
+        expect(plain.length).toBeGreaterThan(30000);
+        const block = renderJudgmentsBlock(judgments);
+        expect(block.length).toBeLessThan(20000);
+        const r = parseJudgmentsBlock(block);
+        expect(r.ok && r.judgments).toEqual(judgments);
+    });
+
+    it("reads an answer reason that quotes a marker, a comment closer or a fence back unchanged, and finds one block", () => {
+        const reason = `${JUDGMENTS_MARKER} --> \`\`\`json { "items": [] } \`\`\` <!-- `;
+        const judgments: Judgments = { items: [departure({ answer: { verb: "accepted", author: "lead", link: "https://x/1", reason } })], findings: [], deferred: [] };
+        const body = `${verdictBody({ high: 0 })}\n\n${renderJudgmentsBlock(judgments)}`;
+        expect(body.split(JUDGMENTS_MARKER).length).toBe(2);
+        const r = parseJudgmentsBlock(body);
+        expect(r.ok && r.judgments).toEqual(judgments);
+    });
+
+    it("refuses an encoded block that cannot be decoded", () => {
+        expect(parseJudgmentsBlock(`${JUDGMENTS_MARKER}\n<!-- nexus:judgments-gz AAAA -->\n`).ok).toBe(false);
+    });
+
+    it("replaces an encoded block in a body and leaves the rest as it was", () => {
+        const body = `prose\n\n${renderJudgmentsBlock({ items: [departure()] })}\ntrailer\n`;
+        const next = replaceJudgmentsBlock(body, { items: [], findings: [finding()], deferred: [] });
+        expect(next?.startsWith("prose\n\n") && next.endsWith("\ntrailer\n")).toBe(true);
+        const r = parseJudgmentsBlock(next ?? "");
+        expect(r.ok && r.judgments?.findings.length).toBe(1);
+    });
+});

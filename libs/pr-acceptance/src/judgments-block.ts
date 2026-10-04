@@ -1,3 +1,5 @@
+import { deflateRawSync, inflateRawSync } from "node:zlib";
+
 /**
  * The judgments block: a verdict's second machine block, after the verdict block, under its own
  * marker (epic #829, decision record #871, D2; D5 sets its marker and its place).
@@ -27,14 +29,18 @@
  * parseJudgmentsBlock} is the one parser: the publish check runs it on the exact bytes to be
  * published, and close reads the block through it (#830).
  *
- * Text an answer carries is copied in verbatim, so it is rendered so that it cannot change how
- * either block parses (G28): the fence is longer than any run of backticks in the content, and
- * every `<` is written as its JSON escape, so no marker and no HTML comment appears inside the
- * block. JSON.parse reads both back unchanged.
+ * Published, the block is the marker followed by one HTML comment that holds the JSON compressed
+ * (raw deflate) and base64-encoded (#877), so the rendered pull request shows none of it and the
+ * judgments of a large epic fit well under the platform's limit. Base64 holds no `<`, `-` or
+ * backtick, so text an answer carries cannot change how either block parses (G28). The parser
+ * still reads the earlier form, JSON in a fence longer than any run of backticks in its content.
  */
 
 /** The marker the judgments block is published under. It never contains the verdict block's marker. */
 export const JUDGMENTS_MARKER = "<!-- nexus:analyze-judgments -->";
+
+/** What opens the comment that holds the encoded judgments. */
+const ENCODED_OPEN = "<!-- nexus:judgments-deflate ";
 
 const SCHEMA = 1;
 
@@ -193,7 +199,7 @@ export function splitItemId(id: string): { prefix: string; n: number } | null {
     return m === null ? null : { prefix: m[1], n: Number(m[2]) };
 }
 
-/** The published form of `judgments`: the marker, then the JSON in a fence nothing inside can close. */
+/** The published form of `judgments`: the marker, then the JSON compressed and encoded in an HTML comment. */
 export function renderJudgmentsBlock(judgments: {
     items: readonly Departure[];
     findings?: readonly Finding[];
@@ -208,12 +214,7 @@ export function renderJudgmentsBlock(judgments: {
     if (judgments.results !== undefined) doc["results"] = judgments.results;
     if (judgments.epicLevel !== undefined) doc["epicLevel"] = judgments.epicLevel;
     if (judgments.filesDropped === true) doc["filesDropped"] = true;
-    // `<` occurs only inside JSON strings, so escaping it changes no value; it keeps every marker
-    // and HTML comment a copied answer carries out of the published bytes (G28).
-    const json = JSON.stringify(doc, null, 2).replace(/</g, "\\u003c");
-    const longest = Math.max(0, ...[...json.matchAll(/`+/g)].map((m) => m[0].length));
-    const fence = "`".repeat(Math.max(3, longest + 1));
-    return `${JUDGMENTS_MARKER}\n${fence}json\n${json}\n${fence}\n`;
+    return `${JUDGMENTS_MARKER}\n${ENCODED_OPEN}${deflateRawSync(JSON.stringify(doc)).toString("base64")} -->\n`;
 }
 
 /**
@@ -303,13 +304,26 @@ function locateJudgmentsBlock(body: string): { start: number; end: number; json:
     if (at < 0) return null;
     const restAt = at + JUDGMENTS_MARKER.length;
     const rest = body.slice(restAt);
+    if (rest.startsWith(`\n${ENCODED_OPEN}`)) return locateEncodedBlock(at, restAt, rest);
     const open = /^\s*?\n(`{3,})json[ \t]*\n/.exec(rest);
-    if (open === null) return "no fenced json block follows the judgments marker";
+    if (open === null) return "no encoded or fenced json block follows the judgments marker";
     const fence = open[1];
     const content = rest.slice(open[0].length);
     const close = new RegExp(`(?:^|\\n)${fence}[ \\t]*(?:\\n|$)`).exec(content);
     if (close === null) return "the judgments block's fence is never closed";
     return { start: at, end: restAt + open[0].length + close.index + close[0].length, json: content.slice(0, close.index) };
+}
+
+function locateEncodedBlock(start: number, restAt: number, rest: string): { start: number; end: number; json: string } | string {
+    const m = /^\n<!-- nexus:judgments-deflate ([A-Za-z0-9+/=]*) -->[ \t]*(?:\n|$)/.exec(rest);
+    if (m === null) return "the encoded judgments comment is never closed";
+    let json: string;
+    try {
+        json = inflateRawSync(Buffer.from(m[1], "base64")).toString("utf8");
+    } catch (e) {
+        return `the encoded judgments cannot be decoded (${e instanceof Error ? e.message : String(e)})`;
+    }
+    return { start, end: restAt + m[0].length, json };
 }
 
 /**

@@ -45,7 +45,7 @@ import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { applyAnswers, assignItemIds, openCounts, parseItemDraft, readItemRegistry, recordKeyDecisions } from "@nexus/epic-verdicts/verdict-items";
-import { type Judgments, type RecordKeyDecisions, deferredScopeStatus, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { type Judgments, type RecordKeyDecisions, deferredScopeStatus, parseJudgmentsBlock, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { answerScopeDeps, mergeAnswerRun, parseAnswerScope, planAnswerRun, readEarlierVerdict } from "@nexus/epic-verdicts/answer-scope";
 import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
@@ -378,6 +378,18 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      size, and leaves --body as it was.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runVerdictCheck(argv, io)),
+    },
+    "verdict-judgments": {
+        summary: "Print a published analyze verdict's judgments as readable JSON.",
+        usage: [
+            "  nexus verdict-judgments --body <path>",
+            "  nexus verdict-judgments --pr <N> --repo <owner/repo or host/owner/repo> [--dir <startDir>]",
+            "      The judgments block of a verdict is compressed and encoded, so a pull request shows",
+            "      none of it. This reads it through the one parser (the earlier visible form too) and",
+            "      prints the judgments as indented JSON. With --pr it reads the newest trusted verdict",
+            "      on the pull request. Exits 1 when the verdict carries no judgments or unreadable ones.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runVerdictJudgments(argv, io)),
     },
     "verdict-items": {
         summary: "Number a pull request's departures and findings, apply the answers posted on it, and write the judgments block.",
@@ -1909,6 +1921,56 @@ function runVerdictCheck(argv: string[], io: CliIo): number {
     // The approved bytes are the ones to publish: with the file lists dropped, they differ from the draft (D5).
     if (result.body !== body) fs.writeFileSync(flags.body, result.body);
     io.stdout(JSON.stringify({ command: "verdict-check", ...result.repos, size: result.size, filesDropped: result.filesDropped }));
+    return 0;
+}
+
+/** `nexus verdict-judgments` — the judgments of a published verdict, decoded for a person (#877). */
+function runVerdictJudgments(argv: string[], io: CliIo): number {
+    const usage = "usage: nexus verdict-judgments --body <path> | --pr <N> --repo <owner/repo> [--dir <startDir>]";
+    const flags: { body?: string; pr?: number; repo?: string; dir?: string } = {};
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--body") flags.body = argv[++i];
+        else if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
+        else if (argv[i] === "--repo") flags.repo = argv[++i];
+        else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
+    }
+    let judgments: Judgments | null;
+    if (flags.body !== undefined) {
+        let body: string;
+        try {
+            body = fs.readFileSync(flags.body, "utf8");
+        } catch (e) {
+            io.stderr(`verdict-judgments body-unreadable: ${flags.body} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+            return 1;
+        }
+        const parsed = parseJudgmentsBlock(body);
+        if (!parsed.ok) {
+            io.stderr(`verdict-judgments judgments-malformed: ${parsed.message}.`);
+            return 1;
+        }
+        judgments = parsed.judgments;
+    } else if (flags.pr !== undefined && Number.isInteger(flags.pr) && flags.pr > 0 && flags.repo !== undefined && flags.repo.trim().length > 0) {
+        const cwd = flags.dir ?? io.cwd;
+        const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+        if (!repos.ok) {
+            io.stderr(`verdict-judgments ${repos.error.problem}: ${repos.error.message}`);
+            return 1;
+        }
+        const read = readItemRegistry(closeMigrationRunner, cwd, flags.pr, flags.repo.trim(), repos.repos.issuesRepo);
+        if (!read.ok) {
+            io.stderr(`verdict-judgments ${read.error.problem}: ${read.error.message}`);
+            return 1;
+        }
+        judgments = read.registry;
+    } else {
+        io.stderr(usage);
+        return 2;
+    }
+    if (judgments === null) {
+        io.stderr("verdict-judgments no-judgments: the verdict carries no judgments block.");
+        return 1;
+    }
+    io.stdout(JSON.stringify(judgments, null, 2));
     return 0;
 }
 
