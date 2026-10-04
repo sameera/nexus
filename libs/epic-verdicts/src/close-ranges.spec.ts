@@ -10,12 +10,12 @@ import { type RepoCheckoutResult } from "@nexus/pr-worktree/repo-checkout";
 import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
 import { deriveCloseRanges, type CloseRangesDeps, type DeriveOutcome } from "./close-ranges.js";
 import { type ShippedRecord } from "./ledger.js";
-import { type StoryMergedPr } from "./story-prs.js";
+import { type StoryClaimingPr } from "./story-prs.js";
 
 const SHA = (c: string) => c.repeat(40).slice(0, 40);
 
-function merged(story: number, pr: number, mergedAt: string, repo = "acme/web"): StoryMergedPr {
-    return { story, pr, repo, mergeCommit: `merge-${pr}`, mergedAt, edge: "closing" };
+function merged(story: number, pr: number, mergedAt: string, repo = "acme/web"): StoryClaimingPr {
+    return { story, pr, repo, state: "merged", mergeCommit: `merge-${pr}`, mergedAt, edge: "closing" };
 }
 
 function record(stories: number[], pr: number, repo = "acme/web", mergeCommit = `merge-${pr}`): ShippedRecord {
@@ -35,7 +35,7 @@ function record(stories: number[], pr: number, repo = "acme/web", mergeCommit = 
 }
 
 interface World {
-    claims?: Record<number, StoryMergedPr[] | string>;
+    claims?: Record<number, StoryClaimingPr[] | string>;
     /** Repositories with no checkout, mapped to the path it was expected at (null: undeclared). */
     missing?: Record<string, string | null>;
     /** Commits absent from the checkout. */
@@ -45,7 +45,7 @@ interface World {
     /** Merge commits the checkout holds but trunk does not reach. */
     offTrunk?: string[];
     /** The analyzed head of each pull request's selected receipt, or a read failure; none by default. */
-    receipts?: Record<number, { head: string } | { fail: string }>;
+    receipts?: Record<number, { head: string; stories?: number[] } | { fail: string }>;
     /** Each pull request's head; defaults to `head-<pr>`. */
     prHeads?: Record<number, string>;
     /** The landed check's answer per pull request; defaults to every file unchanged. */
@@ -59,8 +59,8 @@ interface Seen {
     compared?: Array<{ pr: number; analyzedHead: string; base: string; head: string }>;
 }
 
-function receipt(head: string): AnalyzeReceipt {
-    return { epic: "#828", nexusVersion: null, pr: null, date: "2026-09-01", head, mode: "full", findings: {}, repo: null, stories: [], record: null, recordHash: null, issuesRepo: null, storyFingerprints: {} };
+function receipt(head: string, stories: number[] = []): AnalyzeReceipt {
+    return { epic: "#828", nexusVersion: null, pr: null, date: "2026-09-01", head, mode: "full", findings: {}, repo: null, stories, record: null, recordHash: null, issuesRepo: null, storyFingerprints: {} };
 }
 
 function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [] }): CloseRangesDeps {
@@ -94,7 +94,7 @@ function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [
             const prHead = world.prHeads?.[pr.pr] ?? `head-${pr.pr}`;
             if (r === undefined) return { ok: true, receipt: null, prHead };
             if ("fail" in r) return { ok: false, cause: r.fail };
-            return { ok: true, receipt: receipt(r.head), prHead };
+            return { ok: true, receipt: receipt(r.head, r.stories), prHead };
         },
         compareLanded(_checkout, pr, input) {
             seen.compared?.push({ pr: pr.pr, ...input });
@@ -425,5 +425,140 @@ describe("deriveCloseRanges — the landed check (D4; G8, G9)", () => {
             [1, "unchanged"],
             [2, "unchanged"],
         ]);
+    });
+});
+
+function claiming(story: number, pr: number, state: "open" | "closed", repo = "acme/web"): StoryClaimingPr {
+    return { story, pr, repo, state, mergeCommit: null, mergedAt: "", edge: "closing" };
+}
+
+describe("deriveCloseRanges — each story's state (story #847; D5, D6, D7; G13, G14)", () => {
+    const reviewed = (pr: number, ...stories: number[]) => ({ [pr]: { head: `head-${pr}`, stories } });
+
+    it("calls a story current when a receipt on each merged pull request names it", () => {
+        const out = deriveCloseRanges(deps({ claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z")] }, receipts: reviewed(10, 1) }), { stories: [1], records: [] });
+        expect(out.ok && out.ranges.states).toEqual([{ story: 1, state: "current", findings: [] }]);
+        expect(out.ok && out.ranges.closable).toBe(true);
+    });
+
+    it("stops on a story no receipt names, naming /nxs.analyze --pr on its pull request and offering no waiver", () => {
+        const out = deriveCloseRanges(deps({ claims: { 1: [merged(1, 12, "2026-09-02T00:00:00Z")] } }), { stories: [1], records: [], issuesRepo: "acme/hub" });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.states).toEqual([
+            { story: 1, state: "never-reviewed", findings: [{ repo: "acme/web", pr: 12, finding: "no-receipt", remedy: "/nxs.analyze --pr 12" }] },
+        ]);
+        expect(out.ranges.closable).toBe(false);
+        const line = out.ranges.lines.find((l) => l.includes("never reviewed")) ?? "";
+        expect(line).toMatch(/^acme\/hub#1 — never reviewed/);
+        expect(line).toContain("/nxs.analyze --pr 12");
+        expect(line).toMatch(/no waiver/i);
+    });
+
+    it("counts a receipt only for the stories it names", () => {
+        const out = deriveCloseRanges(deps({ claims: { 1: [merged(1, 12, "2026-09-02T00:00:00Z")] }, receipts: reviewed(12, 2) }), { stories: [1], records: [] });
+        expect(out.ok && out.ranges.states[0].state).toBe("never-reviewed");
+    });
+
+    it("names only the merged pull request that carries no receipt naming the story", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), merged(1, 11, "2026-09-03T00:00:00Z")] }, receipts: reviewed(10, 1) }),
+            { stories: [1], records: [] },
+        );
+        expect(out.ok && out.ranges.states[0]).toEqual({
+            story: 1,
+            state: "never-reviewed",
+            findings: [{ repo: "acme/web", pr: 11, finding: "no-receipt", remedy: "/nxs.analyze --pr 11" }],
+        });
+    });
+
+    it("asks no receipt of a pull request with no attributable commits when another receipt names the story", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), merged(1, 11, "2026-09-03T00:00:00Z")] },
+                receipts: reviewed(10, 1),
+                derive: { 11: { ok: false, problem: "range-empty-diff", message: "empty" } },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(out.ok && out.ranges.states[0].state).toBe("current");
+    });
+
+    it("stops on a story with an open claiming pull request, naming it, even when another merged, with no analyze remedy", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [] };
+        let receiptReads: number[] = [];
+        const d = deps({ claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), claiming(1, 20, "open", "acme/other")] }, receipts: reviewed(10, 1) }, seen);
+        const counted: CloseRangesDeps = { ...d, readReceipt: (pr) => ((receiptReads = [...receiptReads, pr.pr]), d.readReceipt(pr)) };
+        const out = deriveCloseRanges(counted, { stories: [1], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.states[0]).toEqual({ story: 1, state: "unshipped", findings: [{ repo: "acme/other", pr: 20, finding: "open" }] });
+        expect(out.ranges.closable).toBe(false);
+        const line = out.ranges.lines.find((l) => l.includes("unshipped")) ?? "";
+        expect(line).toContain("acme/other#20");
+        expect(line).not.toContain("/nxs.analyze");
+        // The open pull request is classified, never ranged, checked out or reviewed.
+        expect(out.ranges.range.map((r) => r.pr)).toEqual([10]);
+        expect(seen.derived).toEqual([10]);
+        expect(seen.checkouts).toEqual(["acme/web"]);
+        expect(receiptReads).toEqual([10]);
+    });
+
+    it("stops on a story whose only claiming pull request closed unmerged, naming it", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [] };
+        const out = deriveCloseRanges(deps({ claims: { 1: [claiming(1, 21, "closed")] } }, seen), { stories: [1], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.states[0]).toEqual({ story: 1, state: "unshipped", findings: [{ repo: "acme/web", pr: 21, finding: "closed-unmerged" }] });
+        const line = out.ranges.lines.find((l) => l.includes("unshipped")) ?? "";
+        expect(line).toContain("acme/web#21");
+        expect(line).not.toContain("/nxs.analyze");
+        expect(out.ranges.range).toEqual([]);
+        expect(seen.derived).toEqual([]);
+    });
+
+    it("stops on a story no pull request claims and no marker excludes", () => {
+        const out = deriveCloseRanges(deps({}), { stories: [1], records: [] });
+        expect(out.ok && out.ranges.states[0]).toEqual({ story: 1, state: "unshipped", findings: [] });
+        expect(out.ok && out.ranges.closable).toBe(false);
+    });
+
+    it("lists an excluded story as excluded, never reads it, and lets the epic close (G25)", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [] };
+        const out = deriveCloseRanges(deps({ claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z")] }, receipts: reviewed(10, 1) }, seen), {
+            stories: [1, 2],
+            excluded: [2],
+            records: [],
+        });
+        expect(out.ok && out.ranges.states.map((s) => [s.story, s.state])).toEqual([
+            [1, "current"],
+            [2, "excluded"],
+        ]);
+        expect(out.ok && out.ranges.closable).toBe(true);
+        expect(seen.claims).toEqual([1]);
+    });
+
+    it("calls a story unknown, before anything else, when a receipt could not be read", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), claiming(1, 20, "open")] }, receipts: { 10: { fail: "gh: HTTP 502" } } }),
+            { stories: [1], records: [] },
+        );
+        expect(out.ok && out.ranges.states[0].state).toBe("unknown");
+        expect(out.ok && out.ranges.states[0].findings.map((f) => f.finding).sort()).toEqual(["open", "unreadable"]);
+    });
+
+    it("never treats a failed claiming read as a story with no pull request", () => {
+        const out = deriveCloseRanges(deps({ claims: { 1: "HTTP 502" } }), { stories: [1], records: [] });
+        expect(out.ok).toBe(false);
+        expect(!out.ok && out.problem).toBe("story-read-failed");
+    });
+
+    it("keeps every range stop apart from the story states, and closes on neither", () => {
+        const out = deriveCloseRanges(deps({ claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z")] }, receipts: reviewed(10, 1), offTrunk: ["merge-10"] }), {
+            stories: [1],
+            records: [],
+        });
+        expect(out.ok && out.ranges.ok).toBe(false);
+        expect(out.ok && out.ranges.closable).toBe(false);
     });
 });

@@ -19,8 +19,13 @@
  *     story under the one shared claim rule ({@link claimsIssue}), which is why a wrong number can
  *     only ever cost a candidate, never add one.
  *
- * Only merged pull requests come back. An open or closed-unmerged pull request shipped nothing, and
- * every caller here is asking what shipped.
+ * Every claiming pull request comes back with its state: merged, open, or closed without merging
+ * (epic #828, story #847, decision record #849, D7). Only close's classification uses the extra
+ * states: an open pull request is work still in flight, and a story whose claims all closed unmerged
+ * shipped nothing. Every other caller is asking what *shipped*, and filters to the merged ones
+ * explicitly with {@link mergedOnly} or {@link mergedClaims} at its own call site, so an open pull
+ * request can never read as shipped code. Paging, the claim rule and failure handling stay here, in
+ * the one read.
  *
  * The read is complete or it fails (epic #827, decision record #837, D1). Both edges are read to
  * their last page, because cross-references include mentions from plain issues and a busy story can
@@ -39,6 +44,25 @@ import { type Runner } from "./run.js";
 /** How the issue graph tied this pull request to the story. */
 export type StoryPrEdge = "closing" | "cross-reference";
 
+/** Where a claiming pull request stands: merged, still open, or closed without merging. */
+export type StoryPrState = "merged" | "open" | "closed";
+
+/** One pull request that claims a story, in whatever state it is in. */
+export interface StoryClaimingPr {
+    /** The story issue number, in the issues repository. */
+    story: number;
+    pr: number;
+    /** The repository the pull request lives in, as the platform names it (`owner/repo`). */
+    repo: string;
+    state: StoryPrState;
+    /** The merge commit the platform reports, or null when it reported none (always null unless merged). */
+    mergeCommit: string | null;
+    /** The platform's own merge timestamp, or "" for a pull request that has not merged. */
+    mergedAt: string;
+    edge: StoryPrEdge;
+}
+
+/** A claiming pull request that merged — the only kind a caller asking what shipped ever sees. */
 export interface StoryMergedPr {
     /** The story issue number, in the issues repository. */
     story: number;
@@ -50,6 +74,12 @@ export interface StoryMergedPr {
     /** The platform's own merge timestamp — the ordering key, never a date anyone wrote. */
     mergedAt: string;
     edge: StoryPrEdge;
+}
+
+export interface StoryClaimsResult {
+    story: number;
+    /** Every pull request that claims this story, in any state — empty when none does. */
+    prs: StoryClaimingPr[];
 }
 
 export interface StoryMergedPrsResult {
@@ -65,9 +95,11 @@ export interface StoryReadFailure {
     cause: string;
 }
 
+export type StoryClaimsRead = { ok: true; result: StoryClaimsResult } | { ok: false; failure: StoryReadFailure };
+
 export type StoryMergedPrsRead = { ok: true; result: StoryMergedPrsResult } | { ok: false; failure: StoryReadFailure };
 
-const PR_FIELDS = "number merged mergedAt mergeCommit{oid} body repository{nameWithOwner}";
+const PR_FIELDS = "number state merged mergedAt mergeCommit{oid} body repository{nameWithOwner}";
 
 /** One query per edge, each paged on its own cursor. */
 const EDGE_QUERIES: ReadonlyArray<{ edge: StoryPrEdge; field: string; query: string }> = [
@@ -95,7 +127,7 @@ const EDGE_QUERIES: ReadonlyArray<{ edge: StoryPrEdge; field: string; query: str
 
 interface RawPr {
     number: number;
-    merged: boolean;
+    state: StoryPrState;
     mergedAt: string;
     mergeCommit: string | null;
     body: string;
@@ -118,9 +150,11 @@ function readPr(node: unknown): RawPr | null {
         mergeNode !== null && typeof mergeNode === "object" && typeof (mergeNode as Record<string, unknown>)["oid"] === "string"
             ? String((mergeNode as Record<string, unknown>)["oid"])
             : null;
+    // Anything not merged and not stated closed counts as open: unknown work blocks, never ships.
+    const state: StoryPrState = rec["merged"] === true ? "merged" : rec["state"] === "CLOSED" ? "closed" : "open";
     return {
         number,
-        merged: rec["merged"] === true,
+        state,
         mergedAt: typeof rec["mergedAt"] === "string" ? rec["mergedAt"] : "",
         mergeCommit,
         body: typeof rec["body"] === "string" ? rec["body"] : "",
@@ -178,27 +212,29 @@ function readEdge(run: Runner, cwd: string, slug: RepoSlug, story: number, edge:
 }
 
 /**
- * Every merged pull request that shipped part of `story`, wherever it merged.
+ * Every pull request that claims `story`, wherever it lives and in whatever state it is in.
  *
  * `slug` is the **issues** repository — the one the story number belongs to, and the only
- * repository this ever queries. The repositories the pull requests merged in come back from the
+ * repository this ever queries. The repositories the pull requests live in come back from the
  * platform; none of them has to be checked out, or even reachable, for this to answer.
  */
-export function resolveStoryMergedPrs(run: Runner, cwd: string, slug: RepoSlug, story: number): StoryMergedPrsRead {
-    const byKey = new Map<string, StoryMergedPr>();
+export function readStoryClaims(run: Runner, cwd: string, slug: RepoSlug, story: number): StoryClaimsRead {
+    const byKey = new Map<string, StoryClaimingPr>();
     const add = (raw: RawPr | null, edge: StoryPrEdge): void => {
-        if (raw === null || !raw.merged) return;
+        if (raw === null) return;
         // A cross-reference is a mention until the pull request states this story as its own scope.
         // A bare `#N` counts only inside the issues repository, where that is what it names.
         if (edge === "cross-reference" && !claimsIssue(raw.body, story, slug, sameRepo(raw.repo, `${slug.owner}/${slug.repo}`))) return;
         const key = `${raw.repo.toLowerCase()}#${raw.number}`;
         if (byKey.has(key)) return; // the stronger edge was read first and wins
+        const merged = raw.state === "merged";
         byKey.set(key, {
             story,
             pr: raw.number,
             repo: raw.repo,
-            mergeCommit: raw.mergeCommit,
-            mergedAt: raw.mergedAt,
+            state: raw.state,
+            mergeCommit: merged ? raw.mergeCommit : null,
+            mergedAt: merged ? raw.mergedAt : "",
             edge,
         });
     };
@@ -215,26 +251,42 @@ export function resolveStoryMergedPrs(run: Runner, cwd: string, slug: RepoSlug, 
     }
 
     // Merge time is the platform's, so ordering never needs a copy of the repository it merged in
-    // (invariant 14). Repository and number break a tie only to keep the result deterministic.
+    // (invariant 14). An unmerged pull request has none and sorts first; repository and number
+    // break a tie only to keep the result deterministic.
     const prs = [...byKey.values()].sort(
         (a, b) => a.mergedAt.localeCompare(b.mergedAt) || a.repo.localeCompare(b.repo) || a.pr - b.pr,
     );
     return { ok: true, result: { story, prs } };
 }
 
+/**
+ * The merged pull requests among `prs`, in the shape every caller asking what shipped has always
+ * read. An open or closed-unmerged pull request shipped nothing, so it never gets through.
+ */
+export function mergedClaims(prs: readonly StoryClaimingPr[]): StoryMergedPr[] {
+    return prs
+        .filter((p) => p.state === "merged")
+        .map((p) => ({ story: p.story, pr: p.pr, repo: p.repo, mergeCommit: p.mergeCommit, mergedAt: p.mergedAt, edge: p.edge }));
+}
+
+/** A claiming read narrowed to what shipped: the same failure, or only the merged pull requests. */
+export function mergedOnly(read: StoryClaimsRead): StoryMergedPrsRead {
+    return read.ok ? { ok: true, result: { story: read.result.story, prs: mergedClaims(read.result.prs) } } : read;
+}
+
 export type EveryStoryClaimsRead =
-    | { ok: true; byStory: Record<number, StoryMergedPr[]> }
+    | { ok: true; byStory: Record<number, StoryClaimingPr[]> }
     | { ok: false; failures: StoryReadFailure[] };
 
 /**
- * The claiming read for each of `stories`. Every story is read even after one fails, so a single
+ * The claiming read for each of `stories`, every state included. Every story is read even after one fails, so a single
  * run names every unreadable story rather than only the first (decision record #837, D3).
  */
 export function readEveryStoryClaims(run: Runner, cwd: string, slug: RepoSlug, stories: readonly number[]): EveryStoryClaimsRead {
-    const byStory: Record<number, StoryMergedPr[]> = {};
+    const byStory: Record<number, StoryClaimingPr[]> = {};
     const failures: StoryReadFailure[] = [];
     for (const story of stories) {
-        const read = resolveStoryMergedPrs(run, cwd, slug, story);
+        const read = readStoryClaims(run, cwd, slug, story);
         if (read.ok) byStory[story] = read.result.prs;
         else failures.push(read.failure);
     }

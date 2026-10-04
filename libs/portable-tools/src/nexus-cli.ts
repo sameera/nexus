@@ -37,10 +37,10 @@ import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/e
 import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { epicRefForRecord, fetchShippedRecords, postShippedRecord, type FindingCounts, type ShippedRecord } from "@nexus/epic-verdicts/ledger";
-import { assessEpicCoverage } from "@nexus/epic-verdicts/coverage";
+import { assessEpicCoverage, readCoverageClaims } from "@nexus/epic-verdicts/coverage";
 import { type UntrustedRecord } from "@nexus/epic-verdicts/ledger";
 import { ledgerCloseGate, sumLedgerFindings } from "@nexus/epic-verdicts/close-ledger";
-import { describeStoryReadFailures, readEveryStoryClaims } from "@nexus/epic-verdicts/story-prs";
+import { describeStoryReadFailures } from "@nexus/epic-verdicts/story-prs";
 import { collectEvidence, evidenceDeps } from "@nexus/epic-verdicts/evidence";
 import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-ranges";
 import { fingerprintStories } from "@nexus/epic-verdicts/fingerprint";
@@ -304,12 +304,14 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      close repeats `lines` verbatim. A failed read exits 1 as story-read-failed.",
             "  nexus epic-verdicts ranges --epic <N> [--root <startDir>]",
             "      Derive each story's commit ranges for close, one path for every epic. Reads every",
-            "      merged pull request claiming each live story, then takes a shipped record's stamped",
-            "      range or derives it in the checkout of the repository it merged in. Prints { command:",
-            "      \"ranges\", ok, stories, range, landed, blocking, excluded, lines }; a pull request with",
-            "      no attributable commits is listed as no range. `landed` is each story's landed check:",
-            "      whether each pull request landed every reviewed file as its trusted receipt's analyzed",
-            "      head changed it. A merge commit trunk does not reach blocks as not-landed. A failed read exits 1 as",
+            "      pull request claiming each live story, then, for each merged one, takes a shipped record's",
+            "      stamped range or derives it in the checkout of the repository it merged in. Prints { command:",
+            "      \"ranges\", ok, stories, range, landed, blocking, excluded, states, closable, lines }; a pull",
+            "      request with no attributable commits is listed as no range. `landed` is each story's landed",
+            "      check: whether each pull request landed every reviewed file as its trusted receipt's analyzed",
+            "      head changed it. A merge commit trunk does not reach blocks as not-landed. `states` sorts each",
+            "      story as current, never-reviewed, unshipped, unknown or excluded; `closable` is true only when",
+            "      nothing blocks and every story is current or excluded. A failed read exits 1 as",
             "      story-read-failed; a repository with no checkout exits 1 as checkout-missing,",
             "      naming the expected path, before anything is fetched.",
             "  nexus epic-verdicts close-gate --epic <N> [--root <startDir>]",
@@ -1696,7 +1698,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         // A failed read is never a coverage state (decision record #837, D3): the one-command close
         // script stops on this exit, and a fifth state would read as no gap to any reader that
         // ignored it. Every story is read first, so one run names every unreadable story.
-        const claims = readEveryStoryClaims(
+        const claims = readCoverageClaims(
             closeMigrationRunner,
             root,
             issuesSlug,
@@ -1706,7 +1708,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(claims.failures, issuesRepo)} No coverage is printed.`);
             return 1;
         }
-        const mergedPrsByStory = claims.byStory;
+        const mergedPrsByStory = claims.mergedPrsByStory;
 
         const coverage = assessEpicCoverage({
             epic: flags.epic,

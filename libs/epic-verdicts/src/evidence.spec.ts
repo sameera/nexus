@@ -124,7 +124,7 @@ describe("evidenceDeps — the platform-backed reads (story #834)", () => {
         stories +
         "\n```";
 
-    function platform(opts: { claimFails?: boolean; prViewFails?: boolean }, seen: string[][] = []): Runner {
+    function platform(opts: { claimFails?: boolean; prViewFails?: boolean; unmerged?: boolean }, seen: string[][] = []): Runner {
         return (cmd, args) => {
             seen.push([cmd, ...args]);
             if (cmd === "gh" && args[0] === "api" && args[1] === "graphql") {
@@ -132,7 +132,14 @@ describe("evidenceDeps — the platform-backed reads (story #834)", () => {
                 const q = args.find((a) => a.startsWith("query=")) ?? "";
                 const conn = (nodes: unknown[]) => ({ nodes, pageInfo: { hasNextPage: false, endCursor: null } });
                 const pr = { number: 12, merged: true, mergedAt: "2026-09-01T00:00:00Z", mergeCommit: { oid: "m" }, body: "", repository: { nameWithOwner: "acme/member" } };
-                const issue = q.includes("closedByPullRequestsReferences") ? { closedByPullRequestsReferences: conn([pr]) } : { timelineItems: conn([]) };
+                // Since story #847 the claiming read also returns open and closed-unmerged pull requests.
+                const unmerged = opts.unmerged
+                    ? [
+                          { number: 20, state: "OPEN", merged: false, mergedAt: null, mergeCommit: null, body: "", repository: { nameWithOwner: "acme/member" } },
+                          { number: 21, state: "CLOSED", merged: false, mergedAt: null, mergeCommit: null, body: "", repository: { nameWithOwner: "acme/member" } },
+                      ]
+                    : [];
+                const issue = q.includes("closedByPullRequestsReferences") ? { closedByPullRequestsReferences: conn([...unmerged, pr]) } : { timelineItems: conn([]) };
                 return { status: 0, stdout: JSON.stringify({ data: { repository: { issue } } }), stderr: "" };
             }
             if (cmd === "gh" && args[0] === "api" && args[1] === "repos/acme/hub/issues/834") {
@@ -156,6 +163,15 @@ describe("evidenceDeps — the platform-backed reads (story #834)", () => {
         expect(prView).toEqual(expect.arrayContaining(["--repo", "acme/member"]));
         const graph = seen.find((c) => c[1] === "api") ?? [];
         expect(graph).toEqual(expect.arrayContaining(["owner=acme", "repo=hub"]));
+    });
+
+    it("sees exactly the merged pull requests it saw before the claiming read widened, and reads no receipt of any other (story #847, G15)", () => {
+        const before = collectEvidence(evidenceDeps(platform({}), "/hub", "acme/hub"), { stories: [834] });
+        const seen: string[][] = [];
+        const after = collectEvidence(evidenceDeps(platform({ unmerged: true }, seen), "/hub", "acme/hub"), { stories: [834] });
+        expect(after).toEqual(before);
+        const viewed = seen.filter((c) => c[1] === "pr" && c[2] === "view").map((c) => c[3]);
+        expect(viewed).toEqual(["12"]);
     });
 
     it("turns a failed claiming read or receipt read into a failure naming the story", () => {

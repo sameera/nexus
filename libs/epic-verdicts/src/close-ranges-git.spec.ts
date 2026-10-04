@@ -62,6 +62,8 @@ interface FakePr {
     merge: string;
     /** The head the pull request's trusted receipt says was analyzed; no receipt when absent. */
     analyzed?: string;
+    /** An unmerged pull request's platform state; merged when absent. */
+    state?: "OPEN" | "CLOSED";
 }
 
 function receiptReview(p: FakePr): Array<Record<string, string>> {
@@ -85,7 +87,11 @@ function platform(prs: FakePr[], seen: string[]): Runner {
             if (query.includes("closedByPullRequestsReferences")) {
                 const nodes = prs
                     .filter((p) => p.story === num)
-                    .map((p) => ({ number: p.number, merged: true, mergedAt: p.mergedAt, mergeCommit: { oid: p.merge }, body: "", repository: { nameWithOwner: "acme/web" } }));
+                    .map((p) =>
+                        p.state === undefined
+                            ? { number: p.number, state: "MERGED", merged: true, mergedAt: p.mergedAt, mergeCommit: { oid: p.merge }, body: "", repository: { nameWithOwner: "acme/web" } }
+                            : { number: p.number, state: p.state, merged: false, mergedAt: null, mergeCommit: null, body: "", repository: { nameWithOwner: "acme/web" } },
+                    );
                 return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: { closedByPullRequestsReferences: { pageInfo, nodes } } } } }), stderr: "" };
             }
             return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: { timelineItems: { pageInfo, nodes: [] } } } } }), stderr: "" };
@@ -156,6 +162,29 @@ describe("deriveCloseRanges in a real checkout (story #841)", () => {
             { kind: "checkout-behind", repo: "acme/web", pr: 10, mergeCommit: missing, checkout: repo, fetch: `git -C ${repo} fetch origin` },
         ]);
         expect(seen).toEqual([]);
+    });
+});
+
+describe("the claiming read close classifies on (story #847, D7)", () => {
+    it("sees an open claiming pull request and stops its story as unshipped, while ranging only the merged one", () => {
+        const repo = buildRepo();
+        const feature = mergeBranch(repo, "b10", "src/feature.ts");
+        const prs: FakePr[] = [
+            { number: 10, story: 841, mergedAt: "2026-09-01T00:00:00Z", ...feature, analyzed: feature.head },
+            { number: 20, story: 841, mergedAt: "", base: "", head: "", merge: "", state: "OPEN" },
+        ];
+        const seen: string[][] = [];
+        const base = platform(prs, []);
+        const run: Runner = (cmd, args, opts) => (seen.push([cmd, ...args]), base(cmd, args, opts));
+
+        const out = deriveCloseRanges(closeRangesDeps(run, repo, "acme/web"), { stories: [841], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(true);
+        expect(out.ranges.range.map((r) => r.pr)).toEqual([10]);
+        expect(out.ranges.states).toEqual([{ story: 841, state: "unshipped", findings: [{ repo: "acme/web", pr: 20, finding: "open" }] }]);
+        expect(out.ranges.closable).toBe(false);
+        expect(seen.filter((c) => c[1] === "pr" && c[2] === "view").map((c) => c[3])).not.toContain("20");
     });
 });
 

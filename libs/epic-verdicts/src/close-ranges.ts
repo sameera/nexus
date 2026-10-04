@@ -29,6 +29,13 @@
  * at another head, is "not checked" with the reason, because classifying it is another gate's job.
  * A changed file is reported, not blocked on, here. Evidence that cannot be read blocks, because
  * close could not then state the result it stamps.
+ *
+ * Every live story is then sorted into one state (story #847, D5, D7), in the record's order: a
+ * receipt close could not read makes it unknown; an open claiming pull request, or no merged one,
+ * makes it unshipped; a merged pull request whose receipt does not name it makes it never
+ * reviewed; otherwise it is current. Excluded stories are listed as excluded and never read. The
+ * claiming read returns every state, and only this classification looks past the merged pull
+ * requests: ranges, checkouts, receipts and the landed check are asked of merged ones alone.
  */
 
 import { type RepoSlug } from "@nexus/epic-resolve/gh";
@@ -42,7 +49,7 @@ import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { shippedRecordKey, type ShippedRecord } from "./ledger.js";
 import { readPrVerdict } from "./pr-verdict.js";
 import { type Runner } from "./run.js";
-import { resolveStoryMergedPrs, type StoryMergedPr, type StoryMergedPrsRead, type StoryReadFailure } from "./story-prs.js";
+import { mergedClaims, readStoryClaims, type StoryClaimingPr, type StoryClaimsRead, type StoryMergedPr, type StoryReadFailure } from "./story-prs.js";
 
 /** What the merge-anchored derivation produced for one pull request. */
 export type DeriveOutcome = { ok: true; base: string; head: string } | { ok: false; problem: string; message: string };
@@ -55,7 +62,8 @@ export type LandedReceiptRead = { ok: true; receipt: AnalyzeReceipt | null; prHe
 
 /** The reads and git operations the derivation depends on, injected so a spec can stand in for them. */
 export interface CloseRangesDeps {
-    readClaims(story: number): StoryMergedPrsRead;
+    /** The one claiming read: every claiming pull request, merged, open or closed unmerged. */
+    readClaims(story: number): StoryClaimsRead;
     /** Where the checkout of `repo` is. Only looks: never clones, fetches or creates anything. */
     checkoutFor(repo: string): RepoCheckoutResult;
     /** Whether `checkout` holds `sha` as a commit. Never fetches. */
@@ -107,6 +115,30 @@ export interface StoryLanded {
     prs: PrLandedCheck[];
 }
 
+/**
+ * Where a story stands at close (decision record #849, D5). Any state but `current` and
+ * `excluded` stops close. Stale and its causes are story #842's to add.
+ */
+export type StoryStateName = "current" | "never-reviewed" | "unshipped" | "unknown" | "excluded";
+
+/** One thing close found about a pull request claiming a story, with the remedy it names. */
+export type StoryStateFinding =
+    /** An open pull request claims the story: work still in flight. */
+    | { repo: string; pr: number; finding: "open" }
+    /** A pull request claiming the story closed without merging. */
+    | { repo: string; pr: number; finding: "closed-unmerged" }
+    /** The merged pull request's selected receipt, if any, does not name the story. */
+    | { repo: string; pr: number; finding: "no-receipt"; remedy: string }
+    /** The merged pull request's receipt could not be read. */
+    | { repo: string; pr: number; finding: "unreadable"; cause: string };
+
+export interface StoryState {
+    story: number;
+    state: StoryStateName;
+    /** Every finding about the story's claiming pull requests, so one pass can fix them all. */
+    findings: StoryStateFinding[];
+}
+
 /** One entry of the close record's `range:` list. */
 export interface CloseRangeEntry {
     repo: string;
@@ -137,6 +169,10 @@ export interface CloseRanges {
     excluded: number[];
     /** True when nothing blocks. */
     ok: boolean;
+    /** Every story of the epic, live or excluded, sorted into one state. */
+    states: StoryState[];
+    /** True when nothing blocks and every story is current or excluded: the only state close proceeds on. */
+    closable: boolean;
     /** What close repeats, one line per story and per block. */
     lines: string[];
 }
@@ -180,13 +216,19 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
     const excluded = [...(input.excluded ?? [])].sort((a, b) => a - b);
     const live = [...input.stories].filter((s) => !excluded.includes(s)).sort((a, b) => a - b);
 
-    // 1. The claiming read for every story, each read even after one fails (D1).
+    // 1. The claiming read for every story, each read even after one fails (D1). Only the
+    // classification below looks past the merged pull requests (D7).
     const claims = new Map<number, StoryMergedPr[]>();
+    const unmerged = new Map<number, StoryClaimingPr[]>();
     const failures: StoryReadFailure[] = [];
     for (const story of live) {
         const read = deps.readClaims(story);
-        if (read.ok) claims.set(story, [...read.result.prs].sort(mergeOrder));
-        else failures.push(read.failure);
+        if (!read.ok) {
+            failures.push(read.failure);
+            continue;
+        }
+        claims.set(story, mergedClaims(read.result.prs).sort(mergeOrder));
+        unmerged.set(story, read.result.prs.filter((p) => p.state !== "merged"));
     }
     if (failures.length > 0) return { ok: false, problem: "story-read-failed", failures };
 
@@ -229,10 +271,14 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
         else if (o.entry.source !== "no-range") range.push({ repo: o.entry.repo, pr: o.entry.pr, base: o.entry.base, head: o.entry.head });
     }
 
-    // 4. The landed check of each pull request, once however many stories it implements (D4).
+    // 4. Each merged pull request's selected receipt, read once however many stories it implements.
+    const receipts = new Map<string, LandedReceiptRead>();
+    for (const pr of ordered) receipts.set(prKey(pr), deps.readReceipt(pr));
+
+    // 5. The landed check of each pull request, once however many stories it implements (D4).
     const checks = new Map<string, PrLandedCheck>();
     for (const pr of ordered) {
-        const checked = landedCheckOf(deps, pr, outcomes.get(prKey(pr)) as Outcome);
+        const checked = landedCheckOf(deps, pr, outcomes.get(prKey(pr)) as Outcome, receipts.get(prKey(pr)) as LandedReceiptRead);
         checks.set(prKey(pr), checked.check);
         if (checked.block !== undefined) blocking.push(checked.block);
     }
@@ -242,13 +288,79 @@ export function deriveCloseRanges(deps: CloseRangesDeps, input: CloseRangesInput
         return { story, result, prs };
     });
 
+    // 6. Every story's state (D5, D7).
+    const states: StoryState[] = [...input.stories]
+        .sort((a, b) => a - b)
+        .map((story) =>
+            excluded.includes(story)
+                ? { story, state: "excluded" as const, findings: [] }
+                : classify(story, claims.get(story) ?? [], unmerged.get(story) ?? [], receipts, outcomes),
+        );
+
+    const ok = blocking.length === 0;
     return {
         ok: true,
-        ranges: { stories, range, landed, blocking, excluded, ok: blocking.length === 0, lines: renderLines(stories, landed, blocking, input.issuesRepo) },
+        ranges: {
+            stories,
+            range,
+            landed,
+            blocking,
+            excluded,
+            ok,
+            states,
+            closable: ok && states.every((s) => s.state === "current" || s.state === "excluded"),
+            lines: renderLines(stories, landed, blocking, states, input.issuesRepo),
+        },
     };
 }
 
-function landedCheckOf(deps: CloseRangesDeps, pr: StoryMergedPr, o: Outcome): { check: PrLandedCheck; block?: CloseRangeBlock } {
+/**
+ * One story's state, in the record's order: unknown, then unshipped, then never reviewed, then
+ * current (Mechanism step 4). Every finding is kept whichever state wins, so the lead sees each
+ * one in a single pass.
+ */
+function classify(
+    story: number,
+    merged: readonly StoryMergedPr[],
+    unmerged: readonly StoryClaimingPr[],
+    receipts: ReadonlyMap<string, LandedReceiptRead>,
+    outcomes: ReadonlyMap<string, Outcome>,
+): StoryState {
+    const findings: StoryStateFinding[] = [];
+    for (const pr of unmerged) findings.push({ repo: pr.repo, pr: pr.pr, finding: pr.state === "open" ? "open" : "closed-unmerged" });
+
+    const naming = (pr: StoryMergedPr): boolean => {
+        const r = receipts.get(prKey(pr));
+        return r !== undefined && r.ok && r.receipt !== null && r.receipt.stories.includes(story);
+    };
+    // A pull request with no commits attributable to the story landed nothing to review, so it
+    // needs no receipt of its own — unless no receipt names the story at all (G13).
+    const namedAnywhere = merged.some(naming);
+    for (const pr of merged) {
+        const r = receipts.get(prKey(pr)) as LandedReceiptRead;
+        if (!r.ok) {
+            findings.push({ repo: pr.repo, pr: pr.pr, finding: "unreadable", cause: r.cause });
+            continue;
+        }
+        if (naming(pr)) continue;
+        const o = outcomes.get(prKey(pr));
+        const noRange = o !== undefined && "entry" in o && o.entry.source === "no-range";
+        if (noRange && namedAnywhere) continue;
+        findings.push({ repo: pr.repo, pr: pr.pr, finding: "no-receipt", remedy: `/nxs.analyze --pr ${pr.pr}` });
+    }
+
+    const has = (f: StoryStateFinding["finding"]) => findings.some((x) => x.finding === f);
+    const state: StoryStateName = has("unreadable")
+        ? "unknown"
+        : has("open") || merged.length === 0
+          ? "unshipped"
+          : has("no-receipt")
+            ? "never-reviewed"
+            : "current";
+    return { story, state, findings };
+}
+
+function landedCheckOf(deps: CloseRangesDeps, pr: StoryMergedPr, o: Outcome, read: LandedReceiptRead): { check: PrLandedCheck; block?: CloseRangeBlock } {
     const ref = { repo: pr.repo, pr: pr.pr };
     if ("block" in o) {
         if (o.block.kind === "not-landed") return { check: { ...ref, result: "not-landed", mergeCommit: o.block.mergeCommit, trunkRef: o.block.trunkRef } };
@@ -262,7 +374,6 @@ function landedCheckOf(deps: CloseRangesDeps, pr: StoryMergedPr, o: Outcome): { 
         check: { ...ref, result: "unknown" as const, cause: message },
         block: { kind: "landed-unreadable" as const, ...ref, message },
     });
-    const read = deps.readReceipt(pr);
     if (!read.ok) return unreadable(`the receipt on ${pr.repo}#${pr.pr} could not be read: ${read.cause}`);
     if (read.receipt === null) return { check: { ...ref, result: "not-checked", reason: "no-receipt" } };
     const analyzedHead = read.receipt.head;
@@ -337,7 +448,44 @@ function describeCheck(c: PrLandedCheck): string {
     }
 }
 
-function renderLines(stories: readonly StoryRanges[], landed: readonly StoryLanded[], blocking: readonly CloseRangeBlock[], issuesRepo: string | undefined): string[] {
+/** The line close repeats for a story that stops it, naming every finding and its remedy. */
+function describeState(s: StoryState, ref: string): string | null {
+    const named = (f: StoryStateFinding["finding"]) => s.findings.filter((x) => x.finding === f).map((x) => `${x.repo}#${x.pr}`);
+    switch (s.state) {
+        case "current":
+        case "excluded":
+            return null;
+        case "unknown": {
+            const causes = s.findings.flatMap((f) => (f.finding === "unreadable" ? [`the receipt on ${f.repo}#${f.pr} could not be read: ${f.cause}`] : []));
+            return `${ref} — unknown: ${causes.join("; ")}. Re-run once the read succeeds`;
+        }
+        case "unshipped": {
+            // Analysis cannot finish work that has not merged, so no analyze remedy is named (G14).
+            const open = named("open");
+            if (open.length > 0) {
+                return `${ref} — unshipped: ${open.join(", ")} ${open.length === 1 ? "is" : "are"} open and claim${open.length === 1 ? "s" : ""} it. Merge or close ${open.length === 1 ? "it" : "them"}, then re-run`;
+            }
+            const closed = named("closed-unmerged");
+            if (closed.length > 0) {
+                return `${ref} — unshipped: its only claiming pull request${closed.length === 1 ? "" : "s"} ${closed.join(", ")} closed without merging. Ship it through a pull request that claims it, then re-run`;
+            }
+            return `${ref} — unshipped: no pull request claims it. Ship it through a pull request that claims it, then re-run`;
+        }
+        case "never-reviewed": {
+            const prs = s.findings.flatMap((f) => (f.finding === "no-receipt" ? [f] : []));
+            const remedies = prs.map((f) => `${f.remedy} (${f.repo}#${f.pr})`).join(", ");
+            return `${ref} — never reviewed: no receipt on ${prs.map((f) => `${f.repo}#${f.pr}`).join(", ")} names it. Run ${remedies}. No waiver is offered`;
+        }
+    }
+}
+
+function renderLines(
+    stories: readonly StoryRanges[],
+    landed: readonly StoryLanded[],
+    blocking: readonly CloseRangeBlock[],
+    states: readonly StoryState[],
+    issuesRepo: string | undefined,
+): string[] {
     const lines: string[] = [];
     for (const s of stories) {
         const ref = issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`;
@@ -354,6 +502,10 @@ function renderLines(stories: readonly StoryRanges[], landed: readonly StoryLand
         if (s.prs.length === 0) continue;
         const ref = issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`;
         lines.push(`${ref} — landed check: ${s.prs.map(describeCheck).join("; ")}`);
+    }
+    for (const s of states) {
+        const line = describeState(s, issuesRepo ? `${issuesRepo}#${s.story}` : `#${s.story}`);
+        if (line !== null) lines.push(line);
     }
     for (const b of blocking) {
         if (b.kind === "merge-commit-moved") {
@@ -375,13 +527,16 @@ function renderLines(stories: readonly StoryRanges[], landed: readonly StoryLand
  * The platform-backed reads: the shared claiming read against the issues repository, the
  * checkout lookup the drain also uses, and the one merge-anchored derivation, run in the checkout
  * of the repository each pull request merged in. Nothing here restates a rule those own.
+ *
+ * The claiming read is passed through in every state: close is the one caller that classifies an
+ * open or closed-unmerged pull request, and the derivation narrows to merged ones itself (D7).
  */
 export function closeRangesDeps(run: Runner, root: string, issuesRepo: string): CloseRangesDeps {
     const slash = issuesRepo.lastIndexOf("/");
     const owner = issuesRepo.slice(0, slash).split("/").pop() ?? "";
     const slug: RepoSlug = { owner, repo: issuesRepo.slice(slash + 1) };
     return {
-        readClaims: (story) => resolveStoryMergedPrs(run, root, slug, story),
+        readClaims: (story) => readStoryClaims(run, root, slug, story),
         checkoutFor: (repo) => resolveRepoCheckout(root, run, repo),
         hasCommit: (checkout, sha) => run("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: checkout }).status === 0,
         fetchCommand: (checkout) => `git -C ${checkout} fetch ${canonicalRemote(run, checkout)}`,

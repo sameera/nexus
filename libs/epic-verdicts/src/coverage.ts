@@ -20,9 +20,11 @@
  * a prompt; it can never cost a wrong close.
  */
 
+import { type RepoSlug } from "@nexus/epic-resolve/gh";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type ShippedRecord, type UntrustedRecord } from "./ledger.js";
-import { type StoryMergedPr } from "./story-prs.js";
+import { type Runner } from "./run.js";
+import { mergedClaims, readEveryStoryClaims, type StoryMergedPr, type StoryReadFailure } from "./story-prs.js";
 
 export type StoryCoverageState = "shipped" | "unrecorded" | "unshipped" | "excluded";
 
@@ -110,4 +112,20 @@ export function assessEpicCoverage(input: AssessEpicCoverageInput): EpicCoverage
         recorded: input.records.map((r) => ({ repo: r.repo, pr: r.pr, stories: r.stories, mergeCommit: r.mergeCommit })),
         untrusted: [...(input.untrusted ?? [])],
     };
+}
+
+export type CoverageClaimsRead = { ok: true; mergedPrsByStory: Record<number, StoryMergedPr[]> } | { ok: false; failures: StoryReadFailure[] };
+
+/**
+ * The issue graph's answer for coverage: each story's claiming read, narrowed to its merged pull
+ * requests. The claiming read returns every state since story #847 (decision record #849, D7); an
+ * open or closed-unmerged pull request shipped nothing, so it is never counted here, and coverage
+ * sees exactly the merged pull requests it saw before the read widened (G15, R3).
+ */
+export function readCoverageClaims(run: Runner, cwd: string, slug: RepoSlug, stories: readonly number[]): CoverageClaimsRead {
+    const claims = readEveryStoryClaims(run, cwd, slug, stories);
+    if (!claims.ok) return claims;
+    const mergedPrsByStory: Record<number, StoryMergedPr[]> = {};
+    for (const story of stories) mergedPrsByStory[story] = mergedClaims(claims.byStory[story] ?? []);
+    return { ok: true, mergedPrsByStory };
 }
