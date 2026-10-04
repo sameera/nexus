@@ -58,13 +58,6 @@ const args = process.argv.slice(2);
 fs.appendFileSync(process.env.NEXUS_TEST_LOG, JSON.stringify({name: "nexus", args}) + "\\n");
 if (args[0] === "close-role") { console.log("role: " + (process.env.ROLE || "single-repo") + "\\nrepo: acme/repo (from git)"); process.exit(0); }
 if (args[0] === "trunk") { console.log("origin"); process.exit(0); }
-if (args[0] === "pr-verdict") {
-    console.log(JSON.stringify({
-        found: process.env.VERDICT_FOUND !== "0",
-        receipt: { epic: "#7", findings: { critical: Number(process.env.VERDICT_CRIT || "0"), high: Number(process.env.VERDICT_HIGH || "0") } },
-    }));
-    process.exit(0);
-}
 if (args[0] === "merge-precheck") {
     if (process.env.PRECHECK_EXIT) { console.error("merge-precheck repo-unresolved: no remote"); process.exit(Number(process.env.PRECHECK_EXIT)); }
     const result = process.env.PRECHECK_RESULT || "clean";
@@ -72,15 +65,6 @@ if (args[0] === "merge-precheck") {
         command: "merge-precheck", pr: 42, result, merge: result === "clean",
         message: process.env.PRECHECK_MESSAGE || ("precheck says " + result),
     }));
-    process.exit(0);
-}
-if (args[0] === "epic-verdicts" && args[1] === "coverage") {
-    if (process.env.COVERAGE_READ_FAILS === "1") {
-        console.error("epic-verdicts story-read-failed: the pull requests claiming 1 story could not be read:\\n  acme/repo#8 — HTTP 502");
-        process.exit(1);
-    }
-    const recorded = process.env.RECORDED === "0" ? [] : [{ repo: "acme/repo", pr: 42, stories: [8], mergeCommit: "abc" }];
-    console.log(JSON.stringify({ command: "coverage", epic: 7, fullyShipped: recorded.length > 0, recorded }));
     process.exit(0);
 }
 process.exit(0);
@@ -105,7 +89,7 @@ if (headless) {
     const text = prompt && prompt.includes("distill") ? (process.env.DISTILL_FINAL || "done") : "done";
     console.log(JSON.stringify(name === "codex"
         ? {type: "item.completed", item: {type: "agent_message", text}}
-        : {type: "result", result: text, is_error: process.env.ANALYZE_FAILS === "1" || process.env.DISTILL_FAILS === "1", duration_ms: 1, num_turns: 1}));
+        : {type: "result", result: text, is_error: process.env.DISTILL_FAILS === "1", duration_ms: 1, num_turns: 1}));
     process.exit(0);
 }
 process.exit(0);
@@ -161,10 +145,10 @@ describe("close-epic.sh — the pull request gate", () => {
         expect(result.stderr).toContain("CLOSED");
     });
 
-    it("continues past a merged pull request straight to analyze", () => {
+    it("continues past a merged pull request straight to close", () => {
         const result = run("42", [], { PR_STATE: "MERGED" });
         expect(result.status).toBe(0);
-        expect(result.calls.some((c) => c.name === "claude" && c.args.includes("-p"))).toBe(true);
+        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(true);
     });
 });
 
@@ -233,37 +217,38 @@ describe("close-epic.sh — the --merge readiness checks (D7)", () => {
     });
 });
 
-describe("close-epic.sh — analyze, close and the hand-off note (D4, D5, D6)", () => {
-    it("runs /nxs.analyze --pr unattended before close, and stops before close on failure", () => {
-        const result = run("42", [], { ANALYZE_FAILS: "1" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/not starting close/);
-        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
+describe("close-epic.sh — close and the hand-off note (D4, D5, D6)", () => {
+    // Story #843 (decision record #849, D9, G17): the script starts close with no analyze stage,
+    // no coverage check and no shipped-record requirement. Close's own evidence gate decides.
+    const headlessAnalyze = (calls: Array<{ name: string; args: string[] }>) =>
+        calls.some((c) => (c.args.includes("-p") || c.args.includes("exec")) && c.args.some((a) => a.includes("/nxs.analyze") || a.includes("$nxs-analyze")));
+
+    it("starts close with no analyze stage, no coverage check and no shipped-record read", () => {
+        const result = run("42");
+        expect(result.status).toBe(0);
+        expect(headlessAnalyze(result.calls)).toBe(false);
+        expect(result.calls.some((c) => c.name === "nexus" && c.args[0] === "epic-verdicts")).toBe(false);
+        expect(result.calls.some((c) => c.name === "nexus" && c.args[0] === "pr-verdict")).toBe(false);
+        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(true);
     });
 
-    it("stops before close when analyze exits cleanly but the epic carries no shipped record for the pull request", () => {
-        const result = run("42", [], { RECORDED: "0" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/no shipped record for PR #42/);
-        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
+    it("starts close after merging a pull request analyzed before the merge, with no analyze stage", () => {
+        const result = run("42", ["--merge"], { PR_STATE: "OPEN" });
+        expect(result.status).toBe(0);
+        expect(headlessAnalyze(result.calls)).toBe(false);
+        const mergeAt = result.calls.findIndex((c) => c.name === "gh" && c.args[0] === "pr" && c.args[1] === "merge");
+        const closeAt = result.calls.findIndex((c) => c.name === "claude" && !c.args.includes("-p"));
+        expect(mergeAt).toBeGreaterThan(-1);
+        expect(closeAt).toBeGreaterThan(mergeAt);
     });
 
-    it("stops before close when a story's pull requests could not be read, rather than reading it as covered", () => {
-        const result = run("42", [], { COVERAGE_READ_FAILS: "1" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/story-read-failed/);
-        expect(result.stderr).toMatch(/not starting close/);
-        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
+    it("starts close under the Codex harness with no analyze stage", () => {
+        const result = run("42", [], { HARNESS: "codex" });
+        expect(result.status).toBe(0);
+        expect(headlessAnalyze(result.calls)).toBe(false);
     });
 
-    it("stops before close when analyze exits cleanly but published no verdict", () => {
-        const result = run("42", [], { VERDICT_FOUND: "0" });
-        expect(result.status).not.toBe(0);
-        expect(result.stderr).toMatch(/not starting close/);
-        expect(result.calls.some((c) => c.name === "claude" && !c.args.includes("-p"))).toBe(false);
-    });
-
-    it("runs close interactively (no -p / exec) with --handoff, after analyze succeeds", () => {
+    it("runs close interactively (no -p / exec) with --handoff", () => {
         const result = run("42");
         const interactive = result.calls.find((c) => c.name === "claude" && !c.args.includes("-p"));
         expect(interactive).toBeDefined();
@@ -343,7 +328,7 @@ describe("close-epic.sh — distill runs unattended in the worktree (D1, D8, D9)
 });
 
 describe("close-epic.sh — Codex harness parity (D10)", () => {
-    it("runs analyze and distill via codex exec, and close via plain codex, when HARNESS=codex", () => {
+    it("runs distill via codex exec, and close via plain codex, when HARNESS=codex", () => {
         const result = run("42", [], { HARNESS: "codex" });
         expect(result.status).toBe(0);
         expect(result.calls.some((c) => c.name === "codex" && c.args.includes("exec"))).toBe(true);

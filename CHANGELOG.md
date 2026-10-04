@@ -5,6 +5,25 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.89.0
+
+- **Close takes one run, and starts no analyze run (breaking).** The one-command close script no
+  longer runs `/nxs.analyze --pr` after the merge, no longer checks coverage, and no longer
+  requires a shipped record on the epic issue before it starts `/nxs.close`. It goes from the
+  merge pre-check straight to close. A lead must run `/nxs.analyze --pr` on each pull request
+  before it merges; close's own evidence gate then decides whether that analysis still holds.
+- **Analyze no longer writes a shipped record (breaking).** `/nxs.analyze --pr` on a merged pull
+  request now publishes its receipt on the pull request and writes nothing on the epic issue. A
+  lead who ran analyze after the merge to record what shipped no longer needs to.
+- **Close no longer requires a shipped record.** `/nxs.close --pr` no longer stops on a story with
+  no record on the epic issue. It derives that story's range itself. An epic in flight whose
+  stories already carry records closes as before: close still uses the range each record stamped,
+  and still stops if the platform no longer reports the merge commit a record saw.
+- **Analyze no longer reports what an epic has shipped (breaking).** Asked what an epic has
+  shipped, `/nxs.analyze` now points to `/nxs.close`, which reports each story as current, stale,
+  never reviewed, unshipped, unknown or excluded. A lead who checked coverage through analyze uses
+  close's evidence gate instead. The retired commands say what replaced them when called.
+
 ## 0.88.0
 
 - **Close stops on a story whose evidence is stale (breaking).** `/nxs.close --pr` now stops,

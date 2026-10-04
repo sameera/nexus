@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -303,10 +303,10 @@ one of two states on stdout as JSON:
     wrote no receipt. **Fall through to Phase 1 and run exactly as today** — this is the ordinary
     full-epic path, not a gap.
 
-**A partial epic is not this command's answer.** Ask `nexus epic-verdicts coverage --epic <N>` for
-that: it separates a story with nothing recorded (unshipped) from one whose merged pull request
-never went through the gate (unrecorded), which `derive` cannot tell apart and which take different
-remedies.
+**A partial epic is not this command's answer.** Analyze reports no coverage of what an epic has
+shipped; `/nxs.close` reports each story's state (see "Asking an epic what it has shipped" below).
+Nothing writes a record any more (epic #828), so an epic analyzed pull request by pull request
+after that change carries none and reads as `"none"` here.
 
 Every state also carries **`untrusted`**: marker-bearing comments on the epic issue whose author's
 association with the issues repository is not owner, member or collaborator. The marker alone
@@ -616,76 +616,36 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
     gh pr comment <N> -R <repoIdentity> --body-file "<scratch>/analyze-review.md"
     ```
 
-4. **Record what shipped, when — and only when — the pull request has merged.** A run against an
-   open pull request stops here: the review above is the engineer's read surface, and the epic issue
-   gains nothing. A run against a **merged** pull request writes the epic's shipped record, which is
-   what `/nxs.close` reads later instead of searching repositories for pull requests:
-
-    ```bash
-    nexus epic-verdicts record --epic <epic> --pr <N> \
-      --stories "<the story numbers this PR shipped>" \
-      --findings "critical:<c>,high:<h>,medium:<m>,low:<l>" \
-      --record-hash "<record_hash, omitted in degraded mode>" \
-      --root "$wtPath"
-    ```
-
-    The command derives the commit range itself, from the one merge-anchored derivation, and posts
-    the record on the **epic** issue in the issues repository — not on the pull request, and not in
-    the repository the pull request merged in. One record per code repository and pull-request
-    number: re-running this replaces that record's body and changes no other record, so two leads
-    recording two pull requests minutes apart cannot drop each other's work.
-
-    `written: false` with `reason: "not-merged"` is the ordinary pre-merge answer, not a failure.
-    A **non-zero exit is a failed run**: the composed body is printed with the diagnostic, and the
-    remedy is to re-run this one command — never to report the analyze run as complete. Any
-    `untrusted` entries it prints are records on the epic issue whose author cannot speak for the
-    issues repository; name them in your report rather than ignoring them.
-
-    **The post-merge run is required.** `/nxs.close` blocks on a story with no record, and nothing
-    reads a published review to fill the gap. An epic whose pull requests merged before this
-    existed is backfilled by running `/nxs.analyze --pr <N>` over each of them once.
+4. **Write nothing on the epic issue**, before or after the merge (epic #828, story #843). The
+   review above is the whole published result. Analyze no longer writes a shipped record: close
+   derives each story's range itself, in the checkout of the repository the pull request merged
+   in, and reads this review's receipt through the one trusted reader. Records that earlier runs
+   wrote stay on the epic issue and are still read, by close and by aggregate mode above. Run
+   analyze **before** the merge; close does not run it afterwards.
 
 5. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
 
 ## Asking an epic what it has shipped
 
-Run against an **epic** rather than a pull request, this gate reports coverage — what the epic has
-shipped and what it has not — so a gap reaches you while you can still act on it:
+This gate reports **no coverage of its own** (epic #828, story #843; record #849, D8). Asked what an
+epic has shipped, name `/nxs.close --pr <N>` as the place that reports each story's state, and
+report nothing more from here. Close's evidence gate runs
 
 ```bash
-nexus epic-verdicts coverage --epic <epic> --root "<repo root>"
+nexus epic-verdicts ranges --epic <epic>
 ```
 
-It re-reads the epic's live story set on every run and classifies each story into one of four
-states. Report each one by name; never collapse them, because the remedies differ:
-
-- **shipped** — every merged pull request that shipped this story carries a record.
-- **unrecorded** — a merged pull request exists for this story and carries no record. This is a
-  merge that never went through the gate; the remedy is one `/nxs.analyze --pr <N>` run over it.
-- **unshipped** — nothing merged for this story at all. This is unfinished work.
-- **excluded** — the story is marked as shipping without a pull request of its own, and is left out
-  of the count rather than reported as a gap.
-
-`fullyShipped: true` only when every non-excluded story is *shipped*. Name every recorded pull
-request when reporting a fully shipped epic, every unshipped story otherwise, and any `untrusted`
-entries — records on the epic issue whose author cannot speak for the issues repository.
-
-The issue graph answers the *unrecorded* question and nothing else. It is a reconciliation aid: a
-wrong answer from it costs you a prompt, never a wrong close. Coverage counts merged pull requests
-only. An open or closed-unmerged pull request that claims a story shipped nothing, so its story
-reads *unshipped* here; `/nxs.close` is the stage that names that pull request.
-
-**A failed read is never a fifth state.** Each story's claiming pull requests are read to the last
-page, and a read either completes or fails. When any story's read fails, the command still reads
-the rest, then exits 1 with `epic-verdicts story-read-failed`, naming every failed story and its
-cause, and prints **no coverage**. Report that diagnostic verbatim and stop. Never report the
-failed stories as *unshipped*: a failed read is not "no pull request". The remedy is a plain re-run
-once the read succeeds.
+and sorts every story of the epic into one state: `current`, `stale`, `never-reviewed`,
+`unshipped`, `unknown` or `excluded`, each with the pull requests behind it and the remedy for
+each stop. The command writes nothing, so a lead can run it at any time to see where every story
+stands; `/nxs.close --pr <N>` runs it first and stops on any story that is not current or
+excluded. Never derive a coverage answer from the epic issue's records: nothing writes them any
+more, so a merged pull request with no record is the ordinary case, not a gap.
 
 `head` is the **full** `analyzedHead` (not the short SHA the file receipt uses) so the commit the
-analysis judged is named without ambiguity, and so the range a record stamps is anchored to it.
-`/nxs.close` no longer compares it against the pull request's current head (epic #769, story #776).
-Re-running analyze publishes a fresh review; `/nxs.close` takes the latest machine block.
+analysis judged is named without ambiguity. `/nxs.close` compares it with the merged head, and
+the merge pre-check with the pull request's current head (epic #828). Re-running analyze publishes
+a fresh review; `/nxs.close` takes the latest trusted machine block.
 
 # Usage
 
@@ -704,7 +664,7 @@ Re-running analyze publishes a fresh review; `/nxs.close` takes the latest machi
 - **Read-only, one exception.** Never edit code, the epic, the decision record, or GitHub issues —
   in particular, never close, reopen, or comment on the record sub-issue. Findings are inline; the
   only file written is `analyze-receipt.md` beside the epic — never `task-review.md` or any other
-  report file.
+  report file. Nothing is written on the epic issue: no shipped record (epic #828).
 - **An unapproved record blocks, and a block emits nothing.** No receipt file, no PR review, no PR
   comment — so a missing receipt keeps its single downstream meaning ("analyze never ran"). Approval
   is the close of the record sub-issue; a not-planned closure is a withdrawn design and blocks too.

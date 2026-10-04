@@ -1,17 +1,15 @@
 /**
- * The shipped ledger — what an epic shipped, recorded on the epic issue at the moment it shipped
- * (epic #769, decision record #777).
+ * The shipped ledger — what an epic shipped, as it was recorded on the epic issue (epic #769,
+ * decision record #777). Read only.
  *
- * The conformance gate is the writer, and it writes only against a merged pull request, because the
- * facts worth recording — the merge commit and the range anchored to it — do not exist before the
- * merge. Every later gate is a reader, and a reader needs no copy of the repository the code merged
- * in: the record already carries the range.
+ * Analyze's post-merge run wrote one record per merged pull request until epic #828 retired the
+ * write (story #843, decision record #849, D8): close now derives each range itself, and nothing
+ * writes a record any more. The records an epic in flight already carries are still read back —
+ * by close, for the range a record stamped and the merge commit it saw (D2), and by analyze's
+ * aggregate mode — so those epics close as before until they drain.
  *
  * One record per merged pull request, each its own comment on the epic issue, keyed by the code
- * repository together with the pull-request number (invariant 2). A re-run finds its own record by
- * that key and replaces that body alone, so two leads analysing two pull requests minutes apart
- * cannot drop each other's work — which one shared ledger comment, rewritten on every run, could
- * not give.
+ * repository together with the pull-request number (invariant 2).
  *
  * Trust is the author's association with the issues repository (invariant 12), the same rule the
  * pipeline already applies to a published conformance review. The marker on its own confers
@@ -19,7 +17,7 @@
  */
 
 import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
-import { formatIssueRef, parseRepoIdentity, sameRepo } from "@nexus/workspace/issue-ref";
+import { parseRepoIdentity } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -55,43 +53,13 @@ const ZERO: FindingCounts = { critical: 0, high: 0, medium: 0, low: 0 };
  * The identity of a record: the code repository and the pull-request number, and nothing else.
  *
  * Normalisation goes through the shared repository identity rule rather than the raw string the
- * writer happened to hold, so a record stamped `github.com/acme/member` and one stamped
+ * writer held, so a record stamped `github.com/acme/member` and one stamped
  * `acme/member` are the same record rather than two (invariant 3).
  */
 export function shippedRecordKey(repo: string, pr: number): string {
     const identity = parseRepoIdentity(repo);
     const name = identity === null ? repo.trim().toLowerCase() : `${identity.owner}/${identity.name}`;
     return `${name}#${pr}`;
-}
-
-function renderFindings(f: FindingCounts): string {
-    return `{ critical: ${f.critical}, high: ${f.high}, medium: ${f.medium}, low: ${f.low} }`;
-}
-
-/** Compose the durable record body for one merged pull request. */
-export function renderShippedRecord(record: ShippedRecord): string {
-    const key = shippedRecordKey(record.repo, record.pr);
-    const storyList = record.stories.map((s) => `#${s}`).join(", ");
-    return [
-        SHIPPED_MARKER,
-        `<!-- nexus:shipped-key ${key} -->`,
-        "",
-        `**Shipped** — ${key} merged as \`${record.mergeCommit}\`, covering ${storyList || "no story"}.`,
-        "",
-        "```yaml",
-        `epic: "${record.epic}"`,
-        `stories: [${record.stories.join(", ")}]`,
-        `repo: ${record.repo}`,
-        `pr: ${record.pr}`,
-        `merge_commit: ${record.mergeCommit}`,
-        `merged_at: ${record.mergedAt}`,
-        `range: { base: ${record.base}, head: ${record.head} }`,
-        `findings: ${renderFindings(record.findings)}`,
-        `record_hash: ${record.recordHash ?? ""}`,
-        `nexus_version: ${record.nexusVersion ?? ""}`,
-        "```",
-        "",
-    ].join("\n");
 }
 
 /** Read a record back from a comment body, or null when the body carries none. */
@@ -133,7 +101,7 @@ export function parseShippedRecord(body: string): ShippedRecord | null {
 /** A record found on the epic issue, with the comment carrying it. */
 export interface FoundRecord {
     record: ShippedRecord;
-    /** The comment's node id, so a re-run can replace this body in place. */
+    /** The comment's node id. */
     commentId: string;
     key: string;
 }
@@ -225,77 +193,4 @@ export function fetchShippedRecords(
             },
         };
     }
-}
-
-const UPDATE_COMMENT_MUTATION =
-    "mutation($id:ID!,$body:String!){updateIssueComment(input:{id:$id,body:$body}){clientMutationId}}";
-
-export type PostShippedRecordResult =
-    | { ok: true; action: "created" | "updated"; key: string; body: string }
-    /**
-     * The post failed. The composed body comes back with the failure so the run can name the retry
-     * instead of reporting a success it did not achieve (invariant 10) — the same footing the
-     * durable close comment's failed-post rule stands on.
-     */
-    | { ok: false; error: EpicVerdictsDiagnostic; body: string };
-
-/**
- * Write `record` onto `epic`'s issue in `issuesRepo`: replace the existing record for this
- * repository and pull request, or add one when there is none.
- *
- * The epic issue is named explicitly on every call, so the gate writes where the epic lives even
- * when the pull request merged somewhere else, and never asks which repository the story numbers
- * belong to (invariant 11).
- */
-export function postShippedRecord(
-    run: Runner,
-    cwd: string,
-    issuesRepo: string,
-    epic: number,
-    record: ShippedRecord,
-    existing: readonly FoundRecord[],
-): PostShippedRecordResult {
-    const body = renderShippedRecord(record);
-    const key = shippedRecordKey(record.repo, record.pr);
-    const prior = existing.find((f) => f.key === key);
-
-    if (prior !== undefined && prior.commentId.length > 0) {
-        const r = run(
-            "gh",
-            ["api", "graphql", "-f", `query=${UPDATE_COMMENT_MUTATION}`, "-f", `id=${prior.commentId}`, "-f", `body=${body}`],
-            { cwd },
-        );
-        if (r.status !== 0) {
-            return {
-                ok: false,
-                body,
-                error: {
-                    problem: "gh-failed",
-                    message: `the shipped record for ${key} on epic #${epic} in ${issuesRepo} could not be replaced: ${r.stderr.trim()}`,
-                },
-            };
-        }
-        return { ok: true, action: "updated", key, body };
-    }
-
-    const r = run("gh", ["issue", "comment", String(epic), "--repo", issuesRepo, "--body", body], { cwd });
-    if (r.status !== 0) {
-        return {
-            ok: false,
-            body,
-            error: {
-                problem: "gh-failed",
-                message: `the shipped record for ${key} could not be posted on epic #${epic} in ${issuesRepo}: ${r.stderr.trim()}`,
-            },
-        };
-    }
-    return { ok: true, action: "created", key, body };
-}
-
-/** The epic reference a record states, written for `codeRepo`'s point of view. */
-export function epicRefForRecord(epic: number, issuesRepo: string | null, codeRepo: string | null): string {
-    return formatIssueRef(
-        { repo: issuesRepo, number: epic },
-        codeRepo !== null && !sameRepo(issuesRepo, codeRepo) ? { kind: "repo", repo: codeRepo } : { kind: "none" },
-    );
 }

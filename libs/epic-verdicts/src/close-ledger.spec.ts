@@ -68,11 +68,11 @@ describe("ledgerCloseGate — merge state and range from the epic's record (epic
         expect(gate.blocking[0]).toMatchObject({ kind: "merge-commit-moved", reported: null });
     });
 
-    it("blocks and names a story with no recorded merged pull request", () => {
+    it("no longer blocks on a story with no recorded merged pull request: nothing writes records now (epic #828, story #843)", () => {
         const { run } = platform({ "acme/member#10": "merge-10" });
         const gate = ledgerCloseGate(run, "/hub", { stories: [770, 771], records: [record([770], 10)] });
-        expect(gate.ok).toBe(false);
-        expect(gate.blocking).toEqual([{ kind: "story-unrecorded", story: 771 }]);
+        expect(gate.ok).toBe(true);
+        expect(gate.blocking).toEqual([]);
     });
 
     it("does not block on a story marked as shipping without a pull request of its own", () => {

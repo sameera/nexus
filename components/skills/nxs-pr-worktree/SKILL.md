@@ -1,6 +1,6 @@
 ---
 name: nxs-pr-worktree
-description: Resolve a PR's merge state and SHAs and manage the git worktree for the --pr post-merge flow of /nxs.analyze and /nxs.close. Single-repo and hub only; rejects member repos.
+description: Resolve a PR's merge state and SHAs and manage the git worktree for the --pr flow of /nxs.analyze (before the merge) and /nxs.close (after it). Single-repo and hub only; rejects member repos.
 ---
 
 # nxs-pr-worktree
@@ -12,7 +12,7 @@ command specs stay declarative.
 
 ## Purpose
 
-The post-merge flow runs a stage against a PR inside an isolated worktree:
+The `--pr` flow runs a stage against a PR inside an isolated worktree:
 
 -   **analyze** reads conformance against a detached worktree at the PR head (fetched via
     `pull/<N>/head`, so forks work), then removes it.
