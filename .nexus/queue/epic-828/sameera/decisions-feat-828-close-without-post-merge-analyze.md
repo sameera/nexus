@@ -122,3 +122,13 @@
 - **Choice:** Delete `resolveVerdictRoots` and its tests; `resolveVerdictRepos` keeps its two-directory form.
 - **Why:** It existed only so the record writer could find the member and hub sides (#783); every remaining reader resolves one root.
 - **Refuted alternative:** Keep it exported and unused, which is dead code tied to a write that no longer exists.
+
+## 2026-10-04 — Which rejected waivers close still names beside an applied one
+- **Choice:** When a trusted waiver applies, `match` keeps the untrusted and unreadable rejections and carries them on the applied waiver (`AppliedWaiver.rejected`), rendered on its "waiver applied" line.
+- **Why:** G32 requires every untrusted waiver comment to be named, and the reader's contract already says untrusted or unreadable waivers are never dropped; a trusted but incomplete or other-revision waiver is simply superseded by the one that applied.
+- **Refuted alternative:** Keep every rejection, including superseded trusted ones — that names noise a lead has already resolved.
+
+## 2026-10-04 — Record waiver repository check
+- **Choice:** `matchRecordWaiver` takes the issues repository; a waiver that qualifies its record with another repository clears nothing, a bare `#<n>` still matches.
+- **Why:** Comparing only the issue number let `other/repo#849` clear record #849's stop.
+- **Refuted alternative:** Require a qualified reference always — the documented waiver form and close's own remedy text use a bare `#<n>` in single-repo mode.

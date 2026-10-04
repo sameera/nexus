@@ -868,6 +868,28 @@ describe("deriveCloseRanges — a waiver posted on the pull request (story #856;
         expect(line).toContain("cannot speak for the repository");
     });
 
+    it("names a waiver from an author who cannot speak for the repository even when a trusted waiver clears the stop (G32)", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "head-10", stories: [1] } },
+                landed: { 10: changed("src/a.ts") },
+                waivers: {
+                    10: [
+                        { body: landedWaiver(["src/a.ts"]), author: "mallory", trusted: false, url: "https://x/w6" },
+                        { body: landedWaiver(["src/a.ts"]), author: "alice", url: "https://x/w7" },
+                    ],
+                },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(out.ok && out.ranges.closable).toBe(true);
+        expect(out.ok && out.ranges.waivers[0]).toMatchObject({ author: "alice", rejected: [{ author: "mallory", url: "https://x/w6", why: "untrusted" }] });
+        const line = linesOf(out).split("\n").find((l) => l.includes("https://x/w6")) ?? "";
+        expect(line).toContain("mallory");
+        expect(line).toContain("cannot speak for the repository");
+    });
+
     it("clears a stop only on the pull request the waiver is posted on (G30)", () => {
         const out = deriveCloseRanges(
             deps({
