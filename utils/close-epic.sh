@@ -18,8 +18,11 @@
 #   BASE             trunk branch name (default main)
 #
 # --merge merges an open pull request before continuing, but only when it is not a draft, GitHub
-# reports it mergeable, and it carries a clean conformance verdict (0 critical, 0 high). Without
-# --merge, an open pull request is refused — this command never merges without being asked to.
+# reports it mergeable, and the merge pre-check passes: its analyze receipt is trusted, analyzed the
+# pull request's current head, and reports 0 critical and 0 high findings. The pre-check reports no
+# receipt, an unreadable or untrusted receipt, a moved head and blocking findings each in its own
+# words. Without --merge, an open pull request is refused — this command never merges without being
+# asked to.
 #
 # --background detaches the distill stage once close is verified: this command returns at once,
 # and distill's log and outcome record land in the run folder this command names
@@ -214,15 +217,21 @@ if [[ "$STATE" == "OPEN" ]]; then
         echo "!!! PR #${PR} is not mergeable (GitHub reports '${MERGEABLE}') — refusing to merge it." >&2
         exit 1
     fi
+    # The merge pre-check (decision record #849, D10): the pull request's analyze receipt, read
+    # through the one trusted reader and nothing else. It never runs analyze and never reads the
+    # shipped record. A receipt at the current head with no blocking findings is the only result
+    # that merges; every other result is printed as the pre-check words it.
     REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-    VERDICT_JSON="$(nexus pr-verdict --pr "$PR" --repo "$REPO")"
-    FOUND="$(json_get found <<<"$VERDICT_JSON")"
-    CRIT="$(json_get receipt.findings.critical <<<"$VERDICT_JSON")"
-    HIGH="$(json_get receipt.findings.high <<<"$VERDICT_JSON")"
-    if [[ "$FOUND" != "true" || "${CRIT:-1}" != "0" || "${HIGH:-1}" != "0" ]]; then
-        echo "!!! PR #${PR} carries no clean conformance verdict — refusing to merge it. Run /nxs.analyze --pr ${PR} first." >&2
+    if ! PRECHECK_JSON="$(nexus merge-precheck --pr "$PR" --repo "$REPO")"; then
+        echo "!!! PR #${PR}: its analyze receipt could not be read (see the error above) — refusing to merge it. Re-run once the read succeeds." >&2
         exit 1
     fi
+    PRECHECK_MESSAGE="$(json_get message <<<"$PRECHECK_JSON")"
+    if [[ "$(json_get merge <<<"$PRECHECK_JSON")" != "true" ]]; then
+        echo "!!! ${PRECHECK_MESSAGE}" >&2
+        exit 1
+    fi
+    echo ">>> ${PRECHECK_MESSAGE}" >&2
     echo ">>> merging PR #${PR} (--${MERGE_METHOD})" >&2
     gh pr merge "$PR" "--${MERGE_METHOD}"
 elif [[ "$STATE" != "MERGED" ]]; then

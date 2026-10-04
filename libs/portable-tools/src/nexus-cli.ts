@@ -45,6 +45,7 @@ import { collectEvidence, evidenceDeps } from "@nexus/epic-verdicts/evidence";
 import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-ranges";
 import { fingerprintStories } from "@nexus/epic-verdicts/fingerprint";
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
+import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
 import { resolveVerdictRepos, resolveVerdictRoots } from "@nexus/epic-verdicts/verdict-repos";
 import { writeEpicReceipt } from "@nexus/epic-verdicts/write";
@@ -341,6 +342,20 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      exits 1 as issues-repo-mismatch rather than reporting no verdict at all.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runPrVerdict(argv, io)),
+    },
+    "merge-precheck": {
+        summary: "Decide from its analyze receipt whether a pull request may be merged.",
+        usage: [
+            "  nexus merge-precheck --pr <N> --repo <owner/repo or host/owner/repo> [--dir <startDir>]",
+            "      The one-command close script's check before it merges. Reads the pull request's",
+            "      analyze receipt through the same trusted reader as pr-verdict, and nothing else: it",
+            "      runs no analysis and reads no shipped record. Prints { command, pr, result, merge,",
+            "      findings, analyzedHead, prHead, message }. result is clean, not-run, read-failure,",
+            "      head-moved or blocking; merge is true only for clean. A failed, unparseable or",
+            "      untrusted read is read-failure, never not-run. A receipt whose analyzed head is not",
+            "      the pull request's current head is head-moved. Exits 0 whatever the result.",
+        ].join("\n"),
+        run: (argv, io) => Promise.resolve(runMergePrecheck(argv, io)),
     },
     "verdict-check": {
         summary: "Check a drafted analyze verdict names the repository its story numbers resolve against, before it is published.",
@@ -1926,6 +1941,32 @@ function runPrVerdict(argv: string[], io: CliIo): number {
         return 1;
     }
     io.stdout(JSON.stringify({ command: "pr-verdict", ...result.verdict }));
+    return 0;
+}
+
+/**
+ * `nexus merge-precheck` — the merge pre-check (epic #828, decision record #849, D10). It shares
+ * pr-verdict's flags and its repository resolution, so the two read the same receipt.
+ */
+function runMergePrecheck(argv: string[], io: CliIo): number {
+    const usage = "usage: nexus merge-precheck --pr <N> --repo <owner/repo or host/owner/repo> [--dir <startDir>]";
+    const flags = parsePrVerdictFlags(argv);
+    if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
+        io.stderr(usage);
+        return 2;
+    }
+    if (flags.repo === undefined || flags.repo.trim().length === 0) {
+        io.stderr(`${usage}\n--repo names the repository the pull request lives in; without it the trust check would be inert.`);
+        return 2;
+    }
+    const cwd = flags.dir ?? io.cwd;
+    const repos = resolveVerdictRepos(closeMigrationRunner, cwd);
+    if (!repos.ok) {
+        io.stderr(`merge-precheck ${repos.error.problem}: ${repos.error.message}`);
+        return 1;
+    }
+    const result = mergePrecheck(closeMigrationRunner, cwd, flags.pr, flags.repo.trim(), repos.repos.issuesRepo);
+    io.stdout(JSON.stringify({ command: "merge-precheck", ...result }));
     return 0;
 }
 

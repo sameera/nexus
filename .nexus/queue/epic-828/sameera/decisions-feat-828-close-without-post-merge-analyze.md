@@ -52,3 +52,13 @@
 - **Choice:** A receipt read failure is an `unknown` state with its cause (first in the order); a failed claiming read keeps exiting `story-read-failed` before anything is derived.
 - **Why:** The record's order starts with read failure, and the claiming read failing means close does not know the story's pull requests at all, so it cannot derive or check anything.
 - **Refuted alternative:** Report a failed claiming read as an `unknown` story and carry on, which derives ranges for an epic whose pull-request set is incomplete.
+
+## 2026-10-04 — The merge pre-check is a `nexus merge-precheck` verb, and the script prints its words
+- **Choice:** Classify the receipt in a new `nexus merge-precheck` verb over `readPrVerdict` (clean / not-run / read-failure / head-moved / blocking, with `merge` true only for clean) and have the script print its message and merge only on `merge: true`.
+- **Why:** Each of the four states and the moved head are then pinned by unit specs against real `gh` payloads, and the script cannot drift from the reader's view of trust and head.
+- **Refuted alternative:** Classify in the script from `nexus pr-verdict` JSON, which leaves the four states testable only through stubbed shell runs.
+
+## 2026-10-04 — Only-untrusted receipt blocks are a read failure, counted by the one reader
+- **Choice:** The trusted receipt reader now counts the blocks it drops as untrusted (`untrustedBlocks`, additive on its result and on `pr-verdict`); the pre-check reports no trusted receipt plus a non-zero count as a read failure.
+- **Why:** G21 forbids reporting an untrusted receipt as "not run", and only the reader knows a block was dropped.
+- **Refuted alternative:** Report every pull request with no trusted receipt as "not run", which hides an impostor or a copied receipt behind the analyze remedy.

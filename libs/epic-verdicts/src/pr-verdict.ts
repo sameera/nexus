@@ -46,6 +46,8 @@ export interface PrVerdict {
     at: string;
     /** The pull request's head at read time. */
     prHead: string;
+    /** Receipt blocks dropped as untrusted; the merge pre-check reads a non-zero count with no verdict as a read failure. */
+    untrustedBlocks: number;
 }
 
 export type ReadPrVerdictResult = { ok: true; verdict: PrVerdict } | { ok: false; error: EpicVerdictsDiagnostic };
@@ -92,6 +94,7 @@ export function readPrVerdict(
             receipt: v.receipt,
             at: v.at,
             prHead: v.prHead,
+            untrustedBlocks: v.untrustedBlocks,
         },
     };
 }

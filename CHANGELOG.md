@@ -5,6 +5,23 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.86.0
+
+- **The one-command close script refuses to merge over a head analysis never saw (breaking).** When
+  a lead asks the close-and-distill command to merge an open pull request, its pre-check now
+  refuses when the commit the receipt analyzed is not the pull request's current head. The
+  refusal names re-running `/nxs.analyze --pr` on that pull request. A lead who pushes even a small
+  commit after analysis must re-analyze before the command will merge.
+- **The merge pre-check says which of four things it found.** A clean receipt is reported with
+  its finding counts before the merge. A pull request with no receipt is reported as "analysis has
+  not run", naming `/nxs.analyze --pr` on it. A receipt with critical or high findings is reported
+  with its counts, and the merge is refused. A receipt that could not be read, or that carries no
+  trusted author, is reported as a read failure, never as "not run". Before, no receipt and
+  blocking findings printed the same message.
+- **The pre-check reads the receipt and nothing else.** It runs no analysis and reads no shipped
+  record. Story text that an older receipt recorded is read without error and changes nothing.
+  The command still refuses hub and member checkouts, and still merges only when asked to.
+
 ## 0.85.0
 
 - **Close stops on a story nobody reviewed, with no waiver (breaking).** `/nxs.close --pr` now
