@@ -770,27 +770,48 @@ Rationale section is then empty (a matched implementation, not a gap), and nothi
 
 # Phase 4 — Write the close record
 
-Fill the seeded template and write it into the queue entry.
+Write the close record into the queue entry, in the fixed shape below.
 
-1. Read the seeded project template: **`.nexus/config/templates/close-record-template.md`**. If it is
-   absent, **stop and report that path**, naming the remedy: run `nexus seed-templates` in this
-   repository to place it, then re-run close. There is no second location to try — the only other
-   copy of this template lives in the Nexus source checkout and travels in no release, so reaching
-   for it would resolve for a maintainer and silently resolve for nobody else.
+1. **The close record's shape is fixed (decision record #872, D4); no template is read.** The shape
+   lives in code — `nexus close` renders the same one — so a close-record template a project still
+   carries in its configuration is ignored. Write the frontmatter keys in this order, each as step 2
+   says, then these sections:
 
-   The seeded copy is a tuned project file — seeding never clobbers it — so it may predate any field
-   this command names and carry no placeholder for it. **The field list in step 2 is authoritative,
-   not the template's placeholder set**: write every field named below, whether or not the template
-   you read has a `{{PLACEHOLDER}}` for it. Placeholders present but not named below are the
-   project's own; fill them as the template's guidance says.
+    ```markdown
+    ---
+    title: "Close Record: <epic title>"
+    epic: "#<epic>"
+    feature: "<feature>"
+    date: <YYYY-MM-DD>
+    nexus_version: <version>
+    issues_repo: <owner/repo>
+    analyze: <ran <date> @ <head>>
+    record: "#<record>"
+    record_hash: <full digest>
+    range: …
+    story_ranges: …
+    landed_check: …
+    waivers: …
+    ---
 
-2. Fill every `{{PLACEHOLDER}}` and **delete the guidance comments**:
+    # Close Record: <epic title>
+
+    ## Key Decisions
+
+    ## Deviation Rationale
+
+    ## Waived Stories
+
+    ## Deferred Scope
+
+    ## Process Lesson
+    ```
+
+2. Fill every field:
     - `title` / `epic` (the `link` ref) / `feature` / `date` (today).
     - `nexus_version` — the **writer stamp** (story #306): the release that wrote this record, from
-      `nexus version`. Written into the frontmatter **whether or not the template carries the
-      placeholder** — a seeded copy predating the stamp has none, and the record is stamped anyway.
-      Omit the key when the release is unresolved rather than writing a version that is not true; an
-      absent stamp reads as an unknown writer, which is never an error. It sits beside `record_hash`,
+      `nexus version`. Omit the key when the release is unresolved rather than writing a version
+      that is not true; an absent stamp reads as an unknown writer, which is never an error. It sits beside `record_hash`,
       never inside the record bytes that digest covers, so stamping leaves every hash a later stage
       verifies exactly as it was.
     - `analyze` — the conformance-gate outcome from Phase 1.2 (`ran … @ …`).
@@ -798,8 +819,7 @@ Fill the seeded template and write it into the queue entry.
       reference** (`#<record>`) plus the **full** approved-body digest from the digest program.
       Never a queue path: the drain deletes queue paths, which is the exact failure this epic
       exists to fix. Omit both keys when the epic legitimately has no record.
-    - `issues_repo` — the resolved `$ISSUES_REPO` from Phase 1.0, written whether or not the
-      template carries the placeholder (the same rule `nexus_version` follows). Omit the key when
+    - `issues_repo` — the resolved `$ISSUES_REPO` from Phase 1.0. Omit the key when
       `$ISSUES_REPO` resolves to nothing — the epic lives in the current repo, never pinned. This
       is the repository `epic` and `record` above resolve against; `range[].repo` above is the
       **code** repository and is not compared against it.
@@ -812,7 +832,7 @@ Fill the seeded template and write it into the queue entry.
       repository's checkout. Do not re-derive, merge or edit an entry here, and never take a range
       from the lead. Phase 0.5 already stopped on any pull request whose range could not be
       established, so there is nothing left to fail here: never a partial `range:` list.
-    - `story_ranges` — written whether or not the template carries a placeholder: one entry per
+    - `story_ranges` — one entry per
       live story from Phase 0.5's `stories`, its merged pull requests in merge order. A pull request
       with a range is `{ repo, pr, base, head }`; a `no-range` one is `{ repo, pr, range: none }`,
       so the story is named rather than dropped:
@@ -827,7 +847,7 @@ Fill the seeded template and write it into the queue entry.
 
       Qualify `story` under the **`nxs-issue-reference`** skill when `$ISSUES_REPO` names another
       repository than the one the close record is committed in.
-    - `landed_check` — written whether or not the template carries a placeholder: one entry per
+    - `landed_check` — one entry per
       live story from Phase 0.5's `landed`, with the story's `result` and each pull request's, in
       merge order. A `changed` pull request lists its changed files; a `not-checked` one states its
       reason. Copy the results as printed; never re-run or edit the check here:
@@ -843,8 +863,7 @@ Fill the seeded template and write it into the queue entry.
         ```
 
       Qualify `story` the same way as in `story_ranges`.
-    - `waivers` — written whenever Phase 0.5's `waivers` list is non-empty, whether or not the
-      template carries a placeholder; omit the key when it is empty (story #856; record #849,
+    - `waivers` — written whenever Phase 0.5's `waivers` list is non-empty; omit the key when it is empty (story #856; record #849,
       G33). One entry per applied waiver, copied as printed, with the waiver comment's author and
       link. Never add a waiver close did not print, and never drop one it did:
 
@@ -857,8 +876,7 @@ Fill the seeded template and write it into the queue entry.
       Add `reason: <text>` to an entry whose waiver gave one. Qualify each story the same way as in
       `story_ranges`. Every other key keeps its shape, so a reader that does not know `waivers`
       reads the record as before.
-    - **Waived Stories (epic #213, story #502)** — an additional field, not part of the seeded
-      template's placeholder set (the note above): add a `## Waived Stories` body section, one line
+    - **Waived Stories (epic #213, story #502)** — the `## Waived Stories` body section, one line
       per story waived in Phase 1.2's storyless-story gate — `#<story> — waived <YYYY-MM-DD>`, the
       date collected at the moment the lead waived it. Write "none" when the close carried no waiver.
     - **Key Decisions** — from Phase 2 (decision + why + refuted viable alternative if any).

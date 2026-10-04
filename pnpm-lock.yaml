@@ -317,6 +317,9 @@ importers:
       '@nexus/record-digest':
         specifier: workspace:*
         version: link:../record-digest
+      '@nexus/scope-razor':
+        specifier: workspace:*
+        version: link:../scope-razor
       '@nexus/workspace':
         specifier: workspace:*
         version: link:../workspace

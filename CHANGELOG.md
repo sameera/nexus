@@ -20,6 +20,32 @@ behaviour says so.
   exact comment to post. When every gate passes, it reuses the distill branch an earlier run cut
   for the epic, local or pushed, or cuts one from the trunk, and finds or creates the epic's queue
   entry. In this release it stops there and says so: it writes nothing to GitHub.
+- **`nexus close` writes the close record from the pull requests' verdicts.** After its gates pass,
+  it writes the close record into the epic's queue entry and commits it on the distill branch. It
+  reads only each merged pull request's verdict, the decision record's body and the issue graph:
+  no diff, no decision stub, no engineer note and no story-issue comment, and it asks nothing. Key
+  Decisions lists every decision of the record whose hash it stamps, in record order, then each
+  decision stub a verdict confirmed, once. Deviation Rationale has one entry per accepted departure
+  per pull request, naming what it departs from, the pull request and the departure's ID, the
+  reason, and who accepted it. A waived critical or high finding is listed with who waived it.
+  `analyze:` reads `ran <date> @ <head>` from the most recently merged pull request's verdict, as
+  before. Text copied from an answer, a stub or a proposal can no longer add a close-record marker
+  or a fenced block. It also renders the close comment, which a later release posts.
+- **The record amendment comes from the verdicts' superseding marks.** When a verdict marks an
+  accepted departure as superseding a record decision, `nexus close` posts one amendment comment on
+  the decision record, naming each superseded decision, what shipped instead and why. A re-run
+  finds that comment and does not post a second. No mark, no comment. A failed post is reported
+  and does not stop the close.
+- **An epic in flight whose verdicts were published before analyze recorded its judgments needs
+  one full analyze run per merged pull request (breaking).** Those verdicts carry no judgments, so
+  `nexus close` stops on each such pull request and names `/nxs.analyze --pr <N>`. Run it on every merged pull request of the epic, then
+  close.
+- **A customised close-record template is ignored (breaking).** The close record's shape is now
+  fixed: `nexus close` renders it, and `/nxs.close` writes the same shape without reading a
+  template. A close-record template your project tuned is ignored with no warning when close runs.
+  Seeding no longer places that template, and a copy already in your repository is left as it is.
+  The close record and the close comment `nexus close` writes have no Process Lesson section and
+  no lesson pointer.
 
 ## 0.91.0
 

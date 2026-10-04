@@ -28,6 +28,9 @@
     },
     {
       "path": "../workspace/tsconfig.lib.json"
+    },
+    {
+      "path": "../scope-razor/tsconfig.lib.json"
     }
   ]
 }
