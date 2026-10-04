@@ -37,10 +37,11 @@ import {
     resultKey,
 } from "@nexus/pr-acceptance/judgments-block";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
+import { type PrAnswer, readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { compareOwnChange } from "@nexus/pr-worktree/landed-change";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
-import { type DepartureDraft, type FindingDraft, assignItemIds } from "./verdict-items.js";
+import { type DepartureDraft, type FindingDraft, applyAnswers, assignItemIds } from "./verdict-items.js";
 
 /** What the earlier verdict stamped, and the judgments it carries (null when it carries none). */
 export interface EarlierVerdict {
@@ -191,6 +192,8 @@ export interface AnswerScopeDeps {
     readEarlier(): ReadEarlierResult;
     /** The files whose own change differs between the two heads, or why that cannot be read. */
     ownChange(earlierHead: string, head: string): { ok: true; changed: string[] } | { ok: false; message: string };
+    /** Every answer line on the pull request, trusted or not, through the one reader the ID step uses. */
+    readAnswers(): { ok: true; answers: PrAnswer[] } | { ok: false; error: EpicVerdictsDiagnostic };
 }
 
 /**
@@ -209,6 +212,11 @@ export function answerScopeDeps(
             const r = compareOwnChange(run, cwd, { base: input.base, earlierHead, head, excludes: input.excludes });
             if (!r.ok) return { ok: false, message: r.error.message };
             return { ok: true, changed: r.files.filter((f) => f.status === "changed").map((f) => f.path) };
+        },
+        readAnswers: () => {
+            const r = readPrWaivers(run, cwd, input.pr, { ghRepo: input.repo });
+            if (!r.ok) return { ok: false, error: { problem: "gh-failed", message: r.error.message } };
+            return { ok: true, answers: r.value.answers };
         },
     };
 }
@@ -293,7 +301,10 @@ export function planAnswerRun(deps: AnswerScopeDeps, input: { pr: number; curren
     const prior = earlier as EarlierVerdict & { judgments: Judgments };
     const own = deps.ownChange(prior.head, input.current.head);
     if (!own.ok) return { ok: true, scope: fullScope(base, "earlier-head-unreadable", own.message) };
-    const sel = selectRejudge(prior.judgments, own.changed);
+    // An answer posted since the last verdict re-judges its departure like one the verdict already carried (G19).
+    const posted = deps.readAnswers();
+    if (!posted.ok) return posted;
+    const sel = selectRejudge(applyAnswers(prior.judgments, posted.answers).judgments, own.changed);
     const lines = [
         `Recording answers on a moved head: ${own.changed.length} file(s) changed in the pull request's own change since ${prior.head.slice(0, 12)}` +
             (own.changed.length === 0 ? " (a trunk merge or rebase changes nothing by itself)." : `: ${own.changed.join(", ")}.`),

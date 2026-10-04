@@ -253,6 +253,7 @@ describe("planAnswerRun — the scope a run records answers in", () => {
     const deps = (over: Partial<AnswerScopeDeps> = {}): AnswerScopeDeps => ({
         readEarlier: () => ({ ok: true, earlier: earlier() }),
         ownChange: () => ({ ok: true, changed: ["libs/b.ts"] }),
+        readAnswers: () => ({ ok: true, answers: [] }),
         ...over,
     });
 
@@ -293,6 +294,28 @@ describe("planAnswerRun — the scope a run records answers in", () => {
     it("marks nothing changed after a trunk merge, so only the answered departures are judged again (G20)", () => {
         const r = planAnswerRun(deps({ ownChange: () => ({ ok: true, changed: [] }) }), { pr: 7, current: current({ head: MOVED }) });
         expect(r.ok && r.scope.rejudge).toEqual({ items: ["DV2"], results: [] });
+    });
+
+    it("judges again a departure answered since the last verdict, though none of its files changed (G19)", () => {
+        const answer = { id: "DV1", verb: "accepted" as const, reason: "no batch endpoint", author: "lead", url: "https://x/c/9", at: "2026-10-04T00:00:00Z", trusted: true };
+        const r = planAnswerRun(deps({ readAnswers: () => ({ ok: true, answers: [answer] }) }), { pr: 7, current: current({ head: MOVED }) });
+        expect(r.ok && r.scope.rejudge.items).toEqual(expect.arrayContaining(["DV1", "DV2", "F1"]));
+    });
+
+    it("does not judge again a departure whose only new answer cannot apply (untrusted author)", () => {
+        const answer = { id: "DV1", verb: "accepted" as const, reason: "x", author: "stranger", url: "https://x/c/9", at: "2026-10-04T00:00:00Z", trusted: false };
+        const r = planAnswerRun(deps({ readAnswers: () => ({ ok: true, answers: [answer] }) }), { pr: 7, current: current({ head: MOVED }) });
+        expect(r.ok && r.scope.rejudge.items).not.toContain("DV1");
+    });
+
+    it("stops when the answers on the pull request cannot be read, rather than reading them as none", () => {
+        const r = planAnswerRun(deps({ readAnswers: () => ({ ok: false, error: { problem: "gh-failed", message: "down" } }) }), { pr: 7, current: current({ head: MOVED }) });
+        expect(r.ok).toBe(false);
+    });
+
+    it("reads no answers when the head has not moved", () => {
+        const r = planAnswerRun(deps({ readAnswers: () => { throw new Error("read comments"); } }), { pr: 7, current: current() });
+        expect(r.ok && r.scope.mode).toBe("unchanged");
     });
 
     it("stops on a failed read rather than reading it as no verdict", () => {
