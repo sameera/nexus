@@ -1,10 +1,11 @@
 /**
- * The template seed (story #323): the three tool-agnostic templates the pipeline stages read out of
- * the project's own configuration get there.
+ * The template seed (story #323): the tool-agnostic templates the pipeline stages read out of the
+ * project's own configuration get there.
  *
- * Three stages read a template from `.nexus/config/templates/` — setup its standards template, the
- * decision-record stage its record templates, close its close-record template — and nothing seeded
- * any of them. That gap was hidden by the Nexus checkout, where the files happen to be present; in
+ * Two stages read a template from `.nexus/config/templates/` — setup its standards template and the
+ * decision-record stage its record templates — and nothing seeded any of them. Close read a
+ * close-record template too, until its record's shape moved into code (epic #830, decision record
+ * #872, D4): it is no longer seeded, and a copy a repository already holds is left alone. That gap was hidden by the Nexus checkout, where the files happen to be present; in
  * any other repository the stages read a path that never existed. So the masters now travel inside
  * the release (`TEMPLATE_PAYLOAD_DIRNAME`, beside the bundled entrypoints, exactly as the component
  * payload travels) and this module places a first copy into the repository.
@@ -35,7 +36,6 @@ import * as path from "node:path";
  * D11), because a revision's frozen lines match only in the format they were approved in.
  */
 export const SEEDED_TEMPLATES: readonly string[] = [
-    "close-record-template.md",
     "decision-record-template.md",
     "decision-record-template-v1.md",
     "standard.template.md",

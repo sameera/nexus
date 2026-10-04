@@ -14,10 +14,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type IssueFacts } from "@nexus/epic-resolve/gh";
 import { type PrInfo } from "@nexus/pr-worktree/pr";
 import { type CloseRanges, type StoryState } from "./close-ranges.js";
-import { TWO_VERDICT_PR, TWO_VERDICT_REPO, twoVerdictPrPayload, verdictBody } from "@nexus/pr-acceptance/verdict-fixtures";
-import { renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { TWO_VERDICT_ANALYZED_HEAD, TWO_VERDICT_PR, TWO_VERDICT_RECORD_HASH, TWO_VERDICT_REPO, twoVerdictPrPayload, verdictBody } from "@nexus/pr-acceptance/verdict-fixtures";
+import { renderJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
+import { recordDigest } from "@nexus/record-digest/digest";
 import { type CloseCommandDeps, type CloseInput, type CloseVerdictRead, closeCommandDeps, renderCloseOutcome, runCloseCommand } from "./close-command.js";
 import { type Runner } from "./run.js";
+import { defaultRunner } from "@nexus/workspace/run";
 
 const tmp: string[] = [];
 afterEach(() => {
@@ -85,18 +87,60 @@ function ranges(over: Partial<CloseRanges> = {}): CloseRanges {
     };
 }
 
+/** An approved new-format record body: two decisions, in record order. */
+const RECORD_BODY = [
+    "# Decision Record: Close becomes a deterministic subcommand",
+    "",
+    "## How it works",
+    "",
+    "Close becomes a plain command.",
+    "",
+    "## Guarantees",
+    "",
+    "- G1. Close asks nothing. (D1)",
+    "",
+    "## Design rationale and mechanism",
+    "",
+    "### Decisions and reasons",
+    "",
+    "#### D1 — The subcommand is named nexus close",
+    "",
+    "- **Decision:** The command is `nexus close`.",
+    "- **Why:** The stage is called close everywhere.",
+    "- **Refuted viable alternative:** `nexus close-epic`, which the script already uses.",
+    "- **Delivered by:** #864",
+    "",
+    "#### D2 — No model fallback",
+    "",
+    "- **Decision:** A verdict without judgments stops close.",
+    "- **Why:** The initiative requires zero model passes.",
+    "- **Refuted viable alternative:** none",
+    "",
+].join("\n");
+const RECORD_DIGEST = recordDigest(RECORD_BODY);
+
+function emptyJudgments(over: Partial<Judgments> = {}): Judgments {
+    return { items: [], findings: [], deferred: [], keyDecisions: { record: { digest: RECORD_DIGEST, format: "new", decisions: [{ id: "D1" }, { id: "D2" }] }, stubs: [] }, ...over };
+}
+
+function present(judgments: Judgments, over: Partial<{ date: string; head: string; recordHash: string | null }> = {}): CloseVerdictRead {
+    return { ok: true, found: true, critical: 0, high: 0, judgments: "present", read: judgments, date: "2026-10-03", head: "a".repeat(40), recordHash: RECORD_DIGEST, ...over };
+}
+
 interface Harness {
     deps: CloseCommandDeps;
     worktreeCalls: number;
     wtPath: string;
     repoRoot: string;
+    commits: { files: string[]; message: string }[];
+    posted: { issue: number; body: string }[];
 }
 
 /** Every read succeeds and every gate passes, unless a spec overrides one dep. */
 function harness(over: Partial<CloseCommandDeps> = {}): Harness {
     const repoRoot = makeDir();
     const wtPath = makeDir();
-    const h: Harness = { deps: {} as CloseCommandDeps, worktreeCalls: 0, wtPath, repoRoot };
+    const h: Harness = { deps: {} as CloseCommandDeps, worktreeCalls: 0, wtPath, repoRoot, commits: [], posted: [] };
     h.deps = {
         role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot, repo: { identity: ISSUES, source: "origin" } as never } }),
         readPr: () => ({ ok: true, pr: prInfo() }),
@@ -120,11 +164,21 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
         subIssues: () => ({ ok: true, facts: new Map([[864, facts("CLOSED")], [865, facts("CLOSED")], [RECORD, facts("CLOSED")]]) }),
         excludedStories: () => [],
         ranges: () => ({ ok: true, ranges: ranges(), untrusted: [] }),
-        verdict: () => ({ ok: true, found: true, critical: 0, high: 0, judgments: "present" }),
+        verdict: () => present(emptyJudgments()),
         trunkCheck: () => ({ ok: true }),
         openWorktree: (_root, epic, date) => {
             h.worktreeCalls += 1;
             return { ok: true, wtPath, branch: `distill/${date}-epic-${epic}`, source: "new" };
+        },
+        recordBody: () => ({ ok: true, body: RECORD_BODY, digest: RECORD_DIGEST }),
+        commitEntry: (_wt, files, message) => {
+            h.commits.push({ files, message });
+            return { ok: true, committed: true };
+        },
+        issueComments: () => ({ ok: true, comments: [] }),
+        postComment: (_root, _repo, issue, body) => {
+            h.posted.push({ issue, body });
+            return { ok: true };
         },
         ...over,
     };
@@ -316,7 +370,7 @@ describe("nexus close — gate stops (AC2, AC3, G5–G8, G43)", () => {
     it("reports every failing gate in one pass", () => {
         const h = harness({
             subIssues: () => ({ ok: true, facts: new Map([[865, facts("OPEN")]]) }),
-            verdict: () => ({ ok: true, found: true, critical: 1, high: 0, judgments: "present" }),
+            verdict: () => ({ ...present(emptyJudgments()), critical: 1 }) as CloseVerdictRead,
         });
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
         expect(err).toContain("#865");
@@ -455,7 +509,7 @@ describe("nexus close — gate stops (AC2, AC3, G5–G8, G43)", () => {
     });
 
     it("stops on open critical or high items and names answering on the pull request, then the analyze run that records answers (G7)", () => {
-        const h = harness({ verdict: () => ({ ok: true, found: true, critical: 0, high: 2, judgments: "present" }) });
+        const h = harness({ verdict: () => ({ ...present(emptyJudgments()), high: 2 }) as CloseVerdictRead });
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
         expect(err).toContain(`${ISSUES}#${PR}`);
         expect(err).toMatch(/high 2/);
@@ -490,7 +544,7 @@ describe("nexus close — gate stops (AC2, AC3, G5–G8, G43)", () => {
         const h = harness({
             verdict: (_root, _issues, pr) => {
                 asked.push(`${pr.repo}#${pr.pr}`);
-                return { ok: true, found: true, critical: 0, high: 0, judgments: "present" };
+                return present(emptyJudgments());
             },
         });
         runCloseCommand(h.deps, input(h));
@@ -512,6 +566,13 @@ describe("nexus close — the worktree step", () => {
         expect(rendered.exitCode).toBe(1);
         expect(text(rendered.stderr)).toContain("origin");
         expect(fs.readdirSync(h.wtPath)).toEqual([]);
+    });
+
+    it("stops before creating anything when the decision record's body cannot be read (G3)", () => {
+        const h = harness({ recordBody: () => ({ ok: false, message: "HTTP 502" }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain(`${ISSUES}#${RECORD}`);
+        expect(err).toContain("HTTP 502");
     });
 
     it("writes no hand-off note, because this close does not finish its writes yet (G17)", () => {
@@ -552,8 +613,10 @@ describe("nexus close — reading a merged pull request's verdict", () => {
         findings: [],
     });
 
-    it("reads the open counts and finds the judgments block", () => {
-        expect(read(twoVerdictPrPayload({ newerBody: verdictBody({ high: 0, judgments }) }))).toEqual({ ok: true, found: true, critical: 0, high: 0, judgments: "present" });
+    it("reads the open counts, the judgments and the analyzed head and date", () => {
+        const r = read(twoVerdictPrPayload({ newerBody: verdictBody({ high: 0, judgments }) }));
+        expect(r).toMatchObject({ ok: true, found: true, critical: 0, high: 0, judgments: "present", date: "2026-09-15", head: TWO_VERDICT_ANALYZED_HEAD, recordHash: TWO_VERDICT_RECORD_HASH });
+        expect(r.ok && r.found && r.judgments === "present" ? r.read.items.map((d) => d.answer?.author) : []).toEqual(["lead"]);
     });
 
     it("reads a verdict published before the judgments block as having none", () => {
@@ -568,5 +631,532 @@ describe("nexus close — reading a merged pull request's verdict", () => {
         const failing: Runner = () => ({ status: 1, stdout: "", stderr: "HTTP 502" });
         const r = closeCommandDeps(failing, { singleRepo: () => true }).verdict("/repo", TWO_VERDICT_REPO, { repo: TWO_VERDICT_REPO, pr: TWO_VERDICT_PR });
         expect(r.ok).toBe(false);
+    });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Story #865 (decision record #872: D2, D4–D8, D12): the close record and the close comment are
+// written from the pull requests' verdicts. What a lead and distill see: the file committed in the
+// queue entry, the comment body, the amendment posted on the record issue, and the report.
+// ---------------------------------------------------------------------------------------------
+
+const PR2 = 902;
+const LINK = (n: number): string => `https://github.com/${ISSUES}/pull/${PR}#issuecomment-${n}`;
+
+function departure(id: string, over: Partial<Judgments["items"][number]> = {}): Judgments["items"][number] {
+    return {
+        id,
+        kind: "departure",
+        found: true,
+        severity: "high",
+        departsFrom: "D1",
+        summary: `the code does ${id}`,
+        files: ["src/a.ts"],
+        stub: null,
+        supersedes: null,
+        answer: { verb: "accepted", author: "lead", link: LINK(Number(id.slice(2))), reason: `reason for ${id}` },
+        ...over,
+    };
+}
+
+function twoPrRanges(): CloseRanges {
+    return ranges({
+        stories: [
+            { story: 864, ranges: [{ repo: ISSUES, pr: PR, source: "derived", base: "b".repeat(40), head: "m".repeat(40), checkout: "/repo" }] },
+            { story: 865, ranges: [{ repo: ISSUES, pr: PR2, source: "derived", base: "c".repeat(40), head: "n".repeat(40), checkout: "/repo" }] },
+        ],
+        range: [
+            { repo: ISSUES, pr: PR, base: "b".repeat(40), head: "m".repeat(40) },
+            { repo: ISSUES, pr: PR2, base: "c".repeat(40), head: "n".repeat(40) },
+        ],
+        landed: [
+            { story: 864, result: "unchanged", prs: [{ repo: ISSUES, pr: PR, result: "unchanged", analyzedHead: "a".repeat(40), files: [{ path: "src/a.ts", status: "unchanged" }] }] },
+            { story: 865, result: "not-checked", prs: [{ repo: ISSUES, pr: PR2, result: "not-checked", reason: "no-range" }] },
+        ],
+    });
+}
+
+/** A two-pull-request epic whose verdicts carry the given judgments, merged in the order PR, PR2. */
+function twoPrHarness(first: Judgments, second: Judgments, over: Partial<CloseCommandDeps> = {}): Harness {
+    return harness({
+        ranges: () => ({ ok: true, untrusted: [], ranges: twoPrRanges() }),
+        verdict: (_root, _issues, pr) => (pr.pr === PR ? present(first, { date: "2026-10-01", head: "1".repeat(40) }) : present(second, { date: "2026-10-02", head: "2".repeat(40) })),
+        ...over,
+    });
+}
+
+function closed(h: Harness, over: Partial<CloseInput> = {}): { record: string; comment: string; stdout: string; out: ReturnType<typeof runCloseCommand> } {
+    const out = runCloseCommand(h.deps, input(h, { nexusVersion: "0.92.0", ...over }));
+    const rendered = renderCloseOutcome(out);
+    expect(rendered.stderr).toEqual([]);
+    expect(rendered.exitCode).toBe(0);
+    if (!out.ok) throw new Error("unreachable");
+    return { record: fs.readFileSync(out.recordPath, "utf8"), comment: out.closeComment, stdout: text(rendered.stdout), out };
+}
+
+/** A markdown section's lines: from its heading to the next heading of the same or higher level. */
+function sectionOf(body: string, heading: string): string {
+    const at = body.indexOf(`${heading}\n`);
+    expect(at, heading).toBeGreaterThanOrEqual(0);
+    const rest = body.slice(at + heading.length + 1);
+    const level = heading.split(" ")[0];
+    const end = rest.search(new RegExp(`\\n#{1,${level.length}} |\\n<!-- nexus:close-record -->`));
+    return (end < 0 ? rest : rest.slice(0, end)).trim();
+}
+
+function frontmatterOf(record: string): string {
+    const m = /^---\n([\s\S]*?)\n---\n/.exec(record);
+    expect(m).not.toBeNull();
+    return (m as RegExpExecArray)[1];
+}
+
+describe("nexus close writes the close record from the verdicts (story #865, AC1, G9–G12)", () => {
+    it("writes the record into the queue entry and commits it with the epic on the distill branch", () => {
+        const h = harness();
+        const { out } = closed(h);
+        const dir = path.join(h.wtPath, ".nexus", "queue", `epic-${EPIC}`);
+        expect(out.ok && out.recordPath).toBe(path.join(dir, "close-record.md"));
+        expect(h.commits).toHaveLength(1);
+        expect(h.commits[0].files.sort()).toEqual([path.join(dir, "close-record.md"), path.join(dir, "epic.md")]);
+        expect(h.commits[0].message).toContain(`epic-${EPIC}`);
+        expect(h.commits[0].message).not.toMatch(/lesson/);
+    });
+
+    it("carries the same Key Decisions and Deviation Rationale on the record and the comment, each departure naming who accepted it", () => {
+        const h = twoPrHarness(emptyJudgments({ items: [departure("DV1")] }), emptyJudgments({ items: [departure("DV1", { answer: { verb: "accepted", author: "pm", link: "https://x/pm", reason: "pm said so" } })] }));
+        const { record, comment } = closed(h);
+        expect(sectionOf(record, "## Key Decisions")).toBe(sectionOf(comment, "### Key Decisions"));
+        expect(sectionOf(record, "## Deviation Rationale")).toBe(sectionOf(comment, "### Deviation Rationale"));
+        const dr = sectionOf(record, "## Deviation Rationale");
+        expect(dr).toContain(`@lead (${LINK(1)})`);
+        expect(dr).toContain("@pm (https://x/pm)");
+    });
+
+    it("lists every record decision once, in record order, with its ID, decision, reason and refuted alternative, then each confirmed stub once (G10)", () => {
+        const stubA = { path: ".nexus/queue/epic-830/dev/decisions-a.md", choice: "Use one query per edge", reason: "pages differ", refuted: "one combined query" };
+        const stubB = { path: ".nexus/queue/epic-830/dev/decisions-b.md", choice: "Read gh pages", reason: "gh pages already", refuted: "none" };
+        const first = emptyJudgments({ keyDecisions: { record: { digest: RECORD_DIGEST, format: "new", decisions: [{ id: "D2" }, { id: "D1" }] }, stubs: [stubB] } });
+        const second = emptyJudgments({ keyDecisions: { record: { digest: RECORD_DIGEST, format: "new", decisions: [{ id: "D1" }] }, stubs: [stubA, { ...stubB }] } });
+        const kd = sectionOf(closed(twoPrHarness(first, second)).record, "## Key Decisions").split("\n");
+        expect(kd).toHaveLength(4);
+        expect(kd[0]).toMatch(/^- \*\*D1 — The subcommand is named nexus close \(#872\)\.\*\*/);
+        expect(kd[0]).toContain("The command is `nexus close`.");
+        expect(kd[0]).toContain("**Why:** The stage is called close everywhere.");
+        expect(kd[0]).toContain("**Refuted alternative:** `nexus close-epic`, which the script already uses.");
+        expect(kd[1]).toMatch(/^- \*\*D2 — No model fallback/);
+        expect(kd[1]).toContain("**Refuted alternative:** none");
+        expect(kd[2]).toContain("Read gh pages");
+        expect(kd[2]).toContain(`${ISSUES}#${PR}`);
+        expect(kd[3]).toContain("Use one query per edge");
+        expect(kd[3]).toContain("one combined query");
+    });
+
+    it("takes the record decisions from the body close stamps, and names a verdict decision the body does not carry", () => {
+        const verdict = emptyJudgments({ keyDecisions: { record: { digest: "0".repeat(64), format: "new", decisions: [{ id: "D9" }] }, stubs: [] } });
+        const { record, stdout } = closed(harness({ verdict: () => present(verdict) }));
+        expect(frontmatterOf(record)).toContain(`record_hash: ${RECORD_DIGEST}`);
+        expect(sectionOf(record, "## Key Decisions")).not.toContain("D9");
+        expect(stdout).toMatch(/names record decision "D9", which the current body of record #872 does not carry/);
+    });
+
+    it("lists an old-format record's decisions by title", () => {
+        const old = ["# Decision Record: x", "", "## Key Decisions", "", "### Reuse the reader", "", "- **Decision:** Reuse it.", "- **Why:** One reader.", "- **Refuted alternative:** A second reader.", "", "## Constraints & Invariants", "", "1. One reader.", ""].join("\n");
+        const { record } = closed(harness({ recordBody: () => ({ ok: true, body: old, digest: recordDigest(old) }) }));
+        const kd = sectionOf(record, "## Key Decisions");
+        expect(kd).toMatch(/^- \*\*Reuse the reader \(#872\)\.\*\* Reuse it\. \*\*Why:\*\* One reader\. \*\*Refuted alternative:\*\* A second reader\.$/);
+    });
+
+    it("gives a record in neither format as the text the verdict carries", () => {
+        const neither = "Just prose.\n\nNo known headings.";
+        const verdict = emptyJudgments({ keyDecisions: { record: { digest: recordDigest(neither), format: "neither", decisions: [], text: neither }, stubs: [] } });
+        const { record } = closed(harness({ verdict: () => present(verdict), recordBody: () => ({ ok: true, body: neither, digest: recordDigest(neither) }) }));
+        const kd = sectionOf(record, "## Key Decisions");
+        expect(kd).toContain("neither format");
+        expect(kd).toContain("  > Just prose.");
+        expect(kd).toContain("  > No known headings.");
+    });
+
+    it("writes one deviation per accepted departure per pull request, in merge order then ID order, and skips unanswered, no-longer-found and code-fixed ones (G11, G12)", () => {
+        const first = emptyJudgments({
+            items: [
+                departure("DV3", { departsFrom: "G1" }),
+                departure("DV1"),
+                departure("DV2", { answer: null }),
+                departure("DV4", { found: false }),
+            ],
+        });
+        const second = emptyJudgments({ items: [departure("DV1", { departsFrom: "D1" })] });
+        const dr = sectionOf(closed(twoPrHarness(first, second)).record, "## Deviation Rationale").split("\n");
+        expect(dr).toHaveLength(3);
+        expect(dr[0]).toContain(`record #${RECORD} D1 — ${ISSUES}#${PR} DV1`);
+        expect(dr[1]).toContain(`record #${RECORD} G1 — ${ISSUES}#${PR} DV3`);
+        expect(dr[2]).toContain(`${ISSUES}#${PR2} DV1`);
+        expect(dr[0]).toContain("the code does DV1");
+        expect(dr[0]).toContain("**Why:** reason for DV1");
+        expect(dr.join("\n")).not.toMatch(/DV2|DV4/);
+    });
+
+    it("names the record revision when a departure was answered by one", () => {
+        const verdict = emptyJudgments({ items: [departure("DV1", { answer: { verb: "accepted", author: "", link: "", reason: "the record now says so" } })] });
+        expect(sectionOf(closed(harness({ verdict: () => present(verdict) })).record, "## Deviation Rationale")).toContain("**Accepted by:** the record revision");
+    });
+
+    it("states each waived critical or high finding with who waived it, in the waivers stamp and the comment's waivers statement (G12)", () => {
+        const verdict = emptyJudgments({
+            findings: [
+                { id: "F1", kind: "finding", found: true, severity: "high", about: "#864 AC2", summary: "flaky", files: [], answer: { verb: "waived", author: "lead", link: LINK(7), reason: "tracked in #999" } },
+                { id: "F2", kind: "finding", found: true, severity: "medium", about: "#864 AC3", summary: "minor", files: [], answer: null },
+            ],
+        });
+        const { record, comment } = closed(harness({ verdict: () => present(verdict) }));
+        expect(frontmatterOf(record)).toMatch(/waivers:\n {2}- \{ repo: acme\/app, pr: 901, cause: finding, id: F1, severity: high, author: lead, url: "https:[^"]+issuecomment-7" \}/);
+        expect(comment).toMatch(/Waivers applied:[\s\S]*F1 \(high: #864 AC2\) waived by @lead, \S+issuecomment-7: tracked in #999/);
+        expect(sectionOf(record, "## Deviation Rationale")).toBe("none");
+        expect(record).not.toContain("F2");
+    });
+
+    it("writes the same Key Decisions and Deviation Rationale on a second run over the same state (G13)", () => {
+        const make = (): Harness => twoPrHarness(emptyJudgments({ items: [departure("DV1")] }), emptyJudgments({ items: [departure("DV2")] }));
+        expect(closed(make()).record).toBe(closed(make()).record);
+    });
+});
+
+describe("the close record keeps today's shape for distill (story #865, AC2, D4, G14, G16, G34)", () => {
+    it("writes today's frontmatter keys, in today's order, and today's sections without a process lesson", () => {
+        const { record, comment } = closed(harness());
+        const keys = frontmatterOf(record)
+            .split("\n")
+            .filter((l) => /^[a-z_]+:/.test(l))
+            .map((l) => l.split(":")[0]);
+        expect(keys).toEqual(["title", "epic", "feature", "date", "nexus_version", "analyze", "record", "record_hash", "range", "story_ranges", "landed_check"]);
+        const headings = record.split("\n").filter((l) => /^#{1,3} /.test(l));
+        expect(headings).toEqual(["# Close Record: Close becomes a deterministic subcommand", "## Key Decisions", "## Deviation Rationale", "## Waived Stories", "## Deferred Scope"]);
+        expect(record).not.toMatch(/lesson/i);
+        expect(comment).not.toMatch(/lesson/i);
+    });
+
+    it("stamps analyze as ran <date> @ <head> from the completing pull request's verdict (G14)", () => {
+        const { record } = closed(twoPrHarness(emptyJudgments(), emptyJudgments()));
+        expect(frontmatterOf(record)).toContain(`analyze: ran 2026-10-02 @ ${"2".repeat(40)}`);
+    });
+
+    it("adds today's revised-record clause, with the waiver's author, when a waiver accepted the revision", () => {
+        const waiver = { repo: ISSUES, pr: PR, author: "lead", url: "https://x/w", at: "2026-10-03T11:00:00Z", reason: null, stories: [864], cause: "record-revised" as const, record: RECORD, digest: RECORD_DIGEST };
+        const h = harness({
+            ranges: () => ({ ok: true, untrusted: [], ranges: ranges({ waivers: [waiver] }) }),
+            verdict: () => present(emptyJudgments(), { recordHash: "0".repeat(64) }),
+        });
+        const { record, comment } = closed(h);
+        const value = `ran 2026-10-03 @ ${"a".repeat(40)}; stale — record #${RECORD} revised since analysis (${"0".repeat(64)} → ${RECORD_DIGEST}); waived 2026-10-03 by @lead`;
+        expect(frontmatterOf(record)).toContain(`analyze: ${JSON.stringify(value)}`);
+        expect(comment).toContain(`Conformance: ${value}`);
+        expect(frontmatterOf(record)).toMatch(/waivers:\n {2}- \{ repo: acme\/app, pr: 901, cause: record-revised, record: "#872", digest: [0-9a-f]{64}, author: lead, url: "https:\/\/x\/w", stories: \["#864"\] \}/);
+    });
+
+    it("stamps the ranges, the story ranges and the landed check entry for entry, on the record and in the comment's machine block", () => {
+        const { record, comment } = closed(twoPrHarness(emptyJudgments(), emptyJudgments()));
+        const stamps = [
+            "range:",
+            `  - repo: ${ISSUES}`,
+            `    pr: ${PR}`,
+            `    base: ${"b".repeat(40)}`,
+            `    head: ${"m".repeat(40)}`,
+            `  - repo: ${ISSUES}`,
+            `    pr: ${PR2}`,
+            "story_ranges:",
+            '  - story: "#864"',
+            "    ranges:",
+            `      - { repo: ${ISSUES}, pr: ${PR}, base: ${"b".repeat(40)}, head: ${"m".repeat(40)} }`,
+            "landed_check:",
+            "    result: unchanged",
+            `      - { repo: ${ISSUES}, pr: ${PR}, result: unchanged }`,
+            `      - { repo: ${ISSUES}, pr: ${PR2}, result: not-checked, reason: no-range }`,
+        ];
+        for (const line of stamps) {
+            expect(record, line).toContain(line);
+            expect(comment, line).toContain(line);
+        }
+    });
+
+    it("writes issues_repo and qualifies the story numbers when the issues live in another repository", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: "acme/issues", repo: ISSUES } }) });
+        const fm = frontmatterOf(closed(h).record);
+        expect(fm).toContain("issues_repo: acme/issues");
+        expect(fm).toContain('story: "acme/issues#864"');
+    });
+
+    it("omits the record keys and lists stubs only when the epic has no record, naming the epic's description on each departure", () => {
+        const stub = { path: "p", choice: "Pick A", reason: "A is cheaper", refuted: "B" };
+        const verdict = emptyJudgments({ keyDecisions: { record: null, stubs: [stub] }, items: [departure("DV1", { departsFrom: "How it works" })] });
+        const h = harness({
+            verdict: () => present(verdict, { recordHash: null }),
+            subIssues: () => ({ ok: true, facts: new Map([[864, facts("CLOSED")], [865, facts("CLOSED")]]) }),
+        });
+        const resolveEpic = h.deps.resolveEpic;
+        h.deps.resolveEpic = (root, epic) => {
+            const r = resolveEpic(root, epic);
+            return r.ok ? { ...r, record: null } : r;
+        };
+        const { record, comment } = closed(h);
+        expect(frontmatterOf(record)).not.toMatch(/^record/m);
+        expect(sectionOf(record, "## Key Decisions").split("\n")).toHaveLength(1);
+        expect(sectionOf(record, "## Key Decisions")).toContain("Pick A");
+        expect(sectionOf(record, "## Deviation Rationale")).toContain(`the epic's description (#${EPIC}), How it works`);
+        expect(comment).not.toContain("Decision record:");
+        expect(h.posted).toEqual([]);
+    });
+
+    it("lists approved deferred scope, and only approved scope, as not yet filed", () => {
+        const verdict = emptyJudgments({
+            findings: [{ id: "F1", kind: "finding", found: true, severity: "high", about: "#864 AC4", summary: "unmet", files: [], answer: null }],
+            deferred: [
+                { id: "DS1", kind: "deferred-scope", found: true, settles: "F1", summary: "Finish AC4 later", answer: { verb: "approved", author: "pm", link: "https://x/ds", reason: "" } },
+                { id: "DS2", kind: "deferred-scope", found: true, settles: "DV1", summary: "Nobody approved this", answer: null },
+            ],
+            items: [departure("DV1", { answer: null })],
+        });
+        const { record, stdout } = closed(harness({ verdict: () => present(verdict) }));
+        const ds = sectionOf(record, "## Deferred Scope");
+        expect(ds).toContain("Finish AC4 later");
+        expect(ds).toContain("not yet filed");
+        expect(ds).toContain("@pm");
+        expect(ds).not.toContain("Nobody approved this");
+        expect(stdout).toMatch(/Deferred scope: +1 approved proposal/);
+    });
+
+    it("writes the record into a committed old-contract entry as is", () => {
+        const h = harness();
+        const entry = path.join(h.wtPath, ".nexus", "queue", "2026-09-01-close-deterministic-subcommand");
+        fs.mkdirSync(entry, { recursive: true });
+        fs.writeFileSync(path.join(entry, "epic.md"), `---\nlink: "#${EPIC}"\n---\nold contract\n`);
+        const { out } = closed(h);
+        expect(out.ok && out.recordPath).toBe(path.join(entry, "close-record.md"));
+    });
+
+    it("stops, naming the record file, when the commit fails", () => {
+        const h = harness({ commitEntry: () => ({ ok: false, message: "index.lock exists" }) });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toContain("index.lock exists");
+        expect(text(rendered.stderr)).toContain("close-record.md");
+        expect(h.posted).toEqual([]);
+    });
+});
+
+describe("the close comment is the durable copy (story #865, G47)", () => {
+    it("inlines Key Decisions and Deviation Rationale, carries the marker-anchored machine block with every key, and links nothing under the queue", () => {
+        const stub = { path: ".nexus/queue/epic-830/dev/decisions-x.md", choice: "Pick A", reason: "cheaper", refuted: "B" };
+        const verdict = emptyJudgments({ items: [departure("DV1")], keyDecisions: { record: { digest: RECORD_DIGEST, format: "new", decisions: [] }, stubs: [stub] } });
+        const { comment } = closed(harness({ verdict: () => present(verdict) }));
+        expect(comment.startsWith("## Close Record\n")).toBe(true);
+        expect(comment).toContain(`Decision record: #${RECORD} @ \`${RECORD_DIGEST}\``);
+        expect(comment.split("<!-- nexus:close-record -->")).toHaveLength(2);
+        const block = /<!-- nexus:close-record -->\n```yaml\n([\s\S]*?)\n```/.exec(comment);
+        expect(block).not.toBeNull();
+        const keys = (block as RegExpExecArray)[1]
+            .split("\n")
+            .filter((l) => /^[a-z_]+:/.test(l))
+            .map((l) => l.split(":")[0]);
+        expect(keys).toEqual(["epic", "nexus_version", "issues_repo", "date", "record", "record_hash", "analyze", "range", "story_ranges", "landed_check"]);
+        expect(comment).not.toContain(".nexus/queue");
+        expect(comment).toContain("Pick A");
+    });
+});
+
+describe("the record amendment (story #865, AC3, D12, G28, G48)", () => {
+    const superseding = (): Judgments =>
+        emptyJudgments({ items: [departure("DV1", { supersedes: { decision: "D2", instead: "falls back to a model pass" } }), departure("DV2")] });
+
+    it("posts one amendment on the record issue naming each superseded decision, what shipped and why, with a key naming the epic", () => {
+        const h = harness({ verdict: () => present(superseding()) });
+        const { stdout } = closed(h);
+        expect(h.posted).toHaveLength(1);
+        const { issue, body } = h.posted[0];
+        expect(issue).toBe(RECORD);
+        expect(body).toMatch(/^## Amended at close — 1 decision\(s\) superseded/);
+        expect(body).toContain("**D2 — No model fallback: A verdict without judgments stops close.** → **shipped:** falls back to a model pass. reason for DV1");
+        expect(body).not.toContain("DV2 ");
+        expect(body).toContain(`<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`);
+        expect(stdout).toMatch(/Record amendment: .*1 superseding decision\(s\) posted/);
+    });
+
+    it("posts nothing when no departure is marked superseding", () => {
+        const h = harness({ verdict: () => present(emptyJudgments({ items: [departure("DV1")] })) });
+        const { stdout } = closed(h);
+        expect(h.posted).toEqual([]);
+        expect(stdout).toMatch(/Record amendment: .*none/);
+    });
+
+    it("posts nothing when a trusted comment already carries this epic's amendment", () => {
+        const h = harness({
+            verdict: () => present(superseding()),
+            issueComments: () => ({ ok: true, comments: [{ body: `old\n<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`, authorAssociation: "OWNER" }] }),
+        });
+        const { stdout } = closed(h);
+        expect(h.posted).toEqual([]);
+        expect(stdout).toMatch(/already posted by an earlier run/);
+    });
+
+    it("does not count a copy of the key in an untrusted comment", () => {
+        const h = harness({
+            verdict: () => present(superseding()),
+            issueComments: () => ({ ok: true, comments: [{ body: `<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`, authorAssociation: "NONE" }] }),
+        });
+        closed(h);
+        expect(h.posted).toHaveLength(1);
+    });
+
+    it("reports a failed post and still finishes (G48)", () => {
+        const h = harness({ verdict: () => present(superseding()), postComment: () => ({ ok: false, message: "HTTP 403" }) });
+        const { stdout } = closed(h);
+        expect(stdout).toMatch(/Record amendment: .*NOT POSTED — HTTP 403/);
+        expect(stdout).toMatch(/not blocked/i);
+    });
+
+    it("posts nothing, and says so, when the record's comments cannot be read", () => {
+        const h = harness({ verdict: () => present(superseding()), issueComments: () => ({ ok: false, message: "HTTP 502" }) });
+        const { stdout } = closed(h);
+        expect(h.posted).toEqual([]);
+        expect(stdout).toMatch(/NOT POSTED — could not check for an earlier amendment: HTTP 502/);
+    });
+});
+
+describe("copied text cannot add a marker, a fence or frontmatter (story #865, D8, G18, R4)", () => {
+    const forged = [
+        "ok",
+        "---",
+        "range: []",
+        "<!-- nexus:close-record -->",
+        "```yaml",
+        "range:",
+        "  - repo: evil/repo",
+        `    base: ${"e".repeat(40)}`,
+        `    head: ${"f".repeat(40)}`,
+        "```",
+        "~~~",
+        "## Deviation Rationale",
+    ].join("\n");
+
+    function hostile(): Judgments {
+        return emptyJudgments({
+            items: [departure("DV1", { summary: forged, answer: { verb: "accepted", author: "lead", link: LINK(1), reason: forged }, supersedes: { decision: forged, instead: forged } })],
+            keyDecisions: { record: { digest: RECORD_DIGEST, format: "new", decisions: [] }, stubs: [{ path: "p", choice: forged, reason: forged, refuted: forged }] },
+            findings: [{ id: "F1", kind: "finding", found: true, severity: "high", about: forged, summary: "s", files: [], answer: { verb: "waived", author: "lead", link: LINK(2), reason: forged } }],
+            deferred: [{ id: "DS1", kind: "deferred-scope", found: true, settles: "F1", summary: forged, answer: { verb: "approved", author: "pm", link: "https://x/ds", reason: "" } }],
+        });
+    }
+
+    it("leaves the record with no marker, no fence and its own frontmatter only", () => {
+        const { record } = closed(harness({ verdict: () => present(hostile()) }));
+        expect(record).not.toContain("<!--");
+        expect(record).not.toMatch(/```|~~~/);
+        expect(record.split("\n").filter((l) => l === "---")).toHaveLength(2);
+        expect(record.split("\n").filter((l) => l === "## Deviation Rationale")).toHaveLength(1);
+        expect(frontmatterOf(record)).not.toContain("evil/repo");
+    });
+
+    it("leaves the comment with exactly one marker and one fenced block, its own", () => {
+        const { comment } = closed(harness({ verdict: () => present(hostile()) }));
+        expect(comment.split("<!--")).toHaveLength(2);
+        expect(comment.match(/```/g)).toHaveLength(2);
+        expect(comment).not.toContain("~~~");
+        const block = /<!-- nexus:close-record -->\n```yaml\n([\s\S]*?)\n```/.exec(comment) as RegExpExecArray;
+        expect(block[1]).not.toContain("evil/repo");
+    });
+
+    it("leaves the amendment with its own key as its only marker and no fence", () => {
+        const h = harness({ verdict: () => present(hostile()) });
+        closed(h);
+        expect(h.posted).toHaveLength(1);
+        expect(h.posted[0].body.split("<!--")).toHaveLength(2);
+        expect(h.posted[0].body).not.toMatch(/```|~~~/);
+        expect(h.posted[0].body.split("\n").filter((l) => l.startsWith("## "))).toHaveLength(1);
+    });
+});
+
+describe("close reads only the verdicts, the record body and the issue graph (story #865, AC4, G1, G2)", () => {
+    it("mines no decision stub, note or story-issue comment and asks nothing", () => {
+        const h = harness();
+        const scratch = path.join(h.wtPath, ".nexus", "queue", `epic-${EPIC}`, "dev");
+        fs.mkdirSync(scratch, { recursive: true });
+        fs.writeFileSync(path.join(scratch, "decisions-feat-865.md"), "## 2026-10-01 — SCRATCH-ONLY-DECISION\n- **Choice:** x\n");
+        fs.writeFileSync(path.join(scratch, "notes-feat-865.md"), "SCRATCH-ONLY-NOTE\n");
+        const { record, comment } = closed(h);
+        for (const body of [record, comment]) {
+            expect(body).not.toContain("SCRATCH-ONLY-DECISION");
+            expect(body).not.toContain("SCRATCH-ONLY-NOTE");
+        }
+    });
+});
+
+// The platform-backed writes and reads story #865 adds, over a stand-in gh and a real git checkout.
+describe("nexus close — the record fetch, the commit and the record-issue comments (story #865)", () => {
+    function recorder(responses: (args: string[]) => { status: number; stdout: string; stderr: string }): { run: Runner; calls: string[][] } {
+        const calls: string[][] = [];
+        return {
+            calls,
+            run: (cmd, args) => {
+                calls.push([cmd, ...args]);
+                return responses(args);
+            },
+        };
+    }
+
+    it("fetches the record body and its digest from the issues repository, and names a failed fetch", () => {
+        const ok = recorder(() => ({ status: 0, stdout: JSON.stringify({ body: RECORD_BODY, state: "closed" }), stderr: "" }));
+        expect(closeCommandDeps(ok.run, { singleRepo: () => true }).recordBody("/repo", ISSUES, RECORD)).toEqual({ ok: true, body: RECORD_BODY, digest: RECORD_DIGEST });
+        expect(ok.calls[0]).toEqual(["gh", "api", `repos/${ISSUES}/issues/${RECORD}`]);
+        const failing = recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 404: Not Found" }));
+        const r = closeCommandDeps(failing.run, { singleRepo: () => true }).recordBody("/repo", ISSUES, RECORD);
+        expect(r.ok).toBe(false);
+        expect(r.ok ? "" : r.message).toContain("404");
+    });
+
+    it("reads the record issue's comments with each author's association, and names a failed or unreadable read", () => {
+        const doc = { comments: [{ body: "a", authorAssociation: "OWNER" }, { body: 3 }, null] };
+        const ok = recorder(() => ({ status: 0, stdout: JSON.stringify(doc), stderr: "" }));
+        expect(closeCommandDeps(ok.run, { singleRepo: () => true }).issueComments("/repo", ISSUES, RECORD)).toEqual({
+            ok: true,
+            comments: [{ body: "a", authorAssociation: "OWNER" }, { body: "", authorAssociation: "" }, { body: "", authorAssociation: "" }],
+        });
+        expect(ok.calls[0]).toEqual(["gh", "issue", "view", String(RECORD), "--repo", ISSUES, "--json", "comments"]);
+        const failing = recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 502" }));
+        expect(closeCommandDeps(failing.run, { singleRepo: () => true }).issueComments("/repo", ISSUES, RECORD)).toEqual({ ok: false, message: "HTTP 502" });
+        const garbled = recorder(() => ({ status: 0, stdout: "not json", stderr: "" }));
+        expect(closeCommandDeps(garbled.run, { singleRepo: () => true }).issueComments("/repo", ISSUES, RECORD).ok).toBe(false);
+    });
+
+    it("posts one comment on the record issue, and only there, naming a failed post", () => {
+        const ok = recorder(() => ({ status: 0, stdout: "{}", stderr: "" }));
+        expect(closeCommandDeps(ok.run, { singleRepo: () => true }).postComment("/repo", `github.com/${ISSUES}`, RECORD, "## Amended")).toEqual({ ok: true });
+        expect(ok.calls).toEqual([["gh", "api", "--method", "POST", `repos/${ISSUES}/issues/${RECORD}/comments`, "-f", "body=## Amended"]]);
+        const failing = recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 403" }));
+        expect(closeCommandDeps(failing.run, { singleRepo: () => true }).postComment("/repo", ISSUES, RECORD, "x")).toEqual({ ok: false, message: "HTTP 403" });
+    });
+
+    it("commits the entry's files, and reports nothing to commit when an earlier run's commit already holds them", () => {
+        const repo = makeDir();
+        const g = (...args: string[]): string => {
+            const r = defaultRunner("git", args, { cwd: repo });
+            if (r.status !== 0) throw new Error(r.stderr);
+            return r.stdout.trim();
+        };
+        g("init", "-q", "-b", "main");
+        g("config", "user.email", "t@example.test");
+        g("config", "user.name", "t");
+        g("commit", "-q", "--allow-empty", "-m", "root");
+        const dir = path.join(repo, ".nexus", "queue", `epic-${EPIC}`);
+        fs.mkdirSync(dir, { recursive: true });
+        const files = [path.join(dir, "epic.md"), path.join(dir, "close-record.md")];
+        for (const f of files) fs.writeFileSync(f, `${path.basename(f)}\n`);
+        fs.writeFileSync(path.join(repo, "unrelated.txt"), "left alone\n");
+        g("add", "unrelated.txt");
+        const deps = closeCommandDeps(defaultRunner, { singleRepo: () => true });
+        expect(deps.commitEntry(repo, files, "close: epic-830 — close record")).toEqual({ ok: true, committed: true });
+        expect(g("log", "-1", "--format=%s")).toBe("close: epic-830 — close record");
+        expect(g("show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual([".nexus/queue/epic-830/close-record.md", ".nexus/queue/epic-830/epic.md"]);
+        expect(deps.commitEntry(repo, files, "again")).toEqual({ ok: true, committed: false });
+        const bad = deps.commitEntry(repo, [path.join(repo, "missing.md")], "x");
+        expect(bad.ok).toBe(false);
     });
 });

@@ -22,10 +22,19 @@
  *   4. Worktree. The distill branch an earlier run cut for this epic, local or pushed, else a fresh
  *      one from the trunk; then the committed queue entry, or the entry born at close (G45).
  *
- * Steps 3 and 5–11 — assembling and writing the close record, filing deferred scope, the markers,
- * the push, the comments, closing the epic issue and the hand-off note — belong to later stories.
- * Until they land, this command ends after step 4 and says so. It writes no hand-off note, because
- * that note means the close finished (G17).
+ *   3. Assemble in memory (story #865): Key Decisions, Deviation Rationale, the superseded
+ *      decisions, the approved proposals and the `analyze:` value, from the verdicts, the record
+ *      body close stamps and the gate's stamps only — never the diff, a decision stub, a note or a
+ *      story-issue comment (G2). See close-record.ts.
+ *   6. Write the close record into the queue entry and commit it on the distill branch.
+ *   7. Post the record amendment from the superseding marks, with find before write. A failed
+ *      post is reported and stops nothing (G48).
+ *
+ * The close comment is rendered from the same content (G9) but not posted yet. Filing deferred
+ * scope, the markers, the push, the close comment, closing the epic issue and the hand-off note
+ * belong to story #866 (D11's order puts the stubs and the push before the record commit and the
+ * amendment). Until it lands, this command says what it has not done. It writes no hand-off note,
+ * because that note means the close finished (G17).
  *
  * Every platform read is injected, so a spec stands in for GitHub and git.
  */
@@ -36,7 +45,8 @@ import { resolveKindClassification } from "@nexus/epic-resolve/classify";
 import { fetchSubIssueFacts, resolveRepoSlug, type IssueFacts } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
-import { parseJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
+import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, type RejectedWaiver } from "@nexus/pr-acceptance/waiver";
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
@@ -48,6 +58,8 @@ import { canonicalRemote } from "@nexus/workspace/canonical-remote";
 import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
 import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
 import { defaultRunner, git } from "@nexus/workspace/run";
+import { fetchRecord } from "@nexus/record-digest/fetch";
+import { amendmentKey, assembleCloseContent, renderCloseComment, renderCloseRecord, renderRecordAmendment, type CloseContent, type CloseVerdict } from "./close-record.js";
 import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRanges, type CloseRangesResult, type StoryState, type StoryStateFinding } from "./close-ranges.js";
 import { storyCarriesLabel } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
@@ -65,6 +77,8 @@ export interface CloseInput {
     handoff: string | null;
     /** Today, as YYYY-MM-DD. */
     date: string;
+    /** The release writing the close record, or null when unresolved (the stamp is then omitted). */
+    nexusVersion?: string | null;
 }
 
 /** One stop: the reason, the thing concerned and the remedy that can clear it (G4). */
@@ -79,7 +93,19 @@ export interface CloseStop {
 /** The verdict a merged pull request carries, as far as close's gate reads it. */
 export type CloseVerdictRead =
     | { ok: true; found: false }
-    | { ok: true; found: true; critical: number; high: number; judgments: "present" | "absent" }
+    | { ok: true; found: true; critical: number; high: number; judgments: "absent" }
+    | {
+          ok: true;
+          found: true;
+          critical: number;
+          high: number;
+          judgments: "present";
+          /** The judgments close writes from, and the verdict block facts its `analyze:` value names. */
+          read: Judgments;
+          date: string;
+          head: string;
+          recordHash: string | null;
+      }
     | { ok: true; found: true; critical: number; high: number; judgments: "malformed"; malformed: string }
     | { ok: false; cause: string };
 
@@ -110,8 +136,16 @@ export interface CloseCommandDeps {
     verdict(root: string, issuesRepo: string, pr: { repo: string; pr: number }): CloseVerdictRead;
     /** Whether the trunk the distill branch is cut from holds every merged head in this repository. */
     trunkCheck(repoRoot: string, heads: TrunkCheckItem[]): VerifyTrunkResult;
-    /** The one create step this story reaches: the epic's distill worktree. */
+    /** The epic's distill worktree: the first step that creates anything. */
     openWorktree(repoRoot: string, epic: number, date: string): EpicDistillWorktreeResult;
+    /** The decision record's current body and its digest, through the one digest implementation. */
+    recordBody(root: string, issuesRepo: string, record: number): { ok: true; body: string; digest: string } | { ok: false; message: string };
+    /** Stage `files` in the worktree and commit them; `committed` is false when nothing changed. */
+    commitEntry(wtPath: string, files: string[], message: string): { ok: true; committed: boolean } | { ok: false; message: string };
+    /** The comments on an issue, with each author's association, for find before write. */
+    issueComments(root: string, issuesRepo: string, issue: number): { ok: true; comments: { body: string; authorAssociation: string }[] } | { ok: false; message: string };
+    /** Post one comment on an issue. */
+    postComment(root: string, issuesRepo: string, issue: number, body: string): { ok: true } | { ok: false; message: string };
 }
 
 export interface ClosePassed {
@@ -121,6 +155,11 @@ export interface ClosePassed {
     pr: number;
     wtPath: string;
     branch: string;
+    /** The close record written and committed in the worktree's queue entry. */
+    recordPath: string;
+    /** The close comment's body, rendered from the same content; #866 posts it. */
+    closeComment: string;
+    content: CloseContent;
     lines: string[];
 }
 
@@ -138,7 +177,7 @@ function linkedEpic(markdown: string): number | null {
     return ref?.number ?? null;
 }
 
-/** Run close up to and including the worktree step. Asks nothing; every outcome is returned. */
+/** Run close through the close record and the amendment. Asks nothing; every outcome is returned. */
 export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): CloseOutcome {
     const prRef = `#${input.pr}`;
     const rerun = `nexus close --pr ${input.pr}`;
@@ -246,6 +285,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const excluded = deps.excludedStories(repoRoot, issuesRepo, stories);
     const ranges = deps.ranges(repoRoot, issuesRepo, epic, { stories, excluded, record });
     let gate: CloseRanges | null = null;
+    const verdicts: CloseVerdict[] = [];
     if (!ranges.ok) {
         stops.push(...rangesFailureStops(ranges, issuesRepo, rerun));
     } else {
@@ -260,14 +300,18 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             );
         }
 
-        // Each merged claiming pull request's verdict, read once however many stories it implements.
+        // Each merged claiming pull request's verdict, read once however many stories it implements,
+        // in merge order: the range list is in merge order, and a pull request with no range follows.
         const seen = new Set<string>();
-        for (const story of gate.stories) {
-            for (const entry of story.ranges) {
-                const key = `${entry.repo.toLowerCase()}#${entry.pr}`;
-                if (seen.has(key)) continue;
-                seen.add(key);
-                stops.push(...verdictStops(deps.verdict(repoRoot, issuesRepo, { repo: entry.repo, pr: entry.pr }), entry.repo, entry.pr, rerun));
+        const merged = [...gate.range.map((r) => ({ repo: r.repo, pr: r.pr })), ...gate.stories.flatMap((s) => s.ranges.map((r) => ({ repo: r.repo, pr: r.pr })))];
+        for (const entry of merged) {
+            const key = `${entry.repo.toLowerCase()}#${entry.pr}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const read = deps.verdict(repoRoot, issuesRepo, { repo: entry.repo, pr: entry.pr });
+            stops.push(...verdictStops(read, entry.repo, entry.pr, rerun));
+            if (read.ok && read.found && read.judgments === "present") {
+                verdicts.push({ repo: entry.repo, pr: entry.pr, date: read.date, head: read.head, recordHash: read.recordHash, judgments: read.read });
             }
         }
 
@@ -278,13 +322,48 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         }
     }
 
+    // The record body close stamps, read before anything is created: a failed read is a stop (G3).
+    let recordSource: { number: number; body: string; digest: string } | null = null;
+    if (stops.length === 0 && record !== null) {
+        const body = deps.recordBody(repoRoot, issuesRepo, record);
+        if (!body.ok) stops.push({ reason: `the decision record ${issuesRepo}#${record} could not be read: ${body.message}`, item: `record ${issuesRepo}#${record}`, remedy: `re-run ${rerun} once the read succeeds` });
+        else recordSource = { number: record, body: body.body, digest: body.digest };
+    }
+
     if (stops.length > 0) return { ok: false, stops };
     const passed = gate as CloseRanges;
+
+    // 3. Assemble in memory, from the verdicts, the record body and the gate's stamps only (G2).
+    const fm = frontmatter(resolved.markdown);
+    const content = assembleCloseContent({
+        epic,
+        title: resolved.resolved.title,
+        feature: fm.get("feature") ?? "",
+        featurePath: fm.get("feature_path") ?? "",
+        date: input.date,
+        nexusVersion: input.nexusVersion ?? null,
+        issuesRepo,
+        codeRepo,
+        record: recordSource,
+        verdicts,
+        ranges: passed,
+    });
 
     // 4. Worktree. The first step that creates anything.
     const wt = deps.openWorktree(repoRoot, epic, input.date);
     if (!wt.ok) return stopped({ reason: wt.error.message, item: repoRoot, remedy: `re-run ${rerun} once the cause above is fixed` });
     const entry = queueEntry(wt.wtPath, epic, entryRel, resolved.markdown);
+
+    // 6. The close record, written and committed in the entry. Stub numbers arrive with filing (#866).
+    const recordPath = path.join(entry.dir, "close-record.md");
+    fs.writeFileSync(recordPath, renderCloseRecord(content));
+    const commit = deps.commitEntry(wt.wtPath, [path.join(entry.dir, "epic.md"), recordPath], `close: epic-${epic} — ${entry.kind === "born" ? "born-at-close epic, close record" : "close record"}`);
+    if (!commit.ok) {
+        return stopped({ reason: `the close record could not be committed on ${wt.branch}: ${commit.message}`, item: recordPath, remedy: `fix the cause above, then re-run ${rerun}; the re-run reuses the branch and rewrites the same record` });
+    }
+
+    // 7. The record amendment, with find before write. A failed post is reported and stops nothing (G48).
+    const amendment = postAmendment(deps, repoRoot, content);
 
     const lines: string[] = [
         `nexus close: epic ${epicRef} passed every gate.`,
@@ -298,19 +377,60 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
                 (w.cause === "landed-change" ? ` naming ${w.files.join(", ")}` : ` accepting ${issuesRepo}#${w.record} at ${w.digest}`) +
                 ` by @${w.author || "unknown"} (${w.url})`,
         ),
+        ...content.waivedFindings.map((f) => `Finding waived:    ${f.repo}#${f.pr} ${f.id} (${f.severity}) by @${f.author || "unknown"} (${f.link})`),
         ...passed.lines.map((l) => `  ${l}`),
         ...notes,
+        ...content.notes,
         "",
         `Distill branch:    ${wt.branch} (${wt.source === "new" ? "cut from the trunk" : wt.source === "local" ? "reused from an earlier run" : "reused from an earlier run's push"})`,
         `Worktree:          ${wt.wtPath}`,
         `Queue entry:       ${entry.dir} (${entry.kind === "born" ? "born at close" : entry.kind === "reused" ? "reused from an earlier run" : "committed entry, used as is"})`,
+        `Close record:      ${recordPath} (${commit.committed ? `committed on ${wt.branch}` : "unchanged since an earlier run's commit"})`,
+        `Analyze:           ${content.analyze}`,
+        `Key decisions:     ${content.keyDecisions.length} (${content.keyDecisions.filter((d) => d.kind !== "stub").length} from the record, ${content.keyDecisions.filter((d) => d.kind === "stub").length} confirmed stub(s))`,
+        `Deviations:        ${content.deviations.length} accepted departure(s)`,
+        `Deferred scope:    ${content.approved.length === 0 ? "none approved" : `${content.approved.length} approved proposal(s), not yet filed`}`,
+        ...(record === null ? [] : [`Record amendment:  ${issuesRepo}#${record} — ${amendment}`]),
         "",
-        "Nothing was written to GitHub. This release's nexus close stops after the worktree step: it does not",
-        "yet write the close record, file deferred scope, push the branch, post the close comment or close the",
-        `epic issue. /nxs.close --pr ${input.pr} still does those.`,
+        "Not done yet by this release's nexus close: filing deferred scope, writing story markers, pushing",
+        "the distill branch, posting the close comment and closing the epic issue. /nxs.close --pr " + String(input.pr),
+        "still does those.",
     ];
     if (input.handoff !== null) lines.push(`Hand-off note:     not written to ${input.handoff}; it is written only when a close finishes.`);
-    return { ok: true, epic, issuesRepo, pr: input.pr, wtPath: wt.wtPath, branch: wt.branch, lines };
+    return { ok: true, epic, issuesRepo, pr: input.pr, wtPath: wt.wtPath, branch: wt.branch, recordPath, closeComment: renderCloseComment(content), content, lines };
+}
+
+/** The frontmatter keys of a materialized `epic.md`, unquoted. */
+function frontmatter(markdown: string): Map<string, string> {
+    const out = new Map<string, string>();
+    const fm = /^---\n([\s\S]*?)\n---/.exec(markdown);
+    if (fm === null) return out;
+    for (const line of fm[1].split("\n")) {
+        const m = /^([A-Za-z_][\w-]*):\s*(.*?)\s*$/.exec(line);
+        if (m !== null) out.set(m[1], m[2].replace(/^["']|["']$/g, ""));
+    }
+    return out;
+}
+
+/**
+ * Post the amendment on the record issue once (D12, G28, G48): nothing when no departure is marked
+ * superseding, nothing when a trusted comment already carries this epic's key. Never edits the
+ * record's body, title, labels or state. Returns the report line; a failure never stops close.
+ */
+function postAmendment(deps: CloseCommandDeps, root: string, content: CloseContent): string {
+    if (content.record === null) return "none";
+    const body = renderRecordAmendment(content);
+    if (body === null) return "none (no departure is marked as superseding a record decision)";
+    const n = content.superseded.length;
+    const key = amendmentKey(content.issuesRepo, content.epic);
+    const existing = deps.issueComments(root, content.issuesRepo, content.record.number);
+    if (!existing.ok) return `NOT POSTED — could not check for an earlier amendment: ${existing.message}; ${n} superseding decision(s) stand in the close record's Deviation Rationale. Close not blocked; re-run to post it`;
+    if (existing.comments.some((c) => c.body.includes(key) && MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase()))) {
+        return `${n} superseding decision(s), already posted by an earlier run`;
+    }
+    const posted = deps.postComment(root, content.issuesRepo, content.record.number, body);
+    if (!posted.ok) return `NOT POSTED — ${posted.message}; ${n} superseding decision(s) stand in the close record's Deviation Rationale. Close not blocked; re-run to post it`;
+    return `${n} superseding decision(s) posted`;
 }
 
 /** The queue entry inside the worktree: the committed one, the one an earlier run created, or born at close (G45). */
@@ -558,7 +678,9 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const counts = { critical: findings["critical"], high: findings["high"] };
             const parsed = parseJudgmentsBlock(r.value.rawBody);
             if (!parsed.ok) return { ok: true, found: true, ...counts, judgments: "malformed", malformed: parsed.message };
-            return { ok: true, found: true, ...counts, judgments: parsed.judgments === null ? "absent" : "present" };
+            if (parsed.judgments === null) return { ok: true, found: true, ...counts, judgments: "absent" };
+            const receipt = r.value.receipt;
+            return { ok: true, found: true, ...counts, judgments: "present", read: parsed.judgments, date: receipt.date, head: receipt.head, recordHash: receipt.recordHash };
         },
         trunkCheck: (repoRoot, heads) => {
             const remote = canonicalRemote(run, repoRoot);
@@ -568,5 +690,38 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             return verifyTrunkContainsHeads(run, repoRoot, trunk, heads, { remote });
         },
         openWorktree: (repoRoot, epic, date) => openEpicDistillWorktree(run, repoRoot, epic, date),
+        recordBody: (root, issuesRepo, record) => {
+            const r = fetchRecord(run, root, record, issuesRepo);
+            return r.ok ? { ok: true, body: r.record.body, digest: r.record.digest } : { ok: false, message: r.error.message };
+        },
+        commitEntry: (wtPath, files, message) => {
+            const add = run("git", ["add", "--", ...files], { cwd: wtPath });
+            if (add.status !== 0) return { ok: false, message: add.stderr.trim() || "git add failed" };
+            if (run("git", ["diff", "--cached", "--quiet", "--", ...files], { cwd: wtPath }).status === 0) return { ok: true, committed: false };
+            const commit = run("git", ["commit", "-m", message, "--", ...files], { cwd: wtPath });
+            return commit.status === 0 ? { ok: true, committed: true } : { ok: false, message: commit.stderr.trim() || commit.stdout.trim() || "git commit failed" };
+        },
+        issueComments: (root, issuesRepo, issue) => {
+            const r = run("gh", ["issue", "view", String(issue), "--repo", issuesRepo, "--json", "comments"], { cwd: root });
+            if (r.status !== 0) return { ok: false, message: r.stderr.trim() || "gh issue view failed" };
+            try {
+                const doc = JSON.parse(r.stdout) as { comments?: unknown };
+                const list = Array.isArray(doc.comments) ? doc.comments : [];
+                return {
+                    ok: true,
+                    comments: list.map((c) => {
+                        const rec = (c ?? {}) as Record<string, unknown>;
+                        return { body: typeof rec["body"] === "string" ? rec["body"] : "", authorAssociation: typeof rec["authorAssociation"] === "string" ? rec["authorAssociation"] : "" };
+                    }),
+                };
+            } catch (e) {
+                return { ok: false, message: `the comments could not be read as JSON: ${e instanceof Error ? e.message : String(e)}` };
+            }
+        },
+        postComment: (root, issuesRepo, issue, body) => {
+            const slug = issuesRepo.split("/").slice(-2).join("/");
+            const r = run("gh", ["api", "--method", "POST", `repos/${slug}/issues/${issue}/comments`, "-f", `body=${body}`], { cwd: root });
+            return r.status === 0 ? { ok: true } : { ok: false, message: r.stderr.trim() || "gh api failed" };
+        },
     };
 }

@@ -249,3 +249,33 @@ describe("nexus seed-templates", () => {
         expect(fs.existsSync(projectTemplateDir(io.cwd))).toBe(false);
     });
 });
+
+// Epic #830, decision record #872, D4 and R5: close renders its record in code, so seeding no
+// longer places a close-record template, and a copy a repository already holds is left alone.
+describe("the close-record template is no longer seeded (#872 D4, R5)", () => {
+    it("places no close-record template in a repository that has none", () => {
+        const repo: string = makeAdopterRepo();
+
+        seedTemplates(MASTER_DIR, repo);
+
+        expect(SEEDED_TEMPLATES).not.toContain("close-record-template.md");
+        expect(fs.existsSync(path.join(projectTemplateDir(repo), "close-record-template.md"))).toBe(false);
+    });
+
+    it("leaves a close-record template a repository already holds exactly as it is", () => {
+        const repo: string = makeAdopterRepo();
+        fs.mkdirSync(projectTemplateDir(repo), { recursive: true });
+        const kept: string = path.join(projectTemplateDir(repo), "close-record-template.md");
+        fs.writeFileSync(kept, "tuned by the project\n");
+
+        seedTemplates(MASTER_DIR, repo);
+
+        expect(fs.readFileSync(kept, "utf8")).toBe("tuned by the project\n");
+    });
+
+    it("ships no close-record template in the release", () => {
+        const staged: string[] = listPayloadFiles(REPO_ROOT).map((f) => f.staged);
+
+        expect(staged).not.toContain(`${TEMPLATE_PAYLOAD_DIRNAME}/close-record-template.md`);
+    });
+});

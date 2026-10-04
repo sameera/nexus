@@ -89,6 +89,16 @@
       "import": "./src/close-command.ts",
       "default": "./src/close-command.ts"
     },
+    "./close-record": {
+      "types": "./src/close-record.ts",
+      "import": "./src/close-record.ts",
+      "default": "./src/close-record.ts"
+    },
+    "./close-text": {
+      "types": "./src/close-text.ts",
+      "import": "./src/close-text.ts",
+      "default": "./src/close-text.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {
@@ -97,6 +107,7 @@
     "@nexus/pr-acceptance": "workspace:*",
     "@nexus/pr-worktree": "workspace:*",
     "@nexus/record-digest": "workspace:*",
-    "@nexus/delivery-config": "workspace:*"
+    "@nexus/delivery-config": "workspace:*",
+    "@nexus/scope-razor": "workspace:*"
   }
 }

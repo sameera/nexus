@@ -617,7 +617,10 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      comment to post) and exits 1. Then it reuses the distill branch an earlier run cut for",
             "      the epic, or cuts one from the trunk, and finds or creates the epic's queue entry.",
             "      The entry path names the epic when the pull request does not name exactly one.",
-            "      This release stops there; /nxs.close --pr <N> still writes the record and closes.",
+            "      It then writes the close record from the pull requests' verdicts and the record body",
+            "      only, commits it on the distill branch, and posts one amendment on the decision record",
+            "      when a departure is marked as superseding a record decision. This release stops there;",
+            "      /nxs.close --pr <N> still files deferred scope, posts the close comment and closes.",
         ].join("\n"),
         run: runClose,
     },
@@ -3011,6 +3014,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         entryPath: positional.length === 1 ? path.resolve(io.cwd, positional[0]) : null,
         handoff: handoff === null ? null : path.resolve(io.cwd, handoff),
         date: localDate(),
+        nexusVersion: releaseVersion(),
     });
     const rendered = renderCloseOutcome(outcome);
     for (const line of rendered.stdout) io.stdout(line);
