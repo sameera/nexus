@@ -5,6 +5,26 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.88.0
+
+- **Close stops on a story whose evidence is stale (breaking).** `/nxs.close --pr` now stops,
+  before it mines anything, on a story whose receipt no longer holds for what merged. It names
+  the story, the pull request and each reason, and a story stale for several reasons gets every
+  one in a single report. A lead must clear each one with the remedy it names before close will
+  go on. There are three reasons:
+    - a reviewed file did not land as it was reviewed;
+    - the head that merged is not the head analysis reviewed;
+    - the decision record was revised after the receipt was written. This names every story that
+      receipt covers.
+- **Each stale stop names the remedy that can clear it.** A moved head names `/nxs.analyze --pr`
+  on that pull request. A revised record names that run, or a waiver comment a trusted lead posts
+  on that pull request. A file that did not land as reviewed names only that waiver, never an
+  analyze run, because re-analyzing the same head cannot change what landed.
+- **"Unknown" now means only that close could not read something.** When close cannot read a
+  receipt, the decision record's current revision, or the landed-file check, it reports the story
+  as unknown, names what it could not read, and stops. It never guesses a state from a failed read.
+  A story's text is still never a reason.
+
 ## 0.87.0
 
 - **Editing a story after analysis no longer flags it at close.** `/nxs.close --pr` no longer

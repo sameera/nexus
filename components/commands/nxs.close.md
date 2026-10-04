@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. It derives each story's commit ranges itself, in the checkout of each repository a story merged in, checks that each pull request landed every reviewed file as it was reviewed (stopping on one that never reached trunk), and stamps the ranges and each story's landed-check result into both the close record and the close comment. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); every story shipped and reviewed — a story with an open or only closed-unmerged claiming pull request, or none, stops as unshipped, and a story no receipt names stops as never reviewed, naming /nxs.analyze --pr on its pull request (hard blocks, no waiver); and /nxs.analyze ran (a missing receipt is a hard block; revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. It derives each story's commit ranges itself, in the checkout of each repository a story merged in, checks that each pull request landed every reviewed file as it was reviewed (stopping on one that never reached trunk), and stamps the ranges and each story's landed-check result into both the close record and the close comment. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); every story shipped and reviewed — a story with an open or only closed-unmerged claiming pull request, or none, stops as unshipped, and a story no receipt names stops as never reviewed, naming /nxs.analyze --pr on its pull request (hard blocks, no waiver); a story whose evidence is stale — a reviewed file that did not land as reviewed, a merged head that is not the analyzed head, or a decision record revised since its receipt — stops before mining, naming every cause with its remedy (/nxs.analyze --pr on the pull request for a moved head; that run or a trusted waiver comment on the pull request for a revised record; only that waiver for a landed change); and /nxs.analyze ran (a missing receipt is a hard block; revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -161,14 +161,15 @@ single-repo and hub mode only.
       `files`; a rename, a deletion or a mode change counts as changed), or `not-checked` with a
       `reason`: `no-receipt`, `no-range`, or `head-mismatch` when the analyzed head is not the
       merged head. The story's own `result` is the worst of its pull requests'. A `changed` or
-      `not-checked` result is stated, not stopped on, here.
-    - `states` — every story of the epic sorted into one `state` (story #847; record #849, D5–D7),
+      `not-checked` result is stated here; a `changed` one stops close through `states` below.
+    - `states` — every story of the epic sorted into one `state` (stories #847, #842; record #849, D5–D7),
       with `findings` naming each claiming pull request behind it. The claiming read returns open
       and closed-unmerged pull requests as well as merged ones, and only this classification uses
       them; ranges, checkouts, receipts and the landed check are asked of merged pull requests
       alone. The states, in the order they are decided:
-        - `unknown` — a merged pull request's receipt could not be read (`unreadable`, with its
-          cause).
+        - `unknown` — evidence close needs could not be read (`unreadable`, with its `evidence` and
+          cause): a merged pull request's receipt, the decision record's current digest, or a
+          landed check. Close reports what it could not read; it never guesses a state from it.
         - `unshipped` — an `open` pull request claims the story, even when another one merged; or
           its only claiming pull requests are `closed-unmerged`; or nothing claims it and no marker
           excludes it.
@@ -176,6 +177,15 @@ single-repo and hub mode only.
           (`no-receipt`, with its `remedy`). A receipt counts only for the stories its `stories:`
           list names. A pull request with no range needs none of its own when another receipt
           names the story.
+        - `stale` — a receipt names the story, but its evidence no longer holds (story #842). Each
+          cause is its own finding on the pull request, and a story carries every one that applies:
+            - `head-mismatch` — the receipt analyzed `analyzedHead`, but `mergedHead` merged.
+            - `record-revised` — the receipt's record digest (`stampedDigest`) is not the decision
+              record's current digest (`currentDigest`), taken by the one digest implementation
+              (`nxs-record-digest`). A revised record makes every story that receipt names stale.
+            - `landed-change` — the landed check found reviewed `files` that did not land as
+              reviewed.
+          A story's text is never a cause.
         - `current` — none of the above. `excluded` — the story carries the no-pull-request marker
           and was never read.
     - `closable` — `true` only when `ok` is `true` and every story is `current` or `excluded`.
@@ -207,16 +217,28 @@ single-repo and hub mode only.
       once the read succeeds.
 
     **`closable` must be `true` before you go further.** Each story in a state other than `current`
-    or `excluded` stops close here, before anything is mined, with **no waiver offered**. `lines`
-    already names each one with its pull requests and its remedy. Repeat it and stop:
+    or `excluded` stops close here, before anything is mined. Close asks the lead for **no waiver**
+    here. `lines` already names each one with its pull requests, every cause and its remedy. Repeat
+    it and stop:
+    - `stale` — name the story and, for each finding, the pull request, the cause and its
+      `remedies`. Each remedy below is the only kind that can clear its cause:
+        - `head-mismatch` — `/nxs.analyze --pr <N>` on that pull request. It re-analyzes the merged
+          head against the current record. No waiver clears a moved head.
+        - `record-revised` — `/nxs.analyze --pr <N>` on that pull request, or a trusted waiver
+          comment a lead posts on that pull request accepting the record at its current digest.
+          Name every story the receipt names.
+        - `landed-change` — only a trusted waiver comment a lead posts on that pull request naming
+          every changed file. Never name an analyze run for it: that run re-checks the same head
+          and cannot change what landed.
+      A waiver is posted on the pull request before close runs; close never asks for one.
     - `never-reviewed` — name the story and each `no-receipt` pull request, and name its `remedy`,
       `/nxs.analyze --pr <N>` on that pull request, as the way through. Do not offer to close
       without the analysis: that waiver no longer exists.
     - `unshipped` — name the story and every `open` or `closed-unmerged` pull request. Name no
       analyze remedy, because analysis cannot finish work that has not merged. The work merges, or
       the open pull request stops claiming the story, and the lead re-runs close.
-    - `unknown` — name the receipt that could not be read and its cause. The remedy is a re-run once
-      the read succeeds; never read a failed read as "no receipt".
+    - `unknown` — name the evidence that could not be read and its cause. The remedy is a re-run
+      once the read succeeds; never read a failed read as "no receipt", "unchanged" or "current".
 
     Repeat every entry of `lines` verbatim under a **Ranges** heading. **Keep `stories`, `range`
     and `landed` for Phase 3 and the Phase 4 stamp**, and never re-derive or edit a range or a
@@ -482,13 +504,15 @@ should have run yet.
    epic. A story's text decides nothing (epic #828): a story edited after its receipt was written
    is never stale or unknown for that reason, and a receipt that records story text (written by
    0.82.0 to 0.86.0) reads exactly like one that does not. A revised decision record still makes
-   every story stale, through the record digest below.
+   every story its receipt names stale, through the record digest; Phase 0.5's story states
+   already stopped on it.
    **The report decides nothing else.** Do not block, waive or
    re-check on any of its lines; the ledger's gate above and Phase 0.5's story states stay the close gates.
 
-   Once the ledger's gate passes, there is nothing further to re-check about the code. The record
-   axis alone remains, and it is checked against the record's current digest below — never against
-   a pull request's current head, and never against a branch tip.
+   Once the ledger's gate passes, there is nothing further to re-check about the code: Phase 0.5
+   already compared each receipt's analyzed head with the merged head, and each reviewed file with
+   what its pull request landed. The record axis alone remains here, and it is checked against the
+   record's current digest below — never against a branch tip.
 
    **No aggregate receipt at all** reads exactly like the existing **missing** state below — an epic
    that never shipped story by story produced no receipt for `/nxs.analyze` to have written, so there
@@ -522,10 +546,13 @@ should have run yet.
     sibling's record, or carries the no-pull-request marker and is excluded.
 
    The receipt also carries `record` / `record_hash` in full mode (#139) — the decision record the
-   analysis checked against. **One axis remains: the design.** The record may have been revised
-   after the analysis, and that is a judgment a lead may knowingly waive. The code axis is gone
-   (epic #769, story #776): the run that wrote a record held the merged code, so the judged code
-   and the shipped code are the same code and there is nothing for a staleness check to catch.
+   analysis checked against. **One axis remains here: the design.** The record may have been
+   revised after the analysis. Phase 0.5's story states check the same digest first (story #842):
+   a receipt whose digest is not the record's current one makes every story it names stale, as
+   `record-revised`, and stops close before this gate runs, naming `/nxs.analyze --pr <N>` or a
+   trusted waiver comment on the pull request as the remedy. The choice below stays only until
+   close reads that waiver from the pull request; it is reached only when Phase 0.5 found no
+   revision. The code axis is not checked here: Phase 0.5 owns it.
 
     **Record axis.** When the receipt carries `record`/`record_hash`, re-hash the record issue's
     **current** body through the one digest program and compare:
@@ -556,12 +583,12 @@ should have run yet.
     - **blocking** — the receipt reports critical or high findings: analyze judged the code
       does not yet satisfy the epic.
 
-   **There is no code-staleness state** (epic #769, story #776). Never describe the analysed commit
-   as stale against a branch, never count commits that landed after the analysis, and never compare
-   the analysed head to a branch tip to decide anything here. The conformance record is written by
-   the run that saw the merge, so the judged code and the shipped code are the same code; a branch
-   that kept moving afterwards cannot make the shipped code any different. What is left for you to
-   adjudicate is findings, and a decision record that moved.
+   **This gate has no code-staleness state of its own.** Phase 0.5 already stopped on a receipt
+   whose analyzed head is not the merged head and on a reviewed file that did not land as reviewed
+   (story #842). Never describe the analysed commit as stale against a branch, never count commits
+   that landed after the analysis, and never compare the analysed head to a branch tip to decide
+   anything here: a branch that kept moving after the merge cannot change what merged. What is left
+   for you to adjudicate is findings, and a decision record that moved.
 2. On **missing**, stop as above: there is no "close without analysis" choice. On **stale
    (record) / blocking**, render a one-paragraph markdown note naming the state and what it means,
    then ask via `AskUserQuestion` — never proceed silently:
@@ -1339,12 +1366,13 @@ state, but a closed epic with an open issue misreports the pipeline.
   or proceed on an **explicit user waiver**; never run the analysis from inside close, and never
   proceed silently. A waiver is always recorded in the close record's `analyze:` frontmatter and surfaced in the close
   comment.
-- **One staleness axis, and it is the design** — a decision record revised since the analysis is
-  reported and takes an explicit waiver, because the design moved and a lead may knowingly close
-  against the older analysis. The code axis is gone (epic #769): the conformance record is written
-  by the run that saw the merge, so the analysed code and the shipped code are the same code, and
-  no answer about a branch that kept moving afterwards could make the shipped code any different.
-  Never report a state describing the analysed commit as stale, and never offer a waiver for one.
+- **Stale evidence stops close before mining** (story #842) — a story is stale when a reviewed file
+  did not land as reviewed, when the merged head is not the analyzed head, or when the decision
+  record was revised after the receipt. Every cause is named with its pull request and the one
+  remedy that can clear it: `/nxs.analyze --pr <N>` for a moved head; that run or a trusted waiver
+  comment on the pull request for a revised record; only that waiver for a landed change. Evidence
+  close could not read is "unknown", never a guess. Staleness is judged against what merged, never
+  against a branch that kept moving afterwards, and a story's text is never a cause.
 - **Durable surfaces carry an issue reference, never a queue path** — the close record and the epic's
   close comment both carry the record as `#<record>` plus the full approved-body hash, and each
   recorded deviation names the record issue it deviated from. A queue path on either would dangle the

@@ -9,6 +9,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { recordDigest } from "@nexus/record-digest/digest";
 import { closeRangesDeps, deriveCloseRanges } from "./close-ranges.js";
 import { defaultRunner, type Runner } from "./run.js";
 
@@ -325,5 +326,32 @@ describe("deriveCloseRanges — a receipt that records story text (story #857; D
         expect(old.ok && old.ranges.states.map((s) => [s.story, s.state])).toEqual([[841, "current"]]);
         expect(old.ok && old.ranges.closable).toBe(true);
         expect(calls.some((c) => c.some((a) => a.includes("issues/841")))).toBe(false);
+    });
+});
+
+describe("deriveCloseRanges — a decision record revised after the receipt (story #842; D5, G11)", () => {
+    /** The platform, plus the decision record #849 as GitHub returns it. */
+    const withRecord =
+        (run: Runner, body: string): Runner =>
+        (cmd, args, opts) =>
+            cmd === "gh" && args[0] === "api" && args[1] === "repos/acme/web/issues/849"
+                ? { status: 0, stdout: JSON.stringify({ body, state: "closed", state_reason: "completed" }), stderr: "" }
+                : run(cmd, args, opts);
+
+    it("takes the record's current digest from the one digest implementation, and calls the story stale only when it differs", () => {
+        const repo = buildRepo();
+        const feature = mergeBranch(repo, "b10", "src/feature.ts");
+        const approved = "# Decision record\n\nApproved text.\n";
+        const pr: FakePr = { number: 10, story: 841, mergedAt: "2026-09-01T00:00:00Z", ...feature, analyzed: feature.head, receiptExtra: `record: "#849"\nrecord_hash: ${recordDigest(approved)}` };
+
+        const same = deriveCloseRanges(closeRangesDeps(withRecord(platform([pr], []), approved), repo, "acme/web", 849), { stories: [841], records: [] });
+        expect(same.ok && same.ranges.states.map((s) => s.state)).toEqual(["current"]);
+
+        const revised = deriveCloseRanges(closeRangesDeps(withRecord(platform([pr], []), `${approved}\nRevised.\n`), repo, "acme/web", 849), {
+            stories: [841],
+            records: [],
+        });
+        expect(revised.ok && revised.ranges.states[0]).toMatchObject({ state: "stale", findings: [{ pr: 10, finding: "record-revised", record: 849 }] });
+        expect(revised.ok && revised.ranges.closable).toBe(false);
     });
 });
