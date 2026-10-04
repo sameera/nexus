@@ -36,7 +36,7 @@ The planning and gating stages are run by product / the lead. Implementation sit
 | Epic | `/nxs.epic` | Is this the right scope, cut into the right stories? |
 | Decision record | `/nxs.decision-record` | Can we live with this design? |
 | Analyze | `/nxs.analyze` | Does the build match what we promised? |
-| Close | `/nxs.close` | What deviated, and what are we deferring? |
+| Close | `nexus close` (`/nxs.close` relays to it) | None of its own: it records what was answered on the pull request, or stops and names what is missing |
 | Distill | `/nxs.distill` | Which of these decisions belong in the permanent record? |
 
 ---
@@ -97,21 +97,25 @@ Two useful variants:
 
 Engineers pick up the story issues and build them, one PR at a time, with their own tools. Nexus does not generate or gate the code.
 
-One small ask of the implementing agent: when it makes a non-obvious choice between viable approaches, it appends a short **decision stub** (choice, why, refuted alternative) to a scratch file in the epic's queue entry. These stubs are hints, never load-bearing — the close stage mines and verifies them against the actual diff, so implementation rationale isn't lost, and nobody writes a report to preserve it.
+One small ask of the implementing agent: when it makes a non-obvious choice between viable approaches, it appends a short **decision stub** (choice, why, refuted alternative) to a scratch file in the epic's queue entry. These stubs are hints, never load-bearing — analyze verifies them against the actual diff and close records the confirmed ones, so implementation rationale isn't lost, and nobody writes a report to preserve it.
 
 ## Step 4: `/nxs.analyze` — The Conformance Gate
 
 After the stories are implemented, `/nxs.analyze` checks the build against the promises: the epic's acceptance criteria and success metrics, and the decision record's invariants. It refuses to run while the decision record is unapproved, and it stamps exactly which record it checked against.
 
-It reports findings inline and leaves a small **receipt** proving it ran — which `/nxs.close` gates on. This is where you catch "the AI snuck in assumptions" — before close, while it's still one epic's worth of review.
+It reports findings inline and leaves a small **receipt** proving it ran — which close gates on. This is where you catch "the AI snuck in assumptions" — before close, while it's still one epic's worth of review.
 
-## Step 5: `/nxs.close` — Close with a Trail
+## Step 5: `nexus close` — Close with a Trail
 
-`/nxs.close` requires every sub-issue of the epic closed and a current analyze receipt. It then:
+Close is a plain command, `nexus close --pr <N>`. It runs no model and asks nothing. `/nxs.close --pr <N>` still works: it runs `nexus close` with the same arguments and shows its output.
 
-- writes a human-prose close record: key decisions, deviations from the plan and why, and what was deferred;
-- files deferred scope as epic stub issues — a query away, not a forgotten section in a document;
+Close requires every sub-issue of the epic closed and a current analyze verdict on each merged pull request. Anything it used to ask is now posted on the pull request before it runs: an answer to a departure or a blocking finding, recorded by `/nxs.analyze --pr <N> --resolve`, and a waiver for a revised record or a changed file. A story that shipped without a pull request of its own needs a waiver comment on its own issue. When something is missing, close stops before writing anything and names the remedy. Otherwise it:
+
+- writes the close record from the verdicts: key decisions, deviations from the plan with who accepted them, and what was deferred;
+- files approved deferred scope as epic stub issues — a query away, not a forgotten section in a document;
 - posts a durable close comment on the epic issue and closes it. The comment is the permanent record; the local files are just a hand-off to the distiller.
+
+A re-run after a failure finishes the remaining steps without duplicates. After a decision record is revised on a closed epic, `nexus close --recover <epic>` re-stamps it so distill accepts the entry.
 
 ## Step 6: `/nxs.distill` — Keep Only What Earned Its Place
 
@@ -127,7 +131,7 @@ For teams that deliver through pull requests, the tail of the pipeline runs agai
 
 1. The lead runs `/nxs.analyze --pr <N>` against the PR (which may still be open). The result is published as a PR review carrying a machine-readable receipt.
 2. The PR merges.
-3. Post-merge, the lead runs `/nxs.close --pr <N>` and `/nxs.distill` in one shared worktree. Close commits its artifacts and hands off; distill opens the distillation-PR.
+3. Post-merge, the lead runs `nexus close --pr <N>` and then `/nxs.distill` in the worktree close prints. Close asks nothing; it commits its artifacts and hands off, or stops with a reason and a remedy. Distill opens the distillation-PR.
 
 ## Learning from a Roadmap
 

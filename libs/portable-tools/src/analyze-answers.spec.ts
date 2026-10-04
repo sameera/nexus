@@ -25,7 +25,6 @@ function between(text: string, from: string, to: string): string {
 }
 
 const ANSWERS = (): string => between(ANALYZE, "## 2.6 Answers on the pull request", "# Phase 3");
-const CLOSE_GATE = (): string => between(CLOSE, "## 1.2 Conformance analysis ran", "## 1.3 Workspace preflight");
 
 describe("analyze applies the answers on the pull request through the toolkit (D3)", () => {
     it("documents the one-line answer form and the verb each kind of item takes", () => {
@@ -83,18 +82,13 @@ describe("the verdict's own listing never reads as an answer (G12)", () => {
 });
 
 describe("close offers no blocking-findings override (D4; G17)", () => {
-    it("stops on a blocking receipt with no override and never asks the lead to proceed", () => {
-        expect(CLOSE_GATE()).not.toMatch(/Override and close/);
-        expect(CLOSE_GATE()).not.toMatch(/AskUserQuestion/);
-        expect(CLOSE_GATE()).toMatch(/close offers \*\*no override\*\*/);
+    // The stop itself, naming the answer on the pull request and then
+    // `/nxs.analyze --pr <N> --resolve`, is `nexus close`'s now (story #869): it is pinned in
+    // libs/epic-verdicts/src/close-command.spec.ts ("stops on open critical or high items ... (G7)").
+    it("relays to nexus close, which never asks the lead to proceed", () => {
+        expect(CLOSE).not.toMatch(/Override and close/);
+        expect(CLOSE).not.toMatch(/AskUserQuestion/);
         expect(CLOSE).not.toMatch(/explicit user override/);
-    });
-
-    it("names answering on the pull request, then a run of analyze to record the answers", () => {
-        const gate = CLOSE_GATE();
-        const answer = gate.search(/answer each open item \*\*on the pull request\*\*/);
-        const record = gate.search(/run analyze on that pull request again to record the answers/);
-        expect(answer).toBeGreaterThan(-1);
-        expect(record).toBeGreaterThan(answer);
+        expect(CLOSE).toContain("nexus close $ARGUMENTS");
     });
 });

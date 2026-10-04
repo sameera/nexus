@@ -239,6 +239,22 @@ describe("nexus close — a merged pull request whose every story is current (AC
         expect(rendered.stderr).toEqual([]);
     });
 
+    it("names each shipped record it did not read because its author cannot speak for the repository", () => {
+        const h = harness({
+            ranges: () => ({ ok: true, ranges: ranges(), untrusted: [{ commentId: "c1", key: null, author: "drive-by", authorAssociation: "NONE" }] }),
+        });
+        const { stdout } = closed(h);
+        expect(stdout).toMatch(/cannot speak for[\s\S]*@drive-by \(NONE\)/);
+    });
+
+    it("stops on an issues repository it cannot resolve, naming the repository setup and not a missing analysis", () => {
+        const h = harness({ issuesRepo: () => ({ ok: false, error: { problem: "issues-repo-mismatch", message: "the configured epic-repo is not this checkout's issues repository" } }) as never });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain("the configured epic-repo is not this checkout's issues repository");
+        expect(err).toMatch(/configured epic-repo/);
+        expect(err).not.toContain("/nxs.analyze");
+    });
+
     it("names the issues repository it resolved (G46)", () => {
         const h = harness();
         const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
@@ -926,11 +942,39 @@ describe("the close record keeps today's shape for distill (story #865, AC2, D4,
         }
     });
 
+    it("names a pull request with no attributable commits as no range, on the record and in the comment's machine block (story #841)", () => {
+        const h = twoPrHarness(emptyJudgments(), emptyJudgments(), {
+            ranges: () => ({
+                ok: true,
+                untrusted: [],
+                ranges: ranges({
+                    ...twoPrRanges(),
+                    stories: [
+                        twoPrRanges().stories[0],
+                        { story: 865, ranges: [{ repo: ISSUES, pr: PR2, source: "no-range", checkout: "/repo" }] },
+                    ],
+                    range: [twoPrRanges().range[0]],
+                }),
+            }),
+        });
+        const { record, comment } = closed(h);
+        const line = `      - { repo: ${ISSUES}, pr: ${PR2}, range: none }`;
+        expect(record).toContain(line);
+        expect(comment).toContain(line);
+    });
+
     it("writes issues_repo and qualifies the story numbers when the issues live in another repository", () => {
         const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: "acme/issues", repo: ISSUES } }) });
         const fm = frontmatterOf(closed(h).record);
         expect(fm).toContain("issues_repo: acme/issues");
         expect(fm).toContain('story: "acme/issues#864"');
+    });
+
+    it("stamps issues_repo in the close comment's machine block and keeps the comment's own epic number bare, since it is posted in that repository", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: "acme/issues", repo: ISSUES } }) });
+        const block = closed(h).comment.split("<!-- nexus:close-record -->")[1];
+        expect(block).toContain("issues_repo: acme/issues");
+        expect(block).toMatch(/^epic: "#830"$/m);
     });
 
     it("omits the record keys and lists stubs only when the epic has no record, naming the epic's description on each departure", () => {
@@ -1480,6 +1524,13 @@ describe("close writes in a fixed order and hands off only on full success (stor
         const { stdout } = closed(h, { handoff: note });
         expect(fs.readFileSync(note, "utf8")).toBe(`epic: ${EPIC}\nbranch: distill/2026-10-04-epic-${EPIC}\nworktree: ${h.wtPath}\n`);
         expect(stdout).toContain(`Hand-off note written: ${note}`);
+    });
+
+    it("hands the next step to the close script, and names no drain to run by hand, when a hand-off was asked for (story #817)", () => {
+        const h = harness();
+        const { stdout } = closed(h, { handoff: path.join(h.repoRoot, "run", "handoff.txt") });
+        expect(stdout).toContain("utils/close-epic.sh continues from here");
+        expect(stdout).not.toContain("/nxs.distill");
     });
 
     it("ends by naming the drain in the worktree when no hand-off was asked for", () => {

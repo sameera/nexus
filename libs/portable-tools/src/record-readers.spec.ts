@@ -1,7 +1,7 @@
 /**
  * The stages that read a record after approval accept both formats (epic #787, story #790).
  *
- * `/nxs.analyze`, `/nxs.close` and `/nxs.distill` are prose a model executes, so what each one reads
+ * `/nxs.analyze` and `/nxs.distill` are prose a model executes, so what each one reads
  * off an approved record is a contract stated in its text. These assertions pin that each stage
  * learns the record's format and parts from the one section reader (D4) rather than by hunting for
  * headings, that a new-format record's guarantees and appendix are what the stage reads (D9), and
@@ -43,27 +43,10 @@ describe("/nxs.analyze reads a record through the section reader", () => {
     });
 });
 
-describe("/nxs.close reads a record through the section reader", () => {
-    const close: string = read("commands/nxs.close.md");
-
-    it("calls the reader on the record body", () => {
-        expect(close).toMatch(READER);
-    });
-
-    it("takes a new-format record's deviation baseline from How it works, the Mechanism and the guarantees", () => {
-        expect(close).toMatch(/How it works.{0,40}Mechanism.{0,40}guarantees/);
-    });
-
-    it("writes Key Decisions from the appendix's decisions, reasons and refuted viable alternatives, and names a deviated decision by its ID", () => {
-        expect(close).toMatch(/Decisions and reasons/);
-        expect(close).toMatch(/names the decision it deviates from by its ID/);
-    });
-
-    it("keeps the old-format baseline and the hash stamping unchanged", () => {
-        expect(close).toMatch(/`old`[^.]*chosen approach, constraints and invariants/i);
-        expect(close).toMatch(/`neither`[^.]*whole/);
-    });
-});
+// /nxs.close relays to `nexus close` since story #869, and close reads the record in code: Key
+// Decisions from a new-format record's decisions and reasons by ID, an old-format record's decisions
+// by title, and a body in neither format as the verdict carries it, from the body whose hash it
+// stamps. Pinned in libs/epic-verdicts/src/close-command.spec.ts (record #872, D5, G10).
 
 describe("/nxs.distill reads a record through the section reader", () => {
     const distill: string = read("commands/nxs.distill.md");

@@ -81,7 +81,8 @@ describe("the excluded-store set has exactly one definition", () => {
 });
 
 describe("the command bodies derive their exclusions from that one definition", () => {
-    const bodies: readonly string[] = ["nxs.analyze.md", "nxs.close.md", "nxs.distill.md", "nxs.intake.md"];
+    // /nxs.close relays to `nexus close` since story #869 and diffs nothing itself.
+    const bodies: readonly string[] = ["nxs.analyze.md", "nxs.distill.md", "nxs.intake.md"];
 
     it.each(bodies)("%s asks the executable for the set rather than listing it", (name) => {
         const body = fs.readFileSync(path.join(COMMANDS_DIR, name), "utf8");

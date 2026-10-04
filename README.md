@@ -114,9 +114,9 @@ Implementation sits between the decision record and analyze; engineers own it.
     - The conformance gate: does the build do what the planning said?
     - Checks the implemented code against acceptance criteria, success metrics, and the decision record's invariants — and refuses to run against an unapproved record.
 
-7. **Close** (`/nxs.close`)
-    - A human-prose close record: what was decided, what deviated and why, what was deferred.
-    - Deferred scope becomes backlog issues, not a forgotten section in a document. The epic issue gets a durable close comment and is closed.
+7. **Close** (`nexus close --pr <N>`; `/nxs.close` relays to it)
+    - A plain command that runs no model and asks nothing. It writes the close record from the pull requests' verdicts: what was decided, what deviated and why, what was deferred. Answers and waivers are posted on the pull request and recorded by `/nxs.analyze` before close runs; anything missing is a stop that names its remedy.
+    - Approved deferred scope becomes backlog issues, not a forgotten section in a document. The epic issue gets a durable close comment and is closed.
 
 8. **Distill** (`/nxs.distill`)
     - Drains closed epics into the concept store via a reviewed PR.
@@ -141,7 +141,7 @@ Product: /nxs.epic — intent becomes stories small enough to ship and verify, f
 Lead: /nxs.decision-record — the "why" is three decisions with refuted alternatives, approved by the team
 Engineers: implement each story their way, with their tools
 Lead: /nxs.analyze — the build is checked against the promises made at planning
-Lead: /nxs.close — deviations recorded, deferred scope filed, epic closed with a durable trail
+Lead: nexus close — deviations recorded, deferred scope filed, epic closed with a durable trail
 /nxs.distill — the validated decisions merge into the concept store; the scaffolding is deleted
 *Six months later*
 You: *read one concept page, see the decision and the alternative it beat, fix the bug in 10 minutes*
@@ -401,7 +401,7 @@ For multi-repo workspaces, the same CLI declares and inspects the workspace: `ne
 
 ## Per repository: the templates the stages read
 
-Three stages — setup, `/nxs.decision-record` and `/nxs.close` — read a template out of the repository's own configuration, under `.nexus/config/templates/`. `/nxs.setup` places them for you by running
+Two stages — setup and `/nxs.decision-record` — read a template out of the repository's own configuration, under `.nexus/config/templates/`. `/nxs.setup` places them for you by running
 
 ```bash
 nexus seed-templates

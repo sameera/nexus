@@ -7,19 +7,28 @@ behaviour says so.
 
 ## 0.92.0
 
-- **Close has a plain command, `nexus close`, that nothing calls yet.** `/nxs.close` and the
-  one-command close script still run the close you know; the new command changes nothing until
-  they switch to it in a later release. `nexus close --pr <N>` closes the epic of a merged pull
-  request. It runs no model and asks no question. Every gate runs before it creates anything: the
-  checkout is a single repository or a hub, the pull request merged, the pull request names one
-  epic (otherwise it names passing the epic's entry path), every sub-issue is closed, and every
-  story is current. A revised record or a file that did not land as reviewed passes only with a
-  trusted waiver comment already on the pull request. Each merged pull request's verdict must have
-  no open critical or high item and must carry its judgments. Each failing gate prints one stop
-  naming the reason, the item and the remedy, and exits with an error; a waiver stop prints the
-  exact comment to post. When every gate passes, it reuses the distill branch an earlier run cut
-  for the epic, local or pushed, or cuts one from the trunk, and finds or creates the epic's queue
-  entry.
+- **Close no longer asks anything (breaking).** Close is now a plain command, `nexus close`. It
+  runs no model, has no checkpoint and asks no question. Everything close used to ask must be on
+  the pull request before close runs. Answer a departure or a blocking finding in a comment on the
+  pull request, then run `/nxs.analyze --pr <N> --resolve` so the verdict records the answer; close
+  reads answers only from the verdict. Post a revised-record or landed-change waiver on the pull
+  request in its fixed form. When something is missing, close stops before writing anything, prints
+  the reason, the item and the remedy, and exits with an error. Fix it and run close again.
+- **The direct command is `nexus close`; `/nxs.close` relays to it.** `/nxs.close --pr <N>` now
+  runs `nexus close` with the same arguments, shows its output unchanged, and ends with one line
+  telling you to call `nexus close` directly next time. It does not interpret, retry or fix a stop.
+  Without `--pr` it refuses as before. Its recovery section now names
+  `nexus close --recover <epic>`, the command that replaces the hand-run re-stamp steps.
+- **What `nexus close --pr <N>` checks.** It closes the epic of a merged pull request. Every gate
+  runs before it creates anything: the checkout is a single repository or a hub, the pull request
+  merged, the pull request names one epic (otherwise it names passing the epic's entry path), every
+  sub-issue is closed, and every story is current. A revised record or a file that did not land as
+  reviewed passes only with a trusted waiver comment already on the pull request. Each merged pull
+  request's verdict must have no open critical or high item and must carry its judgments. Each
+  failing gate prints one stop naming the reason, the item and the remedy, and exits with an error;
+  a waiver stop prints the exact comment to post. When every gate passes, it reuses the distill
+  branch an earlier run cut for the epic, local or pushed, or cuts one from the trunk, and finds or
+  creates the epic's queue entry.
 - **`nexus close` writes the close record from the pull requests' verdicts.** After its gates pass,
   it writes the close record into the epic's queue entry and commits it on the distill branch. It
   reads only each merged pull request's verdict, the decision record's body and the issue graph:
@@ -75,14 +84,13 @@ behaviour says so.
   file into a repository other than the configured story repository.
 - **An epic in flight whose verdicts were published before analyze recorded its judgments needs
   one full analyze run per merged pull request (breaking).** Those verdicts carry no judgments, so
-  `nexus close` stops on each such pull request and names `/nxs.analyze --pr <N>`. Run it on every merged pull request of the epic, then
-  close.
+  `nexus close` stops on each such pull request and names `/nxs.analyze --pr <N>`. Run it on
+  every merged pull request of the epic, then close.
 - **A customised close-record template is ignored (breaking).** The close record's shape is now
-  fixed: `nexus close` renders it, and `/nxs.close` writes the same shape without reading a
-  template. A close-record template your project tuned is ignored with no warning when close runs.
-  Seeding no longer places that template, and a copy already in your repository is left as it is.
-  The close record and the close comment `nexus close` writes have no Process Lesson section and
-  no lesson pointer.
+  fixed: `nexus close` renders it, and `/nxs.close` relays to `nexus close`. A close-record
+  template your project tuned is ignored with no warning when close runs. Seeding no longer places
+  that template, and a copy already in your repository is left as it is. The close record and the
+  close comment `nexus close` writes have no Process Lesson section and no lesson pointer.
 - **No lesson is written (breaking).** Nothing read the process lesson, so no close writes one any
   more: neither `nexus close` nor `/nxs.close` writes a lesson file, and neither the close record
   nor the close comment points at one. Setup no longer creates the lessons folder or its README,
