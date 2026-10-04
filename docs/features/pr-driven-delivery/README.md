@@ -13,6 +13,8 @@ Run conformance, closure, and distillation against a merged pull request instead
 - **Tmp-First Analyze & Close Artifacts, with GitHub Fallback for Distill** — [#170](https://github.com/sameera/nexus/issues/170)
 - **Configurable Worktree Location for the --pr Flow** — [#178](https://github.com/sameera/nexus/issues/178)
 - **Complete, error-aware evidence from stories to pull requests for close** — [#827](https://github.com/sameera/nexus/issues/827)
+- **Analyze owns every judgment, and the engineer answers on the pull request** — [#829](https://github.com/sameera/nexus/issues/829)
+- **Close becomes a deterministic subcommand** — [#830](https://github.com/sameera/nexus/issues/830)
 
 ## Live acceptance
 
