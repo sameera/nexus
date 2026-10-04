@@ -5,8 +5,9 @@
  * Analyze's post-merge run wrote one record per merged pull request until epic #828 retired the
  * write (story #843, decision record #849, D8): close now derives each range itself, and nothing
  * writes a record any more. The records an epic in flight already carries are still read back —
- * by close, for the range a record stamped and the merge commit it saw (D2), and by analyze's
- * aggregate mode — so those epics close as before until they drain.
+ * by close, for the range a record stamped and the merge commit it saw (D2), and by the derivation
+ * close still calls — so those epics close as before until they drain. Analyze's aggregate mode no
+ * longer reads them (epic #829, decision record #871, D11).
  *
  * One record per merged pull request, each its own comment on the epic issue, keyed by the code
  * repository together with the pull-request number (invariant 2).

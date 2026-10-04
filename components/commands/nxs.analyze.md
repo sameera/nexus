@@ -1,6 +1,6 @@
 ---
 name: nxs.analyze
-description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each gets a DV ID that later runs reuse. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
+description: Implementation-conformance gate. Runs only for an epic entry; a fix or an intake entry has no acceptance criteria, no success metrics and no decision record to check against, so the gate stops rather than degrading into a pass. Checks the implemented code against the epic's acceptance criteria, success metrics, and the decision record's guarantees (its invariants, in a record approved in the old format) — does the build do what the planning said. Lists every departure from the decision record (from the epic's description when it has none), naming what each departs from, with a decision stub's reason shown beside it and a superseding mark when the code does the opposite of a record decision; an unanswered departure blocks, and on a pull request each gets a DV ID that later runs reuse. On a pull request it judges the epic's success metrics and the guarantees that span stories only when that pull request completes the epic — it covers every live story, or every other live story has merged — and only on a head that already contains every merged sibling, else a blocking "epic-level check not run" finding names the branch update; a failed read of the epic's claiming pull requests stops the run and publishes nothing. Addressed by epic number once any story has merged, it combines nothing and names the pull request to analyze. Refuses to run while the epic's decision-record sub-issue is unapproved, and stamps which record it checked against. Reads the epic + the record issue body and the branch diff / closed story issues; reports inline conformance findings and writes a small analyze-receipt.md beside the resolved epic.md — under the gitignored .nexus/tmp/ for an issue-sourced epic, in the committed entry for an old-contract one (/nxs.close gates on it). With `--pr <N>` it instead runs in a worktree against the PR (which may be open) and publishes the result as a PR review carrying a machine-readable receipt block. It writes nothing on the epic issue and reports no coverage of what an epic has shipped; /nxs.close reports each story's state. Run after the stories are implemented, before /nxs.close. Planning consistency is checked earlier, not here: story↔design coverage by /nxs.decision-record, AC quality by the nxs-epic-gate agent.
 category: engineering
 model: inherit
 tools: Read, Grep, Glob, Bash, Write
@@ -86,8 +86,7 @@ target repository.
     qualified to another repository is ruled out before it is looked up: it does not reach the story
     list, and does not appear among the candidates a refusal reports as considered. A reference that
     merely *appears* in the body is a mention, not a claim — the story list names only the stories
-    the PR implements, because that list is stamped verbatim onto the receipt the epic's aggregate
-    reads. A same-repository reference set aside for claiming nothing is named in the refusal as a
+    the PR implements, because that list is stamped verbatim onto the receipt close reads. A same-repository reference set aside for claiming nothing is named in the refusal as a
     near miss, with `--story <n>` offered as the way through.
 
     A candidate survives by being an issue this repository *files as* a story or an epic, read from
@@ -259,63 +258,52 @@ issue** (#139). Resolve it before anything else — a blocked run must emit noth
     The body is still read as prose for its context. The reader only fixes the list, so no
     guarantee under a group heading is skipped.
 
-## Phase 0.6 — Aggregate mode: an epic whose stories already shipped their own verdicts
+## Phase 0.6 — Analyze addressed by epic number
 
-**Local mode only** (not `--pr` — a `--pr` run always analyzes the one PR it was pointed at) and
-**full mode only** (Phase 0.5 resolved a record). Some epics ship story by story, each on its own
-pull request analyzed with `/nxs.analyze --pr`; when that has already happened, deriving a fresh
-epic-wide verdict from scratch would re-run conformance a second time over code that was already
-judged (decision record #505). Detect this before Phase 1 does any of its own diff-reading:
+**Local mode only** (not `--pr`), whenever the epic resolved from its issue number (Phase 0, step
+3). The epic-wide verdict built from story verdicts is gone (epic #829, record #871, D11): analyze
+never combines the verdicts its pull requests already carry into an epic verdict, and never judges
+a combined change set. The epic-level judgment runs on the pull request that completes the epic
+instead (§2.3). Run the claiming read first:
 
 ```bash
-nexus epic-verdicts derive --epic <epic-issue>
+nexus epic-verdicts pr-target --epic <epic-issue>
 ```
 
-This is the one shared program `/nxs.close` also calls (never a second copy of the rules) — it reads
-the **records on the epic issue**, and nothing else. No published review, no head-branch name and no
-same-repository issue link is consulted to establish what the epic shipped (epic #769). It returns
-one of two states on stdout as JSON:
+It reads every pull request that claims each live story — the same read close gates on — and
+prints `{ state, target, open, lines }`:
 
--   **`"aggregate"`** — the epic carries records. The command already wrote the epic receipt
-    (`analyze-receipt.md` beside the resolved `epic.md`, per the #171 placement contract) and
-    printed it back as `receipt`. **Skip Phase 1 and Phase 2's per-story work entirely** — there is
-    nothing left to read or judge story-by-story.
+-   **`"redirect"`** — a live story already has a merged claiming pull request. **Combine nothing
+    and stop here**: repeat `lines`, which name `/nxs.analyze --pr <repo>#<N>` on the open pull
+    request that completes the epic or, when every live story has merged, on the most recently
+    merged one. With `target: null` no pull request completes the epic yet; `lines` say which
+    stories have not merged and name the open pull requests. Write no receipt.
+-   **`"local"`** — no live story has merged. **Continue to Phase 1** and run the ordinary local
+    check over the branch.
 
-    One judgment still has to run: the epic's **success metrics** and any **decision-record
-    invariant that spans two stories** are properties of the finished capability, so no single
-    story's pull request can be scored against them. Get the code that judgment reads with:
+A failed read exits 1 as `story-read-failed` and names every story it could not read: report it and
+stop. A failed read is not the same as no merged pull request.
 
-    ```bash
-    nexus epic-verdicts combined --epic <epic-issue>
-    ```
+## Phase 0.7 — Does this pull request complete its epic (`--pr` mode only)
 
-    This prints the **union** of every recorded pull request's own changed-file set — each pull
-    request's own range as its record stamped it, never a range spanning two of them — no worktree
-    created. Judge the epic's success metrics and every cross-story invariant against this combined
-    set the same way Phase 2 judges a single-PR run against its diff. A finding that only the
-    combined set shows is attributed to **the epic**, never to one story; a cross-story check the
-    combined set cannot decide is reported as **unverifiable**, naming what would decide it — never
-    passed silently. Then go to Phase 3 and report both: the findings summed per record (never per
-    story — a record covering two stories counts once, and a story that shipped as two pull requests
-    contributes both) plus this cross-story judgment, and the pull requests the receipt was derived
-    from.
--   **`"none"`** — the epic carries no record at all: it never shipped story by story. The command
-    wrote no receipt. **Fall through to Phase 1 and run exactly as today** — this is the ordinary
-    full-epic path, not a gap.
+Whether this pull request gets the epic-level judgment (§2.3) comes from the claiming read close
+gates on (record #871, D9), never from the resolved story list alone:
 
-**A partial epic is not this command's answer.** Analyze reports no coverage of what an epic has
-shipped; `/nxs.close` reports each story's state (see "Asking an epic what it has shipped" below).
-Nothing writes a record any more (epic #828), so an epic analyzed pull request by pull request
-after that change carries none and reads as `"none"` here.
+```bash
+nexus epic-verdicts completion --epic <epic-issue> --pr <N> --repo <repoIdentity> --stories <n,...> --worktree "$wtPath" --root <mainCheckoutRoot>
+```
 
-Every state also carries **`untrusted`**: marker-bearing comments on the epic issue whose author's
-association with the issues repository is not owner, member or collaborator. The marker alone
-confers no trust — anyone who can comment on the issues repository can write one. An untrusted
-record is **named**, never silently ignored, so a story reported as carrying nothing is never
-indistinguishable from a story whose record was refused. An empty list is the norm.
+`<N>` is the pull request's number and `--stories` the sorted list `nexus pr-worktree stories`
+resolved. It prints `{ completes, basis, epicLevel, unshipped, siblings, notRun, lines }`. The pull
+request completes its epic when it covers every live story, or when every other live story has a
+merged claiming pull request and no open one; stories carrying the no-pull-request marker are left
+out of both tests. `epicLevel` decides §2.3: `judge`, `not-run` or `skip`. Carry `lines` into the
+report.
 
-Any other exit (a named `epic-verdicts <problem>: …` diagnostic on stderr) is a broken tool, not a
-verdict — report it and stop, the same as any other unreadable-record failure in this command.
+**A failed read stops the run.** A non-zero exit with `story-read-failed` means the claiming pull
+requests of the named stories could not be read: report it verbatim and publish nothing — no
+review, no comment — then remove the worktree. Treating the failure as "not the last pull request"
+would skip the epic judgment silently.
 
 # Phase 1 — Gather the implementation surface
 
@@ -416,16 +404,44 @@ record. That is now the exception rather than the norm: the record has a durable
 sub-issue), so degraded mode is reached only by the deliberate no-record outcome — never, as before,
 because the record had nowhere to live.
 
-## 2.3 Success-metric coverage (epic level)
+## 2.3 Epic-level judgment
 
-**Skip this section in `--pr` mode.** A success metric is a property of the whole epic, unmeasurable
-by construction against one story's pull request — every story PR of the epic would otherwise carry
-the same manufactured finding. Cross-story assessment belongs to the epic-level aggregate (#212).
+The success metrics and the guarantees that span stories are properties of the finished
+capability. **In `--pr` mode they are judged only on the pull request that completes the epic**
+(record #871, D9, D10), as Phase 0.7's `epicLevel` says:
 
-Otherwise, for each item in the epic's `## Success Metrics`, state whether the implementation
-plausibly moves it and whether it is **measurable** from what shipped (is the metric instrumented /
-observable?). A success metric with no way to measure it post-ship is a **finding (medium)** — the
-epic claimed an outcome the build cannot demonstrate.
+- **`skip`** — the pull request leaves another live story unshipped. Judge **no** success metric
+  and no cross-story guarantee; state on the `Epic level:` line which stories keep it from
+  completing the epic. Every story pull request would otherwise carry the same manufactured
+  finding.
+- **`not-run`** — the pull request completes the epic, but its code does not yet contain every
+  merged sibling: a same-repository sibling's merge commit is not reachable from the head, or a
+  sibling in another member is not on that member checkout's trunk. Judge nothing at epic level.
+  Report one **high** finding, **"epic-level check not run"**, that names the update from each
+  `notRun` entry's `remedy` — bringing the branch up to date with trunk, or fetching the member
+  checkout. Count it in the severity tally; it blocks like any other high finding.
+- **`judge`** — the pull request completes the epic and its head contains every merged sibling.
+  Judge each success metric and each cross-story guarantee on the code as it will exist after the
+  merge. The reading scope is this pull request's own change plus each merged sibling's landed
+  files (`siblings[].files`, from each sibling's range): read a same-repository sibling's files in
+  `wtPath`, which contains them, and another member's in that member's checkout. A cross-story
+  guarantee is one whose cited decisions are delivered by more than one story; in an old-format
+  record, judge which invariants span stories.
+
+Report each success metric as exactly one of:
+
+- **met** — the code plainly moves it, and what shipped can show it.
+- **not moved** — the code does not move it. A **(high)** finding.
+- **unverifiable** — it cannot be decided from the code: name what would decide it (the
+  measurement, the instrument, the data). It does not block, and it is never passed.
+
+A broken cross-story guarantee is a departure (§2.5), citing its `G<n>` ID, never also a finding.
+
+**Locally** (no `--pr`), the run covers the whole branch, so for each item in the epic's
+`## Success Metrics`, state whether the implementation plausibly moves it and whether it is
+**measurable** from what shipped (is the metric instrumented / observable?). A success metric with
+no way to measure it post-ship is a **finding (medium)** — the epic claimed an outcome the build
+cannot demonstrate.
 
 ## 2.4 Scope drift (informational)
 
@@ -503,7 +519,9 @@ Departures:              <none> | one line per departure (§2.5):
     stub: <stub path> says "<reason>"                              (when a stub explains it)
     supersedes <D<n>>: <what the code does instead>                (when superseding)
   DV<n> no longer found · answered by <who> (<link>)              (listed, never dropped)
-Success metrics:         <metric → measurable? plausibly-moved?>
+Epic level:              <the completion check's lines> (--pr mode)
+Success metrics:         <metric → met | not moved | unverifiable: what would decide it>   (--pr: only when judged)
+                         <metric → measurable? plausibly-moved?>                           (local)
 Scope drift:             <unplanned behavior, ...>
 Notes:                   <stories still open → close before /nxs.close, ...>   (omit when none)
 
@@ -565,7 +583,7 @@ findings: { critical: <C>, high: <H>, medium: <M>, low: <L> }
 
 `epic` and `record` carry their qualifier directly, per the **`nxs-issue-reference`** skill, rather
 than a separate `issues_repo:` key: this file already carries a per-story `repo:` (the code
-repository) in the aggregate shape below, so a second bare repo declaration next to those rows
+repository) in the per-story shape the shared derivation writes for close, so a second bare repo declaration next to those rows
 would read as if it belonged with them. Qualify `epic`/`record` themselves whenever `$ISSUES_REPO`
 is non-empty and differs from the checkout this file was written in; omit the qualifier (bare
 `#N`) otherwise, unchanged from before this field existed.
@@ -693,7 +711,7 @@ read it. A **blocked** run (Phase 0.5) publishes nothing here either — no revi
    review above is the whole published result. Analyze no longer writes a shipped record: close
    derives each story's range itself, in the checkout of the repository the pull request merged
    in, and reads this review's receipt through the one trusted reader. Records that earlier runs
-   wrote stay on the epic issue and are still read, by close and by aggregate mode above. Run
+   wrote stay on the epic issue and are still read, by close. Run
    analyze **before** the merge; close does not run it afterwards.
 
 5. Remove the worktree, per the lifecycle rule in the `--pr` preamble above.
@@ -724,7 +742,7 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
 
 ```
 /nxs.analyze                      # committed entry from the branch, else resolve from its linked epic issue
-/nxs.analyze 118                  # resolve epic issue #118 via the resolver (no committed entry needed)
+/nxs.analyze 118                  # resolve epic issue #118 via the resolver; once a story merged, names the PR to analyze
 /nxs.analyze path/to/epic-entry   # explicit queue entry / epic directory
 /nxs.analyze --pr 123             # conformance against PR #123 in a worktree; epic from the PR's linked issue
 /nxs.analyze --pr acme/widget#7   # from the hub, conformance against PR #7 in declared member acme/widget
@@ -781,8 +799,8 @@ a fresh review; `/nxs.close` takes the latest trusted machine block.
   gathering outright. A number that matches no issue is set aside and named in the refusal, while
   any other GitHub failure stops the run.
   Zero validated stories stops the run and names what was considered; findings in Phase 2.1 are
-  scoped to only the resolved story(ies); Phase 2.3 (success-metric coverage) does not run in this
-  mode at all.
+  scoped to only the resolved story(ies); §2.3's epic-level judgment runs only on a pull request
+  that completes its epic (Phase 0.7).
 - **What an issue *is* comes from `github.classification`, never from the issue graph's shape.** A
   candidate is an epic or a story because the repository marks it as one — by label under
   `classification: labels`, by GitHub issue type under `classification: types`, by either under the

@@ -30,9 +30,9 @@ describe("/nxs.analyze writes no shipped record (story #843, G16)", () => {
         expect(ANALYZE).toContain("gh pr review <N> -R <repoIdentity>");
     });
 
-    it("keeps its aggregate mode reading the records an epic already carries", () => {
-        expect(ANALYZE).toContain("nexus epic-verdicts derive --epic <epic-issue>");
-        expect(ANALYZE).toContain("nexus epic-verdicts combined --epic <epic-issue>");
+    it("no longer runs aggregate mode over the records an epic already carries (epic #829, story #859, D11)", () => {
+        expect(ANALYZE).not.toContain("nexus epic-verdicts derive --epic <epic-issue>");
+        expect(ANALYZE).not.toContain("nexus epic-verdicts combined --epic <epic-issue>");
     });
 });
 

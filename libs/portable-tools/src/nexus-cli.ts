@@ -34,11 +34,10 @@ import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-res
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { defaultOutPath, writeMaterializedEpic } from "@nexus/epic-resolve/write";
 import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/epic-resolve/planning-dir";
-import { combinedChangeSet } from "@nexus/epic-verdicts/combined";
+import { epicCompletion, epicCompletionDeps, epicPrTarget } from "@nexus/epic-verdicts/epic-completion";
 import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { fetchShippedRecords } from "@nexus/epic-verdicts/ledger";
 import { type UntrustedRecord } from "@nexus/epic-verdicts/ledger";
-import { ledgerCloseGate } from "@nexus/epic-verdicts/close-ledger";
 import { describeStoryReadFailures } from "@nexus/epic-verdicts/story-prs";
 import { collectEvidence, evidenceDeps } from "@nexus/epic-verdicts/evidence";
 import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-ranges";
@@ -278,14 +277,25 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runPlanningDir,
     },
     "epic-verdicts": {
-        summary: "Close's evidence gate and ranges, and analyze's aggregate receipt from the records already on an epic issue.",
+        summary: "Close's evidence gate and ranges, the receipt derived from an epic's records, and whether a pull request completes its epic.",
         usage: [
             "  nexus epic-verdicts derive --epic <N> [--root <startDir>]",
             "      Print { epic, state: aggregate|none, receipt, outPath } from the epic's records and,",
             "      on aggregate, write the per-story analyze-receipt.md beside the resolved epic.md.",
-            "  nexus epic-verdicts combined --epic <N> [--root <startDir>]",
-            "      Print the union of every recorded pull request's own changed-file set, for judging",
-            "      the epic's success metrics and cross-story invariants against the combined code.",
+            "  nexus epic-verdicts completion --epic <N> --pr <N> --repo <owner/repo> --stories <n,...>",
+            "                                 --worktree <wtPath> [--root <startDir>]",
+            "      Whether the analyzed pull request completes its epic: it covers every live story, or",
+            "      every other live story has a merged claiming pull request and no open one. Prints",
+            "      { command: \"completion\", completes, basis, epicLevel: judge|not-run|skip, live,",
+            "      excluded, unshipped, siblings, notRun, lines }. On a completing pull request each",
+            "      merged sibling must be in the analyzed head (same repository) or on its member",
+            "      checkout's trunk; `notRun` names each that is not, with the update. `siblings` lists",
+            "      each one's landed files, the reading scope. A failed read exits 1 as story-read-failed.",
+            "  nexus epic-verdicts pr-target --epic <N> [--root <startDir>]",
+            "      Where analyze addressed by epic number goes. Prints { command: \"pr-target\", state:",
+            "      local|redirect, target, open, lines }: local when no live story has a merged claiming",
+            "      pull request; otherwise the open pull request that completes the epic, else the most",
+            "      recently merged one when every live story has merged, else none yet.",
             "  nexus epic-verdicts evidence --epic <N> [--root <startDir>]",
             "      Close's per-story evidence report: each live story's claiming pull requests and the",
             "      receipt each one carries. A receipt counts only for the stories it names; a story's",
@@ -316,7 +326,7 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      edit` — the close-time waiver's one effect (story #502). Prints { command:",
             "      \"waive-story\", story, label }. Takes --story, not --epic.",
         ].join("\n"),
-        subverbs: ["derive", "combined", "evidence", "ranges", "waive-story", "merge-gate", "currency", "record", "coverage", "close-gate"],
+        subverbs: ["derive", "completion", "pr-target", "evidence", "ranges", "waive-story", "merge-gate", "currency", "record", "coverage", "close-gate", "combined"],
         run: runEpicVerdicts,
     },
     "pr-verdict": {
@@ -1402,6 +1412,10 @@ interface EpicVerdictsFlags {
     epic?: number;
     root: string;
     story?: number;
+    pr?: number;
+    repo?: string;
+    stories?: number[];
+    worktree?: string;
 }
 
 /**
@@ -1425,11 +1439,16 @@ const RETIRED_EPIC_VERDICTS_SUBVERBS: Record<string, string> = {
         "Analyze no longer reports what an epic has shipped (epic #828). `/nxs.close --pr <N>` reports each story's state — current, stale, never-reviewed, unshipped, unknown or excluded — through `nexus epic-verdicts ranges --epic <N>`.",
     "close-gate":
         "Close no longer requires a shipped record for every story (epic #828). Its gate is `nexus epic-verdicts ranges --epic <N>`, which still reads a record's stamped range and still blocks on a recorded merge commit that moved.",
+    // Epic #829, story #859 (decision record #871, D11): aggregate mode is gone, and with it the
+    // combined change set it judged. The epic-level judgment runs on the completing pull request.
+    combined:
+        "Analyze no longer combines an epic's pull requests (epic #829). The success metrics and the guarantees that span stories are judged by `/nxs.analyze --pr <N>` on the pull request that completes the epic; `nexus epic-verdicts pr-target --epic <N>` names it.",
 };
 
 const EPIC_VERDICTS_SUBVERBS = [
     "derive",
-    "combined",
+    "completion",
+    "pr-target",
     "evidence",
     "ranges",
     "waive-story",
@@ -1444,6 +1463,10 @@ function parseEpicVerdictsFlags(argv: string[], cwd: string): EpicVerdictsFlags 
         if (a === "--epic") flags.epic = Number(args[++i]);
         else if (a === "--root") flags.root = args[++i];
         else if (a === "--story") flags.story = Number(args[++i]);
+        else if (a === "--pr") flags.pr = Number(args[++i]);
+        else if (a === "--repo") flags.repo = args[++i];
+        else if (a === "--stories") flags.stories = (args[++i] ?? "").split(",").filter((x) => x.trim().length > 0).map(Number);
+        else if (a === "--worktree") flags.worktree = args[++i];
     }
     return flags;
 }
@@ -1486,12 +1509,78 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
 
     if (flags.epic === undefined || Number.isNaN(flags.epic) || flags.epic <= 0) {
-        io.stderr("usage: nexus epic-verdicts derive|combined|evidence|ranges --epic <N> [--root <startDir>]");
+        io.stderr("usage: nexus epic-verdicts derive|completion|pr-target|evidence|ranges --epic <N> [--root <startDir>]");
         return 2;
+    }
+
+    if (argv[0] === "completion") {
+        const stories = flags.stories ?? [];
+        if (
+            flags.pr === undefined ||
+            Number.isNaN(flags.pr) ||
+            flags.pr <= 0 ||
+            flags.repo === undefined ||
+            flags.repo.trim().length === 0 ||
+            stories.length === 0 ||
+            stories.some((n) => Number.isNaN(n) || n <= 0) ||
+            flags.worktree === undefined
+        ) {
+            io.stderr(
+                "usage: nexus epic-verdicts completion --epic <N> --pr <N> --repo <owner/repo> --stories <n,...> --worktree <wtPath> [--root <startDir>]",
+            );
+            return 2;
+        }
     }
 
     const root = epicResolveTargetRoot(flags.root, io);
     if (root === null) return 1;
+
+    // `completion` and `pr-target` — whether a pull request completes its epic, and where analyze
+    // addressed by epic number goes (epic #829, story #859, decision record #871, D9–D11). Both run
+    // close's one claiming read, and a failed read stops the run: analyze publishes nothing (G34).
+    if (argv[0] === "completion" || argv[0] === "pr-target") {
+        const repos = resolveVerdictRepos(closeMigrationRunner, root);
+        if (!repos.ok) {
+            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+            return 1;
+        }
+        const issuesRepo = repos.repos.issuesRepo;
+        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        if (!resolved.ok) {
+            io.stderr(renderEpicResolveDiagnostic(resolved.error));
+            return 1;
+        }
+        const stories = resolved.resolved.stories.map((st) => st.number);
+        const noPrLabel = resolvePublishingKey(root, "no-pr-label");
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+
+        if (argv[0] === "pr-target") {
+            const target = epicPrTarget(epicCompletionDeps(closeMigrationRunner, root, issuesRepo, root, excludePathspecs()), { stories, excluded, issuesRepo });
+            if (!target.ok) {
+                io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(target.failures, issuesRepo)} Analyze stops here.`);
+                return 1;
+            }
+            io.stdout(JSON.stringify({ command: "pr-target", epic: flags.epic, issuesRepo, ...target.target }));
+            return 0;
+        }
+
+        const worktree = path.resolve(io.cwd, flags.worktree as string);
+        const pr = { repo: (flags.repo as string).trim(), pr: flags.pr as number };
+        const completion = epicCompletion(epicCompletionDeps(closeMigrationRunner, root, issuesRepo, worktree, excludePathspecs()), {
+            stories,
+            excluded,
+            pr,
+            covered: flags.stories ?? [],
+            worktree,
+            issuesRepo,
+        });
+        if (!completion.ok) {
+            io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(completion.failures, issuesRepo)} Analyze publishes nothing.`);
+            return 1;
+        }
+        io.stdout(JSON.stringify({ command: "completion", epic: flags.epic, issuesRepo, ...pr, ...completion.completion }));
+        return 0;
+    }
 
     // `evidence` — close's per-story evidence report (epic #827, decision record #837, D4). Close
     // runs this and repeats `lines`; a failed read behind it stops close before it mines anything.
@@ -1574,7 +1663,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         return 0;
     }
 
-    // The shipped ledger answers both remaining subverbs. Nothing here reads a published review,
+    // The shipped ledger answers the remaining subverb, the derivation close still calls. Nothing here reads a published review,
     // a head-branch name or a same-repository issue link to establish what the epic shipped
     // (epic #769, invariant 8).
     const repos = resolveVerdictRepos(closeMigrationRunner, root);
@@ -1600,21 +1689,6 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
                   .map((st) => st.number)
                   .filter((st) => storyCarriesLabel(root, repos.repos.issuesRepo, st, noPrLabelHere))
             : [];
-
-    if (argv[0] === "combined") {
-        const gate = ledgerCloseGate(closeMigrationRunner, root, {
-            stories: resolvedEpic.resolved.stories.map((st) => st.number),
-            excluded: excludedHere,
-            records: ledgerRecords,
-        });
-        const combined = combinedChangeSet(closeMigrationRunner, root, gate.range, excludePathspecs());
-        if (!combined.ok) {
-            io.stderr(`epic-verdicts ${combined.error.problem}: ${combined.error.message}`);
-            return 1;
-        }
-        io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", ledger.collected.untrusted, { ...combined.combined })));
-        return 0;
-    }
 
     // derive
     if (ledgerRecords.length === 0) {
