@@ -10,6 +10,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { JUDGMENTS_MARKER, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { buildBundle } from "./bundle";
 import { DISPATCH_NAMES, epicVerdictsPayload, runNexusCli, VERB_NAMES, type CliIo } from "./nexus-cli";
 import { copyComponentTree, COMPONENT_PAYLOAD_DIRNAME } from "./vendor-components";
@@ -2033,5 +2034,44 @@ describe("nexus epic-verdicts completion, pr-target and the retired combined cha
 describe("nexus story-fingerprints is gone (epic #828, story #857)", () => {
     it("is no longer a registered verb: analyze records no story text", () => {
         expect(VERB_NAMES).not.toContain("story-fingerprints");
+    });
+});
+
+describe("nexus verdict-judgments (#877)", () => {
+    const judgment = { schema: 1, items: [], results: [{ kind: "criterion", about: "#877 AC5", verdict: "met", files: ["libs/a.ts"] }] };
+
+    it("prints a published verdict's encoded judgments as readable JSON", async () => {
+        const dir = makeTmpDir("cli-judgments-");
+        const body = path.join(dir, "verdict.md");
+        fs.writeFileSync(body, `Summary\n\n${renderJudgmentsBlock({ items: [], results: judgment.results as never })}`);
+        const io = makeIo(dir);
+        expect(await runNexusCli(["verdict-judgments", "--body", body], io)).toBe(0);
+        const printed = JSON.parse(io.out.join("\n"));
+        expect(printed.results).toEqual(judgment.results);
+        expect(io.out.join("\n")).toContain("\n  ");
+    });
+
+    it("prints the judgments of a verdict published in the earlier, visible form", async () => {
+        const dir = makeTmpDir("cli-judgments-");
+        const body = path.join(dir, "verdict.md");
+        fs.writeFileSync(body, `${JUDGMENTS_MARKER}\n\`\`\`json\n${JSON.stringify(judgment)}\n\`\`\`\n`);
+        const io = makeIo(dir);
+        expect(await runNexusCli(["verdict-judgments", "--body", body], io)).toBe(0);
+        expect(JSON.parse(io.out.join("\n")).results).toEqual(judgment.results);
+    });
+
+    it("exits 1 naming the cause when the body carries no judgments or unreadable ones", async () => {
+        const dir = makeTmpDir("cli-judgments-");
+        const body = path.join(dir, "verdict.md");
+        fs.writeFileSync(body, "no block here\n");
+        expect(await runNexusCli(["verdict-judgments", "--body", body], makeIo(dir))).toBe(1);
+        fs.writeFileSync(body, `${JUDGMENTS_MARKER}\n<!-- nexus:judgments-deflate AAAA -->\n`);
+        const io = makeIo(dir);
+        expect(await runNexusCli(["verdict-judgments", "--body", body], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("judgments-malformed");
+    });
+
+    it("exits 2 with usage when no source is given", async () => {
+        expect(await runNexusCli(["verdict-judgments"], makeIo(makeTmpDir("cli-judgments-")))).toBe(2);
     });
 });

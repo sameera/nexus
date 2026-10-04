@@ -8,6 +8,7 @@
  * repositories. The check judges the exact bytes that would have been published.
  */
 
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -317,7 +318,9 @@ describe("checkVerdictPublish — the verdict carries what close writes into its
 
 describe("checkVerdictPublish — the size budget (epic #829, story #862, D5; G29)", () => {
     const check = (body: string) => checkVerdictPublish(ghRepo("geo-nexus/giccp"), checkout(), body);
-    const manyFiles = Array.from({ length: 3000 }, (_, i) => `libs/some/rather/long/path/to/module-${i}.ts`);
+    // The block is compressed, so only content that does not compress can exceed the limit: hashed names.
+    const hashed = (i: number): string => createHash("sha256").update(String(i)).digest("hex");
+    const manyFiles = Array.from({ length: 3000 }, (_, i) => `libs/some/path/${hashed(i)}.ts`);
     const d = (files: string[]): Departure => ({ id: "DV1", kind: "departure", found: true, severity: "high", departsFrom: "D1", summary: "s", files, stub: null, supersedes: null, answer: null });
 
     it("approves a body within the limit exactly as drafted", () => {
@@ -368,7 +371,7 @@ describe("checkVerdictPublish — the size budget (epic #829, story #862, D5; G2
     });
 
     it("publishes nothing when the body is still too large without its file lists, and names the size", () => {
-        const huge: KeyDecisions = { record: { digest: TWO_VERDICT_RECORD_HASH, format: "neither", decisions: [], text: "x".repeat(VERDICT_SIZE_LIMIT) }, stubs: [] };
+        const huge: KeyDecisions = { record: { digest: TWO_VERDICT_RECORD_HASH, format: "neither", decisions: [], text: Array.from({ length: Math.ceil(VERDICT_SIZE_LIMIT / 32) }, (_, i) => hashed(i)).join("") }, stubs: [] };
         const r = check(fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items: [], keyDecisions: huge }) }));
         expect(r.ok).toBe(false);
         if (r.ok) return;

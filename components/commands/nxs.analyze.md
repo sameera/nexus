@@ -868,8 +868,11 @@ file is written here either, and the worktree is removed after this phase. A **b
     verbatim, **after** the verdict block. It starts with the `<!-- nexus:analyze-judgments -->`
     marker and carries every departure, finding and deferred-scope proposal with its ID and its
     answer, each answer with who gave it and the link to the comment, the key decisions (§2.7) and
-    each result's file list. Every verdict carries it, a verdict with no item included:
-    it is the ID registry the next run on this pull request reads. Never edit it by hand and never
+    each result's file list. The marker is followed by one HTML comment that holds the judgments
+    compressed and encoded, so the pull request shows none of their content; `nexus
+    verdict-judgments --pr <N> --repo <repo>` prints them as readable JSON. Every verdict carries
+    it, a verdict with no item included: it is the ID registry the next run on this pull request
+    reads. Never edit it by hand and never
     fold its content into the verdict block above, whose keys stay as they are.
 
 2. **Check the drafted body before publishing anything:**

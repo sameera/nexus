@@ -104,6 +104,12 @@ behaviour says so.
   next run; the check
   writes those bytes back to publish; one still too large is not published, and the check names
   its size. A verdict published before this release still reads, as having no judgments.
+- **A pull request no longer shows its verdict's judgments.** The judgments block is now compressed
+  and encoded inside an HTML comment behind the same marker, so the rendered comment shows the
+  summary and the verdict block only. The judgments of an epic the size of #829's, every file list
+  kept, now publish well under 20,000 characters. Every reader still reads verdicts published in
+  the earlier, visible form. `nexus verdict-judgments --pr <N> --repo <repo>` (or `--body <path>`)
+  prints a verdict's judgments as readable JSON.
 - **Analyze without a pull request reports in the terminal only (breaking).** `/nxs.analyze` run
   without `--pr` no longer writes `analyze-receipt.md`, in `.nexus/tmp/` or in an old-contract
   committed entry; it writes no file at all. Its report now ends with one fixed line, `Analyze
