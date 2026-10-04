@@ -686,7 +686,9 @@ request when reporting a fully shipped epic, every unshipped story otherwise, an
 entries — records on the epic issue whose author cannot speak for the issues repository.
 
 The issue graph answers the *unrecorded* question and nothing else. It is a reconciliation aid: a
-wrong answer from it costs you a prompt, never a wrong close.
+wrong answer from it costs you a prompt, never a wrong close. Coverage counts merged pull requests
+only. An open or closed-unmerged pull request that claims a story shipped nothing, so its story
+reads *unshipped* here; `/nxs.close` is the stage that names that pull request.
 
 **A failed read is never a fifth state.** Each story's claiming pull requests are read to the last
 page, and a read either completes or fails. When any story's read fails, the command still reads

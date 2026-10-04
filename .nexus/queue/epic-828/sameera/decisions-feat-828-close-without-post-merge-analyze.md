@@ -32,3 +32,23 @@
 - **Choice:** Add a per-story `landed` list and `not-landed` and `landed-unreadable` blocks to the `ranges` output; a changed file is reported but not blocked on, and the close record and machine block gain an additive `landed_check` key.
 - **Why:** The check needs each range and checkout `ranges` already resolves, and close cannot stamp a result it could not read; whether a changed file stops close is #842's stale gate.
 - **Refuted alternative:** A sibling `landed` verb, which would re-run the claiming read and the derivation and could disagree with the ranges close stamps.
+
+## 2026-10-04 — The claiming read returns every state; merged-only callers narrow it at their own call site
+- **Choice:** Replace `resolveStoryMergedPrs` with `readStoryClaims` (every claiming pull request with its state) plus `mergedOnly`/`mergedClaims`; evidence, coverage (through a new `readCoverageClaims`) and close-ranges' derivation each call the filter where they ask, and the old merged-only shape is kept for them unchanged.
+- **Why:** R3 asks for each merged-only caller to filter explicitly, and returning the old `StoryMergedPr` shape from the filter makes "sees exactly what it saw before" a plain equality the regression tests can assert.
+- **Refuted alternative:** Keep `resolveStoryMergedPrs` as a wrapper that filters inside the read module, which hides the filter from the callers R3 wants to make it visible in.
+
+## 2026-10-04 — Story states ride on `epic-verdicts ranges`, apart from its range blocks
+- **Choice:** Add `states` (current / never-reviewed / unshipped / unknown / excluded, each with per-pull-request `findings`) and `closable` to the `ranges` output; `ok` and `blocking` keep meaning range and landing blocks only.
+- **Why:** The classification needs the same claiming read and receipt reads `ranges` already makes, and keeping `ok` unchanged leaves every #841/#846 expectation intact while #842 adds stale as one more state and finding kind.
+- **Refuted alternative:** Fold never-reviewed and unshipped into `blocking`, which flips `ok` on every existing case whose receipt names no story.
+
+## 2026-10-04 — Never reviewed is decided per merged pull request
+- **Choice:** Every merged claiming pull request must carry a receipt naming the story; each one that does not is named with `/nxs.analyze --pr <N>`. A no-range pull request is exempt when another receipt names the story.
+- **Why:** A follow-up pull request with no receipt is code nobody checked, and the story's goal is that an epic never closes over such work; a no-range pull request landed nothing to review, and naming analyze on it would be a loop.
+- **Refuted alternative:** Never reviewed only when no receipt on any claiming pull request names the story, which lets an unanalysed follow-up close silently.
+
+## 2026-10-04 — An unreadable receipt makes its story unknown; a failed claiming read still stops the run
+- **Choice:** A receipt read failure is an `unknown` state with its cause (first in the order); a failed claiming read keeps exiting `story-read-failed` before anything is derived.
+- **Why:** The record's order starts with read failure, and the claiming read failing means close does not know the story's pull requests at all, so it cannot derive or check anything.
+- **Refuted alternative:** Report a failed claiming read as an `unknown` story and carry on, which derives ranges for an epic whose pull-request set is incomplete.

@@ -5,6 +5,28 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.85.0
+
+- **Close stops on a story nobody reviewed, with no waiver (breaking).** `/nxs.close --pr` now
+  checks that a trusted analyze receipt names each story on every merged pull request that claims
+  it. A story that no receipt names stops close as "never reviewed" before anything is mined. The
+  stop names `/nxs.analyze --pr` on that pull request as the remedy. A pull request with no commits
+  that belong to the story needs no receipt of its own when another receipt names the story. The
+  "Close without analysis" choice at close's conformance gate is gone, and a missing receipt there
+  is now a hard stop too. A lead who used to waive a missing analysis must now run
+  `/nxs.analyze --pr` on the named pull request before closing. The revised-record choice and the
+  blocking-findings override still work as before.
+- **Close stops on a story with unfinished work (breaking).** Close now sees every pull request
+  that claims a story, not only the merged ones. A story stops close as "unshipped" when an open
+  pull request claims it, even if another one merged, and the stop names that open pull request. A
+  story whose only claiming pull requests closed without merging, or that nothing claims and no
+  marker excludes, stops the same way. No analyze remedy is named, because analysis cannot finish
+  work that has not merged: merge or close the open pull request, then re-run close. A receipt
+  close could not read stops its story as "unknown", and a failed read of the claiming pull
+  requests still stops close, never reading as "no pull request".
+- **Analyze's coverage is unchanged.** `/nxs.analyze` run against an epic still counts merged pull
+  requests only. An open or closed-unmerged pull request never counts as shipped there.
+
 ## 0.84.0
 
 - **Close checks that each reviewed file landed as it was reviewed.** For every merged pull request
