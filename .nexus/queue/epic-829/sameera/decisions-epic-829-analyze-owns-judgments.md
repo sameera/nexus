@@ -92,3 +92,18 @@
 - **Choice:** `compareOwnChange` diffs `<base>...<earlierHead>` against `<base>...<head>` with the base `nexus pr-worktree open` printed, normalized as the landed check does, leaving out every pipeline store.
 - **Why:** The three-dot form resolves to each head's own fork point, so a trunk merge or rebase changes nothing by itself (G20), reusing #849 D4's patch normalization.
 - **Refuted alternative:** Diff the two heads directly, which marks every file trunk changed after a merge.
+
+## 2026-10-04 — A deferral is drafted on the item it would settle
+- **Choice:** Analyze writes a proposal as `deferred` on the finding or departure draft entry, and `nexus verdict-items` numbers it DS<n>, matching an earlier proposal by the ID it settles.
+- **Why:** The draft has no IDs yet, so a proposal cannot name its parent's ID; drafting it on the parent ties the two by construction and caps it at one per item.
+- **Refuted alternative:** A separate `deferred` list that names its parent by draft index.
+
+## 2026-10-04 — The size budget is applied inside `nexus verdict-check`
+- **Choice:** The publish check drops the file lists of an over-limit body, writes the fitted bytes back to `--body`, and approves those; still too large, it refuses as `verdict-too-large`.
+- **Why:** The whole body's size is known only at publish time, and the check is already the one place that approves the exact bytes published.
+- **Refuted alternative:** A separate `nexus verdict-fit` verb run before the check.
+
+## 2026-10-04 — Copied text is kept out of both parsers by escaping and a uniqueness check
+- **Choice:** The judgments block writes every `<` as `<`, and the publish check refuses a body in which either verdict marker appears more than once.
+- **Why:** An answer's reason is also copied into the summary above the verdict block, where a marker would make the first-occurrence verdict parser read the prose.
+- **Refuted alternative:** Make each reader search for the last marker, which changes every deployed reader.

@@ -83,6 +83,25 @@ behaviour says so.
   each criterion, guarantee and success-metric result with the files it read, so a later
   `--resolve` run can tell what a change affects. A verdict without them still reads; the next
   `--resolve` run on it is a full one.
+- **A pull request's verdict carries what close writes into its record.** Its judgments block now
+  holds the key decisions: every decision of the record by its ID (by title in an old-format
+  record), tied to the record digest the verdict stamps, and each decision stub the code confirms,
+  with its choice, reason and refuted alternative. A stub the code contradicts is not a key
+  decision. `nexus verdict-items` builds the record's half from the record itself, through the new
+  `--record-body` and `--record-hash`; a record in neither format is carried whole.
+- **Analyze proposes deferred scope, and approving it clears the item it settles.** A criterion of a
+  covered story left unmet or partial, or record scope no delivered story covers, can be proposed
+  for deferral with a `DS` ID tied to its finding or departure. A `DS1 — approved` line from an
+  author who can speak for the repository marks it for filing by close, names the approver, and
+  stops that item blocking. Accepting or waiving the item without approving files nothing, and the
+  verdict says so. Scope another story of the epic will deliver is never proposed.
+- **The publish check guards the new content (breaking).** `nexus verdict-check` now refuses a
+  verdict with no key decisions or ones tied to another record digest, a proposal for a story the
+  verdict does not cover, and a body that repeats a verdict marker, as copied answer text could.
+  Answer text inside the judgments block can no longer change how either block reads. A verdict
+  over the platform's 65,536-character limit has its file lists dropped and says so, and the check
+  writes those bytes back to publish; one still too large is not published, and the check names
+  its size. A verdict published before this release still reads, as having no judgments.
 
 ## 0.90.1
 

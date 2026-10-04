@@ -10,7 +10,16 @@ import { type Departure, type Judgments, renderJudgmentsBlock } from "@nexus/pr-
 import { verdictBody } from "@nexus/pr-acceptance/verdict-fixtures";
 import { type Runner } from "./run.js";
 import { type PrAnswer } from "@nexus/pr-acceptance/waiver";
-import { type DepartureDraft, type FindingDraft, applyAnswers, assignItemIds, openCounts, parseItemDraft, readItemRegistry } from "./verdict-items.js";
+import {
+    type DepartureDraft,
+    type FindingDraft,
+    applyAnswers,
+    assignItemIds,
+    openCounts,
+    parseItemDraft,
+    readItemRegistry,
+    recordKeyDecisions,
+} from "./verdict-items.js";
 
 const draft = (over: Partial<DepartureDraft> = {}): DepartureDraft => ({
     departsFrom: "G3",
@@ -125,10 +134,6 @@ describe("a departure a later run does not find again (G8)", () => {
         expect(ids(two)).toEqual(["DV1", "DV2", "DV3"]);
     });
 
-    it("carries an item of a kind this release does not judge through unchanged", () => {
-        const other = [{ id: "DS2", kind: "deferred-scope", note: "x" }];
-        expect(assignItemIds({ items: [], findings: [], other }, [draft()]).other).toEqual(other);
-    });
 });
 
 describe("parseItemDraft — what analyze hands the ID step", () => {
@@ -372,9 +377,87 @@ describe("applyAnswers — an engineer answers a departure or a finding on the p
     });
 
     it("reads an approval with no reason, which needs none, against a deferred-scope proposal", () => {
-        const withDs: Judgments = { ...judged(), other: [{ id: "DS1", kind: "deferred-scope" }] };
+        const withDs = assignItemIds(null, [draft()], [finding({ deferred: "the size budget" })]);
         const r = applyAnswers(withDs, [answer({ id: "DS1", verb: "approved", reason: "" })]);
         expect(r.unapplied).toEqual([]);
-        expect(r.judgments.other[0]).toEqual(expect.objectContaining({ answer: expect.objectContaining({ verb: "approved", author: "lead" }) }));
+        expect(r.judgments.deferred[0]).toEqual(expect.objectContaining({ answer: expect.objectContaining({ verb: "approved", author: "lead" }) }));
+    });
+});
+
+describe("deferred-scope proposals take DS IDs from the same registry (epic #829, story #862, D2, D7)", () => {
+    const unmet = (over: Partial<FindingDraft> = {}): FindingDraft =>
+        finding({ about: "#862 AC4", summary: "no DS IDs yet", deferred: "number deferred scope from the registry", ...over });
+
+    it("numbers each proposal DS1 upwards and ties it to the finding or departure it would settle (G26)", () => {
+        const j = assignItemIds(null, [draft({ departsFrom: "D7", breaksGuarantee: false, deferred: "record scope no story delivered" })], [unmet()]);
+        expect(j.deferred.map((ds) => [ds.id, ds.settles])).toEqual([
+            ["DS1", "DV1"],
+            ["DS2", "F1"],
+        ]);
+        expect(j.deferred.every((ds) => ds.found && ds.answer === null)).toBe(true);
+    });
+
+    it("proposes nothing for an item that defers no scope", () => {
+        expect(assignItemIds(null, [draft()], [finding()]).deferred).toEqual([]);
+    });
+
+    it("keeps a proposal's ID and its approval on a later run that proposes it for the same item again", () => {
+        const one = applyAnswers(assignItemIds(null, [], [unmet()]), [answer({ id: "DS1", verb: "approved", reason: "" })]).judgments;
+        const two = assignItemIds(one, [], [unmet({ deferred: "reworded" })]);
+        expect(two.deferred).toEqual([expect.objectContaining({ id: "DS1", settles: "F1", summary: "reworded", answer: expect.objectContaining({ verb: "approved" }) })]);
+    });
+
+    it("lists a proposal not made again as no longer found, with its answer, and never reuses its number", () => {
+        const one = applyAnswers(assignItemIds(null, [], [unmet()]), [answer({ id: "DS1", verb: "approved", reason: "" })]).judgments;
+        const two = assignItemIds(one, [draft({ deferred: "something else" })], [unmet({ deferred: null })]);
+        expect(two.deferred.map((ds) => [ds.id, ds.found, ds.settles])).toEqual([
+            ["DS1", false, "F1"],
+            ["DS2", true, "DV1"],
+        ]);
+        expect(two.deferred[0]?.answer?.verb).toBe("approved");
+    });
+
+    it("carries a proposal forward with its item when an answer-recording run does not judge that item again", () => {
+        const one = assignItemIds(null, [draft()], [unmet()]);
+        const two = assignItemIds(one, [draft()], [], new Set(["DV1"]));
+        expect(two.deferred).toEqual(one.deferred);
+    });
+
+    it("stops the item blocking once a trusted person approves its deferral, and an untrusted approval changes nothing (G26, G10)", () => {
+        const j = assignItemIds(null, [], [unmet()]);
+        expect(openCounts(applyAnswers(j, [answer({ id: "DS1", verb: "approved", reason: "", trusted: false })]).judgments).high).toBe(1);
+        expect(openCounts(applyAnswers(j, [answer({ id: "DS1", verb: "approved", reason: "" })]).judgments).high).toBe(0);
+    });
+
+    it("refuses approving a departure or accepting a proposal: each verb fits one kind", () => {
+        const j = assignItemIds(null, [draft()], [unmet()]);
+        const r = applyAnswers(j, [answer({ id: "DV1", verb: "approved" }), answer({ id: "DS1", verb: "accepted" })]);
+        expect(r.unapplied.map((u) => u.why)).toEqual(["wrong-verb", "wrong-verb"]);
+    });
+
+    it("reads a deferral drafted on a departure or a finding, and refuses an empty one", () => {
+        const ok = parseItemDraft(JSON.stringify({ departures: [{ ...draft(), deferred: "left out" }], findings: [{ ...finding(), deferred: null }] }));
+        expect(ok.ok && ok.departures[0]?.deferred).toBe("left out");
+        const bad = parseItemDraft(JSON.stringify({ departures: [], findings: [{ ...finding(), deferred: " " }] }));
+        expect(bad.ok).toBe(false);
+    });
+});
+
+describe("the key decisions are the record's decisions plus confirmed stubs (epic #829, story #862, D5, D6)", () => {
+    it("names a new-format record's decisions by ID, tied to the digest the verdict stamps (G25)", () => {
+        const r = recordKeyDecisions({ digest: "abc", format: "new", decisions: [{ id: "D1", title: "One" }, { id: "D2", title: "Two" }], body: "whole body" });
+        expect(r).toEqual({ digest: "abc", format: "new", decisions: [{ id: "D1" }, { id: "D2" }] });
+    });
+
+    it("names an old-format record's decisions by title, and carries a record in neither format in full", () => {
+        expect(recordKeyDecisions({ digest: "abc", format: "old", decisions: [{ title: "Keep the flat block" }], body: "b" }).decisions).toEqual([{ title: "Keep the flat block" }]);
+        expect(recordKeyDecisions({ digest: "abc", format: "neither", decisions: [], body: "the whole body" })).toEqual({ digest: "abc", format: "neither", decisions: [], text: "the whole body" });
+    });
+
+    it("reads each confirmed stub with its choice, reason and refuted alternative, and refuses one without them", () => {
+        const stub = { path: ".nexus/queue/epic-829/lead/decisions-b.md", choice: "fit in verdict-check", reason: "one place approves the bytes", refuted: "none" };
+        const ok = parseItemDraft(JSON.stringify({ departures: [], confirmedStubs: [stub] }));
+        expect(ok.ok && ok.stubs).toEqual([stub]);
+        expect(parseItemDraft(JSON.stringify({ departures: [], confirmedStubs: [{ ...stub, reason: "" }] })).ok).toBe(false);
     });
 });

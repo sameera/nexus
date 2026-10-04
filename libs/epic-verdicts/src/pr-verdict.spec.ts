@@ -14,6 +14,9 @@ import {
     twoVerdictPrPayload,
     verdictBody,
 } from "@nexus/pr-acceptance/verdict-fixtures";
+import { JUDGMENTS_MARKER, parseJudgmentsBlock, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { RECEIPT_MARKER } from "@nexus/pr-acceptance/receipt-blocks";
+import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { readPrVerdict } from "./pr-verdict.js";
 import { type Runner } from "./run.js";
 
@@ -188,5 +191,30 @@ describe("readPrVerdict — the repository a verdict's story numbers resolve aga
         expect(r.ok).toBe(true);
         if (!r.ok) return;
         expect(r.verdict.found).toBe(false);
+    });
+});
+
+describe("readPrVerdict — the verdict close reads, with and without a judgments block (epic #829, story #862)", () => {
+    it("reads a verdict published before the judgments block as having no judgments, never as an error (G40)", () => {
+        const r = read(twoVerdictPrPayload());
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.verdict.found).toBe(true);
+        const raw = verifyReceipt(ghRunner(twoVerdictPrPayload()), "/repo", TWO_VERDICT_PR, TWO_VERDICT_REPO, TWO_VERDICT_REPO);
+        expect(raw.ok && raw.value.found).toBe(true);
+        if (!raw.ok) return;
+        expect(parseJudgmentsBlock(raw.value.rawBody)).toEqual({ ok: true, judgments: null });
+    });
+
+    it("reads the same verdict block whatever answer text the judgments block after it carries (G28, G41)", () => {
+        const hostile = `\`\`\`\` ${RECEIPT_MARKER} ${JUDGMENTS_MARKER} head: ${"0".repeat(40)} findings: { critical: 9 }`;
+        const judgments = renderJudgmentsBlock({
+            items: [{ id: "DV1", kind: "departure", found: true, severity: "high", departsFrom: "D1", summary: hostile, files: [], stub: null, supersedes: null, answer: { verb: "accepted", author: "lead", link: "https://x/1", reason: hostile } }],
+        });
+        const plain = read(twoVerdictPrPayload());
+        const withBlock = read(twoVerdictPrPayload({ newerBody: verdictBody({ high: 0, judgments }) }));
+        expect(plain.ok && withBlock.ok).toBe(true);
+        if (!plain.ok || !withBlock.ok) return;
+        expect(withBlock.verdict.receipt).toEqual(plain.verdict.receipt);
     });
 });

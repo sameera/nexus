@@ -44,8 +44,8 @@ import { closeRangesDeps, deriveCloseRanges } from "@nexus/epic-verdicts/close-r
 import { readPrVerdict } from "@nexus/epic-verdicts/pr-verdict";
 import { mergePrecheck } from "@nexus/epic-verdicts/merge-precheck";
 import { checkVerdictPublish } from "@nexus/epic-verdicts/publish-check";
-import { applyAnswers, assignItemIds, openCounts, parseItemDraft, readItemRegistry } from "@nexus/epic-verdicts/verdict-items";
-import { type Judgments, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
+import { applyAnswers, assignItemIds, openCounts, parseItemDraft, readItemRegistry, recordKeyDecisions } from "@nexus/epic-verdicts/verdict-items";
+import { type Judgments, type RecordKeyDecisions, deferredScopeStatus, renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { answerScopeDeps, mergeAnswerRun, parseAnswerScope, planAnswerRun, readEarlierVerdict } from "@nexus/epic-verdicts/answer-scope";
 import { readPrWaivers } from "@nexus/pr-acceptance/waiver";
 import { resolveVerdictRepos } from "@nexus/epic-verdicts/verdict-repos";
@@ -369,15 +369,30 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      it or refuse. Prints { command, issuesRepo, repo } on approval. Exits 1 when the",
             "      body names no issues repository or names the wrong one, naming the value it should",
             "      have carried. Both repositories are resolved here, never taken as arguments. Also",
-            "      exits 1 when the body still records story text (story_fingerprints).",
+            "      exits 1 when the body still records story text (story_fingerprints), repeats a verdict",
+            "      marker (marker-repeated), carries no key decisions or ones tied to another record digest",
+            "      (key-decisions-missing, key-decisions-stale), or proposes deferring a criterion of a",
+            "      story it does not cover (deferred-scope-sibling). A body over the platform's limit of",
+            "      65536 characters has its file lists dropped, says so above the verdict block, and is",
+            "      written back to --body: those are the bytes to publish. Prints { command, issuesRepo,",
+            "      repo, size, filesDropped }. Still too large, it exits 1 (verdict-too-large), naming the",
+            "      size, and leaves --body as it was.",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runVerdictCheck(argv, io)),
     },
     "verdict-items": {
         summary: "Number a pull request's departures and findings, apply the answers posted on it, and write the judgments block.",
         usage: [
-            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path> [--dir <startDir>]",
-            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --scope <path> [--draft <path>] --out <path> [--dir <startDir>]",
+            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --draft <path> --out <path>",
+            "                      [--record-body <path> --record-hash <digest>] [--dir <startDir>]",
+            "  nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> --scope <path> [--draft <path>] --out <path>",
+            "                      [--record-body <path> --record-hash <digest>] [--dir <startDir>]",
+            "      --record-body and --record-hash (the record issue body and the digest the verdict stamps)",
+            "      give the key decisions their record half: every decision by ID (by title in an old-format",
+            "      record), tied to the digest, or a record in neither format in full. Omit both only when",
+            "      the epic has no record. The draft may name confirmedStubs: [{ path, choice, reason,",
+            "      refuted }], and each departure or finding may carry deferred: <the scope left out>, which",
+            "      becomes a DS proposal numbered from the same registry and tied to that item's ID.",
             "      With --scope (the file nexus verdict-scope wrote), record answers without a full judgment:",
             "      on an unchanged head take no draft and carry the newest verdict's judgments forward; on a",
             "      moved head the draft holds only what the scope names to judge again, and every other item",
@@ -394,7 +409,9 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      invariant, high otherwise. Then read the answer lines on the pull request's comments",
             "      (<ID> — accepted|waived|approved: <reason>) through the one waiver reader and apply the",
             "      newest trusted one per ID. Writes the judgments block to --out and prints { command, pr,",
-            "      registry, items, findings, open, answers: { applied, unapplied } }. open is the severity",
+            "      registry, items, findings, deferred, keyDecisions, open, answers: { applied, unapplied } }.",
+            "      deferred gives each DS its state: to-file (approved), not-filed (its item answered",
+            "      without approving it), proposed or no-longer-found. open is the severity",
             "      counts of the items still open — the verdict block's counts. unapplied names each answer",
             "      that applied nothing, with why (untrusted, unknown-id, wrong-verb, no-reason,",
             "      not-waivable). registry is none, no-judgments or verdict. Exits 1 on an unreadable draft",
@@ -1890,7 +1907,9 @@ function runVerdictCheck(argv: string[], io: CliIo): number {
         io.stderr(`verdict-check ${result.error.problem}: ${result.error.message}`);
         return 1;
     }
-    io.stdout(JSON.stringify({ command: "verdict-check", ...result.repos }));
+    // The approved bytes are the ones to publish: with the file lists dropped, they differ from the draft (D5).
+    if (result.body !== body) fs.writeFileSync(flags.body, result.body);
+    io.stdout(JSON.stringify({ command: "verdict-check", ...result.repos, size: result.size, filesDropped: result.filesDropped }));
     return 0;
 }
 
@@ -1901,10 +1920,12 @@ function runVerdictCheck(argv: string[], io: CliIo): number {
  */
 function runVerdictItems(argv: string[], io: CliIo): number {
     const usage =
-        "usage: nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> [--scope <path>] --draft <path> --out <path> [--dir <startDir>]";
-    const flags: { pr?: number; repo?: string; draft?: string; scope?: string; out?: string; dir?: string } = {};
+        "usage: nexus verdict-items --pr <N> --repo <owner/repo or host/owner/repo> [--scope <path>] --draft <path> --out <path> [--record-body <path> --record-hash <digest>] [--dir <startDir>]";
+    const flags: { pr?: number; repo?: string; draft?: string; scope?: string; out?: string; dir?: string; recordBody?: string; recordHash?: string } = {};
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
+        else if (argv[i] === "--record-body") flags.recordBody = argv[++i];
+        else if (argv[i] === "--record-hash") flags.recordHash = argv[++i];
         else if (argv[i] === "--repo") flags.repo = argv[++i];
         else if (argv[i] === "--draft") flags.draft = argv[++i];
         else if (argv[i] === "--scope") flags.scope = argv[++i];
@@ -1919,7 +1940,23 @@ function runVerdictItems(argv: string[], io: CliIo): number {
         io.stderr(`${usage}\n--repo names the repository the pull request lives in; without it the trust check would be inert.`);
         return 2;
     }
-    if (flags.scope !== undefined) return runVerdictItemsScoped(flags as typeof flags & { pr: number; repo: string; scope: string }, usage, io);
+    if ((flags.recordBody === undefined) !== (flags.recordHash === undefined) || flags.recordHash?.trim() === "") {
+        io.stderr(`${usage}\n--record-body and --record-hash go together: the record body and the digest the verdict stamps. Omit both only when the epic has no record.`);
+        return 2;
+    }
+    let record: RecordKeyDecisions | null | undefined;
+    if (flags.recordBody !== undefined) {
+        let body: string;
+        try {
+            body = fs.readFileSync(flags.recordBody, "utf8");
+        } catch (e) {
+            io.stderr(`verdict-items record-unreadable: ${flags.recordBody} could not be read (${e instanceof Error ? e.message : String(e)}).`);
+            return 1;
+        }
+        const sections = recordSections(body);
+        record = recordKeyDecisions({ digest: (flags.recordHash as string).trim(), format: sections.format, decisions: sections.decisions, body });
+    }
+    if (flags.scope !== undefined) return runVerdictItemsScoped({ ...(flags as typeof flags & { pr: number; repo: string; scope: string }), record }, usage, io);
     if (flags.draft === undefined || flags.out === undefined) {
         io.stderr(`${usage}\n--draft is the departures analyze judged; --out is where the judgments block is written.`);
         return 2;
@@ -1958,6 +1995,7 @@ function runVerdictItems(argv: string[], io: CliIo): number {
     const judged: Judgments = assignItemIds(registry.registry, draft.departures, draft.findings);
     if (draft.results !== undefined) judged.results = draft.results;
     if (draft.epicLevel !== undefined) judged.epicLevel = draft.epicLevel;
+    judged.keyDecisions = { record: record ?? null, stubs: draft.stubs ?? [] };
     return writeJudgments(judged, comments.value.answers, { pr: flags.pr, out: flags.out, registry: registry.source }, io);
 }
 
@@ -1979,6 +2017,8 @@ function writeJudgments(
             ...(run.scope === undefined ? {} : { scope: run.scope }),
             items: judgments.items,
             findings: judgments.findings,
+            deferred: deferredScopeStatus(judgments),
+            keyDecisions: judgments.keyDecisions ?? null,
             results: judgments.results ?? null,
             open: openCounts(judgments),
             answers: { applied: answered.applied, unapplied: answered.unapplied },
@@ -1992,7 +2032,11 @@ function writeJudgments(
  * decision record #871, D8). The scope `nexus verdict-scope` wrote says what was judged again; the
  * rest of the newest verdict is carried forward here, so the new verdict is complete (G24).
  */
-function runVerdictItemsScoped(flags: { pr: number; repo: string; scope: string; draft?: string; out?: string; dir?: string }, usage: string, io: CliIo): number {
+function runVerdictItemsScoped(
+    flags: { pr: number; repo: string; scope: string; draft?: string; out?: string; dir?: string; record: RecordKeyDecisions | null | undefined },
+    usage: string,
+    io: CliIo,
+): number {
     if (flags.out === undefined) {
         io.stderr(`${usage}\n--out is where the judgments block is written.`);
         return 2;
@@ -2055,6 +2099,8 @@ function runVerdictItemsScoped(flags: { pr: number; repo: string; scope: string;
         io.stderr(`verdict-items gh-failed: ${comments.error.message} The answers on the pull request cannot be read, so nothing was written.`);
         return 1;
     }
+    // The record is unchanged, or the scope would be a full run; given again, its key decisions are rebuilt from it.
+    if (flags.record !== undefined) merged.judgments.keyDecisions = { record: flags.record, stubs: merged.judgments.keyDecisions?.stubs ?? [] };
     return writeJudgments(merged.judgments, comments.value.answers, { pr: flags.pr, out: flags.out, registry: "verdict", scope: scope.scope.mode }, io);
 }
 

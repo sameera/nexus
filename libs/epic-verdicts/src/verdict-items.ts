@@ -18,15 +18,24 @@
  *
  * Severity is decided here too, from the one fact the judgment supplies: an unanswered departure
  * that breaks a guarantee or an invariant is critical, any other is high (G14).
+ *
+ * Story #862 numbers deferred-scope proposals from the same registry (D2, D7). A proposal belongs
+ * to the departure or finding it would settle, so it is drafted on that item, and is the same
+ * proposal on a later run when it settles the same ID. It also builds the key decisions (D5, D6)
+ * from the record itself, so no record decision can be left out by a model listing them.
  */
 
 import {
+    type ConfirmedStub,
+    type DeferredScope,
     type Departure,
     type EpicLevel,
     type Finding,
     type ItemAnswer,
     type Judgments,
+    type RecordKeyDecisions,
     type Result,
+    openItems,
     parseJudgmentsBlock,
     readResults,
     splitItemId,
@@ -45,6 +54,8 @@ export interface DepartureDraft {
     files: string[];
     stub: { path: string; reason: string } | null;
     supersedes: { decision: string; instead: string } | null;
+    /** Record scope the delivered stories leave out, proposed for deferral (D7); absent when none. */
+    deferred?: string | null;
 }
 
 /** One finding as analyze judged it, before it has an ID. */
@@ -54,6 +65,8 @@ export interface FindingDraft {
     severity: Finding["severity"];
     summary: string;
     files: string[];
+    /** The missing part of an unmet or partial criterion, proposed for deferral (D7); absent when none. */
+    deferred?: string | null;
 }
 
 export type ParsedDraft =
@@ -64,6 +77,8 @@ export type ParsedDraft =
           /** Every criterion, guarantee and metric result with its files (story #861, D8); absent when the draft records none. */
           results?: Result[];
           epicLevel?: EpicLevel;
+          /** The decision stubs the diff confirms (D6); absent when the draft names none. */
+          stubs?: ConfirmedStub[];
       }
     | { ok: false; message: string };
 
@@ -105,7 +120,26 @@ export function parseItemDraft(text: string): ParsedDraft {
         if (level !== "judge" && level !== "not-run" && level !== "skip") return { ok: false, message: "the draft's epicLevel is not judge, not-run or skip" };
         parsed.epicLevel = level;
     }
+    if (doc["confirmedStubs"] !== undefined) {
+        const raw = doc["confirmedStubs"];
+        if (!Array.isArray(raw)) return { ok: false, message: "the draft's confirmedStubs is not a list" };
+        const stubs: ConfirmedStub[] = [];
+        for (const [i, s] of raw.entries()) {
+            if (!isRecord(s) || !["path", "choice", "reason", "refuted"].every((k) => nonEmpty(s[k]))) {
+                return { ok: false, message: `confirmed stub ${i} lacks its path, choice, reason or refuted alternative ("none" when it names none)` };
+            }
+            stubs.push({ path: s["path"] as string, choice: s["choice"] as string, reason: s["reason"] as string, refuted: s["refuted"] as string });
+        }
+        parsed.stubs = stubs;
+    }
     return parsed;
+}
+
+/** Read a draft entry's optional deferral: absent or null is none; anything else must be text. */
+function readDeferral(raw: Record<string, unknown>): string | null | undefined {
+    const d = raw["deferred"] ?? null;
+    if (d === null) return null;
+    return nonEmpty(d) ? d : undefined;
 }
 
 const SEVERITIES: readonly string[] = ["critical", "high", "medium", "low"];
@@ -117,7 +151,9 @@ function readFindingDraft(raw: unknown): FindingDraft | string {
     if (typeof severity !== "string" || !SEVERITIES.includes(severity)) return "has no severity of critical, high, medium or low (severity)";
     if (!nonEmpty(summary)) return "says nothing about what is wrong (summary)";
     if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list (files)";
-    return { about, severity: severity as Finding["severity"], summary, files: files as string[] };
+    const deferred = readDeferral(raw);
+    if (deferred === undefined) return "proposes deferring scope without saying what (deferred)";
+    return { about, severity: severity as Finding["severity"], summary, files: files as string[], ...(deferred === null ? {} : { deferred }) };
 }
 
 function readDraft(raw: unknown): DepartureDraft | string {
@@ -135,7 +171,10 @@ function readDraft(raw: unknown): DepartureDraft | string {
     if (supersedes !== null && !(isRecord(supersedes) && nonEmpty(supersedes["decision"]) && nonEmpty(supersedes["instead"]))) {
         return "is marked superseding without naming the decision and what the code does instead (supersedes)";
     }
+    const deferred = readDeferral(raw);
+    if (deferred === undefined) return "proposes deferring scope without saying what (deferred)";
     return {
+        ...(deferred === null ? {} : { deferred }),
         departsFrom,
         summary,
         breaksGuarantee,
@@ -162,24 +201,29 @@ export function assignItemIds(
 ): Judgments {
     const judged = <T extends { id: string }>(xs: readonly T[]): T[] => (rejudge === undefined ? [...xs] : xs.filter((x) => rejudge.has(x.id)));
     const carried = <T extends { id: string }>(xs: readonly T[]): T[] => (rejudge === undefined ? [] : xs.filter((x) => !rejudge.has(x.id)));
+    /** Each drafted item's ID, with the scope it proposes deferring, in draft order. */
+    const proposals: Array<{ settles: string; summary: string | null }> = [];
     const items = numberAgainst(
         judged(registry?.items ?? []),
         carried(registry?.items ?? []),
         departures,
         "DV",
         (d) => d.departsFrom,
-        (draft, id, match): Departure => ({
-            id,
-            kind: "departure",
-            found: true,
-            severity: draft.breaksGuarantee ? "critical" : "high",
-            departsFrom: draft.departsFrom,
-            summary: draft.summary,
-            files: draft.files,
-            stub: draft.stub,
-            supersedes: draft.supersedes,
-            answer: match?.answer ?? null,
-        }),
+        (draft, id, match): Departure => {
+            proposals.push({ settles: id, summary: draft.deferred ?? null });
+            return {
+                id,
+                kind: "departure",
+                found: true,
+                severity: draft.breaksGuarantee ? "critical" : "high",
+                departsFrom: draft.departsFrom,
+                summary: draft.summary,
+                files: draft.files,
+                stub: draft.stub,
+                supersedes: draft.supersedes,
+                answer: match?.answer ?? null,
+            };
+        },
     );
     const judgedFindings = numberAgainst(
         judged(registry?.findings ?? []),
@@ -187,19 +231,53 @@ export function assignItemIds(
         findings,
         "F",
         (f) => f.about,
-        (draft, id, match): Finding => ({
-            id,
-            kind: "finding",
-            found: true,
-            severity: draft.severity,
-            about: draft.about,
-            summary: draft.summary,
-            files: draft.files,
-            // A waiver holds only while the finding can be waived (G13).
-            answer: draft.severity === "critical" || draft.severity === "high" ? (match?.answer ?? null) : null,
-        }),
+        (draft, id, match): Finding => {
+            proposals.push({ settles: id, summary: draft.deferred ?? null });
+            return {
+                id,
+                kind: "finding",
+                found: true,
+                severity: draft.severity,
+                about: draft.about,
+                summary: draft.summary,
+                files: draft.files,
+                // A waiver holds only while the finding can be waived (G13).
+                answer: draft.severity === "critical" || draft.severity === "high" ? (match?.answer ?? null) : null,
+            };
+        },
     );
-    return { items, findings: judgedFindings, other: registry?.other ?? [] };
+    return { items, findings: judgedFindings, deferred: numberDeferrals(registry, proposals, rejudge) };
+}
+
+/**
+ * Number the proposals against the registry's (D2, D7). A proposal is the one found before when it
+ * settles the same ID, so it keeps that DS ID and its approval. One whose item was carried forward
+ * unjudged is carried with it; one whose item was judged again but proposes nothing now stays
+ * listed as no longer found, with its answer.
+ */
+function numberDeferrals(
+    registry: Judgments | null,
+    proposals: ReadonlyArray<{ settles: string; summary: string | null }>,
+    rejudge: ReadonlySet<string> | undefined,
+): DeferredScope[] {
+    const prior = registry?.deferred ?? [];
+    const carriedParents = new Set(
+        rejudge === undefined ? [] : [...(registry?.items ?? []), ...(registry?.findings ?? [])].filter((x) => !rejudge.has(x.id)).map((x) => x.id),
+    );
+    const carried = prior.filter((ds) => carriedParents.has(ds.settles));
+    const judged = prior.filter((ds) => !carriedParents.has(ds.settles));
+    let next = 1 + Math.max(0, ...prior.map((ds) => splitItemId(ds.id)?.n ?? 0));
+    const claimed = new Set<string>();
+    const found: DeferredScope[] = [];
+    for (const p of proposals) {
+        if (p.summary === null) continue;
+        const match = judged.find((ds) => ds.settles === p.settles && !claimed.has(ds.id));
+        const id = match?.id ?? `DS${next++}`;
+        claimed.add(id);
+        found.push({ id, kind: "deferred-scope", found: true, settles: p.settles, summary: p.summary, answer: match?.answer ?? null });
+    }
+    const gone = judged.filter((ds) => !claimed.has(ds.id)).map((ds) => ({ ...ds, found: false }));
+    return [...found, ...gone, ...carried].sort((a, b) => (splitItemId(a.id)?.n ?? 0) - (splitItemId(b.id)?.n ?? 0));
 }
 
 /**
@@ -300,7 +378,7 @@ export function applyAnswers(judgments: Judgments, answers: readonly PrAnswer[])
     const kinds = new Map<string, { kind: string; severity?: unknown }>();
     for (const d of judgments.items) kinds.set(d.id, d);
     for (const f of judgments.findings) kinds.set(f.id, f);
-    for (const o of judgments.other) kinds.set(o.id, o);
+    for (const ds of judgments.deferred) kinds.set(ds.id, ds);
 
     const newest = new Map<string, PrAnswer>();
     const unapplied: UnappliedAnswer[] = [];
@@ -336,7 +414,7 @@ export function applyAnswers(judgments: Judgments, answers: readonly PrAnswer[])
             ...judgments,
             items: judgments.items.map((d) => ({ ...d, answer: answerFor(d.id, d.answer) })),
             findings: judgments.findings.map((f) => ({ ...f, answer: answerFor(f.id, f.answer) })),
-            other: judgments.other.map((o) => (newest.has(o.id) ? { ...o, answer: answerFor(o.id, null) } : o)),
+            deferred: judgments.deferred.map((ds) => ({ ...ds, answer: answerFor(ds.id, ds.answer) })),
         },
         applied,
         unapplied,
@@ -351,16 +429,38 @@ export interface OpenCounts {
 }
 
 /**
- * The verdict block's severity counts (D4; G15): only items still open — found again and
- * unanswered. An accepted departure or a waived finding counts nothing, so the merge pre-check and
- * close, which block on these counts, stop blocking on it without changing how they read them.
+ * The verdict block's severity counts (D4; G15): only items still open — found again, unanswered,
+ * and with no approved deferral settling them (D7). An accepted departure, a waived finding or an
+ * item whose scope a trusted person approved for deferral counts nothing, so the merge pre-check
+ * and close, which block on these counts, stop blocking on it without changing how they read them.
  */
 export function openCounts(judgments: Judgments): OpenCounts {
     const counts: OpenCounts = { critical: 0, high: 0, medium: 0, low: 0 };
-    for (const item of [...judgments.items, ...judgments.findings]) {
-        if (item.found && item.answer === null) counts[item.severity] += 1;
-    }
+    for (const item of openItems(judgments)) counts[item.severity] += 1;
     return counts;
+}
+
+/** A decision as the record's section reader lists it: an ID in the new format, a title always. */
+export interface RecordDecisionInput {
+    id?: string;
+    title: string;
+}
+
+/**
+ * The record half of the key decisions (D5, D6): every record decision, by ID in a new-format
+ * record and by title in an old-format one, tied to `digest` — the digest the verdict block stamps
+ * as `record_hash`, so close (#830) resolves their text from the body that digest pins. A record
+ * in neither format names no decisions, so `body` is carried in full.
+ */
+export function recordKeyDecisions(input: {
+    digest: string;
+    format: "new" | "old" | "neither";
+    decisions: readonly RecordDecisionInput[];
+    body: string;
+}): RecordKeyDecisions {
+    if (input.format === "neither") return { digest: input.digest, format: "neither", decisions: [], text: input.body };
+    const decisions = input.decisions.map((d) => (input.format === "new" && d.id !== undefined && d.id.length > 0 ? { id: d.id } : { title: d.title }));
+    return { digest: input.digest, format: input.format, decisions };
 }
 
 const normalizeAnchor = (s: string): string => s.trim().replace(/\s+/g, " ").toLowerCase();

@@ -351,6 +351,28 @@ describe("nexus verdict-items (epic #829, story #858 — the numbering rule is c
     });
 });
 
+describe("nexus verdict-items — the key decisions' record half (epic #829, story #862)", () => {
+    const base = (dir: string) => ["verdict-items", "--pr", "7", "--repo", "acme/widget", "--draft", path.join(dir, "draft.json"), "--out", path.join(dir, "block.md")];
+
+    it("refuses a record body without the digest it is tied to, or a digest without its body", async () => {
+        for (const extra of [["--record-body", "record.md"], ["--record-hash", "d".repeat(64)]]) {
+            const dir = makeTmpDir("cli-verdict-items-record-");
+            const io: CapturedIo = makeIo(dir);
+            expect(await runNexusCli([...base(dir), ...extra], io)).toBe(2);
+            expect(io.err.join("\n")).toContain("--record-hash");
+        }
+    });
+
+    it("names an unreadable record body, before reading the pull request", async () => {
+        const dir = makeTmpDir("cli-verdict-items-record-");
+        fs.writeFileSync(path.join(dir, "draft.json"), JSON.stringify({ departures: [] }));
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli([...base(dir), "--record-body", path.join(dir, "missing.md"), "--record-hash", "d".repeat(64)], io)).toBe(1);
+        expect(io.err.join("\n")).toContain("record-unreadable");
+        expect(fs.existsSync(path.join(dir, "block.md"))).toBe(false);
+    });
+});
+
 describe("nexus verdict-scope (epic #829, story #861 — the scoping rules are covered by answer-scope's own specs)", () => {
     const args = ["verdict-scope", "--pr", "7", "--repo", "acme/widget", "--head", "a".repeat(40), "--base", "b".repeat(40), "--stories", "861", "--epic-level", "skip"];
 

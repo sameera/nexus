@@ -68,7 +68,7 @@ describe("the counts cover only open items, and the review follows them (D4; G14
     });
 
     it("hands every finding to the ID step, so each has an F ID that can be waived", () => {
-        expect(ANALYZE).toMatch(/"findings": \[ \.\.\. \] \}/);
+        expect(ANALYZE).toMatch(/"findings": \[ \.\.\. \]/);
         expect(ANALYZE).toMatch(/each finding its `F<n>` ID/);
     });
 });

@@ -44,7 +44,17 @@ export type EpicVerdictsProblem =
      * The newest verdict on the pull request is no longer the one the scope was computed against,
      * so what the scope carries forward is not what that verdict holds (epic #829, story #861).
      */
-    | "scope-stale";
+    | "scope-stale"
+    /** A verdict marker appears more than once, so copied text could hand a reader the wrong block (epic #829, G28). */
+    | "marker-repeated"
+    /** The drafted verdict carries no key decisions for close to write (epic #829, story #862, D5, D6). */
+    | "key-decisions-missing"
+    /** The key decisions name a record digest other than the one the verdict block stamps (epic #829, D5). */
+    | "key-decisions-stale"
+    /** A deferred-scope proposal settles a criterion of a story the verdict does not cover (epic #829, D7, G27). */
+    | "deferred-scope-sibling"
+    /** The verdict exceeds the platform's size limit even with its file lists dropped (epic #829, D5, G29). */
+    | "verdict-too-large";
 
 export interface EpicVerdictsDiagnostic {
     problem: EpicVerdictsProblem;

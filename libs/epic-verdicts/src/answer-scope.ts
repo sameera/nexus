@@ -22,11 +22,13 @@
  * and what was carried into one set of judgments, and it supersedes the earlier verdict through the
  * existing newest-trusted rule — no reader needs the earlier one.
  *
- * A story-#862 deferred-scope proposal (or any item kind this release does not judge) is carried
- * forward as it was read.
+ * A deferred-scope proposal (story #862) travels with the item it would settle: carried when that
+ * item is carried, judged again when it is. The key decisions are carried forward as they were,
+ * unless the run hands in the confirmed stubs again.
  */
 
 import {
+    type ConfirmedStub,
     type EpicLevel,
     type Judgments,
     type Result,
@@ -127,16 +129,17 @@ const normalizePath = (s: string): string => s.trim().replace(/^\.\//, "");
 
 /**
  * What a moved head's changed files affect (G19, R5). Every answered departure is judged again,
- * whatever changed. An item or result is judged again when its file list holds a changed file, or
+ * whatever changed — one whose deferral was approved (D7) included. An item or result is judged again when its file list holds a changed file, or
  * when its list is empty and anything changed. A changed file that no list names is returned as
  * unlisted, and puts every guarantee result in scope.
  */
 export function selectRejudge(judgments: Judgments, changedFiles: readonly string[]): Rejudge {
     const changed = new Set(changedFiles.map(normalizePath));
     const affected = (files: readonly string[]): boolean => (files.length === 0 ? changed.size > 0 : files.some((p) => changed.has(normalizePath(p))));
+    const deferralApproved = (id: string): boolean => judgments.deferred.some((ds) => ds.settles === id && ds.answer !== null);
 
     const items = [
-        ...judgments.items.filter((d) => d.answer !== null || affected(d.files)).map((d) => d.id),
+        ...judgments.items.filter((d) => d.answer !== null || deferralApproved(d.id) || affected(d.files)).map((d) => d.id),
         ...judgments.findings.filter((x) => affected(x.files)).map((x) => x.id),
     ];
 
@@ -145,7 +148,6 @@ export function selectRejudge(judgments: Judgments, changedFiles: readonly strin
         ...judgments.items.map((d) => d.files),
         ...judgments.findings.map((x) => x.files),
         ...(judgments.results ?? []).map((r) => r.files),
-        ...judgments.other.map((o) => (Array.isArray(o["files"]) ? (o["files"] as unknown[]) : [])),
     ];
     for (const list of lists) for (const p of list) if (typeof p === "string") listed.add(normalizePath(p));
     const unlisted = [...changed].filter((p) => !listed.has(p)).sort();
@@ -315,6 +317,8 @@ export interface RejudgeDraft {
     departures: DepartureDraft[];
     findings: FindingDraft[];
     results?: Result[];
+    /** The confirmed stubs, handed in again when a changed file bears on one; otherwise carried. */
+    stubs?: ConfirmedStub[];
 }
 
 export type MergeResult = { ok: true; judgments: Judgments } | { ok: false; message: string };
@@ -356,5 +360,8 @@ export function mergeAnswerRun(earlier: Judgments, scope: AnswerScope, draft: Re
     for (const [key, r] of judged) if (!known.has(key)) results.push(r);
     const merged: Judgments = { ...numbered, results };
     if (earlier.epicLevel !== undefined) merged.epicLevel = earlier.epicLevel;
+    if (earlier.keyDecisions !== undefined || draft.stubs !== undefined) {
+        merged.keyDecisions = { record: earlier.keyDecisions?.record ?? null, stubs: draft.stubs ?? earlier.keyDecisions?.stubs ?? [] };
+    }
     return { ok: true, judgments: merged };
 }

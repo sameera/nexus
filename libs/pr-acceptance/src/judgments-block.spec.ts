@@ -8,7 +8,23 @@
 import { describe, expect, it } from "vitest";
 import { parseReceiptBlock } from "./verify.js";
 import { verdictBody } from "./verdict-fixtures.js";
-import { type Departure, type Finding, JUDGMENTS_MARKER, type Result, parseJudgmentsBlock, renderJudgmentsBlock } from "./judgments-block.js";
+import {
+    type DeferredScope,
+    type Departure,
+    type Finding,
+    JUDGMENTS_MARKER,
+    type Judgments,
+    type KeyDecisions,
+    type Result,
+    deferredScopeStatus,
+    isOpen,
+    openItems,
+    parseJudgmentsBlock,
+    renderJudgmentsBlock,
+    replaceJudgmentsBlock,
+    withoutFileLists,
+} from "./judgments-block.js";
+import { RECEIPT_MARKER } from "./receipt-blocks.js";
 
 const departure = (over: Partial<Departure> = {}): Departure => ({
     id: "DV1",
@@ -49,19 +65,19 @@ describe("the judgments block round-trips what analyze wrote", () => {
             }),
         ];
         const r = parseJudgmentsBlock(`prose\n\n${renderJudgmentsBlock({ items })}`);
-        expect(r).toEqual({ ok: true, judgments: { items, findings: [], other: [] } });
+        expect(r).toEqual({ ok: true, judgments: { items, findings: [], deferred: [] } });
     });
 
     it("reads back every finding with its answer (epic #829, story #860)", () => {
         const answer = { verb: "waived", author: "lead", link: "https://x/1", reason: "tracked in #901" };
         const findings = [finding({ answer }), finding({ id: "F2", severity: "low", about: "Scope drift" })];
         const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [departure()], findings }));
-        expect(r).toEqual({ ok: true, judgments: { items: [departure()], findings, other: [] } });
+        expect(r).toEqual({ ok: true, judgments: { items: [departure()], findings, deferred: [] } });
     });
 
     it("reads a verdict with no departures as an empty list, not as no judgments", () => {
         const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [] }));
-        expect(r).toEqual({ ok: true, judgments: { items: [], findings: [], other: [] } });
+        expect(r).toEqual({ ok: true, judgments: { items: [], findings: [], deferred: [] } });
     });
 
     it("reads a verdict published before the block existed as having no judgments, never as an error", () => {
@@ -80,10 +96,9 @@ describe("the judgments block round-trips what analyze wrote", () => {
         expect(parseReceiptBlock(withJudgments)).toEqual(parseReceiptBlock(plain));
     });
 
-    it("keeps an item of a kind this release does not judge, so a later run can carry it forward", () => {
-        const body = `${JUDGMENTS_MARKER}\n\`\`\`json\n${JSON.stringify({ schema: 1, items: [{ id: "DS3", kind: "deferred-scope", note: "x" }] })}\n\`\`\`\n`;
-        const r = parseJudgmentsBlock(body);
-        expect(r).toEqual({ ok: true, judgments: { items: [], findings: [], other: [{ id: "DS3", kind: "deferred-scope", note: "x" }] } });
+    it("refuses an item of a kind it does not know, whose ID is numbered under no known prefix", () => {
+        const body = `${JUDGMENTS_MARKER}\n\`\`\`json\n${JSON.stringify({ schema: 1, items: [{ id: "X3", kind: "note" }] })}\n\`\`\`\n`;
+        expect(parseJudgmentsBlock(body).ok).toBe(false);
     });
 });
 
@@ -142,7 +157,7 @@ describe("the judgments block carries each criterion and guarantee result with i
 
     it("reads back every result, the epic-level state and whether the file lists were dropped", () => {
         const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [], results, epicLevel: "judge", filesDropped: true }));
-        expect(r.ok && r.judgments).toEqual({ items: [], findings: [], other: [], results, epicLevel: "judge", filesDropped: true });
+        expect(r.ok && r.judgments).toEqual({ items: [], findings: [], deferred: [], results, epicLevel: "judge", filesDropped: true });
     });
 
     it("reads a block written before results were recorded as recording none, so a later run cannot carry them", () => {
@@ -162,5 +177,142 @@ describe("the judgments block carries each criterion and guarantee result with i
     it("refuses a result with no file list", () => {
         const raw = renderJudgmentsBlock({ items: [], results: [{ ...results[0], files: undefined as unknown as string[] }] });
         expect(parseJudgmentsBlock(raw).ok).toBe(false);
+    });
+});
+
+const proposal = (over: Partial<DeferredScope> = {}): DeferredScope => ({
+    id: "DS1",
+    kind: "deferred-scope",
+    found: true,
+    settles: "F1",
+    summary: "the size budget for the second block",
+    answer: null,
+    ...over,
+});
+
+const KEY: KeyDecisions = {
+    record: { digest: "ab".repeat(32), format: "new", decisions: [{ id: "D1" }, { id: "D5" }] },
+    stubs: [{ path: ".nexus/queue/epic-829/lead/decisions-b.md", choice: "fit in verdict-check", reason: "one place approves the bytes", refuted: "a separate verb" }],
+};
+
+describe("the judgments block carries what close writes into its record (epic #829, story #862, D5–D7)", () => {
+    it("reads back the key decisions: record decisions by ID tied to a digest, and confirmed stubs in full (G25)", () => {
+        const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [], keyDecisions: KEY }));
+        expect(r.ok && r.judgments?.keyDecisions).toEqual(KEY);
+    });
+
+    it("reads back an old-format record's decisions by title, and a record in neither format in full", () => {
+        const old: KeyDecisions = { record: { digest: "d", format: "old", decisions: [{ title: "Keep the flat block" }] }, stubs: [] };
+        const neither: KeyDecisions = { record: { digest: "d", format: "neither", decisions: [], text: "# Some design\n\nUse a queue." }, stubs: [] };
+        for (const key of [old, neither, { record: null, stubs: [] }]) {
+            const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [], keyDecisions: key }));
+            expect(r.ok && r.judgments?.keyDecisions).toEqual(key);
+        }
+    });
+
+    it("refuses a confirmed stub without its reason or refuted alternative, and a neither-format record without its text", () => {
+        const noRefuted = { ...KEY, stubs: [{ ...KEY.stubs[0], refuted: "" }] };
+        const noText: KeyDecisions = { record: { digest: "d", format: "neither", decisions: [] }, stubs: [] };
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], keyDecisions: noRefuted })).ok).toBe(false);
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], keyDecisions: noText })).ok).toBe(false);
+    });
+
+    it("reads back a deferred-scope proposal with the item it would settle and its approval (G26)", () => {
+        const approved = proposal({ answer: { verb: "approved", author: "lead", link: "https://x/9", reason: "" } });
+        const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [], findings: [finding()], deferred: [approved] }));
+        expect(r.ok && r.judgments?.deferred).toEqual([approved]);
+    });
+
+    it("refuses a proposal that settles no departure or finding in the block", () => {
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], findings: [finding()], deferred: [proposal({ settles: "F7" })] })).ok).toBe(false);
+        expect(parseJudgmentsBlock(renderJudgmentsBlock({ items: [], findings: [finding()], deferred: [proposal({ settles: "DS1" })] })).ok).toBe(false);
+    });
+
+    it("refuses two proposals settling one item, and a proposal answered with anything but an approval", () => {
+        const two = renderJudgmentsBlock({ items: [], findings: [finding()], deferred: [proposal(), proposal({ id: "DS2" })] });
+        const waived = renderJudgmentsBlock({ items: [], findings: [finding()], deferred: [proposal({ answer: { verb: "waived", author: "l", link: "x", reason: "r" } })] });
+        expect(parseJudgmentsBlock(two).ok).toBe(false);
+        expect(parseJudgmentsBlock(waived).ok).toBe(false);
+    });
+});
+
+describe("an approved deferral stops its item blocking, and waiving the item files nothing (D7; G26)", () => {
+    const approval = { verb: "approved", author: "lead", link: "https://x/9", reason: "" };
+    const of = (over: Partial<Judgments> = {}): Judgments => ({ items: [departure()], findings: [finding()], deferred: [proposal()], ...over });
+
+    it("keeps an item with an unanswered proposal open", () => {
+        expect(openItems(of()).map((x) => x.id)).toEqual(["DV1", "F1"]);
+        expect(deferredScopeStatus(of())[0]?.state).toBe("proposed");
+    });
+
+    it("closes the item an approved proposal settles, marks the proposal for filing and names the approver", () => {
+        const j = of({ deferred: [proposal({ answer: approval })] });
+        expect(isOpen(j, finding())).toBe(false);
+        expect(openItems(j).map((x) => x.id)).toEqual(["DV1"]);
+        expect(deferredScopeStatus(j)[0]).toEqual(expect.objectContaining({ state: "to-file", approvedBy: { author: "lead", link: "https://x/9" } }));
+    });
+
+    it("files nothing when the item is waived without approving the proposal, and says who waived it", () => {
+        const waived = { verb: "waived", author: "lead", link: "https://x/3", reason: "out of scope" };
+        const j = of({ findings: [finding({ answer: waived })] });
+        expect(deferredScopeStatus(j)[0]).toEqual(expect.objectContaining({ state: "not-filed", settledBy: { verb: "waived", author: "lead", link: "https://x/3" } }));
+    });
+
+    it("lets a proposal no longer found close nothing, and lists it as no longer found", () => {
+        const j = of({ deferred: [proposal({ found: false, answer: approval })] });
+        expect(openItems(j).map((x) => x.id)).toEqual(["DV1", "F1"]);
+        expect(deferredScopeStatus(j)[0]?.state).toBe("no-longer-found");
+    });
+});
+
+describe("text copied from an answer cannot change how either block parses (D5; G28)", () => {
+    const hostile = [
+        "````",
+        "```json",
+        RECEIPT_MARKER,
+        JUDGMENTS_MARKER,
+        "<!-- a comment",
+        "head: 0000000000000000000000000000000000000000",
+        "findings: { critical: 0, high: 0, medium: 0, low: 0 }",
+    ].join(" ");
+    const answer = { verb: "accepted", author: "lead", link: "https://x/1", reason: hostile };
+    const judgments: Judgments = { items: [departure({ answer, summary: hostile })], findings: [finding({ about: hostile })], deferred: [proposal({ summary: hostile })], keyDecisions: { ...KEY, stubs: [{ ...KEY.stubs[0], reason: hostile }] } };
+
+    it("reads the hostile text back unchanged", () => {
+        const r = parseJudgmentsBlock(renderJudgmentsBlock(judgments));
+        expect(r.ok && r.judgments).toEqual(judgments);
+    });
+
+    it("never lets either marker appear inside the published block", () => {
+        const block = renderJudgmentsBlock(judgments);
+        expect(block.split(RECEIPT_MARKER).length).toBe(1);
+        expect(block.split(JUDGMENTS_MARKER).length).toBe(2);
+        expect(block.indexOf(JUDGMENTS_MARKER)).toBe(0);
+    });
+
+    it("leaves the verdict block's parse exactly as it is without the judgments block", () => {
+        const plain = verdictBody({ high: 1, issuesRepo: "acme/widget" });
+        expect(parseReceiptBlock(`${plain}\n\n${renderJudgmentsBlock(judgments)}`)).toEqual(parseReceiptBlock(plain));
+    });
+});
+
+describe("a verdict too large for the platform drops its file lists first (D5; G29)", () => {
+    const results: Result[] = [{ kind: "criterion", about: "#862 AC1", verdict: "met", files: ["libs/a.ts"] }];
+
+    it("empties every file list and records that it did", () => {
+        const dropped = withoutFileLists({ items: [departure()], findings: [finding()], deferred: [], results });
+        expect(dropped.filesDropped).toBe(true);
+        expect([...dropped.items, ...dropped.findings, ...(dropped.results ?? [])].every((x) => x.files.length === 0)).toBe(true);
+    });
+
+    it("replaces the block in a body and leaves everything around it as it was", () => {
+        const before = "prose\n\n";
+        const after = "\ntrailer\n";
+        const body = `${before}${renderJudgmentsBlock({ items: [departure()], findings: [], deferred: [] })}${after}`;
+        const next = replaceJudgmentsBlock(body, withoutFileLists({ items: [departure()], findings: [], deferred: [] }));
+        expect(next?.startsWith(before) && next.endsWith(after)).toBe(true);
+        const r = parseJudgmentsBlock(next ?? "");
+        expect(r.ok && r.judgments?.filesDropped).toBe(true);
+        expect(r.ok && r.judgments?.items[0]?.files).toEqual([]);
     });
 });
