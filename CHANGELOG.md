@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.84.0
+
+- **Close checks that each reviewed file landed as it was reviewed.** For every merged pull request
+  whose trusted analyze receipt names the head that merged, `/nxs.close --pr` compares what that
+  head changed in each file with what the pull request itself landed. A sibling pull request that
+  edited the same file, before or after, does not count, and neither do moved lines. A file the
+  merge renamed, deleted or landed with a different mode is reported as changed. A pull request
+  with no receipt, with no range, or analyzed at another head is reported as not checked, with the
+  reason. Close reports a changed file but does not yet stop on it. The close record and the close
+  comment's machine block both state each story's result under a new key, added beside the
+  existing ones, so `/nxs.distill` reads them as before.
+- **Close stops on a pull request that never reached trunk.** When the checkout holds a pull
+  request's merge commit but trunk does not reach it, close reports the pull request as not landed
+  and stops on its story, with no waiver. This is the stacked pull request merged into its base
+  branch. A merge commit the checkout does not hold is still "checkout behind", never "not landed".
+
 ## 0.83.0
 
 - **Close derives each story's commit ranges itself.** `/nxs.close --pr` now runs the new

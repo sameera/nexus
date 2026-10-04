@@ -5,7 +5,9 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { type LandedChangeResult } from "@nexus/pr-worktree/landed-change";
 import { type RepoCheckoutResult } from "@nexus/pr-worktree/repo-checkout";
+import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
 import { deriveCloseRanges, type CloseRangesDeps, type DeriveOutcome } from "./close-ranges.js";
 import { type ShippedRecord } from "./ledger.js";
 import { type StoryMergedPr } from "./story-prs.js";
@@ -40,12 +42,25 @@ interface World {
     absent?: string[];
     /** Derivation outcome per pull request; defaults to a derived range. */
     derive?: Record<number, DeriveOutcome>;
+    /** Merge commits the checkout holds but trunk does not reach. */
+    offTrunk?: string[];
+    /** The analyzed head of each pull request's selected receipt, or a read failure; none by default. */
+    receipts?: Record<number, { head: string } | { fail: string }>;
+    /** Each pull request's head; defaults to `head-<pr>`. */
+    prHeads?: Record<number, string>;
+    /** The landed check's answer per pull request; defaults to every file unchanged. */
+    landed?: Record<number, LandedChangeResult>;
 }
 
 interface Seen {
     claims: number[];
     checkouts: string[];
     derived: number[];
+    compared?: Array<{ pr: number; analyzedHead: string; base: string; head: string }>;
+}
+
+function receipt(head: string): AnalyzeReceipt {
+    return { epic: "#828", nexusVersion: null, pr: null, date: "2026-09-01", head, mode: "full", findings: {}, repo: null, stories: [], record: null, recordHash: null, issuesRepo: null, storyFingerprints: {} };
 }
 
 function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [] }): CloseRangesDeps {
@@ -72,6 +87,18 @@ function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [
         derive(_checkout, pr) {
             seen.derived.push(pr.pr);
             return world.derive?.[pr.pr] ?? { ok: true, base: SHA(String(pr.pr % 10)), head: SHA("f") };
+        },
+        onTrunk: (_checkout, sha) => ({ ok: true, onTrunk: !(world.offTrunk ?? []).includes(sha), trunkRef: "origin/main" }),
+        readReceipt(pr) {
+            const r = world.receipts?.[pr.pr];
+            const prHead = world.prHeads?.[pr.pr] ?? `head-${pr.pr}`;
+            if (r === undefined) return { ok: true, receipt: null, prHead };
+            if ("fail" in r) return { ok: false, cause: r.fail };
+            return { ok: true, receipt: receipt(r.head), prHead };
+        },
+        compareLanded(_checkout, pr, input) {
+            seen.compared?.push({ pr: pr.pr, ...input });
+            return world.landed?.[pr.pr] ?? { ok: true, files: [{ path: "src/a.ts", status: "unchanged" }] };
         },
     };
 }
@@ -245,5 +272,158 @@ describe("deriveCloseRanges — checkouts (D3; G5, G6)", () => {
         expect(out.ranges.lines.join("\n")).toMatch(/checkout behind[\s\S]*git -C \/co\/acme\/web fetch origin/);
         expect(out.ranges.lines.join("\n")).not.toMatch(/not landed/);
         expect(seen.derived).toEqual([]);
+    });
+});
+
+describe("deriveCloseRanges — a merge commit that did not reach trunk (D3; G7)", () => {
+    it("reports the pull request as not landed and blocks its story, deriving nothing for it", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [] };
+        const out = deriveCloseRanges(deps({ claims: { 1: [merged(1, 10, "2026-09-01T00:00:00Z")] }, offTrunk: ["merge-10"] }, seen), { stories: [1], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(false);
+        expect(out.ranges.blocking).toEqual([
+            { kind: "not-landed", repo: "acme/web", pr: 10, mergeCommit: "merge-10", trunkRef: "origin/main", checkout: "/co/acme/web" },
+        ]);
+        expect(out.ranges.landed).toEqual([{ story: 1, result: "not-landed", prs: [{ repo: "acme/web", pr: 10, result: "not-landed", mergeCommit: "merge-10", trunkRef: "origin/main" }] }]);
+        expect(out.ranges.lines.join("\n")).toMatch(/acme\/web#10[^\n]*not landed/);
+        expect(seen.derived).toEqual([]);
+    });
+
+    it("applies to a pull request whose range a shipped record stamped", () => {
+        const out = deriveCloseRanges(deps({ claims: { 1: [merged(1, 10, "2026-09-01T00:00:00Z")] }, offTrunk: ["merge-10"] }), {
+            stories: [1],
+            records: [record([1], 10)],
+        });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.blocking.map((b) => b.kind)).toEqual(["not-landed"]);
+    });
+});
+
+describe("deriveCloseRanges — the landed check (D4; G8, G9)", () => {
+    const one = { 1: [merged(1, 10, "2026-09-01T00:00:00Z")] };
+
+    it("compares the reviewed change with the pull request's own range when the analyzed head is the merged head", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [], compared: [] };
+        const out = deriveCloseRanges(
+            deps(
+                {
+                    claims: one,
+                    receipts: { 10: { head: "head-10" } },
+                    landed: { 10: { ok: true, files: [{ path: "src/a.ts", status: "unchanged" }, { path: "src/b.ts", status: "changed" }] } },
+                },
+                seen,
+            ),
+            { stories: [1], records: [] },
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(seen.compared).toEqual([{ pr: 10, analyzedHead: "head-10", base: SHA("0"), head: SHA("f") }]);
+        expect(out.ranges.landed).toEqual([
+            {
+                story: 1,
+                result: "changed",
+                prs: [
+                    {
+                        repo: "acme/web",
+                        pr: 10,
+                        result: "changed",
+                        analyzedHead: "head-10",
+                        files: [
+                            { path: "src/a.ts", status: "unchanged" },
+                            { path: "src/b.ts", status: "changed" },
+                        ],
+                    },
+                ],
+            },
+        ]);
+        expect(out.ranges.lines.join("\n")).toMatch(/#1 — landed check:[^\n]*acme\/web#10 changed[^\n]*src\/b\.ts/);
+    });
+
+    it("reports a changed file without blocking close on it", () => {
+        const out = deriveCloseRanges(deps({ claims: one, receipts: { 10: { head: "head-10" } }, landed: { 10: { ok: true, files: [{ path: "x", status: "changed" }] } } }), {
+            stories: [1],
+            records: [],
+        });
+        expect(out.ok && out.ranges.ok).toBe(true);
+    });
+
+    it("checks a recorded range against the record's base and head", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [], compared: [] };
+        deriveCloseRanges(deps({ claims: one, receipts: { 10: { head: "head-10" } } }, seen), { stories: [1], records: [record([1], 10)] });
+        expect(seen.compared).toEqual([{ pr: 10, analyzedHead: "head-10", base: "rec-base-10", head: "rec-head-10" }]);
+    });
+
+    it("does not check a pull request whose analyzed head is not its merged head", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [], compared: [] };
+        const out = deriveCloseRanges(deps({ claims: one, receipts: { 10: { head: "old-head" } } }, seen), { stories: [1], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(true);
+        expect(seen.compared).toEqual([]);
+        expect(out.ranges.landed[0]).toEqual({
+            story: 1,
+            result: "not-checked",
+            prs: [{ repo: "acme/web", pr: 10, result: "not-checked", reason: "head-mismatch", analyzedHead: "old-head", mergedHead: "head-10" }],
+        });
+    });
+
+    it("does not check a pull request with no receipt, and does not block on it", () => {
+        const out = deriveCloseRanges(deps({ claims: one }), { stories: [1], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(true);
+        expect(out.ranges.landed[0].prs).toEqual([{ repo: "acme/web", pr: 10, result: "not-checked", reason: "no-receipt" }]);
+        expect(out.ranges.lines.join("\n")).toMatch(/acme\/web#10 not checked \(no receipt\)/);
+    });
+
+    it("does not check a pull request with no range", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: one, receipts: { 10: { head: "head-10" } }, derive: { 10: { ok: false, problem: "range-empty-diff", message: "empty" } } }),
+            { stories: [1], records: [] },
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.landed[0].prs).toEqual([{ repo: "acme/web", pr: 10, result: "not-checked", reason: "no-range" }]);
+    });
+
+    it("calls a story unchanged only when every pull request claiming it was checked and unchanged", () => {
+        const two = { 1: [merged(1, 10, "2026-09-01T00:00:00Z"), merged(1, 11, "2026-09-02T00:00:00Z")] };
+        const partly = deriveCloseRanges(deps({ claims: two, receipts: { 10: { head: "head-10" } } }), { stories: [1], records: [] });
+        const fully = deriveCloseRanges(deps({ claims: two, receipts: { 10: { head: "head-10" }, 11: { head: "head-11" } } }), { stories: [1], records: [] });
+        expect(partly.ok && partly.ranges.landed[0].result).toBe("not-checked");
+        expect(fully.ok && fully.ranges.landed[0].result).toBe("unchanged");
+    });
+
+    it("blocks, naming the pull request, when its receipt cannot be read", () => {
+        const out = deriveCloseRanges(deps({ claims: one, receipts: { 10: { fail: "gh: HTTP 502" } } }), { stories: [1], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.ok).toBe(false);
+        expect(out.ranges.blocking).toEqual([{ kind: "landed-unreadable", repo: "acme/web", pr: 10, message: expect.stringContaining("gh: HTTP 502") }]);
+        expect(out.ranges.landed[0].result).toBe("unknown");
+    });
+
+    it("blocks, naming the pull request, when the comparison itself fails", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: one, receipts: { 10: { head: "head-10" } }, landed: { 10: { ok: false, error: { problem: "git-failed", message: "no such commit" } } } }),
+            { stories: [1], records: [] },
+        );
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.blocking.map((b) => b.kind)).toEqual(["landed-unreadable"]);
+    });
+
+    it("reads one receipt for a pull request that implements two stories, and states the result under both", () => {
+        let reads = 0;
+        const d = deps({ claims: { 1: [merged(1, 40, "2026-09-03T00:00:00Z")], 2: [merged(2, 40, "2026-09-03T00:00:00Z")] }, receipts: { 40: { head: "head-40" } } });
+        const counted: CloseRangesDeps = { ...d, readReceipt: (pr) => (reads++, d.readReceipt(pr)) };
+        const out = deriveCloseRanges(counted, { stories: [1, 2], records: [] });
+        expect(reads).toBe(1);
+        expect(out.ok && out.ranges.landed.map((s) => [s.story, s.result])).toEqual([
+            [1, "unchanged"],
+            [2, "unchanged"],
+        ]);
     });
 });

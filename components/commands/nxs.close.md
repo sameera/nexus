@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. It derives each story's commit ranges itself, in the checkout of each repository a story merged in, and stamps them into both the close record and the close comment. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); and /nxs.analyze ran (missing / revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. It derives each story's commit ranges itself, in the checkout of each repository a story merged in, checks that each pull request landed every reviewed file as it was reviewed (stopping on one that never reached trunk), and stamps the ranges and each story's landed-check result into both the close record and the close comment. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story carrying a shipped record on the epic issue (hard block); and /nxs.analyze ran (missing / revised-record / blocking findings each require an explicit user waiver). With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -153,6 +153,15 @@ single-repo and hub mode only.
       never skipped.
     - `range` — one `{ repo, pr, base, head }` per merged pull request that has a range, each once
       even when it implements two stories, in merge order. A `no-range` pull request is not in it.
+    - `landed` — per live story, the **landed check** of each pull request claiming it (story #846;
+      record #849, D4). It compares what the analyzed head changed in each file with what the pull
+      request's own range landed in that file, so a sibling pull request that edited the same file,
+      before or after, does not count. The analyzed head is the one in the pull request's selected
+      trusted receipt. Each pull request's `result` is `unchanged`, `changed` (with the changed
+      `files`; a rename, a deletion or a mode change counts as changed), or `not-checked` with a
+      `reason`: `no-receipt`, `no-range`, or `head-mismatch` when the analyzed head is not the
+      merged head. The story's own `result` is the worst of its pull requests'. A `changed` or
+      `not-checked` result is stated, not stopped on, here.
 
     **Exit 1 stops this command here, before it writes anything.** Report the diagnostic verbatim:
     - `epic-verdicts story-read-failed` — a story's claiming pull requests could not be read. A
@@ -172,9 +181,17 @@ single-repo and hub mode only.
       entry carries and tell the lead to run it and re-run.
     - `range-underivable` — the derivation refused for another reason. Name the pull request and
       the message.
+    - `not-landed` — the checkout holds the pull request's merge commit, but trunk does not reach
+      it: the pull request merged somewhere other than trunk, such as the base branch of a stack.
+      Name the pull request and the story it blocks. If the lead knows trunk has moved since the
+      checkout last fetched it, they fetch it and re-run.
+    - `landed-unreadable` — the receipt, or the comparison, could not be read, so close cannot
+      state the result it stamps. Name the pull request and the message; the remedy is a re-run
+      once the read succeeds.
 
-    Repeat every entry of `lines` verbatim under a **Ranges** heading. **Keep `stories` and `range`
-    for Phase 3 and the Phase 4 stamp**, and never re-derive or edit a range afterwards.
+    Repeat every entry of `lines` verbatim under a **Ranges** heading. **Keep `stories`, `range`
+    and `landed` for Phase 3 and the Phase 4 stamp**, and never re-derive or edit a range or a
+    landed-check result afterwards.
 
 4. **The shipped ledger's gate** (epic #769), which stays until close no longer requires a record:
 
@@ -741,6 +758,22 @@ Fill the seeded template and write it into the queue entry.
 
       Qualify `story` under the **`nxs-issue-reference`** skill when `$ISSUES_REPO` names another
       repository than the one the close record is committed in.
+    - `landed_check` — written whether or not the template carries a placeholder: one entry per
+      live story from Phase 0.5's `landed`, with the story's `result` and each pull request's, in
+      merge order. A `changed` pull request lists its changed files; a `not-checked` one states its
+      reason. Copy the results as printed; never re-run or edit the check here:
+
+        ```yaml
+        landed_check:
+          - story: "#<story>"
+            result: <unchanged | changed | not-checked>
+            prs:
+              - { repo: <repo>, pr: <N>, result: unchanged }
+              - { repo: <repo>, pr: <N>, result: changed, files: [<path>, ...] }
+              - { repo: <repo>, pr: <N>, result: not-checked, reason: <no-receipt | no-range | head-mismatch> }
+        ```
+
+      Qualify `story` the same way as in `story_ranges`.
     - **Waived Stories (epic #213, story #502)** — an additional field, not part of the seeded
       template's placeholder set (the note above): add a `## Waived Stories` body section, one line
       per story waived in Phase 1.2's storyless-story gate — `#<story> — waived <YYYY-MM-DD>`, the
@@ -1092,14 +1125,22 @@ story_ranges:                    # the close record's `story_ranges:` list, entr
     ranges:
       - { repo: <repo>, pr: <N>, base: <full sha>, head: <full sha> }
       - { repo: <repo>, pr: <N>, range: none }   # a merged pull request with no attributable commits
+landed_check:                    # the close record's `landed_check:` list, entry for entry
+  - story: "#<story>"
+    result: <unchanged | changed | not-checked>
+    prs:
+      - { repo: <repo>, pr: <N>, result: unchanged }
+      - { repo: <repo>, pr: <N>, result: changed, files: [<path>, ...] }
+      - { repo: <repo>, pr: <N>, result: not-checked, reason: <no-receipt | no-range | head-mismatch> }
 ```
 `````
 
 The marker-anchored fenced block is **mandatory in every mode** (record #176, invariant 5): it stamps
 the facts the prose cannot recover — the record reference and its full approved-body hash, the
 conformance verdict, and the **full-SHA landed ranges**, exactly the ranges Phase 3 diffed, never
-recomputed later. `range` and `story_ranges` state the same list the close record states, entry for
-entry. `story_ranges` is an added key: a reader that knows only `range` reads the block as before. It makes the epic issue a complete substitute for the close-record file, which is
+recomputed later. `range`, `story_ranges` and `landed_check` state the same lists the close record
+states, entry for entry. `story_ranges` and `landed_check` are added keys: a reader that knows only
+`range` reads the block as before. It makes the epic issue a complete substitute for the close-record file, which is
 what `/nxs.distill`'s GitHub recovery reads (#174). The shape mirrors the `nexus:analyze-receipt`
 block `/nxs.analyze --pr` already publishes; the prose sections above it stay unchanged and in full.
 
@@ -1320,15 +1361,20 @@ state, but a closed epic with an open issue misreports the pipeline.
   member checkout is refused outright (epic #215 retired the close-and-migrate path): no hub write
   is ever attempted from a member, and its close runs from the hub instead, over its merged pull
   requests.
-- **Range stamping is unconditional** — every close record carries the full-SHA `range:` list and
-  the per-story `story_ranges:` list, in every mode, taken from Phase 0.5's `nexus epic-verdicts
-  ranges` and diffed by Phase 3. The close comment's machine block states the same two lists.
+- **Range stamping is unconditional** — every close record carries the full-SHA `range:` list,
+  the per-story `story_ranges:` list and the per-story `landed_check:` list, in every mode, taken
+  from Phase 0.5's `nexus epic-verdicts ranges` and diffed by Phase 3. The close comment's machine
+  block states the same three lists.
 - **Close derives its ranges itself, through one path for every epic** (record #849, D1–D3). The
   lead never supplies a range. A shipped record's stamped range is used verbatim; every other range
   is derived in the checkout of the repository its pull request merged in. A missing checkout stops
   close before any write and names the expected path; close never fetches trunk or creates a
   temporary store in its place. A merge commit the checkout lacks is "checkout behind", never
-  "not landed".
+  "not landed". A merge commit the checkout holds but trunk does not reach is "not landed", and its
+  story blocks.
+- **The landed check compares changes, not trunk contents** (record #849, D4). Each pull request
+  is checked file by file against what its own range landed, never against the trunk tip, so a
+  sibling pull request editing the same file cannot make it read as changed.
 - **No committed queue entry is ever removed here** — the drain's own staged deletion, on its own
   branch, is the only code path anywhere in the toolkit that removes one (epic #215).
 - **Cross-repo mutations run only between the Phase 7 checkpoint and the Phase 8 GitHub writes**,

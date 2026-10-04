@@ -21,7 +21,8 @@ RANGE STAMPING (unconditional — every mode)
     The range records the exact diff /nxs.close derived: git diff <base>...<head>
     in the named repo reproduces the epic's landed change. It is a LIST, one
     entry per merged pull request that has a range; story_ranges lists the
-    same ranges per story.
+    same ranges per story, and landed_check states, per story, whether each
+    pull request landed every reviewed file as it was reviewed.
     Full SHAs only — symbolic refs stop resolving once the branch is deleted.
     After a workspace migration this range is the only thing the hub-side
     drain can recompute the diff from.
@@ -64,6 +65,11 @@ story_ranges:                   # per story, its merged pull requests in merge o
   - story: {{STORY_ISSUE_REF}}  # A pull request with no attributable commits is written
     ranges:                     # `{ repo, pr, range: none }` — named, never dropped.
       - { repo: {{REPO_IDENTITY}}, pr: {{PR_NUMBER}}, base: {{BASE_SHA}}, head: {{HEAD_SHA}} }
+landed_check:                   # per story, its landed-check result and each pull request's (close checks them).
+  - story: {{STORY_ISSUE_REF}}  # result: unchanged | changed (with its files) | not-checked (with its reason)
+    result: {{LANDED_RESULT}}
+    prs:
+      - { repo: {{REPO_IDENTITY}}, pr: {{PR_NUMBER}}, result: {{LANDED_RESULT}} }
 ---
 
 # Close Record: {{EPIC_TITLE}}

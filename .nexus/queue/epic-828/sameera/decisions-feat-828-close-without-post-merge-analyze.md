@@ -17,3 +17,18 @@
 - **Choice:** Keep `range:` as the flat, de-duplicated list distill reads, and add `story_ranges:` (per story, merge order, `range: none` for no-range) to both the close record and the machine block.
 - **Why:** The machine-block change must be additive (D2), and a pull request implementing two stories must appear once in the diff source but under both stories.
 - **Refuted alternative:** Nest ranges under stories only, which changes the shape distill and GitHub recovery already parse.
+
+## 2026-10-03 — The landed check compares zero-context per-file patches with positions dropped
+- **Choice:** Take each file's patch with `-U0` and rename detection off, drop the hunk positions, the function-context text and the blob index, and compare what is left; a deletion compares as a deletion alone, a binary file by the blob it leaves.
+- **Why:** With no context lines a sibling's nearby edit or a position shift leaves the removed and added lines identical, while a rename, deletion or mode change still shows in the file headers (D4, G8, G9).
+- **Refuted alternative:** Compare per-file patches with the default three context lines, which reads a sibling edit within three lines as a change no analyze run can clear.
+
+## 2026-10-03 — A file the range landed but analysis never reviewed counts as changed
+- **Choice:** Report every file either change touches, so a file only the landed change touches is changed.
+- **Why:** Against a reviewed change of nothing, any landed change differs, and leaving it out would let unreviewed code land behind an "unchanged" result.
+- **Refuted alternative:** Report reviewed files only, as the acceptance criterion's wording reads, which hides a file a merge added on its own.
+
+## 2026-10-03 — The landed check rides on `epic-verdicts ranges`, and unreadable evidence blocks
+- **Choice:** Add a per-story `landed` list and `not-landed` and `landed-unreadable` blocks to the `ranges` output; a changed file is reported but not blocked on, and the close record and machine block gain an additive `landed_check` key.
+- **Why:** The check needs each range and checkout `ranges` already resolves, and close cannot stamp a result it could not read; whether a changed file stops close is #842's stale gate.
+- **Refuted alternative:** A sibling `landed` verb, which would re-run the claiming read and the derivation and could disagree with the ranges close stamps.

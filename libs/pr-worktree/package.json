@@ -34,6 +34,11 @@
       "import": "./src/repo-checkout.ts",
       "default": "./src/repo-checkout.ts"
     },
+    "./landed-change": {
+      "types": "./src/landed-change.ts",
+      "import": "./src/landed-change.ts",
+      "default": "./src/landed-change.ts"
+    },
     "./range-list": {
       "types": "./src/range-list.ts",
       "import": "./src/range-list.ts",
