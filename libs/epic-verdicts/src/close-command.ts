@@ -70,6 +70,9 @@ import {
     CLOSE_RECORD_MARKER,
     amendmentKey,
     assembleCloseContent,
+    machineBlock,
+    recordNumber,
+    stampedPrs,
     proposalKey,
     renderCloseComment,
     renderCloseRecord,
@@ -146,7 +149,7 @@ export interface CloseCommandDeps {
     /** The epic and the stories the pull request implements, through the validated candidate ladder. */
     storiesOfPr(root: string, issuesRepo: string, pr: PrInfo): ResolveStoriesResult;
     /** The epic: its live stories, its decision record and the materialized `epic.md`. */
-    resolveEpic(root: string, epic: number): ResolveEpicResult;
+    resolveEpic(root: string, issuesRepo: string, epic: number): ResolveEpicResult;
     /** Every sub-issue of the epic, whatever its kind, with its state. */
     subIssues(root: string, issuesRepo: string, epic: number): { ok: true; facts: Map<number, IssueFacts> } | { ok: false; message: string };
     /** The stories carrying the no-pull-request marker. */
@@ -342,11 +345,12 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     if (!epicComments.ok) {
         return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
     }
-    if (epicComments.comments.some((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER))) {
-        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun });
+    const earlierClose = [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER));
+    if (earlierClose !== undefined) {
+        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun, closeComment: earlierClose.body });
     }
 
-    const resolved = deps.resolveEpic(repoRoot, epic);
+    const resolved = deps.resolveEpic(repoRoot, issuesRepo, epic);
     if (!resolved.ok) {
         return stopped({ reason: `epic ${epicRef} cannot be resolved: ${renderEpicResolveDiagnostic(resolved.error)}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
     }
@@ -420,13 +424,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         }
 
         // Each merged claiming pull request's verdict, read once however many stories it implements,
-        // in merge order: the range list is in merge order, and a pull request with no range follows.
-        const seen = new Set<string>();
-        const merged = [...gate.range.map((r) => ({ repo: r.repo, pr: r.pr })), ...gate.stories.flatMap((s) => s.ranges.map((r) => ({ repo: r.repo, pr: r.pr })))];
-        for (const entry of merged) {
-            const key = `${entry.repo.toLowerCase()}#${entry.pr}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
+        // in merge order, a pull request with no range of its own in its place (D6).
+        for (const entry of gate.merged) {
             const read = deps.verdict(repoRoot, issuesRepo, { repo: entry.repo, pr: entry.pr });
             stops.push(...verdictStops(read, entry.repo, entry.pr, rerun));
             if (read.ok && read.found && read.judgments === "present") {
@@ -622,7 +621,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
 function finishClosed(
     deps: CloseCommandDeps,
     input: CloseInput,
-    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string },
+    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; closeComment: string },
 ): CloseOutcome {
     const epicRef = `${at.issuesRepo}#${at.epic}`;
     // Look for the earlier run's branch read-only first, so a missing one stops with nothing created (G3).
@@ -637,6 +636,8 @@ function finishClosed(
     }
     const wt = deps.openWorktree(at.repoRoot, at.epic, input.date);
     if (!wt.ok) return stopped({ reason: wt.error.message, item: at.repoRoot, remedy: `re-run ${at.rerun} once the cause above is fixed` });
+    // The one write an earlier run can leave undone after its close comment: the amendment (G26, G28).
+    const amendment = amendOnRerun(deps, input, at);
     const closedIssue = deps.closeIssue(at.repoRoot, at.issuesRepo, at.epic);
     if (!closedIssue.ok) return stopped({ reason: `epic ${epicRef} could not be closed: ${closedIssue.message}`, item: `epic ${epicRef}`, remedy: `re-run ${at.rerun}` });
     const note = writeHandoff(input.handoff, at.epic, wt.branch, wt.wtPath);
@@ -650,11 +651,63 @@ function finishClosed(
         `Issues repository: ${at.issuesRepo}`,
         `Distill branch:    ${wt.branch} (reused from an earlier run${wt.source === "pushed" ? "'s push" : ""})`,
         `Worktree:          ${wt.wtPath}`,
+        ...(amendment === null ? [] : [`Record amendment:  ${amendment.record} — ${amendment.line}`]),
         `Epic issue:        ${epicRef} — ${closedIssue.already ? "already closed" : "closed"}`,
         "",
+        ...(amendment === null ? [] : amendment.byHand),
         ...nextLines(input.handoff, wt.wtPath),
     ];
     return { ok: true, resumed: true, epic: at.epic, issuesRepo: at.issuesRepo, pr: input.pr, wtPath: wt.wtPath, branch: wt.branch, lines };
+}
+
+/**
+ * On a re-run after the close comment posted, post the amendment if an earlier run did not (G26,
+ * G28). The record's own comments are checked first, so an amendment already posted costs no
+ * verdict read. Otherwise the amendment is rebuilt from the verdicts of the pull requests the close
+ * comment stamped and the record body it stamped. Nothing here stops close (G48): a failed read is
+ * reported, a failed post hands the lead the comment to post. Null when the close named no record.
+ */
+function amendOnRerun(
+    deps: CloseCommandDeps,
+    input: CloseInput,
+    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; closeComment: string },
+): { record: string; line: string; byHand: string[] } | null {
+    const block = machineBlock(at.closeComment);
+    const record = block === null ? null : recordNumber(block["record"]);
+    if (block === null || record === null) return null;
+    const recordRef = `${at.issuesRepo}#${record}`;
+    const notChecked = (why: string) => ({ record: recordRef, line: `NOT CHECKED — ${why}. Close not blocked`, byHand: [] });
+
+    const existing = deps.issueComments(at.repoRoot, at.issuesRepo, record);
+    if (!existing.ok) return notChecked(`the comments on ${recordRef} could not be read: ${existing.message}; re-run ${at.rerun} to check again`);
+    const key = amendmentKey(at.issuesRepo, at.epic);
+    if (existing.comments.some((c) => trusted(c) && c.body.includes(key))) return { record: recordRef, line: "already posted by an earlier run", byHand: [] };
+
+    const body = deps.recordBody(at.repoRoot, at.issuesRepo, record);
+    if (!body.ok) return notChecked(`${recordRef} could not be read: ${body.message}; re-run ${at.rerun} to check again`);
+    if (body.digest !== String(block["record_hash"] ?? "")) {
+        return notChecked(`${recordRef} was revised since the close, so an amendment now would describe a revision the close did not stamp; run nexus close --recover ${at.epic} first`);
+    }
+    const verdicts: CloseVerdict[] = [];
+    for (const pr of stampedPrs(block).prs) {
+        const read = deps.verdict(at.repoRoot, at.issuesRepo, pr);
+        if (!read.ok) return notChecked(`the verdict on ${pr.repo}#${pr.pr} could not be read: ${read.cause}; re-run ${at.rerun} to check again`);
+        if (read.found && read.judgments === "present") verdicts.push({ ...pr, date: read.date, head: read.head, recordHash: read.recordHash, judgments: read.read });
+    }
+    const content = assembleCloseContent({
+        epic: at.epic,
+        title: "",
+        feature: "",
+        featurePath: "",
+        date: input.date,
+        nexusVersion: null,
+        issuesRepo: at.issuesRepo,
+        codeRepo: at.codeRepo,
+        record: { number: record, body: body.body, digest: body.digest },
+        verdicts,
+        ranges: { range: [], stories: [], landed: [], waivers: [] },
+    });
+    return { record: recordRef, ...postAmendment(deps, at.repoRoot, content) };
 }
 
 /**
@@ -701,8 +754,8 @@ function postAmendment(deps: CloseCommandDeps, root: string, content: CloseConte
     if (body === null) return { line: "none (no departure is marked as superseding a record decision)", byHand: [] };
     const n = content.superseded.length;
     const recordRef = `${content.issuesRepo}#${content.record.number}`;
-    // A re-run never posts a missing amendment: once the close comment exists it regenerates
-    // nothing (G27). So a failed post hands the lead the exact comment to post instead.
+    // A failed post also hands the lead the exact comment to post: a re-run posts it too, but only
+    // once someone runs one.
     const notPosted = (why: string, check: string) => ({
         line: `NOT POSTED — ${why}; ${n} superseding decision(s) stand in the close record's Deviation Rationale. Close not blocked; post the amendment below by hand`,
         byHand: [
@@ -938,7 +991,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
                 prBody: pr.body,
             });
         },
-        resolveEpic: (root, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root) }),
+        resolveEpic: (root, issuesRepo, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
         subIssues: (root, issuesRepo, epic) => {
             const slash = issuesRepo.lastIndexOf("/");
             const slug = { owner: issuesRepo.slice(0, slash).split("/").pop() ?? "", repo: issuesRepo.slice(slash + 1) };

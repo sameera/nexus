@@ -192,6 +192,26 @@ describe("resolveEpic — issuesRepo (cross-repo issue references)", () => {
         expect(repoViewCalls).toBe(1);
     });
 
+    it("reads every issue from the repository it is given, not the checkout's own, when the caller names one", () => {
+        const calls: string[][] = [];
+        const base = makeGhRunner({ ...graph(), slug: "acme/code" });
+        const recording: typeof base = (cmd, args, opts) => {
+            calls.push(args);
+            return base(cmd, args, opts);
+        };
+        const r = resolveEpic(recording, "/repo", 115, { repo: "acme/issues" });
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.resolved.issuesRepo).toBe("acme/issues");
+        expect(calls.length).toBeGreaterThan(0);
+        for (const args of calls) {
+            const line = args.join(" ");
+            expect(line, line).not.toMatch(/^repo view/);
+            expect(line, line).not.toContain("{owner}");
+            expect(line.includes("--repo acme/issues") || line.includes("repos/acme/issues/") || (line.includes("owner=acme") && line.includes("repo=issues")), line).toBe(true);
+        }
+    });
+
     it("omits issues_repo for a single-repo checkout, even though the repository slug resolves — no noise where there is no ambiguity", () => {
         const r = resolveEpic(makeGhRunner({ ...graph(), slug: "geo-nexus/docs" }), "/repo", 115, { singleRepo: true });
         expect(r.ok).toBe(true);

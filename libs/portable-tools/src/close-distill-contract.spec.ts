@@ -94,6 +94,7 @@ function gate(): CloseRanges {
     return {
         stories: [{ story: 864, ranges: [{ repo: CODE, pr: PR, source: "derived", base: BASE, head: HEAD, checkout: "/repo" }] }],
         range: [{ repo: CODE, pr: PR, base: BASE, head: HEAD }],
+        merged: [{ repo: CODE, pr: PR }],
         landed: [{ story: 864, result: "unchanged", prs: [{ repo: CODE, pr: PR, result: "unchanged", analyzedHead: HEAD, files: [] }] }],
         blocking: [],
         excluded: [],

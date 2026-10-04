@@ -97,8 +97,11 @@ export function fetchIssue(
     cwd: string,
     number: number,
     notFoundProblem: EpicResolveDiagnostic["problem"],
+    repo?: RepoSlug,
 ): Ok<{ issue: IssueContent }> | Err {
-    const r = run("gh", ["issue", "view", String(number), "--json", "number,title,body,state,stateReason,labels"], { cwd });
+    const args = ["issue", "view", String(number), "--json", "number,title,body,state,stateReason,labels"];
+    if (repo !== undefined) args.push("--repo", `${repo.owner}/${repo.repo}`);
+    const r = run("gh", args, { cwd });
     if (r.status !== 0) {
         const msg = r.stderr.trim();
         const problem = /not found|could not resolve|no such|no issues/i.test(msg) ? notFoundProblem : "gh-failed";
@@ -304,12 +307,9 @@ export function fetchParentNumber(
 }
 
 /** Read one story's native `blocked_by` dependency edges as blocker issue numbers. */
-export function fetchBlockedBy(run: Runner, cwd: string, storyNumber: number): Ok<{ numbers: number[] }> | Err {
-    const r = run(
-        "gh",
-        ["api", `repos/{owner}/{repo}/issues/${storyNumber}/dependencies/blocked_by`, "--jq", ".[].number"],
-        { cwd },
-    );
+export function fetchBlockedBy(run: Runner, cwd: string, storyNumber: number, repo?: RepoSlug): Ok<{ numbers: number[] }> | Err {
+    const target = repo === undefined ? "{owner}/{repo}" : `${repo.owner}/${repo.repo}`;
+    const r = run("gh", ["api", `repos/${target}/issues/${storyNumber}/dependencies/blocked_by`, "--jq", ".[].number"], { cwd });
     if (r.status !== 0) {
         return {
             ok: false,
