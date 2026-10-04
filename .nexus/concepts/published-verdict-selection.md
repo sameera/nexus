@@ -1,7 +1,7 @@
 ---
 title: "Published Verdict Selection"
 aliases: ["which verdict a pull request carries", "newest-wins verdict", "verdict trust", "repository stamp matching", "superseded verdict"]
-touches: ["conformance-gate", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command", "pr-verdict-answers"]
+touches: ["conformance-gate", "provenance-reference", "remote-identity-normalization", "pr-driven-flow", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report"]
 last_updated_by: "#829"
 status: active
 verification: verified
@@ -33,6 +33,7 @@ Every review and comment carrying the verdict marker is collected, each with the
 - [pr-driven-flow](pr-driven-flow.md) — the flow that publishes the verdicts this rule chooses between, one review per pull request.
 - [close-and-distill-command](close-and-distill-command.md) — uses this rule to require a clean verdict before its merge option merges an open pull request.
 - [pr-verdict-answers](pr-verdict-answers.md) — reads its item IDs and earlier answers from the verdict this rule picks.
+- [story-evidence-report](story-evidence-report.md) — reads the receipt this rule selects on each pull request that claims a story.
 
 ## Decision Log
 
@@ -45,6 +46,10 @@ Separately, a close reported a superseded verdict's severity counts. Both compil
 ### 2026-09-27 — #814 — Reciprocal link from close-and-distill-command
 
 The close-and-distill command declared an interaction with this concept, so this page mirrors it.
+
+### 2026-10-01 — #827 — Reciprocal link from story-evidence-report
+
+Mechanical reciprocity fan-out: the close stage's evidence report reads one receipt per claiming pull request, and that receipt is the one this rule selects.
 
 ### 2026-10-04 — #829 — Reciprocal links: aggregated-epic-receipt retired, pr-verdict-answers added
 

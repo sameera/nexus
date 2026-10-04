@@ -18,3 +18,4 @@ generated: 2026-10-04
 - `components/commands/nxs.close.md` — stamps the reference and full hash into the close comment's machine block, the copy that survives the entry being consumed; also re-checks each story verdict's stamped digest at the close gate (#521)
 - `libs/portable-tools/src/nexus-cli.ts` — the CLI wrapper printing the digest and approval state for a record issue.
 - `libs/portable-tools/src/writer-stamp.ts` — the writer field placed beside this digest rather than inside the bytes it covers, which is why the canonicalisation rule needed no exception.
+- `libs/epic-verdicts/src/fingerprint.ts` — applies this digest program to a story's issue body to take its fingerprint

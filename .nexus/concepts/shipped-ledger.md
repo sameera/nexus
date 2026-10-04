@@ -1,7 +1,7 @@
 ---
 title: "Shipped Ledger"
-aliases: ["shipped record", "what an epic shipped", "ledger of what shipped", "per-pull-request record", "epic-issue record", "shipped coverage states"]
-touches: ["conformance-gate", "multi-pr-close", "durable-close-record", "pr-driven-flow", "remote-identity-normalization", "close-and-distill-command"]
+aliases: ["shipped record", "what an epic shipped", "ledger of what shipped", "per-pull-request record", "epic-issue record"]
+touches: ["conformance-gate", "multi-pr-close", "durable-close-record", "pr-driven-flow", "remote-identity-normalization", "close-and-distill-command", "story-evidence-report", "epic-coverage-run"]
 last_updated_by: "#829"
 status: active
 verification: verified
@@ -17,7 +17,7 @@ The conformance gate writes a record only against a merged pull request, because
 
 Because the record carries the range, a later reader never needs a copy of the repository the code merged in. The one live question left is whether the platform still reports the same merge commit for that pull request. A moved merge commit is a hard block, because the recorded range then describes commits that are not on the trunk.
 
-Addressed at an epic, the gate reports each story as shipped, unrecorded, unshipped or excluded, re-reading the live story set each run. Unrecorded and unshipped stay apart because their remedies differ: a merge that skipped the gate, or work not yet done.
+Addressed at an epic, the gate reports each story's coverage from these records, as the epic coverage run states.
 
 ## Key Invariants
 
@@ -37,6 +37,8 @@ Addressed at an epic, the gate reports each story as shipped, unrecorded, unship
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose post-merge conformance run is what writes a record at all.
 - [remote-identity-normalization](remote-identity-normalization.md) — the rule by which a record names its code repository, so two readers cannot disagree about which repository it stamps.
 - [close-and-distill-command](close-and-distill-command.md) — requires this pull request's record on the epic issue before it starts close.
+- [story-evidence-report](story-evidence-report.md) — runs at close after this gate passes and decides nothing this gate decides. These records carry no story fingerprints.
+- [epic-coverage-run](epic-coverage-run.md) — reports each story's coverage state from these records, split out of this page.
 
 ## Decision Log
 
@@ -47,6 +49,10 @@ The list of what an epic shipped was rebuilt from scratch on every gate run, and
 ### 2026-09-27 — #814 — Reciprocal link from close-and-distill-command
 
 The close-and-distill command declared an interaction with this concept, so this page mirrors it.
+
+### 2026-10-01 — #827 — The coverage states move to their own page, and a failed read is never one of them
+
+A story whose pull requests could not be read used to look like a story with no pull request, so it was reported as unshipped. It now stops the run with an error that names the story. That statement took this page's own content over the 400-word cap. The paragraph on the four coverage states, the new failed-read rule and the alias "shipped coverage states" moved to the new epic-coverage-run page. This page keeps how a record is written and read. Story fingerprints were kept off these records, because a later epic retires this record's writer and this epic must not change what close does with stale evidence.
 
 ### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
 

@@ -1,8 +1,8 @@
 ---
 title: "Close-and-Distill Command"
 aliases: ["close-epic command", "one-command close", "close and distill in one command", "hand-off note", "close-epic run folder", "outcome record"]
-touches: ["pr-driven-flow", "drain-invocation", "conformance-gate", "shipped-ledger", "published-verdict-selection"]
-last_updated_by: "#814"
+touches: ["pr-driven-flow", "drain-invocation", "conformance-gate", "shipped-ledger", "published-verdict-selection", "epic-coverage-run"]
+last_updated_by: "#827"
 status: active
 verification: verified
 ---
@@ -32,9 +32,14 @@ The command first checks the pull request. A merged pull request goes ahead. An 
 - [conformance-gate](conformance-gate.md) — the stage it runs with nobody watching before close, reading the result from the platform.
 - [shipped-ledger](shipped-ledger.md) — the record it requires on the epic issue before close starts.
 - [published-verdict-selection](published-verdict-selection.md) — the rule that picks the clean verdict its merge option requires.
+- [epic-coverage-run](epic-coverage-run.md) — the run whose error on a failed story read stops this command before close starts.
 
 ## Decision Log
 
 ### 2026-09-27 — #814 — One command closes and distills a merged epic pull request
 
 After a merge the lead ran close, changed into the worktree close opened, and ran distill there, answering a second approval. The command runs the three stages as separate sessions, because one session carrying two stages' instructions loses accuracy, and distill reading the diff again costs less. Close writes a hand-off note only when the command asks for one, because close runs interactively and its worktree path cannot be predicted. Refuted alternative: find the worktree through git by listing distillation branches. It needs no change to close, but a worktree left by an earlier aborted run makes the choice ambiguous. The command reads each stage's outcome from the platform because a headless run exits 0 when the stage stops and reports the stop in words. Refuted alternative: trust the exit status. It would start an interactive close that the shipped-record gate then stops. The merge option requires a clean verdict because the merge is the one step that cannot be undone. Refuted alternative: check only mergeability and branch protection. A solo repository usually has no protection, so the command could merge code with known critical findings.
+
+### 2026-10-01 — #827 — Reciprocal link from epic-coverage-run
+
+Mechanical reciprocity fan-out: when the epic coverage run cannot read a story's pull requests, it exits with an error and prints no coverage, and this command stops before it starts close.
