@@ -54,6 +54,12 @@ export class EpicPlatform {
         }
     }
 
+    /** An issue's current body, or null when it cannot be read. */
+    issueBody(issueNumber: string): string | null {
+        const result: RunResult = this.run(this.targeted(["issue", "view", issueNumber, "--json", "body", "--jq", ".body"]));
+        return result.status === 0 ? result.stdout : null;
+    }
+
     /**
      * Populate an existing unplanned epic issue in place, and report where it now lives.
      *

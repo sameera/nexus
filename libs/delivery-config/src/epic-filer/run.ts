@@ -14,6 +14,7 @@
 import * as fs from "node:fs";
 import { type ToolkitIo } from "../io.js";
 import { CAPABILITY, type ArgsOutcome, type EpicArgs, epicUsage, parseEpicArgs } from "./args.js";
+import { stubKeyLines } from "../stub-key.js";
 import { type GhRunner, ensureLabel } from "../gh.js";
 import { type Outcome, Platform, extractIssueNumber } from "../story-filer/platform.js";
 import { type EpicEnvironment, defaultEpicEnvironment } from "./environment.js";
@@ -144,10 +145,13 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
         // The stub's own issue becomes the epic, so every reference written when the scope was
         // deferred survives the promotion.
         out.line(`🚀 Populating GitHub issue #${args.promote}...`);
+        // A stub close filed carries a hidden key naming the proposal it came from. The new body
+        // keeps it, so a re-run of close still recognises the stub once it is planned (epic #830, G21).
+        const keys: string[] = stubKeyLines(epic.issueBody(args.promote) ?? "").filter((key) => !filedBody.includes(key));
         const populated = epic.populateIssue(
             args.promote,
             title,
-            filedBody,
+            keys.length === 0 ? filedBody : `${filedBody.replace(/\s+$/, "")}\n\n${keys.join("\n")}\n`,
             config.unplannedLabel,
             classification.createLabel,
         );

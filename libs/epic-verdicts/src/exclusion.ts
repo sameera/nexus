@@ -23,8 +23,11 @@ export function isExcludedStory(labels: string[], noPrLabel: string): boolean {
  * effect. Never called speculatively: only after the lead has explicitly consented to waive a
  * story the aggregate derivation reported missing.
  */
-export function waiveStory(run: Runner, cwd: string, story: number, noPrLabel: string): { ok: true } | { ok: false; error: EpicVerdictsDiagnostic } {
-    const r = run("gh", ["issue", "edit", String(story), "--add-label", noPrLabel], { cwd });
+export function waiveStory(run: Runner, cwd: string, story: number, noPrLabel: string, issuesRepo?: string): { ok: true } | { ok: false; error: EpicVerdictsDiagnostic } {
+    // `issuesRepo`, when given, is the repository the story lives in (G46); without it the story
+    // is read as the checkout's own.
+    const repo = issuesRepo === undefined ? [] : ["--repo", issuesRepo];
+    const r = run("gh", ["issue", "edit", String(story), ...repo, "--add-label", noPrLabel], { cwd });
     if (r.status !== 0) {
         return {
             ok: false,

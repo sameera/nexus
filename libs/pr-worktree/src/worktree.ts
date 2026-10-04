@@ -387,3 +387,13 @@ export function openEpicDistillWorktree(run: Runner, repoRoot: string, epic: num
     if (!wt.ok) return wt;
     return { ok: true, wtPath: wt.wtPath, branch, source };
 }
+
+/**
+ * Push the distill branch close committed its record on, setting its upstream (epic #830, D11). A
+ * failure is returned, never thrown: close stops on it before the amendment and the close comment,
+ * so a closed epic always has a pushed entry for distill (G24).
+ */
+export function pushEpicDistillBranch(run: Runner, wtPath: string, branch: string): { ok: true } | { ok: false; message: string } {
+    const r = run("git", ["push", "-u", PUSH_REMOTE, branch], { cwd: wtPath });
+    return r.status === 0 ? { ok: true } : { ok: false, message: r.stderr.trim() || `git push exited ${r.status}` };
+}

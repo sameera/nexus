@@ -22,6 +22,8 @@ export interface FilerArgs {
     keepManifest: boolean;
     classificationLabel: string | null;
     classificationType: string | null;
+    /** `owner/repo` to file into, over the configured story repository; null to use the configured one. */
+    issuesRepo: string | null;
 }
 
 export const DEFAULT_RETRIES = 3;
@@ -52,6 +54,7 @@ export function filerUsage(): string {
         "  --keep-manifest               Keep the resume ledger after a fully successful run.",
         "  --classification-label <name> Canonical label applied to every issue this run creates.",
         "  --classification-type <name>  Canonical GitHub issue-type applied in `types` mode.",
+        "  --issues-repo <owner/repo>    File into this repository instead of the configured story repo.",
     ].join("\n");
 }
 
@@ -66,6 +69,7 @@ export function parseFilerArgs(argv: string[]): ArgsOutcome {
         keepManifest: false,
         classificationLabel: null,
         classificationType: null,
+        issuesRepo: null,
     };
     const positional: string[] = [];
     let invalid: string | null = null;
@@ -118,6 +122,9 @@ export function parseFilerArgs(argv: string[]): ArgsOutcome {
             case "--classification-type":
                 args.classificationType = value(++i, token) ?? args.classificationType;
                 break;
+            case "--issues-repo":
+                args.issuesRepo = value(++i, token) ?? args.issuesRepo;
+                break;
             case "--retries":
                 args.retries = tuning(value(++i, token), token, true) ?? args.retries;
                 break;
@@ -151,6 +158,7 @@ export function reconstructFlags(args: FilerArgs): string[] {
     if (args.keepManifest) flags.push("--keep-manifest");
     if (args.classificationLabel !== null) flags.push("--classification-label", args.classificationLabel);
     if (args.classificationType !== null) flags.push("--classification-type", args.classificationType);
+    if (args.issuesRepo !== null) flags.push("--issues-repo", args.issuesRepo);
     if (args.retries !== DEFAULT_RETRIES) flags.push("--retries", String(args.retries));
     if (args.retryBaseDelay !== DEFAULT_RETRY_BASE_DELAY) {
         flags.push("--retry-base-delay", String(args.retryBaseDelay));

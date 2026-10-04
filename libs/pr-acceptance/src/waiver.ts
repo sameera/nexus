@@ -47,7 +47,7 @@
  * marker is never read for answers, so a verdict published as a comment cannot answer itself.
  */
 
-import { parseIssueRef } from "@nexus/workspace/issue-ref";
+import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
 import { type Result, fail, ok } from "./diagnostic.js";
 import { JUDGMENTS_MARKER } from "./judgments-block.js";
 import { RECEIPT_MARKER, maintainerAuthored, newestReceiptBlock } from "./receipt-blocks.js";
@@ -124,17 +124,24 @@ export interface WaiverMatch {
 
 const unquote = (v: string): string => v.trim().replace(/^["']|["']$/g, "");
 
-/** Parse the waiver block in `body`. Null when the body carries no waiver marker. */
-export function parseWaiverBlock(body: string): ParsedWaiver | null {
+/** The fenced block after the waiver marker in `body`: null with no marker, a problem with no block. */
+function waiverFence(body: string): string | { problem: string } | null {
     const i = body.indexOf(WAIVER_MARKER);
     if (i < 0) return null;
     const fence = /```(?:yaml)?\s*\n([\s\S]*?)```/.exec(body.slice(i + WAIVER_MARKER.length));
-    if (fence === null) return { ok: false, problem: "no fenced block follows the waiver marker" };
+    return fence === null ? { problem: "no fenced block follows the waiver marker" } : fence[1];
+}
+
+/** Parse the waiver block in `body`. Null when the body carries no waiver marker. */
+export function parseWaiverBlock(body: string): ParsedWaiver | null {
+    const block = waiverFence(body);
+    if (block === null) return null;
+    if (typeof block !== "string") return { ok: false, problem: block.problem };
 
     const fields = new Map<string, string>();
     const files: string[] = [];
     let inFiles = false;
-    for (const line of fence[1].split("\n")) {
+    for (const line of block.split("\n")) {
         const item = /^\s+-\s+(.+?)\s*$/.exec(line);
         if (item && inFiles) {
             files.push(unquote(item[1]));
@@ -159,7 +166,131 @@ export function parseWaiverBlock(body: string): ParsedWaiver | null {
         if (record === "" || digest === "") return { ok: false, problem: "a record-revised waiver must name both `record:` and `digest:`" };
         return { ok: true, terms: { cause: "record-revised", record, digest }, reason };
     }
+    if (waive === STORYLESS_CAUSE) return { ok: false, problem: "a storyless waiver belongs on the story's own issue, not on a pull request" };
     return { ok: false, problem: `\`waive: ${waive}\` is not a cause a waiver can clear (landed-change or record-revised)` };
+}
+
+// ---------------------------------------------------------------------------------------------
+// The storyless waiver (epic #830, story #866, decision record #872, D10).
+//
+// A closed story with no claiming pull request — one that shipped inside a sibling's pull request —
+// has no pull request to carry a comment, so its waiver is a comment on the story's own issue, in
+// the same marker-and-fence form:
+//
+//     <!-- nexus:close-waiver -->
+//     ```yaml
+//     waive: storyless
+//     story: "#865"
+//     reason: <optional, one line>
+//     ```
+//
+// Trust is the same rule, read from the comment's association on the story issue, so it is decided
+// against the issues repository the story lives in, never against a code repository.
+// ---------------------------------------------------------------------------------------------
+
+/** The cause a storyless waiver names. */
+export const STORYLESS_CAUSE = "storyless";
+
+/** A storyless waiver block as parsed: the story it names, or why it could not be read. */
+export type ParsedStorylessWaiver = { ok: true; story: string; reason: string | null } | { ok: false; problem: string };
+
+/** One storyless waiver comment on a story issue. */
+export interface StorylessWaiverComment {
+    author: string;
+    url: string;
+    /** The platform's timestamp on the comment; its date is the waiver's date. */
+    at: string;
+    trusted: boolean;
+    waiver: ParsedStorylessWaiver;
+}
+
+/** The storyless waiver that applies to a story, if any, and every one that cleared nothing. */
+export interface StorylessWaiverMatch {
+    applied: StorylessWaiverComment | null;
+    rejected: RejectedWaiver[];
+}
+
+/** Parse a storyless waiver in `body`. Null when the body carries no waiver marker or waives another cause. */
+export function parseStorylessWaiver(body: string): ParsedStorylessWaiver | null {
+    const block = waiverFence(body);
+    if (block === null) return null;
+    if (typeof block !== "string") return { ok: false, problem: block.problem };
+    const fields = new Map<string, string>();
+    for (const line of block.split("\n")) {
+        const m = /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*?)\s*$/.exec(line);
+        if (m !== null) fields.set(m[1], unquote(m[2]));
+    }
+    const waive = fields.get("waive") ?? "";
+    if (waive === "landed-change" || waive === "record-revised") return null;
+    if (waive !== STORYLESS_CAUSE) return { ok: false, problem: `\`waive: ${waive}\` is not the storyless form (waive: storyless)` };
+    const story = fields.get("story") ?? "";
+    if (story === "") return { ok: false, problem: "a storyless waiver must name the story under `story:`" };
+    return { ok: true, story, reason: fields.get("reason") || null };
+}
+
+/** The exact storyless waiver comment to post on story `story`'s own issue. */
+export function storylessWaiverComment(story: number): string {
+    return [WAIVER_MARKER, "```yaml", `waive: ${STORYLESS_CAUSE}`, `story: "#${story}"`, "reason: <optional, one line>", "```"].join("\n");
+}
+
+/**
+ * Every storyless waiver comment on story issue `story` in `issuesRepo`. A failed or unparseable
+ * read fails: it is never "no waiver".
+ */
+export function readStoryWaivers(run: Runner, cwd: string, issuesRepo: string, story: number): Result<StorylessWaiverComment[]> {
+    const r = run("gh", ["issue", "view", String(story), "--repo", issuesRepo, "--json", "comments"], { cwd });
+    if (r.status !== 0) return fail("gh-failed", `gh issue view ${story} --json comments failed: ${r.stderr.trim()}`);
+    let doc: Record<string, unknown>;
+    try {
+        doc = JSON.parse(r.stdout) as Record<string, unknown>;
+    } catch (e) {
+        return fail("gh-failed", `gh issue view ${story} returned unparseable JSON: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const out: StorylessWaiverComment[] = [];
+    for (const item of Array.isArray(doc["comments"]) ? doc["comments"] : []) {
+        if (item === null || typeof item !== "object") continue;
+        const c = item as Record<string, unknown>;
+        const waiver = parseStorylessWaiver(typeof c["body"] === "string" ? c["body"] : "");
+        if (waiver === null) continue;
+        const author = c["author"] !== null && typeof c["author"] === "object" ? (c["author"] as Record<string, unknown>)["login"] : undefined;
+        out.push({
+            author: typeof author === "string" ? author : "",
+            url: typeof c["url"] === "string" ? c["url"] : "",
+            at: typeof c["createdAt"] === "string" ? c["createdAt"] : "",
+            trusted: maintainerAuthored({ authorAssociation: typeof c["authorAssociation"] === "string" ? c["authorAssociation"] : null }),
+            waiver,
+        });
+    }
+    return ok(out);
+}
+
+/**
+ * The storyless waiver that clears story `story`: the newest trusted comment naming that story in
+ * `issuesRepo` (a bare `#<n>` names the story's own repository). Every other one is named with why
+ * it cleared nothing.
+ */
+export function matchStorylessWaiver(comments: readonly StorylessWaiverComment[], story: number, issuesRepo: string): StorylessWaiverMatch {
+    const accepted: StorylessWaiverComment[] = [];
+    const rejected: RejectedWaiver[] = [];
+    for (const c of comments) {
+        const who = { author: c.author, url: c.url };
+        if (!c.waiver.ok) {
+            rejected.push({ ...who, why: "malformed", problem: c.waiver.problem });
+            continue;
+        }
+        if (!c.trusted) {
+            rejected.push({ ...who, why: "untrusted" });
+            continue;
+        }
+        const ref = parseIssueRef(c.waiver.story);
+        if (ref === null || ref.number !== story || (ref.repo !== null && !sameRepo(ref.repo, issuesRepo))) {
+            rejected.push({ ...who, why: "malformed", problem: `it names story ${c.waiver.story}, not #${story}` });
+            continue;
+        }
+        accepted.push(c);
+    }
+    const applied = newestReceiptBlock(accepted);
+    return { applied, rejected: applied === null ? rejected : rejected.filter((r) => r.why === "untrusted" || r.why === "malformed") };
 }
 
 /**

@@ -32,7 +32,7 @@ export interface FilerConfig {
 export function resolveFilerConfig(layers: RootLayers, args: FilerArgs): FilerConfig {
     const storyLabel: string = resolveKeyFromLayers(layers, "story-label") ?? "";
     return {
-        issuesRepo: resolveKeyFromLayers(layers, "story-repo") || null,
+        issuesRepo: args.issuesRepo || resolveKeyFromLayers(layers, "story-repo") || null,
         classification: resolveClassification({
             classification: resolveKeyFromLayers(layers, "classification") ?? "",
         }),

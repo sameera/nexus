@@ -27,6 +27,7 @@
  * (D14). Given the same verdicts, record body and epic state, the output is the same (G13).
  */
 
+import { CLOSE_STUB_KEY_PREFIX } from "@nexus/delivery-config/stub-key";
 import { deferredScopeStatus, type Departure, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { recordSections, type SectionDecision } from "@nexus/scope-razor/record";
 import { sameRepo } from "@nexus/workspace/issue-ref";
@@ -38,9 +39,6 @@ export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
 
 /** What opens the hidden key a record amendment carries. */
 export const AMENDMENT_KEY_PREFIX = "<!-- nexus:close-amendment ";
-
-/** What opens the hidden key a deferred-scope stub carries. */
-export const STUB_KEY_PREFIX = "<!-- nexus:close-stub ";
 
 /** One merged pull request's verdict, as far as close writes from it. */
 export interface CloseVerdict {
@@ -78,7 +76,7 @@ export interface CloseContentInput {
     /** Every merged claiming pull request's verdict, in merge order. */
     verdicts: CloseVerdict[];
     ranges: Pick<CloseRanges, "range" | "stories" | "landed" | "waivers">;
-    /** Stories waived as shipping without a pull request of their own, with the waiver's date (#866). */
+    /** Stories waived as shipping without a pull request of their own, with the waiver comment's date (D10). */
     waivedStories?: { story: number; date: string }[];
 }
 
@@ -532,11 +530,11 @@ export function renderRecordAmendment(c: CloseContent): string | null {
 
 /** The hidden key a deferred-scope stub carries: its epic, pull request and proposal. */
 export function stubKey(c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): string {
-    return `${STUB_KEY_PREFIX}epic: ${c.issuesRepo.toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
+    return `${CLOSE_STUB_KEY_PREFIX}epic: ${c.issuesRepo.toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
 }
 
 /**
- * The title and body of the stub an approved proposal is filed as (D9, filed by #866): its goal,
+ * The title and body of the stub an approved proposal is filed as (D9): its goal,
  * the feature path, its provenance and its key. No estimate and no ordering; planning sizes it.
  */
 export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { title: string; body: string } {
