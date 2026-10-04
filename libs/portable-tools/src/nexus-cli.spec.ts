@@ -2122,3 +2122,40 @@ describe("nexus close (story #864)", () => {
         expect(io.err.join("\n")).toMatch(/remedy:/);
     });
 });
+
+// Epic #830, story #867 (decision record #872, D1, D13): recovery is a mode of the same verb,
+// addressed at the closed epic. Its behaviour is specified in close-recovery.spec.ts.
+describe("nexus close --recover (story #867)", () => {
+    it("is named in the verb's help as re-stamping a closed epic", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        const help = io.out.join("\n");
+        expect(help).toContain("nexus close --recover <epic>");
+        expect(help).toMatch(/re-stamps a CLOSED epic/);
+    });
+
+    it("refuses to mix recovery with a pull request, a hand-off or an entry path, and a non-number", async () => {
+        for (const argv of [
+            ["close", "--recover", "830", "--pr", "5"],
+            ["close", "--recover", "830", "--handoff", "x"],
+            ["close", "--recover", "830", "epic.md"],
+            ["close", "--recover", "abc"],
+            ["close", "--recover"],
+        ]) {
+            const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+            expect(await runNexusCli(argv, io), argv.join(" ")).toBe(2);
+            expect(io.err.join("\n")).toContain("nexus close --recover <epic>");
+        }
+    });
+
+    it("stops a member checkout before reading anything, and exits 1 (G44)", async () => {
+        const repo: string = makeTmpDir("cli-close-recover-member-");
+        execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+        fs.mkdirSync(path.join(repo, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(repo, ".nexus", "config", "hub.yml"), "hub: acme/hub\n");
+        const io: CapturedIo = makeIo(repo);
+        expect(await runNexusCli(["close", "--recover", "830"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/remedy: .*hub/);
+        expect(io.err.join("\n")).toContain("nexus close --recover 830");
+    });
+});

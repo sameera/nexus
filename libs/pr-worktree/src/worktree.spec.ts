@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
-import { openAnalyzeWorktree, openCloseWorktree, openEpicDistillWorktree, pushEpicDistillBranch, removeWorktree } from "./worktree.js";
+import { findEpicDistillBranch, openAnalyzeWorktree, openCloseWorktree, openEpicDistillWorktree, pushEpicDistillBranch, removeWorktree } from "./worktree.js";
 import { defaultRunner, git } from "./run.js";
 import { buildForkWithUpstream, buildRepoWithOrigin, makeParent, sh } from "./git-fixtures.js";
 
@@ -109,6 +109,28 @@ describe("openEpicDistillWorktree", () => {
         if (r.ok) return;
         expect(r.error.message).toContain("origin");
         expect(sh(repo, "git", "for-each-ref", "--format=%(refname:short)", "refs/heads/distill/")).toBe("");
+    });
+});
+
+// Epic #830, story #867 (decision record #872, D13): recovery asks, before any write, whether an
+// earlier close left a distill branch for the epic, and creates nothing to find out.
+describe("findEpicDistillBranch", () => {
+    it("finds a local branch, then a pushed one, and fetches or creates nothing", () => {
+        const { repo } = buildRepoWithOrigin(makeParent(tracked));
+        expect(findEpicDistillBranch(defaultRunner, repo, 830)).toEqual({ ok: true, branch: null });
+
+        sh(repo, "git", "push", "-q", "origin", "main:refs/heads/distill/2026-10-02-epic-830");
+        expect(findEpicDistillBranch(defaultRunner, repo, 830)).toEqual({ ok: true, branch: "distill/2026-10-02-epic-830", source: "pushed" });
+        expect(sh(repo, "git", "for-each-ref", "--format=%(refname:short)", "refs/heads/distill/")).toBe("");
+
+        sh(repo, "git", "branch", "distill/2026-10-01-epic-830");
+        expect(findEpicDistillBranch(defaultRunner, repo, 830)).toEqual({ ok: true, branch: "distill/2026-10-01-epic-830", source: "local" });
+    });
+
+    it("fails, rather than reporting no branch, when the push remote cannot be read", () => {
+        const { repo, origin } = buildRepoWithOrigin(makeParent(tracked));
+        fs.rmSync(origin, { recursive: true, force: true });
+        expect(findEpicDistillBranch(defaultRunner, repo, 830).ok).toBe(false);
     });
 });
 

@@ -99,6 +99,11 @@
       "import": "./src/close-text.ts",
       "default": "./src/close-text.ts"
     },
+    "./close-recovery": {
+      "types": "./src/close-recovery.ts",
+      "import": "./src/close-recovery.ts",
+      "default": "./src/close-recovery.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {
@@ -108,6 +113,7 @@
     "@nexus/pr-worktree": "workspace:*",
     "@nexus/record-digest": "workspace:*",
     "@nexus/delivery-config": "workspace:*",
-    "@nexus/scope-razor": "workspace:*"
+    "@nexus/scope-razor": "workspace:*",
+    "yaml": "^2.9.0"
   }
 }

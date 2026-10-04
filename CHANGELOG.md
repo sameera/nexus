@@ -51,6 +51,18 @@ behaviour says so.
   comment is on the epic, a re-run only closes the issue, writes the note and reports. A failed
   push stops close before anything is posted, with the epic open. A failed close comment stops
   close with the epic open, and the stop names re-running `nexus close` to post it.
+- **`nexus close --recover <epic>` re-stamps a closed epic whose decision record was revised.**
+  Distill refuses an entry whose record changed after close. Recovery fixes that without a model.
+  It stops, before writing anything, while the revised record is not approved, and names approving
+  it. For each merged pull request it needs one of two things: a verdict judged against the
+  current revision, or a trusted revised-record waiver on the pull request accepting it. A pull
+  request with neither stops recovery, and the stop names both remedies, with the exact waiver to
+  post. Key Decisions then takes the record's decisions from the new body. A re-judged pull
+  request's departures are rebuilt from its verdict; a waived one's are kept. Recovery re-stamps
+  `record_hash` and `analyze:`, commits and pushes the entry on its distill branch, and posts a
+  fresh close comment, so distill's recovery from the epic issue finds the new hash. It changes
+  nothing else in the entry, files no stub and posts no amendment. When no entry is left, it posts
+  only the fresh comment and names `/nxs.distill --recover <epic>`.
 - **A story that shipped inside another story's pull request is waived by a comment on its own
   issue (breaking).** Close no longer offers this waiver. Post the waiver comment on the story's
   issue before close runs, as someone who can speak for the issues repository; when it is missing,
