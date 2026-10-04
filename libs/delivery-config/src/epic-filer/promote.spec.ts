@@ -80,6 +80,41 @@ describe("promotion populates the issue that already exists", () => {
     });
 });
 
+describe("promotion keeps the key close filed the stub under (epic #830, story #866, G21)", () => {
+    const KEY = "<!-- nexus:close-stub epic: acme/repo#830 pr: acme/repo#901 proposal: DS1 -->";
+
+    function promoteStubBody(stubBody: string): { code: number; edited: string } {
+        const root: string = checkoutWith({ classification: "labels", project: "none" });
+        const file: string = writeDraft(root, draft({ epic: '"The Promoted Epic"' }));
+        const labels = stub(["needs-refinement"]);
+        let edited = "";
+        const fake = fakeEnvironment({
+            answer: (args: string[]) => {
+                if (args[0] === "issue" && args[1] === "view" && args.includes("body")) return OK(stubBody);
+                if (args[0] === "issue" && args[1] === "edit" && args.includes("--body-file")) {
+                    edited = fs.readFileSync(args[args.indexOf("--body-file") + 1], "utf8");
+                    return OK("https://github.com/acme/repo/issues/42\n");
+                }
+                return labels(args);
+            },
+        });
+        return { code: runCreateEpic([file, "--promote", "42"], recordingIo(root), fake.env), edited };
+    }
+
+    it("carries the stub's hidden key into the promoted body, so a re-run of close still finds the stub", () => {
+        const run = promoteStubBody(`A deferred goal\n\n## Meta\n\n- **feature:** x\n\n${KEY}\n`);
+        expect(run.code).toBe(0);
+        expect(run.edited).toContain(KEY);
+        expect(run.edited.split(KEY)).toHaveLength(2);
+    });
+
+    it("adds nothing to the body of a stub close did not file", () => {
+        const run = promoteStubBody("A deferred goal, filed by hand\n");
+        expect(run.code).toBe(0);
+        expect(run.edited).not.toContain("nexus:close-stub");
+    });
+});
+
 describe("promotion is refused before any write", () => {
     it("refuses an already-planned epic, naming the command form that loads one", () => {
         const run = promote({ labels: ["epic"] });

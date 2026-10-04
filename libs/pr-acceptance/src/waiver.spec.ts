@@ -11,9 +11,13 @@ import {
     WAIVER_MARKER,
     matchLandedChangeWaiver,
     matchRecordWaiver,
+    matchStorylessWaiver,
     parseAnswerLines,
+    parseStorylessWaiver,
     parseWaiverBlock,
     readPrWaivers,
+    readStoryWaivers,
+    storylessWaiverComment,
     type PrWaivers,
 } from "./waiver.js";
 
@@ -236,5 +240,73 @@ describe("readPrWaivers — every answer line on one pull request", () => {
     it("reads no answer from a verdict published as a comment, even one listing answered items (G12)", () => {
         const verdict = "DV1 (high) accepted by @lead (https://x/10): by design\n\n<!-- nexus:analyze-receipt -->\n```yaml\npr: 10\n```";
         expect(read([{ body: verdict }]).answers).toEqual([]);
+    });
+});
+
+// Epic #830, story #866 (decision record #872, D10): a story with no claiming pull request is
+// waived by a trusted comment on its own issue, in the same marker-and-fence form.
+describe("the storyless waiver on a story's own issue (D10, G5, G22)", () => {
+    const storyless = (story: string, extra = "") => `${WAIVER_MARKER}\n\`\`\`yaml\nwaive: storyless\nstory: "${story}"\n${extra}\`\`\``;
+    const issueView = (comments: Comment[]): Route => ({ match: "gh issue view", result: { stdout: JSON.stringify({ comments: comments.map(comment) }) } });
+
+    it("prints the exact form, which its own parser reads back", () => {
+        const form = storylessWaiverComment(865);
+        expect(form.startsWith(WAIVER_MARKER)).toBe(true);
+        expect(parseStorylessWaiver(form)).toEqual({ ok: true, story: "#865", reason: "<optional, one line>" });
+    });
+
+    it("reads the story it names and its reason, and ignores a pull-request waiver or a plain comment", () => {
+        expect(parseStorylessWaiver(storyless("#865", "reason: shipped in #864's pull request\n"))).toEqual({ ok: true, story: "#865", reason: "shipped in #864's pull request" });
+        expect(parseStorylessWaiver(recordBody("#849", "abc"))).toBeNull();
+        expect(parseStorylessWaiver("LGTM")).toBeNull();
+        expect(parseStorylessWaiver(`${WAIVER_MARKER}\nno fence`)?.ok).toBe(false);
+        expect(parseStorylessWaiver(`${WAIVER_MARKER}\n\`\`\`yaml\nwaive: storyless\n\`\`\``)?.ok).toBe(false);
+        expect(parseStorylessWaiver(`${WAIVER_MARKER}\n\`\`\`yaml\nwaive: whatever\n\`\`\``)?.ok).toBe(false);
+    });
+
+    it("is not a cause a pull-request waiver can clear, and says where it belongs", () => {
+        const r = parseWaiverBlock(storyless("#865"));
+        expect(r?.ok).toBe(false);
+        expect(r !== null && !r.ok ? r.problem : "").toMatch(/story's own issue/);
+    });
+
+    it("reads the story issue in the issues repository, with each comment's author, date and trust", () => {
+        const run = fakeRunner([issueView([{ body: "thanks" }, { body: storyless("#865"), login: "lead", at: "2026-10-02T09:00:00Z", url: "https://x/c/9" }, { body: storyless("#865"), association: "NONE" }])]);
+        const r = readStoryWaivers(run, "/co", "acme/tracker", 865);
+        expect(run.calls[0]).toContain("gh issue view 865 --repo acme/tracker --json comments");
+        expect(r.ok && r.value.map((c) => [c.author, c.at, c.trusted])).toEqual([
+            ["lead", "2026-10-02T09:00:00Z", true],
+            ["lead", "2026-10-01T00:00:00Z", false],
+        ]);
+    });
+
+    it("fails, never reading as no waiver, when the story's comments cannot be read", () => {
+        expect(readStoryWaivers(fakeRunner([{ match: "gh issue view", result: { status: 1, stderr: "HTTP 502" } }]), "/co", "acme/tracker", 865).ok).toBe(false);
+        expect(readStoryWaivers(fakeRunner([{ match: "gh issue view", result: { stdout: "nope" } }]), "/co", "acme/tracker", 865).ok).toBe(false);
+    });
+
+    it("applies the newest trusted waiver naming this story, and names every one that cleared nothing", () => {
+        const read = (comments: Comment[]) => {
+            const r = readStoryWaivers(fakeRunner([issueView(comments)]), "/co", "acme/tracker", 865);
+            if (!r.ok) throw new Error(r.error.message);
+            return r.value;
+        };
+        const m = matchStorylessWaiver(
+            read([
+                { body: storyless("#865"), at: "2026-10-01T00:00:00Z", url: "https://x/1" },
+                { body: storyless("acme/tracker#865"), at: "2026-10-03T00:00:00Z", url: "https://x/2" },
+                { body: storyless("#865"), association: "CONTRIBUTOR", url: "https://x/3" },
+            ]),
+            865,
+            "acme/tracker",
+        );
+        expect(m.applied?.url).toBe("https://x/2");
+        expect(m.rejected).toEqual([{ author: "lead", url: "https://x/3", why: "untrusted" }]);
+
+        const none = matchStorylessWaiver(read([{ body: storyless("#864"), url: "https://x/4" }, { body: storyless("other/repo#865"), url: "https://x/5" }]), 865, "acme/tracker");
+        expect(none.applied).toBeNull();
+        expect(none.rejected.map((r) => r.url)).toEqual(["https://x/4", "https://x/5"]);
+        const broken = matchStorylessWaiver(read([{ body: `${WAIVER_MARKER}\n\`\`\`yaml\nwaive: storyless\n\`\`\`` }]), 865, "acme/tracker");
+        expect(broken.rejected[0].why).toBe("malformed");
     });
 });

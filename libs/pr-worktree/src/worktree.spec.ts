@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
-import { openAnalyzeWorktree, openCloseWorktree, openEpicDistillWorktree, removeWorktree } from "./worktree.js";
+import { openAnalyzeWorktree, openCloseWorktree, openEpicDistillWorktree, pushEpicDistillBranch, removeWorktree } from "./worktree.js";
 import { defaultRunner, git } from "./run.js";
 import { buildForkWithUpstream, buildRepoWithOrigin, makeParent, sh } from "./git-fixtures.js";
 
@@ -109,6 +109,33 @@ describe("openEpicDistillWorktree", () => {
         if (r.ok) return;
         expect(r.error.message).toContain("origin");
         expect(sh(repo, "git", "for-each-ref", "--format=%(refname:short)", "refs/heads/distill/")).toBe("");
+    });
+});
+
+// Epic #830, story #866 (decision record #872, D11, G24): the branch is pushed before anything
+// is posted, and a failed push is returned so close can stop on it.
+describe("pushEpicDistillBranch", () => {
+    it("pushes the distill branch to the remote an earlier run's branch is found on, so a re-run reuses it", () => {
+        const { repo } = buildRepoWithOrigin(makeParent(tracked));
+        const r = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-04");
+        if (!r.ok) throw new Error(r.error.message);
+        worktrees.push({ repo, path: r.wtPath });
+        fs.writeFileSync(`${r.wtPath}/close-record.md`, "record\n");
+        sh(r.wtPath, "git", "add", "-A");
+        sh(r.wtPath, "git", "commit", "-qm", "close: epic-830 — close record");
+        expect(pushEpicDistillBranch(defaultRunner, r.wtPath, r.branch)).toEqual({ ok: true });
+        expect(sh(repo, "git", "ls-remote", "--heads", "origin", r.branch)).toContain(git(defaultRunner, r.wtPath, "rev-parse", "HEAD"));
+    });
+
+    it("returns the cause when the push fails", () => {
+        const { repo, origin } = buildRepoWithOrigin(makeParent(tracked));
+        const r = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-04");
+        if (!r.ok) throw new Error(r.error.message);
+        worktrees.push({ repo, path: r.wtPath });
+        fs.rmSync(origin, { recursive: true, force: true });
+        const pushed = pushEpicDistillBranch(defaultRunner, r.wtPath, r.branch);
+        expect(pushed.ok).toBe(false);
+        expect(pushed.ok ? "" : pushed.message).not.toBe("");
     });
 });
 

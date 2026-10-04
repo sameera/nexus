@@ -34,6 +34,16 @@ describe("waiveStory — writing the close-time waiver marker (story #502, decis
         expect(calls).toEqual([{ cmd: "gh", args: ["issue", "edit", "502", "--add-label", "no-pull-request"], cwd: "/repo" }]);
     });
 
+    it("targets the issues repository the story lives in, when close names one (G46)", () => {
+        const calls: string[][] = [];
+        const run: Runner = (_cmd, args) => {
+            calls.push(args);
+            return { status: 0, stdout: "", stderr: "" };
+        };
+        expect(waiveStory(run, "/repo", 865, "no-pull-request", "acme/tracker")).toEqual({ ok: true });
+        expect(calls).toEqual([["issue", "edit", "865", "--repo", "acme/tracker", "--add-label", "no-pull-request"]]);
+    });
+
     it("wraps a gh failure into a diagnostic naming the story and the label", () => {
         const run: Runner = () => ({ status: 1, stdout: "", stderr: "gh: issue #502 not found\n" });
 

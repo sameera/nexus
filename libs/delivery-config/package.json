@@ -79,6 +79,16 @@
       "import": "./src/epic-filer/run.ts",
       "default": "./src/epic-filer/run.ts"
     },
+    "./stub-key": {
+      "types": "./src/stub-key.ts",
+      "import": "./src/stub-key.ts",
+      "default": "./src/stub-key.ts"
+    },
+    "./story-filer/environment": {
+      "types": "./src/story-filer/environment.ts",
+      "import": "./src/story-filer/environment.ts",
+      "default": "./src/story-filer/environment.ts"
+    },
     "./story-filer/run": {
       "types": "./src/story-filer/run.ts",
       "import": "./src/story-filer/run.ts",

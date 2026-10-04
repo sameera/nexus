@@ -136,9 +136,15 @@ function runClose(reason: string): { entry: string; comment: string } {
         commitEntry: () => ({ ok: true, committed: true }),
         issueComments: () => ({ ok: true, comments: [] }),
         postComment: () => ({ ok: true }),
+        storyWaivers: () => ({ ok: true, comments: [] }),
+        epicMentions: () => ({ ok: true, issues: [] }),
+        fileStubs: (_root, _repo, _epic, stubs) => ({ ok: true, numbers: new Map(stubs.map((s, i) => [s.key, 1000 + i])), notes: [] }),
+        writeMarker: () => ({ ok: true }),
+        push: () => ({ ok: true }),
+        closeIssue: () => ({ ok: true, already: false }),
     };
     const out = runCloseCommand(deps, { cwd: repoRoot, pr: PR, entryPath: null, handoff: null, date: "2026-10-04", nexusVersion: "0.92.0" });
-    if (!out.ok) throw new Error(JSON.stringify(out.stops));
+    if (!out.ok || out.resumed) throw new Error(JSON.stringify(out));
     return { entry: path.dirname(out.recordPath), comment: out.closeComment };
 }
 

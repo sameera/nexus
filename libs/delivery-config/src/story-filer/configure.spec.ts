@@ -76,6 +76,19 @@ describe("resolving what this run publishes", () => {
         }
     });
 
+    it("files into the repository --issues-repo names, over the configured story repository", () => {
+        // Close files deferred scope as epic stubs into the epic's own issues repository (epic #830,
+        // story #866, G46), which can differ from where stories are filed.
+        const root: string = checkoutWith({ classification: "labels", "story-repo": "acme/tracker" });
+        writeItem(root, "STORY-1.md", story("1"));
+        const io = recordingIo(root);
+        const gh = filingPlatform();
+        expect(runCreateStory([scratch(root), "--issues-repo", "acme/epics"], io, gh.env)).toBe(0);
+        const targeted: string[][] = gh.calls.filter((args) => args[0] === "issue" || args[0] === "label");
+        expect(targeted.length).toBeGreaterThan(0);
+        for (const args of targeted) expect(args.join(" ")).toContain("-R acme/epics");
+    });
+
     it("binds every platform call to the resolved target root", () => {
         const root: string = checkoutWith({ classification: "labels" });
         writeItem(root, "STORY-1.md", story("1"));

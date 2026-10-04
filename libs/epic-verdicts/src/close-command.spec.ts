@@ -18,6 +18,7 @@ import { TWO_VERDICT_ANALYZED_HEAD, TWO_VERDICT_PR, TWO_VERDICT_RECORD_HASH, TWO
 import { renderJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { recordDigest } from "@nexus/record-digest/digest";
 import { type CloseCommandDeps, type CloseInput, type CloseVerdictRead, closeCommandDeps, renderCloseOutcome, runCloseCommand } from "./close-command.js";
+import { type StubToFile } from "./close-stubs.js";
 import { type Runner } from "./run.js";
 import { defaultRunner } from "@nexus/workspace/run";
 
@@ -134,13 +135,23 @@ interface Harness {
     repoRoot: string;
     commits: { files: string[]; message: string }[];
     posted: { issue: number; body: string }[];
+    /** Every batch of stubs handed to the filer. */
+    filed: StubToFile[][];
+    /** Every write, in the order close made it (G23). */
+    writes: string[];
+}
+
+/** The comments posted on the record issue: the amendment, never the close comment. */
+function amendments(h: Harness): { issue: number; body: string }[] {
+    return h.posted.filter((p) => p.issue === RECORD);
 }
 
 /** Every read succeeds and every gate passes, unless a spec overrides one dep. */
 function harness(over: Partial<CloseCommandDeps> = {}): Harness {
     const repoRoot = makeDir();
     const wtPath = makeDir();
-    const h: Harness = { deps: {} as CloseCommandDeps, worktreeCalls: 0, wtPath, repoRoot, commits: [], posted: [] };
+    const h: Harness = { deps: {} as CloseCommandDeps, worktreeCalls: 0, wtPath, repoRoot, commits: [], posted: [], filed: [], writes: [] };
+    let nextStub = 1000;
     h.deps = {
         role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot, repo: { identity: ISSUES, source: "origin" } as never } }),
         readPr: () => ({ ok: true, pr: prInfo() }),
@@ -173,12 +184,33 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
         recordBody: () => ({ ok: true, body: RECORD_BODY, digest: RECORD_DIGEST }),
         commitEntry: (_wt, files, message) => {
             h.commits.push({ files, message });
+            h.writes.push("commit");
             return { ok: true, committed: true };
         },
         issueComments: () => ({ ok: true, comments: [] }),
         postComment: (_root, _repo, issue, body) => {
             h.posted.push({ issue, body });
+            h.writes.push(issue === RECORD ? "amendment" : `comment #${issue}`);
             return { ok: true };
+        },
+        storyWaivers: () => ({ ok: true, comments: [] }),
+        epicMentions: () => ({ ok: true, issues: [] }),
+        fileStubs: (_root, _repo, _epic, stubs) => {
+            h.filed.push(stubs);
+            h.writes.push("stubs");
+            return { ok: true, numbers: new Map(stubs.map((s) => [s.key, nextStub++])), notes: [] };
+        },
+        writeMarker: (_root, _repo, story) => {
+            h.writes.push(`marker #${story}`);
+            return { ok: true };
+        },
+        push: () => {
+            h.writes.push("push");
+            return { ok: true };
+        },
+        closeIssue: (_root, _repo, issue) => {
+            h.writes.push(`close #${issue}`);
+            return { ok: true, already: false };
         },
         ...over,
     };
@@ -399,12 +431,16 @@ describe("nexus close — gate stops (AC2, AC3, G5–G8, G43)", () => {
         expect(err).toMatch(/#867.*analyzed head/);
     });
 
-    it("stops on a story no pull request claims and names writing its marker, the only way it passes for now", () => {
+    it("stops on a story no pull request claims and prints the exact storyless waiver to post on its own issue (D10)", () => {
         const states: StoryState[] = [{ story: 865, state: "unshipped", findings: [] }];
         const h = harness({ ranges: () => ({ ok: true, untrusted: [], ranges: ranges({ states: [...currentStates([864]), ...states], closable: false }) }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
         expect(err).toMatch(/#865.*no pull request claims it/);
-        expect(err).toContain("nexus epic-verdicts waive-story --story 865");
+        expect(err).toContain(`comment to post on story ${ISSUES}#865:`);
+        expect(err).toContain("<!-- nexus:close-waiver -->");
+        expect(err).toContain("waive: storyless");
+        expect(err).toContain('story: "#865"');
+        expect(err).not.toContain("waive-story");
     });
 
     it("lets a story carrying the marker pass", () => {
@@ -575,13 +611,11 @@ describe("nexus close — the worktree step", () => {
         expect(err).toContain("HTTP 502");
     });
 
-    it("writes no hand-off note, because this close does not finish its writes yet (G17)", () => {
-        const h = harness();
+    it("writes no hand-off note on a stop (G17)", () => {
+        const h = harness({ subIssues: () => ({ ok: true, facts: new Map([[865, facts("OPEN")]]) }) });
         const note = path.join(h.repoRoot, "handoff.txt");
-        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { handoff: note })));
-        expect(rendered.exitCode).toBe(0);
+        expectStop(h, runCloseCommand(h.deps, input(h, { handoff: note })));
         expect(fs.existsSync(note)).toBe(false);
-        expect(text(rendered.stdout)).toMatch(/hand-off note/i);
     });
 });
 
@@ -690,7 +724,7 @@ function closed(h: Harness, over: Partial<CloseInput> = {}): { record: string; c
     const rendered = renderCloseOutcome(out);
     expect(rendered.stderr).toEqual([]);
     expect(rendered.exitCode).toBe(0);
-    if (!out.ok) throw new Error("unreachable");
+    if (!out.ok || out.resumed) throw new Error("unreachable");
     return { record: fs.readFileSync(out.recordPath, "utf8"), comment: out.closeComment, stdout: text(rendered.stdout), out };
 }
 
@@ -903,10 +937,10 @@ describe("the close record keeps today's shape for distill (story #865, AC2, D4,
         expect(sectionOf(record, "## Key Decisions")).toContain("Pick A");
         expect(sectionOf(record, "## Deviation Rationale")).toContain(`the epic's description (#${EPIC}), How it works`);
         expect(comment).not.toContain("Decision record:");
-        expect(h.posted).toEqual([]);
+        expect(amendments(h)).toEqual([]);
     });
 
-    it("lists approved deferred scope, and only approved scope, as not yet filed", () => {
+    it("lists approved deferred scope, and only approved scope, by the stub number it was filed as", () => {
         const verdict = emptyJudgments({
             findings: [{ id: "F1", kind: "finding", found: true, severity: "high", about: "#864 AC4", summary: "unmet", files: [], answer: null }],
             deferred: [
@@ -917,9 +951,8 @@ describe("the close record keeps today's shape for distill (story #865, AC2, D4,
         });
         const { record, stdout } = closed(harness({ verdict: () => present(verdict) }));
         const ds = sectionOf(record, "## Deferred Scope");
-        expect(ds).toContain("Finish AC4 later");
-        expect(ds).toContain("not yet filed");
-        expect(ds).toContain("@pm");
+        expect(ds).toContain("- #1000 — Finish AC4 later");
+        expect(ds).not.toContain("not yet filed");
         expect(ds).not.toContain("Nobody approved this");
         expect(stdout).toMatch(/Deferred scope: +1 approved proposal/);
     });
@@ -970,8 +1003,8 @@ describe("the record amendment (story #865, AC3, D12, G28, G48)", () => {
     it("posts one amendment on the record issue naming each superseded decision, what shipped and why, with a key naming the epic", () => {
         const h = harness({ verdict: () => present(superseding()) });
         const { stdout } = closed(h);
-        expect(h.posted).toHaveLength(1);
-        const { issue, body } = h.posted[0];
+        expect(amendments(h)).toHaveLength(1);
+        const { issue, body } = amendments(h)[0];
         expect(issue).toBe(RECORD);
         expect(body).toMatch(/^## Amended at close — 1 decision\(s\) superseded/);
         expect(body).toContain("**D2 — No model fallback: A verdict without judgments stops close.** → **shipped:** falls back to a model pass. reason for DV1");
@@ -983,7 +1016,7 @@ describe("the record amendment (story #865, AC3, D12, G28, G48)", () => {
     it("posts nothing when no departure is marked superseding", () => {
         const h = harness({ verdict: () => present(emptyJudgments({ items: [departure("DV1")] })) });
         const { stdout } = closed(h);
-        expect(h.posted).toEqual([]);
+        expect(amendments(h)).toEqual([]);
         expect(stdout).toMatch(/Record amendment: .*none/);
     });
 
@@ -993,7 +1026,7 @@ describe("the record amendment (story #865, AC3, D12, G28, G48)", () => {
             issueComments: () => ({ ok: true, comments: [{ body: `old\n<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`, authorAssociation: "OWNER" }] }),
         });
         const { stdout } = closed(h);
-        expect(h.posted).toEqual([]);
+        expect(amendments(h)).toEqual([]);
         expect(stdout).toMatch(/already posted by an earlier run/);
     });
 
@@ -1003,20 +1036,24 @@ describe("the record amendment (story #865, AC3, D12, G28, G48)", () => {
             issueComments: () => ({ ok: true, comments: [{ body: `<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`, authorAssociation: "NONE" }] }),
         });
         closed(h);
-        expect(h.posted).toHaveLength(1);
+        expect(amendments(h)).toHaveLength(1);
     });
 
     it("reports a failed post and still finishes (G48)", () => {
-        const h = harness({ verdict: () => present(superseding()), postComment: () => ({ ok: false, message: "HTTP 403" }) });
+        const h = harness({ verdict: () => present(superseding()), postComment: (_root, _repo, issue) => (issue === RECORD ? { ok: false, message: "HTTP 403" } : { ok: true }) });
         const { stdout } = closed(h);
+        expect(h.writes).toContain(`close #${EPIC}`);
         expect(stdout).toMatch(/Record amendment: .*NOT POSTED — HTTP 403/);
         expect(stdout).toMatch(/not blocked/i);
     });
 
     it("posts nothing, and says so, when the record's comments cannot be read", () => {
-        const h = harness({ verdict: () => present(superseding()), issueComments: () => ({ ok: false, message: "HTTP 502" }) });
+        const h = harness({
+            verdict: () => present(superseding()),
+            issueComments: (_root, _repo, issue) => (issue === RECORD ? { ok: false, message: "HTTP 502" } : { ok: true, comments: [] }),
+        });
         const { stdout } = closed(h);
-        expect(h.posted).toEqual([]);
+        expect(amendments(h)).toEqual([]);
         expect(stdout).toMatch(/NOT POSTED — could not check for an earlier amendment: HTTP 502/);
     });
 });
@@ -1067,10 +1104,21 @@ describe("copied text cannot add a marker, a fence or frontmatter (story #865, D
     it("leaves the amendment with its own key as its only marker and no fence", () => {
         const h = harness({ verdict: () => present(hostile()) });
         closed(h);
-        expect(h.posted).toHaveLength(1);
-        expect(h.posted[0].body.split("<!--")).toHaveLength(2);
-        expect(h.posted[0].body).not.toMatch(/```|~~~/);
-        expect(h.posted[0].body.split("\n").filter((l) => l.startsWith("## "))).toHaveLength(1);
+        expect(amendments(h)).toHaveLength(1);
+        expect(amendments(h)[0].body.split("<!--")).toHaveLength(2);
+        expect(amendments(h)[0].body).not.toMatch(/```|~~~/);
+        expect(amendments(h)[0].body.split("\n").filter((l) => l.startsWith("## "))).toHaveLength(1);
+    });
+
+    it("leaves the filed stub with its own key as its only marker, no fence, and one line of copied goal (story #866)", () => {
+        const h = harness({ verdict: () => present(hostile()) });
+        closed(h);
+        const [stub] = h.filed.flat();
+        expect(stub.title).not.toMatch(/\n|<!--|```|~~~/);
+        expect(stub.body.split("<!--")).toHaveLength(2);
+        expect(stub.body).toContain("<!-- nexus:close-stub ");
+        expect(stub.body).not.toMatch(/```|~~~/);
+        expect(stub.body.split("\n").filter((l) => l === "---" || l === "range: []")).toEqual([]);
     });
 });
 
@@ -1158,5 +1206,497 @@ describe("nexus close — the record fetch, the commit and the record-issue comm
         expect(deps.commitEntry(repo, files, "again")).toEqual({ ok: true, committed: false });
         const bad = deps.commitEntry(repo, [path.join(repo, "missing.md")], "x");
         expect(bad.ok).toBe(false);
+    });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Story #866 (decision record #872: D9, D10, D11): close files the approved scope, writes the
+// storyless markers, pushes, posts the close comment, closes the epic and hands off — in that
+// order, each write looking first for what an earlier run already did.
+// ---------------------------------------------------------------------------------------------
+
+const DS_LINK = "https://github.com/acme/app/pull/901#issuecomment-77";
+
+function approvedVerdict(...ids: string[]): Judgments {
+    return emptyJudgments({
+        findings: [{ id: "F1", kind: "finding", found: true, severity: "high", about: "#864 AC4", summary: "unmet", files: [], answer: null }],
+        deferred: [
+            ...ids.map((id) => ({ id, kind: "deferred-scope" as const, found: true, settles: "F1", summary: `Goal of ${id}`, answer: { verb: "approved" as const, author: "pm", link: DS_LINK, reason: "" } })),
+            { id: "DS9", kind: "deferred-scope", found: true, settles: "F1", summary: "Nobody approved this", answer: null },
+        ],
+    });
+}
+
+/** A storyless waiver comment on a story issue, as the waiver reader returns it. */
+function storylessComment(story: number, over: Partial<{ author: string; at: string; trusted: boolean; url: string }> = {}) {
+    return { author: "lead", url: `https://github.com/${ISSUES}/issues/${story}#issuecomment-5`, at: "2026-10-02T09:30:00Z", trusted: true, waiver: { ok: true as const, story: `#${story}`, reason: null }, ...over };
+}
+
+/** An epic whose story 865 no pull request claims; once excluded, the gate reads it as excluded. */
+function storylessHarness(over: Partial<CloseCommandDeps> = {}): Harness & { rangeCalls: number[][] } {
+    const rangeCalls: number[][] = [];
+    const h = harness({
+        ranges: (_root, _repo, _epic, inp) => {
+            rangeCalls.push(inp.excluded);
+            const excluded = inp.excluded.includes(865);
+            return {
+                ok: true,
+                untrusted: [],
+                ranges: ranges({
+                    stories: [{ story: 864, ranges: [{ repo: ISSUES, pr: PR, source: "derived", base: "b".repeat(40), head: "m".repeat(40), checkout: "/repo" }] }, ...(excluded ? [] : [{ story: 865, ranges: [] }])],
+                    excluded: inp.excluded,
+                    states: [...currentStates([864]), excluded ? { story: 865, state: "excluded", findings: [] } : { story: 865, state: "unshipped", findings: [] }],
+                    closable: excluded,
+                }),
+            };
+        },
+        storyWaivers: (_root, _repo, story) => ({ ok: true, comments: story === 865 ? [storylessComment(865)] : [] }),
+        ...over,
+    });
+    return Object.assign(h, { rangeCalls });
+}
+
+describe("approved deferred scope is filed as unplanned epic stubs (story #866, AC1, D9, G19, G20)", () => {
+    it("files each approved proposal once, and the committed record names its number", () => {
+        let committedRecord = "";
+        const h = harness({ verdict: () => present(approvedVerdict("DS1", "DS2")) });
+        const commit = h.deps.commitEntry;
+        h.deps.commitEntry = (wt, files, message) => {
+            committedRecord = fs.readFileSync(files.find((f) => f.endsWith("close-record.md")) as string, "utf8");
+            return commit(wt, files, message);
+        };
+        const { record, comment, stdout, out } = closed(h);
+        expect(h.filed).toHaveLength(1);
+        expect(h.filed[0].map((s) => s.title)).toEqual(["Goal of DS1", "Goal of DS2"]);
+        expect(sectionOf(committedRecord, "## Deferred Scope")).toContain("- #1000 — Goal of DS1");
+        expect(sectionOf(record, "## Deferred Scope")).toContain("- #1001 — Goal of DS2");
+        expect(comment).toContain("Deferred scope → #1000 — Goal of DS1");
+        expect(out.stubs.size).toBe(2);
+        expect(stdout).toContain(`${ISSUES}#1000, ${ISSUES}#1001`);
+    });
+
+    it("never files a proposal nobody approved", () => {
+        const h = harness({ verdict: () => present(approvedVerdict("DS1")) });
+        const { record } = closed(h);
+        expect(h.filed.flat().map((s) => s.title)).toEqual(["Goal of DS1"]);
+        expect(record).not.toContain("Nobody approved this");
+        const none = harness({ verdict: () => present(approvedVerdict()) });
+        closed(none);
+        expect(none.filed).toEqual([]);
+    });
+
+    it("writes a stub body with the goal, the feature path, its provenance and its key, and no estimate or ordering", () => {
+        const h = harness({
+            verdict: () => present(approvedVerdict("DS1")),
+            resolveEpic: () => ({
+                ok: true,
+                markdown: `---\nfeature: "Close"\nfeature_path: docs/features/close\nlink: "#${EPIC}"\n---\n`,
+                record: { number: RECORD, state: "closed" },
+                resolved: { number: EPIC, title: "Close becomes a deterministic subcommand", stories: [{ number: 864, title: "a", body: "" }], blockedBy: new Map(), issuesRepo: ISSUES },
+            }),
+        });
+        closed(h);
+        const [stub] = h.filed[0];
+        expect(stub.title).toBe("Goal of DS1");
+        expect(stub.body.startsWith("Goal of DS1\n")).toBe(true);
+        expect(stub.body).toContain("docs/features/close");
+        expect(stub.body).toContain(`(#${EPIC})`);
+        expect(stub.body).toContain(`${ISSUES}#${PR} DS1`);
+        expect(stub.body).toContain("@pm");
+        expect(stub.body).toContain(`<!-- nexus:close-stub epic: ${ISSUES}#${EPIC} pr: ${ISSUES}#${PR} proposal: DS1 -->`);
+        expect(stub.body).not.toMatch(/estimate|blocked_by|parent/i);
+    });
+
+    it("files the approved proposals of every merged pull request, from each one's own verdict", () => {
+        const h = twoPrHarness(approvedVerdict("DS1"), approvedVerdict("DS1"));
+        closed(h);
+        expect(h.filed[0].map((s) => s.key)).toEqual([`${ISSUES}#${PR} DS1`, `${ISSUES}#${PR2} DS1`]);
+    });
+
+    it("stops before the record is committed when filing fails, naming what was filed and the re-run", () => {
+        const h = harness({
+            verdict: () => present(approvedVerdict("DS1", "DS2")),
+            fileStubs: (_r, _repo, _e, stubs) => ({ ok: false, message: '1 of 2 stub(s) were not filed ("Goal of DS2"): HTTP 502', numbers: new Map([[stubs[0].key, 1000]]) }),
+        });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(1);
+        const err = text(rendered.stderr);
+        expect(err).toContain("HTTP 502");
+        expect(err).toContain(`${ISSUES}#1000`);
+        expect(err).toContain(`nexus close --pr ${PR}`);
+        expect(err).not.toContain("Nothing was created");
+        expect(h.commits).toEqual([]);
+        expect(h.posted).toEqual([]);
+    });
+});
+
+describe("a re-run never files a second stub (story #866, D9, G21)", () => {
+    const keyOf = (id: string) => `<!-- nexus:close-stub epic: ${ISSUES}#${EPIC} pr: ${ISSUES}#${PR} proposal: ${id} -->`;
+
+    it("reuses a stub an earlier run filed, found through the epic's back-references by its key, even once promoted", () => {
+        const h = harness({
+            verdict: () => present(approvedVerdict("DS1", "DS2")),
+            // Promoted: the unplanned label is gone and the body was rewritten, but the key line remains.
+            epicMentions: () => ({ ok: true, issues: [{ number: 700, repo: ISSUES, body: `A planned epic now\n\n${keyOf("DS1")}\n`, pullRequest: false, trusted: true }] }),
+        });
+        const { record, stdout } = closed(h);
+        expect(h.filed.flat().map((s) => s.title)).toEqual(["Goal of DS2"]);
+        expect(sectionOf(record, "## Deferred Scope")).toContain("- #700 — Goal of DS1");
+        expect(sectionOf(record, "## Deferred Scope")).toContain("- #1000 — Goal of DS2");
+        expect(stdout).toMatch(/1 filed now, 1 found from an earlier run/);
+    });
+
+    it("files nothing when every approved proposal already has its stub", () => {
+        const h = harness({
+            verdict: () => present(approvedVerdict("DS1")),
+            epicMentions: () => ({ ok: true, issues: [{ number: 700, repo: ISSUES, body: keyOf("DS1"), pullRequest: false, trusted: true }] }),
+        });
+        closed(h);
+        expect(h.filed).toEqual([]);
+        expect(h.writes).not.toContain("stubs");
+    });
+
+    it("does not take a key copied into a pull request, an untrusted issue or another repository's issue", () => {
+        const h = harness({
+            verdict: () => present(approvedVerdict("DS1")),
+            epicMentions: () => ({
+                ok: true,
+                issues: [
+                    { number: 701, repo: ISSUES, body: keyOf("DS1"), pullRequest: true, trusted: true },
+                    { number: 702, repo: ISSUES, body: keyOf("DS1"), pullRequest: false, trusted: false },
+                    { number: 703, repo: "evil/fork", body: keyOf("DS1"), pullRequest: false, trusted: true },
+                ],
+            }),
+        });
+        const { record } = closed(h);
+        expect(h.filed.flat()).toHaveLength(1);
+        expect(sectionOf(record, "## Deferred Scope")).toContain("- #1000 — Goal of DS1");
+    });
+
+    it("stops before creating anything when the back-references cannot be read", () => {
+        const h = harness({ verdict: () => present(approvedVerdict("DS1")), epicMentions: () => ({ ok: false, message: "HTTP 502" }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain("HTTP 502");
+        expect(h.writes).toEqual([]);
+    });
+
+    it("does not read the back-references when nothing was approved", () => {
+        let read = 0;
+        closed(harness({ epicMentions: () => ((read += 1), { ok: true, issues: [] }) }));
+        expect(read).toBe(0);
+    });
+});
+
+describe("the storyless waiver on the story's own issue (story #866, AC2, D10, G5, G22)", () => {
+    it("lets a story no pull request claims pass on a trusted waiver comment, and writes its marker before the close comment", () => {
+        const h = storylessHarness();
+        const { record, stdout } = closed(h);
+        expect(h.writes.indexOf("marker #865")).toBeGreaterThanOrEqual(0);
+        expect(h.writes.indexOf("marker #865")).toBeLessThan(h.writes.indexOf(`comment #${EPIC}`));
+        expect(sectionOf(record, "## Waived Stories")).toBe("- #865 — waived 2026-10-02");
+        expect(stdout).toMatch(/#865 storyless, waived 2026-10-02 by @lead/);
+    });
+
+    it("reads the waived story as excluded, so the stamps are what a re-run with the marker writes", () => {
+        const h = storylessHarness();
+        const first = closed(h).record;
+        expect(h.rangeCalls).toEqual([[], [865]]);
+        const rerun = storylessHarness({ excludedStories: () => [865] });
+        const second = closed(rerun).record;
+        expect(rerun.rangeCalls).toEqual([[865]]);
+        expect(rerun.writes).not.toContain("marker #865");
+        expect(second).toBe(first);
+    });
+
+    it("stops on a waiver from someone who cannot speak for the issues repository, naming it, and writes nothing", () => {
+        const h = storylessHarness({ storyWaivers: () => ({ ok: true, comments: [storylessComment(865, { trusted: false, author: "drive-by" })] }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain("@drive-by");
+        expect(err).toMatch(/cannot speak for/);
+        expect(err).toContain("waive: storyless");
+        expect(h.writes).toEqual([]);
+    });
+
+    it("stops, never reading a failed read as no waiver, when the story's comments cannot be read", () => {
+        const h = storylessHarness({ storyWaivers: () => ({ ok: false, message: "HTTP 502" }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toMatch(/#865.*could not be read/);
+        expect(err).toContain("HTTP 502");
+    });
+
+    it("stops before the record is committed when the marker cannot be written", () => {
+        const h = storylessHarness({ writeMarker: () => ({ ok: false, message: 'could not add the "no-pull-request" label' }) });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toContain("no-pull-request");
+        expect(h.commits).toEqual([]);
+        expect(h.posted).toEqual([]);
+    });
+
+    it("does not read story comments for a story whose pull request claims it", () => {
+        const read: number[] = [];
+        closed(harness({ storyWaivers: (_r, _repo, story) => (read.push(story), { ok: true, comments: [] }) }));
+        expect(read).toEqual([]);
+    });
+});
+
+describe("close writes in a fixed order and hands off only on full success (story #866, AC3, D11, G17, G23, G43, G46)", () => {
+    it("writes stubs, markers, the commit, the push, the amendment, the close comment and the epic close, in that order", () => {
+        const h = storylessHarness({
+            verdict: () => present(emptyJudgments({ ...approvedVerdict("DS1"), items: [departure("DV1", { supersedes: { decision: "D2", instead: "x" } })] })),
+        });
+        closed(h);
+        expect(h.writes).toEqual(["stubs", "marker #865", "commit", "push", "amendment", `comment #${EPIC}`, `close #${EPIC}`]);
+    });
+
+    it("posts the close comment on the epic in the issues repository, and closes only the epic, never a sub-issue", () => {
+        const targets: string[] = [];
+        const h = harness({
+            postComment: (_root, repo, issue) => (targets.push(`comment ${repo}#${issue}`), { ok: true }),
+            closeIssue: (_root, repo, issue) => (targets.push(`close ${repo}#${issue}`), { ok: true, already: false }),
+        });
+        const { comment } = closed(h);
+        expect(targets).toEqual([`comment ${ISSUES}#${EPIC}`, `close ${ISSUES}#${EPIC}`]);
+        expect(comment).toContain(`issues_repo: ${ISSUES}`);
+    });
+
+    it("writes the hand-off note in today's three-line format and names it", () => {
+        const h = harness();
+        const note = path.join(h.repoRoot, "run", "handoff.txt");
+        const { stdout } = closed(h, { handoff: note });
+        expect(fs.readFileSync(note, "utf8")).toBe(`epic: ${EPIC}\nbranch: distill/2026-10-04-epic-${EPIC}\nworktree: ${h.wtPath}\n`);
+        expect(stdout).toContain(`Hand-off note written: ${note}`);
+    });
+
+    it("ends by naming the drain in the worktree when no hand-off was asked for", () => {
+        const h = harness();
+        const { stdout } = closed(h);
+        expect(stdout).toContain(`cd ${h.wtPath} && /nxs.distill`);
+        expect(stdout).toMatch(/Epic issue: +acme\/app#830 — closed/);
+    });
+
+    it("handles an epic issue that is already closed without error (G49)", () => {
+        const h = harness({ closeIssue: () => ({ ok: true, already: true }) });
+        const { stdout } = closed(h);
+        expect(stdout).toMatch(/already closed/);
+    });
+});
+
+describe("a failed write stops close where a re-run can finish it (story #866, AC4, D11, G24, G25)", () => {
+    it("stops on a failed push before the amendment and the close comment, with the epic open and no hand-off note (G24)", () => {
+        const h = harness({ verdict: () => present(emptyJudgments({ items: [departure("DV1", { supersedes: { decision: "D2", instead: "x" } })] })), push: () => ({ ok: false, message: "rejected: permission denied" }) });
+        const note = path.join(h.repoRoot, "handoff.txt");
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { handoff: note })));
+        expect(rendered.exitCode).toBe(1);
+        const err = text(rendered.stderr);
+        expect(err).toContain("permission denied");
+        expect(err).toMatch(/stays open/);
+        expect(err).toContain(`nexus close --pr ${PR}`);
+        expect(h.posted).toEqual([]);
+        expect(h.writes).not.toContain(`close #${EPIC}`);
+        expect(fs.existsSync(note)).toBe(false);
+    });
+
+    it("stops on a failed close comment with the epic open, naming re-running nexus close as what posts it (G25)", () => {
+        const h = harness({ postComment: (_r, _repo, issue) => (issue === EPIC ? { ok: false, message: "HTTP 502" } : { ok: true }) });
+        const note = path.join(h.repoRoot, "handoff.txt");
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { handoff: note })));
+        expect(rendered.exitCode).toBe(1);
+        const err = text(rendered.stderr);
+        expect(err).toMatch(/close comment did not post/);
+        expect(err).toMatch(/stays open/);
+        expect(err).toMatch(new RegExp(`remedy: re-run nexus close --pr ${PR}.*posts it`));
+        expect(err).toMatch(/committed and pushed the close record/);
+        expect(h.writes).not.toContain(`close #${EPIC}`);
+        expect(fs.existsSync(note)).toBe(false);
+    });
+
+    it("stops when the hand-off note cannot be written, after closing the epic", () => {
+        const h = harness();
+        const blocker = path.join(h.repoRoot, "file");
+        fs.writeFileSync(blocker, "x");
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { handoff: path.join(blocker, "handoff.txt") })));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toMatch(/hand-off note could not be written/);
+        expect(h.writes).toContain(`close #${EPIC}`);
+    });
+
+    it("stops with no hand-off note when the epic issue cannot be closed", () => {
+        const h = harness({ closeIssue: () => ({ ok: false, message: "HTTP 403" }) });
+        const note = path.join(h.repoRoot, "handoff.txt");
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { handoff: note })));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toContain("HTTP 403");
+        expect(fs.existsSync(note)).toBe(false);
+    });
+
+    it("finishes on a re-run after a failed push with no second stub, amendment, close comment or branch (G26)", () => {
+        const key = `<!-- nexus:close-stub epic: ${ISSUES}#${EPIC} pr: ${ISSUES}#${PR} proposal: DS1 -->`;
+        const verdict = emptyJudgments({ ...approvedVerdict("DS1"), items: [departure("DV1", { supersedes: { decision: "D2", instead: "x" } })] });
+        const first = harness({ verdict: () => present(verdict), push: () => ({ ok: false, message: "network down" }) });
+        expect(runCloseCommand(first.deps, input(first)).ok).toBe(false);
+        expect(first.filed).toHaveLength(1);
+
+        // The re-run: the earlier stub is a back-reference, the branch is the earlier run's.
+        const rerun = harness({
+            verdict: () => present(verdict),
+            epicMentions: () => ({ ok: true, issues: [{ number: 1000, repo: ISSUES, body: key, pullRequest: false, trusted: true }] }),
+            openWorktree: () => ({ ok: true, wtPath: first.wtPath, branch: `distill/2026-10-04-epic-${EPIC}`, source: "local" }),
+        });
+        const { record } = closed(rerun);
+        expect(rerun.filed).toEqual([]);
+        expect(sectionOf(record, "## Deferred Scope")).toContain("- #1000 — Goal of DS1");
+        expect(rerun.writes).toEqual(["commit", "push", "amendment", `comment #${EPIC}`, `close #${EPIC}`]);
+    });
+});
+
+describe("once the close comment exists, a re-run regenerates nothing (story #866, D11, G27)", () => {
+    const closeComment = { body: `## Close Record\n\n<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+
+    it("only closes the issue, writes the hand-off note and reports", () => {
+        let resolvedEpic = 0;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [closeComment] : [] }),
+            resolveEpic: () => {
+                resolvedEpic += 1;
+                throw new Error("a resumed close reads no gate");
+            },
+            openWorktree: () => ({ ok: true, wtPath: h.wtPath, branch: `distill/2026-10-03-epic-${EPIC}`, source: "pushed" }),
+        });
+        const note = path.join(h.repoRoot, "handoff.txt");
+        const out = runCloseCommand(h.deps, input(h, { handoff: note }));
+        const rendered = renderCloseOutcome(out);
+        expect(rendered.exitCode).toBe(0);
+        expect(out.ok && out.resumed).toBe(true);
+        expect(resolvedEpic).toBe(0);
+        expect(h.writes).toEqual([`close #${EPIC}`]);
+        expect(fs.readFileSync(note, "utf8")).toBe(`epic: ${EPIC}\nbranch: distill/2026-10-03-epic-${EPIC}\nworktree: ${h.wtPath}\n`);
+        expect(text(rendered.stdout)).toMatch(/nothing was regenerated or reposted/);
+    });
+
+    it("handles the epic issue already being closed (G49)", () => {
+        const h = harness({
+            issueComments: () => ({ ok: true, comments: [closeComment] }),
+            openWorktree: () => ({ ok: true, wtPath: h.wtPath, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+            closeIssue: () => ({ ok: true, already: true }),
+        });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(0);
+        expect(text(rendered.stdout)).toMatch(/already closed/);
+    });
+
+    it("does not count a copy of the close comment from someone who cannot speak for the repository", () => {
+        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ ...closeComment, authorAssociation: "NONE" }] : [] }) });
+        const { out } = closed(h);
+        expect(out.resumed).toBe(false);
+        expect(h.writes).toContain(`comment #${EPIC}`);
+    });
+
+    it("stops, naming distill's recovery, when the earlier run's distill branch is gone", () => {
+        const h = harness({ issueComments: () => ({ ok: true, comments: [closeComment] }) });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toContain(`/nxs.distill --recover ${EPIC}`);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("stops when the earlier run's distill branch cannot be opened", () => {
+        const h = harness({ issueComments: () => ({ ok: true, comments: [closeComment] }), openWorktree: () => ({ ok: false, error: { problem: "git-failed", message: "origin unreachable" } }) });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toContain("origin unreachable");
+    });
+
+    it("stops when the epic's comments cannot be read, before anything is created", () => {
+        const h = harness({ issueComments: () => ({ ok: false, message: "HTTP 502" }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain("HTTP 502");
+    });
+});
+
+// The platform-backed reads and writes story #866 adds, over a stand-in gh.
+describe("nexus close — the back-references, the epic close, the marker and the story comments (story #866)", () => {
+    function recorder(responses: (args: string[]) => { status: number; stdout: string; stderr: string }): { run: Runner; calls: string[][] } {
+        const calls: string[][] = [];
+        return {
+            calls,
+            run: (cmd, args) => {
+                calls.push([cmd, ...args]);
+                return responses(args);
+            },
+        };
+    }
+    const deps = (run: Runner) => closeCommandDeps(run, { singleRepo: () => true });
+
+    it("lists the issues that mention the epic from its timeline's cross-references, never search, with each one's trust", () => {
+        const lines = [
+            JSON.stringify({ number: 700, body: "stub", repo: ISSUES, pullRequest: false, association: "MEMBER" }),
+            JSON.stringify({ number: 701, body: "pr", repo: ISSUES, pullRequest: true, association: "NONE" }),
+        ].join("\n");
+        const ok = recorder(() => ({ status: 0, stdout: `${lines}\n`, stderr: "" }));
+        expect(deps(ok.run).epicMentions("/repo", ISSUES, EPIC)).toEqual({
+            ok: true,
+            issues: [
+                { number: 700, repo: ISSUES, body: "stub", pullRequest: false, trusted: true },
+                { number: 701, repo: ISSUES, body: "pr", pullRequest: true, trusted: false },
+            ],
+        });
+        const call = ok.calls[0].join(" ");
+        expect(call).toContain(`api --paginate repos/${ISSUES}/issues/${EPIC}/timeline`);
+        expect(call).toContain("cross-referenced");
+        expect(call).not.toMatch(/search/);
+        expect(deps(recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 502" })).run).epicMentions("/repo", ISSUES, EPIC)).toEqual({ ok: false, message: "HTTP 502" });
+        expect(deps(recorder(() => ({ status: 0, stdout: "{not json\n", stderr: "" })).run).epicMentions("/repo", ISSUES, EPIC).ok).toBe(false);
+    });
+
+    it("closes an open epic issue as completed in the issues repository, and leaves a closed one alone", () => {
+        const open = recorder((args) => ({ status: 0, stdout: args[1] === "view" ? "OPEN\n" : "", stderr: "" }));
+        expect(deps(open.run).closeIssue("/repo", ISSUES, EPIC)).toEqual({ ok: true, already: false });
+        expect(open.calls[1]).toEqual(["gh", "issue", "close", String(EPIC), "--repo", ISSUES, "--reason", "completed"]);
+        const closedOne = recorder(() => ({ status: 0, stdout: "CLOSED\n", stderr: "" }));
+        expect(deps(closedOne.run).closeIssue("/repo", ISSUES, EPIC)).toEqual({ ok: true, already: true });
+        expect(closedOne.calls).toHaveLength(1);
+        expect(deps(recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 404" })).run).closeIssue("/repo", ISSUES, EPIC)).toEqual({ ok: false, message: "HTTP 404" });
+        const refused = recorder((args) => (args[1] === "view" ? { status: 0, stdout: "OPEN", stderr: "" } : { status: 1, stdout: "", stderr: "HTTP 403" }));
+        expect(deps(refused.run).closeIssue("/repo", ISSUES, EPIC)).toEqual({ ok: false, message: "HTTP 403" });
+    });
+
+    it("writes the marker on the story in the issues repository, through the existing marker writer", () => {
+        const ok = recorder(() => ({ status: 0, stdout: "", stderr: "" }));
+        expect(deps(ok.run).writeMarker("/repo", ISSUES, 865)).toEqual({ ok: true });
+        expect(ok.calls[0]).toEqual(["gh", "issue", "edit", "865", "--repo", ISSUES, "--add-label", "no-pull-request"]);
+        expect(deps(recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 403" })).run).writeMarker("/repo", ISSUES, 865).ok).toBe(false);
+    });
+
+    it("files stubs through the batch filer into the issues repository, and pushes the distill branch", () => {
+        const root = makeDir();
+        fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), "github:\n  classification: labels\n  project: none\n");
+        const created: string[] = [];
+        const filerEnv = {
+            runnerFor: () => (args: string[]) => {
+                if (args[0] === "issue" && args[1] === "create") {
+                    created.push(args.join(" "));
+                    return { status: 0, stdout: "https://github.com/acme/app/issues/1200\n", stderr: "" };
+                }
+                return { status: 0, stdout: "", stderr: "" };
+            },
+            sleep: () => undefined,
+            random: () => 0,
+        };
+        const d = closeCommandDeps(() => ({ status: 1, stdout: "", stderr: "no remote" }), { singleRepo: () => true, filerEnv });
+        const r = d.fileStubs(fs.realpathSync(root), ISSUES, EPIC, [{ ref: "STUB-acme-app-901-DS1", key: "k", title: "Goal", body: "Goal\n" }]);
+        expect(r.ok && [...r.numbers.entries()]).toEqual([["k", 1200]]);
+        expect(created[0]).toContain(`-R ${ISSUES}`);
+        expect(d.push(root, "distill/2026-10-04-epic-830")).toEqual({ ok: false, message: "no remote" });
+    });
+
+    it("reads the storyless waivers from the story's own issue in the issues repository", () => {
+        const body = `<!-- nexus:close-waiver -->\n\`\`\`yaml\nwaive: storyless\nstory: "#865"\n\`\`\``;
+        const ok = recorder(() => ({ status: 0, stdout: JSON.stringify({ comments: [{ body, author: { login: "lead" }, authorAssociation: "OWNER", createdAt: "2026-10-02T00:00:00Z", url: "u" }] }), stderr: "" }));
+        const r = deps(ok.run).storyWaivers("/repo", ISSUES, 865);
+        expect(r.ok && r.comments.map((c) => [c.author, c.trusted])).toEqual([["lead", true]]);
+        expect(ok.calls[0]).toEqual(["gh", "issue", "view", "865", "--repo", ISSUES, "--json", "comments"]);
+        expect(deps(recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 502" })).run).storyWaivers("/repo", ISSUES, 865).ok).toBe(false);
     });
 });

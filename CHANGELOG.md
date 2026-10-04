@@ -19,7 +19,7 @@ behaviour says so.
   naming the reason, the item and the remedy, and exits with an error; a waiver stop prints the
   exact comment to post. When every gate passes, it reuses the distill branch an earlier run cut
   for the epic, local or pushed, or cuts one from the trunk, and finds or creates the epic's queue
-  entry. In this release it stops there and says so: it writes nothing to GitHub.
+  entry.
 - **`nexus close` writes the close record from the pull requests' verdicts.** After its gates pass,
   it writes the close record into the epic's queue entry and commits it on the distill branch. It
   reads only each merged pull request's verdict, the decision record's body and the issue graph:
@@ -30,12 +30,37 @@ behaviour says so.
   reason, and who accepted it. A waived critical or high finding is listed with who waived it.
   `analyze:` reads `ran <date> @ <head>` from the most recently merged pull request's verdict, as
   before. Text copied from an answer, a stub or a proposal can no longer add a close-record marker
-  or a fenced block. It also renders the close comment, which a later release posts.
+  or a fenced block.
 - **The record amendment comes from the verdicts' superseding marks.** When a verdict marks an
   accepted departure as superseding a record decision, `nexus close` posts one amendment comment on
   the decision record, naming each superseded decision, what shipped instead and why. A re-run
   finds that comment and does not post a second. No mark, no comment. A failed post is reported
   and does not stop the close.
+- **`nexus close` files the approved scope, posts the close comment, closes the epic and hands
+  off.** Each deferred-scope proposal a trusted person approved on a merged pull request is filed
+  once as an unplanned epic stub, with the repository's epic classification and unplanned label
+  and no parent. The stub carries the goal as its title, the feature path, where it came from (the
+  epic, the pull request, the proposal and who approved it) and a hidden key. It has no estimate
+  and no ordering; planning sizes it. A proposal nobody approved is never filed. The close record
+  names each stub's number. Then close writes the story markers, commits and pushes the distill
+  branch, posts the record amendment and the close comment, closes the epic issue and, with
+  `--handoff <path>`, writes the hand-off note in its usual three lines, only when every step
+  succeeded. Before each write it looks for what an earlier run did: a stub is found by its key
+  among the issues that mention the epic, even after it was promoted, so a plain re-run finishes a
+  partial close with no second stub, amendment, close comment or distill branch. Once the close
+  comment is on the epic, a re-run only closes the issue, writes the note and reports. A failed
+  push stops close before anything is posted, with the epic open. A failed close comment stops
+  close with the epic open, and the stop names re-running `nexus close` to post it.
+- **A story that shipped inside another story's pull request is waived by a comment on its own
+  issue (breaking).** Close no longer offers this waiver. Post the waiver comment on the story's
+  issue before close runs, as someone who can speak for the issues repository; when it is missing,
+  `nexus close` stops and prints the exact comment. Close then writes the story's marker before its
+  close comment, and Waived Stories names the story and the date of the waiver comment. A story
+  that already carries the marker passes as before.
+- **Promoting an epic stub keeps the key close filed it under.** `/nxs.epic`'s promotion rewrites
+  the stub's body; it now carries over the stub's hidden key, so a later close run still recognises
+  the stub and does not file it again. `nexus create-story` takes `--issues-repo <owner/repo>` to
+  file into a repository other than the configured story repository.
 - **An epic in flight whose verdicts were published before analyze recorded its judgments needs
   one full analyze run per merged pull request (breaking).** Those verdicts carry no judgments, so
   `nexus close` stops on each such pull request and names `/nxs.analyze --pr <N>`. Run it on every merged pull request of the epic, then
