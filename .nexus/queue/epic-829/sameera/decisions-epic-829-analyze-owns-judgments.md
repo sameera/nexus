@@ -122,3 +122,13 @@
 - **Choice:** `planAnswerRun` reads the pull request's answers through `readPrWaivers` and runs them through `applyAnswers` before `selectRejudge`, so a departure answered since the last verdict is judged again like one the verdict already carried.
 - **Why:** G19 and AC2 of #861 say every answered departure is judged again, and a first-time answer is the common case of `--resolve`; reusing `applyAnswers` keeps "answered" meaning the same thing in the scope and in the ID step.
 - **Refuted alternative:** Treat any answer line naming the ID as answered, which would re-judge on untrusted or malformed lines that apply nothing.
+
+## 2026-10-04 — A verdict over the size limit drops only the results' file lists
+- **Choice:** `fitToPlatform` empties only the results' file lists (`withoutResultFileLists`); a body still over the limit is refused as `verdict-too-large` rather than dropping a departure's or a finding's list.
+- **Why:** `bestMatch` matches an item found again by a shared file, so emptying the items' lists gave every item a new ID and lost its answer on the next full run (G6); G29 already says a body still too large publishes nothing.
+- **Refuted alternative:** Let `bestMatch` match on the anchor alone when the earlier verdict dropped its lists — that can carry one departure's acceptance onto a different departure against the same guarantee, a hidden false pass.
+
+## 2026-10-04 — A pull request's identity leaves out the repository's host
+- **Choice:** `key()` in epic-completion.ts compares owner/name through `parseRepoIdentity`, the rule `sameRepo` applies.
+- **Why:** `nexus pr-worktree open` writes the analyzed repository host-qualified and the claiming read writes `owner/name`, so the analyzed pull request was never recognized as itself (G30).
+- **Refuted alternative:** Strip the host in the CLI before calling `epicCompletion`, which leaves the library comparing raw strings for any other caller.

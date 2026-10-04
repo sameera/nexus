@@ -23,7 +23,7 @@ import {
     openItems,
     parseJudgmentsBlock,
     replaceJudgmentsBlock,
-    withoutFileLists,
+    withoutResultFileLists,
 } from "@nexus/pr-acceptance/judgments-block";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
@@ -115,23 +115,25 @@ export function checkVerdictPublish(run: Runner, cwd: string, body: string): Che
 
 /**
  * The size budget (D5; G29). A body within the platform's limit is approved as drafted. One over
- * it drops its file lists first — every item and result keeps its verdict, and the block records
- * `filesDropped`, which makes the next answer-recording run on a moved head a full run — and says
- * so in a line above the verdict block. If it is still too large, nothing may be published, and the
- * refusal names the size.
+ * it drops the results' file lists and says so in a line above the verdict block. Every item and
+ * result keeps its verdict, and the block records `filesDropped`, which makes the next
+ * answer-recording run on a moved head a full run. A departure's or a finding's file list is never
+ * dropped: the next full run gives an item found again its ID by a shared file (D2), so dropping
+ * those lists would re-number every item on the same head and lose its answer (G6). If the body is
+ * still too large, nothing may be published, and the refusal names the size.
  */
 function fitToPlatform(body: string, judgments: Judgments, repos: VerdictRepos): CheckVerdictPublishResult {
     const drafted = sizeOf(body);
     if (drafted <= VERDICT_SIZE_LIMIT) return { ok: true, repos, body, filesDropped: false, size: drafted };
-    const replaced = replaceJudgmentsBlock(body, withoutFileLists(judgments)) ?? body;
+    const replaced = replaceJudgmentsBlock(body, withoutResultFileLists(judgments)) ?? body;
     const at = replaced.indexOf(RECEIPT_MARKER);
-    const notice = `File lists: dropped to fit the platform's limit of ${VERDICT_SIZE_LIMIT} characters (the verdict was ${drafted}). The next answer-recording run on a moved head judges the whole pull request again.\n\n`;
+    const notice = `File lists: dropped from the results to fit the platform's limit of ${VERDICT_SIZE_LIMIT} characters (the verdict was ${drafted}); the departures and findings keep theirs. The next answer-recording run on a moved head judges the whole pull request again.\n\n`;
     const fitted = `${replaced.slice(0, at)}${notice}${replaced.slice(at)}`;
     const size = sizeOf(fitted);
     if (size <= VERDICT_SIZE_LIMIT) return { ok: true, repos, body: fitted, filesDropped: true, size };
     return refuse(
         "verdict-too-large",
-        `the drafted verdict is ${drafted} characters, and still ${size} with its file lists dropped — over the platform's limit of ${VERDICT_SIZE_LIMIT}. Nothing may be published. Shorten the summary prose above the verdict block (the judgments block carries every item in full) and check again.`,
+        `the drafted verdict is ${drafted} characters, and still ${size} with its results' file lists dropped — over the platform's limit of ${VERDICT_SIZE_LIMIT}. Nothing may be published. A departure's or a finding's file list is never dropped, because the next run reuses its ID by that list. Shorten the summary prose above the verdict block (the judgments block carries every item in full) and check again.`,
     );
 }
 

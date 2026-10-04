@@ -22,7 +22,7 @@ import {
     parseJudgmentsBlock,
     renderJudgmentsBlock,
     replaceJudgmentsBlock,
-    withoutFileLists,
+    withoutResultFileLists,
 } from "./judgments-block.js";
 import { RECEIPT_MARKER } from "./receipt-blocks.js";
 
@@ -299,20 +299,22 @@ describe("text copied from an answer cannot change how either block parses (D5; 
 describe("a verdict too large for the platform drops its file lists first (D5; G29)", () => {
     const results: Result[] = [{ kind: "criterion", about: "#862 AC1", verdict: "met", files: ["libs/a.ts"] }];
 
-    it("empties every file list and records that it did", () => {
-        const dropped = withoutFileLists({ items: [departure()], findings: [finding()], deferred: [], results });
+    it("empties the results' file lists first, keeps the departures' and findings' lists, and records that it did", () => {
+        const dropped = withoutResultFileLists({ items: [departure({ files: ["libs/x.ts"] })], findings: [finding({ files: ["libs/y.ts"] })], deferred: [], results });
         expect(dropped.filesDropped).toBe(true);
-        expect([...dropped.items, ...dropped.findings, ...(dropped.results ?? [])].every((x) => x.files.length === 0)).toBe(true);
+        expect((dropped.results ?? []).every((r) => r.files.length === 0)).toBe(true);
+        expect(dropped.items[0]?.files).toEqual(["libs/x.ts"]);
+        expect(dropped.findings[0]?.files).toEqual(["libs/y.ts"]);
     });
 
     it("replaces the block in a body and leaves everything around it as it was", () => {
         const before = "prose\n\n";
         const after = "\ntrailer\n";
         const body = `${before}${renderJudgmentsBlock({ items: [departure()], findings: [], deferred: [] })}${after}`;
-        const next = replaceJudgmentsBlock(body, withoutFileLists({ items: [departure()], findings: [], deferred: [] }));
+        const next = replaceJudgmentsBlock(body, withoutResultFileLists({ items: [departure()], findings: [], deferred: [], results }));
         expect(next?.startsWith(before) && next.endsWith(after)).toBe(true);
         const r = parseJudgmentsBlock(next ?? "");
         expect(r.ok && r.judgments?.filesDropped).toBe(true);
-        expect(r.ok && r.judgments?.items[0]?.files).toEqual([]);
+        expect(r.ok && r.judgments?.results?.[0]?.files).toEqual([]);
     });
 });

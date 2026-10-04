@@ -80,8 +80,10 @@ describe("the judgments block is the one place the verdict carries it, and it is
         expect(PUBLISH()).toMatch(/`marker-repeated` means text copied into the summary/);
     });
 
-    it("drops file lists first to fit the platform, publishes the bytes the check wrote back, and publishes nothing when still too large (G29)", () => {
-        expect(PUBLISH()).toMatch(/drops every file list first/);
+    it("drops the results' file lists to fit the platform, never an item's, publishes the bytes the check wrote back, and publishes nothing when still too large (G29)", () => {
+        expect(PUBLISH()).toMatch(/the check drops the results' file lists,/);
+        expect(PUBLISH()).toMatch(/keep their IDs\s+and answers/);
+        expect(PUBLISH()).toMatch(/never drops a departure's or a\s+finding's file list/);
         expect(PUBLISH()).toMatch(/\*\*writes the result back to the body file\*\*: those are the bytes\s+to publish/);
         expect(PUBLISH()).toMatch(/`verdict-too-large`, naming the size: \*\*publish nothing\*\*/);
     });

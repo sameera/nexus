@@ -22,7 +22,7 @@
  */
 
 import { type RepoCheckoutResult } from "@nexus/pr-worktree/repo-checkout";
-import { sameRepo } from "@nexus/workspace/issue-ref";
+import { parseRepoIdentity, sameRepo } from "@nexus/workspace/issue-ref";
 import { closeRangesDeps, type DeriveOutcome, type TrunkOutcome } from "./close-ranges.js";
 import { type Runner, git } from "./run.js";
 import { type StoryClaimingPr, type StoryClaimsRead, type StoryMergedPr, type StoryReadFailure } from "./story-prs.js";
@@ -124,8 +124,15 @@ export type EpicPrTarget =
 
 export type EpicPrTargetResult = { ok: true; target: EpicPrTarget } | { ok: false; failures: StoryReadFailure[] };
 
+/**
+ * One pull request's identity, with the repository's host left out: `nexus pr-worktree open` writes
+ * the analyzed repository host-qualified, and the claiming read writes `owner/name`, so comparing
+ * raw strings would never recognize the analyzed pull request as itself (G30). This is the
+ * comparison `sameRepo` makes.
+ */
 function key(p: { repo: string; pr: number }): string {
-    return `${p.repo.toLowerCase()}#${p.pr}`;
+    const id = parseRepoIdentity(p.repo);
+    return `${id === null ? p.repo.toLowerCase() : `${id.owner}/${id.name}`}#${p.pr}`;
 }
 
 function refOf(story: number, issuesRepo: string | undefined): string {

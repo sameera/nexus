@@ -99,7 +99,9 @@ behaviour says so.
   verdict with no key decisions or ones tied to another record digest, a proposal for a story the
   verdict does not cover, and a body that repeats a verdict marker, as copied answer text could.
   Answer text inside the judgments block can no longer change how either block reads. A verdict
-  over the platform's 65,536-character limit has its file lists dropped and says so, and the check
+  over the platform's 65,536-character limit has its results' file lists dropped and says so; a
+  departure's or a finding's file list is never dropped, so they keep their IDs and answers on the
+  next run; the check
   writes those bytes back to publish; one still too large is not published, and the check names
   its size. A verdict published before this release still reads, as having no judgments.
 - **Analyze without a pull request reports in the terminal only (breaking).** `/nxs.analyze` run
