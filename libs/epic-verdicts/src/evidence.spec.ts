@@ -14,7 +14,7 @@ function merged(story: number, pr: number, repo = "acme/hub"): StoryMergedPr {
     return { story, pr, repo, mergeCommit: `sha-${pr}`, mergedAt: "2026-09-01T00:00:00Z", edge: "closing" };
 }
 
-function receipt(stories: number[], storyFingerprints: Record<number, string> = {}): AnalyzeReceipt {
+function receipt(stories: number[]): AnalyzeReceipt {
     return {
         epic: "#827",
         nexusVersion: null,
@@ -28,20 +28,17 @@ function receipt(stories: number[], storyFingerprints: Record<number, string> = 
         record: null,
         recordHash: null,
         issuesRepo: "acme/hub",
-        storyFingerprints,
     };
 }
 
 interface FakeWorld {
     claims?: Record<number, StoryMergedPr[] | string>;
     receipts?: Record<number, AnalyzeReceipt | null | string>;
-    /** Each story's current fingerprint; a string starting `!` fails the fetch. Defaults to `fp-<story>`. */
-    current?: Record<number, string>;
 }
 
 function deps(
     world: FakeWorld,
-    seen: { claims: number[]; receipts: number[]; fingerprints?: number[] } = { claims: [], receipts: [] },
+    seen: { claims: number[]; receipts: number[] } = { claims: [], receipts: [] },
 ): EvidenceDeps {
     return {
         readClaims(story: number): StoryMergedPrsRead {
@@ -56,19 +53,13 @@ function deps(
             if (typeof r === "string") return { ok: false, cause: r };
             return { ok: true, receipt: r };
         },
-        fingerprint(story: number) {
-            seen.fingerprints?.push(story);
-            const f = world.current?.[story] ?? `fp-${story}`;
-            if (f.startsWith("!")) return { ok: false, cause: f.slice(1) };
-            return { ok: true, digest: f };
-        },
     };
 }
 
 describe("collectEvidence — the claiming read behind close's report (story #834)", () => {
     it("reads every live story's claiming pull requests and the receipt each one carries", () => {
         const seen = { claims: [] as number[], receipts: [] as number[] };
-        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 20)] }, receipts: { 10: receipt([1], { 1: "fp-1" }) } }, seen), {
+        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 20)] }, receipts: { 10: receipt([1]) } }, seen), {
             stories: [2, 1],
         });
         expect(out.ok).toBe(true);
@@ -119,12 +110,14 @@ describe("collectEvidence — the claiming read behind close's report (story #83
 });
 
 describe("evidenceDeps — the platform-backed reads (story #834)", () => {
-    const block = (stories: string) =>
+    const block = (stories: string, extra = "") =>
         "<!-- nexus:analyze-receipt -->\n```yaml\nepic: \"#827\"\npr: 12\nhead: abc\nmode: full\nrepo: acme/member\nissues_repo: acme/hub\nstories: " +
         stories +
-        "\n```";
+        "\n" +
+        extra +
+        "```";
 
-    function platform(opts: { claimFails?: boolean; prViewFails?: boolean; unmerged?: boolean }, seen: string[][] = []): Runner {
+    function platform(opts: { claimFails?: boolean; prViewFails?: boolean; unmerged?: boolean; receiptExtra?: string }, seen: string[][] = []): Runner {
         return (cmd, args) => {
             seen.push([cmd, ...args]);
             if (cmd === "gh" && args[0] === "api" && args[1] === "graphql") {
@@ -142,12 +135,9 @@ describe("evidenceDeps — the platform-backed reads (story #834)", () => {
                 const issue = q.includes("closedByPullRequestsReferences") ? { closedByPullRequestsReferences: conn([...unmerged, pr]) } : { timelineItems: conn([]) };
                 return { status: 0, stdout: JSON.stringify({ data: { repository: { issue } } }), stderr: "" };
             }
-            if (cmd === "gh" && args[0] === "api" && args[1] === "repos/acme/hub/issues/834") {
-                return { status: 0, stdout: JSON.stringify({ body: "AC", state: "open" }), stderr: "" };
-            }
             if (cmd === "gh" && args[0] === "pr" && args[1] === "view") {
                 if (opts.prViewFails) return { status: 1, stdout: "", stderr: "HTTP 502" };
-                return { status: 0, stdout: JSON.stringify({ reviews: [], comments: [{ body: block("[834]"), createdAt: "2026-09-02T00:00:00Z" }], headRefOid: "abc" }), stderr: "" };
+                return { status: 0, stdout: JSON.stringify({ reviews: [], comments: [{ body: block("[834]", opts.receiptExtra), createdAt: "2026-09-02T00:00:00Z" }], headRefOid: "abc" }), stderr: "" };
             }
             return { status: 1, stdout: "", stderr: `unexpected: ${cmd} ${args.join(" ")}` };
         };
@@ -174,6 +164,18 @@ describe("evidenceDeps — the platform-backed reads (story #834)", () => {
         expect(viewed).toEqual(["12"]);
     });
 
+    it("reads a receipt written by 0.82.0 to 0.86.0 that records story text, and the text decides nothing (story #857, G36, G37)", () => {
+        const plain = collectEvidence(evidenceDeps(platform({}), "/hub", "acme/hub"), { stories: [834] });
+        const seen: string[][] = [];
+        const old = collectEvidence(evidenceDeps(platform({ receiptExtra: `story_fingerprints: { 834: ${"e".repeat(64)} }\n` }, seen), "/hub", "acme/hub"), {
+            stories: [834],
+        });
+        expect(old).toEqual(plain);
+        expect(old.ok && old.report.lines).toEqual([]);
+        // The story's current text is never fetched, so an edited or unreadable story changes nothing.
+        expect(seen.some((c) => c.some((a) => a.includes("issues/834")))).toBe(false);
+    });
+
     it("turns a failed claiming read or receipt read into a failure naming the story", () => {
         for (const opts of [{ claimFails: true }, { prViewFails: true }]) {
             const out = collectEvidence(evidenceDeps(platform(opts), "/hub", "acme/hub"), { stories: [834] });
@@ -189,7 +191,7 @@ describe("collectEvidence — a receipt counts only for the stories it names (st
         // PR 10 shipped stories 1 and 2 and its receipt names both; story 3 was added to the epic
         // later and a later pull request that claims it carries the old receipt's story list.
         const out = collectEvidence(
-            deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 10)], 3: [merged(3, 10)] }, receipts: { 10: receipt([1, 2], { 1: "fp-1", 2: "fp-2" }) } }),
+            deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 10)], 3: [merged(3, 10)] }, receipts: { 10: receipt([1, 2]) } }),
             { stories: [1, 2, 3], issuesRepo: "acme/hub" },
         );
         expect(out.ok).toBe(true);
@@ -227,79 +229,20 @@ describe("collectEvidence — a receipt counts only for the stories it names (st
     });
 
     it("prints nothing for a story whose claiming pull request carries a receipt naming it", () => {
-        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)] }, receipts: { 10: receipt([1], { 1: "fp-1" }) } }), { stories: [1] });
+        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)] }, receipts: { 10: receipt([1]) } }), { stories: [1] });
         expect(out.ok && out.report.lines).toEqual([]);
     });
 });
 
-describe("collectEvidence — close sees when a story changed since analysis (story #836)", () => {
-    const linesFor = (out: ReturnType<typeof collectEvidence>, ref: string) => (out.ok ? out.report.lines.filter((l) => l.startsWith(ref)) : []);
-
-    it("reports a story edited after its receipt was written as changed, naming the pull request", () => {
-        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)] }, receipts: { 10: receipt([1], { 1: "old" }) }, current: { 1: "new" } }), {
+describe("collectEvidence — a story's text decides nothing (epic #828, story #857; D12, G36)", () => {
+    it("says nothing about a story whose receipts record none of its text", () => {
+        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10), merged(1, 11)] }, receipts: { 10: receipt([1]), 11: receipt([1]) } }), {
             stories: [1],
             issuesRepo: "acme/hub",
         });
         expect(out.ok).toBe(true);
         if (!out.ok) return;
-        expect(out.report.stories[0].changed).toEqual([{ repo: "acme/hub", pr: 10 }]);
-        const lines = linesFor(out, "acme/hub#1 ");
-        expect(lines).toHaveLength(1);
-        expect(lines[0]).toMatch(/changed since analysis/);
-        expect(lines[0]).toContain("acme/hub#10");
-    });
-
-    it("reports nothing about a story whose text matches every receipt naming it", () => {
-        const out = collectEvidence(
-            deps({ claims: { 1: [merged(1, 10), merged(1, 11)] }, receipts: { 10: receipt([1], { 1: "fp-1" }), 11: receipt([1], { 1: "fp-1" }) } }),
-            { stories: [1] },
-        );
-        expect(out.ok && out.report.lines).toEqual([]);
-    });
-
-    it("reports a receipt written before fingerprints existed as unknown, never as changed or unchanged", () => {
-        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)] }, receipts: { 10: receipt([1]) } }), { stories: [1], issuesRepo: "acme/hub" });
-        expect(out.ok).toBe(true);
-        if (!out.ok) return;
-        expect(out.report.stories[0].unknown).toEqual([{ repo: "acme/hub", pr: 10 }]);
-        expect(out.report.stories[0].changed).toEqual([]);
-        const lines = linesFor(out, "acme/hub#1 ");
-        expect(lines).toHaveLength(1);
-        expect(lines[0]).toMatch(/unknown/);
-    });
-
-    it("compares receipt by receipt, so an older pull request analysed against older text is named while a newer one is current", () => {
-        const out = collectEvidence(
-            deps({
-                claims: { 1: [merged(1, 10), merged(1, 11), merged(1, 12)] },
-                receipts: { 10: receipt([1], { 1: "old" }), 11: receipt([1], { 1: "fp-1" }), 12: receipt([1]) },
-            }),
-            { stories: [1] },
-        );
-        expect(out.ok).toBe(true);
-        if (!out.ok) return;
-        expect(out.report.stories[0].changed).toEqual([{ repo: "acme/hub", pr: 10 }]);
-        expect(out.report.stories[0].unknown).toEqual([{ repo: "acme/hub", pr: 12 }]);
-    });
-
-    it("ignores a fingerprint for a story the receipt does not name", () => {
-        const out = collectEvidence(
-            deps({ claims: { 1: [merged(1, 10)], 2: [merged(2, 10)] }, receipts: { 10: receipt([1], { 1: "fp-1", 2: "stale" }) } }),
-            { stories: [1, 2] },
-        );
-        expect(out.ok).toBe(true);
-        if (!out.ok) return;
-        expect(out.report.stories[1].changed).toEqual([]);
-        expect(out.report.stories[1].state).toBe("no-receipt");
-    });
-
-    it("stops when a story's current text cannot be fetched, naming the story", () => {
-        const out = collectEvidence(deps({ claims: { 1: [merged(1, 10)] }, receipts: { 10: receipt([1], { 1: "fp-1" }) }, current: { 1: "!HTTP 502" } }), {
-            stories: [1],
-        });
-        expect(out.ok).toBe(false);
-        if (out.ok) return;
-        expect(out.failures[0].story).toBe(1);
-        expect(out.failures[0].cause).toContain("HTTP 502");
+        expect(out.report.stories[0].state).toBe("has-receipt");
+        expect(out.report.lines).toEqual([]);
     });
 });

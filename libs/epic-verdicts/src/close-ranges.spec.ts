@@ -60,7 +60,7 @@ interface Seen {
 }
 
 function receipt(head: string, stories: number[] = []): AnalyzeReceipt {
-    return { epic: "#828", nexusVersion: null, pr: null, date: "2026-09-01", head, mode: "full", findings: {}, repo: null, stories, record: null, recordHash: null, issuesRepo: null, storyFingerprints: {} };
+    return { epic: "#828", nexusVersion: null, pr: null, date: "2026-09-01", head, mode: "full", findings: {}, repo: null, stories, record: null, recordHash: null, issuesRepo: null };
 }
 
 function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [] }): CloseRangesDeps {

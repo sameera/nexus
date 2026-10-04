@@ -64,11 +64,13 @@ interface FakePr {
     analyzed?: string;
     /** An unmerged pull request's platform state; merged when absent. */
     state?: "OPEN" | "CLOSED";
+    /** Extra receipt lines, verbatim — an older receipt's fields. */
+    receiptExtra?: string;
 }
 
 function receiptReview(p: FakePr): Array<Record<string, string>> {
     if (p.analyzed === undefined) return [];
-    const yaml = ["epic: \"#828\"", `pr: ${p.number}`, "date: 2026-09-01", `head: ${p.analyzed}`, "mode: full", `stories: [${p.story}]`].join("\n");
+    const yaml = ["epic: \"#828\"", `pr: ${p.number}`, "date: 2026-09-01", `head: ${p.analyzed}`, "mode: full", `stories: [${p.story}]`, ...(p.receiptExtra === undefined ? [] : [p.receiptExtra])].join("\n");
     return [{ body: `<!-- nexus:analyze-receipt -->\n\`\`\`yaml\n${yaml}\n\`\`\`\n`, authorAssociation: "OWNER", submittedAt: "2026-09-01T00:00:00Z" }];
 }
 
@@ -303,5 +305,25 @@ describe("the landed check in a real checkout (story #846)", () => {
         expect(out.ranges.ok).toBe(false);
         expect(out.ranges.blocking).toEqual([{ kind: "not-landed", repo: "acme/web", pr: 10, mergeCommit: merge, trunkRef: "main", checkout: repo }]);
         expect(out.ranges.landed[0].result).toBe("not-landed");
+    });
+});
+
+describe("deriveCloseRanges — a receipt that records story text (story #857; D12, G36, G37)", () => {
+    it("reads a receipt written by 0.82.0 to 0.86.0 exactly as one without the story text, and never fetches the story", () => {
+        const repo = buildRepo();
+        const feature = mergeBranch(repo, "b10", "src/feature.ts");
+        const pr = { number: 10, story: 841, mergedAt: "2026-09-01T00:00:00Z", ...feature, analyzed: feature.head };
+        const calls: string[][] = [];
+        const recording = (run: Runner): Runner => (cmd, args, opts) => (calls.push([cmd, ...args]), run(cmd, args, opts));
+
+        const plain = deriveCloseRanges(closeRangesDeps(platform([pr], []), repo, "acme/web"), { stories: [841], records: [] });
+        const old = deriveCloseRanges(
+            closeRangesDeps(recording(platform([{ ...pr, receiptExtra: `story_fingerprints: { 841: ${"e".repeat(64)} }` }], [])), repo, "acme/web"),
+            { stories: [841], records: [] },
+        );
+        expect(old).toEqual(plain);
+        expect(old.ok && old.ranges.states.map((s) => [s.story, s.state])).toEqual([[841, "current"]]);
+        expect(old.ok && old.ranges.closable).toBe(true);
+        expect(calls.some((c) => c.some((a) => a.includes("issues/841")))).toBe(false);
     });
 });

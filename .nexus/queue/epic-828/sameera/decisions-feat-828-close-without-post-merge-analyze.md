@@ -62,3 +62,13 @@
 - **Choice:** The trusted receipt reader now counts the blocks it drops as untrusted (`untrustedBlocks`, additive on its result and on `pr-verdict`); the pre-check reports no trusted receipt plus a non-zero count as a read failure.
 - **Why:** G21 forbids reporting an untrusted receipt as "not run", and only the reader knows a block was dropped.
 - **Refuted alternative:** Report every pull request with no trusted receipt as "not run", which hides an impostor or a copied receipt behind the analyze remedy.
+
+## 2026-10-04 — Story text leaves the receipt type, and `nexus story-fingerprints` is removed
+- **Choice:** Drop `storyFingerprints` from the parsed receipt, so readers skip the old `story_fingerprints` key like any unused field, and delete `fingerprint.ts` and the `story-fingerprints` verb.
+- **Why:** With no caller left, a parsed value nobody reads is the "recorded value" D12 says invites a gate to creep back; skipping the key keeps every old receipt readable (G37).
+- **Refuted alternative:** Keep parsing the field and leave the verb registered but unused, which keeps dead code and a value a later reader could start gating on.
+
+## 2026-10-04 — `verdict-check` refuses a drafted receipt that still records story text
+- **Choice:** The pre-publish check refuses a block with a `story_fingerprints` line (`story-text-recorded`) instead of merely tolerating it.
+- **Why:** It makes G38 hold mechanically at the one gate every publish passes, not only through analyze's prose.
+- **Refuted alternative:** Accept such a block silently, which leaves G38 resting on prose the stage could drift from.

@@ -47,7 +47,7 @@ export interface VerdictBodyOptions {
     pr?: number;
     /** The counts the prose above the block states, when they are made to disagree with it. */
     proseHigh?: number;
-    /** The `story_fingerprints` line, verbatim after the key, when the block carries one (epic #827). */
+    /** The `story_fingerprints` line, verbatim after the key: the older receipt shape 0.82.0 to 0.86.0 wrote (epics #827, #828). */
     storyFingerprints?: string;
 }
 

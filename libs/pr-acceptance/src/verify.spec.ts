@@ -416,17 +416,13 @@ describe("parseReceiptBlock", () => {
     });
 });
 
-describe("parseReceiptBlock — the story fingerprints a receipt records (epic #827, story #836)", () => {
-    const A = "a".repeat(64);
-    const B = "b".repeat(64);
+describe("parseReceiptBlock — a receipt that records story text (epic #828, story #857; D12, G37)", () => {
     const block = (extra: string) => `${RECEIPT_MARKER}\n\`\`\`yaml\nhead: abc\nstories: [834, 835]\n${extra}\`\`\``;
 
-    it("reads one full fingerprint per story number", () => {
-        expect(parseReceiptBlock(block(`story_fingerprints: { 834: ${A}, 835: ${B} }\n`))?.storyFingerprints).toEqual({ 834: A, 835: B });
-    });
-
-    it("reads a receipt written before fingerprints existed as recording none", () => {
-        expect(parseReceiptBlock(block(""))?.storyFingerprints).toEqual({});
+    it("reads a receipt written by 0.82.0 to 0.86.0 exactly as one without the story text", () => {
+        const old = parseReceiptBlock(block(`story_fingerprints: { 834: ${"a".repeat(64)}, 835: ${"b".repeat(64)} }\n`));
+        expect(old).not.toBeNull();
+        expect(old).toEqual(parseReceiptBlock(block("")));
     });
 });
 

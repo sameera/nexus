@@ -479,11 +479,10 @@ should have run yet.
    report" when `lines` is empty. A receipt counts only for the stories its `stories:` list names,
    so the lines say which stories have **no receipt** naming them, and which receipts **name no
    story** and so count for none. A receipt with an empty or missing list never covers the whole
-   epic. For each receipt that names a story, the command compares the fingerprint the receipt
-   recorded with the story's current text. A story whose text **changed since analysis** is named
-   with the pull request whose receipt is out of date. A receipt that records **no fingerprint**
-   for the story (written before fingerprints existed) is named as **unknown**, never as changed
-   or unchanged. A story that matches every receipt naming it produces no line.
+   epic. A story's text decides nothing (epic #828): a story edited after its receipt was written
+   is never stale or unknown for that reason, and a receipt that records story text (written by
+   0.82.0 to 0.86.0) reads exactly like one that does not. A revised decision record still makes
+   every story stale, through the record digest below.
    **The report decides nothing else.** Do not block, waive or
    re-check on any of its lines; the ledger's gate above and Phase 0.5's story states stay the close gates.
 
