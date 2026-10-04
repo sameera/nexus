@@ -4,10 +4,10 @@
  *
  * The verdict block stays a flat key-and-value block, because every deployed reader parses it that
  * way and a repeated key overwrites an earlier one. What a person can answer — a departure from the
- * decision record (ID prefix DV), and later a finding (F) and a deferred-scope proposal (DS) — goes
+ * decision record (ID prefix DV), a finding (F), and later a deferred-scope proposal (DS) — goes
  * here instead, as JSON in a fence longer than any run of backticks in its content, so text it
- * carries cannot end it early. Story #858 writes departures; an item of another kind is kept as it
- * was read, so a run never drops what a later release wrote.
+ * carries cannot end it early. Story #858 writes departures and story #860 findings; an item of
+ * another kind is kept as it was read, so a run never drops what a later release wrote.
  *
  * The block is also the ID registry: the next run on the same pull request reads it back from the
  * newest trusted verdict and reuses each ID (D2). That is why a block that cannot serve as one —
@@ -22,7 +22,10 @@ const SCHEMA = 1;
 /** The ID prefix each kind of item is numbered under, per pull request. */
 const PREFIX: Readonly<Record<string, string>> = { departure: "DV", finding: "F", "deferred-scope": "DS" };
 
-/** An answer recorded against an item: who gave it, where, and why. Written by the answer reader (#860). */
+/**
+ * An answer recorded against an item: who gave it, where, and why. Applied from the answer reader's
+ * lines (#860); `reason` is "" only for an approval, which needs none.
+ */
 export interface ItemAnswer {
     verb: string;
     author: string;
@@ -52,11 +55,31 @@ export interface Departure {
     answer: ItemAnswer | null;
 }
 
+/** Something analyze found wrong that is not a departure: an unmet criterion, a metric not moved. */
+export interface Finding {
+    /** `F<n>`, numbered per pull request and never reused. */
+    id: string;
+    kind: "finding";
+    /** False when a later run did not find it again; it is then listed as no longer found, never dropped. */
+    found: boolean;
+    severity: "critical" | "high" | "medium" | "low";
+    /** What it judges: an acceptance criterion, a success metric, or a named check. */
+    about: string;
+    /** What is wrong. */
+    summary: string;
+    /** The files it was judged on. */
+    files: string[];
+    /** Only a critical or high finding can carry a waiver (G13). */
+    answer: ItemAnswer | null;
+}
+
 /** An item of a kind this release does not judge, kept exactly as it was read. */
 export type OtherItem = { id: string; kind: string } & Record<string, unknown>;
 
 export interface Judgments {
+    /** The departures. */
     items: Departure[];
+    findings: Finding[];
     other: OtherItem[];
 }
 
@@ -69,8 +92,8 @@ export function splitItemId(id: string): { prefix: string; n: number } | null {
 }
 
 /** The published form of `judgments`: the marker, then the JSON in a fence nothing inside can close. */
-export function renderJudgmentsBlock(judgments: { items: readonly Departure[]; other?: readonly OtherItem[] }): string {
-    const json = JSON.stringify({ schema: SCHEMA, items: [...judgments.items, ...(judgments.other ?? [])] }, null, 2);
+export function renderJudgmentsBlock(judgments: { items: readonly Departure[]; findings?: readonly Finding[]; other?: readonly OtherItem[] }): string {
+    const json = JSON.stringify({ schema: SCHEMA, items: [...judgments.items, ...(judgments.findings ?? []), ...(judgments.other ?? [])] }, null, 2);
     const longest = Math.max(0, ...[...json.matchAll(/`+/g)].map((m) => m[0].length));
     const fence = "`".repeat(Math.max(3, longest + 1));
     return `${JUDGMENTS_MARKER}\n${fence}json\n${json}\n${fence}\n`;
@@ -100,6 +123,7 @@ export function parseJudgmentsBlock(body: string): ParsedJudgments {
     if (!isRecord(doc) || !Array.isArray(doc["items"])) return fail("the judgments block carries no items list");
 
     const items: Departure[] = [];
+    const findings: Finding[] = [];
     const other: OtherItem[] = [];
     const seen = new Set<string>();
     for (const [i, raw] of doc["items"].entries()) {
@@ -113,6 +137,12 @@ export function parseJudgmentsBlock(body: string): ParsedJudgments {
         }
         if (seen.has(id)) return fail(`ID ${id} names more than one item`);
         seen.add(id);
+        if (raw["kind"] === "finding") {
+            const f = readFinding(raw);
+            if (typeof f === "string") return fail(`finding ${id} ${f}`);
+            findings.push(f);
+            continue;
+        }
         if (raw["kind"] !== "departure") {
             other.push(raw as OtherItem);
             continue;
@@ -121,7 +151,35 @@ export function parseJudgmentsBlock(body: string): ParsedJudgments {
         if (typeof d === "string") return fail(`departure ${id} ${d}`);
         items.push(d);
     }
-    return { ok: true, judgments: { items, other } };
+    return { ok: true, judgments: { items, findings, other } };
+}
+
+const SEVERITIES: readonly string[] = ["critical", "high", "medium", "low"];
+
+function readFinding(raw: Record<string, unknown>): Finding | string {
+    const { found, severity, about, summary, files } = raw;
+    const answer = raw["answer"] ?? null;
+    if (typeof found !== "boolean") return "has no found flag";
+    if (typeof severity !== "string" || !SEVERITIES.includes(severity)) return "has no severity of critical, high, medium or low";
+    if (!nonEmpty(about)) return "names nothing it judges";
+    if (!nonEmpty(summary)) return "says nothing about what is wrong";
+    if (!Array.isArray(files) || !files.every((f) => typeof f === "string")) return "has no file list";
+    if (answer !== null && !isAnswer(answer)) return "carries an unreadable answer";
+    if (answer !== null && severity !== "critical" && severity !== "high") return "is waived, but only a critical or high finding can be";
+    return {
+        id: raw["id"] as string,
+        kind: "finding",
+        found,
+        severity: severity as Finding["severity"],
+        about,
+        summary,
+        files: files as string[],
+        answer: answer === null ? null : (answer as unknown as ItemAnswer),
+    };
+}
+
+function isAnswer(v: unknown): boolean {
+    return isRecord(v) && ["verb", "author", "link", "reason"].every((k) => typeof v[k] === "string");
 }
 
 function readDeparture(raw: Record<string, unknown>): Departure | string {
@@ -141,9 +199,7 @@ function readDeparture(raw: Record<string, unknown>): Departure | string {
     if (supersedes !== null && !(isRecord(supersedes) && nonEmpty(supersedes["decision"]) && nonEmpty(supersedes["instead"]))) {
         return "is marked superseding without naming the decision and what the code does instead";
     }
-    if (answer !== null && !(isRecord(answer) && ["verb", "author", "link", "reason"].every((k) => typeof answer[k] === "string"))) {
-        return "carries an unreadable answer";
-    }
+    if (answer !== null && !isAnswer(answer)) return "carries an unreadable answer";
     return {
         id: raw["id"] as string,
         kind: "departure",

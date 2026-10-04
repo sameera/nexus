@@ -13,6 +13,7 @@ import {
     twoVerdictPrPayload,
     verdictBody,
 } from "@nexus/pr-acceptance/verdict-fixtures";
+import { renderJudgmentsBlock } from "@nexus/pr-acceptance/judgments-block";
 import { mergePrecheck } from "./merge-precheck.js";
 import { type Runner } from "./run.js";
 
@@ -58,6 +59,17 @@ describe("mergePrecheck — the four receipt states (D10)", () => {
         expect(r.merge).toBe(false);
         expect(r.findings?.["high"]).toBe(3);
         expect(r.message).toMatch(/high 3/);
+    });
+
+    it("allows the merge when every blocking item is answered, reading the verdict unchanged (epic #829, G16)", () => {
+        const answer = { verb: "accepted", author: "lead", link: "https://x/1", reason: "by design" };
+        const judgments = renderJudgmentsBlock({
+            items: [{ id: "DV1", kind: "departure", found: true, severity: "critical", departsFrom: "G3", summary: "x", files: [], stub: null, supersedes: null, answer }],
+            findings: [{ id: "F1", kind: "finding", found: true, severity: "high", about: "#860 AC1", summary: "y", files: [], answer: { ...answer, verb: "waived" } }],
+        });
+        const r = check(atAnalyzedHead({ newerBody: verdictBody({ high: 0, judgments }) }));
+        expect(r.result).toBe("clean");
+        expect(r.merge).toBe(true);
     });
 
     it("reports a failed read as a read failure, never as analysis not having run", () => {

@@ -42,3 +42,33 @@
 - **Choice:** `ledgerCloseGate` and its types are removed from close-ledger.ts; only `sumLedgerFindings`, which the derivation close still calls, stays.
 - **Why:** The combined change set was its last caller, and its own comment named #829 as the removal point.
 - **Refuted alternative:** Keep it as unused code until #830.
+
+## 2026-10-04 — Answer lines are read in the same comment pass as waivers
+- **Choice:** `readPrWaivers` reads every comment once and returns both its waiver blocks and its answer lines (`answers`), with the same author, link, time and trust fields; `parseAnswerLines` skips any body carrying either verdict marker.
+- **Why:** D3 forbids a second comment reader, and one `gh pr view --json comments` read keeps the trust boundary in one place.
+- **Refuted alternative:** A separate `readPrAnswers` with its own `gh` call and its own trust check.
+
+## 2026-10-04 — The ID step also applies the answers and prints the open counts
+- **Choice:** `nexus verdict-items` numbers departures and findings, reads the answers, applies the newest trusted well-formed one per ID, writes the block, and prints `open` and `answers.{applied,unapplied}`.
+- **Why:** Applying answers is deterministic, and the open counts must agree with the block the publish check reads.
+- **Refuted alternative:** Let the stage read the comments and decide which answers apply.
+
+## 2026-10-04 — Newest trusted well-formed answer wins; ill-formed ones are named, never revoke
+- **Choice:** Validity (trust, known ID, verb fit, reason, waivable severity) is checked first; the newest valid answer per ID applies, and each invalid line is listed as unapplied even when a valid one applies.
+- **Why:** G10/G11 require naming every answer that applies nothing; a malformed newer line should not silently undo an earlier valid answer.
+- **Refuted alternative:** Take the newest trusted line per ID first and apply nothing if it is malformed.
+
+## 2026-10-04 — The publish check requires counts equal to the open items
+- **Choice:** `verdict-check` refuses (`counts-not-open`) any severity count that differs from the found, unanswered departures and findings, in either direction; every finding must therefore pass through the ID step.
+- **Why:** G15 makes the counts open-only; an over-count would leave a waived item blocking, an under-count would hide one.
+- **Refuted alternative:** Keep the under-count check only, which lets a total slip through as the count.
+
+## 2026-10-04 — A waiver drops off a finding re-found as medium or low
+- **Choice:** When a re-run finds a waived finding again at medium or low, it carries no answer.
+- **Why:** G13 lets only a critical or high finding be waived; the parser refuses a waived medium/low finding.
+- **Refuted alternative:** Carry the waiver forward and stop counting the finding.
+
+## 2026-10-04 — The implement scripts detect a posted answer by comment link, not time
+- **Choice:** `nexus pr-answers --urls` is read before and after each fix round; any link present only after stops the run. A failed read stops it too.
+- **Why:** Comparing links avoids clock skew between the machine and the platform, and the read reuses the one reader.
+- **Refuted alternative:** Filter comments by a `--since` timestamp taken on the local clock.

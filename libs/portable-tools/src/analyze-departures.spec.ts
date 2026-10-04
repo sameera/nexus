@@ -70,7 +70,7 @@ describe("what a departure says", () => {
 
 describe("IDs come from the toolkit's registry, never from the stage (D2; G6–G8)", () => {
     it("hands the departures to the ID step, which reads the newest trusted verdict as the registry", () => {
-        expect(DEPARTURES()).toContain('nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<scratch>/departures.json" --out "<scratch>/judgments.md" --dir "$wtPath"');
+        expect(DEPARTURES()).toContain('nexus verdict-items --pr <N> --repo <repoIdentity> --draft "<scratch>/items.json" --out "<scratch>/judgments.md" --dir "$wtPath"');
         expect(DEPARTURES()).toMatch(/never by you/);
     });
 
@@ -84,8 +84,8 @@ describe("IDs come from the toolkit's registry, never from the stage (D2; G6–G
         const appendAt = publish.indexOf("<!-- nexus:analyze-judgments -->");
         expect(appendAt).toBeGreaterThan(publish.indexOf("<!-- nexus:analyze-receipt -->"));
         expect(appendAt).toBeLessThan(publish.indexOf("nexus verdict-check"));
-        expect(publish).toMatch(/a verdict with no\s+departure included/);
-        for (const refusal of ["judgments-missing", "departures-uncounted", "judgments-malformed"]) {
+        expect(publish).toMatch(/a verdict with no\s+item included/);
+        for (const refusal of ["judgments-missing", "counts-not-open", "judgments-malformed"]) {
             expect(publish).toContain(`\`${refusal}\``);
         }
     });

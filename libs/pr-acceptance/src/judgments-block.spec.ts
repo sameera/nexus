@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { parseReceiptBlock } from "./verify.js";
 import { verdictBody } from "./verdict-fixtures.js";
-import { type Departure, JUDGMENTS_MARKER, parseJudgmentsBlock, renderJudgmentsBlock } from "./judgments-block.js";
+import { type Departure, type Finding, JUDGMENTS_MARKER, parseJudgmentsBlock, renderJudgmentsBlock } from "./judgments-block.js";
 
 const departure = (over: Partial<Departure> = {}): Departure => ({
     id: "DV1",
@@ -20,6 +20,18 @@ const departure = (over: Partial<Departure> = {}): Departure => ({
     files: ["libs/a.ts"],
     stub: null,
     supersedes: null,
+    answer: null,
+    ...over,
+});
+
+const finding = (over: Partial<Finding> = {}): Finding => ({
+    id: "F1",
+    kind: "finding",
+    found: true,
+    severity: "high",
+    about: "#860 AC3",
+    summary: "an unanswered departure is not counted",
+    files: ["libs/b.ts"],
     answer: null,
     ...over,
 });
@@ -37,12 +49,19 @@ describe("the judgments block round-trips what analyze wrote", () => {
             }),
         ];
         const r = parseJudgmentsBlock(`prose\n\n${renderJudgmentsBlock({ items })}`);
-        expect(r).toEqual({ ok: true, judgments: { items, other: [] } });
+        expect(r).toEqual({ ok: true, judgments: { items, findings: [], other: [] } });
+    });
+
+    it("reads back every finding with its answer (epic #829, story #860)", () => {
+        const answer = { verb: "waived", author: "lead", link: "https://x/1", reason: "tracked in #901" };
+        const findings = [finding({ answer }), finding({ id: "F2", severity: "low", about: "Scope drift" })];
+        const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [departure()], findings }));
+        expect(r).toEqual({ ok: true, judgments: { items: [departure()], findings, other: [] } });
     });
 
     it("reads a verdict with no departures as an empty list, not as no judgments", () => {
         const r = parseJudgmentsBlock(renderJudgmentsBlock({ items: [] }));
-        expect(r).toEqual({ ok: true, judgments: { items: [], other: [] } });
+        expect(r).toEqual({ ok: true, judgments: { items: [], findings: [], other: [] } });
     });
 
     it("reads a verdict published before the block existed as having no judgments, never as an error", () => {
@@ -62,9 +81,9 @@ describe("the judgments block round-trips what analyze wrote", () => {
     });
 
     it("keeps an item of a kind this release does not judge, so a later run can carry it forward", () => {
-        const body = `${JUDGMENTS_MARKER}\n\`\`\`json\n${JSON.stringify({ schema: 1, items: [{ id: "F3", kind: "finding", note: "x" }] })}\n\`\`\`\n`;
+        const body = `${JUDGMENTS_MARKER}\n\`\`\`json\n${JSON.stringify({ schema: 1, items: [{ id: "DS3", kind: "deferred-scope", note: "x" }] })}\n\`\`\`\n`;
         const r = parseJudgmentsBlock(body);
-        expect(r).toEqual({ ok: true, judgments: { items: [], other: [{ id: "F3", kind: "finding", note: "x" }] } });
+        expect(r).toEqual({ ok: true, judgments: { items: [], findings: [], other: [{ id: "DS3", kind: "deferred-scope", note: "x" }] } });
     });
 });
 
@@ -101,5 +120,15 @@ describe("a judgments block that cannot serve as an ID registry is refused, neve
 
     it("refuses a departure severity other than critical or high", () => {
         expect(parseJudgmentsBlock(raw({ schema: 1, items: [{ ...departure(), severity: "medium" }] })).ok).toBe(false);
+    });
+
+    it("refuses a waiver on a medium or low finding, which cannot be waived (G13)", () => {
+        const answer = { verb: "waived", author: "lead", link: "https://x/1", reason: "minor" };
+        const r = parseJudgmentsBlock(raw({ schema: 1, items: [finding({ severity: "medium", answer })] }));
+        expect(r.ok).toBe(false);
+    });
+
+    it("refuses a finding that names nothing it judges", () => {
+        expect(parseJudgmentsBlock(raw({ schema: 1, items: [finding({ about: "" })] })).ok).toBe(false);
     });
 });

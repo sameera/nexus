@@ -1,6 +1,6 @@
 ---
 name: nxs.close
-description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. It derives each story's commit ranges itself, in the checkout of each repository a story merged in, checks that each pull request landed every reviewed file as it was reviewed (stopping on one that never reached trunk), and stamps the ranges and each story's landed-check result into both the close record and the close comment. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story shipped and reviewed — a story with an open or only closed-unmerged claiming pull request, or none, stops as unshipped, and a story no receipt names stops as never reviewed, naming /nxs.analyze --pr on its pull request (hard blocks, no waiver); a story whose evidence is stale — a reviewed file that did not land as reviewed, a merged head that is not the analyzed head, or a decision record revised since its receipt — stops before mining, naming every cause with its remedy (/nxs.analyze --pr on the pull request for a moved head; that run or a trusted waiver comment on the pull request for a revised record; only that waiver for a landed change), where close reads a waiver posted on the pull request in a fixed form, never asks for one, and stamps each applied waiver into the close record and the close comment; and /nxs.analyze ran before the merge (a missing receipt is a hard block; blocking findings require an explicit user override). Close neither requires nor writes a shipped record on the epic issue, though it still reads the range and merge commit a record already stamped, and it starts no analyze run. With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
+description: Close an epic over its merged pull request. Runs only with `--pr <N>`; without it, it refuses at once and names `/nxs.close --pr <N>`. Emits a human-prose close record in the epic's queue entry (key decisions + deferred-scope pointer + deviation rationale from a close-from-diff pass), files deferred scope as epic stub issues after the checkpoint, writes the process lesson as its own file, then — after a checkpoint — posts the durable close comment (prose + machine block) on the epic GitHub issue and closes it. It derives each story's commit ranges itself, in the checkout of each repository a story merged in, checks that each pull request landed every reviewed file as it was reviewed (stopping on one that never reached trunk), and stamps the ranges and each story's landed-check result into both the close record and the close comment. Preconditions — every sub-issue of the epic closed, story or decision record alike (hard block); every story shipped and reviewed — a story with an open or only closed-unmerged claiming pull request, or none, stops as unshipped, and a story no receipt names stops as never reviewed, naming /nxs.analyze --pr on its pull request (hard blocks, no waiver); a story whose evidence is stale — a reviewed file that did not land as reviewed, a merged head that is not the analyzed head, or a decision record revised since its receipt — stops before mining, naming every cause with its remedy (/nxs.analyze --pr on the pull request for a moved head; that run or a trusted waiver comment on the pull request for a revised record; only that waiver for a landed change), where close reads a waiver posted on the pull request in a fixed form, never asks for one, and stamps each applied waiver into the close record and the close comment; and /nxs.analyze ran before the merge (a missing receipt is a hard block; so is a receipt with open critical or high items, with no override — close names answering them on the pull request and then running analyze there to record the answers). Close neither requires nor writes a shipped record on the epic issue, though it still reads the range and merge commit a record already stamped, and it starts no analyze run. With `--pr <N>` it runs post-merge in a worktree on a fresh distill branch (gated on the PR being merged), reads the analyze result from the PR review, commits and pushes the close artifacts, and hands off to /nxs.distill; single-repo and hub only.
 category: engineering
 tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 model: inherit
@@ -581,7 +581,7 @@ should have run yet.
     supplies `--repo`.
 
    Classify the state:
-    - **clean** — receipt found and no critical/high findings. Set the close record's `analyze:`
+    - **clean** — receipt found and no open critical or high item. Set the close record's `analyze:`
       value to `ran <date> @ <head>` and continue silently to Phase 2. A record-revised waiver Phase
       0.5 applied does not change this value; Phase 4 stamps it under `waivers`.
     - **missing** — no receipt / no trusted machine block: `/nxs.analyze` never ran on this entry.
@@ -599,21 +599,22 @@ should have run yet.
    anything here: a branch that kept moving after the merge cannot change what merged. What is left
    for you to adjudicate is findings.
 2. On **missing**, stop as above: there is no "close without analysis" choice. On **blocking**,
-   render a one-paragraph markdown note naming the state and what it means, then ask via
-   `AskUserQuestion` — never proceed silently:
-    - blocking → **"Stop and fix the findings (Recommended)"** | "Override and close"
+   **stop** too: close offers **no override** (epic #829, record #871, D4, G17). The receipt's
+   counts cover only items still open, so a blocking receipt names departures nobody accepted and
+   critical or high findings nobody waived. Name each blocking count and the remedy, in this order:
+    1. Fix the code, or answer each open item **on the pull request**, one line per item in a
+       comment from someone who can speak for the repository: `<ID> — accepted: <reason>` for a
+       departure, `<ID> — waived: <reason>` for a critical or high finding. The IDs are the ones
+       the verdict on that pull request lists.
+    2. Then run analyze on that pull request again to record the answers (`/nxs.analyze --pr <N>`),
+       which publishes a new verdict whose counts leave the answered items out.
+    3. Then re-run `/nxs.close --pr <N>`.
 
-   This override is the one waiver this gate still offers (record #849, G26), until findings can be
-   answered on the pull request. **Offer no other waiver here**: not about the analysed commit, not
-   about a revised decision record and not about a reviewed file that did not land as reviewed.
-   Close never asks for those (G34); a lead posts them on the pull request in the waiver form
-   Phase 0.5 documents, before close runs.
-3. If the user picks the recommended option, **stop**: tell them to run `/nxs.analyze` (fixing
-   findings first, for blocking) and then re-run `/nxs.close`. Do not run the analysis yourself —
-   the gate detects, it does not substitute.
-4. If the user picks the proceed option, set the waiver text for the close record's `analyze:`
-   frontmatter (Phase 4) and continue:
-    - blocking → `overridden — <C> critical / <H> high finding(s) open; waived <YYYY-MM-DD>`
+   Never ask the lead to override, never proceed on a blocking receipt, and **offer no other
+   waiver here**: not about the analysed commit, not about a revised decision record and not about
+   a reviewed file that did not land as reviewed. Close never asks for those (G34); a lead posts
+   them on the pull request in the waiver form Phase 0.5 documents, before close runs. Do not run
+   the analysis yourself — the gate detects, it does not substitute.
 
 ## 1.3 Workspace preflight (role gate)
 
@@ -790,7 +791,7 @@ Fill the seeded template and write it into the queue entry.
       absent stamp reads as an unknown writer, which is never an error. It sits beside `record_hash`,
       never inside the record bytes that digest covers, so stamping leaves every hash a later stage
       verifies exactly as it was.
-    - `analyze` — the conformance-gate outcome from Phase 1.2 (`ran … @ …`, or the override text).
+    - `analyze` — the conformance-gate outcome from Phase 1.2 (`ran … @ …`).
     - `record` / `record_hash` — the decision record this epic was built against, as an **issue
       reference** (`#<record>`) plus the **full** approved-body digest from the digest program.
       Never a queue path: the drain deletes queue paths, which is the exact failure this epic
@@ -1198,7 +1199,7 @@ issues_repo: <ISSUES_REPO>       # where `epic`/`record`/stub numbers live — t
 date: <YYYY-MM-DD>
 record: "#<record>"              # omit when the epic has no record
 record_hash: <RECORD_HASH>       # full digest, never truncated; omit with `record`
-analyze: <clean | the Phase 1.2 waiver text>
+analyze: clean
 range:                           # the close record's `range:` list, entry for entry
   - repo: <the Phase 4 range repo identity>
     pr: <N>
@@ -1390,11 +1391,10 @@ state, but a closed epic with an open issue misreports the pipeline.
   whatever its kind, and never close a sub-issue yourself. An open decision record means the design
   is unapproved; closing that sub-issue IS the approval, and it is the lead's act, not close's.
 - **The analyze gate detects, it does not substitute** — a story no receipt names, or a missing
-  receipt, is a hard stop naming `/nxs.analyze --pr <N>`, with no waiver (story #847). On open
-  critical/high findings, either stop (user runs `/nxs.analyze` and re-runs close) or proceed on an
-  **explicit user override** at the checkpoint; never run the analysis from inside close, and never
-  proceed silently. The override is always recorded in the close record's `analyze:` frontmatter
-  and surfaced in the close comment.
+  receipt, is a hard stop naming `/nxs.analyze --pr <N>`, with no waiver (story #847). Open
+  critical or high items are a hard stop too, with no override (epic #829, G17): name answering
+  them on the pull request and then running analyze there to record the answers;
+  never run the analysis from inside close, and never proceed on a blocking receipt.
 - **Close neither requires nor writes a shipped record, and starts no analyze run** (story #843;
   record #849, D8–D9). The pull request was analyzed before the merge; close's own evidence gate
   decides whether that analysis still holds. A record an epic in flight already carries is still
