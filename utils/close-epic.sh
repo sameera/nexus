@@ -1,19 +1,27 @@
 #!/usr/bin/env bash
 #
 # close-epic.sh — take a merged epic pull request from close through an unattended distillation
-# run in one command: check the pull request, run /nxs.close interactively for its one checkpoint,
+# run in one command, with nobody at the terminal: check the pull request, run `nexus close`,
 # verify what close left behind, then run /nxs.distill --unattended in the worktree close prepared.
+#
+# Close is the plain command `nexus close` (decision record #872, D16). It runs no model and asks
+# nothing, so the script reads its outcome from its exit status. On a stop it prints close's
+# reason and remedy again and starts no distill. On success it still checks the hand-off note
+# against GitHub and git before distill starts.
 #
 # There is no analyze stage (decision record #849, D9). The pull request was analyzed before the
 # merge, with /nxs.analyze --pr; close's own evidence gate decides whether that analysis still
-# holds, and needs no shipped record on the epic issue.
+# holds. Answers and waivers must already be on the pull request and recorded by analyze.
 #
 # Usage:
 #   utils/close-epic.sh <PR> [--merge] [--background] [extra harness args...]
 #   HARNESS=codex utils/close-epic.sh <PR> [--merge] [--background] [extra codex exec args...]
 #
+# Extra harness arguments go to the distill stage only; close takes none.
+#
 # Environment:
-#   HARNESS          claude (default) or codex; install Nexus for that harness first
+#   HARNESS          claude (default) or codex, the harness distill runs under; install Nexus for
+#                    that harness first
 #   CODEX_SANDBOX    Codex sandbox mode (default workspace-write)
 #   PERMISSION_MODE  claude permission mode for the headless stage (default bypassPermissions —
 #                    required for unattended runs; tool calls cannot be approved interactively)
@@ -32,7 +40,7 @@
 # (.nexus/tmp/close-epic-<PR>/), which is gitignored and never looks like a queue entry.
 #
 # Single-repo checkouts only (decision record #818, D10) — a hub or member checkout is refused
-# before anything else runs, through the same role check /nxs.close itself uses.
+# before anything else runs, through the same role check close itself uses.
 
 set -euo pipefail
 
@@ -174,21 +182,8 @@ run_headless() {
     fi
 }
 
-# The interactive stage: close, the one checkpoint a lead answers. Streams to the terminal like a
-# normal session and returns once the lead ends it.
-run_interactive() {
-    local prompt="$1"
-    shift
-    if [[ "$HARNESS" == "codex" ]]; then
-        prompt="${prompt//\/nxs.close/\$nxs-close}"
-        codex --sandbox "$CODEX_SANDBOX" "$@" -- "$prompt"
-    else
-        claude "$prompt" "$@"
-    fi
-}
-
 # --- Phase 1: single-repo checkouts only (D10) — refuse hub and member, the same check
-# /nxs.close itself uses for member -----------------------------------------------------------
+# close itself uses for member ----------------------------------------------------------------
 ROLE_OUT="$(nexus close-role)"
 ROLE="$(sed -n 's/^role: //p' <<<"$ROLE_OUT")"
 if [[ "$ROLE" == "member" ]]; then
@@ -196,7 +191,7 @@ if [[ "$ROLE" == "member" ]]; then
     exit 1
 fi
 if [[ "$ROLE" == "hub" ]]; then
-    echo "!!! close-epic.sh runs in a single-repo checkout only. In a hub, run /nxs.analyze --pr, /nxs.close --pr and /nxs.distill by hand." >&2
+    echo "!!! close-epic.sh runs in a single-repo checkout only. In a hub, run /nxs.analyze --pr, nexus close --pr and /nxs.distill by hand." >&2
     exit 1
 fi
 
@@ -244,25 +239,42 @@ fi
 echo ">>> fetching trunk" >&2
 git fetch "$(nexus trunk --form remote)" "$BASE"
 
-# Absolute, so close writes the note to the same place whatever directory its session has moved to.
+# Absolute, so the note's place does not depend on close's working directory.
 RUN_DIR="${PWD}/.nexus/tmp/close-epic-${PR}"
 mkdir -p "$RUN_DIR"
 HANDOFF="${RUN_DIR}/handoff.txt"
 LOG="${RUN_DIR}/distill.log"
 OUTCOME="${RUN_DIR}/outcome.txt"
 FINAL="${RUN_DIR}/distill-final.txt"
-rm -f "$HANDOFF" "$LOG" "$OUTCOME" "$FINAL"
+CLOSE_ERR="${RUN_DIR}/close.err"
+rm -f "$HANDOFF" "$LOG" "$OUTCOME" "$FINAL" "$CLOSE_ERR"
 
-# --- Phase 3: close, interactively — the one checkpoint the lead answers --------------------------
+# --- Phase 3: close, unattended — the plain command, read through its exit status (#872, D16) -----
+# Close's output streams to the terminal as it runs; its error stream is also kept in the run
+# folder, so a stop's reason and remedy can be repeated where the lead looks last.
 echo "" >&2
-echo ">>> stage 1: /nxs.close --pr ${PR} --handoff ${HANDOFF} (interactive — answer its checkpoint, then end the session)" >&2
-run_interactive "/nxs.close --pr ${PR} --handoff ${HANDOFF}" ${ARGS[@]+"${ARGS[@]}"}
+echo ">>> stage 1: nexus close --pr ${PR} --handoff ${HANDOFF}" >&2
+set +e
+{ nexus close --pr "$PR" --handoff "$HANDOFF" 2>&1 1>&3 3>&- | tee "$CLOSE_ERR" >&2; } 3>&1
+CLOSE_STATUS="${PIPESTATUS[0]}"
+set -e
+if [[ "$CLOSE_STATUS" != "0" ]]; then
+    echo "" >&2
+    echo "!!! nexus close stopped (exit ${CLOSE_STATUS}) — distill was not started. Close's stop:" >&2
+    if grep -qE '^  (reason|item|remedy):' "$CLOSE_ERR"; then
+        grep -E '^(STOP$|  (reason|item|remedy):)' "$CLOSE_ERR" >&2
+    else
+        cat "$CLOSE_ERR" >&2
+    fi
+    echo "Fix what it names, then re-run this command." >&2
+    exit 1
+fi
 
 # --- Phase 4: verify the hand-off note against GitHub and git --------------------------------------
 echo "" >&2
 echo ">>> verifying the hand-off note" >&2
 if [[ ! -f "$HANDOFF" ]]; then
-    echo "!!! no hand-off note at ${HANDOFF} — distill was not started. See close's own report above for why." >&2
+    echo "!!! nexus close succeeded but left no hand-off note at ${HANDOFF} — distill was not started." >&2
     exit 1
 fi
 NOTE_EPIC="$(sed -n 's/^epic: *//p' "$HANDOFF" | head -1)"

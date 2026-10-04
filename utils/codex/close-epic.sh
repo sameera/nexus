@@ -6,8 +6,9 @@
 #   utils/codex/close-epic.sh <PR> [--merge] [--background] [extra codex exec args...]
 #
 # Configure Codex with CODEX_SANDBOX (default: workspace-write). The shared pipeline
-# implementation lives in utils/close-epic.sh; pinning HARNESS here keeps this entry point
-# Codex-specific while sharing its preflight, merge, close and distill behavior.
+# implementation lives in utils/close-epic.sh; pinning HARNESS here runs distill under Codex while
+# sharing its preflight, merge, close and distill behavior. Close is `nexus close` on either
+# harness, so it runs unattended here too.
 
 set -euo pipefail
 
