@@ -74,6 +74,11 @@
       "import": "./src/verdict-fixtures.ts",
       "default": "./src/verdict-fixtures.ts"
     },
+    "./waiver": {
+      "types": "./src/waiver.ts",
+      "import": "./src/waiver.ts",
+      "default": "./src/waiver.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {

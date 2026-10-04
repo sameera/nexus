@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { type LandedChangeResult } from "@nexus/pr-worktree/landed-change";
 import { type RepoCheckoutResult } from "@nexus/pr-worktree/repo-checkout";
 import { type AnalyzeReceipt } from "@nexus/pr-acceptance/verify";
+import { WAIVER_MARKER, parseWaiverBlock, type WaiverComment } from "@nexus/pr-acceptance/waiver";
 import { deriveCloseRanges, type CloseRangesDeps, type DeriveOutcome } from "./close-ranges.js";
 import { type ShippedRecord } from "./ledger.js";
 import { type StoryClaimingPr } from "./story-prs.js";
@@ -52,6 +53,16 @@ interface World {
     prHeads?: Record<number, string>;
     /** The landed check's answer per pull request; defaults to every file unchanged. */
     landed?: Record<number, LandedChangeResult>;
+    /** The waiver comments on each pull request, or a read failure; none by default. */
+    waivers?: Record<number, PostedWaiver[] | { fail: string }>;
+}
+
+interface PostedWaiver {
+    body: string;
+    author?: string;
+    trusted?: boolean;
+    url?: string;
+    at?: string;
 }
 
 interface Seen {
@@ -59,6 +70,7 @@ interface Seen {
     checkouts: string[];
     derived: number[];
     compared?: Array<{ pr: number; analyzedHead: string; base: string; head: string }>;
+    waiverReads?: number[];
 }
 
 function receipt(head: string, stories: number[] = [], recordHash: string | null = null): AnalyzeReceipt {
@@ -120,6 +132,19 @@ function deps(world: World, seen: Seen = { claims: [], checkouts: [], derived: [
         compareLanded(_checkout, pr, input) {
             seen.compared?.push({ pr: pr.pr, ...input });
             return world.landed?.[pr.pr] ?? { ok: true, files: [{ path: "src/a.ts", status: "unchanged" }] };
+        },
+        readWaivers(pr) {
+            seen.waiverReads?.push(pr.pr);
+            const w = world.waivers?.[pr.pr] ?? [];
+            if ("fail" in w) return { ok: false, cause: w.fail };
+            const comments: WaiverComment[] = w.map((c, i) => ({
+                author: c.author ?? "lead",
+                url: c.url ?? `https://github.com/${pr.repo}/pull/${pr.pr}#issuecomment-${i}`,
+                at: c.at ?? `2026-10-0${i + 1}T00:00:00Z`,
+                trusted: c.trusted ?? true,
+                waiver: parseWaiverBlock(c.body) ?? { ok: false, problem: "no marker" },
+            }));
+            return { ok: true, waivers: { pr: pr.pr, comments } };
         },
     };
 }
@@ -753,5 +778,185 @@ describe("deriveCloseRanges — a story whose evidence is stale (story #842; D5,
         );
         expect(stateOf(out)?.state).toBe("never-reviewed");
         expect(stateOf(out)?.findings.map((f) => f.finding)).toEqual(["head-mismatch", "no-receipt"]);
+    });
+});
+
+describe("deriveCloseRanges — a waiver posted on the pull request (story #856; D11; G30–G35)", () => {
+    const one = { 1: [merged(1, 10, "2026-09-02T00:00:00Z")] };
+    const stateOf = (out: ReturnType<typeof deriveCloseRanges>, story = 1) => (out.ok ? out.ranges.states.find((s) => s.story === story) : undefined);
+    const linesOf = (out: ReturnType<typeof deriveCloseRanges>) => (out.ok ? out.ranges.lines.join("\n") : "");
+    const landedWaiver = (files: string[]) => `${WAIVER_MARKER}\n\`\`\`yaml\nwaive: landed-change\nfiles:\n${files.map((f) => `  - ${f}`).join("\n")}\n\`\`\``;
+    const recordWaiver = (digest: string) => `${WAIVER_MARKER}\n\`\`\`yaml\nwaive: record-revised\nrecord: "#849"\ndigest: ${digest}\n\`\`\``;
+    const changed = (...files: string[]): LandedChangeResult => ({ ok: true, files: files.map((path) => ({ path, status: "changed" as const })) });
+
+    it("clears a landed-change stop with a trusted waiver naming every changed file, and states the waiver", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "head-10", stories: [1] } },
+                landed: { 10: changed("src/a.ts", "src/b.ts") },
+                waivers: { 10: [{ body: landedWaiver(["src/a.ts", "src/b.ts"]), author: "alice", url: "https://x/w1" }] },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)).toEqual({ story: 1, state: "current", findings: [] });
+        expect(out.ok && out.ranges.closable).toBe(true);
+        expect(out.ok && out.ranges.waivers).toEqual([
+            { repo: "acme/web", pr: 10, cause: "landed-change", files: ["src/a.ts", "src/b.ts"], author: "alice", url: "https://x/w1", at: expect.any(String), reason: null, stories: [1] },
+        ]);
+        // The landed check still states what landed; the waiver is stated beside it.
+        expect(out.ok && out.ranges.landed[0].result).toBe("changed");
+        expect(linesOf(out)).toMatch(/acme\/web#10.*waiver.*alice.*https:\/\/x\/w1/);
+    });
+
+    it("clears a revised-record stop with a trusted waiver accepting the record at its current digest", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "head-10", stories: [1], recordHash: "old" } },
+                record: { digest: "new" },
+                waivers: { 10: [{ body: recordWaiver("new"), author: "alice", url: "https://x/w2" }] },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("current");
+        expect(out.ok && out.ranges.closable).toBe(true);
+        expect(out.ok && out.ranges.waivers).toEqual([
+            { repo: "acme/web", pr: 10, cause: "record-revised", record: 849, digest: "new", author: "alice", url: "https://x/w2", at: expect.any(String), reason: null, stories: [1] },
+        ]);
+    });
+
+    it("still stops on a waiver that leaves a changed file unnamed, naming the files it does not cover (G31)", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "head-10", stories: [1] } },
+                landed: { 10: changed("src/a.ts", "src/b.ts") },
+                waivers: { 10: [{ body: landedWaiver(["src/a.ts"]), url: "https://x/w3" }] },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("stale");
+        expect(stateOf(out)?.findings).toEqual([
+            {
+                repo: "acme/web",
+                pr: 10,
+                finding: "landed-change",
+                files: ["src/a.ts", "src/b.ts"],
+                remedies: [expect.stringContaining("waiver")],
+                waivers: [{ author: "lead", url: "https://x/w3", why: "incomplete", uncovered: ["src/b.ts"] }],
+            },
+        ]);
+        expect(out.ok && out.ranges.waivers).toEqual([]);
+        expect(linesOf(out)).toMatch(/https:\/\/x\/w3[^\n]*does not name src\/b\.ts/);
+    });
+
+    it("names a waiver from an author who cannot speak for the repository, and still stops (G32)", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "head-10", stories: [1] } },
+                landed: { 10: changed("src/a.ts") },
+                waivers: { 10: [{ body: landedWaiver(["src/a.ts"]), author: "mallory", trusted: false, url: "https://x/w4" }] },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("stale");
+        expect(out.ok && out.ranges.closable).toBe(false);
+        const line = linesOf(out).split("\n").find((l) => l.includes("https://x/w4")) ?? "";
+        expect(line).toContain("mallory");
+        expect(line).toContain("cannot speak for the repository");
+    });
+
+    it("clears a stop only on the pull request the waiver is posted on (G30)", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: { 1: [merged(1, 10, "2026-09-02T00:00:00Z"), merged(1, 11, "2026-09-03T00:00:00Z")] },
+                receipts: { 10: { head: "head-10", stories: [1] }, 11: { head: "head-11", stories: [1] } },
+                landed: { 10: changed("src/a.ts"), 11: changed("src/a.ts") },
+                waivers: { 10: [{ body: landedWaiver(["src/a.ts"]) }] },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("stale");
+        expect(stateOf(out)?.findings.map((f) => [f.pr, f.finding])).toEqual([[11, "landed-change"]]);
+        expect(out.ok && out.ranges.waivers.map((w) => w.pr)).toEqual([10]);
+    });
+
+    it("stops again on a later revision than the one a waiver accepted (G35)", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "head-10", stories: [1], recordHash: "first" } },
+                record: { digest: "third" },
+                waivers: { 10: [{ body: recordWaiver("second"), url: "https://x/w5" }] },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("stale");
+        expect(stateOf(out)?.findings[0]).toMatchObject({
+            finding: "record-revised",
+            currentDigest: "third",
+            waivers: [{ url: "https://x/w5", why: "other-revision", digest: "second" }],
+        });
+        expect(linesOf(out)).toMatch(/https:\/\/x\/w5[^\n]*second/);
+    });
+
+    it("never waives a moved head: a record waiver clears its own cause only, and the story still stops", () => {
+        const out = deriveCloseRanges(
+            deps({
+                claims: one,
+                receipts: { 10: { head: "old-head", stories: [1], recordHash: "old" } },
+                record: { digest: "new" },
+                waivers: { 10: [{ body: recordWaiver("new") }] },
+            }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("stale");
+        expect(stateOf(out)?.findings.map((f) => f.finding)).toEqual(["head-mismatch"]);
+        expect(out.ok && out.ranges.closable).toBe(false);
+    });
+
+    it("calls a story unknown, never current, when the waiver comments could not be read, and keeps the cause", () => {
+        const out = deriveCloseRanges(
+            deps({ claims: one, receipts: { 10: { head: "head-10", stories: [1] } }, landed: { 10: changed("src/a.ts") }, waivers: { 10: { fail: "gh: HTTP 502" } } }),
+            { stories: [1], records: [] },
+        );
+        expect(stateOf(out)?.state).toBe("unknown");
+        expect(stateOf(out)?.findings.map((f) => f.finding)).toEqual(["landed-change", "unreadable"]);
+        expect(stateOf(out)?.findings[1]).toMatchObject({ evidence: "waiver", cause: expect.stringContaining("HTTP 502") });
+        expect(out.ok && out.ranges.closable).toBe(false);
+    });
+
+    it("reads waivers once per pull request, and only for a cause a waiver can clear", () => {
+        const seen: Seen = { claims: [], checkouts: [], derived: [], waiverReads: [] };
+        const pr = (story: number) => merged(story, 40, "2026-09-03T00:00:00Z");
+        deriveCloseRanges(
+            deps(
+                {
+                    claims: { 1: [pr(1)], 2: [pr(2)], 3: [merged(3, 41, "2026-09-04T00:00:00Z")] },
+                    receipts: { 40: { head: "head-40", stories: [1, 2], recordHash: "old" }, 41: { head: "old-head", stories: [3] } },
+                    record: { digest: "new" },
+                },
+                seen,
+            ),
+            { stories: [1, 2, 3], records: [] },
+        );
+        expect(seen.waiverReads).toEqual([40]);
+    });
+
+    it("states one applied waiver for every story it cleared on that pull request", () => {
+        const pr = (story: number) => merged(story, 40, "2026-09-03T00:00:00Z");
+        const out = deriveCloseRanges(
+            deps({
+                claims: { 1: [pr(1)], 2: [pr(2)] },
+                receipts: { 40: { head: "head-40", stories: [1, 2], recordHash: "old" } },
+                record: { digest: "new" },
+                waivers: { 40: [{ body: recordWaiver("new") }] },
+            }),
+            { stories: [1, 2], records: [] },
+        );
+        expect(out.ok && out.ranges.closable).toBe(true);
+        expect(out.ok && out.ranges.waivers.map((w) => [w.pr, w.cause, w.stories])).toEqual([[40, "record-revised", [1, 2]]]);
     });
 });

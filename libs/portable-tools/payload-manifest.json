@@ -3,7 +3,7 @@
   "claude-components/agents/nxs-epic-gate.md": "ec70dd4566755a58e0b745f8f3c91d3ac3a4ff491b45a42b5edc2872fda12cc4",
   "claude-components/agents/nxs-pm.md": "a5f39fb6ac2dea6b3c57b3e8cd3cd76e838c24a430dacc6e9002856d5d5ad500",
   "claude-components/commands/nxs.analyze.md": "75a8f80a26963d89302c58002ab84c62fbbe641779655b9f1d79b2bc2c43e258",
-  "claude-components/commands/nxs.close.md": "b82959df65dc1ee42d038e2dd0daa6c47dcf287e0ec35207dcc9805af02bd5a4",
+  "claude-components/commands/nxs.close.md": "f78fba541a97fd22e0f305d7e865e60a8c7fa5cf16c81e8f6a0b50287bc9e870",
   "claude-components/commands/nxs.council.md": "d506e1a381de86b040f1a4ae8accf130bf94b9a96a832edf397bc6a6603032dc",
   "claude-components/commands/nxs.decision-record.md": "4b76ba95d36cec24848b72271f01420626bf4080ce9e54e878dd6003082ef33c",
   "claude-components/commands/nxs.discover.md": "bfc4a5426ad3ca2fe3b8ebb43ad0894cbe3046083f0eef2f4031a8bc6173c789",

@@ -44,9 +44,7 @@ describe("/nxs.close's story states (story #847)", () => {
         expect(CLOSE).not.toContain("closed without /nxs.analyze");
     });
 
-    it("keeps the blocking-findings override and the revised-record choice at the conformance gate (G26)", () => {
-        const gate = conformanceGate();
-        expect(gate).toContain('"Override and close"');
-        expect(gate).toContain('"Proceed against the revised record"');
+    it("keeps the blocking-findings override at the conformance gate (G26)", () => {
+        expect(conformanceGate()).toContain('"Override and close"');
     });
 });
