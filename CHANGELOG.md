@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.92.0
+
+- **Close has a plain command, `nexus close`, that nothing calls yet.** `/nxs.close` and the
+  one-command close script still run the close you know; the new command changes nothing until
+  they switch to it in a later release. `nexus close --pr <N>` closes the epic of a merged pull
+  request. It runs no model and asks no question. Every gate runs before it creates anything: the
+  checkout is a single repository or a hub, the pull request merged, the pull request names one
+  epic (otherwise it names passing the epic's entry path), every sub-issue is closed, and every
+  story is current. A revised record or a file that did not land as reviewed passes only with a
+  trusted waiver comment already on the pull request. Each merged pull request's verdict must have
+  no open critical or high item and must carry its judgments. Each failing gate prints one stop
+  naming the reason, the item and the remedy, and exits with an error; a waiver stop prints the
+  exact comment to post. When every gate passes, it reuses the distill branch an earlier run cut
+  for the epic, local or pushed, or cuts one from the trunk, and finds or creates the epic's queue
+  entry. In this release it stops there and says so: it writes nothing to GitHub.
+
 ## 0.91.0
 
 - **Analyze names every departure from the decision record.** `/nxs.analyze` now lists each place

@@ -298,3 +298,92 @@ export function removeWorktree(run: Runner, fromDir: string, wtPath: string): Wo
     }
     return { ok: true, wtPath };
 }
+
+/** Where the distill worktree for an epic came from. */
+export type DistillBranchSource = "local" | "pushed" | "new";
+
+export type EpicDistillWorktreeResult =
+    | { ok: true; wtPath: string; branch: string; source: DistillBranchSource }
+    | { ok: false; error: PrWorktreeDiagnostic };
+
+/** The remote a close pushes its distill branch to, and so the one an earlier run's branch is found on. */
+const PUSH_REMOTE = "origin";
+
+/** The distill branch name close cuts for an epic: today's date, then the epic's issue number. */
+export function epicDistillBranch(epic: number, date: string): string {
+    return `distill/${date}-epic-${epic}`;
+}
+
+function epicBranchPattern(epic: number): RegExp {
+    return new RegExp(`^distill/\\d{4}-\\d{2}-\\d{2}-epic-${epic}$`);
+}
+
+/** The newest name in `names` an earlier close cut for `epic`, by its date, or null. */
+function newestEpicBranch(names: readonly string[], epic: number): string | null {
+    const pattern = epicBranchPattern(epic);
+    const matching = names.filter((n) => pattern.test(n)).sort();
+    return matching.length > 0 ? matching[matching.length - 1] : null;
+}
+
+/**
+ * Close's worktree for an epic (epic #830, decision record #872, Mechanism step 4 and D11): it
+ * reuses the distill branch an earlier close cut for the same epic — checked out here, or only
+ * pushed — and cuts a fresh one from the trunk only when neither exists. So a re-run never cuts a
+ * second distill branch for one epic.
+ *
+ * A pushed branch is asked of the push remote itself, because the earlier run may have been on
+ * another machine. When that remote cannot be read, nothing is created: cutting a fresh branch
+ * then could be the second one.
+ */
+export function openEpicDistillWorktree(run: Runner, repoRoot: string, epic: number, date: string): EpicDistillWorktreeResult {
+    const local = newestEpicBranch(
+        (git(run, repoRoot, "for-each-ref", "--format=%(refname:short)", "refs/heads/distill/") ?? "").split("\n").map((l) => l.trim()),
+        epic,
+    );
+
+    let branch: string;
+    let source: DistillBranchSource;
+    if (local !== null) {
+        branch = local;
+        source = "local";
+    } else {
+        const remote = run("git", ["ls-remote", "--heads", PUSH_REMOTE], { cwd: repoRoot });
+        if (remote.status !== 0) {
+            return {
+                ok: false,
+                error: {
+                    problem: "git-failed",
+                    message:
+                        `the distill branches pushed to ${PUSH_REMOTE} could not be read (${remote.stderr.trim() || `git exited ${remote.status}`}), ` +
+                        `so close cannot tell whether an earlier run already cut one for epic #${epic}. Nothing was created; re-run once ${PUSH_REMOTE} can be read.`,
+                },
+            };
+        }
+        const pushed = newestEpicBranch(
+            remote.stdout
+                .split("\n")
+                .map((l) => l.split("\t")[1] ?? "")
+                .filter((ref) => ref.startsWith("refs/heads/"))
+                .map((ref) => ref.slice("refs/heads/".length)),
+            epic,
+        );
+        if (pushed !== null) {
+            const fetched = run("git", ["fetch", PUSH_REMOTE, `refs/heads/${pushed}:refs/heads/${pushed}`], { cwd: repoRoot });
+            if (fetched.status !== 0) {
+                return {
+                    ok: false,
+                    error: { problem: "git-failed", message: `git fetch ${PUSH_REMOTE} ${pushed} failed: ${fetched.stderr.trim()}` },
+                };
+            }
+            branch = pushed;
+            source = "pushed";
+        } else {
+            branch = epicDistillBranch(epic, date);
+            source = "new";
+        }
+    }
+
+    const wt = openCloseWorktree(run, repoRoot, branch);
+    if (!wt.ok) return wt;
+    return { ok: true, wtPath: wt.wtPath, branch, source };
+}

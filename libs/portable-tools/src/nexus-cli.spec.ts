@@ -2075,3 +2075,50 @@ describe("nexus verdict-judgments (#877)", () => {
         expect(await runNexusCli(["verdict-judgments"], makeIo(makeTmpDir("cli-judgments-")))).toBe(2);
     });
 });
+
+// Epic #830, story #864 (decision record #872, D1, D3): close as a plain command. The gates and the
+// worktree step are specified in close-command.spec.ts; here, the verb's own surface.
+describe("nexus close (story #864)", () => {
+    it("is a verb whose help says it closes an epic, not a worktree (D1 trade-off)", async () => {
+        expect(VERB_NAMES).toContain("close");
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["--help"], io)).toBe(0);
+        const help = io.out.join("\n");
+        expect(help).toContain("nexus close --pr <N>");
+        expect(help).toMatch(/Closes an EPIC/);
+        expect(help).toContain("--handoff");
+    });
+
+    it("refuses to run without --pr and names the form that works", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("nexus close --pr <N>");
+    });
+
+    it("refuses an unknown option rather than ignoring it", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", "--pr", "5", "--yes"], io)).toBe(2);
+        expect(io.err.join("\n")).toContain("--yes");
+    });
+
+    it("stops a member checkout before reading anything, naming the checkout and the hub, and exits 1 (G44)", async () => {
+        const repo: string = makeTmpDir("cli-close-member-");
+        execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+        fs.mkdirSync(path.join(repo, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(repo, ".nexus", "config", "hub.yml"), "hub: acme/hub\n");
+        const io: CapturedIo = makeIo(repo);
+        expect(await runNexusCli(["close", "--pr", "5"], io)).toBe(1);
+        const err = io.err.join("\n");
+        expect(err).toMatch(/reason: .*member/);
+        expect(err).toContain(fs.realpathSync(repo));
+        expect(err).toMatch(/remedy: .*hub/);
+        expect(io.out).toEqual([]);
+    });
+
+    it("stops outside a git checkout and exits 1", async () => {
+        const dir: string = makeTmpDir("cli-close-nogit-");
+        const io: CapturedIo = makeIo(dir);
+        expect(await runNexusCli(["close", "--pr", "5"], io)).toBe(1);
+        expect(io.err.join("\n")).toMatch(/remedy:/);
+    });
+});

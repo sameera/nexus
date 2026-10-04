@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
-import { openAnalyzeWorktree, openCloseWorktree, removeWorktree } from "./worktree.js";
+import { openAnalyzeWorktree, openCloseWorktree, openEpicDistillWorktree, removeWorktree } from "./worktree.js";
 import { defaultRunner, git } from "./run.js";
 import { buildForkWithUpstream, buildRepoWithOrigin, makeParent, sh } from "./git-fixtures.js";
 
@@ -35,6 +35,80 @@ describe("openCloseWorktree", () => {
         expect(second.ok).toBe(true);
         if (!second.ok) return;
         expect(second.wtPath).toBe(first.wtPath);
+    });
+});
+
+// Epic #830, story #864 (decision record #872, Mechanism step 4, D11): close reuses the distill
+// branch an earlier run cut for the same epic, local or pushed, and never cuts a second one.
+describe("openEpicDistillWorktree", () => {
+    it("cuts a fresh distill branch named for the epic from the trunk when no earlier run cut one", () => {
+        const { repo, mainSha } = buildRepoWithOrigin(makeParent(tracked));
+        const r = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-04");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        worktrees.push({ repo, path: r.wtPath });
+        expect(r.branch).toBe("distill/2026-10-04-epic-830");
+        expect(r.source).toBe("new");
+        expect(git(defaultRunner, r.wtPath, "rev-parse", "HEAD")).toBe(mainSha);
+    });
+
+    it("reuses the branch an earlier run cut on another day, and its worktree", () => {
+        const { repo } = buildRepoWithOrigin(makeParent(tracked));
+        const first = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-03");
+        expect(first.ok).toBe(true);
+        if (!first.ok) return;
+        worktrees.push({ repo, path: first.wtPath });
+        const second = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-04");
+        expect(second.ok).toBe(true);
+        if (!second.ok) return;
+        expect(second.branch).toBe("distill/2026-10-03-epic-830");
+        expect(second.source).toBe("local");
+        expect(second.wtPath).toBe(first.wtPath);
+        const branches = sh(repo, "git", "for-each-ref", "--format=%(refname:short)", "refs/heads/distill/").split("\n");
+        expect(branches).toEqual(["distill/2026-10-03-epic-830"]);
+    });
+
+    it("reuses a branch an earlier run only pushed, with the commits it carries", () => {
+        const { repo, origin } = buildRepoWithOrigin(makeParent(tracked));
+        // Another machine's earlier run: a pushed distill branch with a commit on it.
+        sh(repo, "git", "checkout", "-q", "-b", "distill/2026-10-02-epic-830");
+        fs.writeFileSync(`${repo}/entry.md`, "entry\n");
+        sh(repo, "git", "add", "-A");
+        sh(repo, "git", "commit", "-qm", "close: earlier run");
+        const pushedSha = git(defaultRunner, repo, "rev-parse", "HEAD");
+        sh(repo, "git", "push", "-q", "origin", "distill/2026-10-02-epic-830");
+        sh(repo, "git", "checkout", "-q", "main");
+        sh(repo, "git", "branch", "-q", "-D", "distill/2026-10-02-epic-830");
+        expect(origin).toBeTruthy();
+
+        const r = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-04");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        worktrees.push({ repo, path: r.wtPath });
+        expect(r.branch).toBe("distill/2026-10-02-epic-830");
+        expect(r.source).toBe("pushed");
+        expect(git(defaultRunner, r.wtPath, "rev-parse", "HEAD")).toBe(pushedSha);
+    });
+
+    it("ignores a distill branch another epic's close cut", () => {
+        const { repo } = buildRepoWithOrigin(makeParent(tracked));
+        sh(repo, "git", "branch", "distill/2026-10-01-epic-8300");
+        sh(repo, "git", "branch", "distill/2026-10-01-epic-83");
+        const r = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-04");
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        worktrees.push({ repo, path: r.wtPath });
+        expect(r.branch).toBe("distill/2026-10-04-epic-830");
+    });
+
+    it("creates nothing when the push remote cannot be read, because a fresh branch could be the second one", () => {
+        const { repo, origin } = buildRepoWithOrigin(makeParent(tracked));
+        fs.rmSync(origin, { recursive: true, force: true });
+        const r = openEpicDistillWorktree(defaultRunner, repo, 830, "2026-10-04");
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.message).toContain("origin");
+        expect(sh(repo, "git", "for-each-ref", "--format=%(refname:short)", "refs/heads/distill/")).toBe("");
     });
 });
 

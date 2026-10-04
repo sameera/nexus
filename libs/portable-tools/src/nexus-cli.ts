@@ -14,6 +14,7 @@
  *   nexus uninstall                    remove the installed components from that directory
  *   nexus migrate-components           remove a repository's committed component set
  *   nexus deploy                       install the Nexus components into the invoking repo
+ *   nexus close                        close an epic over its merged pull request (epic #830)
  *   nexus workspace init               declare a multi-repo workspace (STORY-60.02)
  *   nexus workspace status             read-only workspace status (STORY-60.03)
  *   nexus workspace docs-root          print the resolved repo-relative docs root (STORY-81.01)
@@ -27,6 +28,7 @@ import * as readline from "node:readline";
 import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
+import { closeCommandDeps, renderCloseOutcome, runCloseCommand } from "@nexus/epic-verdicts/close-command";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
@@ -35,7 +37,7 @@ import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
 import { ensurePlanningDir, listPlanningDirs, removePlanningDir } from "@nexus/epic-resolve/planning-dir";
 import { epicCompletion, epicCompletionDeps, epicPrTarget } from "@nexus/epic-verdicts/epic-completion";
-import { isExcludedStory, waiveStory } from "@nexus/epic-verdicts/exclusion";
+import { storyCarriesLabel as storyCarriesLabelIn, waiveStory } from "@nexus/epic-verdicts/exclusion";
 import { fetchShippedRecords } from "@nexus/epic-verdicts/ledger";
 import { type UntrustedRecord } from "@nexus/epic-verdicts/ledger";
 import { describeStoryReadFailures } from "@nexus/epic-verdicts/story-prs";
@@ -600,6 +602,24 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      migrate) are kept only so a lead who still types them is told what replaced them.",
         ].join("\n"),
         run: runCloseMigration,
+    },
+    close: {
+        summary: "Close an epic over its merged pull request, as a plain command that asks nothing.",
+        usage: [
+            "  nexus close --pr <N> [<path to epic.md>] [--handoff <path>]",
+            "      Closes an EPIC (not a worktree or a pull request): the epic of merged pull request <N>.",
+            "      Runs no model and asks no question. Every gate runs before anything is created: the",
+            "      checkout is a single repository or a hub, the pull request merged, the epic is one",
+            "      epic, every sub-issue is closed, every story is current with waivers read only from",
+            "      trusted comments already on the pull request, and each merged pull request's verdict",
+            "      has no open critical or high item and carries its judgments. A failing gate prints one",
+            "      block per stop naming the reason, the item and the remedy (a waiver stop prints the",
+            "      comment to post) and exits 1. Then it reuses the distill branch an earlier run cut for",
+            "      the epic, or cuts one from the trunk, and finds or creates the epic's queue entry.",
+            "      The entry path names the epic when the pull request does not name exactly one.",
+            "      This release stops there; /nxs.close --pr <N> still writes the record and closes.",
+        ].join("\n"),
+        run: runClose,
     },
     "close-role": {
         summary: "Report the checkout's close role (single-repo, hub, or member) and its repo identity.",
@@ -1479,11 +1499,7 @@ async function runPlanningDir(argv: string[], io: CliIo): Promise<number> {
 
 /** Does a story issue carry `label` in the issues repository? Absent or unreadable is "no". */
 function storyCarriesLabel(cwd: string, issuesRepo: string, story: number, label: string): boolean {
-    const r = closeMigrationRunner("gh", ["issue", "view", String(story), "--repo", issuesRepo, "--json", "labels", "--jq", ".labels[].name"], {
-        cwd,
-    });
-    const labels = r.status === 0 ? r.stdout.split("\n").map((l) => l.trim()).filter(Boolean) : [];
-    return isExcludedStory(labels, label);
+    return storyCarriesLabelIn(closeMigrationRunner, cwd, issuesRepo, story, label);
 }
 
 interface EpicVerdictsFlags {
@@ -2953,6 +2969,53 @@ async function runCloseMigration(_argv: string[], io: CliIo): Promise<number> {
             "the same way a single repository closes. Run /nxs.close from the hub instead.",
     );
     return 1;
+}
+
+/** Today in the local time zone, as YYYY-MM-DD: the date a distill branch is named with. */
+function localDate(now: Date = new Date()): string {
+    const pad = (n: number): string => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * `nexus close` — close as a plain command (epic #830, story #864, decision record #872, D1, D3).
+ * It takes the arguments `/nxs.close` takes: `--pr <N>`, an optional entry path and `--handoff`.
+ */
+async function runClose(argv: string[], io: CliIo): Promise<number> {
+    const usage = "usage: nexus close --pr <N> [<path to epic.md>] [--handoff <path>]  (closes the epic of merged pull request <N>)";
+    let pr: number | undefined;
+    let handoff: string | null = null;
+    const positional: string[] = [];
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i];
+        if (a === "--pr") pr = Number(argv[++i]);
+        else if (a === "--handoff") handoff = argv[++i] ?? "";
+        else if (a.startsWith("--")) {
+            io.stderr(`close: unknown option ${a}\n${usage}`);
+            return 2;
+        } else positional.push(a);
+    }
+    if (pr === undefined || !Number.isInteger(pr) || pr <= 0 || positional.length > 1 || handoff === "") {
+        io.stderr(`close runs only against a merged pull request: nexus close --pr <N>.\n${usage}`);
+        return 2;
+    }
+    const deps = closeCommandDeps(closeMigrationRunner, {
+        singleRepo: (root) => {
+            const ws = resolveWorkspace(root);
+            return ws.ok && ws.workspace.mode === "single-repo";
+        },
+    });
+    const outcome = runCloseCommand(deps, {
+        cwd: io.cwd,
+        pr,
+        entryPath: positional.length === 1 ? path.resolve(io.cwd, positional[0]) : null,
+        handoff: handoff === null ? null : path.resolve(io.cwd, handoff),
+        date: localDate(),
+    });
+    const rendered = renderCloseOutcome(outcome);
+    for (const line of rendered.stdout) io.stdout(line);
+    for (const line of rendered.stderr) io.stderr(line);
+    return rendered.exitCode;
 }
 
 /**

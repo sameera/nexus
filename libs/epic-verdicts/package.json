@@ -84,6 +84,11 @@
       "import": "./src/epic-completion.ts",
       "default": "./src/epic-completion.ts"
     },
+    "./close-command": {
+      "types": "./src/close-command.ts",
+      "import": "./src/close-command.ts",
+      "default": "./src/close-command.ts"
+    },
     "./package.json": "./package.json"
   },
   "dependencies": {
