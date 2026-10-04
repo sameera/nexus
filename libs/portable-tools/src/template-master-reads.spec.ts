@@ -28,15 +28,6 @@ function closeBody(): string {
     return fs.readFileSync(path.join(AUTHORED_ROOT, "commands", "nxs.close.md"), "utf8");
 }
 
-/** The close body's record-writing step: its first numbered item. */
-function recordShapeStep(body: string): string {
-    const start: number = body.indexOf("# Phase 4 — Write the close record");
-    expect(start, "the close record phase is missing").toBeGreaterThanOrEqual(0);
-    const phase: string = body.slice(start);
-    const end: number = phase.search(/\n2\. /);
-    return end < 0 ? phase : phase.slice(0, end);
-}
-
 // Epic #830, decision record #872, D4: the close record's shape lives in code, so close reads no
 // template at all — neither the project's copy nor the master — and seeding no longer places one.
 describe("the close stage reads no template (#872 D4)", () => {
@@ -46,14 +37,17 @@ describe("the close stage reads no template (#872 D4)", () => {
         expect(named).toEqual([]);
     });
 
-    it("says the record's shape is fixed and that a project's template is ignored", () => {
-        const step: string = recordShapeStep(closeBody());
-
-        expect(step).toMatch(/no template is read/);
-        expect(step).toMatch(/ignored/);
-        expect(step).not.toContain("nexus seed-templates");
-        expect(step).not.toContain("fall back");
-        expect(step).not.toContain(MASTER_PATH);
+    it("renders the record in code that reads no template: nexus close's sources name none (story #869)", () => {
+        // /nxs.close relays to `nexus close` since story #869, so the shape is the code's.
+        const src: string = path.resolve(import.meta.dirname, "..", "..", "epic-verdicts", "src");
+        const sources: string[] = fs.readdirSync(src).filter((f) => /^close-.*\.ts$/.test(f) && !f.endsWith(".spec.ts"));
+        expect(sources).toContain("close-record.ts");
+        for (const f of sources) {
+            const text: string = fs.readFileSync(path.join(src, f), "utf8");
+            expect(text, f).not.toMatch(/close-record-template/);
+            expect(text, f).not.toContain(MASTER_PATH);
+            expect(text, f).not.toContain(PROJECT_PATH);
+        }
     });
 });
 

@@ -1,6 +1,12 @@
 /**
  * Story #817, D4 — /nxs.close accepts --handoff <path>, only meaningful alongside --pr, so
  * utils/close-epic.sh can tell a completed close from a failed one without parsing its output.
+ *
+ * Since story #869 /nxs.close relays to `nexus close`, which writes the note. The note's three-line
+ * format, its writing only on full success (never on a failed push), and the final instruction with
+ * and without a hand-off are pinned on the code in libs/epic-verdicts/src/close-command.spec.ts
+ * ("writes the hand-off note in today's three-line format", "hands the next step to the close
+ * script ...", "ends by naming the drain in the worktree ...", "stops on a failed push ...").
  */
 
 import * as fs from "node:fs";
@@ -14,27 +20,9 @@ const CLOSE: string = fs.readFileSync(
 );
 
 describe("/nxs.close --handoff <path> (story #817)", () => {
-    it("documents the argument and strips it before epic resolution", () => {
-        const at: number = CLOSE.indexOf("**`--handoff <path>`**");
-        expect(at).toBeGreaterThan(-1);
-        expect(at).toBeLessThan(CLOSE.indexOf("# Phase 0 — Validate the epic"));
-    });
-
-    it("writes the note only on full success, never on a failed push", () => {
-        const write: number = CLOSE.indexOf("write the note now");
-        expect(write).toBeGreaterThan(-1);
-        const block: string = CLOSE.slice(write, write + 700);
-        expect(block).toContain("epic:");
-        expect(block).toContain("branch:");
-        expect(block).toContain("worktree:");
-        expect(block).toMatch(/push failure means the note is \*\*not\*\* written/);
-    });
-
-    it("replaces the cd/distill instruction with an end-session instruction when a note was written", () => {
-        expect(CLOSE).toMatch(/end this session now; utils\/close-epic\.sh continues from here/);
-    });
-
-    it("leaves the ordinary --pr flow's final instruction unchanged when --handoff is absent", () => {
-        expect(CLOSE).toContain("cd <wtPath> && /nxs.distill");
+    it("passes --handoff through to nexus close with the other arguments", () => {
+        const step: string = CLOSE.slice(CLOSE.indexOf("# Step 2"), CLOSE.indexOf("# Step 3"));
+        expect(step).toContain("`--handoff <path>`");
+        expect(step).toContain("nexus close $ARGUMENTS");
     });
 });

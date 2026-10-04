@@ -1,7 +1,8 @@
 /**
  * Cross-repository issue references (concept "Provenance Reference"), wired into the four lanes
  * that write an epic, record, story or stub number into a surface that can be read outside the
- * repository it was filed into: /nxs.epic, /nxs.decision-record, /nxs.analyze and /nxs.close.
+ * repository it was filed into: /nxs.epic, /nxs.decision-record, /nxs.analyze and close (which
+ * applies the rule in code, in `nexus close`, since story #869).
  * Pins that each lane loads the shared `nxs-issue-reference` skill rather than restating the
  * qualification rule, and pins the two `-R`/`$REPO_ARG` gaps this change closes alongside it.
  */
@@ -86,30 +87,15 @@ describe("/nxs.analyze loads the shared skill and qualifies references on the PR
     });
 });
 
-describe("/nxs.close loads the shared skill and states the close-comment counter-case explicitly", () => {
-    it("loads nxs-issue-reference rather than restating the rule", () => {
-        expect(CLOSE).toContain("nxs-issue-reference");
-        expect(CLOSE).toMatch(/load the \*\*`nxs-issue-reference`\*\* skill/i);
-    });
-
-    it("states that the close comment's own numbers stay bare, since that surface is $ISSUES_REPO", () => {
-        expect(CLOSE).toMatch(/this comment is posted on the epic issue itself, in `\$ISSUES_REPO`/i);
-    });
-
-    it("stamps issues_repo in the close-record frontmatter and the close-comment machine block", () => {
-        expect(CLOSE).toContain("issues_repo");
-        expect(CLOSE).toMatch(/issues_repo: <ISSUES_REPO>\s+# where `epic`\/`record`\/stub numbers live/);
-    });
-
-    it("never passes the receipt's own record reference whole to --issue, which takes a bare number", () => {
-        expect(CLOSE).toMatch(/never the\s*\n?\s*receipt's own `record`\/`record-ref` string taken whole/);
-        expect(CLOSE).toMatch(/`--issue` takes a number, not a reference/);
-    });
-
-    it("qualifies epic/record/story references on the two terminal block reports and the completion report", () => {
-        expect(CLOSE).toContain("Cannot close epic <epic-ref>:");
-        expect(CLOSE).toContain("story <story-ref>");
-        expect(CLOSE).toContain("GitHub epic issue: <epic-ref> — closed");
+describe("/nxs.close writes no reference itself: nexus close applies the rule in code (story #869)", () => {
+    // The surfaces close writes are rendered by `nexus close` now. Pinned on the code in
+    // libs/epic-verdicts/src/close-command.spec.ts: issues_repo and qualified story numbers in the
+    // close record ("writes issues_repo and qualifies the story numbers ..."), issues_repo in the
+    // comment's machine block with the comment's own epic number bare ("stamps issues_repo in the
+    // close comment's machine block ..."), and qualified references in its stops and report.
+    it("relays to nexus close and writes no epic, record or story reference of its own", () => {
+        expect(CLOSE).toContain("nexus close $ARGUMENTS");
+        expect(CLOSE).not.toMatch(/gh (issue|pr|api)\b/);
     });
 });
 

@@ -33,8 +33,9 @@ const STAMPED_SURFACES: readonly {
     readonly section?: string;
 }[] = [
     { surface: "the analyze verdict", path: "commands/nxs.analyze.md", component: true, section: "# Phase 3 — Report, and on a pull request publish the verdict" },
-    { surface: "the close record", path: "commands/nxs.close.md", component: true, section: "# Phase 4 — Write the close record" },
-    { surface: "the close comment's machine block", path: "commands/nxs.close.md", component: true, section: "# Phase 8 — Post the comments and close the epic issue" },
+    // Since story #869 the close record and the close comment are rendered by `nexus close`; the
+    // rendered keys, nexus_version included, are pinned in libs/epic-verdicts/src/close-command.spec.ts.
+    { surface: "the close record and the close comment's machine block", path: "libs/epic-verdicts/src/close-record.ts" },
     { surface: "the close-side reader of the analyze receipt", path: "libs/pr-acceptance/src/verify.ts" },
 ];
 

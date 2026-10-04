@@ -18,8 +18,8 @@ describe("/nxs.close refuses without --pr, up front (story #815)", () => {
     it("refuses before resolving the epic, and names the working path", () => {
         const refusal: number = CLOSE.indexOf("runs only against a pull request");
         expect(refusal).toBeGreaterThan(-1);
-        expect(refusal).toBeLessThan(CLOSE.indexOf("nexus epic-resolve"));
-        expect(refusal).toBeLessThan(CLOSE.indexOf("# Phase 0"));
+        // Since story #869 the one step after the refusal is the relay to `nexus close`.
+        expect(refusal).toBeLessThan(CLOSE.indexOf("nexus close $ARGUMENTS"));
         const block: string = CLOSE.slice(refusal, refusal + 400);
         expect(block).toContain("/nxs.close --pr <N>");
     });

@@ -1,6 +1,6 @@
 ---
 name: nxs-issue-reference
-description: The cross-repository issue reference rule shared by /nxs.epic, /nxs.decision-record, /nxs.analyze and /nxs.close. Load it before writing an epic, record, story or stub issue number into any surface — a GitHub comment or review, a local file, or a terminal report — so the same number cannot resolve against the wrong repository once it leaves the checkout that filed it.
+description: The cross-repository issue reference rule shared by /nxs.epic, /nxs.decision-record, /nxs.analyze and the close command `nexus close`, which applies it in code. Load it before writing an epic, record, story or stub issue number into any surface — a GitHub comment or review, a local file, or a terminal report — so the same number cannot resolve against the wrong repository once it leaves the checkout that filed it.
 ---
 
 # nxs-issue-reference
@@ -99,7 +99,7 @@ The same run's machine block carries `issues_repo: geo-nexus/docs` beside the ex
 `repo: github.com/geo-nexus/giccp`, so a later reader never has to assume which repository
 `epic`/`record`/`stories` resolve against.
 
-By contrast, `/nxs.close`'s comment on epic issue `geo-nexus/docs#114` itself writes
+By contrast, `nexus close`'s comment on epic issue `geo-nexus/docs#114` itself writes
 `Decision record: #141` and `Deferred scope → #230` bare — that comment's own surface is
 `geo-nexus/docs`, so nothing in it crosses a repository boundary.
 

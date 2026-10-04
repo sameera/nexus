@@ -1879,15 +1879,12 @@ describe("nexus epic-verdicts — every state names the records it refused to tr
         expect(payload["untrusted"]).toEqual([refused]);
     });
 
-    it("pins the promise the close stage makes about untrusted — analyze no longer runs the derivation (epic #829, D11)", () => {
-        expect(read("nxs.close.md")).toContain("Every state also carries `untrusted`");
+    // Since story #869 the close stage is `nexus close`, which acts on these states in code: it names
+    // each untrusted shipped record it did not read, and stops on an issues repository it cannot
+    // resolve without calling it a missing analysis. Both are pinned in
+    // libs/epic-verdicts/src/close-command.spec.ts.
+    it("analyze no longer runs the derivation (epic #829, D11)", () => {
         expect(read("nxs.analyze.md")).not.toContain("nexus epic-verdicts derive");
-    });
-
-    it("pins that the close stage reads issues-repo-mismatch as its own condition, not a missing receipt", () => {
-        const close: string = read("nxs.close.md");
-        expect(close).toContain("`issues-repo-mismatch` (exit 1) is not the missing-receipt case");
-        expect(close).toContain("never treat it as \"analyze never ran\"");
     });
 });
 

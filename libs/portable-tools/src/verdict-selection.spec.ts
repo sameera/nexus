@@ -21,13 +21,12 @@ const RECOVERY: string = fs.readFileSync(
 );
 
 describe("the close gate reaches the rule through the command", () => {
-    it("invokes a registered command to read the pull request's verdict", () => {
-        expect(CLOSE).toContain("nexus pr-verdict --pr");
-        expect(DISPATCH_NAMES).toContain("pr-verdict");
-    });
-
-    it("tells the command which repository it is reading, so the trust check is live", () => {
-        expect(CLOSE).toMatch(/nexus pr-verdict --pr \S+ --repo \S+/);
+    // /nxs.close relays to `nexus close` since story #869; that command reads each merged pull
+    // request's newest trusted verdict through the one reader, pinned in
+    // libs/epic-verdicts/src/close-command.spec.ts ("reading a merged pull request's verdict").
+    it("relays to a registered command rather than choosing a verdict itself", () => {
+        expect(CLOSE).toContain("nexus close $ARGUMENTS");
+        expect(DISPATCH_NAMES).toContain("close");
     });
 
     it("no longer restates the selection rule for a model to carry out", () => {

@@ -58,24 +58,20 @@ describe("/nxs.analyze reports no coverage of its own (story #843, G19)", () => 
 });
 
 describe("/nxs.close neither requires a shipped record nor starts an analyze run (story #843, G16–G18)", () => {
+    // Since story #869 /nxs.close relays to `nexus close`. Reading a shipped record's stamped range,
+    // and the moved-merge-commit hard block, are pinned on the code in
+    // libs/epic-verdicts/src/close-ranges.spec.ts ("a stamped range where a shipped record exists").
     it("no longer runs the ledger gate, nor stops on a story with no record", () => {
         expect(CLOSE).not.toContain("nexus epic-verdicts close-gate");
         expect(CLOSE).not.toContain("story-unrecorded");
     });
 
     it("does not list a shipped record among its preconditions", () => {
-        expect(description(CLOSE)).not.toMatch(/carrying a shipped record/);
-        expect(description(CLOSE)).toMatch(/starts no analyze run/);
+        expect(description(CLOSE)).not.toMatch(/shipped record/);
     });
 
-    it("still reads an existing shipped record for its range, and keeps the moved-merge-commit hard block", () => {
-        const step = CLOSE.slice(CLOSE.indexOf("nexus epic-verdicts ranges --epic"), CLOSE.indexOf("nexus pr-worktree open --pr"));
-        expect(step).toContain("takes the range a shipped record stamped");
-        expect(step).toContain("`merge-commit-moved`");
-    });
-
-    it("never runs analyze from inside close", () => {
-        expect(CLOSE).toContain("never run the analysis from inside close");
-        expect(CLOSE).toMatch(/Close neither requires nor writes a shipped record/);
+    it("never runs analyze from inside close: the one command it runs is nexus close", () => {
+        const commands = [...CLOSE.matchAll(/```bash\n([\s\S]*?)```/g)].map((m) => m[1].trim());
+        expect(commands).toEqual(["nexus close $ARGUMENTS"]);
     });
 });

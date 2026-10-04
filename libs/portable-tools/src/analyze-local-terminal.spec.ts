@@ -71,13 +71,12 @@ describe("no other stage names the local analysis file (G37)", () => {
 });
 
 describe("close never reads a local analysis file (G38)", () => {
-    it("says so, including a file an older release left behind", () => {
-        expect(CLOSE).toMatch(/Close never reads a local analysis file, including one an older release left beside\s*\n?\s*the epic/);
-    });
-
-    it("takes the derivation's receipt from its printed output, never from a file", () => {
-        expect(CLOSE).toMatch(/read the printed `receipt`/);
-        expect(CLOSE).not.toMatch(/has already written it/);
+    // /nxs.close relays to `nexus close` since story #869; that command reads each verdict from the
+    // pull request only (libs/epic-verdicts/src/close-command.spec.ts, "close reads only the
+    // verdicts, the record body and the issue graph"), and the derivation it calls is pinned below.
+    it("relays to nexus close, naming no local file", () => {
+        expect(CLOSE).toContain("nexus close $ARGUMENTS");
+        expect(CLOSE).not.toContain(LOCAL_FILE);
     });
 });
 

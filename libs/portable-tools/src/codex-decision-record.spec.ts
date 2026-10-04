@@ -62,7 +62,6 @@ describe('Codex decision-record pipeline', () => {
 
   it('carries new guarantees and old invariants through every generated later stage', () => {
     const analyze = skill('nxs-analyze');
-    const close = skill('nxs-close');
     const distill = skill('nxs-distill');
     const newBody = fs.readFileSync(
       path.join(repo, 'libs/scope-razor/src/__fixtures__/record-new.labelled.md'),
@@ -73,7 +72,9 @@ describe('Codex decision-record pipeline', () => {
       'utf8',
     );
 
-    for (const stage of [analyze, close, distill]) {
+    // Close reads the record in code since story #869 (/nxs.close relays to `nexus close`): new,
+    // old and neither formats are pinned in libs/epic-verdicts/src/close-command.spec.ts (D5).
+    for (const stage of [analyze, distill]) {
       expect(stage).toContain('nexus record-sections --body');
       expect(stage).toMatch(/`new`/);
       expect(stage).toMatch(/`old`/);
@@ -89,9 +90,7 @@ describe('Codex decision-record pipeline', () => {
     expect(analyze).toMatch(/broken.+guarantee.+\*\*critical\*\*/is);
     expect(analyze).toMatch(/check every guarantee returned by `nexus record-sections --body` by\s+its ID/);
     expect(analyze).toMatch(/DV<n> \(<critical\|high>\) from <G<n>/);
-    expect(close).toContain('nexus record-digest');
-    expect(close).toContain('A non-zero section-reader exit stops close');
-    expect(close).toMatch(/carry every `decisions` entry and `guarantees` entry by ID/);
+    expect(skill('nxs-close')).toContain('nexus close $ARGUMENTS');
     expect(distill).toContain('record_hash');
     expect(distill).toMatch(/A non-zero\s+section-reader exit stops distill/);
     expect(distill).toMatch(/For `new`, carry\s+How it works, Mechanism, decisions and reasons, and guarantees/);

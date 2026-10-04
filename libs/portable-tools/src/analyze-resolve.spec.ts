@@ -12,7 +12,6 @@ import { authoredComponentRoot } from "./vendor-components";
 
 const COMMANDS = path.join(authoredComponentRoot(import.meta.dirname), "commands");
 const ANALYZE: string = fs.readFileSync(path.join(COMMANDS, "nxs.analyze.md"), "utf8");
-const CLOSE: string = fs.readFileSync(path.join(COMMANDS, "nxs.close.md"), "utf8");
 
 function between(text: string, from: string, to: string): string {
     const start = text.indexOf(from);
@@ -82,8 +81,6 @@ describe("every full run records what a later answer run needs (D8)", () => {
     });
 });
 
-describe("close names the answer-recording run (G17)", () => {
-    it("names /nxs.analyze --pr <N> --resolve after answering", () => {
-        expect(CLOSE).toMatch(/run analyze on that pull request again to record the answers \(`\/nxs\.analyze --pr <N> --resolve`/);
-    });
-});
+// close names the answer-recording run (G17): the stop that names `/nxs.analyze --pr <N> --resolve`
+// is `nexus close`'s since story #869, pinned in libs/epic-verdicts/src/close-command.spec.ts
+// ("stops on open critical or high items ... (G7)"). /nxs.close only relays to it.
