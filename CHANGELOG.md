@@ -5,6 +5,13 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.90.1
+
+- **The merge pre-check names blocking findings even when the head has moved.** When the one-command
+  close script refuses to merge because a pull request's head moved past its analyze receipt, and
+  that receipt also reported critical or high findings, the refusal now names those findings too.
+  Before, it named only the moved head. The merge is refused exactly as before.
+
 ## 0.90.0
 
 - **Close names an untrusted waiver comment even when a trusted one clears the stop.** When

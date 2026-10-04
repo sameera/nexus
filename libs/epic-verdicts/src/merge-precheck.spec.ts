@@ -124,6 +124,13 @@ describe("mergePrecheck — an analyzed head that moved (D10)", () => {
         expect(r.result).toBe("head-moved");
         expect(r.merge).toBe(false);
     });
+
+    it("also names the blocking findings when a receipt at a moved head reported them", () => {
+        const r = check(twoVerdictPrPayload({ newerBody: verdictBody({ high: 3 }) }));
+        expect(r.result).toBe("head-moved");
+        expect(r.merge).toBe(false);
+        expect(r.message).toMatch(/high 3/);
+    });
 });
 
 describe("mergePrecheck — a receipt that records story text (G37)", () => {
