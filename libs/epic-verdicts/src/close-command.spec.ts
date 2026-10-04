@@ -177,6 +177,7 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
         ranges: () => ({ ok: true, ranges: ranges(), untrusted: [] }),
         verdict: () => present(emptyJudgments()),
         trunkCheck: () => ({ ok: true }),
+        findDistillBranch: () => ({ ok: true, branch: null }),
         openWorktree: (_root, epic, date) => {
             h.worktreeCalls += 1;
             return { ok: true, wtPath, branch: `distill/${date}-epic-${epic}`, source: "new" };
@@ -1105,6 +1106,15 @@ describe("the record amendment (story #865, AC3, D12, G28, G48)", () => {
         expect(stdout).toMatch(/not blocked/i);
     });
 
+    it("prints the amendment to post by hand when the post fails, and never promises a re-run will post it (G28)", () => {
+        const h = harness({ verdict: () => present(superseding()), postComment: (_root, _repo, issue) => (issue === RECORD ? { ok: false, message: "HTTP 403" } : { ok: true }) });
+        const { stdout } = closed(h);
+        expect(stdout).not.toMatch(/re-run to post it/);
+        expect(stdout).toContain(`${ISSUES}#${RECORD}`);
+        expect(stdout).toContain("## Amended at close — 1 decision(s) superseded");
+        expect(stdout).toContain(`<!-- nexus:close-amendment epic: ${ISSUES}#${EPIC} -->`);
+    });
+
     it("posts nothing, and says so, when the record's comments cannot be read", () => {
         const h = harness({
             verdict: () => present(superseding()),
@@ -1113,6 +1123,14 @@ describe("the record amendment (story #865, AC3, D12, G28, G48)", () => {
         const { stdout } = closed(h);
         expect(amendments(h)).toEqual([]);
         expect(stdout).toMatch(/NOT POSTED — could not check for an earlier amendment: HTTP 502/);
+        expect(stdout).not.toMatch(/re-run to post it/);
+        expect(stdout).toContain("## Amended at close — 1 decision(s) superseded");
+    });
+
+    it("prints nothing to post by hand when the amendment posted", () => {
+        const h = harness({ verdict: () => present(superseding()) });
+        const { stdout } = closed(h);
+        expect(stdout).not.toContain("## Amended at close");
     });
 });
 
@@ -1626,6 +1644,7 @@ describe("once the close comment exists, a re-run regenerates nothing (story #86
                 resolvedEpic += 1;
                 throw new Error("a resumed close reads no gate");
             },
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "pushed" }),
             openWorktree: () => ({ ok: true, wtPath: h.wtPath, branch: `distill/2026-10-03-epic-${EPIC}`, source: "pushed" }),
         });
         const note = path.join(h.repoRoot, "handoff.txt");
@@ -1642,6 +1661,7 @@ describe("once the close comment exists, a re-run regenerates nothing (story #86
     it("handles the epic issue already being closed (G49)", () => {
         const h = harness({
             issueComments: () => ({ ok: true, comments: [closeComment] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
             openWorktree: () => ({ ok: true, wtPath: h.wtPath, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
             closeIssue: () => ({ ok: true, already: true }),
         });
@@ -1657,16 +1677,35 @@ describe("once the close comment exists, a re-run regenerates nothing (story #86
         expect(h.writes).toContain(`comment #${EPIC}`);
     });
 
-    it("stops, naming distill's recovery, when the earlier run's distill branch is gone", () => {
+    it("stops, naming distill's recovery, with no branch or worktree created, when the earlier run's distill branch is gone (G3)", () => {
+        const note = path.join(makeDir(), "handoff.txt");
         const h = harness({ issueComments: () => ({ ok: true, comments: [closeComment] }) });
-        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { handoff: note })));
         expect(rendered.exitCode).toBe(1);
         expect(text(rendered.stderr)).toContain(`/nxs.distill --recover ${EPIC}`);
+        expect(h.worktreeCalls).toBe(0);
+        expect(h.writes).toEqual([]);
+        expect(fs.existsSync(note)).toBe(false);
+    });
+
+    it("stops, with nothing created, when the earlier run's distill branch cannot be looked up (G3)", () => {
+        const h = harness({
+            issueComments: () => ({ ok: true, comments: [closeComment] }),
+            findDistillBranch: () => ({ ok: false, error: { problem: "git-failed", message: "the distill branches pushed to origin could not be read" } }),
+        });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(1);
+        expect(text(rendered.stderr)).toContain("could not be read");
+        expect(h.worktreeCalls).toBe(0);
         expect(h.writes).toEqual([]);
     });
 
     it("stops when the earlier run's distill branch cannot be opened", () => {
-        const h = harness({ issueComments: () => ({ ok: true, comments: [closeComment] }), openWorktree: () => ({ ok: false, error: { problem: "git-failed", message: "origin unreachable" } }) });
+        const h = harness({
+            issueComments: () => ({ ok: true, comments: [closeComment] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+            openWorktree: () => ({ ok: false, error: { problem: "git-failed", message: "origin unreachable" } }),
+        });
         const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
         expect(rendered.exitCode).toBe(1);
         expect(text(rendered.stderr)).toContain("origin unreachable");

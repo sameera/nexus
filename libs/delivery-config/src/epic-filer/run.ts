@@ -76,6 +76,7 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
 
     // `--promote` states the operation; the unplanned label answers whether the operation applies
     // to an epic in that state. Both are read before any write (Invariant 10).
+    let stubKeys: string[] = [];
     if (args.promote !== null) {
         const labels: string[] | null = epic.issueLabels(args.promote);
         if (labels === null) {
@@ -90,6 +91,18 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
             );
             return 1;
         }
+        // A stub close filed carries a hidden key naming the proposal it came from, and the promoted
+        // body must keep it so a re-run of close still recognises the stub (epic #830, G21). An
+        // unreadable body would drop the key unseen, so it refuses here, before any write.
+        const body: string | null = epic.issueBody(args.promote);
+        if (body === null) {
+            out.error(
+                `Cannot promote #${args.promote}: its current body could not be read, so the key close filed it ` +
+                    "under could not be carried into the promoted body. Nothing was written. Re-run once the issue can be read.",
+            );
+            return 1;
+        }
+        stubKeys = stubKeyLines(body);
         out.line(`⬆️  Promoting unplanned epic #${args.promote} in place (no new issue is created)`);
     }
 
@@ -145,9 +158,8 @@ export function runCreateEpic(argv: string[], io: ToolkitIo, env: EpicEnvironmen
         // The stub's own issue becomes the epic, so every reference written when the scope was
         // deferred survives the promotion.
         out.line(`🚀 Populating GitHub issue #${args.promote}...`);
-        // A stub close filed carries a hidden key naming the proposal it came from. The new body
-        // keeps it, so a re-run of close still recognises the stub once it is planned (epic #830, G21).
-        const keys: string[] = stubKeyLines(epic.issueBody(args.promote) ?? "").filter((key) => !filedBody.includes(key));
+        // The stub's key, read before any write, carried into the new body (epic #830, G21).
+        const keys: string[] = stubKeys.filter((key) => !filedBody.includes(key));
         const populated = epic.populateIssue(
             args.promote,
             title,

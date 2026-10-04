@@ -49,7 +49,8 @@ behaviour says so.
   accepted departure as superseding a record decision, `nexus close` posts one amendment comment on
   the decision record, naming each superseded decision, what shipped instead and why. A re-run
   finds that comment and does not post a second. No mark, no comment. A failed post is reported
-  and does not stop the close.
+  and does not stop the close. A later re-run does not post a missing amendment, so close prints
+  the amendment's exact text and the record issue to post it on by hand.
 - **`nexus close` files the approved scope, posts the close comment, closes the epic and hands
   off.** Each deferred-scope proposal a trusted person approved on a merged pull request is filed
   once as an unplanned epic stub, with the repository's epic classification and unplanned label
@@ -62,7 +63,8 @@ behaviour says so.
   succeeded. Before each write it looks for what an earlier run did: a stub is found by its key
   among the issues that mention the epic, even after it was promoted, so a plain re-run finishes a
   partial close with no second stub, amendment, close comment or distill branch. Once the close
-  comment is on the epic, a re-run only closes the issue, writes the note and reports. A failed
+  comment is on the epic, a re-run only closes the issue, writes the note and reports; when no
+  earlier distill branch is found, it stops before creating one. A failed
   push stops close before anything is posted, with the epic open. A failed close comment stops
   close with the epic open, and the stop names re-running `nexus close` to post it.
 - **`nexus close --recover <epic>` re-stamps a closed epic whose decision record was revised.**
@@ -85,7 +87,8 @@ behaviour says so.
   that already carries the marker passes as before.
 - **Promoting an epic stub keeps the key close filed it under.** `/nxs.epic`'s promotion rewrites
   the stub's body; it now carries over the stub's hidden key, so a later close run still recognises
-  the stub and does not file it again. `nexus create-story` takes `--issues-repo <owner/repo>` to
+  the stub and does not file it again. A promotion whose stub body cannot be read is refused
+  before any write, rather than dropping the key. `nexus create-story` takes `--issues-repo <owner/repo>` to
   file into a repository other than the configured story repository.
 - **An epic in flight whose verdicts were published before analyze recorded its judgments needs
   one full analyze run per merged pull request (breaking).** Those verdicts carry no judgments, so

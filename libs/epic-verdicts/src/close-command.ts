@@ -58,7 +58,7 @@ import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverC
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
-import { openEpicDistillWorktree, pushEpicDistillBranch, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
+import { findEpicDistillBranch, openEpicDistillWorktree, pushEpicDistillBranch, type EpicDistillBranchResult, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
 import { type FilerEnvironment } from "@nexus/delivery-config/story-filer/environment";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { canonicalRemote } from "@nexus/workspace/canonical-remote";
@@ -157,6 +157,8 @@ export interface CloseCommandDeps {
     verdict(root: string, issuesRepo: string, pr: { repo: string; pr: number }): CloseVerdictRead;
     /** Whether the trunk the distill branch is cut from holds every merged head in this repository. */
     trunkCheck(repoRoot: string, heads: TrunkCheckItem[]): VerifyTrunkResult;
+    /** The distill branch an earlier close cut for the epic, local or pushed, read-only: creates nothing. */
+    findDistillBranch(repoRoot: string, epic: number): EpicDistillBranchResult;
     /** The epic's distill worktree: the first step that creates anything. */
     openWorktree(repoRoot: string, epic: number, date: string): EpicDistillWorktreeResult;
     /** The decision record's current body and its digest, through the one digest implementation. */
@@ -602,10 +604,11 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
                 : `${content.approved.length} approved proposal(s) as epic stub issue(s): ${content.approved.map((p) => `${issuesRepo}#${stubs.get(proposalKey(p))}`).join(", ")}` +
                   ` (${filedNow} filed now, ${reusedStubs} found from an earlier run)`
         }`,
-        ...(record === null ? [] : [`Record amendment:  ${issuesRepo}#${record} — ${amendment}`]),
+        ...(record === null ? [] : [`Record amendment:  ${issuesRepo}#${record} — ${amendment.line}`]),
         `Close comment:     posted on ${epicRef}`,
         `Epic issue:        ${epicRef} — ${closedIssue.already ? "already closed" : "closed"}`,
         "",
+        ...amendment.byHand,
         ...nextLines(input.handoff, wt.wtPath),
     ];
     return { ok: true, resumed: false, epic, issuesRepo, pr: input.pr, wtPath: wt.wtPath, branch: wt.branch, recordPath, closeComment, content, stubs, lines };
@@ -622,15 +625,18 @@ function finishClosed(
     at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string },
 ): CloseOutcome {
     const epicRef = `${at.issuesRepo}#${at.epic}`;
-    const wt = deps.openWorktree(at.repoRoot, at.epic, input.date);
-    if (!wt.ok) return stopped({ reason: wt.error.message, item: at.repoRoot, remedy: `re-run ${at.rerun} once the cause above is fixed` });
-    if (wt.source === "new") {
-        return stoppedAfter([`distill branch ${wt.branch} checked out at ${wt.wtPath}, with nothing on it`], {
+    // Look for the earlier run's branch read-only first, so a missing one stops with nothing created (G3).
+    const earlier = deps.findDistillBranch(at.repoRoot, at.epic);
+    if (!earlier.ok) return stopped({ reason: earlier.error.message, item: at.repoRoot, remedy: `re-run ${at.rerun} once the cause above is fixed` });
+    if (earlier.branch === null) {
+        return stopped({
             reason: `epic ${epicRef} already carries its close comment, but no distill branch an earlier close cut for it was found, locally or on the push remote; distill may already have drained it`,
             item: `epic ${epicRef}`,
             remedy: `if the entry still needs draining, run /nxs.distill --recover ${at.epic}, which rebuilds it from the close comment; otherwise nothing is left to do`,
         });
     }
+    const wt = deps.openWorktree(at.repoRoot, at.epic, input.date);
+    if (!wt.ok) return stopped({ reason: wt.error.message, item: at.repoRoot, remedy: `re-run ${at.rerun} once the cause above is fixed` });
     const closedIssue = deps.closeIssue(at.repoRoot, at.issuesRepo, at.epic);
     if (!closedIssue.ok) return stopped({ reason: `epic ${epicRef} could not be closed: ${closedIssue.message}`, item: `epic ${epicRef}`, remedy: `re-run ${at.rerun}` });
     const note = writeHandoff(input.handoff, at.epic, wt.branch, wt.wtPath);
@@ -689,20 +695,32 @@ function frontmatter(markdown: string): Map<string, string> {
  * superseding, nothing when a trusted comment already carries this epic's key. Never edits the
  * record's body, title, labels or state. Returns the report line; a failure never stops close.
  */
-function postAmendment(deps: CloseCommandDeps, root: string, content: CloseContent): string {
-    if (content.record === null) return "none";
+function postAmendment(deps: CloseCommandDeps, root: string, content: CloseContent): { line: string; byHand: string[] } {
+    if (content.record === null) return { line: "none", byHand: [] };
     const body = renderRecordAmendment(content);
-    if (body === null) return "none (no departure is marked as superseding a record decision)";
+    if (body === null) return { line: "none (no departure is marked as superseding a record decision)", byHand: [] };
     const n = content.superseded.length;
+    const recordRef = `${content.issuesRepo}#${content.record.number}`;
+    // A re-run never posts a missing amendment: once the close comment exists it regenerates
+    // nothing (G27). So a failed post hands the lead the exact comment to post instead.
+    const notPosted = (why: string, check: string) => ({
+        line: `NOT POSTED — ${why}; ${n} superseding decision(s) stand in the close record's Deviation Rationale. Close not blocked; post the amendment below by hand`,
+        byHand: [
+            `AMENDMENT TO POST BY HAND on ${recordRef}${check}:`,
+            "",
+            ...body.replace(/\n+$/, "").split("\n").map((l) => (l === "" ? "" : `    ${l}`)),
+            "",
+        ],
+    });
     const key = amendmentKey(content.issuesRepo, content.epic);
     const existing = deps.issueComments(root, content.issuesRepo, content.record.number);
-    if (!existing.ok) return `NOT POSTED — could not check for an earlier amendment: ${existing.message}; ${n} superseding decision(s) stand in the close record's Deviation Rationale. Close not blocked; re-run to post it`;
+    if (!existing.ok) return notPosted(`could not check for an earlier amendment: ${existing.message}`, ", unless a comment there already carries its last line");
     if (existing.comments.some((c) => c.body.includes(key) && MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase()))) {
-        return `${n} superseding decision(s), already posted by an earlier run`;
+        return { line: `${n} superseding decision(s), already posted by an earlier run`, byHand: [] };
     }
     const posted = deps.postComment(root, content.issuesRepo, content.record.number, body);
-    if (!posted.ok) return `NOT POSTED — ${posted.message}; ${n} superseding decision(s) stand in the close record's Deviation Rationale. Close not blocked; re-run to post it`;
-    return `${n} superseding decision(s) posted`;
+    if (!posted.ok) return notPosted(posted.message, "");
+    return { line: `${n} superseding decision(s) posted`, byHand: [] };
 }
 
 /** The queue entry inside the worktree: the committed one, the one an earlier run created, or born at close (G45). */
@@ -967,6 +985,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             if (trunk === null) return { ok: false, error: { problem: "git-failed", message: `neither ${remote}/main nor main resolves in ${repoRoot}.` } };
             return verifyTrunkContainsHeads(run, repoRoot, trunk, heads, { remote });
         },
+        findDistillBranch: (repoRoot, epic) => findEpicDistillBranch(run, repoRoot, epic),
         openWorktree: (repoRoot, epic, date) => openEpicDistillWorktree(run, repoRoot, epic, date),
         recordBody: (root, issuesRepo, record) => {
             const r = fetchRecord(run, root, record, issuesRepo);
