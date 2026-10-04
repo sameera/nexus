@@ -14,11 +14,6 @@
       "import": "./src/diagnostic.ts",
       "default": "./src/diagnostic.ts"
     },
-    "./combined": {
-      "types": "./src/combined.ts",
-      "import": "./src/combined.ts",
-      "default": "./src/combined.ts"
-    },
     "./exclusion": {
       "types": "./src/exclusion.ts",
       "import": "./src/exclusion.ts",
@@ -83,6 +78,11 @@
       "types": "./src/verdict-items.ts",
       "import": "./src/verdict-items.ts",
       "default": "./src/verdict-items.ts"
+    },
+    "./epic-completion": {
+      "types": "./src/epic-completion.ts",
+      "import": "./src/epic-completion.ts",
+      "default": "./src/epic-completion.ts"
     },
     "./package.json": "./package.json"
   },

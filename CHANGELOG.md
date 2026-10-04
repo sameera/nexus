@@ -25,6 +25,24 @@ behaviour says so.
 - **The publish check refuses a verdict without its departures (breaking).** `nexus verdict-check`
   refuses a drafted verdict with no judgments block, with one it cannot read, or whose severity
   counts leave out an unanswered departure. A verdict published before this release still reads.
+- **Analyze judges the whole epic on the pull request that completes it.** `/nxs.analyze --pr`
+  now asks, through the same read of each story's pull requests that close gates on, whether the
+  pull request completes its epic: it covers every live story, or every other live story has
+  merged with no open pull request. Only then does it judge the success metrics and the guarantees
+  that span stories, over this change plus what each merged sibling landed. Each metric is met,
+  not moved (a high finding), or unverifiable, naming what would decide it. A broken cross-story
+  guarantee is a departure. A pull request that leaves another story unshipped judges no metric.
+- **A completing pull request behind its siblings gets a blocking finding (breaking).** When the
+  head does not contain a merged sibling's change — or another member's checkout trunk does not —
+  the verdict carries a high "epic-level check not run" finding that names bringing the branch up
+  to date, or fetching the member checkout. A failed read of the epic's pull requests now stops
+  every `/nxs.analyze --pr` run and publishes nothing.
+- **Analyze no longer combines an epic's verdicts (breaking).** Aggregate mode is gone, and so is
+  `nexus epic-verdicts combined`, which now reports its removal. `/nxs.analyze <epic>` reads the
+  epic's pull requests first: once any story has merged, it combines nothing and names
+  `/nxs.analyze --pr` on the open pull request that completes the epic, or on the most recently
+  merged one when every story has merged. `nexus epic-verdicts pr-target --epic <N>` prints that
+  answer on its own.
 
 ## 0.90.1
 

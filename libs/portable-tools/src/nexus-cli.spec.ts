@@ -1797,9 +1797,9 @@ describe("nexus epic-verdicts — every state names the records it refused to tr
         expect(payload["untrusted"]).toEqual([refused]);
     });
 
-    it("pins the promise both stage prompts make about untrusted", () => {
-        expect(read("nxs.analyze.md")).toContain("Every state also carries **`untrusted`**");
+    it("pins the promise the close stage makes about untrusted — analyze no longer runs the derivation (epic #829, D11)", () => {
         expect(read("nxs.close.md")).toContain("Every state also carries `untrusted`");
+        expect(read("nxs.analyze.md")).not.toContain("nexus epic-verdicts derive");
     });
 
     it("pins that the close stage reads issues-repo-mismatch as its own condition, not a missing receipt", () => {
@@ -1904,6 +1904,48 @@ describe("nexus epic-verdicts — the ledger write, the coverage report and the 
         const usage = io.err.join("\n");
         expect(usage).not.toContain("coverage");
         expect(usage).not.toContain("close-gate");
+    });
+});
+
+/**
+ * Story #859 (decision record #871, D9–D11) — whether a pull request completes its epic, and where
+ * analyze addressed by epic number goes. The rules are covered by epic-completion.spec.ts; these
+ * cases pin the verbs' registration and the retired combined change set.
+ */
+describe("nexus epic-verdicts completion, pr-target and the retired combined change set (epic #829, story #859)", () => {
+    const run = async (argv: string[]): Promise<{ code: number; io: CapturedIo }> => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-completion-859-"));
+        return { code: await runNexusCli(["epic-verdicts", ...argv], io), io };
+    };
+
+    it("refuses completion without the pull request, its repository, its stories and its worktree", async () => {
+        for (const argv of [
+            ["completion", "--epic", "829"],
+            ["completion", "--epic", "829", "--pr", "12", "--repo", "acme/web", "--stories", "859"],
+            ["completion", "--epic", "829", "--pr", "12", "--stories", "859", "--worktree", "/wt"],
+            ["completion", "--epic", "829", "--pr", "12", "--repo", "acme/web", "--worktree", "/wt"],
+        ]) {
+            const { code, io } = await run(argv);
+            expect(code).toBe(2);
+            expect(io.out).toEqual([]);
+            expect(io.err.join("\n")).toContain("completion");
+        }
+    });
+
+    it("refuses pr-target without an epic", async () => {
+        const { code, io } = await run(["pr-target"]);
+        expect(code).toBe(2);
+        expect(io.err.join("\n")).toContain("pr-target");
+    });
+
+    it("no longer combines an epic's pull requests: `combined` reports its removal and names the completing pull request", async () => {
+        const { code, io } = await run(["combined", "--epic", "829"]);
+        expect(code).toBe(1);
+        expect(io.out).toEqual([]);
+        const err = io.err.join("\n");
+        expect(err).toContain("no longer exists");
+        expect(err).toContain("/nxs.analyze --pr <N>");
+        expect(err).toContain("nexus epic-verdicts pr-target --epic <N>");
     });
 });
 

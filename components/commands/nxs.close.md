@@ -533,7 +533,7 @@ should have run yet.
 
    **Storyless-story waiver (epic #213, story #502) — checked before a missing receipt reads as plain
    "missing."** A story that shipped inside a sibling's pull request never gets a verdict of its own,
-   so `/nxs.analyze`'s derivation reports it as a gap and recommends re-running analysis on a pull
+   so the shared derivation reports it as a gap and recommends re-running analysis on a pull
    request that will never exist — a loop with no exit until the lead says so. `/nxs.close` runs the
    same shared derivation itself, once, before falling through to the generic missing-receipt handling
    below:
