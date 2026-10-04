@@ -37,7 +37,14 @@ export type EpicVerdictsProblem =
      */
     | "counts-not-open"
     /** The departures analyze handed the ID step cannot be read (epic #829, story #858). */
-    | "draft-malformed";
+    | "draft-malformed"
+    /** The scope handed the ID step cannot be read, or records no answers (epic #829, story #861). */
+    | "scope-malformed"
+    /**
+     * The newest verdict on the pull request is no longer the one the scope was computed against,
+     * so what the scope carries forward is not what that verdict holds (epic #829, story #861).
+     */
+    | "scope-stale";
 
 export interface EpicVerdictsDiagnostic {
     problem: EpicVerdictsProblem;

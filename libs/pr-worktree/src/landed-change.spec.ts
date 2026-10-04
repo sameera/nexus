@@ -10,7 +10,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { compareLandedChange, landedOnTrunk } from "./landed-change.js";
+import { compareLandedChange, compareOwnChange, landedOnTrunk } from "./landed-change.js";
 import { defaultRunner } from "./run.js";
 import { initRepo, makeParent, sh, writeCommit } from "./git-fixtures.js";
 
@@ -219,5 +219,70 @@ describe("landedOnTrunk — whether the merge commit reached trunk (G7)", () => 
         expect(yes.ok && yes.onTrunk).toBe(true);
         expect(no.ok && no.onTrunk).toBe(false);
         expect(no.ok && no.trunkRef).toBe("main");
+    });
+});
+
+describe("compareOwnChange — what a pull request's own change did between two heads (epic #829, story #861, D8, G20)", () => {
+    /** A pull request branch `b` off c0 changing shared line 15 and src/b.ts, with trunk moved on by a sibling. */
+    function prWithMovedTrunk(): { repo: string; earlier: string } {
+        const { repo, c0 } = repoWithSharedFile();
+        sh(repo, "git", "checkout", "-q", "-b", "b", c0);
+        fs.writeFileSync(path.join(repo, "shared.txt"), text(edit(LINES, 15, "B15")));
+        fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+        fs.writeFileSync(path.join(repo, "src/b.ts"), "b\n");
+        sh(repo, "git", "add", "-A");
+        sh(repo, "git", "commit", "-qm", "b change");
+        const earlier = sh(repo, "git", "rev-parse", "HEAD");
+        sh(repo, "git", "checkout", "-q", "main");
+        branch(repo, "s", c0, { "shared.txt": text(edit(LINES, 3, "S3")), "src/s.ts": "s\n" });
+        mergeNoFf(repo, "s");
+        return { repo, earlier };
+    }
+
+    function changed(repo: string, earlierHead: string, head: string): string[] {
+        const r = compareOwnChange(defaultRunner, repo, { base: sh(repo, "git", "rev-parse", "main"), earlierHead, head });
+        if (!r.ok) throw new Error(r.error.message);
+        return r.files.filter((f) => f.status === "changed").map((f) => f.path);
+    }
+
+    it("marks no file changed when trunk was merged into the branch", () => {
+        const { repo, earlier } = prWithMovedTrunk();
+        sh(repo, "git", "checkout", "-q", "b");
+        sh(repo, "git", "merge", "-q", "--no-ff", "-m", "merge main", "main");
+        expect(changed(repo, earlier, sh(repo, "git", "rev-parse", "HEAD"))).toEqual([]);
+    });
+
+    it("marks no file changed when the branch was rebased onto trunk", () => {
+        const { repo, earlier } = prWithMovedTrunk();
+        sh(repo, "git", "checkout", "-q", "b");
+        sh(repo, "git", "rebase", "-q", "main");
+        const head = sh(repo, "git", "rev-parse", "HEAD");
+        expect(head).not.toBe(earlier);
+        expect(changed(repo, earlier, head)).toEqual([]);
+    });
+
+    it("marks each file whose own change differs: edited further, added, or brought back to trunk", () => {
+        const { repo, earlier } = prWithMovedTrunk();
+        sh(repo, "git", "checkout", "-q", "b");
+        sh(repo, "git", "merge", "-q", "--no-ff", "-m", "merge main", "main");
+        fs.writeFileSync(path.join(repo, "src/b.ts"), "b, further\n");
+        fs.writeFileSync(path.join(repo, "src/n.ts"), "new\n");
+        fs.writeFileSync(path.join(repo, "shared.txt"), text(edit(LINES, 3, "S3")));
+        sh(repo, "git", "add", "-A");
+        sh(repo, "git", "commit", "-qm", "more b");
+        expect(changed(repo, earlier, sh(repo, "git", "rev-parse", "HEAD"))).toEqual(["shared.txt", "src/b.ts", "src/n.ts"]);
+    });
+
+    it("leaves the pipeline stores out of the comparison", () => {
+        const { repo, earlier } = prWithMovedTrunk();
+        sh(repo, "git", "checkout", "-q", "b");
+        const head = writeCommit(repo, ".nexus/queue/epic-1/me/notes-b.md", "note\n", "scratch");
+        expect(changed(repo, earlier, head)).toEqual([]);
+    });
+
+    it("fails, rather than reporting nothing changed, when the earlier head is not in the checkout", () => {
+        const { repo } = prWithMovedTrunk();
+        const r = compareOwnChange(defaultRunner, repo, { base: sh(repo, "git", "rev-parse", "main"), earlierHead: "e".repeat(40), head: sh(repo, "git", "rev-parse", "b") });
+        expect(r.ok).toBe(false);
     });
 });
