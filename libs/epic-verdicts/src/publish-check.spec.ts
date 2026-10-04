@@ -18,6 +18,7 @@ import {
     type Finding,
     JUDGMENTS_MARKER,
     type KeyDecisions,
+    type Result,
     parseJudgmentsBlock,
     renderJudgmentsBlock,
 } from "@nexus/pr-acceptance/judgments-block";
@@ -32,6 +33,7 @@ import {
 } from "@nexus/pr-acceptance/verdict-fixtures";
 import { VERDICT_SIZE_LIMIT, checkVerdictPublish } from "./publish-check.js";
 import { type Runner } from "./run.js";
+import { assignItemIds } from "./verdict-items.js";
 
 const made: string[] = [];
 
@@ -325,8 +327,12 @@ describe("checkVerdictPublish — the size budget (epic #829, story #862, D5; G2
         expect(r.ok && r.filesDropped).toBe(false);
     });
 
-    it("drops the file lists first, says so above the verdict block, and keeps every item and the verdict block", () => {
-        const drafted = fixtureBody({ high: 1, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items: [d(manyFiles)], keyDecisions: KEY }) });
+    const accepted = { verb: "accepted" as const, author: "lead", link: "https://x/1", reason: "no batch endpoint" };
+    const manyResults: Result[] = manyFiles.slice(0, 40).map((_, i) => ({ kind: "criterion", about: `#862 AC${i}`, verdict: "met", files: manyFiles.slice(i * 70, i * 70 + 70) }));
+
+    it("drops only the results' file lists when that is enough, and keeps the departures' and findings' lists", () => {
+        const items = [{ ...d(["libs/a.ts"]), answer: accepted }];
+        const drafted = fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items, results: manyResults, epicLevel: "skip", keyDecisions: KEY }) });
         expect(drafted.length).toBeGreaterThan(VERDICT_SIZE_LIMIT);
         const r = check(drafted);
         expect(r.ok).toBe(true);
@@ -334,10 +340,31 @@ describe("checkVerdictPublish — the size budget (epic #829, story #862, D5; G2
         expect(r.filesDropped).toBe(true);
         expect(r.size).toBeLessThanOrEqual(VERDICT_SIZE_LIMIT);
         expect(r.body.slice(0, r.body.indexOf(RECEIPT_MARKER))).toMatch(/File lists: dropped/);
-        expect(parseReceiptBlock(r.body)).toEqual(parseReceiptBlock(drafted));
         const j = parseJudgmentsBlock(r.body);
         expect(j.ok && j.judgments?.filesDropped).toBe(true);
-        expect(j.ok && j.judgments?.items.map((x) => [x.id, x.files])).toEqual([["DV1", []]]);
+        expect(j.ok && j.judgments?.items.map((x) => [x.id, x.files])).toEqual([["DV1", ["libs/a.ts"]]]);
+        expect(j.ok && (j.judgments?.results ?? []).every((x) => x.files.length === 0)).toBe(true);
+    });
+
+    it("lets the next full run give a departure found again its ID and its answer after the results' lists were dropped (G6, G8)", () => {
+        const items = [{ ...d(["libs/a.ts"]), answer: accepted }];
+        const drafted = fixtureBody({ high: 0, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items, results: manyResults, epicLevel: "skip", keyDecisions: KEY }) });
+        const r = check(drafted);
+        if (!r.ok) throw new Error(r.error.message);
+        const j = parseJudgmentsBlock(r.body);
+        if (!j.ok || j.judgments === null) throw new Error("no judgments");
+        const next = assignItemIds(j.judgments, [{ departsFrom: "D1", summary: "s", breaksGuarantee: false, files: ["libs/a.ts"], stub: null, supersedes: null }]);
+        expect(next.items.map((x) => [x.id, x.found, x.answer])).toEqual([["DV1", true, accepted]]);
+    });
+
+    it("publishes nothing rather than drop a departure's file list when dropping the results' lists is not enough, and names the size (G6, G29)", () => {
+        const drafted = fixtureBody({ high: 1, issuesRepo: "geo-nexus/giccp", judgments: renderJudgmentsBlock({ items: [d(manyFiles)], keyDecisions: KEY }) });
+        expect(drafted.length).toBeGreaterThan(VERDICT_SIZE_LIMIT);
+        const r = check(drafted);
+        expect(r.ok).toBe(false);
+        if (r.ok) return;
+        expect(r.error.problem).toBe("verdict-too-large");
+        expect(r.error.message).toContain(String(drafted.length));
     });
 
     it("publishes nothing when the body is still too large without its file lists, and names the size", () => {

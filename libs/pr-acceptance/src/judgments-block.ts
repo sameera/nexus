@@ -323,17 +323,14 @@ export function replaceJudgmentsBlock(body: string, judgments: Judgments): strin
 }
 
 /**
- * `judgments` with every file list emptied and `filesDropped` set (D5): what a verdict too large
- * for the platform publishes instead. The next answer-recording run on a moved head reads the flag
- * and judges the whole pull request again (#861).
+ * `judgments` with only the results' file lists emptied and `filesDropped` set (D5): what a verdict
+ * too large for the platform drops, and the only thing it drops. The departures and findings keep their lists, because
+ * the next full run matches an item found again by a shared file (D2); without them every item
+ * would come back under a new ID and its answer would have to be given again. The next
+ * answer-recording run on a moved head reads the flag and judges the whole pull request again (#861).
  */
-export function withoutFileLists(judgments: Judgments): Judgments {
-    const dropped: Judgments = {
-        ...judgments,
-        items: judgments.items.map((d) => ({ ...d, files: [] })),
-        findings: judgments.findings.map((f) => ({ ...f, files: [] })),
-        filesDropped: true,
-    };
+export function withoutResultFileLists(judgments: Judgments): Judgments {
+    const dropped: Judgments = { ...judgments, filesDropped: true };
     if (judgments.results !== undefined) dropped.results = judgments.results.map((r) => ({ ...r, files: [] }));
     return dropped;
 }

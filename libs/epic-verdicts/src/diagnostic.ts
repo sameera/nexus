@@ -53,7 +53,7 @@ export type EpicVerdictsProblem =
     | "key-decisions-stale"
     /** A deferred-scope proposal settles a criterion of a story the verdict does not cover (epic #829, D7, G27). */
     | "deferred-scope-sibling"
-    /** The verdict exceeds the platform's size limit even with its file lists dropped (epic #829, D5, G29). */
+    /** The verdict exceeds the platform's size limit even with its results' file lists dropped (epic #829, D5, G29). */
     | "verdict-too-large";
 
 export interface EpicVerdictsDiagnostic {

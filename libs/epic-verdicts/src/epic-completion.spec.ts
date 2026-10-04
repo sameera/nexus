@@ -118,6 +118,19 @@ describe("epicCompletion — whether the pull request completes its epic (D9, G3
         expect(c.siblings.map((s) => s.pr)).toEqual([10, 11]);
     });
 
+    it("recognizes the analyzed pull request when its repository is written with a host and the claiming read's is not", () => {
+        const claims = { 1: [merged(1, 10, "2026-10-01T00:00:00Z")], 2: [merged(2, 11, "2026-10-01T00:00:00Z")], 3: [merged(3, 50, "2026-10-03T00:00:00Z")] };
+        const c = completionOf({ claims, notInHead: ["merge-50"] }, { pr: { repo: "github.com/Acme/web", pr: 50 } });
+        expect(c.siblings.map((s) => s.pr)).toEqual([10, 11]);
+        expect(c.epicLevel).toBe("judge");
+    });
+
+    it("does not count the analyzed pull request's own open claim against another story when its repository carries a host", () => {
+        const c = completionOf({ claims: { 1: [merged(1, 10, "2026-10-01T00:00:00Z")], 2: [merged(2, 11, "2026-10-01T00:00:00Z"), open(2, 50)] } }, { pr: { repo: "github.com/acme/web", pr: 50 } });
+        expect(c.completes).toBe(true);
+        expect(c.basis).toBe("last");
+    });
+
     it("keeps a merged pull request of a covered story as a sibling the head must contain", () => {
         const c = completionOf({ claims: { 3: [merged(3, 9, "2026-09-30T00:00:00Z")] } }, { covered: [1, 2, 3] });
         expect(c.siblings.map((s) => ({ pr: s.pr, stories: s.stories }))).toEqual([{ pr: 9, stories: [3] }]);
