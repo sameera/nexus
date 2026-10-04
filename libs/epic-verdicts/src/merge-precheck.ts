@@ -92,6 +92,7 @@ export function mergePrecheck(run: Runner, cwd: string, pr: number, repo: string
     }
     const base = { pr, findings, analyzedHead, prHead: v.prHead };
 
+    const blocking = findings["critical"] > 0 || findings["high"] > 0;
     if (analyzedHead === "" || analyzedHead !== v.prHead) {
         return {
             ...base,
@@ -99,10 +100,11 @@ export function mergePrecheck(run: Runner, cwd: string, pr: number, repo: string
             merge: false,
             message:
                 `PR #${pr}: the receipt analyzed ${analyzedHead || "no head"}, but the pull request's head is now ${v.prHead}. ` +
+                (blocking ? `That receipt also reports blocking findings (${countsLine(findings)}). ` : "") +
                 `Refusing to merge; re-run /nxs.analyze --pr ${pr} on the current head.`,
         };
     }
-    if (findings["critical"] > 0 || findings["high"] > 0) {
+    if (blocking) {
         return {
             ...base,
             result: "blocking",
