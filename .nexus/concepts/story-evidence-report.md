@@ -1,8 +1,8 @@
 ---
 title: "Story Evidence Report"
 aliases: ["evidence report", "story fingerprint", "changed since analysis", "unknown story text", "receipt counts for named stories", "covers no story"]
-touches: ["aggregated-epic-receipt", "record-digest", "shipped-ledger", "published-verdict-selection", "verdict-repository-scoping", "conformance-gate", "epic-coverage-run"]
-last_updated_by: "#827"
+touches: ["record-digest", "shipped-ledger", "published-verdict-selection", "verdict-repository-scoping", "conformance-gate", "epic-coverage-run"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -29,7 +29,6 @@ Close reads every merged pull request that claims each live story, and the selec
 
 ## Integration Points
 
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — supplies the complete read of the pull requests that claim each story, shared by analyze and close.
 - [record-digest](record-digest.md) — the one digest program a story fingerprint is taken with, under the same normalisation rule.
 - [shipped-ledger](shipped-ledger.md) — the gate that still decides whether the epic can close. Its records carry no fingerprints.
 - [published-verdict-selection](published-verdict-selection.md) — chooses the one receipt on each claiming pull request that this report reads.
@@ -42,3 +41,7 @@ Close reads every merged pull request that claims each live story, and the selec
 ### 2026-10-01 — #827 — Close reads the receipts on each story's pull requests, and each receipt records the story text it checked
 
 Close used to read only the shipped ledger. It could not tell that a story's text changed after its pull request was analyzed, and a receipt written before a story existed could look as if it covered that story. The report is built by one command that close repeats, because a selection rule restated as prose for a model to execute drifts. A receipt counts only for the stories it names, so a story added later shows up with no receipt and old receipts are not rewritten. The fingerprint reuses the record digest because GitHub can rewrite line endings when it stores a body, and a raw byte hash would report that as a change. Analyze fingerprints at the start of the run and checks again at publish, so the fingerprint describes the text the analysis judged. Close compares each receipt on its own, because a story can ship as a feature and then a fix, each analyzed against different text. Fingerprints go on the pull-request receipt only, because a later epic retires the ledger write. Refuted alternative: put the same per-story facts into the coverage run only and connect close to them later. That builds less now. It lost because the stories state their outcomes as what close reports, and the later epic would inherit an untested way of building the report.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt that supplied the shared read of a story's claiming pull requests is retired, so the edge is removed.

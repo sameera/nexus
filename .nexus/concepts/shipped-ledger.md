@@ -1,8 +1,8 @@
 ---
 title: "Shipped Ledger"
 aliases: ["shipped record", "what an epic shipped", "ledger of what shipped", "per-pull-request record", "epic-issue record"]
-touches: ["conformance-gate", "multi-pr-close", "aggregated-epic-receipt", "durable-close-record", "pr-driven-flow", "remote-identity-normalization", "close-and-distill-command", "story-evidence-report", "epic-coverage-run"]
-last_updated_by: "#827"
+touches: ["conformance-gate", "multi-pr-close", "durable-close-record", "pr-driven-flow", "remote-identity-normalization", "close-and-distill-command", "story-evidence-report", "epic-coverage-run"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -33,7 +33,6 @@ Addressed at an epic, the gate reports each story's coverage from these records,
 
 - [conformance-gate](conformance-gate.md) — the gate that writes a record, and the run whose findings each record carries.
 - [multi-pr-close](multi-pr-close.md) — reads merge state and the close range from these records rather than from live pull-request state.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the receipt shape whose story-to-pull-request answer these records replaced.
 - [durable-close-record](durable-close-record.md) — stamps the range these records carry onto the epic issue, verbatim.
 - [pr-driven-flow](pr-driven-flow.md) — the flow whose post-merge conformance run is what writes a record at all.
 - [remote-identity-normalization](remote-identity-normalization.md) — the rule by which a record names its code repository, so two readers cannot disagree about which repository it stamps.
@@ -54,3 +53,7 @@ The close-and-distill command declared an interaction with this concept, so this
 ### 2026-10-01 — #827 — The coverage states move to their own page, and a failed read is never one of them
 
 A story whose pull requests could not be read used to look like a story with no pull request, so it was reported as unshipped. It now stops the run with an error that names the story. That statement took this page's own content over the 400-word cap. The paragraph on the four coverage states, the new failed-read rule and the alias "shipped coverage states" moved to the new epic-coverage-run page. This page keeps how a record is written and read. Story fingerprints were kept off these records, because a later epic retires this record's writer and this epic must not change what close does with stale evidence.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt this ledger once replaced as the source of what shipped is retired, so the edge is removed.

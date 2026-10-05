@@ -1,8 +1,8 @@
 ---
 title: "Verdict Repository Scoping"
 aliases: ["issues repository key", "which repository a story number belongs to", "effective issues repository", "unknown accepts", "rejected candidate", "publish boundary check"]
-touches: ["conformance-gate", "aggregated-epic-receipt", "provenance-reference", "story-evidence-report"]
-last_updated_by: "#827"
+touches: ["conformance-gate", "provenance-reference", "story-evidence-report"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -32,7 +32,6 @@ A reader takes the verdict's effective repository: the name it states, or the co
 ## Integration Points
 
 - [conformance-gate](conformance-gate.md) — the gate that publishes the verdict; its publish step is the boundary the check sits at, and a refusal there fails the step.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the epic-wide derivation, which drops a candidate belonging to another repository with the rest of its trust checks and names it.
 - [provenance-reference](provenance-reference.md) — the reference forms; a verdict's story list stays bare because its repository is declared once, immediately above it.
 - [story-evidence-report](story-evidence-report.md) — adds a story fingerprint check at the same publish boundary this page's check sits at.
 
@@ -45,3 +44,7 @@ A verdict stamped only its code repository and named its stories as bare numbers
 ### 2026-10-01 — #827 — Reciprocal link from story-evidence-report
 
 Mechanical reciprocity fan-out: the publish check now also refuses a receipt whose story fingerprints do not match each named story's current text, at the same boundary as the repository check.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide derivation that dropped a candidate verdict from another repository is retired, so the edge is removed. The conformance gate's publish check, which this page already names, is unchanged.

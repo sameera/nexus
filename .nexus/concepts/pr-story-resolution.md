@@ -1,8 +1,8 @@
 ---
 title: "Pull-Request Story Resolution"
 aliases: ["candidate ladder", "story candidates", "which story a pull request implements", "closing-issue linkage", "per-story conformance scope"]
-touches: ["pr-driven-flow", "conformance-gate", "issue-kind-classification", "story-identity", "aggregated-epic-receipt", "scope-claim", "issue-absence-fact"]
-last_updated_by: "#564"
+touches: ["pr-driven-flow", "conformance-gate", "issue-kind-classification", "story-identity", "scope-claim", "issue-absence-fact"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -35,7 +35,6 @@ A pull request that names only its epic resolves to that epic's whole live story
 - [conformance-gate](conformance-gate.md) — the gate whose findings this narrows to the resolved stories, so a sibling story's code reads as scope drift rather than as an unmet criterion.
 - [issue-kind-classification](issue-kind-classification.md) — decides whether a surviving candidate is a story or an epic.
 - [story-identity](story-identity.md) — supplies the withdrawal rule that drops a story from the epic's live set.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the same validated-candidate idea run in the opposite direction, resolving a story to the pull requests that carry its verdict.
 - [scope-claim](scope-claim.md) — decides what each of this ladder's sources must say before a number it carries is gathered as a candidate.
 - [issue-absence-fact](issue-absence-fact.md) — tells a candidate matching no issue apart from a platform failure, so a stray number sets itself aside instead of stopping the run.
 
@@ -52,3 +51,7 @@ Mechanical reciprocity fan-out: the ladder now has a mirror image. Resolving a s
 ### 2026-09-12 — #564 — The ladder gathers claims of scope, and a missing issue no longer stops it
 
 Four defects sat in one resolver. The one that mattered let the gate report a pass: the story list a run resolves is stamped verbatim onto the receipt published on the pull request, and the epic's aggregate reads a story as analyzed when any trusted receipt names it, so a body citing three sibling stories as background marked all three analyzed and the close gate then passed over code nobody read. What a source must say before it is read moved out of this page into scope-claim, because that grammar is shared by two rungs and this page was already at its capacity; what stays here is unchanged, that a candidate is believed only once the live issue graph validates it. A candidate matching no issue is now set aside rather than fatal, so one stray number in a body or a branch name cannot stop the gate. Refuted alternative: leave the gathering broad and stamp onto the receipt only those stories whose code the diff actually touches. That targets the harmful surface directly. It loses because the claim that a diff implements a story is not mechanically decidable, and because it splits one answer into two answers that can disagree.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt that resolved a story to the pull requests carrying its verdict is retired, so the edge is removed. Resolving a pull request to its stories is unchanged.

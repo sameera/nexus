@@ -1,8 +1,8 @@
 ---
 title: "Epic Coverage Run"
 aliases: ["coverage run", "shipped coverage states", "four coverage states", "failed story read", "story-read-failed"]
-touches: ["shipped-ledger", "aggregated-epic-receipt", "story-evidence-report", "close-and-distill-command"]
-last_updated_by: "#827"
+touches: ["shipped-ledger", "story-evidence-report", "close-and-distill-command"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -27,7 +27,6 @@ For each story that is not excluded, the run reads the merged pull requests that
 ## Integration Points
 
 - [shipped-ledger](shipped-ledger.md) — the records each coverage state is read from. Split out of that page.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the same epic-addressed stage, and the complete read of each story's pull requests this run performs. Split out of that page.
 - [story-evidence-report](story-evidence-report.md) — the close-side report built on the same read, which stops close on a failed read in the same way.
 - [close-and-distill-command](close-and-distill-command.md) — the script that stops before close when this run exits with an error.
 
@@ -36,3 +35,7 @@ For each story that is not excluded, the run reads the merged pull requests that
 ### 2026-10-01 — #827 — Split from shipped-ledger and aggregated-epic-receipt, and a failed read prints no coverage
 
 Both parent pages stated the four coverage states, and the new failed-read rule took both over the 400-word cap. The states moved here as one statement, so the two parents keep only how a record is written and how the epic receipt is derived. The new rule: when any story's pull requests cannot be read, the run reads the rest, names every failed story with its cause, prints no coverage and exits with an error. The one-command close script is the only program that reads coverage mechanically, and it checks only that the pull request it just analyzed has a record. Refuted alternative: add a fifth state, "unread", and keep reporting the stories that did resolve. The lead would still see the rest of the epic. It lost because every reader, including stage instructions that read the output as prose, would have to learn the new state, and a reader that ignores it reads a gap as no gap. The cost is that one unreadable story hides the coverage of every other story until the read succeeds.
+
+### 2026-10-04 — #829 — Reciprocal link removed: aggregated-epic-receipt retired
+
+Mechanical reciprocity fan-out: the epic-wide receipt this run was partly split out of is retired, so the edge is removed.

@@ -1,8 +1,8 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "ephemeral-handoff-entry", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "aggregated-epic-receipt", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command", "story-evidence-report"]
-last_updated_by: "#827"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -10,39 +10,40 @@ verification: verified
 # Conformance Gate
 
 Analyze checks the implemented code against the acceptance criteria in scope and the decision
-record's invariants, then proves it ran by leaving a receipt. Close treats the receipt as a
-hard precondition, reading it back rather than regenerating it.
+record, and names every place the code departs from that record. It publishes its verdict only on
+a pull request. Close treats the verdict as a hard precondition, reading it back rather than
+regenerating it.
 
 ## How It Works
 
-Analyze reports findings inline, then writes the receipt as its only output. Locally, the
-receipt is a small artifact beside the epic. It sits in the ephemeral area for issue-sourced
-epics or in the committed entry for old-contract ones. This placement is contractual; the next two stages depend on it. Against a pull request, the receipt is a published review with
-the same information in a machine-readable block, because the worktree that would hold a local
-artifact is gone before close's pull-request run can read it. Close reads the receipt before mining anything else, classifying it by blocking findings or by
-whether the record's approved body changed since analyze ran. The verdict with any waiver is restated on
-the durable close comment. An unapproved decision record blocks analyze entirely; a blocked
-run emits nothing. That single rule gives a missing receipt exactly one meaning: analyze never
-ran. An entry lacking acceptance criteria, success metrics, or decision record is refused
-rather than passed: the check is undefined, not optional, and such an entry records this state
-as a literal value no reader can mistake for a waiver.
+Against a pull request, analyze publishes a review carrying a machine-readable block, followed by
+a second block that lists each departure, finding and deferred-scope proposal with its ID. Run
+without a pull request, analyze reports in the terminal and writes nothing. A departure is judged
+against a baseline that depends on the record's format, or against the epic's description when the
+epic has no record. Each departure cites what it departs from. A broken guarantee is one departure,
+never also a separate finding. A departure is marked superseding only when the code does the
+opposite of a record decision. On the pull request that completes its epic, analyze also judges the
+success metrics and the cross-story guarantees, but only once that pull request's code contains
+every merged sibling. An entry lacking
+acceptance criteria, success metrics, or decision record is refused rather than passed, and states
+that as a literal value no reader can mistake for a waiver.
 
 ## Key Invariants
 
-1. Analyze writes the receipt, its published-review form, and a merged pull request's record of
-   what shipped; no other report artifact exists.
-2. When an unapproved decision record blocks analyze, the run emits nothing: no receipt, no
-   review, no comment.
-3. A missing receipt means exactly one thing to close: there is no analysis to read.
+1. Analyze publishes its verdict only on a pull request; no other report artifact exists, and a run
+   without a pull request writes nothing.
+2. When an unapproved decision record blocks analyze, the run publishes nothing, so a missing
+   receipt means exactly one thing to close: there is no analysis to read.
+3. A departure from the decision record is accepted only by a trusted comment that names its ID, or
+   by a record revision; a decision stub explains a departure but never accepts it, and an
+   unanswered departure blocks.
 4. Close reads the receipt before mining anything else; it never infers conformance itself.
-5. A blocking or record-stale receipt gates close behind an explicit waiver; no state calls the
-   analysed commit stale.
-6. Which form and placement the receipt takes follows from where analyze and close execute,
-   not from a mode-specific rule: a local artifact in the ephemeral area or the committed
-   entry, or a published review when the worktree is gone. Downstream stages rely on that
-   placement.
-7. Both forms record which release wrote them; a receipt carrying no such record, or one
-   naming a release other than the reader's, is read exactly as before.
+5. A receipt with an open critical or high item stops close, with no override; a record-stale
+   receipt still needs a waiver.
+6. The receipt has one form, a published verdict on the pull request; each new verdict is complete
+   and supersedes the earlier one by the newest-trusted rule.
+7. The verdict records which release wrote it; a receipt carrying no such record, or one naming a
+   release other than the reader's, is read exactly as before.
 
 ## Integration Points
 
@@ -51,21 +52,19 @@ as a literal value no reader can mistake for a waiver.
 - [decision-record](decision-record.md) — its approval state makes the gate meaningful;
   unapproved blocks analyze.
 - [record-digest](record-digest.md) — the hash the receipt stamps to detect record staleness.
-- [pr-driven-flow](pr-driven-flow.md) — the mode where the receipt becomes a published review.
-- [ephemeral-handoff-entry](ephemeral-handoff-entry.md) — where an issue-sourced epic's receipt
-  is written.
+- [pr-driven-flow](pr-driven-flow.md) — the only mode in which this gate publishes a verdict.
 - [durable-close-record](durable-close-record.md) — the close comment restating this verdict
   durably.
-- [writer-stamp](writer-stamp.md) — the record of which release wrote the receipt, carried in
-  both its local and published-review forms.
+- [writer-stamp](writer-stamp.md) — the record of which release wrote the verdict, carried in
+  the published verdict.
 - [pipeline-store-exclusion](pipeline-store-exclusion.md) — analyze draws its verdict from a diff withholding every member; it withheld none before.
 - [intake-lane](intake-lane.md) — the other lane this gate refuses to run against, having no criteria to check.
 - [pr-story-resolution](pr-story-resolution.md) — decides which criteria are in scope against a pull request: the resolved stories' criteria, never every story's.
-- [aggregated-epic-receipt](aggregated-epic-receipt.md) — the receipt shape derived from the stories' own verdicts, which this gate reads story by story instead of judging the epic afresh.
 - [published-verdict-selection](published-verdict-selection.md) — decides which of a pull request's published blocks is its verdict; this gate reports what that returns rather than choosing one.
 - [verdict-repository-scoping](verdict-repository-scoping.md) — names the repository this gate's published verdict resolves its story numbers against, and the check the gate must pass before publishing one.
 - [shipped-ledger](shipped-ledger.md) — the record this gate writes on the epic issue for a merged pull request, and the source every later gate reads what shipped from.
 - [close-and-distill-command](close-and-distill-command.md) — the stage that runs this gate with nobody watching before close, and reads its outcome from the published verdict and the shipped record, never from the exit status.
+- [pr-verdict-answers](pr-verdict-answers.md) — numbers the departures and findings this gate judges, and applies the answers posted on the pull request.
 - [story-evidence-report](story-evidence-report.md) — the close report that reads the story fingerprints this gate records in its pull-request receipt.
 
 ## Decision Log
@@ -147,3 +146,20 @@ The close-and-distill command declared an interaction with this concept, so this
 ### 2026-10-01 — #827 — Reciprocal link from story-evidence-report
 
 Mechanical reciprocity fan-out: the receipt this gate publishes on a pull request now records a fingerprint of each named story's text, and the close stage's evidence report compares those fingerprints with each story's current text.
+
+### 2026-10-04 — #829 — Analyze makes every judgment, and its verdict lives only on the pull request
+
+Close used to read the diff, the decision record and the decision stubs again after the merge, and
+then ask the lead why the code departs from the record. Those are judgments analyze could make
+before the merge, when the engineer who made each choice can still answer. The departure pass moved
+into analyze, so the verdict now lists each departure with an ID that the engineer answers on the
+pull request. Close lost its blocking-findings override, because the verdict's counts now cover only
+open items and the remedy is an answer on the pull request. The local receipt is gone: a run without
+a pull request reports in the terminal and writes nothing, so close behaves the same whether or not
+one happened. The epic-wide receipt combined from story verdicts is retired. The success metrics
+and the guarantees that span stories are judged on the pull request that completes the epic. The
+links to the ephemeral hand-off entry and the aggregated epic receipt are removed, because neither
+interaction exists any more. Refuted alternatives: keep a broken guarantee as a separate critical
+finding beside its departure, which gives one fact two IDs and two answers that could disagree; and
+run every implement round against a pull request, which costs a worktree and a published verdict per
+round.

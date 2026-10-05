@@ -1,8 +1,8 @@
 ---
 title: "Ephemeral Hand-Off Entry"
 aliases: ["ephemeral entry", "hand-off entry", "same-sitting entry", "ephemeral area", "tmp-first close", "entry kind"]
-touches: ["committed-queue", "distiller", "durable-close-record", "scratch-capture", "conformance-gate", "fix-lane", "intake-lane", "entry-slot-ownership"]
-last_updated_by: "#814"
+touches: ["committed-queue", "distiller", "durable-close-record", "scratch-capture", "fix-lane", "intake-lane", "entry-slot-ownership"]
+last_updated_by: "#829"
 status: active
 verification: verified
 ---
@@ -31,7 +31,6 @@ A local conformance run still writes the epic and its receipt here, but a pair w
 - [distiller](distiller.md) — discovers and drains these entries and derives their consumption.
 - [durable-close-record](durable-close-record.md) — the comment that makes discarding this copy safe.
 - [scratch-capture](scratch-capture.md) — the committed directory the drain's removal is re-aimed at.
-- [conformance-gate](conformance-gate.md) — the receipt written here for the same-sitting hand-off.
 - [fix-lane](fix-lane.md) — the other writer into this area, whose entries carry no scratch home and so no committed removal target.
 - [intake-lane](intake-lane.md) — the third writer into this area, whose entries also carry no scratch home and so no committed removal target.
 - [entry-slot-ownership](entry-slot-ownership.md) — reads the recorded kind of whatever holds a number's slot here, and treats an unreadable entry as holding it.
@@ -61,3 +60,7 @@ Reading an entry's kind from its own header leaves one kind unanswerable. An epi
 ### 2026-09-27 — #814 — Close no longer writes here
 
 A close without a pull request could never pass its own shipped-record check, so close now refuses without one, before it writes anything. Close therefore no longer leaves its epic and close record in this area; its entry is born at close and committed to the queue. The fix and intake lanes remain the writers of drainable entries here. An epic entry an earlier local close left here still drains, because discovery and consumption are unchanged.
+
+### 2026-10-04 — #829 — A local conformance run writes no receipt here
+
+Analyze run without a pull request now reports in the terminal and writes nothing, so no receipt lands in this area any more. The page said a local run still wrote one, and that sentence is corrected. The link to the conformance gate is removed, because writing that receipt here was the whole interaction. Nothing about discovery, consumption or the kind rule changed.
