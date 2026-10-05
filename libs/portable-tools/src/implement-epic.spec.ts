@@ -32,7 +32,8 @@ if (name === "codex" || name === "claude") {
         ? failed ? {type: "turn.failed", error: {message: "test failure"}} : {type: "item.completed", item: {type: "agent_message", text}}
         : {type: "result", result: text, is_error: failed, duration_ms: 1, num_turns: 1}));
 } else if (name === "git" && args[0] === "rev-parse") console.log("feature/test");
-else if (name === "gh" && args[1] === "list") console.log("https://github.com/example/repo/pull/1");
+else if (name === "git" && args[0] === "log") process.stdout.write(process.env.NEXUS_TEST_GIT_LOG ?? "");
+else if (name === "gh" && args[1] === "list") { if (process.env.NEXUS_TEST_NO_PR !== "1") console.log("https://github.com/example/repo/pull/1"); }
 else if (name === "gh" && args[1] === "view") console.log("1");
 else if (name === "nexus" && args[0] === "pr-answers") {
     // The first read is before the fix round; every later one is after it.
@@ -50,10 +51,11 @@ else if (name === "nexus" && args[0] === "pr-answers") {
 });
 afterEach(() => fs.rmSync(scratch, { recursive: true, force: true }));
 
-function run(harness?: string, failed = false) {
+function run(harness?: string, failed = false, extra: NodeJS.ProcessEnv = {}) {
     const log = path.join(scratch, "calls.jsonl");
     const env: NodeJS.ProcessEnv = {
         ...process.env,
+        ...extra,
         PATH: `${scratch}:${process.env.PATH}`,
         ANALYZE: "0",
         NEXUS_TEST_LOG: log,
@@ -120,10 +122,11 @@ const result = (critical: number, high: number, head = HEAD): string =>
 type Call = { name: string; args: string[] };
 
 /** One run of an entry point with analyze on, its local analyze runs answering with `reports` in turn. */
-function conform(entry: string, opts: { reports?: string[]; before?: string[]; after?: string[]; fail?: boolean; rounds?: number } = {}) {
+function conform(entry: string, opts: { reports?: string[]; before?: string[]; after?: string[]; fail?: boolean; rounds?: number; env?: NodeJS.ProcessEnv } = {}) {
     const log = path.join(scratch, "calls.jsonl");
     const env: NodeJS.ProcessEnv = {
         ...process.env,
+        ...opts.env,
         PATH: `${scratch}:${process.env.PATH}`,
         ANALYZE: "1",
         CONFORM_ROUNDS: String(opts.rounds ?? 1),
@@ -251,5 +254,42 @@ describe("an unattended fix round that posts an answer", () => {
         expect(result.status).not.toBe(0);
         expect(result.stderr).toMatch(/cannot read the comments on PR #1/);
         expect(agentPrompts(result.calls).some((p) => /round 1 of/.test(p))).toBe(false);
+    });
+});
+
+/**
+ * GitHub links an issue to a pull request only from closing words in the pull request body, and
+ * close reads that link. The per-story commits carry their own `Closes #<n>` lines, so every body
+ * the script writes repeats them (epic #830 close failure).
+ */
+describe("the pull request body names every story the branch closes", () => {
+    const LOG = [
+        "feat: first story\n\nBody text that mentions #7 in passing.\n\nCloses #101\n",
+        "feat: second story\n\nCloses acme/hub#102\n",
+        "fix: follow-up\n\nCloses #101\n",
+    ].join("\n");
+    const bodyOf = (calls: Call[], verb: "create" | "edit"): string | undefined => {
+        const call = calls.find((c) => c.name === "gh" && c.args[0] === "pr" && c.args[1] === verb);
+        return call?.args[call.args.indexOf("--body") + 1];
+    };
+
+    it("opens the draft with one Closes line per story, in commit order, keeping a qualified reference as written", () => {
+        const result = run(undefined, false, { NEXUS_TEST_NO_PR: "1", NEXUS_TEST_GIT_LOG: LOG });
+        expect(result.status, result.stderr).toBe(0);
+        const body = bodyOf(result.calls, "create");
+        expect(body).toContain("Closes #101\nCloses acme/hub#102");
+        expect(body?.match(/Closes #101/g)).toHaveLength(1);
+        expect(body).not.toContain("#7");
+    });
+
+    it("keeps the Closes lines when it marks the pull request as not certified", () => {
+        const out = conform(script, { reports: [result(0, 0)], env: { NEXUS_TEST_GIT_LOG: LOG } });
+        expect(bodyOf(out.calls, "edit")).toContain("Closes #101\nCloses acme/hub#102");
+    });
+
+    it("warns, naming what close will report, when no commit on the branch closes a story", () => {
+        const result = run(undefined, false, { NEXUS_TEST_NO_PR: "1", NEXUS_TEST_GIT_LOG: "feat: no trailer\n" });
+        expect(result.status).toBe(0);
+        expect(result.stderr).toMatch(/no commit on feature\/test closes a story/);
     });
 });

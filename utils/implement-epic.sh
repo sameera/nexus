@@ -292,6 +292,31 @@ echo "" >&2
 echo ">>> pushing ${BRANCH} to origin" >&2
 git push -u origin "$BRANCH"
 
+# GitHub links an issue to a pull request only from closing words in the pull
+# request *body*; a commit's Closes line closes the issue on merge but links no
+# pull request. Close reads that link, so every body below repeats the branch's
+# own Closes lines, each once, in commit order, exactly as the commits wrote them.
+BASE_REF="$BASE"
+git rev-parse --verify --quiet "origin/${BASE}" >/dev/null && BASE_REF="origin/${BASE}"
+STORY_CLOSES="$(git log --reverse --format=%B "${BASE_REF}..HEAD" \
+    | sed -nE 's/^[[:space:]]*Closes[[:space:]]+(([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)?#[0-9]+)[[:space:]]*$/Closes \1/p' \
+    | awk '!seen[$0]++')"
+if [[ -z "$STORY_CLOSES" ]]; then
+    echo "!!! no commit on ${BRANCH} closes a story with a 'Closes #<n>' line — close will report every story as unshipped until the PR body names them" >&2
+fi
+
+pr_body_intro() {
+    echo "Implements the story sub-issues of #${N}, one commit per story in blocked_by order."
+    if [[ -n "$STORY_CLOSES" ]]; then
+        echo ""
+        echo "$STORY_CLOSES"
+    fi
+    echo ""
+    echo "Each commit body carries its own \`Closes #<story>\` line too. The lines above make"
+    echo "GitHub link each story to this PR, which close reads. The epic itself closes through"
+    echo "\`/nxs.close\`, not by merge."
+}
+
 PR_URL="$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
 if [[ -n "$PR_URL" ]]; then
     echo ">>> PR already open: ${PR_URL}" >&2
@@ -303,11 +328,7 @@ else
         --head "$BRANCH" \
         --title "epic #${N}: ${EPIC_TITLE}" \
         --body "$(cat <<EOF
-Implements the story sub-issues of #${N}, one commit per story in blocked_by order.
-
-Each commit body carries its own \`Closes #<story>\` line, so merging this PR
-into \`${BASE}\` closes the stories it implements. The epic itself closes through
-\`/nxs.close\`, not by merge.
+$(pr_body_intro)
 
 Draft opened by \`utils/implement-epic.sh\`; \`/nxs.analyze\` runs against it next.
 EOF
@@ -476,11 +497,7 @@ note_pr_uncertified() {
     local reason="$1"
     echo "!!! ${reason}" >&2
     gh pr edit "$PR_NUM" --body "$(cat <<EOF
-Implements the story sub-issues of #${N}, one commit per story in blocked_by order.
-
-Each commit body carries its own \`Closes #<story>\` line, so merging this PR
-into \`${BASE}\` closes the stories it implements. The epic itself closes through
-\`/nxs.close\`, not by merge.
+$(pr_body_intro)
 
 > [!WARNING]
 > **Conformance is not certified.** \`utils/implement-epic.sh\` reached the certifying
@@ -552,11 +569,7 @@ EPIC_TITLE="$(gh issue view "$N" --json title --jq .title)"
 gh pr edit "$PR_NUM" \
     --title "epic #${N}: ${EPIC_TITLE}" \
     --body "$(cat <<EOF
-Implements the story sub-issues of #${N}, one commit per story in blocked_by order.
-
-Each commit body carries its own \`Closes #<story>\` line, so merging this PR
-into \`${BASE}\` closes the stories it implements. The epic itself closes through
-\`/nxs.close\`, not by merge.
+$(pr_body_intro)
 
 Conformance is clean at \`${RHEAD}\` — 0 critical, 0 high; see the latest
 analyze review above for the full report. Ready for review.
