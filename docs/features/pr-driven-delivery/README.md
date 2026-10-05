@@ -1,5 +1,5 @@
 ---
-feature: "PR-Driven Delivery"
+feature: 'PR-Driven Delivery'
 ---
 
 # PR-Driven Delivery
