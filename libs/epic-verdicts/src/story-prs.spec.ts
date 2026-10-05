@@ -27,9 +27,22 @@ function pr(p: FakePr): Record<string, unknown> {
     };
 }
 
+type FakeClosedEvent =
+    | { closer: "commit"; prs: FakePr[]; morePrs?: boolean }
+    | { closer: "pull-request"; pr: FakePr }
+    | { closer: "none" };
+
+function closedEvent(e: FakeClosedEvent): Record<string, unknown> {
+    if (e.closer === "none") return { closer: null };
+    if (e.closer === "pull-request") return { closer: pr(e.pr) };
+    return { closer: { oid: "c0ffee", associatedPullRequests: { pageInfo: { hasNextPage: e.morePrs ?? false }, nodes: e.prs.map(pr) } } };
+}
+
 interface GraphOpts {
     closing?: FakePr[];
     crossRefs?: FakePr[];
+    /** The story's closed events, each naming the closer: a commit with its pull requests, a pull request, or none. */
+    closedEvents?: FakeClosedEvent[];
     fails?: boolean;
     garbage?: boolean;
     /** How many nodes the fake returns per page; every source pages at this size. */
@@ -63,7 +76,8 @@ function fakeGraph(opts: GraphOpts): Runner {
         if (opts.failPage !== undefined && pageNo === opts.failPage) return { status: 1, stdout: "", stderr: "HTTP 502: Bad Gateway" };
         const issue: Record<string, unknown> = {};
         if (query.includes("closedByPullRequestsReferences")) issue["closedByPullRequestsReferences"] = page((opts.closing ?? []).map(pr), cursor, size);
-        if (query.includes("timelineItems")) {
+        if (query.includes("CLOSED_EVENT")) issue["timelineItems"] = page((opts.closedEvents ?? []).map(closedEvent), cursor, size);
+        else if (query.includes("timelineItems")) {
             issue["timelineItems"] = page(
                 (opts.crossRefs ?? []).map((p) => ({ source: pr(p) })),
                 cursor,
@@ -265,5 +279,54 @@ describe("readStoryClaims — every claiming pull request, with its state (epic 
         const run: Runner = (cmd, args, opts) => fakeGraph({ closing: [shipped, open] })(cmd, args, opts);
         const out = readEveryStoryClaims(run, "/hub", SLUG, [770]);
         expect(out.ok ? out.byStory[770].map((p) => p.state).sort() : []).toEqual(["merged", "open"]);
+    });
+});
+
+describe("readStoryClaims — the pull request whose commit closed the story (epic #830 close failure)", () => {
+    const viaCommit = (...prs: FakePr[]): FakeClosedEvent => ({ closer: "commit", prs });
+
+    it("returns the merged pull request whose commit closed the story when no pull request body names it", () => {
+        const shipped: FakePr = { number: 879, repo: "acme/hub", body: "Each commit body carries its own `Closes #<story>` line", mergeCommit: "b0fa6b6" };
+        const out = prsOf(mergedOnly(readStoryClaims(fakeGraph({ closedEvents: [viaCommit(shipped)] }), "/hub", SLUG, 770)));
+        expect(out).toEqual([{ story: 770, pr: 879, repo: "acme/hub", mergeCommit: "b0fa6b6", mergedAt: "2026-09-01T00:00:00Z", edge: "closing-commit" }]);
+    });
+
+    it("returns the pull request when the closing commit merged in another repository", () => {
+        const out = prsOf(mergedOnly(readStoryClaims(fakeGraph({ closedEvents: [viaCommit({ number: 12, repo: "acme/member" })] }), "/hub", SLUG, 770)));
+        expect(out.map((p) => [p.repo, p.pr])).toEqual([["acme/member", 12]]);
+    });
+
+    it("does not read an unmerged pull request that also holds the closing commit as a claim", () => {
+        const shipped: FakePr = { number: 879, repo: "acme/hub" };
+        const laterBranch: FakePr = { number: 900, repo: "acme/hub", merged: false, state: "OPEN" };
+        const read = readStoryClaims(fakeGraph({ closedEvents: [viaCommit(shipped, laterBranch)] }), "/hub", SLUG, 770);
+        expect(read.ok ? read.result.prs.map((p) => [p.pr, p.state]) : []).toEqual([[879, "merged"]]);
+    });
+
+    it("finds nothing on a story closed by hand or by a pull request's closed event alone", () => {
+        const read = readStoryClaims(fakeGraph({ closedEvents: [{ closer: "none" }, { closer: "pull-request", pr: { number: 5, repo: "acme/hub" } }] }), "/hub", SLUG, 770);
+        expect(read).toEqual({ ok: true, result: { story: 770, prs: [] } });
+    });
+
+    it("keeps the closing edge over the commit edge, and the commit edge over a cross-reference", () => {
+        const both: FakePr = { number: 50, repo: "acme/hub", body: "Closes #770" };
+        const other: FakePr = { number: 51, repo: "acme/hub", body: "Closes #770" };
+        const out = prsOf(mergedOnly(readStoryClaims(fakeGraph({ closing: [both], crossRefs: [other], closedEvents: [viaCommit(both, other)] }), "/hub", SLUG, 770)));
+        expect(out.map((p) => [p.pr, p.edge])).toEqual([
+            [50, "closing"],
+            [51, "closing-commit"],
+        ]);
+    });
+
+    it("reads every closed event when they span more than one page", () => {
+        const events = [{ closer: "none" } as const, { closer: "none" } as const, viaCommit({ number: 77, repo: "acme/hub" })];
+        const out = prsOf(mergedOnly(readStoryClaims(fakeGraph({ closedEvents: events, pageSize: 2 }), "/hub", SLUG, 770)));
+        expect(out.map((p) => p.pr)).toEqual([77]);
+    });
+
+    it("fails the read when a closing commit holds more pull requests than one answer returns", () => {
+        const read = readStoryClaims(fakeGraph({ closedEvents: [{ closer: "commit", prs: [{ number: 1, repo: "acme/hub" }], morePrs: true }] }), "/hub", SLUG, 770);
+        expect(read.ok).toBe(false);
+        expect(read.ok ? "" : read.failure.cause).toMatch(/c0ffee/);
     });
 });

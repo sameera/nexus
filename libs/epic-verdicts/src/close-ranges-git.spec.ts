@@ -69,6 +69,8 @@ interface FakePr {
     receiptExtra?: string;
     /** The pull request's comments, as the platform returns them. */
     comments?: Array<Record<string, unknown>>;
+    /** Ties the story to the pull request only through the commit that closed it, not a closing link. */
+    closedByCommit?: boolean;
 }
 
 function receiptReview(p: FakePr): Array<Record<string, string>> {
@@ -89,12 +91,19 @@ function platform(prs: FakePr[], seen: string[]): Runner {
             const query = args.find((a) => a.startsWith("query=")) ?? "";
             const num = Number((args.find((a) => a.startsWith("num=")) ?? "").slice("num=".length));
             const pageInfo = { hasNextPage: false, endCursor: null };
+            const merged = (p: FakePr) => ({ number: p.number, state: "MERGED", merged: true, mergedAt: p.mergedAt, mergeCommit: { oid: p.merge }, body: "", repository: { nameWithOwner: "acme/web" } });
+            if (query.includes("CLOSED_EVENT")) {
+                const nodes = prs
+                    .filter((p) => p.story === num && p.closedByCommit === true)
+                    .map((p) => ({ closer: { oid: p.head, associatedPullRequests: { pageInfo: { hasNextPage: false }, nodes: [merged(p)] } } }));
+                return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: { timelineItems: { pageInfo, nodes } } } } }), stderr: "" };
+            }
             if (query.includes("closedByPullRequestsReferences")) {
                 const nodes = prs
-                    .filter((p) => p.story === num)
+                    .filter((p) => p.story === num && p.closedByCommit !== true)
                     .map((p) =>
                         p.state === undefined
-                            ? { number: p.number, state: "MERGED", merged: true, mergedAt: p.mergedAt, mergeCommit: { oid: p.merge }, body: "", repository: { nameWithOwner: "acme/web" } }
+                            ? merged(p)
                             : { number: p.number, state: p.state, merged: false, mergedAt: null, mergeCommit: null, body: "", repository: { nameWithOwner: "acme/web" } },
                     );
                 return { status: 0, stdout: JSON.stringify({ data: { repository: { issue: { closedByPullRequestsReferences: { pageInfo, nodes } } } } }), stderr: "" };
@@ -190,6 +199,20 @@ describe("the claiming read close classifies on (story #847, D7)", () => {
         expect(out.ranges.states).toEqual([{ story: 841, state: "unshipped", findings: [{ repo: "acme/web", pr: 20, finding: "open" }] }]);
         expect(out.ranges.closable).toBe(false);
         expect(seen.filter((c) => c[1] === "pr" && c[2] === "view").map((c) => c[3])).not.toContain("20");
+    });
+});
+
+describe("the claiming read close classifies on — a story closed by its pull request's commit (epic #830 close failure)", () => {
+    it("ranges the merged pull request and reads the story as current when only the commit that closed it ties the two", () => {
+        const repo = buildRepo();
+        const feature = mergeBranch(repo, "b10", "src/feature.ts");
+        const prs: FakePr[] = [{ number: 10, story: 841, mergedAt: "2026-09-01T00:00:00Z", ...feature, analyzed: feature.head, closedByCommit: true }];
+
+        const out = deriveCloseRanges(closeRangesDeps(platform(prs, []), repo, "acme/web"), { stories: [841], records: [] });
+        expect(out.ok).toBe(true);
+        if (!out.ok) return;
+        expect(out.ranges.range.map((r) => r.pr)).toEqual([10]);
+        expect(out.ranges.states.map((s) => [s.story, s.state])).toEqual([[841, "current"]]);
     });
 });
 

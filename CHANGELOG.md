@@ -5,6 +5,18 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.93.0
+
+- **Close and analyze count a story closed by a commit of a merged pull request as shipped by
+  it.** A pull request that carries its `Closes #<n>` lines in its commits, one per story, gets no
+  closing link on GitHub, because GitHub reads closing words only from the pull request body. The
+  story still closes from the commit when it merges. Close used to report such a story as
+  unshipped, with "no pull request claims it", unless the pull request body also named the story
+  with a scope word. Close now reads the commit that closed the story and counts the merged pull
+  requests that hold it, so the one-commit-per-story pull request closes with no body edit and no
+  waiver. An open or unmerged pull request that also holds that commit still counts for nothing.
+  Analyze reads the same way when it decides whether a pull request completes its epic.
+
 ## 0.92.0
 
 - **Close no longer asks anything (breaking).** Close is now a plain command, `nexus close`. It
