@@ -9,10 +9,16 @@
  * query is answered by the platform, so the pull request is visible wherever it merged, and each
  * result names the repository it merged in rather than inheriting the caller's.
  *
- * Two edges are read, and they are not equally strong:
+ * Three edges are read, and they are not equally strong:
  *
  *   - **closing** (`closedByPullRequestsReferences`) — the platform's own statement that the pull
  *     request closes this issue. Accepted as it stands.
+ *   - **closing-commit** — a commit that closed the issue, and the merged pull requests that hold
+ *     it. GitHub links an issue to a pull request only from the pull request's *body*, so a pull
+ *     request carrying its `Closes #<n>` lines one per commit has no closing link; the issue still
+ *     closes, from the commit, when it lands on the default branch. That closed event is the
+ *     platform's statement too, so it is accepted as it stands — but only the merged pull requests
+ *     holding the commit, because a later branch that merely contains it shipped nothing.
  *   - **cross-reference** — a pull request that merely mentioned the issue. Anyone can write a
  *     mention, and GitHub's closing link is same-repository by construction, so a cross-repository
  *     pull request normally arrives on this weaker edge. It stays a candidate until it *claims* the
@@ -27,7 +33,7 @@
  * request can never read as shipped code. Paging, the claim rule and failure handling stay here, in
  * the one read.
  *
- * The read is complete or it fails (epic #827, decision record #837, D1). Both edges are read to
+ * The read is complete or it fails (epic #827, decision record #837, D1). Every edge is read to
  * their last page, because cross-references include mentions from plain issues and a busy story can
  * fill its first page before the pull request that shipped it appears. A failure on any page — a
  * refused call, an unparseable answer, a story the platform does not know — fails the whole read
@@ -42,7 +48,7 @@ import { sameRepo } from "@nexus/workspace/issue-ref";
 import { type Runner } from "./run.js";
 
 /** How the issue graph tied this pull request to the story. */
-export type StoryPrEdge = "closing" | "cross-reference";
+export type StoryPrEdge = "closing" | "closing-commit" | "cross-reference";
 
 /** Where a claiming pull request stands: merged, still open, or closed without merging. */
 export type StoryPrState = "merged" | "open" | "closed";
@@ -101,10 +107,14 @@ export type StoryMergedPrsRead = { ok: true; result: StoryMergedPrsResult } | { 
 
 const PR_FIELDS = "number state merged mergedAt mergeCommit{oid} body repository{nameWithOwner}";
 
-/** One query per edge, each paged on its own cursor. */
-const EDGE_QUERIES: ReadonlyArray<{ edge: StoryPrEdge; field: string; query: string }> = [
+/**
+ * One query per edge, each paged on its own cursor, in the order a pull request found on two edges
+ * keeps the stronger one.
+ */
+const EDGE_QUERIES: ReadonlyArray<{ edge: StoryPrEdge; label: string; field: string; query: string }> = [
     {
         edge: "closing",
+        label: "closing links",
         field: "closedByPullRequestsReferences",
         query:
             "query($owner:String!,$repo:String!,$num:Int!,$cursor:String){" +
@@ -114,7 +124,20 @@ const EDGE_QUERIES: ReadonlyArray<{ edge: StoryPrEdge; field: string; query: str
             "}}}",
     },
     {
+        edge: "closing-commit",
+        label: "closing commits",
+        field: "timelineItems",
+        query:
+            "query($owner:String!,$repo:String!,$num:Int!,$cursor:String){" +
+            "repository(owner:$owner,name:$repo){issue(number:$num){" +
+            "timelineItems(first:100,after:$cursor,itemTypes:[CLOSED_EVENT]){" +
+            "pageInfo{hasNextPage endCursor} nodes{...on ClosedEvent{closer{...on Commit{oid " +
+            `associatedPullRequests(first:100){pageInfo{hasNextPage} nodes{${PR_FIELDS}}}}}}}}` +
+            "}}}",
+    },
+    {
         edge: "cross-reference",
+        label: "cross-references",
         field: "timelineItems",
         query:
             "query($owner:String!,$repo:String!,$num:Int!,$cursor:String){" +
@@ -162,6 +185,25 @@ function readPr(node: unknown): RawPr | null {
     };
 }
 
+/**
+ * The pull requests holding the commit that closed the issue in one closed event — none when a
+ * person or a pull request closed it. A commit holding more than one answer's worth fails the read
+ * rather than returning part of them.
+ */
+function closingCommitPrs(node: unknown): { ok: true; prs: RawPr[] } | { ok: false; cause: string } {
+    const closer = node !== null && typeof node === "object" ? (node as Record<string, unknown>)["closer"] : null;
+    if (closer === null || typeof closer !== "object") return { ok: true, prs: [] };
+    const conn = (closer as Record<string, unknown>)["associatedPullRequests"] as Record<string, unknown> | null | undefined;
+    if (conn === null || conn === undefined || typeof conn !== "object") return { ok: true, prs: [] };
+    const oid = String((closer as Record<string, unknown>)["oid"] ?? "");
+    const pageInfo = conn["pageInfo"] as Record<string, unknown> | null | undefined;
+    if (pageInfo?.["hasNextPage"] === true) {
+        return { ok: false, cause: `the closing commit ${oid} is held by more pull requests than one read returns.` };
+    }
+    const nodes = Array.isArray(conn["nodes"]) ? conn["nodes"] : [];
+    return { ok: true, prs: nodes.map(readPr).filter((p): p is RawPr => p !== null) };
+}
+
 type EdgeRead = { ok: true; nodes: unknown[] } | { ok: false; cause: string };
 
 /** Every node one edge holds for `story`, read to the last page, or the reason it could not be. */
@@ -172,7 +214,7 @@ function readEdge(run: Runner, cwd: string, slug: RepoSlug, story: number, edge:
         const args = ["api", "graphql", "-f", `query=${edge.query}`, "-F", `owner=${slug.owner}`, "-F", `repo=${slug.repo}`, "-F", `num=${story}`];
         if (cursor !== null) args.push("-f", `cursor=${cursor}`);
         const r = run("gh", args, { cwd });
-        const where = `the ${edge.edge === "closing" ? "closing links" : "cross-references"} (page ${pageNo})`;
+        const where = `the ${edge.label} (page ${pageNo})`;
         if (r.status !== 0) return { ok: false, cause: `reading ${where} failed: ${r.stderr.trim() || `gh exited ${r.status}`}` };
 
         let doc: Record<string, unknown>;
@@ -239,14 +281,18 @@ export function readStoryClaims(run: Runner, cwd: string, slug: RepoSlug, story:
         });
     };
 
-    // The closing edge is read in full before any cross-reference, so it wins wherever both carry
-    // the same pull request, however the two edges happen to page.
+    // Each edge is read in full before the next, weaker one, so the stronger edge wins wherever two
+    // carry the same pull request, however the edges happen to page.
     for (const edge of EDGE_QUERIES) {
         const read = readEdge(run, cwd, slug, story, edge);
         if (!read.ok) return { ok: false, failure: { story, cause: read.cause } };
         for (const node of read.nodes) {
             if (edge.edge === "closing") add(readPr(node), "closing");
-            else if (node !== null && typeof node === "object") add(readPr((node as Record<string, unknown>)["source"]), "cross-reference");
+            else if (edge.edge === "closing-commit") {
+                const prs = closingCommitPrs(node);
+                if (!prs.ok) return { ok: false, failure: { story, cause: prs.cause } };
+                for (const raw of prs.prs) if (raw.state === "merged") add(raw, "closing-commit");
+            } else if (node !== null && typeof node === "object") add(readPr((node as Record<string, unknown>)["source"]), "cross-reference");
         }
     }
 
