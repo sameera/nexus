@@ -2,7 +2,7 @@
 title: "Range-Entry Diff Derivation"
 aliases: ["range reader", "entry diff derivation", "per-entry change set", "range list reader"]
 touches: ["distiller", "code-anchors", "pipeline-store-exclusion", "workspace-resolution", "multi-pr-close"]
-last_updated_by: "#713"
+last_updated_by: "#781"
 status: active
 verification: verified
 ---
@@ -50,3 +50,7 @@ Mechanical reciprocity fan-out: the page that used to stamp the range list this 
 ### 2026-09-20 — #713 — The failure class is a token from a closed set, and an unreachable revision names both remedies
 
 The set of failure classes this reader reports became one runtime value that its tests enumerate, rather than a type the tests cannot read back. A caller tells one failure from another by the class token alone, never by parsing the prose beside it. The remedy an unreachable revision reports grew a second half: correct the recorded range stamp, alongside updating the checkout. That second half became load-bearing in the same change, because the drain's legacy fallback used to re-derive a diff by itself when a range would not resolve, and that fallback is gone. The operator now performs the repair the fallback used to perform silently, so the diagnostic has to name it. Refuted alternative: keep the class set as a type alone and restate the token list in the drain's own document. It loses because that is a second copy of the same set, which is the defect the change removing it exists to close.
+
+### 2026-10-06 — #781 — A stamped repository matches its checkout in either of its two written forms
+
+The reader now matches a stamped repository against a checkout with the same comparison rule every other reader of a stamped repository uses. A close records a repository as `owner/repo`, while a checkout knows itself as the host-qualified form. Exact text comparison treated those as two repositories, so the drain refused every epic closed through the shipped ledger as an unknown repository, starting with #769's own distillation. Refuted alternative: none. Any rule other than the shared one would leave this reader disagreeing with the others again.
