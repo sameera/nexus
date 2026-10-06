@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.93.1
+
+- **The unattended implement run stops on an answer edited into an existing comment.** After each
+  fix round, the run checks whether the round answered an item on the pull request, because it posts
+  as the lead and only the lead may accept, waive or approve. The check used to compare which
+  comments held answer lines, so an answer added by editing a comment that already held one went
+  unnoticed. It now compares the answer lines themselves. A round that adds or changes an answer
+  line, in a new comment or an edited one, stops the run before the push and names the comment. A
+  round that edits only other text, or only removes an answer line, carries on. `nexus pr-answers`
+  gains `--lines`, which prints one row per answer line.
+- **Analyze keeps its departure and finding IDs in any checkout.** Analyze read the ID registry
+  from the checkout's default repository instead of the pull request's. In a checkout whose default
+  repository is another one, it found no earlier verdict and restarted numbering at DV1 and F1, so
+  an answer written against an old ID stopped applying. It now reads the pull request's own
+  repository, like every other verdict and answer read.
+
 ## 0.93.0
 
 - **Close and analyze count a story closed by a commit of a merged pull request as shipped by

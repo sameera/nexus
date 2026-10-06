@@ -474,10 +474,11 @@ export type ReadItemRegistryResult =
  * The registry pull request `pr` in `repo` carries: the judgments of its newest trusted verdict,
  * picked by the same reader the close gate and the merge pre-check use. No verdict, or one
  * published before the judgments block existed, is an empty registry. A newest verdict whose
- * judgments cannot be read stops the run: numbering past it could reuse an ID it issued.
+ * judgments cannot be read stops the run: numbering past it could reuse an ID it issued. The pull
+ * request is read from `repo`, never the checkout's default repository (epic #875).
  */
 export function readItemRegistry(run: Runner, cwd: string, pr: number, repo: string, issuesRepo: string): ReadItemRegistryResult {
-    const r = verifyReceipt(run, cwd, pr, repo, issuesRepo);
+    const r = verifyReceipt(run, cwd, pr, repo, issuesRepo, { ghRepo: repo });
     if (!r.ok) return { ok: false, error: { problem: "gh-failed", message: r.error.message } };
     if (!r.value.found) return { ok: true, source: "none", registry: null };
     const parsed = parseJudgmentsBlock(r.value.rawBody);

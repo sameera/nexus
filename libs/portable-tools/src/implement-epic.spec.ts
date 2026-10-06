@@ -41,8 +41,10 @@ else if (name === "nexus" && args[0] === "pr-answers") {
     const n = fs.existsSync(counter) ? Number(fs.readFileSync(counter, "utf8")) : 0;
     fs.writeFileSync(counter, String(n + 1));
     if (process.env.NEXUS_TEST_ANSWERS_FAIL === "1") process.exit(1);
-    const urls = (n === 0 ? process.env.NEXUS_TEST_ANSWERS_BEFORE : process.env.NEXUS_TEST_ANSWERS_AFTER) ?? "";
-    if (urls) console.log(urls);
+    // Each scripted row is one answer line: its comment's link, then the line, tab-separated.
+    const rows = ((n === 0 ? process.env.NEXUS_TEST_ANSWERS_BEFORE : process.env.NEXUS_TEST_ANSWERS_AFTER) ?? "").split("\\n").filter(Boolean);
+    const out = args.includes("--lines") ? rows : [...new Set(rows.map((r) => r.split("\\t")[0]))];
+    if (out.length) console.log(out.join("\\n"));
 }
 `;
     for (const name of ["codex", "claude", "git", "gh", "nexus"]) {
@@ -245,7 +247,35 @@ describe("an unattended fix round that posts an answer", () => {
 
     it("carries on when the round posted no answer, and an answer a person posted earlier does not stop it", () => {
         const result = conform(script, { before: ["https://github.com/example/repo/pull/1#issuecomment-5"] });
-        expect(result.stderr).not.toMatch(/posted a comment answering/);
+        expect(result.stderr).not.toMatch(/a comment answering an ID/);
+        expect(pushesAfterFix(result.calls)).toBe(1);
+    });
+
+    // Epic #875, story #884: editing a comment keeps its link, so the check compares answer lines.
+    const c5 = "https://github.com/example/repo/pull/1#issuecomment-5";
+    const line = (url: string, id: string, verb: string, reason: string) => [url, id, verb, reason].join("\t");
+
+    it.each([
+        ["adds an answer line to a comment that already held one", [line(c5, "DV1", "accepted", "ok")], [line(c5, "DV1", "accepted", "ok"), line(c5, "F2", "waived", "later")]],
+        ["changes an answer line in a comment", [line(c5, "DV1", "accepted", "ok")], [line(c5, "DV1", "waived", "ok")]],
+    ])("stops before the push and names the comment when the round %s", (_what, before, after) => {
+        const result = conform(script, { before, after });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toMatch(/a comment answering an ID/);
+        expect(result.stderr).toContain(c5);
+        expect(pushesAfterFix(result.calls)).toBe(0);
+    });
+
+    it("carries on when the round leaves every answer line as it was, whatever else in the comment changed", () => {
+        const rows = [line(c5, "DV1", "accepted", "ok")];
+        const result = conform(script, { before: rows, after: rows });
+        expect(result.stderr).not.toMatch(/a comment answering an ID/);
+        expect(pushesAfterFix(result.calls)).toBe(1);
+    });
+
+    it("carries on when the round only removed an answer line", () => {
+        const result = conform(script, { before: [line(c5, "DV1", "accepted", "ok"), line(c5, "F2", "waived", "later")], after: [line(c5, "DV1", "accepted", "ok")] });
+        expect(result.stderr).not.toMatch(/a comment answering an ID/);
         expect(pushesAfterFix(result.calls)).toBe(1);
     });
 

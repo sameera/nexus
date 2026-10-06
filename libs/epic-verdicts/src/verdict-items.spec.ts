@@ -244,6 +244,35 @@ describe("readItemRegistry — the newest trusted verdict on the pull request", 
         expect(r.error.problem).toBe("judgments-malformed");
     });
 
+    describe("in a checkout whose default repository is not the pull request's (epic #875, story #885)", () => {
+        // `gh` answers for the checkout's default repository unless the call names another one.
+        const twoRepos =
+            (prRepoComments: { body: string; createdAt: string; authorAssociation: string }[]): Runner =>
+            (cmd, args) => {
+                if (cmd === "gh" && args[0] === "pr" && args[1] === "view") {
+                    const at = args.indexOf("--repo");
+                    const comments = at >= 0 && args[at + 1] === REPO ? prRepoComments : [];
+                    return { status: 0, stdout: JSON.stringify({ headRefOid: "f".repeat(40), reviews: [], comments }), stderr: "" };
+                }
+                return { status: 0, stdout: "0\n", stderr: "" };
+            };
+        const verdict = [{ body: withJudgments([dv("DV1"), dv("DV2")]), createdAt: "2026-10-01T00:00:00Z", authorAssociation: "OWNER" }];
+
+        it("reads the newest verdict's IDs from the pull request's repository", () => {
+            const r = readItemRegistry(twoRepos(verdict), "/other-checkout", PR, REPO, REPO);
+            expect(r.ok && r.source).toBe("verdict");
+            expect(r.ok && r.registry?.items.map((d) => d.id)).toEqual(["DV1", "DV2"]);
+        });
+
+        it("keeps an item's ID and numbers a new one after the highest, never restarting at DV1", () => {
+            const r = readItemRegistry(twoRepos(verdict), "/other-checkout", PR, REPO, REPO);
+            if (!r.ok) throw new Error(r.error.message);
+            const j = assignItemIds(r.registry, [draft(), draft({ departsFrom: "D9", files: ["libs/z.ts"] })]);
+            expect(ids(j)).toContain("DV3");
+            expect(j.items.find((d) => d.departsFrom === "G3")?.id).toMatch(/^DV[12]$/);
+        });
+    });
+
     it("stops when the pull request cannot be read", () => {
         const failing: Runner = () => ({ status: 1, stdout: "", stderr: "HTTP 502" });
         const r = readItemRegistry(failing, "/repo", PR, REPO, REPO);
