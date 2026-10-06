@@ -50,8 +50,9 @@
 # by asking which option to take produces nothing, and a draft PR with an untouched body looks
 # exactly like a run that never reached stage 4 — both happened, five epics in a row. A fix round
 # must also never answer an item on the pull request, since it posts as the lead: the prompt forbids
-# it, and the script stops the run, naming the comment, if one holding an answer line appears during
-# the round (read with `nexus pr-answers`, so the `nexus` executable must be on PATH).
+# it, and the script stops the run, naming the comment, if an answer line appears or changes during
+# the round, in a new comment or an edited one (read with `nexus pr-answers`, so the `nexus`
+# executable must be on PATH).
 #
 # Context discipline: every stage — and every half of every conformance round
 # — is its own `claude -p` or `codex exec` invocation, so no context is carried between them.
@@ -402,12 +403,12 @@ Finish with one line per finding: fixed, or left alone with the reason. Stop aft
 EOF
 }
 
-# The comments on the pull request that hold an answer line, one link per line, read through the
-# same reader analyze applies answers with (`nexus pr-answers`), never a second one. A failed read
-# stops the run: it is never "no answer".
-answer_comments() {
+# The answer lines on the pull request, one row each — the link of the comment holding it, then the
+# ID, verb and reason, tab-separated — read through the same reader analyze applies answers with
+# (`nexus pr-answers`), never a second one. A failed read stops the run: it is never "no answer".
+answer_lines() {
     local out
-    if ! out="$(nexus pr-answers --pr "$PR_NUM" --urls)"; then
+    if ! out="$(nexus pr-answers --pr "$PR_NUM" --lines)"; then
         echo "!!! cannot read the comments on PR #${PR_NUM} to check for answers — stopping" >&2
         exit 1
     fi
@@ -416,14 +417,16 @@ answer_comments() {
 
 # An unattended run must never answer (record #871, D13). The trusted-author filter trusts the
 # account, and this run posts as the lead, so an answer it posted would count as the lead's own.
-# The fix prompt forbids it; this check is what holds when the prompt is not followed: any comment
-# holding an answer line that appeared during the round stops the run, named.
+# The fix prompt forbids it; this check is what holds when the prompt is not followed: an answer
+# line that appeared or changed during the round stops the run, naming its comment. Lines, not
+# comment links, are compared, because an answer edited into an existing comment keeps the link
+# (epic #875). A removed answer line accepts nothing, so it does not stop the run.
 stop_on_new_answers() {
     local before="$1" round="$2" after posted
-    after="$(answer_comments)"
-    posted="$(comm -13 <(sort <<<"$before") <(sort <<<"$after") | sed '/^$/d')"
+    after="$(answer_lines)"
+    posted="$(comm -13 <(sort <<<"$before") <(sort <<<"$after") | sed '/^$/d' | cut -f1 | sort -u)"
     if [[ -n "$posted" ]]; then
-        echo "!!! fix round ${round} posted a comment answering an ID on PR #${PR_NUM} — an unattended run" >&2
+        echo "!!! fix round ${round} posted or edited a comment answering an ID on PR #${PR_NUM} — an unattended run" >&2
         echo "!!! must never accept, waive or approve; a person must review and delete it. Stopping:" >&2
         while IFS= read -r url; do echo "!!!   ${url}" >&2; done <<<"$posted"
         exit 1
@@ -463,7 +466,7 @@ while :; do
 
     echo "" >&2
     echo ">>> stage 3.${ROUND}a: fix ${CRIT} critical / ${HIGH} high (fresh context)" >&2
-    ANSWERS_BEFORE="$(answer_comments)"
+    ANSWERS_BEFORE="$(answer_lines)"
     run_agent "$(fix_prompt "$LAST_REPORT" "$ROUND")" "$@"
     stop_on_new_answers "$ANSWERS_BEFORE" "$ROUND"
 

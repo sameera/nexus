@@ -458,13 +458,15 @@ const REGISTRY: Record<string, VerbEntry> = {
     "pr-answers": {
         summary: "List the comments on a pull request that hold an answer line, through the one waiver reader.",
         usage: [
-            "  nexus pr-answers --pr <N> [--repo <owner/repo or host/owner/repo>] [--urls] [--dir <startDir>]",
+            "  nexus pr-answers --pr <N> [--repo <owner/repo or host/owner/repo>] [--urls | --lines] [--dir <startDir>]",
             "      Read the pull request's comments through the same reader close and analyze use, and",
             "      print { command, pr, comments: [{ url, author, at, trusted, ids }] } for every comment",
             "      that holds an answer line (<ID> — accepted|waived|approved: <reason>), trusted or not.",
             "      A comment carrying a verdict marker holds none. With --urls, print one comment link per",
-            "      line instead. The implement scripts use it to stop an unattended run that posted an",
-            "      answer. Exits 1 when the comments cannot be read; that is never \"no answer\".",
+            "      line instead. With --lines, print one row per answer line instead, tab-separated: its",
+            "      comment's link, the ID, the verb and the reason, so an answer edited into an existing",
+            "      comment changes a row. The implement scripts use it to stop an unattended run that",
+            "      posted an answer. Exits 1 when the comments cannot be read; that is never \"no answer\".",
         ].join("\n"),
         run: (argv, io) => Promise.resolve(runPrAnswers(argv, io)),
     },
@@ -2273,12 +2275,13 @@ function runVerdictScope(argv: string[], io: CliIo): number {
  * only a person may accept. Read through the one waiver reader, never a second one.
  */
 function runPrAnswers(argv: string[], io: CliIo): number {
-    const usage = "usage: nexus pr-answers --pr <N> [--repo <owner/repo or host/owner/repo>] [--urls] [--dir <startDir>]";
-    const flags: { pr?: number; repo?: string; urls: boolean; dir?: string } = { urls: false };
+    const usage = "usage: nexus pr-answers --pr <N> [--repo <owner/repo or host/owner/repo>] [--urls | --lines] [--dir <startDir>]";
+    const flags: { pr?: number; repo?: string; urls: boolean; lines: boolean; dir?: string } = { urls: false, lines: false };
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === "--pr") flags.pr = Number(argv[++i]);
         else if (argv[i] === "--repo") flags.repo = argv[++i];
         else if (argv[i] === "--urls") flags.urls = true;
+        else if (argv[i] === "--lines") flags.lines = true;
         else if (argv[i] === "--dir" || argv[i] === "--root") flags.dir = argv[++i];
     }
     if (flags.pr === undefined || Number.isNaN(flags.pr) || flags.pr <= 0) {
@@ -2290,6 +2293,13 @@ function runPrAnswers(argv: string[], io: CliIo): number {
     if (!read.ok) {
         io.stderr(`pr-answers gh-failed: ${read.error.message}`);
         return 1;
+    }
+    if (flags.lines) {
+        // An answer edited into a comment keeps the comment's link, so the answer lines themselves are
+        // what the implement scripts compare (epic #875, story #884). Trust and time are left out: an
+        // edit changes neither, and a trust change alone posts no answer.
+        for (const a of read.value.answers) io.stdout([a.url, a.id, a.verb, a.reason].join("\t"));
+        return 0;
     }
     const byComment = new Map<string, { url: string; author: string; at: string; trusted: boolean; ids: string[] }>();
     for (const a of read.value.answers) {

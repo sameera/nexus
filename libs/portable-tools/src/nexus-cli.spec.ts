@@ -431,6 +431,54 @@ describe("nexus pr-answers (epic #829, story #860 — the answer form is covered
         expect(await runNexusCli(["pr-answers", "--urls"], io)).toBe(2);
         expect(io.err.join("\n")).toContain("--pr");
     });
+
+    // Epic #875, story #884: an answer edited into a comment keeps the comment's link, so the
+    // implement scripts compare the answer lines themselves, not the links of the comments that hold them.
+    describe("with --lines", () => {
+        const GH_STANDIN_DIR: string = path.join(__dirname, "..", "corpus", "bin");
+        const url = (n: number): string => `https://github.com/acme/widget/pull/7#issuecomment-${n}`;
+
+        async function linesFor(comments: { body: string; n: number }[]): Promise<string[]> {
+            const dir: string = makeTmpDir("cli-pr-answers-lines-");
+            const fixture: string = path.join(dir, "gh.json");
+            const doc = {
+                comments: comments.map((c) => ({ body: c.body, url: url(c.n), createdAt: "2026-10-01T00:00:00Z", author: { login: "lead" }, authorAssociation: "OWNER" })),
+            };
+            fs.writeFileSync(fixture, JSON.stringify({ prView: { "7": { status: 0, stdout: JSON.stringify(doc) } } }));
+            const prevPath = process.env.PATH;
+            const prevFixture = process.env.NEXUS_PARITY_GH_FIXTURE;
+            process.env.PATH = [GH_STANDIN_DIR, prevPath].join(path.delimiter);
+            process.env.NEXUS_PARITY_GH_FIXTURE = fixture;
+            try {
+                const io: CapturedIo = makeIo(dir);
+                expect(await runNexusCli(["pr-answers", "--pr", "7", "--lines"], io)).toBe(0);
+                return io.out.join("\n").split("\n").filter((l) => l !== "");
+            } finally {
+                process.env.PATH = prevPath;
+                if (prevFixture === undefined) delete process.env.NEXUS_PARITY_GH_FIXTURE;
+                else process.env.NEXUS_PARITY_GH_FIXTURE = prevFixture;
+            }
+        }
+
+        it("prints one row per answer line, naming the comment that holds it", async () => {
+            const rows = await linesFor([
+                { n: 5, body: "Looks fine.\n\nDV1 — accepted: the platform has no such API\nF2 — waived: tracked in #900" },
+                { n: 6, body: "No answers here." },
+            ]);
+            expect(rows).toHaveLength(2);
+            expect(rows.every((r) => r.startsWith(`${url(5)}\t`))).toBe(true);
+            expect(rows.some((r) => r.includes("DV1") && r.includes("accepted") && r.includes("the platform has no such API"))).toBe(true);
+            expect(rows.some((r) => r.includes("F2") && r.includes("waived"))).toBe(true);
+        });
+
+        it("prints the same rows when only other text in the comment changes, and a new row when an answer changes", async () => {
+            const before = await linesFor([{ n: 5, body: "Looks fine.\n\nDV1 — accepted: ok" }]);
+            const prose = await linesFor([{ n: 5, body: "Looks fine, rechecked.\n\nDV1 — accepted: ok" }]);
+            const changed = await linesFor([{ n: 5, body: "Looks fine.\n\nDV1 — waived: ok" }]);
+            expect(prose).toEqual(before);
+            expect(changed).not.toEqual(before);
+        });
+    });
 });
 
 describe("nexus merge-precheck (registration only — the four receipt states are covered by its own unit specs)", () => {
