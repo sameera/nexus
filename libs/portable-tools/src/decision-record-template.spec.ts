@@ -166,6 +166,21 @@ describe("the record stage drafts the approval-first record", () => {
         expect(flat).toMatch(/no `concepts:` field[\s\S]{0,120}empty list/);
     });
 
+    it("states a design change to a listed page as a quoted, decision-cited change checked before filing (D8, G14, G15)", () => {
+        expect(flat).toMatch(/becomes "<replacing statement>" \(D<n>\)/);
+        expect(flat).toMatch(/nexus record-concept-check/);
+        expect(flat).toMatch(/non-zero exit stops the run: file nothing/);
+    });
+
+    it("makes the reversal a trade-off so the change reaches the approval brief (D9, G16)", () => {
+        expect(flat).toMatch(/must state, as its Trade-off, the recorded reasoning the change reverses/);
+        expect(flat).toMatch(/`none` there is refused/);
+    });
+
+    it("closes a section with no change with the plain no-change sentence (G17)", () => {
+        expect(flat).toMatch(/plain line "No concept-store change\."/);
+    });
+
     it("has a guarantee that keeps a listed invariant name its page and the invariant number before the decision citation (D7, G13)", () => {
         expect(flat).toMatch(/names\s+that page and the invariant's number inside its sentence/);
         expect(flat).toMatch(/closing decision citation last/);
