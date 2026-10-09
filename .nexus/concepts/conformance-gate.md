@@ -1,16 +1,17 @@
 ---
 title: "Conformance Gate"
 aliases: ["analyze receipt", "conformance receipt", "analyze-close gate", "the receipt"]
-touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report"]
-last_updated_by: "#829"
+touches: ["nexus-pipeline", "decision-record", "record-digest", "pr-driven-flow", "durable-close-record", "writer-stamp", "fix-lane", "pipeline-store-exclusion", "intake-lane", "pr-story-resolution", "shipped-ledger", "verdict-repository-scoping", "published-verdict-selection", "close-and-distill-command", "pr-verdict-answers", "story-evidence-report", "reading-list", "epic-completion-judgment"]
+last_updated_by: "#896"
 status: active
 verification: verified
 ---
 
 # Conformance Gate
 
-Analyze checks the implemented code against the acceptance criteria in scope and the decision
-record, and names every place the code departs from that record. It publishes its verdict only on
+Analyze checks the implemented code against the acceptance criteria in scope, the decision
+record, and the invariants on the concept pages the epic lists, and names every place the code
+departs from them. It publishes its verdict only on
 a pull request. Close treats the verdict as a hard precondition, reading it back rather than
 regenerating it.
 
@@ -22,9 +23,7 @@ without a pull request, analyze reports in the terminal and writes nothing. A de
 against a baseline that depends on the record's format, or against the epic's description when the
 epic has no record. Each departure cites what it departs from. A broken guarantee is one departure,
 never also a separate finding. A departure is marked superseding only when the code does the
-opposite of a record decision. On the pull request that completes its epic, analyze also judges the
-success metrics and the cross-story guarantees, but only once that pull request's code contains
-every merged sibling. An entry lacking
+opposite of a record decision. An entry lacking
 acceptance criteria, success metrics, or decision record is refused rather than passed, and states
 that as a literal value no reader can mistake for a waiver.
 
@@ -66,6 +65,8 @@ that as a literal value no reader can mistake for a waiver.
 - [close-and-distill-command](close-and-distill-command.md) — the stage that runs this gate with nobody watching before close, and reads its outcome from the published verdict and the shipped record, never from the exit status.
 - [pr-verdict-answers](pr-verdict-answers.md) — numbers the departures and findings this gate judges, and applies the answers posted on the pull request.
 - [story-evidence-report](story-evidence-report.md) — the close report that reads the story fingerprints this gate records in its pull-request receipt.
+- [reading-list](reading-list.md) — supplies the pages whose invariants the gate checks, read as they stood before the change.
+- [epic-completion-judgment](epic-completion-judgment.md) — where the epic-level judgment happens; split from this page.
 
 ## Decision Log
 
@@ -163,3 +164,7 @@ interaction exists any more. Refuted alternatives: keep a broken guarantee as a 
 finding beside its departure, which gives one fact two IDs and two answers that could disagree; and
 run every implement round against a pull request, which costs a worktree and a published verdict per
 round.
+
+### 2026-10-09 — #896 — The gate also checks the invariants on the epic's listed pages, and epic-level judgment moves to its own page
+
+Before this change the gate never read the concept store, so code could break a recorded invariant unnoticed. It now lists every unstruck invariant on each listed page, skips those a stated change in the record covers, and judges the rest. A contradiction becomes an ordinary departure at severity high, so an earlier release still reads the verdict. Refuted alternative: a separate result kind for concept invariants, which would break close for a team running mixed releases. The rewrite pushed the page's own content past the cap, so the judgment of success metrics and cross-story guarantees on the completing pull request moved to the epic-completion-judgment page, with no change to the rule.

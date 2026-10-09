@@ -1,8 +1,8 @@
 ---
 title: "Grep-Native Retrieval"
 aliases: ["no-topology retrieval", "grep-native knowledge", "blast radius by grep", "neighbor list"]
-touches: ["concept-store", "code-anchors", "drift-advisory", "concept-page-capacity", "fix-razor"]
-last_updated_by: "#263"
+touches: ["concept-store", "code-anchors", "drift-advisory", "concept-page-capacity", "fix-razor", "reading-list"]
+last_updated_by: "#896"
 status: active
 verification: verified
 ---
@@ -13,13 +13,13 @@ The knowledge store is retrieved by plain text search: search, list, and read. I
 
 ## How It Works
 
-Retrieval has four paths, all plain search: a known concept name reads its page directly; a term or synonym matches the title and alias lines; blast radius matches a concept name in the neighbor list of every page; and unknown phrasing falls back to full-text search. Each page names its neighbors as a flat list mirrored by a prose Integration Points section. This section is the readable substitute for an adjacency edge. Neighbor links are non-transitive. An agent loads directly relevant pages and surfaces their neighbors as candidates, capped at a handful per task, but never follows them transitively. The neighbor list duplicates the Integration Points prose. It is removable without loss of information. If the neighbor list ever drifts toward feeling like a maintained graph, blast radius can be answered by full-text search alone at a small recall cost. The neighbor list is bounded by the length of each entry, not by the page's word cap. A new edge never competes with the page's own content, and every real interaction can be recorded as an edge. A derived orientation atlas exists for humans who cannot yet name a search term. No tool retrieves through it.
+Retrieval has four paths, all plain search: a known concept name reads its page directly; a term or synonym matches the title and alias lines; blast radius matches a concept name in the neighbor list of every page; and unknown phrasing falls back to full-text search. Each page names its neighbors as a flat list mirrored by a prose Integration Points section. This section is the readable substitute for an adjacency edge. Neighbor links are non-transitive. An agent loads directly relevant pages and then their neighbors, seven pages in all per task, and never follows them transitively. The neighbor list duplicates the Integration Points prose. It is removable without loss of information. If the neighbor list ever drifts toward feeling like a maintained graph, blast radius can be answered by full-text search alone at a small recall cost. The neighbor list is bounded by the length of each entry, not by the page's word cap. A new edge never competes with the page's own content, and every real interaction can be recorded as an edge. A derived orientation atlas exists for humans who cannot yet name a search term. No tool retrieves through it.
 
 ## Key Invariants
 
 1. Retrieval is search, list, and read only. There is no graph engine, embeddings, or community detection.
 2. Blast radius is string matching over a concept's neighbor list, not topological traversal.
-3. Neighbor links are non-transitive and capped at a handful of pages per task.
+3. Neighbor links are non-transitive. A task loads at most seven pages: its directly matched pages first, then their neighbors.
 4. The neighbor list duplicates the Integration Points prose and is removable without information loss.
 5. The atlas is a human orientation surface only; no tool retrieves through it.
 6. A real interaction is always declarable as an edge. Blast-radius completeness is never traded for page space.
@@ -31,6 +31,7 @@ Retrieval has four paths, all plain search: a known concept name reads its page 
 - [drift-advisory](drift-advisory.md) — reopens community detection, but only offline and advisory, never as retrieval state, so this discipline holds.
 - [concept-page-capacity](concept-page-capacity.md) — bounds the neighbour list per entry, keeping blast-radius edges affordable.
 - [fix-razor](fix-razor.md) — this reading model is why a false invariant is worse than a missing one, and why the bound exists.
+- [reading-list](reading-list.md) — applies this model to planning: matched pages first, then neighbours, seven in all.
 
 ## Decision Log
 
@@ -53,3 +54,7 @@ The neighbour list had been competing with a page's own words under one shared c
 ### 2026-09-05 — #263 — Reciprocal link from fix-razor
 
 This reading model turned out to be the argument for a bound elsewhere. Because a reader loads a page's summary and invariants and may never reach its log, a page whose body asserts superseded behaviour misleads even when the correction sits in the history below. That is why a change permitted only to append may not touch what the page asserts.
+
+### 2026-10-09 — #896 — A task loads seven pages, matched pages first
+
+The reading list made "a handful of pages" a number that code enforces. Seven matches the budget the capacity page sets across the pages one task may load. Matched pages come first because the intent named them, and neighbours only fill what remains. Refuted alternative: cap only the neighbours at three and take every match, which lets a broad intent name more pages than one task can load.
