@@ -112,6 +112,7 @@ import {
     TEMPLATE_PAYLOAD_DIRNAME,
     type SeedTemplatesResult,
 } from "./seed-templates.js";
+import { readingListPath, renderReadingGroup, runReadingList, type ReadingList } from "./reading-list.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
 import { authoredComponentRoot, checkoutComponentRoot, COMPONENT_PAYLOAD_DIRNAME, hashComponentTree } from "./vendor-components.js";
@@ -564,6 +565,21 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      content changes only through the revision path.",
         ].join("\n"),
         run: runRazorOffer,
+    },
+    "reading-list": {
+        summary: "Build the epic's concept-page reading list from page frontmatter, or apply the reviewer's selection.",
+        usage: [
+            "  nexus reading-list --draft <epic.md> [--input <file>] [--store <dir>]",
+            "      Match the input, the draft's title and its Description against the active pages' titles",
+            "      and aliases as whole phrases, add the pages they name one step away, cap the list at",
+            "      seven, write it into the draft's `concepts:` field and print it. Offered pages are",
+            "      saved beside the draft so razor-offer shows them. A draft that already carries a list",
+            "      keeps it.",
+            "  nexus reading-list --draft <epic.md> --apply <page,page,...>",
+            "      Write the reviewer's ticked pages into the draft; refuses a page that was not offered",
+            "      and any set larger than seven.",
+        ].join("\n"),
+        run: async (argv: string[], io: CliIo): Promise<number> => runReadingList(argv, io),
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
@@ -2613,7 +2629,16 @@ async function runRazorOffer(argv: string[], io: CliIo): Promise<number> {
         return 0;
     }
     const items: ChecklistItem[] = checklist(body);
-    io.stdout(renderChecklist(flags.draft, items));
+    // The reading list is one more numbered group, continuing the checklist's numbering, so one
+    // typed selection flips pages and stories alike (epic #896, story #897).
+    let offered: ReadingList | undefined;
+    try {
+        offered = JSON.parse(fs.readFileSync(readingListPath(path.resolve(io.cwd, flags.draft)), "utf8")) as ReadingList;
+    } catch {
+        offered = undefined;
+    }
+    const group: string[] = offered === undefined ? [] : renderReadingGroup(offered, items.length + 1);
+    io.stdout([renderChecklist(flags.draft, items), ...group].join("\n"));
     return 0;
 }
 

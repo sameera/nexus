@@ -440,6 +440,14 @@ DRAFT_DIR="$RUN_DIR"
 
 Write it **unwrapped**: one line per paragraph, per bullet, per table row. This draft is filed verbatim as the issue body, so a hard wrap here is a hard wrap the reader sees. See "Line breaks" under the epic document structure.
 
+**Propose the reading list** (every entry mode, including a promoted backlog stub whenever it was filed). After the draft is written and before the epic gate, run the deterministic list builder. No model picks the pages.
+
+```bash
+nexus reading-list --draft "${DRAFT_DIR}/epic.md" --input "${DRAFT_DIR}/source.md"
+```
+
+It matches the source text, the draft's title and its Description against every active concept page's title and aliases as whole phrases, adds the pages those matches name one step away and no further, caps the list at seven (direct matches first, then neighbours named by more matches) and writes the list into the draft's `concepts:` field. It also saves the offered pages, with the ones beyond the cap, beside the draft for the digest. Archived and deprecated pages are never proposed. A resumed draft that already carries a list keeps it, hand edits included. An empty store or no match leaves `concepts: []`; that is not an error. Never write page text onto the draft or any issue: the field holds page names only.
+
 **Invariant:** after this command completes, the working tree shows **zero** new files under `.nexus/queue/` (Success Metric 1). If you ever feel the urge to `mkdir .nexus/queue/…`, stop; that is the old contract.
 
 The feature nav index (`<feature-path>/README.md`) is **not** written here. It is written in Phase 6, after the epic issue exists, so its `## Epics` entry links directly to the issue.
@@ -570,6 +578,8 @@ Out of scope
 Type the numbers you want to flip, or nothing to take it as ticked.
 ````
 
+**The reading list is the last group of the same checklist.** `nexus razor-offer` appends it, numbered on from the boundaries: each proposed page ticked with the reason it was proposed (the phrase it matched, or the page it neighbours) and each page that qualified beyond the cap unticked. Transcribe it with the rest. The cap of seven holds for the reviewer: a selection that leaves more than seven pages ticked is refused, and the reviewer returns to the choice. Adding a page that was not offered takes a revise, by editing `concepts:` in the draft.
+
 **Every line is numbered and every number flips exactly one line**, in whichever direction that line
 is currently set. There is no group whose numbers mean something different from another group's, and
 no unnumbered group the reviewer has to read differently. One typed selection carries the whole
@@ -609,6 +619,7 @@ label and its effect:
 
 The **filed set** is the ticked set after the reviewer's flips are applied: the smallest usable version, minus any story they unticked, plus any story they ticked. Everything here is an edit to `${DRAFT_DIR}/epic.md`, made **before** Phase 6 derives the filing body. Nothing is added or removed after something is filed.
 
+0. **Write the approved reading list.** Take the ticked pages of the reading-list group after the reviewer's flips and run `nexus reading-list --draft "${DRAFT_DIR}/epic.md" --apply <page,page,…>` (an empty set is `--apply ""`). It refuses a page that was not offered and any set over seven; report the refusal and return to the choice, filing nothing. The list is written into the draft's frontmatter before the filing body is derived, and the existing metadata block carries it onto the issue unchanged. A plain approval applies the list exactly as ticked.
 1. **Refuse a selection naming already-filed content.** If a prior partial run filed the epic or a story (the draft's frontmatter carries `link`, or a story carries an issue number), a number naming it is **refused with the reason stated**, never silently applied. Report which numbers were refused and what remains.
 2. **Refuse an empty filed set.** At least one story is always filed; a selection that would file none is a revise, not an approval. Say so and return to the choice.
 3. **Re-check closure over the filed set.** The rule reads: "Re-check closure over the filed set — before any edit, over the graph as drafted."
@@ -871,7 +882,7 @@ created: <YYYY-MM-DD>
 type: enhancement
 complexity: <S|M|L|XL>   # rollup of story sizes + count + cross-story integration (0009)
 complexity_drivers: [<driver>, <driver>]
-concepts: []          # reading-list of concept slugs this epic depends on (consumed in B3)
+concepts: []          # reading list: concept page names later stages read; filled by `nexus reading-list`, at most 7
 link:                 # GitHub epic issue, set by nxs-gh-create-epic
 ---
 
