@@ -5,6 +5,22 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.97.0
+
+- **The conformance gate flags code that breaks an invariant on a listed concept page.** Analyze
+  now reads the numbered invariants on the pages in the epic's reading list, as those pages stood
+  at the base the change is diffed from, so a pull request that edits a page cannot change what it
+  is checked against. It skips any invariant the record's stated concept-store changes quote and
+  judges the rest against the code. Code that breaks one is listed as a departure that names the
+  page and the invariant number, at severity high, and it blocks close until an engineer answers it
+  like any other departure: accepted, left open, kept across re-runs and reported as no longer
+  found. The review gains one line stating how many concept invariants were checked, or that none
+  were checked because the epic lists no concept pages, and naming any listed page it could not
+  find. If the store cannot be read at the base while the epic lists pages, the run stops and
+  publishes nothing. This works with no record too. The verdict adds no new field or result kind,
+  so an earlier release's close and merge pre-check read it normally. New verb: `nexus
+  concept-invariants`.
+
 ## 0.96.0
 
 - **A design that contradicts a concept page says so at approval.** `/nxs.decision-record` now

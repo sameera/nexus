@@ -112,6 +112,7 @@ import {
     TEMPLATE_PAYLOAD_DIRNAME,
     type SeedTemplatesResult,
 } from "./seed-templates.js";
+import { runConceptInvariants } from "./concept-invariants.js";
 import { runRecordConceptCheck } from "./record-concept-check.js";
 import { readingListPath, renderReadingGroup, runReadingList, type ReadingList } from "./reading-list.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
@@ -596,6 +597,18 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      Concept-store changes section is left alone.",
         ].join("\n"),
         run: async (argv: string[], io: CliIo): Promise<number> => runRecordConceptCheck(argv, io),
+    },
+    "concept-invariants": {
+        summary: "List the invariants on the epic's reading-list pages as they stood at the change's base, marking those a stated change covers.",
+        usage: [
+            "  nexus concept-invariants --epic <epic.md> --base <ref> [--record <record-body.md>] [--root <checkout>]",
+            "      Read each listed page from git at <ref> (never the working tree), list every numbered Key",
+            "      Invariant that is not struck through and mark each one a declared change in the record covers.",
+            "      Prints JSON with the invariants, any page not found, and the report sentence. In a hub",
+            "      workspace pass the hub checkout as --root. Exits 1 and prints nothing when the base cannot",
+            "      be read while the list is not empty.",
+        ].join("\n"),
+        run: async (argv: string[], io: CliIo): Promise<number> => runConceptInvariants(argv, io),
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",
