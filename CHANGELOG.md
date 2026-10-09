@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.96.0
+
+- **A design that contradicts a concept page says so at approval.** `/nxs.decision-record` now
+  states every change the design makes to a listed page as one line: the page, the page's current
+  statement quoted exactly, the replacing statement and the decision that causes it. A design that
+  changes no listed page says "No concept-store change." The cited decision must state, as its
+  trade-off, the recorded reasoning the change reverses, so the reversal appears in the approval
+  brief with the other trade-offs. Before filing, `nexus record-concept-check` confirms that each
+  quoted statement appears on its page (whitespace normalised), that each change cites a decision
+  of the record, and that the decision's trade-off is not `none`. A mismatch stops the run and
+  names the line, and nothing is filed. A record with no Concept-store changes section, such as
+  one approved before this release, is not checked.
+
 ## 0.95.0
 
 - **The record stage designs against the epic's reading list.** `/nxs.decision-record` runs

@@ -112,6 +112,7 @@ import {
     TEMPLATE_PAYLOAD_DIRNAME,
     type SeedTemplatesResult,
 } from "./seed-templates.js";
+import { runRecordConceptCheck } from "./record-concept-check.js";
 import { readingListPath, renderReadingGroup, runReadingList, type ReadingList } from "./reading-list.js";
 import { runCli as runValidateConcepts } from "./validate-concepts.js";
 import { RELEASE_PACKAGE_NAME, releaseVersion } from "@nexus/release-identity/release";
@@ -583,6 +584,18 @@ const REGISTRY: Record<string, VerbEntry> = {
             "      ones that do not, and the sentence that opens the record's Concept-store changes.",
         ].join("\n"),
         run: async (argv: string[], io: CliIo): Promise<number> => runReadingList(argv, io),
+    },
+    "record-concept-check": {
+        summary: "Check a record draft's Concept-store changes: each quoted statement is on its page, each cited decision states a trade-off.",
+        usage: [
+            "  nexus record-concept-check --draft <record.md> [--store <dir>]",
+            "      For each declared change, confirm the quoted statement appears on the named page (whitespace",
+            "      normalised), that the change cites a decision of the record, and that the decision states a",
+            "      trade-off. Also requires the pages-read sentence, and \"No concept-store change.\" when no",
+            "      change is listed. Writes nothing; exits 1 and names each line on a problem. A record with no",
+            "      Concept-store changes section is left alone.",
+        ].join("\n"),
+        run: async (argv: string[], io: CliIo): Promise<number> => runRecordConceptCheck(argv, io),
     },
     "pr-worktree": {
         summary: "Manage the git worktree for the --pr post-merge flow (analyze / close).",

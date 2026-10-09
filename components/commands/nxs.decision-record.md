@@ -335,6 +335,10 @@ Number decisions D1…, guarantees G1…, risks R1… so each can cite the other
   quoted from the epic or story, the exact new wording, status pending); Delivered by (the story
   that delivers it; a decision no story delivers is new scope and must be said so); Guarantees
   (the IDs it supports).
+- CONCEPT CHANGES: for each place the design contradicts or replaces a statement on a listed page,
+  the page, the statement quoted exactly as the page words it, the replacing statement, and the
+  decision that causes it. The decision's trade-off names the recorded reasoning it reverses. If the
+  design contradicts no listed page, say so.
 - GUARANTEES the build must preserve, including security boundaries: one checkable sentence each,
   grouped under headings naming what a reviewer checks, each ending with its supporting decision
   IDs. Behaviour already true that must not break goes under "Existing behaviour to preserve".
@@ -452,6 +456,17 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       invariant 7 requires", with the closing decision citation last (the section reader takes a
       guarantee's decisions only from a trailing parenthetical). A guarantee with no decision of its
       own goes under "Existing behaviour to preserve".
+      **State every design change to a listed page as a declared change**, one list item each, in
+      this exact form: `- <page> page: "<current statement, copied exactly>" becomes "<replacing
+      statement>" (D<n>)`. It names the page by its file name, quotes the page's current statement
+      exactly, gives the replacing statement and cites the decision that causes it on the same line.
+      A design that contradicts an invariant on a listed page must state it this way; it is never
+      left to the guarantees alone. **The decision a change cites must state, as its Trade-off, the
+      recorded reasoning the change reverses**, naming it. Writing `none` there is refused at the
+      checkpoint. The existing rule that every decision with a trade-off appears once in the Approval
+      brief then puts the reversal in front of the approver, under "Choices with trade-offs" or
+      "Resolve before approval". A design that changes no listed page closes the section with the
+      plain line "No concept-store change." instead of a list. Never state both.
     - **How it works.** Explain how the design meets the epic's outcomes, from the Mechanism and the
       decisions. Use only the vocabulary of the epic and its stories, and name no internal
       component: no term from the appendix's Terms list appears here. Do not restate an outcome the
@@ -600,6 +615,14 @@ story issue to make the wording appear. The lead applies the wording on GitHub, 
 decision to the wording the issue already uses, and the check runs again on the next pass through
 this checkpoint. A new BLOCKER risk is model-added, so it appears on the cut list below like any
 other.
+
+**Then check the Concept-store changes** (new format only), beside the amendment check:
+
+```bash
+nexus record-concept-check --draft "<scratch>/record-body.labelled.md"
+```
+
+It confirms that each declared change's quoted statement appears on the named page, with whitespace normalised because pages hard-wrap their lines, that the change cites a decision of this record, that the decision states a trade-off, and that the section opens with the pages-read sentence and says "No concept-store change." when it lists no change. **A non-zero exit stops the run: file nothing.** Report each line it names verbatim. Fix the quote, the citation or the trade-off in the draft and run the check again; never paraphrase around a mismatch, and never delete a change to get past it. A record cannot state a change to a page that does not exist yet.
 
 **Second, run the record checker again** on the labelled draft, now that the amendment results are
 written into it:
