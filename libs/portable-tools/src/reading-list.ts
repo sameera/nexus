@@ -164,6 +164,11 @@ function carriedList(draft: string): string[] {
     return Array.isArray(value) ? value.filter((v: string) => v !== "") : [];
 }
 
+/** The page names an epic's `concepts:` field lists; an absent field reads as an empty list. */
+export function readListedPages(epic: string): string[] {
+    return carriedList(epic);
+}
+
 function withConcepts(draft: string, pages: string[]): string {
     const parts = draftParts(draft);
     if (parts === undefined) return draft;
