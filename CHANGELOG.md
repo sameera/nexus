@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.94.0
+
+- **The epic stage proposes a reading list of concept pages.** After drafting, `/nxs.epic` runs
+  `nexus reading-list`, which matches the lead's input, the drafted title and the Description
+  against the titles and aliases of active concept pages as whole phrases, then adds the pages
+  those matches name, one step away and no further. The list holds at most seven pages: pages the
+  input names come first, then neighbours named by more matches. No model picks the pages, so the
+  same input over the same store gives the same list, and a promoted backlog stub gets one too.
+  The approval digest shows the list as the last group of its numbered checklist, each proposed
+  page ticked with the reason it was proposed and each page beyond the cap unticked. The same typed
+  selection flips pages and stories; a selection that leaves more than seven pages ticked is
+  refused. The approved list is filed in the epic issue's existing hidden metadata and comes back
+  unchanged when a later stage rebuilds the epic. Only page names travel on the issue.
+
 ## 0.93.1
 
 - **The unattended implement run stops on an answer edited into an existing comment.** After each
