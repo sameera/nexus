@@ -251,6 +251,14 @@ The doc is the authoritative *why* source; the from-scratch architect analysis i
 **stripped** when deriving the record, because the record is decisions-and-rationale prose only
 (§template rule: no file paths / type names / API specs).
 
+## Phase 0.6 — Read the epic's reading list
+
+Run `nexus reading-list --check "${QDIR}/epic.md"`. It reads the `concepts:` list from the resolved epic and checks each name against the concept store. Pass the full text of every page it reports under `read` to the architect as `READING_LIST_PAGES`, whole: do not summarise, extract or truncate, because the refuted alternatives live in decision-log prose that no extraction finds reliably.
+
+- A page under `missing` (no such page, or not active) is **named to the lead in the run's output and in the record**, and the run continues without it. It is never an error.
+- An epic with no `concepts:` field, a hand-filed epic or one filed before the reading list existed, reads as an empty list.
+- Keep the command's `sentence` as `PAGES_READ`. Phase 3 writes it as the first line of Concept-store changes, so the record always says which pages it read, or that it read none.
+
 ## Phase 1 — Architectural analysis (delegate to nxs-architect)
 
 **Resolve the docs root first**. The architect reads context under it and never resolves it for
@@ -306,9 +314,10 @@ Inputs to read:
 - <docs-root>/product/context.md    # personas, strategy (reference, don't re-tabulate)
 - <docs-root>/system/stack.md       # technology stack
 - <docs-root>/system/standards/*    # standards-conformance pass (flag deviations + justify)
-- Any concept reading-list pages named in epic.md `concepts:` frontmatter.
-  (B3 makes this read live; until then it is manual / README-driven — if a concepts
-  list is present, grep docs for the matching pages and read them. Do NOT block if absent.)
+- READING_LIST_PAGES         # the full text of every active page named in epic.md `concepts:`
+                             #   (Phase 0.6): summary, behaviour, invariants and decision log, whole.
+                             #   Treat their recorded invariants as binding and their refuted
+                             #   alternatives as already decided. Do not search the docs for pages.
 
 Record format: approval-first   # or: old format, for a --revise of a record approved in
                                 #   the old format (chosen by Phase 3 step 1, before this call)
@@ -394,7 +403,7 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
       converted to the new format would match none of them.
 
     For the default template, verify it keeps the approval-first section order: How it works,
-    Approval brief, Guarantees, Risks and dependencies, optional Concept-store changes, and Design
+    Approval brief, Guarantees, Risks and dependencies, Concept-store changes, and Design
     rationale and mechanism. A template with those headings out of order stops the draft; move the old copy
     aside, run `nexus seed-templates`, then carry local tuning into the new copy. This check matters
     even when the Guarantees heading exists, because a reordered brief can hide the approval surface
@@ -413,12 +422,11 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     | `complexity` | Required sections |
     | --- | --- |
     | **S** or **M** | **How it works**, **Guarantees** and the appendix's **Decisions and reasons**. All other sections optional: omit if empty; do not force-fill. |
-    | **L** or **XL** | **Every** template section, except Concept-store changes. A required section left empty states why. |
+    | **L** or **XL** | **Every** template section. A required section left empty states why. |
 
     The **Approval brief appears at every size whenever any of its groups has an entry**, because it
     is a list fixed by rule and a tier cannot make it optional. At L or XL an empty brief states
-    why, like any other empty section. Concept-store changes appears only when the design changes a
-    concept-store statement, at every size.
+    why, like any other empty section. Concept-store changes is present in every new-format record at every size: it opens with the pages-read sentence, then lists the changes the design makes to concept-store statements. The rule lives here, not in the template, so a project's seeded template copy keeps working.
 
     An old-format revision keeps the old tiers: **Key Decisions** and **Constraints & Invariants**
     at S or M, and every section at L or XL.
@@ -436,7 +444,14 @@ machine blocks, hashes, label names, shell commands and Given / When / Then line
     - **Guarantees.** The architect's groups, each named for what a reviewer checks. Each
       guarantee ends with the decisions it supports, or sits under "Existing behaviour to
       preserve".
-    - **Risks and dependencies**, and **Concept-store changes** when the architect named any.
+    - **Risks and dependencies**.
+    - **Concept-store changes**, always. Open with the pages-read sentence from Phase 0.6 as a plain
+      line, not a list item, so the section reader still lists only declared changes. Then list the
+      changes the architect named. A **guarantee that keeps an invariant on a listed page** names that
+      page and the invariant's number inside its sentence, for example "as the concept-store page's
+      invariant 7 requires", with the closing decision citation last (the section reader takes a
+      guarantee's decisions only from a trailing parenthetical). A guarantee with no decision of its
+      own goes under "Existing behaviour to preserve".
     - **How it works.** Explain how the design meets the epic's outcomes, from the Mechanism and the
       decisions. Use only the vocabulary of the epic and its stories, and name no internal
       component: no term from the appendix's Terms list appears here. Do not restate an outcome the

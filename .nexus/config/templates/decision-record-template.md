@@ -16,7 +16,7 @@ STRUCTURE
     2. Approval brief                    what needs a decision, and what is being accepted
     3. Guarantees                        the promised behaviour, checkable by /nxs.analyze
     4. Risks and dependencies
-    5. Concept-store changes             only when non-empty
+    5. Concept-store changes             always present: the pages read, then the changes
     6. Design rationale and mechanism    appendix: Mechanism (with Terms), then Decisions and reasons
 
     Sections 1-5 use only the vocabulary of the epic, its stories and How it works. Internal
@@ -27,7 +27,7 @@ REQUIRED SECTIONS (tier by the epic's complexity rating; explicit, not heuristic
                       required. Every other section is optional: omit it when empty.
     - rating L or XL: every section is required. A required section left empty states why.
     - At every size: the Approval brief appears whenever any of its groups has an entry, and
-      Concept-store changes appears only when it has an entry.
+      Concept-store changes is always present. It opens with the pages-read sentence.
     The `rating` frontmatter field selects the tier.
 
 FILLING RULES
@@ -141,9 +141,15 @@ Approval covers the whole record. This brief lists what needs a decision and eve
 
 ## Concept-store changes
 
-<!-- Only when the design changes or departs from a concept-store statement. Quote the old
-     statement and give the new one, so the distiller rewrites it instead of reporting drift.
-     Omit when empty, at every size. -->
+<!-- Always present, at every size. Open with one plain sentence (not a list item) naming the
+     concept pages the architect read and any listed page that was not found, or saying that no
+     concept pages were read; `nexus reading-list --check` prints it. Then list each design change
+     to a concept-store statement: quote the old statement and give the new one, so the distiller
+     rewrites it instead of reporting drift. A guarantee that keeps an invariant on a listed page
+     names that page and the invariant's number inside its sentence, before its closing decision
+     citation. -->
+
+{{PAGES_READ_SENTENCE}}
 
 - {{CONCEPT_PAGE}}: "{{OLD_STATEMENT}}" becomes "{{NEW_STATEMENT}}".
 

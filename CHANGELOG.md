@@ -5,6 +5,19 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.95.0
+
+- **The record stage designs against the epic's reading list.** `/nxs.decision-record` runs
+  `nexus reading-list --check` on the resolved epic and gives the architect the full text of every
+  listed page that exists and is active: summary, behaviour, invariants and decision log, whole.
+  A listed page that is missing or inactive is named in the run's output and in the record, and the
+  run continues without it. An epic with no list reads as an empty one. Concept-store changes is now
+  present in every new-format record at every size, and opens with one plain sentence naming the
+  pages the architect read, or saying that none were read. A guarantee that keeps an invariant on a
+  listed page names that page and the invariant's number inside its sentence, before its closing
+  decision citation. The tier rule that exempted Concept-store changes is gone; seeded template
+  copies keep working without reseeding because the presence rule lives in the stage.
+
 ## 0.94.0
 
 - **The epic stage proposes a reading list of concept pages.** After drafting, `/nxs.epic` runs
