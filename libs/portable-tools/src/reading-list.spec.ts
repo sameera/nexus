@@ -173,6 +173,35 @@ describe("runReadingList", () => {
         expect(run(["--draft", w.draft, "--apply", "nope"], w.dir).code).toBe(1);
     });
 
+    it("checks a resolved epic's list against the store and names the pages the architect gets whole", () => {
+        const w = workspace();
+        fs.writeFileSync(w.draft, fs.readFileSync(w.draft, "utf8").replace("concepts: []          # reading-list", "concepts: [\"distiller\", \"gone\"]"));
+        const result = run(["--check", w.draft, "--store", w.store], w.dir);
+        expect(result.code).toBe(0);
+        const report = JSON.parse(result.out) as { read: Array<{ page: string; path: string }>; missing: string[]; sentence: string };
+        expect(report.read.map((r) => r.page)).toEqual(["distiller"]);
+        expect(fs.existsSync(report.read[0].path)).toBe(true);
+        expect(report.missing).toEqual(["gone"]);
+        expect(report.sentence).toMatch(/distiller/);
+        expect(report.sentence).toMatch(/gone/);
+    });
+
+    it("names an inactive listed page as not read and continues", () => {
+        const w = workspace();
+        fs.writeFileSync(path.join(w.store, "old.md"), "---\ntitle: \"Old\"\nstatus: archived\n---\n");
+        fs.writeFileSync(w.draft, fs.readFileSync(w.draft, "utf8").replace("concepts: []          # reading-list", "concepts: [\"old\"]"));
+        const report = JSON.parse(run(["--check", w.draft, "--store", w.store], w.dir).out) as { read: unknown[]; missing: string[] };
+        expect(report.read).toEqual([]);
+        expect(report.missing).toEqual(["old"]);
+    });
+
+    it("says no concept pages were read for an absent or empty list", () => {
+        const w = workspace();
+        const report = JSON.parse(run(["--check", w.draft, "--store", w.store], w.dir).out) as { read: unknown[]; sentence: string };
+        expect(report.read).toEqual([]);
+        expect(report.sentence).toMatch(/no concept pages/i);
+    });
+
     it("proposes nothing and writes an empty list when the store is absent", () => {
         const w = workspace();
         const result = run(["--draft", w.draft, "--input", w.input, "--store", path.join(w.dir, "missing")], w.dir);

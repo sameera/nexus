@@ -184,10 +184,41 @@ export function readingListPath(draft: string): string {
     return path.join(path.dirname(draft), "reading-list.json");
 }
 
+/** The sentence that opens a record's Concept-store changes section. */
+function pagesReadSentence(read: string[], missing: string[]): string {
+    const joined = (names: string[]): string => (names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0]);
+    const base: string = read.length === 0 ? "This record read no concept pages." : `This record read the concept page${read.length > 1 ? "s" : ""} ${joined(read)}.`;
+    return missing.length === 0 ? base : `${base} Listed but not found, or not active: ${joined(missing)}.`;
+}
+
 export function runReadingList(argv: string[], io: CliIo): number {
     const flags: Record<string, string> = {};
     for (let i = 0; i < argv.length; i++) {
         if (argv[i].startsWith("--")) flags[argv[i].slice(2)] = argv[++i] ?? "";
+    }
+    if (flags.check !== undefined) {
+        // The record stage's read: which listed pages exist and are active, so the architect gets
+        // each whole, and the sentence that says so. An absent list is an empty list, never an error.
+        let epic: string;
+        try {
+            epic = fs.readFileSync(path.resolve(io.cwd, flags.check), "utf8");
+        } catch {
+            io.stderr(`reading-list: cannot read ${flags.check}`);
+            return 1;
+        }
+        const store: string = path.resolve(io.cwd, flags.store ?? path.join(".nexus", "concepts"));
+        const active: Set<string> = new Set(loadStore(store).filter((p: StorePage) => p.status === "active").map((p: StorePage) => p.name));
+        const listed: string[] = carriedList(epic);
+        const read: string[] = listed.filter((name: string) => active.has(name));
+        const missing: string[] = listed.filter((name: string) => !active.has(name));
+        io.stdout(
+            JSON.stringify(
+                { read: read.map((page: string) => ({ page, path: path.join(store, `${page}.md`) })), missing, sentence: pagesReadSentence(read, missing) },
+                null,
+                4,
+            ),
+        );
+        return 0;
     }
     if (flags.draft === undefined) {
         io.stderr("usage: nexus reading-list --draft <path> [--input <file>] [--store <dir>] | --draft <path> --apply <page,page,…>");

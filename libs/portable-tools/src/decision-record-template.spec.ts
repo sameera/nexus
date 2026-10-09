@@ -144,10 +144,31 @@ describe("the record stage drafts the approval-first record", () => {
         expect(row).not.toMatch(/Key Decisions|Constraints & Invariants/);
     });
 
-    it("requires every section of a large epic except Concept-store changes, which appears only with an entry (G4)", () => {
+    it("requires every section of a large epic, Concept-store changes included (G12)", () => {
         const row: string = tierRow(/^\s*\| \*\*L\*\* or \*\*XL\*\* \|/);
-        expect(row).toMatch(/Concept-store changes/);
+        expect(row).not.toMatch(/except/);
         expect(row).toMatch(/states why/);
+    });
+
+    it("keeps Concept-store changes in every record at every size, opening with the pages-read sentence (D6, G12)", () => {
+        expect(flat).toMatch(/Concept-store changes is present in every new-format record at every size/);
+        expect(flat).toMatch(/pages-read sentence/);
+        const template: string = read(path.join(MASTER_DIR, NEW_TEMPLATE));
+        expect(template).toMatch(/Concept-store changes[^\n]*always present/);
+        expect(template).not.toMatch(/Omit when empty/);
+    });
+
+    it("hands the architect the whole text of each listed page and continues past a missing one (D5, G10, G11)", () => {
+        expect(flat).toMatch(/nexus reading-list --check/);
+        expect(flat).toMatch(/READING_LIST_PAGES/);
+        expect(flat).toMatch(/whole/);
+        expect(flat).toMatch(/missing[\s\S]{0,200}continues without it/);
+        expect(flat).toMatch(/no `concepts:` field[\s\S]{0,120}empty list/);
+    });
+
+    it("has a guarantee that keeps a listed invariant name its page and the invariant number before the decision citation (D7, G13)", () => {
+        expect(flat).toMatch(/names\s+that page and the invariant's number inside its sentence/);
+        expect(flat).toMatch(/closing decision citation last/);
     });
 
     it("never tiers out the Approval brief (G4)", () => {

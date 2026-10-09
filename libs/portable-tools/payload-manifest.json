@@ -5,7 +5,7 @@
   "claude-components/commands/nxs.analyze.md": "6a0ff006847fdd5444feff340c86d73122fc5e782371bf3bfdee8dc161bc2905",
   "claude-components/commands/nxs.close.md": "6cb90eb742fefe27180c622e6cdeb54d2af75ee6a4dad7a5cd9f88ce6ad2baf7",
   "claude-components/commands/nxs.council.md": "d506e1a381de86b040f1a4ae8accf130bf94b9a96a832edf397bc6a6603032dc",
-  "claude-components/commands/nxs.decision-record.md": "4b76ba95d36cec24848b72271f01420626bf4080ce9e54e878dd6003082ef33c",
+  "claude-components/commands/nxs.decision-record.md": "4090900c2556a04496abb0092801bdbd39d57dec8ea169b6b91121c577d372b3",
   "claude-components/commands/nxs.discover.md": "402894ad17f5fd92f9c500999df6943f33e62a8d785aa1de71ff9de73fa27391",
   "claude-components/commands/nxs.distill.md": "5c451eaf5a00e7b8eefef3756805f07db2f7cb45c672e569496f0a8bf8d3cae2",
   "claude-components/commands/nxs.epic.md": "3851a1aaf977ff248955f4c1d44ccf8103a18a43a43faa5ae74eb161e4d57518",
@@ -31,6 +31,6 @@
   "claude-components/skills/nxs-setup/SKILL.md": "d46f47735081af1597343c8e675d601a7839b4a23b2c448cd86832c4f6afb89b",
   "claude-components/skills/nxs-workspace-status/SKILL.md": "0d20631701abd856951a48f2ca03430dd3a8b97d740e7942d48a3bb06fc20439",
   "templates/decision-record-template-v1.md": "6a693fdb3ce26244c65899a9946960d0eb559a491393484e7703b466bf5b5675",
-  "templates/decision-record-template.md": "b7b9376716974c3b6607618f878123d16836d269c557962e676ca8cf641a4d22",
+  "templates/decision-record-template.md": "54d1b8271e4b752ea79fddb18829397bc1756704a925f83a979555cd32fcccf9",
   "templates/standard.template.md": "16843e962fcf9cd8420c4b4bed4be431ea8389de62b39740edafd569728918c7"
 }
