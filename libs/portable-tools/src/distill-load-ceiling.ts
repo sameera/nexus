@@ -7,9 +7,10 @@
  * asserts, per named exceptional rule, that the rule is stated in its contract and not in the base
  * stage, so a rule moved back is named rather than showing up as a few hundred anonymous bytes.
  *
- * The measurement is authored source bytes: the base command document, plus the authored bodies of
- * the contracts an ordinary run selects (none), plus every contract's description line, which the
- * harness preloads whatever the run does. Authored bytes are the only anchor that is the same
+ * The measurement is authored source bytes: the base command document, plus the full body of every
+ * shared skill the base stage loads on every run (epic #889, story #890), plus the authored bodies
+ * of the contracts an ordinary run selects (none), plus every contract's description line, which
+ * the harness preloads whatever the run does. Authored bytes are the only anchor that is the same
  * number on both harnesses — one installs the source byte for byte, the other adds a runtime
  * preamble and rewrites command tokens.
  *
@@ -31,6 +32,12 @@ export const CONTRACTS: readonly string[] = [
     "nxs-distill-taxonomy",
     "nxs-distill-unattended",
 ];
+
+/**
+ * Every shared skill the base stage loads on every run, whatever its shape. Each is counted in full,
+ * because an ordinary run reads its whole body, not only its description.
+ */
+export const SHARED_SKILLS: readonly string[] = ["nxs-run-discipline"];
 
 /** The committed ceiling record, beside this source. */
 export const CEILING_FILE = "distill-load-ceiling.json";
@@ -85,11 +92,14 @@ export function descriptionLine(body: string): string {
 }
 
 /**
- * Authored bytes an ordinary single-repo epic drain loads: the base stage, no contract body, and
- * every contract's preloaded description line.
+ * Authored bytes an ordinary single-repo epic drain loads: the base stage, every shared skill's
+ * body, no contract body, and every contract's preloaded description line.
  */
 export function ordinaryLoadedBytes(componentRoot: string): number {
     let bytes: number = Buffer.byteLength(read(componentRoot, BASE_STAGE_FILE), "utf8");
+    for (const name of SHARED_SKILLS) {
+        bytes += Buffer.byteLength(read(componentRoot, `skills/${name}/SKILL.md`), "utf8");
+    }
     for (const name of CONTRACTS) {
         bytes += Buffer.byteLength(descriptionLine(read(componentRoot, `skills/${name}/SKILL.md`)), "utf8");
     }

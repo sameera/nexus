@@ -22,6 +22,14 @@ is approved once as a decision record and again at the distillation pull request
 reasoning is approved only once, at the distillation pull request, because the code has already
 shipped and the record describes what is rather than what will be.
 
+**Finish line:** the intake entry is written and the Phase 8 report is printed, or the lead
+declines at the checkpoint and nothing is written. **Gates:** the range question when the range
+cannot be resolved (Phase 2), the one prompt for unexplained decisions (Phase 4), and the
+checkpoint (Phase 6).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # User Input
 
 ```text

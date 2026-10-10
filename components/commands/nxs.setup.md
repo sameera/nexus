@@ -8,6 +8,10 @@ model: inherit
 
 You are bootstrapping a project for the Nexus pipeline. This is a single guided setup that does two things: it auto-detects the technical context (stack, standards, scaffolding) and it interactively builds the product context.
 
+**Finish line:** the stack docs, standards, Nexus surfaces and product context are written, `CLAUDE.md` links to them, and the Phase 7 summary is printed. **Gates:** the stack confirmation batch when detection is ambiguous (Phase 2), and the product-context interview's questions and its review gate (Phase 5).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs between the gates named here.
+
 **Division of labor:** you orchestrate every phase below. The product-context interview itself is owned by the `nxs-setup` skill — you invoke it in Phase 5, you do not re-implement it here. The **structural** half of setup is not yours at all: the portable `nexus` CLI owns component installation (`nexus install`, once per account) and workspace declaration (`nexus workspace init` / `add-repo`); this command owns only the per-repo **judgment** artifacts — stack docs, standards, product context.
 
 **Interaction rule:** the technical phases (0–4, 6) are auto-detected. Only ask the user something when detection is genuinely ambiguous, and batch those into a single question set. The heavy back-and-forth lives in the product-context interview (Phase 5), run by the skill.

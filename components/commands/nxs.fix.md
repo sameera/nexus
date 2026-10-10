@@ -21,6 +21,13 @@ needs to alter what a page asserts is a **design change**, and it keeps taking `
 razor is enforced mechanically at the drain, not here (`/nxs.distill`, invariant 13) — your own
 razor check is advisory and fails soft.
 
+**Finish line:** the fix entry's two files are written and the Phase 7 report is printed.
+**Gates:** the range question when the range cannot be resolved (Phase 3/4) and the why question
+(Phase 5).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # User Input
 
 ```text

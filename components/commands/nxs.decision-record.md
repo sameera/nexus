@@ -27,6 +27,14 @@ You delegate the analysis to the `nxs-architect` agent, then format its output i
 decision-record template and file it as the record sub-issue. For an old-contract epic that has a
 committed queue entry, write the record into that entry as before.
 
+**Finish line:** the record is filed as a sub-issue of the epic, closed as approved or left open
+for review, and the Phase 5 report is printed. **Gates:** the no-record confirmation when the epic
+claims no design (Phase 0.2), the clarification gate (Phase 2), the pre-filing checkpoint (Phase
+3.5), and the approval gate after filing (Phase 4).
+
+Load the **`nxs-run-discipline`** skill before anything else. It governs how this stage runs
+between the gates named here.
+
 # User Input
 
 ```text
