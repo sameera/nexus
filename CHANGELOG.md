@@ -5,6 +5,20 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.99.0
+
+- **`/nxs.epic` asks whether a decomposition serves one objective.** When an oversized scope splits
+  into two or more goals, the right-size gate offers the stub filing in two versions: under one
+  initiative, or flat. Neither is marked as recommended. The gate shows the proposed objective, the
+  order the stubs are meant to run in, and against each stub how much of the objective is reached,
+  and repeats them in the choice itself. The objective is always proposed on this path, and the
+  lead's decline is the only filter. In discovery mode the objective is the discovery's destination,
+  in its own words. Declining files exactly what the gate filed before. A one-goal split, the
+  deferral stub, the stubs `nexus close` files and the intake lane's follow-ups propose nothing.
+  The option labels changed: `split` is now `split-initiative` / `split-flat`, and `stubs` is now
+  `stubs-initiative` / `stubs-flat`. Filing the initiative itself arrives in the next release;
+  until then both versions file the stubs flat.
+
 ## 0.98.0
 
 - **Close takes the epic.** `nexus close --epic <N>`, or a bare `nexus close <N>`, closes epic
