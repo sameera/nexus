@@ -44,7 +44,14 @@ behaviour says so.
 - **`nexus record-digest --repo` takes the issues repository in any written form.** A
   host-qualified `host/owner/repo`, a URL or an SSH remote is read on its host by its owner/repo
   path, so distill's hash check works on the `issues_repo:` a close stamps from such an `epic-repo`.
-  Analyze's receipts match that repository in whichever of those forms either side names it.
+  Analyze's receipts match that repository in whichever of those forms either side names it, and a
+  github.com SSH alias such as `git@github.com-work:` reads as github.com on both sides, so close no
+  longer rejects every receipt when `epic-repo` is written that way.
+- **Analyze reads the epic where close reads it.** `nexus epic-verdicts pr-target` and `completion`
+  read the epic, its stories and their pull requests in the configured `epic-repo`, on the host its
+  written form states, instead of in the checkout's own repository. Analyze addressed by epic
+  number, and its check of whether a pull request completes its epic, now agree with close when the
+  epics are filed in another repository or on an Enterprise host.
 
 ## 0.97.0
 

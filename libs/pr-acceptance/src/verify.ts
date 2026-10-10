@@ -16,6 +16,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { forgeHost } from "@nexus/pr-worktree/member-target";
 import { sameRepo } from "@nexus/workspace/issue-ref";
 import { normalizeRemote } from "@nexus/workspace/remote";
 import { type Result, fail, ok } from "./diagnostic.js";
@@ -376,7 +377,14 @@ export function issuesRepoMatches(receipt: AnalyzeReceipt, expected: string | nu
     const effective = effectiveIssuesRepo(receipt);
     if (effective === null || expected === null || expected === undefined || expected === "") return true;
     // Either side may be written as a URL, in SSH form, or with a host: compare the repositories.
-    return sameRepo(normalizeRemote(effective), normalizeRemote(expected));
+    return sameRepo(issuesIdentity(effective), issuesIdentity(expected));
+}
+
+/** A written issues repository as host/owner/repo or owner/repo, github.com's SSH aliases folded as close folds them. */
+function issuesIdentity(written: string): string {
+    const normalized = normalizeRemote(written);
+    const parts = normalized.split("/");
+    return parts.length === 3 ? [forgeHost(parts[0]), parts[1], parts[2]].join("/") : normalized;
 }
 
 export interface ReceiptVerdict {

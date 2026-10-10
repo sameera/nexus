@@ -2076,6 +2076,75 @@ describe("nexus epic-verdicts completion, pr-target and the retired combined cha
     });
 });
 
+/**
+ * #906 — analyze's previews read the epic where close reads it: in the configured epic-repo, on the
+ * host its written form states, whichever form it is written in. A gh stand-in logs each call and
+ * answers nothing but the checkout's own repository, so every run stops at the epic read; the read
+ * is what is pinned.
+ */
+describe("nexus epic-verdicts completion, pr-target and derive read the issues repository as close does (#906)", () => {
+    function checkout(epicRepo: string): { root: string; log: string } {
+        const root: string = makeTmpDir("cli-preview-repos-906-");
+        execFileSync("git", ["init", "-q"], { cwd: root });
+        execFileSync("git", ["remote", "add", "origin", "https://github.com/acme/widget.git"], { cwd: root });
+        fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), `github:\n  epic-repo: ${epicRepo}\n`);
+        const bin = path.join(root, ".bin");
+        fs.mkdirSync(bin);
+        const log = path.join(root, "gh.log");
+        fs.writeFileSync(
+            path.join(bin, "gh"),
+            [
+                "#!/usr/bin/env node",
+                "const args = process.argv.slice(2);",
+                `require("node:fs").appendFileSync(${JSON.stringify(log)}, JSON.stringify(args) + "\\n");`,
+                // The checkout's own repository resolves; nothing else answers.
+                'if (args[0] === "repo" && args[1] === "view") { console.log("acme/widget"); process.exit(0); }',
+                'process.stderr.write("stand-in: no answer\\n");',
+                "process.exit(1);",
+                "",
+            ].join("\n"),
+            { mode: 0o755 },
+        );
+        return { root, log };
+    }
+
+    async function epicRead(epicRepo: string, argv: string[]): Promise<string[] | undefined> {
+        const { root, log } = checkout(epicRepo);
+        const prevPath = process.env.PATH;
+        process.env.PATH = [path.join(root, ".bin"), prevPath].join(path.delimiter);
+        try {
+            expect(await runNexusCli(["epic-verdicts", ...argv, "--root", root], makeIo(root))).toBe(1);
+        } finally {
+            process.env.PATH = prevPath;
+        }
+        const calls: string[][] = fs.existsSync(log) ? fs.readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l) as string[]) : [];
+        return calls.find((c) => c[0] === "issue" && c[1] === "view" && c[2] === "5");
+    }
+
+    const subverbs: [string, string[]][] = [
+        ["pr-target", ["pr-target", "--epic", "5"]],
+        ["completion", ["completion", "--epic", "5", "--pr", "12", "--repo", "acme/widget", "--stories", "6", "--worktree", "/wt"]],
+        ["derive", ["derive", "--epic", "5"]],
+    ];
+
+    for (const [name, argv] of subverbs) {
+        it(`${name} reads the epic in a plain epic-repo, not the checkout's repository`, async () => {
+            const read = await epicRead("acme/hub", argv);
+            expect(read).toBeDefined();
+            expect(read?.[read.indexOf("--repo") + 1]).toBe("acme/hub");
+        });
+
+        for (const form of ["https://ghe.corp/acme/hub", "git@ghe.corp:acme/hub.git"]) {
+            it(`${name} reads the epic on the host a ${form.startsWith("git@") ? "SSH" : "URL"}-form epic-repo states`, async () => {
+                const read = await epicRead(form, argv);
+                expect(read).toBeDefined();
+                expect(read?.[read.indexOf("--repo") + 1]).toBe("ghe.corp/acme/hub");
+            });
+        }
+    }
+});
+
 describe("nexus story-fingerprints is gone (epic #828, story #857)", () => {
     it("is no longer a registered verb: analyze records no story text", () => {
         expect(VERB_NAMES).not.toContain("story-fingerprints");

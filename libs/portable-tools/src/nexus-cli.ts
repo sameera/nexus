@@ -1569,9 +1569,18 @@ async function runPlanningDir(argv: string[], io: CliIo): Promise<number> {
 }
 
 
-/** Does a story issue carry `label` in the issues repository? Absent or unreadable is "no". */
-function storyCarriesLabel(cwd: string, issuesRepo: string, story: number, label: string): boolean {
-    return storyCarriesLabelIn(closeMigrationRunner, cwd, issuesRepo, story, label);
+/**
+ * The issues side of an `epic-verdicts` subverb, read as close reads it (#906): the configured
+ * epic-repo in its canonical form, the owner/repo path the shared readers take, and a runner whose
+ * gh calls reach the host that form states.
+ */
+type IssuesSide = { ok: true; configured: string; issuesRepo: string; issuesRun: typeof closeMigrationRunner } | { ok: false; message: string };
+
+function issuesSide(root: string): IssuesSide {
+    const repos = resolveVerdictRepos(closeMigrationRunner, root);
+    if (!repos.ok) return { ok: false, message: `epic-verdicts ${repos.error.problem}: ${repos.error.message}` };
+    const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
+    return { ok: true, configured, issuesRepo: issuesRepoPath(configured), issuesRun: onIssuesHost(closeMigrationRunner, configured) };
 }
 
 interface EpicVerdictsFlags {
@@ -1705,23 +1714,23 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // addressed by epic number goes (epic #829, story #859, decision record #871, D9–D11). Both run
     // close's one claiming read, and a failed read stops the run: analyze publishes nothing (G34).
     if (argv[0] === "completion" || argv[0] === "pr-target") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+        const side = issuesSide(root);
+        if (!side.ok) {
+            io.stderr(side.message);
             return 1;
         }
-        const issuesRepo = repos.repos.issuesRepo;
-        const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+        const { configured, issuesRepo, issuesRun } = side;
+        const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
             return 1;
         }
         const stories = resolved.resolved.stories.map((st) => st.number);
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabelIn(issuesRun, root, issuesRepo, story, noPrLabel)) : [];
 
         if (argv[0] === "pr-target") {
-            const target = epicPrTarget(epicCompletionDeps(closeMigrationRunner, root, issuesRepo, root, excludePathspecs()), { stories, excluded, issuesRepo });
+            const target = epicPrTarget(epicCompletionDeps(issuesRun, root, configured, root, excludePathspecs()), { stories, excluded, issuesRepo });
             if (!target.ok) {
                 io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(target.failures, issuesRepo)} Analyze stops here.`);
                 return 1;
@@ -1732,7 +1741,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
 
         const worktree = path.resolve(io.cwd, flags.worktree as string);
         const pr = { repo: (flags.repo as string).trim(), pr: flags.pr as number };
-        const completion = epicCompletion(epicCompletionDeps(closeMigrationRunner, root, issuesRepo, worktree, excludePathspecs()), {
+        const completion = epicCompletion(epicCompletionDeps(issuesRun, root, configured, worktree, excludePathspecs()), {
             stories,
             excluded,
             pr,
@@ -1752,15 +1761,12 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // runs this and repeats `lines`; a failed read behind it stops close before it mines anything.
     // It decides nothing else: `ranges` below is close's gate.
     if (argv[0] === "evidence") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+        const side = issuesSide(root);
+        if (!side.ok) {
+            io.stderr(side.message);
             return 1;
         }
-        // Read as close reads it: owner/repo, with the gh calls aimed at a host the configured form states.
-        const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
-        const issuesRun = onIssuesHost(closeMigrationRunner, configured);
-        const issuesRepo = issuesRepoPath(configured);
+        const { configured, issuesRepo, issuesRun } = side;
         const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
@@ -1786,15 +1792,12 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // Each pull request's landed check rides on the same output (story #846, D4).
     // Waivers posted on a pull request are read through the one waiver reader (story #856, D11).
     if (argv[0] === "ranges") {
-        const repos = resolveVerdictRepos(closeMigrationRunner, root);
-        if (!repos.ok) {
-            io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+        const side = issuesSide(root);
+        if (!side.ok) {
+            io.stderr(side.message);
             return 1;
         }
-        // Read as close reads it: owner/repo, with the gh calls aimed at a host the configured form states.
-        const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
-        const issuesRun = onIssuesHost(closeMigrationRunner, configured);
-        const issuesRepo = issuesRepoPath(configured);
+        const { configured, issuesRepo, issuesRun } = side;
         const resolved = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
@@ -1838,17 +1841,18 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     // The shipped ledger answers the remaining subverb, the derivation close still calls. Nothing here reads a published review,
     // a head-branch name or a same-repository issue link to establish what the epic shipped
     // (epic #769, invariant 8).
-    const repos = resolveVerdictRepos(closeMigrationRunner, root);
-    if (!repos.ok) {
-        io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
+    const side = issuesSide(root);
+    if (!side.ok) {
+        io.stderr(side.message);
         return 1;
     }
-    const resolvedEpic = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
+    const { configured, issuesRepo, issuesRun } = side;
+    const resolvedEpic = resolveEpic(issuesRun, root, flags.epic, { requireEpic: false, repo: issuesRepo });
     if (!resolvedEpic.ok) {
         io.stderr(renderEpicResolveDiagnostic(resolvedEpic.error));
         return 1;
     }
-    const ledger = fetchShippedRecords(closeMigrationRunner, root, repos.repos.issuesRepo, flags.epic);
+    const ledger = fetchShippedRecords(issuesRun, root, issuesRepo, flags.epic);
     if (!ledger.ok) {
         io.stderr(`epic-verdicts ${ledger.error.problem}: ${ledger.error.message}`);
         return 1;
@@ -1859,7 +1863,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         noPrLabelHere.length > 0
             ? resolvedEpic.resolved.stories
                   .map((st) => st.number)
-                  .filter((st) => storyCarriesLabel(root, repos.repos.issuesRepo, st, noPrLabelHere))
+                  .filter((st) => storyCarriesLabelIn(issuesRun, root, issuesRepo, st, noPrLabelHere))
             : [];
 
     // derive
@@ -1869,7 +1873,7 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
     }
     // The receipt is printed, never written (epic #829, story #863, decision record #871, D12):
     // close reads it from this output, and no local analysis file exists for anything to read.
-    const receipt = buildEpicReceipt(flags.epic, ledgerRecords, excludedHere, { issuesRepo: repos.repos.issuesRepo });
+    const receipt = buildEpicReceipt(flags.epic, ledgerRecords, excludedHere, { issuesRepo: configured });
     io.stdout(JSON.stringify(epicVerdictsPayload(flags.epic, "aggregate", ledger.collected.untrusted, { receipt })));
     return 0;
 }
