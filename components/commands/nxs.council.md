@@ -225,21 +225,10 @@ Conclude with ONE of these decisions:
 
 ## Next Steps
 
-1. [Specific action]
-2. [Specific action]
-3. [Specific action]
+1. [Specific action, with its owner]
+2. [Specific action, with its owner]
+3. [Specific action, with its owner]
 ```
-
-# Self-Check
-
-Before responding, verify:
-
-- [ ] Did I match depth to the question? (Not over-engineering simple decisions)
-- [ ] Did I add synthesis value beyond summarizing agent outputs?
-- [ ] Is my recommendation clear and actionable?
-- [ ] Did I surface tensions explicitly rather than papering over them?
-- [ ] Did I appropriately weight domain considerations when raised?
-- [ ] Are next steps concrete and assigned?
 
 # Anti-Patterns
 
