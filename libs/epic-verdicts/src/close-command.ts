@@ -91,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -449,7 +449,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Read after the target, so a pull request that has not merged is answered before a bad entry path.
     const link = input.entryPath === null ? null : entryLink(input.entryPath);
     if (link !== null && !link.ok) return stopped(link.stop);
-    if (link !== null && (link.epic !== epic || (link.repo !== null && !sameRepo(link.repo, issuesRepo)))) {
+    if (link !== null && (link.epic !== epic || (link.repo !== null && !sameIssuesRepo(link.repo, issuesRepo)))) {
         return stopped({
             reason: `the entry path's link names epic ${link.repo ?? issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close ${"epic" in input.target ? "was given" : "found from the pull request"}`,
             item: input.entryPath ?? "",

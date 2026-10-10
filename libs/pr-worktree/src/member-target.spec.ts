@@ -39,6 +39,7 @@ describe("prRepoOnForge — which forge a pull-request reference lives on", () =
 
     it("reads owner/repo#N on github.com when the checkout's remote uses a github.com SSH alias", () => {
         expect(prRepoOnForge({ repo: "acme/app", number: 1 }, "github.com-work/acme/hub")).toBe("github.com/acme/app");
+        expect(prRepoOnForge({ repo: null, number: 1 }, "github.com-work/acme/hub")).toBe("github.com/acme/hub");
         expect(forgeHost("ssh.github.com")).toBe("github.com");
         expect(forgeHost("GHE.corp")).toBe("ghe.corp");
     });

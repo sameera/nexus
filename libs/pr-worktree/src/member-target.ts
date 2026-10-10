@@ -71,8 +71,8 @@ export function forgeHost(host: string): string {
  * own repository. `owner/repo` alone when no host is known; null for a bare number with no `own`.
  */
 export function prRepoOnForge(ref: ParsedPrReference, own: string | null): string | null {
-    if (ref.repo === null) return own;
-    const ownHost = own?.split("/")[0];
+    const [ownHost, ...ownPath] = own === null ? [] : own.split("/");
+    if (ref.repo === null) return own === null ? null : [forgeHost(ownHost), ...ownPath].join("/");
     const host = ref.host ?? (ownHost === undefined ? undefined : forgeHost(ownHost));
     return host === undefined ? ref.repo : `${host}/${ref.repo}`;
 }

@@ -89,7 +89,8 @@ type StampSource =
  * in that older shape still drains. Pure over the file contents.
  */
 function findStampYaml(text: string, entry: string): StampSource {
-    const marker = text.indexOf(CLOSE_RECORD_MARKER);
+    // The marker that opens a line, as close's own readers find it; a quoted or indented copy is not it.
+    const marker = text.search(/^<!-- nexus:close-record -->/m);
     if (marker >= 0) {
         const fence = MARKER_FENCE.exec(text.slice(marker + CLOSE_RECORD_MARKER.length));
         if (fence === null) {
