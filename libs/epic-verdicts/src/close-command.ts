@@ -56,7 +56,7 @@ import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve
 import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverComment, type RejectedWaiver, type StorylessWaiverComment } from "@nexus/pr-acceptance/waiver";
-import { parsePrReference, prRepoName, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { forgeHost, parsePrReference, prRepoName, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
@@ -316,6 +316,20 @@ function mergedList(prs: readonly { repo: string; pr: number }[]): string {
     return prs.length === 0 ? "none" : `${prs.map((p) => `${p.repo}#${p.pr}`).join(", ")} (merged)`;
 }
 
+/**
+ * The stop for a host the lead named in a URL, other than github.com, beside an issues repository that
+ * states none: gh reads that repository on its own default host, which close cannot see, so it cannot
+ * confirm the issues it would gate and close are the ones the URL names. Only a typed host is checked.
+ */
+function unstatedHost(what: string, host: string, issuesRepo: string, rerun: string): CloseStop | null {
+    if (forgeHost(host) === "github.com" || issuesRepoHost(issuesRepo) !== null) return null;
+    return {
+        reason: `${what} is on ${host}, but the issues repository ${issuesRepo} states no host, so close cannot confirm gh reads its issues there`,
+        item: what,
+        remedy: `state the host in epic-repo (${host}/${issuesRepo}), then re-run ${rerun}`,
+    };
+}
+
 /** The epic an entry path's frontmatter links, or the stop that says why it names none. */
 function entryLink(entryPath: string): { ok: true; epic: number; repo: string | null } | { ok: false; stop: CloseStop } {
     let markdown: string;
@@ -424,6 +438,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // `owner/repo#N`, as close's own reports print an epic, or the issue's URL, must name the
         // issues repository; two hosts that are both stated must agree.
         const named = input.target.repo;
+        const namedHost = named === undefined ? null : issuesRepoHost(named);
+        const unstated = namedHost === null ? null : unstatedHost(`epic ${named}#${epic}`, namedHost, issuesRepo, rerun);
+        if (unstated !== null) return stopped(unstated);
         if (named !== undefined && !sameIssuesRepo(named, issuesRepo)) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
@@ -451,6 +468,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const repos = resolveRepos();
         if (!repos.ok) return stopped(repos.stop);
         ({ issuesRepo, codeRepo } = repos);
+        const unstated = ref.host === undefined ? null : unstatedHost(asLabel, ref.host, issuesRepo, rerun);
+        if (unstated !== null) return stopped(unstated);
         const pr = { repo: readIn ?? codeRepo, pr: ref.number };
         const label = `pull request ${pr.repo}#${pr.pr}`;
         // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot
@@ -1120,7 +1139,9 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         readPr: (repoRoot, ref) => {
             // Every form is read on the forge prRepoOnForge names, github.com's SSH aliases folded; gh's
             // own resolution only when the checkout names no forge and the reference names none either.
-            const repo = prRepoOnForge(ref, canonicalRepoRef(run, repoRoot));
+            // A URL names its own host and repository, so the checkout's remote is read only for other forms.
+            const own = ref.host !== undefined && ref.repo !== null ? null : canonicalRepoRef(run, repoRoot);
+            const repo = prRepoOnForge(ref, own);
             return resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(repo === null ? {} : { repo }) });
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),

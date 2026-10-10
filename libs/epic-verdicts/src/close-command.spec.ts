@@ -459,6 +459,27 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).toMatch(/is not in the issues repository/);
     });
 
+    it("stops on an epic URL on an Enterprise host when the issues repository states no host, writing nothing", () => {
+        const h = harness();
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: `ghe.corp/${ISSUES}` } })));
+        expect(err).toMatch(/states no host[\s\S]*remedy: state the host in epic-repo/);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("stops on a pull-request URL on an Enterprise host when the issues repository states no host", () => {
+        const h = harness();
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } })));
+        expect(err).toMatch(/on ghe\.corp, but the issues repository .* states no host/);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("takes a github.com URL when the issues repository states no host", () => {
+        const epicUrl = harness();
+        expect(renderCloseOutcome(runCloseCommand(epicUrl.deps, input(epicUrl, { target: { epic: EPIC, repo: `github.com/${ISSUES}` } }))).exitCode).toBe(0);
+        const prUrl = harness();
+        expect(renderCloseOutcome(runCloseCommand(prUrl.deps, input(prUrl, { target: { pr: { repo: ISSUES, number: PR, host: "github.com" } } }))).exitCode).toBe(0);
+    });
+
     it("takes the epic as owner/repo#N when it names the issues repository, and stops when it names another", () => {
         const ok = harness();
         expect(renderCloseOutcome(runCloseCommand(ok.deps, input(ok, { target: { epic: EPIC, repo: ISSUES.toUpperCase() } }))).exitCode).toBe(0);

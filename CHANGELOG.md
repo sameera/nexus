@@ -19,7 +19,10 @@ behaviour says so.
   takes a number, `owner/repo#N` or a pull-request URL, finds the epic from that pull request, then
   runs as `--epic` does. A qualified reference is read in the repository it names, on the
   checkout's forge for `owner/repo#N` and on the URL's own host for a URL, so a member pull request
-  no longer fails to parse. A pull request that has not merged still stops close early. Scripts
+  no longer fails to parse. A URL on a host other than github.com stops close, writing nothing,
+  when the configured `epic-repo` states no host: close cannot tell that gh reads the issues there,
+  so the remedy is to state the host in `epic-repo`. A pull request that has not merged still stops
+  close early. Scripts
   that call `nexus close --pr <N>` keep working. Asked what an epic has shipped, analyze now points
   at `nexus close --epic <epic>`.
 - **An entry path no longer stands in for the epic (breaking).** An `epic.md` path given to close
