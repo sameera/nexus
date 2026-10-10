@@ -17,7 +17,8 @@
 
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
-import { parseRepoIdentity } from "@nexus/workspace/issue-ref";
+import { parseRepoIdentity, sameRepo } from "@nexus/workspace/issue-ref";
+import { forgeHost } from "@nexus/pr-worktree/member-target";
 import { normalizeRemote } from "@nexus/workspace/remote";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
@@ -69,7 +70,9 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
 export function canonicalIssuesRepo(issuesRepo: string): string {
     const id = parseRepoIdentity(normalizeRemote(issuesRepo));
     if (id === null) return issuesRepo;
-    return id.host === null || id.host === "github.com" ? `${id.owner}/${id.name}` : `${id.host}/${id.owner}/${id.name}`;
+    // github.com's SSH aliases (github.com-work, ssh.github.com) are github.com, as for a pull request.
+    const host = id.host === null ? null : forgeHost(id.host);
+    return host === null || host === "github.com" ? `${id.owner}/${id.name}` : `${host}/${id.owner}/${id.name}`;
 }
 
 /** The issues repository as the slug the epic-resolve reads take, from its canonical form. */
@@ -78,4 +81,9 @@ export function issuesRepoSlug(issuesRepo: string): RepoSlug {
     if (id !== null) return { owner: id.owner, repo: id.name };
     const segments = issuesRepo.split("/").filter((p) => p.length > 0);
     return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
+}
+
+/** Whether two written forms name the same issues repository: their canonical forms compared with sameRepo. */
+export function sameIssuesRepo(a: string, b: string): boolean {
+    return sameRepo(canonicalIssuesRepo(a), canonicalIssuesRepo(b));
 }

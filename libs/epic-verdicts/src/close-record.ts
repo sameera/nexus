@@ -28,15 +28,15 @@
  */
 
 import { parse as parseYaml } from "yaml";
-import { escapeRegExp } from "@nexus/delivery-config/asset-rewrite";
 import { CLOSE_STUB_KEY_PREFIX } from "@nexus/delivery-config/stub-key";
 import { deferredScopeStatus, type Departure, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { recordSections, type SectionDecision } from "@nexus/scope-razor/record";
 import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { sameRepo } from "@nexus/workspace/issue-ref";
+import { escapeRegExp } from "@nexus/workspace/regexp";
 import { type AppliedWaiver, type CloseRanges, type PrLandedCheck } from "./close-ranges.js";
 import { inertLines, inertText } from "./close-text.js";
-import { canonicalIssuesRepo } from "./verdict-repos.js";
+import { sameIssuesRepo } from "./verdict-repos.js";
 
 /** The marker distill's range reader and its recovery anchor the close comment's machine block to. */
 export const CLOSE_RECORD_MARKER = "<!-- nexus:close-record -->";
@@ -540,14 +540,13 @@ export function stubKey(c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<Ap
 /** Whether `body` carries the amendment key for `epic`, naming the issues repository in any written form. */
 export function carriesAmendmentKey(body: string, issuesRepo: string, epic: number): boolean {
     const re = new RegExp(`${escapeRegExp(AMENDMENT_KEY_PREFIX)}epic: (\\S+)#${epic} -->`, "g");
-    return [...body.matchAll(re)].some((m) => sameRepo(canonicalIssuesRepo(m[1]), canonicalIssuesRepo(issuesRepo)));
+    return [...body.matchAll(re)].some((m) => sameIssuesRepo(m[1], issuesRepo));
 }
 
 /** Whether `body` carries the stub key for a proposal, naming the issues repository in any written form. */
 export function carriesStubKey(body: string, c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): boolean {
     const re = new RegExp(`${escapeRegExp(CLOSE_STUB_KEY_PREFIX)}epic: (\\S+)#${c.epic} pr: (\\S+)#${p.pr} proposal: ${escapeRegExp(p.id)} -->`, "g");
-    const same = (a: string, b: string): boolean => sameRepo(canonicalIssuesRepo(a), canonicalIssuesRepo(b));
-    return [...body.matchAll(re)].some((m) => same(m[1], c.issuesRepo) && same(m[2], p.repo));
+    return [...body.matchAll(re)].some((m) => sameIssuesRepo(m[1], c.issuesRepo) && sameIssuesRepo(m[2], p.repo));
 }
 
 /**
@@ -619,7 +618,7 @@ export function findEpicCloseComment(comments: readonly { body: string; authorAs
         // A block that stamps no epic number (a template left unfilled) or another epic is not this epic's.
         if (recordNumber(block["epic"]) !== epic) continue;
         const repo = block["issues_repo"];
-        if (typeof repo === "string" && !sameRepo(canonicalIssuesRepo(repo), canonicalIssuesRepo(issuesRepo))) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
+        if (typeof repo === "string" && !sameIssuesRepo(repo, issuesRepo)) return { found: "unreadable", why: `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}` };
         return { found: "own", body: c.body, block };
     }
     return { found: "none" };

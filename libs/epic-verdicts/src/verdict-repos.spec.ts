@@ -127,5 +127,6 @@ describe("canonicalIssuesRepo — the one written form close uses (#906)", () =>
         expect(canonicalIssuesRepo("https://ghe.corp/acme/issues")).toBe("ghe.corp/acme/issues");
         expect(canonicalIssuesRepo("ssh://git@ghe.corp:22/acme/issues.git")).toBe("ghe.corp/acme/issues");
         expect(canonicalIssuesRepo("not a repo")).toBe("not a repo");
+        expect(canonicalIssuesRepo("git@github.com-work:acme/issues.git")).toBe("acme/issues");
     });
 });

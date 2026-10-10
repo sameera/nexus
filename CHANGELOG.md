@@ -29,7 +29,7 @@ behaviour says so.
 - **Close names what was wrong with its arguments.** A value that does not parse gets its own
   message saying what close expected and what it got, and missing arguments print the usage. Close
   no longer answers a typing mistake with "close runs only against a merged pull request".
-  `--epic`, `--pr` and a bare number together are refused. `/nxs.close` relays all three forms
+  Two different epics or pull requests given at once are refused; the same one named twice is one. `/nxs.close` relays all three forms
   unchanged, and its refusal without arguments names `nexus close --epic <N>`.
 
 ## 0.97.0

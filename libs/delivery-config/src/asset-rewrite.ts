@@ -62,7 +62,7 @@ export function checkAssetList(declared: string[], cwd: string): AssetListCheck 
     return { ok: true, assets };
 }
 
-export function escapeRegExp(text: string): string {
+function escapeRegExp(text: string): string {
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
