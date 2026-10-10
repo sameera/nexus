@@ -65,8 +65,9 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
  * slash or `.git`) still reads. The one parse every close read of the issues repository uses.
  */
 export function issuesRepoSlug(issuesRepo: string): RepoSlug {
-    const id = parseRepoIdentity(issuesRepo);
+    const bare = issuesRepo.trim().replace(/\.git\/?$/, "");
+    const id = parseRepoIdentity(bare);
     if (id !== null) return { owner: id.owner, repo: id.name };
-    const segments = issuesRepo.replace(/\.git\/?$/, "").split("/").filter((p) => p.length > 0);
+    const segments = bare.split("/").filter((p) => p.length > 0);
     return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
 }

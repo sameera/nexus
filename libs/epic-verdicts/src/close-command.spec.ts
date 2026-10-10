@@ -485,6 +485,18 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).toMatch(/remedy: .*file it as one/);
     });
 
+    it("never takes a quoted or unreadable close comment, or one from another issues repository, as this epic's close", () => {
+        for (const body of [
+            `> <!-- nexus:close-record -->\n> \`\`\`yaml\n> epic: "#${EPIC}"\n> \`\`\``,
+            `<!-- nexus:close-record -->\nno block`,
+            `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: other/repo\n\`\`\``,
+        ]) {
+            const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
+            const { out } = closed(h);
+            expect(out.resumed, body).toBe(false);
+        }
+    });
+
     it("finishes from an older close comment of this epic when a newer one quotes another epic's", () => {
         const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const quoted = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#99"\n\`\`\``, authorAssociation: "OWNER" };

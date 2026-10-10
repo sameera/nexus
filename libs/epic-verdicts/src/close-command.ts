@@ -296,8 +296,7 @@ function hostedRepo(ref: ParsedPrReference | null): string | null {
 }
 
 /** The merged pull requests an earlier close comment stamped, as a re-run reports them. */
-function stampedList(block: Record<string, unknown> | null): string {
-    if (block === null) return "not stamped";
+function stampedList(block: Record<string, unknown>): string {
     const { prs, unnamed } = stampedPrs(block);
     if (unnamed === 0) return mergedList(prs);
     return `${prs.length === 0 ? "" : `${mergedList(prs)}, and `}${unnamed} stamped without its repository`;
@@ -395,23 +394,24 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
-    // The newest trusted close comment that is this epic's own: one that stamps another epic (quoted
-    // onto this issue) is passed over, and an older one that stamps this epic still counts.
-    const stampOf = (body: string): number | null => {
-        const block = machineBlock(body);
-        return block === null ? null : recordNumber(block["epic"]);
-    };
-    const earlierClose = epicComments.ok
-        ? [...epicComments.comments].reverse().find((c) => trusted(c) && c.body.includes(CLOSE_RECORD_MARKER) && [null, epic].includes(stampOf(c.body)))
-        : undefined;
-    const earlierBlock = earlierClose === undefined ? null : machineBlock(earlierClose.body);
-    const stamped = earlierBlock === null ? null : recordNumber(earlierBlock["epic"]);
+    // The newest trusted close comment that is this epic's own: its machine block stamps this epic
+    // and, where it names one, this issues repository. A quoted or unreadable copy, or another epic's
+    // close comment, is passed over, so it can never stand in for a close that did not happen.
+    let earlierClose: { block: Record<string, unknown> } | undefined;
+    for (const c of epicComments.ok ? [...epicComments.comments].reverse() : []) {
+        if (!trusted(c) || !c.body.includes(CLOSE_RECORD_MARKER)) continue;
+        const block = machineBlock(c.body);
+        if (block === null || recordNumber(block["epic"]) !== epic) continue;
+        if (typeof block["issues_repo"] === "string" && !sameRepo(block["issues_repo"], issuesRepo)) continue;
+        earlierClose = { block };
+        break;
+    }
 
     // A number the lead typed must be filed as an epic, checked before anything, even the re-run
     // shortcut, can close it; the story ladder already checked the epic it found from a pull
     // request. A close comment that stamps this very epic is proof enough, so a re-run never depends
     // on how the issue is labelled today.
-    if ("epic" in input.target && stamped !== epic) {
+    if ("epic" in input.target && earlierClose === undefined) {
         const kind = deps.issueKind(repoRoot, issuesRepo, epic);
         if (!kind.ok) {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
@@ -435,7 +435,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
     }
     if (earlierClose !== undefined) {
-        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun, closeComment: earlierClose.body }, earlierBlock);
+        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlierClose.block);
     }
 
     const resolved = deps.resolveEpic(repoRoot, issuesRepo, epic);
@@ -709,8 +709,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
 function finishClosed(
     deps: CloseCommandDeps,
     input: CloseInput,
-    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; closeComment: string },
-    block: Record<string, unknown> | null,
+    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string },
+    block: Record<string, unknown>,
 ): CloseOutcome {
     const epicRef = `${at.issuesRepo}#${at.epic}`;
     // Look for the earlier run's branch read-only first, so a missing one stops with nothing created (G3).
@@ -759,11 +759,11 @@ function finishClosed(
 function amendOnRerun(
     deps: CloseCommandDeps,
     input: CloseInput,
-    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; closeComment: string },
-    block: Record<string, unknown> | null,
+    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string },
+    block: Record<string, unknown>,
 ): { record: string; line: string; byHand: string[] } | null {
-    const record = block === null ? null : recordNumber(block["record"]);
-    if (block === null || record === null) return null;
+    const record = recordNumber(block["record"]);
+    if (record === null) return null;
     const recordRef = `${at.issuesRepo}#${record}`;
     const notChecked = (why: string) => ({ record: recordRef, line: `NOT CHECKED — ${why}. Close not blocked`, byHand: [] });
 

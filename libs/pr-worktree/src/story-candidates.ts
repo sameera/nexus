@@ -25,6 +25,7 @@
 
 import {
     classifyIssueKind,
+    countsAsEpic,
     isWithdrawnStory,
     type IssueKind,
     type KindClassification,
@@ -293,7 +294,7 @@ export function resolveStories(
     if (!epicFacts.ok) return epicFacts;
     const epicKind = kindOf(epic, epicFacts.facts);
     if (!epicKind.ok) return epicKind;
-    if (epicKind.kind !== "epic") {
+    if (!countsAsEpic(epicKind.kind, epicFacts.facts.parent, { unmarkedTopLevel: false })) {
         return {
             ok: false,
             error: {
