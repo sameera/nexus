@@ -12,3 +12,13 @@
 - **Choice:** `SHARED_SKILLS` lists the skills distill loads on every run, and a spec fails if the base stage names a skill that is neither a contract nor listed there.
 - **Why:** a later story that makes distill load another shared skill is forced to count it.
 - **Refuted alternative:** list the shared skills by hand with no check, which lets an uncounted load slip through.
+
+## 2026-10-10 — PM self-checks become one "Every Reply States" section
+- **Choice:** the PM agent's self-check block is replaced by a short `# Every Reply States` section (confidence, what is unknown, the assumption challenged, concrete next steps); the other checks are dropped because the mode rules, templates and formats already require them, and the council's "next steps assigned" check becomes "with its owner" in its Next Steps format.
+- **Why:** one section applies to both modes and every format without adding fields to each template.
+- **Refuted alternative:** add Confidence, Unknowns and Next Steps fields to each council and standalone template, which grows every deliverable format.
+
+## 2026-10-10 — Reasoning-request check bound to a verb or "think", not the word "reasoning"
+- **Choice:** the G13 spec matches phrases such as "think carefully", "step by step" after think/reason/work, "show your work", "chain of thought", and explain/walk through/understand + your/its/their reasoning.
+- **Why:** many components legitimately carry recorded reasoning ("the decision plus its reasoning"), so a bare "reasoning" match would fail on them.
+- **Refuted alternative:** forbid the word "reasoning" anywhere in components, which would force rewording record and discovery stages that copy reasoning, not reproduce it.

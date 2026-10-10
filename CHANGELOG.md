@@ -5,6 +5,21 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.103.0
+
+- **The PM agent gives a short justification instead of showing its reasoning.** This is the
+  agent `/nxs.discover` and `/nxs.council` call for the product view. Each recommendation is
+  justified in at most three sentences. The quick council response heads its
+  points "Why", one sentence each, and the agent writes an analysis you can act on without a
+  meeting. A request to show its work could be declined as a request to reproduce internal
+  reasoning; this one cannot.
+- **The PM agent and `/nxs.council` no longer run a self-check before replying.** The PM agent's
+  reply now states its confidence, what it does not know, the assumption it challenged and
+  concrete next steps. The council's next steps each name an owner. The council's report and the
+  agents' output formats are otherwise unchanged.
+- **No component asks a model to think carefully, think step by step, show its work or explain its
+  reasoning.** A new check over every component holds this.
+
 ## 0.102.0
 
 - **Every stage says at its start what "done" means and where it stops for you.** The opening of
