@@ -3090,6 +3090,13 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         return ref !== null && ref.repo === null ? ref.number : null;
     };
     const given: { form: string; target: CloseTarget }[] = [];
+    // An epic as close's own reports print it: N, #N, owner/repo#N, or host/owner/repo#N when the
+    // issues repository names a host.
+    const epicRef = (value: string): { repo: string | null; number: number } | null => {
+        const hosted = /^([^/\s#]+)\/([^/\s#]+)\/([^/\s#]+)#(\d+)$/.exec(value.trim());
+        if (hosted !== null) return Number(hosted[4]) > 0 ? { repo: `${hosted[1]}/${hosted[2]}/${hosted[3]}`.toLowerCase(), number: Number(hosted[4]) } : null;
+        return parseIssueRef(value);
+    };
     // An issue's URL as the browser shows it, host kept so close can tell an issue on another forge
     // from one in the issues repository; a port is refused as for a pull-request URL.
     const issueUrl = (value: string): { repo: string; number: number } | "port" | null => {
@@ -3106,7 +3113,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
             const value = argv[++i];
             // `N`, `#N`, `owner/repo#N` as close's reports print an epic, or the epic issue's URL; close
             // checks the repository.
-            const ref = value === undefined ? null : (parseIssueRef(value) ?? issueUrl(value));
+            const ref = value === undefined ? null : (epicRef(value) ?? issueUrl(value));
             if (ref === "port") return refuse(`--epic cannot read an issue URL with a port through gh; got ${got(value)}.`);
             if (ref === null) return refuse(`--epic takes an issue number, owner/repo#N or an issue URL; got ${got(value)}.`);
             given.push({ form: `--epic ${value}`, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
@@ -3135,7 +3142,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         else {
             // An issue reference names the epic, bare or `owner/repo#N` as close's reports print one;
             // anything else is the entry path (an entry path of that shape is written ./<path>).
-            const ref = parseIssueRef(a);
+            const ref = epicRef(a);
             if (ref !== null) given.push({ form: a, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
             else if (/^#?\d+$/.test(a)) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
             else paths.push(a);
@@ -3170,7 +3177,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     if (numbers.size + pulls.size > 1 || repoCount > 1) {
         return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.`);
     }
-    const only = epics.find((g) => g.target.repo !== undefined) ?? epics[0] ?? prs[0];
+    // The most qualified form of the epic is kept, so close checks the repository and forge it names.
+    const only = epics.find((g) => g.target.repo !== undefined && issuesRepoHost(g.target.repo) !== null) ?? epics.find((g) => g.target.repo !== undefined) ?? epics[0] ?? prs[0];
     if (paths.length > 1) return refuse(`close takes at most one entry path (an epic.md); got ${paths.map((p) => `'${p}'`).join(" and ")}.`);
     if (only === undefined && paths.length > 0) {
         return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);

@@ -911,17 +911,17 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
     });
 
-    it("stops, reading nothing, on a pull request on another forge than the issues repository", () => {
-        let read = false;
-        const h = harness({
-            readPr: () => {
-                read = true;
-                return { ok: true, pr: prInfo() };
-            },
-        });
+    it("stops, creating nothing, on a pull request on another forge than the issues repository", () => {
+        const h = harness();
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: "acme/app", number: 7, host: "ghe.corp" } } })));
         expect(err).toMatch(/reason: .*ghe\.corp.*github\.com/);
-        expect(read).toBe(false);
+    });
+
+    it("checks the issues repository an entry path's issues_repo field names, when its link is bare", () => {
+        const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\nissues_repo: "other/repo"\n---\n`);
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })))).toMatch(/reason: .*other\/repo#830/);
     });
 
     it("names what the lead ran in a stop before the epic is known, and the epic in every stop after", () => {

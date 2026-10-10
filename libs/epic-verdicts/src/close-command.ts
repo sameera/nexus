@@ -267,13 +267,20 @@ export function linkedEpic(markdown: string): number | null {
     return linkedEpicRef(markdown)?.number ?? null;
 }
 
-/** The issue an `epic.md`'s `link` names, with the repository it qualifies it with (null when bare), or null. */
+/**
+ * The issue an `epic.md`'s `link` names, with its repository: the one `link` qualifies it with, else
+ * the frontmatter's `issues_repo:`, else null when the file names none.
+ */
 function linkedEpicRef(markdown: string): { repo: string | null; number: number } | null {
     const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown);
     if (fm === null) return null;
-    const line = /^link:[ \t]*(.+?)\r?$/m.exec(fm[1]);
-    if (line === null) return null;
-    return parseIssueRef(line[1].trim().replace(/^["']|["']$/g, ""));
+    const field = (key: string): string | null => {
+        const m = new RegExp(`^${key}:[ \\t]*(.+?)\\r?$`, "m").exec(fm[1]);
+        return m === null ? null : m[1].trim().replace(/^["']|["']$/g, "");
+    };
+    const link = field("link");
+    const ref = link === null ? null : parseIssueRef(link);
+    return ref === null ? null : { repo: ref.repo ?? field("issues_repo"), number: ref.number };
 }
 
 /** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff`. */
@@ -444,15 +451,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // A pull request only finds the epic. It is read first: one that has not merged is the cheap
         // early answer for a lead who ran close too soon, before anything about the issues repository.
         const ref = input.target.pr;
-        // A pull-request URL on another forge would read the pull request on one and the issues on the other.
-        if (ref.host !== undefined && forgeHost(ref.host) !== issuesForge()) {
-            const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
-            return stopped({
-                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the epic's issues on ${issuesForge()}`,
-                item: asked,
-                remedy: "name the epic instead: nexus close --epic <N>",
-            });
-        }
         const read = deps.readPr(repoRoot, ref);
         if (!read.ok) {
             const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${prRepoName(ref, null)}#${ref.number}`;
@@ -469,6 +467,15 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const repos = resolveRepos();
         if (!repos.ok) return stopped(repos.stop);
         ({ issuesRepo, codeRepo } = repos);
+        // A pull-request URL on another forge than the one close reads the epic's issues on would read
+        // the pull request on one and the issues on the other.
+        if (ref.host !== undefined && forgeHost(ref.host) !== issuesForge()) {
+            return stopped({
+                reason: `${asLabel} is on ${forgeHost(ref.host)}, but close reads the epic's issues on ${issuesForge()}`,
+                item: asLabel,
+                remedy: "name the epic instead: nexus close --epic <N>",
+            });
+        }
         const pr = { repo: readIn ?? codeRepo, pr: ref.number };
         const label = `pull request ${pr.repo}#${pr.pr}`;
         // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot
