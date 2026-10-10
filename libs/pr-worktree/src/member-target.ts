@@ -43,9 +43,11 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
 
     const url = URL_RE.exec(trimmed);
     if (url) {
-        const authority = /^(?:[^@]*@)?(?:www\.)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
+        const authority = /^(?:[^@]*@)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
         if (authority === null) return null;
-        const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host: authority[1] };
+        // www.github.com is github.com; another host keeps its own name.
+        const host = authority[1] === "www.github.com" ? "github.com" : authority[1];
+        const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host };
         return authority[2] === undefined ? parsed : { ...parsed, port: authority[2] };
     }
 

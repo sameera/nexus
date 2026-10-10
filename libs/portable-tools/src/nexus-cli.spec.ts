@@ -2267,6 +2267,12 @@ describe("nexus close — the argument forms (#906)", () => {
         expect(io.err.join("\n")).toMatch(/close: .*needs the epic/);
     });
 
+    it("refuses a qualified reference given without --pr, naming --pr", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", "acme/app#5"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/pass it with --pr/);
+    });
+
     it("refuses --handoff with no path, naming the flag", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", "--epic", "159", "--handoff"], io)).toBe(2);

@@ -670,6 +670,17 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(amendments(h)).toEqual([]);
     });
 
+    it("finishes its own close comment when what the epic is filed as cannot be read", () => {
+        const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({
+            issueKind: () => ({ ok: false, message: "classification-mode-mismatch" }),
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [earlier] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
     it("names both causes when the comments and what the epic is filed as both fail to read", () => {
         const h = harness({ issueKind: () => ({ ok: false, message: "classification-mode-mismatch" }), issueComments: () => ({ ok: false, message: "HTTP 502" }) });
         const err = expectStop(h, runCloseCommand(h.deps, input(h)));
@@ -1739,13 +1750,7 @@ describe("nexus close — the record fetch, the commit and the record-issue comm
         expect(ok.calls).toEqual([["gh", "api", "--method", "POST", `repos/${ISSUES}/issues/${RECORD}/comments`, "-f", "body=## Amended"]]);
         const failing = recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 403" }));
         expect(closeCommandDeps(failing.run, { singleRepo: () => true }).postComment("/repo", ISSUES, RECORD, "x")).toEqual({ ok: false, message: "HTTP 403" });
-        // An issues repository on another forge is posted to, and read, on that host.
-        const gheRead = recorder(() => ({ status: 0, stdout: JSON.stringify({ data: { repository: { issue: null } } }), stderr: "" }));
-        closeCommandDeps(gheRead.run, { singleRepo: () => true }).issueKind(makeDir(), "ghe.corp/acme/app", 5);
-        expect(gheRead.calls[0].slice(0, 4)).toEqual(["gh", "api", "--hostname", "ghe.corp"]);
-        const ghe = recorder(() => ({ status: 0, stdout: "{}", stderr: "" }));
-        closeCommandDeps(ghe.run, { singleRepo: () => true }).postComment("/repo", "ghe.corp/acme/app", RECORD, "x");
-        expect(ghe.calls[0].slice(0, 4)).toEqual(["gh", "api", "--hostname", "ghe.corp"]);
+
     });
 
     it("commits the entry's files, and reports nothing to commit when an earlier run's commit already holds them", () => {

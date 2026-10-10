@@ -3068,10 +3068,12 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         }
         else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
         else {
-            // A bare issue number names the epic; anything else is the entry path.
+            // A bare issue number names the epic; a qualified reference is a pull request, given with
+            // --pr; anything else is the entry path.
             const epic = issueNumber(a);
-            if (epic === null) paths.push(a);
-            else given.push({ form: a, target: { epic } });
+            if (epic !== null) given.push({ form: a, target: { epic } });
+            else if (parseIssueRef(a) !== null) return refuse(`a qualified reference names a pull request; pass it with --pr; got ${got(a)}.`);
+            else paths.push(a);
         }
     }
     if (recover !== undefined) {

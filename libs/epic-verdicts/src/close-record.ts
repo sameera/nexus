@@ -575,9 +575,8 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 
 /** The machine block of a close comment, parsed: null when it carries none that reads. */
 export function machineBlock(comment: string): Record<string, unknown> | null {
-    // The marker that opens a line is the comment's own; a quoted copy earlier in it is not.
-    const own = comment.search(OWN_MARKER_RE);
-    const at = own >= 0 ? own : comment.indexOf(CLOSE_RECORD_MARKER);
+    // The marker that opens a line is the comment's own; a quoted or indented copy is not.
+    const at = comment.search(OWN_MARKER_RE);
     if (at < 0) return null;
     // `\r\n` too: a comment edited in the platform's web editor is saved with it.
     const fence = /^[ \t]*\r?\n```ya?ml\r?\n([\s\S]*?)\r?\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));

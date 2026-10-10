@@ -90,7 +90,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, onIssuesHost, resolveVerdictRepos } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -419,16 +419,17 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         if (!epicComments.ok && !(kind.ok && !kind.exists)) {
             return commentsUnread(kind.ok ? epicComments.message : `${epicComments.message}; what it is filed as could not be determined either: ${kind.message}`);
         }
-        if (!kind.ok) {
+        // This epic's own close comment is proof enough when what it is filed as cannot be read.
+        if (!kind.ok && earlier.found !== "own") {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
         }
         // Only an issue filed as an epic. This epic's own close comment excuses a marking lost since
         // (an epic relabelled after close), never an issue filed as a story or a record. An issue
         // that only lacks a marking, beside a close comment that does not read, is told about the
         // comment first: relabelling would not get it past that.
-        const filedAsOther = kind.exists && (kind.kind === "story" || kind.kind === "record");
+        const filedAsOther = kind.ok && kind.exists && (kind.kind === "story" || kind.kind === "record");
         if (!filedAsOther && earlier.found === "unreadable") return unreadableClose(earlier.why);
-        if (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && earlier.found === "own"))) {
+        if (kind.ok && (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && earlier.found === "own")))) {
             const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
             const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
             const prHint = !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr ${shellWord(`owner/repo#${epic}`)} when it is in another repository` : "";
@@ -1094,7 +1095,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };
             const slug = issuesRepoSlug(issuesRepo);
-            return resolveStories(onIssuesHost(run, issuesRepo), root, slug, kinds.classification, {
+            return resolveStories(run, root, slug, kinds.classification, {
                 prRepo,
                 closingIssues: pr.closingIssues,
                 commitMessages: pr.commitMessages,
@@ -1106,7 +1107,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, message: kinds.error.message };
             const slug = issuesRepoSlug(issuesRepo);
-            const facts = fetchIssueFacts(onIssuesHost(run, issuesRepo), root, slug, issue);
+            const facts = fetchIssueFacts(run, root, slug, issue);
             if (!facts.ok) return { ok: false, message: facts.error.message };
             if (!facts.facts.exists) return { ok: true, exists: false, kind: "other", parent: null };
             const kind = classifyIssueKind(kinds.classification, { number: issue, labels: facts.facts.labels, issueType: facts.facts.issueType });
@@ -1115,7 +1116,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         resolveEpic: (root, issuesRepo, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
         subIssues: (root, issuesRepo, epic) => {
             const slug = issuesRepoSlug(issuesRepo);
-            const r = fetchSubIssueFacts(onIssuesHost(run, issuesRepo), root, slug, epic);
+            const r = fetchSubIssueFacts(run, root, slug, epic);
             return r.ok ? { ok: true, facts: r.facts } : { ok: false, message: r.error.message };
         },
         excludedStories: (root, issuesRepo, stories) => {
@@ -1190,7 +1191,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         },
         postComment: (root, issuesRepo, issue, body) => {
             const { owner, repo } = issuesRepoSlug(issuesRepo);
-            const r = onIssuesHost(run, issuesRepo)("gh", ["api", "--method", "POST", `repos/${owner}/${repo}/issues/${issue}/comments`, "-f", `body=${body}`], { cwd: root });
+            const r = run("gh", ["api", "--method", "POST", `repos/${owner}/${repo}/issues/${issue}/comments`, "-f", `body=${body}`], { cwd: root });
             return r.status === 0 ? { ok: true } : { ok: false, message: r.stderr.trim() || "gh api failed" };
         },
         storyWaivers: (root, issuesRepo, story) => {
@@ -1199,7 +1200,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         },
         epicMentions: (root, issuesRepo, epic) => {
             const { owner, repo } = issuesRepoSlug(issuesRepo);
-            const r = onIssuesHost(run, issuesRepo)("gh", ["api", "--paginate", `repos/${owner}/${repo}/issues/${epic}/timeline`, "--jq", MENTIONS_JQ], { cwd: root });
+            const r = run("gh", ["api", "--paginate", `repos/${owner}/${repo}/issues/${epic}/timeline`, "--jq", MENTIONS_JQ], { cwd: root });
             if (r.status !== 0) return { ok: false, message: r.stderr.trim() || "gh api failed" };
             const issues: MentioningIssue[] = [];
             for (const line of r.stdout.split("\n")) {
