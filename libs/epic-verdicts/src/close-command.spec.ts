@@ -603,6 +603,16 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(out.ok && out.resumed).toBe(true);
     });
 
+    it("reads its own machine block when a bare marker line without a block comes first", () => {
+        const body = `<!-- nexus:close-record -->\nnotes first\n\n<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
     it("does not let a close comment pasted onto a story close that story", () => {
         const body = `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#864"\n\`\`\``;
         const h = harness({

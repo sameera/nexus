@@ -29,11 +29,11 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
-import { issuesRepoHost, sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
+import { canonicalIssuesRepo, issuesRepoHost, issuesRepoPath, onIssuesHost, sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
-import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
+import { resolveRepoSlug } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic } from "@nexus/epic-resolve/resolve";
 import { writeMaterializedEpic } from "@nexus/epic-resolve/write";
@@ -1758,7 +1758,10 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
             return 1;
         }
-        const issuesRepo = repos.repos.issuesRepo;
+        // Read as close reads it: owner/repo, with the gh calls aimed at a host the configured form states.
+        const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
+        const issuesRun = onIssuesHost(closeMigrationRunner, configured);
+        const issuesRepo = issuesRepoPath(configured);
         const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
@@ -1766,9 +1769,9 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         }
         const stories = resolved.resolved.stories.map((st) => st.number);
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabelIn(issuesRun, root, issuesRepo, story, noPrLabel)) : [];
 
-        const evidence = collectEvidence(evidenceDeps(closeMigrationRunner, root, issuesRepo), { stories, excluded, issuesRepo });
+        const evidence = collectEvidence(evidenceDeps(closeMigrationRunner, root, configured), { stories, excluded, issuesRepo });
         if (!evidence.ok) {
             io.stderr(`epic-verdicts story-read-failed: ${describeStoryReadFailures(evidence.failures, issuesRepo)} Close stops here.`);
             return 1;
@@ -1789,7 +1792,10 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
             io.stderr(`epic-verdicts ${repos.error.problem}: ${repos.error.message}`);
             return 1;
         }
-        const issuesRepo = repos.repos.issuesRepo;
+        // Read as close reads it: owner/repo, with the gh calls aimed at a host the configured form states.
+        const configured = canonicalIssuesRepo(repos.repos.issuesRepo);
+        const issuesRun = onIssuesHost(closeMigrationRunner, configured);
+        const issuesRepo = issuesRepoPath(configured);
         const resolved = resolveEpic(closeMigrationRunner, root, flags.epic, { requireEpic: false });
         if (!resolved.ok) {
             io.stderr(renderEpicResolveDiagnostic(resolved.error));
@@ -1797,15 +1803,15 @@ async function runEpicVerdicts(argv: string[], io: CliIo): Promise<number> {
         }
         const stories = resolved.resolved.stories.map((st) => st.number);
         const noPrLabel = resolvePublishingKey(root, "no-pr-label");
-        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabel(root, issuesRepo, story, noPrLabel)) : [];
-        const collected = fetchShippedRecords(closeMigrationRunner, root, issuesRepo, flags.epic);
+        const excluded = noPrLabel.length > 0 ? stories.filter((story) => storyCarriesLabelIn(issuesRun, root, issuesRepo, story, noPrLabel)) : [];
+        const collected = fetchShippedRecords(issuesRun, root, issuesRepo, flags.epic);
         if (!collected.ok) {
             io.stderr(`epic-verdicts ${collected.error.problem}: ${collected.error.message}`);
             return 1;
         }
 
         // The record's current digest is compared with each receipt's stamped one (story #842, D5).
-        const derived = deriveCloseRanges(closeRangesDeps(closeMigrationRunner, root, issuesRepo, resolved.record?.number ?? null), {
+        const derived = deriveCloseRanges(closeRangesDeps(closeMigrationRunner, root, configured, resolved.record?.number ?? null), {
             stories,
             excluded,
             records: collected.collected.records.map((f) => f.record),

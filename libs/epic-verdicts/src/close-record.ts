@@ -582,12 +582,14 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 
 /** The machine block of a close comment, parsed: null when it carries none that reads. */
 export function machineBlock(comment: string): Record<string, unknown> | null {
-    // The marker on a line of its own is the comment's own; a quoted copy is not.
-    const found = OWN_MARKER_RE.exec(comment);
-    if (found === null) return null;
-    const at = found.index + found[0].length - CLOSE_RECORD_MARKER.length;
-    // `\r\n` too: a comment edited in the platform's web editor is saved with it.
-    const fence = /^[ \t]*\r?\n```ya?ml\r?\n([\s\S]*?)\r?\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));
+    // The marker on a line of its own is the comment's own; a quoted copy is not. The first such
+    // marker with a block under it is the block, so a bare mention of the marker above it is passed over.
+    const own = new RegExp(OWN_MARKER_RE.source, "gm");
+    let fence: RegExpExecArray | null = null;
+    for (let found = own.exec(comment); found !== null && fence === null; found = own.exec(comment)) {
+        // `\r\n` too: a comment edited in the platform's web editor is saved with it.
+        fence = /^[ \t]*\r?\n```ya?ml\r?\n([\s\S]*?)\r?\n```/.exec(comment.slice(found.index + found[0].length));
+    }
     if (fence === null) return null;
     try {
         const doc: unknown = parseYaml(fence[1]);
