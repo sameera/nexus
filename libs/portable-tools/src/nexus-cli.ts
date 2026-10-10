@@ -3149,12 +3149,13 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         }
         else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
         else {
-            // An issue reference names the epic, bare or `owner/repo#N` as close's reports print one;
-            // anything else is the entry path (an entry path of that shape is written ./<path>).
-            const ref = epicRef(a);
+            // An issue reference names the epic, bare, `owner/repo#N` as close's reports print one, or
+            // the issue's URL; anything else is the entry path (an entry path of that shape is ./<path>).
+            const ref = epicRef(a) ?? issueUrl(a);
+            if (ref === "port") return refuse(`close cannot read an issue URL with a port through gh; got ${got(a)}.`);
             if (ref !== null) {
                 given.push({ form: a, target: ref.repo === null ? { epic: ref.number } : { epic: ref.number, repo: ref.repo } });
-                if (ref.repo !== null) qualifiedPositionals.push(a);
+                if (ref.repo !== null && !/^https?:\/\//i.test(a)) qualifiedPositionals.push(a);
             }
             else if (/^#?\d+$/.test(a)) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
             else paths.push(a);
