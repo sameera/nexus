@@ -2276,6 +2276,11 @@ describe("nexus close — the argument forms (#906)", () => {
         // A github.com pull request is not refused, whatever alias the checkout's remote uses.
         const gh: CapturedIo = makeIo(repo);
         expect(await runNexusCli(["close", "--pr", "https://github.com/acme/app/pull/7"], gh)).toBe(1);
+        // And a github.com pull request from a checkout on an Enterprise forge is refused.
+        const ghe = memberCheckout();
+        execFileSync("git", ["remote", "add", "origin", "https://ghe.corp/acme/app.git"], { cwd: ghe });
+        const cross: CapturedIo = makeIo(ghe);
+        expect(await runNexusCli(["close", "--pr", "https://github.com/acme/app/pull/7"], cross)).toBe(2);
         const zero: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close", "0"], zero)).toBe(2);
         expect(zero.err.join("\n")).toMatch(/epic's issue number; got '0'/);

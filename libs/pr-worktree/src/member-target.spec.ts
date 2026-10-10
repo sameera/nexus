@@ -69,6 +69,7 @@ describe("parsePrReference", () => {
         expect(parsePrReference("https://www.github.com/acme/widget/pull/7")?.host).toBe("github.com");
         expect(parsePrReference("https://www.git.corp/acme/widget/pull/7")?.host).toBe("www.git.corp");
         expect(parsePrReference("https://me@ghe.corp:8443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "8443" });
+        expect(parsePrReference("https://github.com:443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "github.com" });
     });
 
     it("rejects a URL whose authority does not read", () => {

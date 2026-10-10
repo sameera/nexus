@@ -48,7 +48,9 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
         // www.github.com is github.com; another host keeps its own name.
         const host = authority[1] === "www.github.com" ? "github.com" : authority[1];
         const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host };
-        return authority[2] === undefined ? parsed : { ...parsed, port: authority[2] };
+        // A scheme's default port names nothing the bare host does not.
+        const port = authority[2];
+        return port === undefined || port === "443" || port === "80" ? parsed : { ...parsed, port };
     }
 
     return null;

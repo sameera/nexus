@@ -619,11 +619,16 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(asked).toBe(0);
     });
 
-    it("stops on an epic with no stories, as there is nothing for the gate to judge", () => {
+    it("closes a manually managed epic with no sub-issues, as on main, and says so", () => {
         const h = harness({ subIssues: () => ({ ok: true, facts: new Map() }) });
+        const resolve = h.deps.resolveEpic;
+        h.deps.resolveEpic = (root, repo, epic) => {
+            const r = resolve(root, repo, epic);
+            return r.ok ? { ...r, record: null, resolved: { ...r.resolved, stories: [] } } : r;
+        };
         h.deps.ranges = () => ({ ok: true, untrusted: [], ranges: ranges({ stories: [], states: [], range: [], merged: [] }) });
-        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
-        expect(err).toMatch(/reason: .*has no stories/);
+        const { stdout } = closed(h);
+        expect(stdout).toContain("no sub-issues");
     });
 
     it("closes an epic whose every story passed on a marker, with no merged pull request", () => {

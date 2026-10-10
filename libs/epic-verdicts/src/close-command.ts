@@ -555,16 +555,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             }
         }
 
-        // An epic with no story at all has nothing for the gate to judge, so nothing to close over. A
-        // story that passed on a waiver or a marker still counts: that is shipped work, recorded.
-        if (gate.states.length === 0) {
-            stops.push({
-                reason: `epic ${epicRef} has no stories, so there is no shipped work for close to gate`,
-                item: `epic ${epicRef}`,
-                remedy: `plan its stories, or pass the epic's own issue number: nexus close --epic <N>`,
-            });
-        }
-
         if (stops.length === 0) {
             const heads = gate.range.filter((r) => sameRepo(r.repo, codeRepo)).map((r) => ({ pr: r.pr, head: r.head }));
             const trunk = deps.trunkCheck(repoRoot, heads);
@@ -1103,15 +1093,6 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
 
 /** The platform-backed reads, against the checkout at `root`. */
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
-    // How the repository files issues, read once per checkout however many reads need it.
-    const classifications = new Map<string, ReturnType<typeof resolveKindClassification>>();
-    const classificationOf = (root: string): ReturnType<typeof resolveKindClassification> => {
-        const known = classifications.get(root);
-        if (known !== undefined) return known;
-        const read = resolveKindClassification(root);
-        classifications.set(root, read);
-        return read;
-    };
     return {
         role: (cwd) => closePreflight(cwd, run),
         readPr: (repoRoot, ref) => {
@@ -1122,7 +1103,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         },
         issuesRepo: (root) => resolveVerdictRepos(run, root),
         storiesOfPr: (root, issuesRepo, pr, prRepo) => {
-            const kinds = classificationOf(root);
+            const kinds = resolveKindClassification(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };
             const slug = issuesRepoSlug(issuesRepo);
             return resolveStories(run, root, slug, kinds.classification, {
@@ -1134,7 +1115,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             });
         },
         issueKind: (root, issuesRepo, issue) => {
-            const kinds = classificationOf(root);
+            const kinds = resolveKindClassification(root);
             if (!kinds.ok) return { ok: false, message: kinds.error.message };
             const slug = issuesRepoSlug(issuesRepo);
             const facts = fetchIssueFacts(run, root, slug, issue);
