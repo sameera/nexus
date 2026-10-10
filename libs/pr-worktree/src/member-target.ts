@@ -56,12 +56,12 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
 }
 
 /**
- * The forge a host names, as gh addresses it: github.com for github.com's SSH aliases
- * (`github.com-work`, `ssh.github.com`), the host itself otherwise, lowercased.
+ * The forge a host names, as gh addresses it: github.com for github.com itself, `www.` and
+ * `ssh.github.com` and an SSH alias such as `github.com-work`; the host itself otherwise, lowercased.
  */
 export function forgeHost(host: string): string {
     const h = host.toLowerCase();
-    return h === "github.com" || h.endsWith(".github.com") || h.startsWith("github.com-") ? "github.com" : h;
+    return h === "github.com" || h === "www.github.com" || h === "ssh.github.com" || h.startsWith("github.com-") ? "github.com" : h;
 }
 
 /**

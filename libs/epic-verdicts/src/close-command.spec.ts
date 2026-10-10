@@ -454,6 +454,12 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(stdout).toMatch(new RegExp(`Pull requests:.*${ISSUES}#${PR}.*acme/member#${PR2}`));
     });
 
+    it("stops on an epic issue URL on another forge than the one close reads the issues on", () => {
+        const h = harness();
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: EPIC, repo: `ghe.corp/${ISSUES}` } })));
+        expect(err).toMatch(/is not in the issues repository/);
+    });
+
     it("takes the epic as owner/repo#N when it names the issues repository, and stops when it names another", () => {
         const ok = harness();
         expect(renderCloseOutcome(runCloseCommand(ok.deps, input(ok, { target: { epic: EPIC, repo: ISSUES.toUpperCase() } }))).exitCode).toBe(0);

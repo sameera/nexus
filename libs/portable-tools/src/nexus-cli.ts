@@ -29,6 +29,7 @@ import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
 import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
+import { sameIssuesRepo } from "@nexus/epic-verdicts/verdict-repos";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
@@ -3157,7 +3158,9 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const prs = given.filter((g): g is { form: string; target: { pr: ParsedPrReference } } => "pr" in g.target);
     const own = prs.length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     const numbers = new Set(epics.map((g) => g.target.epic));
-    const repos = new Set(epics.flatMap((g) => (g.target.repo === undefined ? [] : [g.target.repo.toLowerCase()])));
+    // Repositories compared as close compares the issues repository, so two forms of one are one.
+    const named = epics.flatMap((g) => (g.target.repo === undefined ? [] : [g.target.repo]));
+    const repos = new Set(named.map((r) => named.findIndex((other) => sameIssuesRepo(other, r))));
     const pulls = new Set(prs.map((g) => `${prRepoName(g.target.pr, own) ?? ""}#${g.target.pr.number}`));
     if (numbers.size + pulls.size > 1 || repos.size > 1) {
         return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${given.map((g) => g.form).join(" and ")}.`);

@@ -61,7 +61,7 @@ import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
 import { findEpicDistillBranch, openEpicDistillWorktree, pushEpicDistillBranch, type EpicDistillBranchResult, type EpicDistillWorktreeResult } from "@nexus/pr-worktree/worktree";
-import { type FilerEnvironment } from "@nexus/delivery-config/story-filer/environment";
+import { defaultEnvironment, type FilerEnvironment } from "@nexus/delivery-config/story-filer/environment";
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { canonicalRemote, canonicalRepoRef } from "@nexus/workspace/canonical-remote";
 import { closePreflight, type PreflightResult } from "@nexus/workspace/close-role";
@@ -91,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoHost, issuesRepoPath, issuesRepoSlug, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoHost, issuesRepoPath, issuesRepoSlug, onHost, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -278,7 +278,7 @@ function linkedEpicRef(markdown: string): { repo: string | null; number: number 
 
 /** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff`. */
 function closeArgs(target: CloseTarget, input: Pick<CloseInput, "entryPath" | "handoff">): string {
-    const named = "epic" in target ? `--epic ${target.epic}` : `--pr ${shellWord(prReference(target.pr))}`;
+    const named = "epic" in target ? `--epic ${shellWord(epicReference(target))}` : `--pr ${shellWord(prReference(target.pr))}`;
     return [named, ...trailingArgs(input)].join(" ");
 }
 
@@ -290,6 +290,13 @@ function trailingArgs(input: Pick<CloseInput, "entryPath" | "handoff">): string[
 /** A path as one shell word, so a re-run hint copied as is passes it as one argument. */
 function shellWord(value: string): string {
     return /^[\w./@%+=:,-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/** An epic target as `--epic` takes it back: `N`, `owner/repo#N`, or the issue URL when it names a host. */
+function epicReference(target: { epic: number; repo?: string }): string {
+    if (target.repo === undefined) return `${target.epic}`;
+    const parts = target.repo.split("/");
+    return parts.length === 3 ? `https://${parts[0]}/${parts[1]}/${parts[2]}/issues/${target.epic}` : `${target.repo}#${target.epic}`;
 }
 
 /** A parsed pull-request reference as `--pr` takes it back: `N`, `owner/repo#N`, or the URL it came from. */
@@ -393,9 +400,17 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
 
     // One written form for every read, write, key and report that names the issues repository. An
     // earlier run's stub and amendment keys are matched by the repository they name, in any form.
-    const configured = deps.issuesRepo(repoRoot);
+    // Read once, and only when first needed, so a pull request that has not merged is answered first.
+    let configuredRead: ReturnType<CloseCommandDeps["issuesRepo"]> | undefined;
+    const configured = (): ReturnType<CloseCommandDeps["issuesRepo"]> => (configuredRead ??= deps.issuesRepo(repoRoot));
+    // The forge close reads the epic's issues on: the one the issues repository names, else the
+    // checkout's (where an unqualified issues repository comes from), else gh's default.
+    const issuesForge = (): string => {
+        const r = configured();
+        return (r.ok ? issuesRepoHost(r.repos.issuesRepo) : null) ?? deps.checkoutForge(repoRoot) ?? "github.com";
+    };
     const resolveRepos = (): { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop } => {
-        const r = configured;
+        const r = configured();
         return r.ok
             ? { ok: true, issuesRepo: canonicalIssuesRepo(r.repos.issuesRepo), codeRepo: r.repos.repo }
             : { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
@@ -411,9 +426,11 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         if (!repos.ok) return stopped(repos.stop);
         ({ issuesRepo, codeRepo } = repos);
         epic = input.target.epic;
-        // `owner/repo#N`, as close's own reports print an epic, must name the issues repository.
+        // `owner/repo#N`, as close's own reports print an epic, or the issue's URL, must name the
+        // issues repository, on the forge close reads it on.
         const named = input.target.repo;
-        if (named !== undefined && !sameIssuesRepo(named, issuesRepo)) {
+        const namedHost = named === undefined ? null : issuesRepoHost(named);
+        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || (namedHost !== null && namedHost !== issuesForge()))) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
                 item: `issue ${named}#${epic}`,
@@ -424,14 +441,11 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // A pull request only finds the epic. It is read first: one that has not merged is the cheap
         // early answer for a lead who ran close too soon, before anything about the issues repository.
         const ref = input.target.pr;
-        // Close reads the epic's issues on the forge the issues repository names, else the checkout's
-        // (where an unqualified issues repository comes from), else gh's default. A pull-request URL
-        // on another forge would read the pull request on one and the issues on the other.
-        const issuesForge = (configured.ok ? issuesRepoHost(configured.repos.issuesRepo) : null) ?? deps.checkoutForge(repoRoot) ?? "github.com";
-        if (ref.host !== undefined && forgeHost(ref.host) !== issuesForge) {
+        // A pull-request URL on another forge would read the pull request on one and the issues on the other.
+        if (ref.host !== undefined && forgeHost(ref.host) !== issuesForge()) {
             const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
             return stopped({
-                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the epic's issues on ${issuesForge}`,
+                reason: `${asked} is on ${forgeHost(ref.host)}, but close reads the epic's issues on ${issuesForge()}`,
                 item: asked,
                 remedy: "name the epic instead: nexus close --epic <N>",
             });
@@ -1169,7 +1183,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         ranges: (root, issuesRepo, epic, input) => {
             const collected = fetchShippedRecords(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), epic);
             if (!collected.ok) return { ok: false, problem: "records-unreadable", message: collected.error.message };
-            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepoPath(issuesRepo), input.record), {
+            const derived = deriveCloseRanges(closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), input.record), {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),
@@ -1263,7 +1277,13 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             }
             return { ok: true, issues };
         },
-        fileStubs: (root, issuesRepo, epic, stubs) => fileDeferredStubs(root, issuesRepoPath(issuesRepo), `epic-${epic}`, stubs, opts.filerEnv),
+        fileStubs: (root, issuesRepo, epic, stubs) => {
+            // The filer runs its own gh runner; it reaches the issues repository's host the same way.
+            const env = opts.filerEnv ?? defaultEnvironment;
+            const host = issuesRepoHost(issuesRepo);
+            const routed = host === null ? env : { ...env, runnerFor: (r: string) => { const base = env.runnerFor(r); return (args: string[]) => base(onHost(args, host)); } };
+            return fileDeferredStubs(root, issuesRepoPath(issuesRepo), `epic-${epic}`, stubs, routed);
+        },
         writeMarker: (root, issuesRepo, story) => {
             const r = waiveStory(onIssuesHost(run, issuesRepo), root, story, resolvePublishingKey(root, "no-pr-label"), issuesRepoPath(issuesRepo));
             return r.ok ? { ok: true } : { ok: false, message: r.error.message };

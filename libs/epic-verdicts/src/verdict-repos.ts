@@ -97,13 +97,23 @@ export function issuesRepoHost(issuesRepo: string): string | null {
 }
 
 /**
- * A runner whose `gh api` calls go to the issues repository's host when its form names one, so
- * every read and write of the issues repository reaches the same forge its `--repo` calls do.
+ * gh arguments aimed at `host`: `--hostname` for a `gh api` call, and the host in front of a
+ * `--repo`/`-R` value that names none. Arguments that already name a host are left as they are.
+ */
+export function onHost(args: readonly string[], host: string): string[] {
+    if (args[0] === "api") return args.includes("--hostname") ? [...args] : ["api", "--hostname", host, ...args.slice(1)];
+    return args.map((a, i) => (i > 0 && (args[i - 1] === "--repo" || args[i - 1] === "-R") && a.split("/").length === 2 ? `${host}/${a}` : a));
+}
+
+/**
+ * A runner whose gh calls reach the issues repository's host when its form names one, through
+ * `gh api` and `--repo` alike, so every read and write of the issues repository in one run reaches
+ * one forge whichever command a shared reader uses.
  */
 export function onIssuesHost<R extends WorkspaceRunner>(run: R, issuesRepo: string): R {
     const host = issuesRepoHost(issuesRepo);
     if (host === null) return run;
-    return ((cmd, args, opts) => (cmd === "gh" && args[0] === "api" && !args.includes("--hostname") ? run(cmd, ["api", "--hostname", host, ...args.slice(1)], opts) : run(cmd, args, opts))) as R;
+    return ((cmd, args, opts) => (cmd === "gh" ? run(cmd, onHost(args, host), opts) : run(cmd, args, opts))) as R;
 }
 
 /**
