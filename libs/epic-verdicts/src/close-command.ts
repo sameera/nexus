@@ -299,11 +299,9 @@ function shellWord(value: string): string {
     return /^[\w./@%+=:,-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-/** An epic target as `--epic` takes it back: `N`, `owner/repo#N`, or the issue URL when it names a host. */
+/** An epic target as `--epic` takes it back: `N`, or `owner/repo#N` / `host/owner/repo#N`. */
 function epicReference(target: { epic: number; repo?: string }): string {
-    if (target.repo === undefined) return `${target.epic}`;
-    const parts = target.repo.split("/");
-    return parts.length === 3 ? `https://${parts[0]}/${parts[1]}/${parts[2]}/issues/${target.epic}` : `${target.repo}#${target.epic}`;
+    return target.repo === undefined ? `${target.epic}` : `${target.repo}#${target.epic}`;
 }
 
 /** A parsed pull-request reference as `--pr` takes it back: `N`, `owner/repo#N`, or the URL it came from. */
@@ -323,6 +321,18 @@ function stampedList(block: Record<string, unknown>): string {
 /** The merged pull requests a close covers, as its report lists them. */
 function mergedList(prs: readonly { repo: string; pr: number }[]): string {
     return prs.length === 0 ? "none" : `${prs.map((p) => `${p.repo}#${p.pr}`).join(", ")} (merged)`;
+}
+
+/**
+ * The stop for a reference on a non-github.com forge beside an issues repository that states no host:
+ * gh reads that repository on its own host, which close cannot see, so the forge cannot be confirmed.
+ */
+function unconfirmedForge(what: string, host: string, issuesRepo: string, epic: number | null): CloseStop {
+    return {
+        reason: `${what} is on ${host}, but the issues repository ${issuesRepo} states no host, so close cannot confirm gh reads its issues there`,
+        item: what,
+        remedy: `state the host in epic-repo (${host}/${issuesRepo}), then re-run ${epic === null ? "close" : `nexus close --epic ${epic}`}`,
+    };
 }
 
 /** The epic an entry path's frontmatter links, or the stop that says why it names none. */
@@ -437,7 +447,10 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // be confirmed as the forge gh reads the issues on.
         const namedHost = named === undefined ? null : issuesRepoHost(named);
         const unconfirmed = namedHost !== null && namedHost !== "github.com" && issuesRepoHost(issuesRepo) === null;
-        if (named !== undefined && (!sameIssuesRepo(named, issuesRepo) || unconfirmed)) {
+        if (named !== undefined && unconfirmed && sameIssuesRepo(named, issuesRepo)) {
+            return stopped(unconfirmedForge(`epic ${named}#${epic}`, namedHost ?? "", issuesRepo, epic));
+        }
+        if (named !== undefined && !sameIssuesRepo(named, issuesRepo)) {
             return stopped({
                 reason: `${named}#${epic} is not in the issues repository ${issuesRepo}, where close reads and closes epics`,
                 item: `issue ${named}#${epic}`,
@@ -474,7 +487,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const knownPr = ref.host ?? deps.checkoutForge(repoRoot);
         const prForge = knownPr === null ? null : forgeHost(knownPr);
         const unconfirmed = statedForge === null && ref.host !== undefined && forgeHost(ref.host) !== "github.com";
-        if (unconfirmed || (statedForge !== null && prForge !== null && prForge !== statedForge)) {
+        if (unconfirmed) return stopped(unconfirmedForge(asLabel, forgeHost(ref.host ?? ""), issuesRepo, null));
+        if (statedForge !== null && prForge !== null && prForge !== statedForge) {
             return stopped({
                 reason: `${asLabel} is on ${prForge}, but the issues repository ${issuesRepo} is on ${statedForge}`,
                 item: asLabel,
