@@ -123,6 +123,7 @@ function runClose(reason: string): { entry: string; comment: string; wtPath: str
         }),
         issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: CODE } }),
         storiesOfPr: () => ({ ok: true, epic: EPIC, stories: [864] }),
+        issueKind: () => ({ ok: true, exists: true, kind: "epic", parent: null, declared: true }),
         resolveEpic: () => ({
             ok: true,
             markdown: `---\nfeature: "PR-Driven Delivery"\nlink: "#${EPIC}"\n---\n`,
@@ -145,7 +146,7 @@ function runClose(reason: string): { entry: string; comment: string; wtPath: str
         push: () => ({ ok: true }),
         closeIssue: () => ({ ok: true, already: false }),
     };
-    const out = runCloseCommand(deps, { cwd: repoRoot, pr: PR, entryPath: null, handoff: null, date: "2026-10-04", nexusVersion: "0.92.0" });
+    const out = runCloseCommand(deps, { cwd: repoRoot, target: { epic: EPIC }, entryPath: null, handoff: null, date: "2026-10-04", nexusVersion: "0.92.0" });
     if (!out.ok || out.resumed) throw new Error(JSON.stringify(out));
     return { entry: path.dirname(out.recordPath), comment: out.closeComment, wtPath: out.wtPath };
 }

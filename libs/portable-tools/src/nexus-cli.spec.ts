@@ -2004,7 +2004,7 @@ describe("nexus epic-verdicts — the ledger write, the coverage report and the 
         expect(code).toBe(1);
         expect(io.out).toEqual([]);
         expect(io.err.join("\n")).toContain("no longer exists");
-        expect(io.err.join("\n")).toContain("/nxs.close");
+        expect(io.err.join("\n")).toContain("nexus close --epic");
     });
 
     it("reports no coverage, and names close as the place that reports each story's state", async () => {
@@ -2013,7 +2013,7 @@ describe("nexus epic-verdicts — the ledger write, the coverage report and the 
         expect(io.out).toEqual([]);
         const err = io.err.join("\n");
         expect(err).toContain("no longer exists");
-        expect(err).toContain("/nxs.close");
+        expect(err).toContain("nexus close --epic");
         expect(err).toContain("nexus epic-verdicts ranges --epic");
     });
 
@@ -2129,15 +2129,18 @@ describe("nexus close (story #864)", () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["--help"], io)).toBe(0);
         const help = io.out.join("\n");
-        expect(help).toContain("nexus close --pr <N>");
+        expect(help).toContain("nexus close --epic <N>");
+        expect(help).toContain("nexus close --pr <ref>");
         expect(help).toMatch(/Closes an EPIC/);
         expect(help).toContain("--handoff");
     });
 
-    it("refuses to run without --pr and names the form that works", async () => {
+    it("prints the usage when it is given no epic, without claiming a pull request is unmerged (#906)", async () => {
         const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
         expect(await runNexusCli(["close"], io)).toBe(2);
-        expect(io.err.join("\n")).toContain("nexus close --pr <N>");
+        const err = io.err.join("\n");
+        expect(err).toContain("nexus close --epic <N>");
+        expect(err).not.toMatch(/runs only against a merged pull request/);
     });
 
     it("refuses an unknown option rather than ignoring it", async () => {
@@ -2165,6 +2168,82 @@ describe("nexus close (story #864)", () => {
         const io: CapturedIo = makeIo(dir);
         expect(await runNexusCli(["close", "--pr", "5"], io)).toBe(1);
         expect(io.err.join("\n")).toMatch(/remedy:/);
+    });
+});
+
+// Issue #906: close takes the epic. The command's behaviour is in close-command.spec.ts; here, the
+// argument forms the verb accepts and the refusal each malformed one gets.
+describe("nexus close — the argument forms (#906)", () => {
+    function memberCheckout(): string {
+        const repo: string = makeTmpDir("cli-close-forms-");
+        execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+        fs.mkdirSync(path.join(repo, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(repo, ".nexus", "config", "hub.yml"), "hub: acme/hub\n");
+        return repo;
+    }
+
+    // A member checkout stops at the role gate, the first step after parsing: reaching it proves
+    // the arguments were accepted, and its remedy shows how close names the run.
+    it.each([
+        [["--epic", "159"], "nexus close --epic 159"],
+        [["159"], "nexus close --epic 159"],
+        [["--pr", "5"], "nexus close --pr 5"],
+        [["--pr", "geo-nexus/giccp#704"], "nexus close --pr geo-nexus/giccp#704"],
+        [["--pr", "https://github.com/geo-nexus/giccp/pull/704"], "nexus close --pr geo-nexus/giccp#704"],
+        [["--epic", "159", "epic.md", "--handoff", "note.txt"], "nexus close --epic 159"],
+        [["159", "epic.md"], "nexus close --epic 159"],
+    ])("accepts %j", async (args, named) => {
+        const io: CapturedIo = makeIo(memberCheckout());
+        expect(await runNexusCli(["close", ...args], io)).toBe(1);
+        const err = io.err.join("\n");
+        expect(err).toMatch(/reason: .*member/);
+        expect(err).toContain(named);
+    });
+
+    it.each([
+        [["--pr", "geo-nexus/giccp"], ["--pr", "number, owner/repo#N or a pull-request URL", "geo-nexus/giccp"]],
+        [["--pr"], ["--pr", "number, owner/repo#N or a pull-request URL", "nothing"]],
+        [["--epic", "abc"], ["--epic", "issue number", "abc"]],
+        [["--epic", "0"], ["--epic", "issue number", "0"]],
+        [["--epic"], ["--epic", "issue number", "nothing"]],
+    ])("refuses the malformed value in %j, naming what it expected and what it got", async (args, named) => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", ...args], io)).toBe(2);
+        const err = io.err.join("\n");
+        for (const part of named) expect(err).toContain(part);
+        expect(err).not.toMatch(/runs only against a merged pull request/);
+    });
+
+    it.each([
+        [["--epic", "159", "--pr", "5"]],
+        [["159", "--epic", "160"]],
+        [["159", "--pr", "5"]],
+        [["159", "160"]],
+    ])("refuses two ways of naming the epic in %j", async (args) => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", ...args], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/one of/);
+    });
+
+    it("refuses two entry paths, naming both", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", "--epic", "159", "a.md", "b.md"], io)).toBe(2);
+        const err = io.err.join("\n");
+        expect(err).toMatch(/one entry path/);
+        expect(err).toContain("a.md");
+        expect(err).toContain("b.md");
+    });
+
+    it("refuses an entry path given alone, naming the forms that name the epic", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", ".nexus/queue/epic-90/epic.md"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/entry path does not name the epic/);
+    });
+
+    it("refuses --handoff with no path, naming the flag", async () => {
+        const io: CapturedIo = makeIo(makeTmpDir("cli-close-"));
+        expect(await runNexusCli(["close", "--epic", "159", "--handoff"], io)).toBe(2);
+        expect(io.err.join("\n")).toMatch(/--handoff takes the path/);
     });
 });
 

@@ -62,7 +62,7 @@ are recovering, so an explicit invocation is sufficient and bounded.
    #750, invariant 8). `found: false` is a pull request carrying no verdict, which leaves the close
    comment's verdict standing. Otherwise the close comment's verdict and the returned `receipt`
    must agree, and the returned one is the tie-breaker, because it is the surface
-   `/nxs.close --pr` itself read.
+   `nexus close` itself read.
 4. **The genuinely unrecoverable cases are named per-entry hard blocks**. Report them precisely,
    naming the entry and why it cannot be processed. Never treat them silently as "not yet
    closed", and never process them with fabricated or empty rationale:

@@ -1,7 +1,8 @@
 /**
- * /nxs.close without --pr can never pass the shipped-record gate (since epic #769) — every such
- * run does work and then stops. Story #815 makes it refuse at argument parsing instead, before it
- * resolves the epic or writes anything, and names /nxs.close --pr <N> as the path that works.
+ * /nxs.close without --pr could never pass the shipped-record gate (since epic #769) — every such
+ * run did work and then stopped. Story #815 made it refuse at argument parsing instead, before it
+ * resolves the epic or writes anything. Since #906 close takes the epic, so the refusal fires only
+ * when the arguments name neither an epic nor a pull request, and names nexus close --epic <N>.
  */
 
 import * as fs from "node:fs";
@@ -14,14 +15,14 @@ const CLOSE: string = fs.readFileSync(
     "utf8",
 );
 
-describe("/nxs.close refuses without --pr, up front (story #815)", () => {
+describe("/nxs.close refuses without an epic, up front (story #815, #906)", () => {
     it("refuses before resolving the epic, and names the working path", () => {
-        const refusal: number = CLOSE.indexOf("runs only against a pull request");
+        const refusal: number = CLOSE.indexOf("needs the epic to close");
         expect(refusal).toBeGreaterThan(-1);
         // Since story #869 the one step after the refusal is the relay to `nexus close`.
         expect(refusal).toBeLessThan(CLOSE.indexOf("nexus close $ARGUMENTS"));
         const block: string = CLOSE.slice(refusal, refusal + 400);
-        expect(block).toContain("/nxs.close --pr <N>");
+        expect(block).toContain("nexus close --epic <N>");
     });
 
     it("describes no resolution path or receipt source that runs without --pr", () => {

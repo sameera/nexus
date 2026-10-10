@@ -10,12 +10,14 @@
  *
  * The order follows the record's Mechanism:
  *
- *   1. Resolve, read-only (story #864). The checkout's role (a member is refused, G44), the pull
- *      request (it must have merged), the epic — from the entry path when one is given, else from
- *      the pull request's story and that story's parent — and the issues repository every issue
- *      read and write targets (G46). A trusted close comment already on the epic means an earlier
- *      run finished everything it carries: close then only closes the issue, writes the hand-off
- *      note and reports (G27).
+ *   1. Resolve, read-only (story #864). The checkout's role (a member is refused, G44), the issues
+ *      repository every issue read and write targets (G46), and the epic. The lead names the epic
+ *      (#906), or names a pull request that close resolves to it: the pull request must have
+ *      merged, and its epic comes from the entry path when one is given, else from the pull
+ *      request's story and that story's parent. No gate reads that pull request again. Whatever
+ *      names it, the epic must be filed as one. A trusted close comment already on the epic means
+ *      an earlier run finished everything it carries: close then only closes the issue, writes the
+ *      hand-off note and reports (G27).
  *   2. Gate, read-only (#864, #866). Every sub-issue closed, with no exemption (G43). #849's
  *      evidence gate over every live story, which reads waivers only from trusted comments already
  *      on the pull request (G5, G6). A story with no claiming pull request passes only with its
@@ -47,14 +49,15 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { resolveKindClassification } from "@nexus/epic-resolve/classify";
-import { fetchSubIssueFacts, resolveRepoSlug, type IssueFacts } from "@nexus/epic-resolve/gh";
+import { classifyIssueKind, resolveKindClassification, type IssueKind } from "@nexus/epic-resolve/classify";
+import { fetchIssueFacts, fetchSubIssueFacts, type IssueFacts } from "@nexus/epic-resolve/gh";
 import { renderDiagnostic as renderEpicResolveDiagnostic } from "@nexus/epic-resolve/render";
 import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve";
 import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { MAINTAINER_ASSOCIATIONS } from "@nexus/pr-acceptance/receipt-blocks";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverComment, type RejectedWaiver, type StorylessWaiverComment } from "@nexus/pr-acceptance/waiver";
+import { parsePrReference, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
@@ -90,12 +93,18 @@ import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
 import { type ResolveVerdictReposResult, resolveVerdictRepos } from "./verdict-repos.js";
 
+/**
+ * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
+ * only finds the epic; the gate and the close record are built from the epic's stories.
+ */
+export type CloseTarget = { epic: number } | { pr: ParsedPrReference };
+
 /** What the lead passed: the arguments `/nxs.close` takes (D1), plus today's date for the branch name. */
 export interface CloseInput {
     /** The directory the command was run in. */
     cwd: string;
-    pr: number;
-    /** An `epic.md` path, absolute, or null when the epic comes from the pull request. */
+    target: CloseTarget;
+    /** An `epic.md` path, absolute, or null when the target alone names the epic. */
     entryPath: string | null;
     /** Where the close-and-distill script wants its hand-off note, or null. */
     handoff: string | null;
@@ -142,12 +151,14 @@ export type CloseRangesRead =
 export interface CloseCommandDeps {
     /** The checkout's role, through close's own role gate. */
     role(cwd: string): PreflightResult;
-    /** The pull request, merged or not; the gate words the not-merged stop itself. */
-    readPr(repoRoot: string, pr: number): ResolvePrResult;
+    /** The pull request, merged or not, in the repository a qualified reference names; the gate words the not-merged stop itself. */
+    readPr(repoRoot: string, ref: ParsedPrReference): ResolvePrResult;
     /** The issues repository every issue read and write targets. */
     issuesRepo(root: string): ResolveVerdictReposResult;
-    /** The epic and the stories the pull request implements, through the validated candidate ladder. */
-    storiesOfPr(root: string, issuesRepo: string, pr: PrInfo): ResolveStoriesResult;
+    /** The epic and the stories the pull request implements, through the validated candidate ladder; `prRepo` is the repository it lives in. */
+    storiesOfPr(root: string, issuesRepo: string, pr: PrInfo, prRepo: string): ResolveStoriesResult;
+    /** What an issue is filed as, its parent, and whether the repository declares how it files issues. */
+    issueKind(root: string, issuesRepo: string, issue: number): { ok: true; exists: boolean; kind: IssueKind; parent: number | null; declared: boolean } | { ok: false; message: string };
     /** The epic: its live stories, its decision record and the materialized `epic.md`. */
     resolveEpic(root: string, issuesRepo: string, epic: number): ResolveEpicResult;
     /** Every sub-issue of the epic, whatever its kind, with its state. */
@@ -203,7 +214,6 @@ export interface ClosePassed {
     resumed: false;
     epic: number;
     issuesRepo: string;
-    pr: number;
     wtPath: string;
     branch: string;
     /** The close record written, committed and pushed in the worktree's queue entry. */
@@ -222,7 +232,6 @@ export interface CloseResumed {
     resumed: true;
     epic: number;
     issuesRepo: string;
-    pr: number;
     wtPath: string;
     branch: string;
     lines: string[];
@@ -263,10 +272,54 @@ export function linkedEpic(markdown: string): number | null {
     return ref?.number ?? null;
 }
 
+/** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff` when given. */
+function closeArgs(target: CloseTarget, input: Pick<CloseInput, "entryPath" | "handoff">): string {
+    const named = "epic" in target ? `--epic ${target.epic}` : `--pr ${prReference(target.pr)}`;
+    return [named, ...(input.entryPath === null ? [] : [shellWord(input.entryPath)]), ...(input.handoff === null ? [] : ["--handoff", shellWord(input.handoff)])].join(" ");
+}
+
+/** A path as one shell word, so a re-run hint copied as is passes it as one argument. */
+function shellWord(value: string): string {
+    return /^[\w./@%+=:,-]+$/.test(value) ? value : `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/** A parsed pull-request reference as `--pr` takes it back: `N`, or `owner/repo#N` when qualified. */
+function prReference(ref: ParsedPrReference): string {
+    return ref.repo === null ? `${ref.number}` : `${ref.repo}#${ref.number}`;
+}
+
+/** The merged pull requests an earlier close comment stamped, as a re-run reports them. */
+function stampedList(block: Record<string, unknown> | null): string {
+    if (block === null) return "not stamped";
+    const { prs, unnamed } = stampedPrs(block);
+    if (unnamed === 0) return mergedList(prs);
+    return `${prs.length === 0 ? "" : `${mergedList(prs)}, and `}${unnamed} stamped without its repository`;
+}
+
+/** The merged pull requests a close covers, as its report lists them. */
+function mergedList(prs: readonly { repo: string; pr: number }[]): string {
+    return prs.length === 0 ? "none" : `${prs.map((p) => `${p.repo}#${p.pr}`).join(", ")} (merged)`;
+}
+
+/** The epic an entry path's frontmatter links, or the stop that says why it names none. */
+function entryLink(entryPath: string): { ok: true; epic: number } | { ok: false; stop: CloseStop } {
+    let markdown: string;
+    try {
+        markdown = fs.readFileSync(entryPath, "utf8");
+    } catch (e) {
+        return { ok: false, stop: { reason: `the entry path cannot be read: ${e instanceof Error ? e.message : String(e)}`, item: entryPath, remedy: "pass the epic's epic.md, or omit the path" } };
+    }
+    const linked = linkedEpic(markdown);
+    if (linked === null) {
+        return { ok: false, stop: { reason: "the entry path's frontmatter has no link naming the epic issue", item: entryPath, remedy: 'add link: "#<epic>" to its frontmatter, or omit the path' } };
+    }
+    return { ok: true, epic: linked };
+}
+
 /** Run close through the close record and the amendment. Asks nothing; every outcome is returned. */
 export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): CloseOutcome {
-    const prRef = `#${input.pr}`;
-    const rerun = `nexus close --pr ${input.pr}`;
+    // Until the epic is known a re-run repeats what the lead ran; from then on it names the epic.
+    let rerun = `nexus close ${closeArgs(input.target, input)}`;
 
     // 1. Resolve, read-only.
     const role = deps.role(input.cwd);
@@ -282,62 +335,84 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         });
     }
 
-    const read = deps.readPr(repoRoot, input.pr);
-    if (!read.ok) {
-        return stopped({ reason: `pull request ${prRef} could not be read: ${read.error.message}`, item: `pull request ${prRef}`, remedy: `check the number, then re-run ${rerun}` });
-    }
-    const pr = read.pr;
-    if (!pr.merged) {
-        return stopped({
-            reason: `pull request ${prRef} is not merged (it is ${pr.state.toLowerCase()}); close runs only after the merge`,
-            item: `pull request ${prRef}`,
-            remedy: `merge it, then re-run ${rerun}`,
-        });
-    }
-
     const repos = deps.issuesRepo(repoRoot);
     if (!repos.ok) return stopped({ reason: repos.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` });
     const { issuesRepo, repo: codeRepo } = repos.repos;
 
+    const link = input.entryPath === null ? null : entryLink(input.entryPath);
+    if (link !== null && !link.ok) return stopped(link.stop);
+    const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
+
     let epic: number;
-    let entryRel: string | null = null;
-    if (input.entryPath !== null) {
-        let markdown: string;
-        try {
-            markdown = fs.readFileSync(input.entryPath, "utf8");
-        } catch (e) {
+    if ("epic" in input.target) {
+        epic = input.target.epic;
+        if (link !== null && link.epic !== epic) {
             return stopped({
-                reason: `the entry path cannot be read: ${e instanceof Error ? e.message : String(e)}`,
-                item: input.entryPath,
-                remedy: `pass the epic's epic.md, or omit the path so close resolves the epic from pull request ${prRef}`,
+                reason: `the entry path's link names epic ${issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close was given`,
+                item: input.entryPath ?? "",
+                remedy: `pass the epic.md of epic ${issuesRepo}#${epic}, or omit the path`,
             });
         }
-        const linked = linkedEpic(markdown);
-        if (linked === null) {
-            return stopped({
-                reason: "the entry path's frontmatter has no link naming the epic issue",
-                item: input.entryPath,
-                remedy: `add link: "#<epic>" to its frontmatter, or omit the path so close resolves the epic from pull request ${prRef}`,
-            });
-        }
-        epic = linked;
-        entryRel = path.relative(repoRoot, path.resolve(input.entryPath));
     } else {
-        const stories = deps.storiesOfPr(repoRoot, issuesRepo, pr);
-        if (!stories.ok) {
-            const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
-            return stopped({
-                reason: ambiguous ? `pull request ${prRef} does not name one epic: ${stories.error.message}` : `the epic of pull request ${prRef} cannot be resolved: ${stories.error.message}`,
-                item: `pull request ${prRef}`,
-                remedy:
-                    `name the epic with its entry path: nexus close --pr ${input.pr} <path to the epic's epic.md> ` +
-                    `(nexus epic-resolve --epic <epic> --out <path> writes one)` +
-                    (ambiguous ? "" : `, or have the pull request close its story issue`),
-            });
+        // A pull request only finds the epic. One that has not merged is the cheap early answer for
+        // a lead who ran close too soon.
+        const ref = input.target.pr;
+        const read = deps.readPr(repoRoot, ref);
+        if (!read.ok) {
+            const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${ref.repo}#${ref.number}`;
+            return stopped({ reason: `${asked} could not be read: ${read.error.message}`, item: asked, remedy: `check the reference, then re-run ${rerun}` });
         }
-        epic = stories.epic;
+        // The repository it was read in, which in a fork checkout can differ from the checkout's
+        // default: the platform's URL for it says which.
+        const pr = { repo: parsePrReference(read.pr.url)?.repo ?? ref.repo ?? codeRepo, pr: ref.number };
+        const label = `pull request ${pr.repo}#${pr.pr}`;
+        if (!read.pr.merged) {
+            return stopped({ reason: `${label} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: label, remedy: `merge it, then re-run ${rerun}` });
+        }
+        if (link !== null) {
+            epic = link.epic;
+        } else {
+            const stories = deps.storiesOfPr(repoRoot, issuesRepo, read.pr, pr.repo);
+            if (!stories.ok) {
+                const ambiguous = stories.error.problem === "story-candidates-multiple-epics";
+                return stopped({
+                    reason: ambiguous ? `${label} does not name one epic: ${stories.error.message}` : `the epic of ${label} cannot be resolved: ${stories.error.message}`,
+                    item: label,
+                    remedy: `name the epic instead: nexus close --epic <N>` + (ambiguous ? "" : `, or have the pull request close its story issue`),
+                });
+            }
+            epic = stories.epic;
+        }
     }
+    rerun = `nexus close ${closeArgs({ epic }, input)}`;
     const epicRef = `${issuesRepo}#${epic}`;
+
+    // Whatever named it — the lead, an entry path's link or a story's parent — the epic must be filed
+    // as one, checked before anything (even the re-run shortcut below) can close it. This is stricter
+    // than resolveEpic's fallback on purpose: close closes the issue, so in a repository that declares
+    // how it files issues an unmarked top-level issue (a bug, an initiative) is refused. Only a
+    // repository that declares nothing has no other way to mark an epic, and keeps that fallback.
+    const kind = deps.issueKind(repoRoot, issuesRepo, epic);
+    if (!kind.ok) {
+        return stopped({ reason: `what ${epicRef} is filed as could not be read, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
+    }
+    if (!kind.exists || !(kind.kind === "epic" || (kind.kind === "other" && kind.parent === null && !kind.declared))) {
+        const source = "epic" in input.target ? "typed" : link !== null ? "link" : "pr";
+        const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
+        const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
+        const prHint = source === "typed" && !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}` : "";
+        const unmarked = kind.exists && kind.kind === "other" ? `; if ${epicRef} is an epic, file it as one (its epic label or issue type), then re-run ${rerun}` : "";
+        return stopped({
+            reason: `${epicRef}${source === "link" ? ", which the entry path's link names," : ""} ${is}${parent}; close closes only an issue filed as an epic`,
+            item: source === "link" ? (input.entryPath ?? "") : `issue ${epicRef}`,
+            remedy:
+                (source === "link"
+                    ? "fix the link in the entry path's frontmatter to name the epic, or omit the path"
+                    : source === "pr"
+                      ? "name the epic instead: nexus close --epic <N>"
+                      : `pass the epic's own issue number: nexus close --epic <N>${prHint}`) + unmarked,
+        });
+    }
 
     // Find before write: a trusted close comment on the epic is the durable copy an earlier run
     // posted, so that run finished every write before it. Regenerate nothing (G27).
@@ -433,6 +508,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             }
         }
 
+        // The pull request close was given only found the epic. If it claims none of the epic's
+        // stories, it found the wrong one: a stray number in a commit or a branch name can do that.
         if (stops.length === 0) {
             const heads = gate.range.filter((r) => sameRepo(r.repo, codeRepo)).map((r) => ({ pr: r.pr, head: r.head }));
             const trunk = deps.trunkCheck(repoRoot, heads);
@@ -574,7 +651,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         "",
         `nexus close: epic ${epicRef} passed every gate and is closed.`,
         "",
-        `Pull request:      ${codeRepo}#${input.pr} (merged)`,
+        `Pull requests:     ${mergedList(passed.merged)}`,
         `Issues repository: ${issuesRepo}`,
         `Stories:           ${passed.states.map((s) => `${issuesRepo}#${s.story} ${s.state}`).join(", ") || "none"}`,
         ...passed.waivers.map(
@@ -610,7 +687,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         ...amendment.byHand,
         ...nextLines(input.handoff, wt.wtPath),
     ];
-    return { ok: true, resumed: false, epic, issuesRepo, pr: input.pr, wtPath: wt.wtPath, branch: wt.branch, recordPath, closeComment, content, stubs, lines };
+    return { ok: true, resumed: false, epic, issuesRepo, wtPath: wt.wtPath, branch: wt.branch, recordPath, closeComment, content, stubs, lines };
 }
 
 /**
@@ -636,8 +713,9 @@ function finishClosed(
     }
     const wt = deps.openWorktree(at.repoRoot, at.epic, input.date);
     if (!wt.ok) return stopped({ reason: wt.error.message, item: at.repoRoot, remedy: `re-run ${at.rerun} once the cause above is fixed` });
+    const block = machineBlock(at.closeComment);
     // The one write an earlier run can leave undone after its close comment: the amendment (G26, G28).
-    const amendment = amendOnRerun(deps, input, at);
+    const amendment = amendOnRerun(deps, input, at, block);
     const closedIssue = deps.closeIssue(at.repoRoot, at.issuesRepo, at.epic);
     if (!closedIssue.ok) return stopped({ reason: `epic ${epicRef} could not be closed: ${closedIssue.message}`, item: `epic ${epicRef}`, remedy: `re-run ${at.rerun}` });
     const note = writeHandoff(input.handoff, at.epic, wt.branch, wt.wtPath);
@@ -647,7 +725,7 @@ function finishClosed(
         "",
         `nexus close: epic ${epicRef} already carries its close comment from an earlier run; nothing was regenerated or reposted.`,
         "",
-        `Pull request:      ${at.codeRepo}#${input.pr} (merged)`,
+        `Pull requests:     ${stampedList(block)}`,
         `Issues repository: ${at.issuesRepo}`,
         `Distill branch:    ${wt.branch} (reused from an earlier run${wt.source === "pushed" ? "'s push" : ""})`,
         `Worktree:          ${wt.wtPath}`,
@@ -657,7 +735,7 @@ function finishClosed(
         ...(amendment === null ? [] : amendment.byHand),
         ...nextLines(input.handoff, wt.wtPath),
     ];
-    return { ok: true, resumed: true, epic: at.epic, issuesRepo: at.issuesRepo, pr: input.pr, wtPath: wt.wtPath, branch: wt.branch, lines };
+    return { ok: true, resumed: true, epic: at.epic, issuesRepo: at.issuesRepo, wtPath: wt.wtPath, branch: wt.branch, lines };
 }
 
 /**
@@ -671,8 +749,8 @@ function amendOnRerun(
     deps: CloseCommandDeps,
     input: CloseInput,
     at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; closeComment: string },
+    block: Record<string, unknown> | null,
 ): { record: string; line: string; byHand: string[] } | null {
-    const block = machineBlock(at.closeComment);
     const record = block === null ? null : recordNumber(block["record"]);
     if (block === null || record === null) return null;
     const recordRef = `${at.issuesRepo}#${record}`;
@@ -971,30 +1049,44 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
     return { stdout: [], stderr: err, exitCode: 1 };
 }
 
+/** The issues repository, `owner/repo` (or `host/owner/repo`), as the slug the epic-resolve reads take. */
+function issuesSlug(issuesRepo: string): { owner: string; repo: string } {
+    const slash = issuesRepo.lastIndexOf("/");
+    return { owner: issuesRepo.slice(0, slash).split("/").pop() ?? "", repo: issuesRepo.slice(slash + 1) };
+}
+
 /** The platform-backed reads, against the checkout at `root`. */
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
     return {
         role: (cwd) => closePreflight(cwd, run),
-        readPr: (repoRoot, pr) => resolvePr(run, repoRoot, pr, { requireMerged: false }),
+        readPr: (repoRoot, ref) => resolvePr(run, repoRoot, ref.number, { requireMerged: false, ...(ref.repo === null ? {} : { repo: ref.repo }) }),
         issuesRepo: (root) => resolveVerdictRepos(run, root),
-        storiesOfPr: (root, issuesRepo, pr) => {
+        storiesOfPr: (root, issuesRepo, pr, prRepo) => {
             const kinds = resolveKindClassification(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };
-            const prSlug = resolveRepoSlug(run, root);
-            const slash = issuesRepo.lastIndexOf("/");
-            const slug = { owner: issuesRepo.slice(0, slash).split("/").pop() ?? "", repo: issuesRepo.slice(slash + 1) };
+            const slug = issuesSlug(issuesRepo);
             return resolveStories(run, root, slug, kinds.classification, {
-                prRepo: prSlug.ok ? `${prSlug.slug.owner}/${prSlug.slug.repo}` : undefined,
+                prRepo,
                 closingIssues: pr.closingIssues,
                 commitMessages: pr.commitMessages,
                 branchName: pr.headRef,
                 prBody: pr.body,
             });
         },
+        issueKind: (root, issuesRepo, issue) => {
+            const kinds = resolveKindClassification(root);
+            if (!kinds.ok) return { ok: false, message: kinds.error.message };
+            const slug = issuesSlug(issuesRepo);
+            const facts = fetchIssueFacts(run, root, slug, issue);
+            if (!facts.ok) return { ok: false, message: facts.error.message };
+            const declared = kinds.classification.mode !== "legacy-auto";
+            if (!facts.facts.exists) return { ok: true, exists: false, kind: "other", parent: null, declared };
+            const kind = classifyIssueKind(kinds.classification, { number: issue, labels: facts.facts.labels, issueType: facts.facts.issueType });
+            return kind.ok ? { ok: true, exists: true, kind: kind.kind, parent: facts.facts.parent, declared } : { ok: false, message: kind.error.message };
+        },
         resolveEpic: (root, issuesRepo, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
         subIssues: (root, issuesRepo, epic) => {
-            const slash = issuesRepo.lastIndexOf("/");
-            const slug = { owner: issuesRepo.slice(0, slash).split("/").pop() ?? "", repo: issuesRepo.slice(slash + 1) };
+            const slug = issuesSlug(issuesRepo);
             const r = fetchSubIssueFacts(run, root, slug, epic);
             return r.ok ? { ok: true, facts: r.facts } : { ok: false, message: r.error.message };
         },

@@ -159,6 +159,7 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
         readPr: () => ({ ok: true, pr: prInfo() }),
         issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: ISSUES } }),
         storiesOfPr: () => ({ ok: true, epic: EPIC, stories: [864] }),
+        issueKind: (_root, _repo, issue) => ({ ok: true, exists: true, kind: issue === EPIC ? "epic" : "story", parent: issue === EPIC ? null : EPIC, declared: true }),
         resolveEpic: () => ({
             ok: true,
             markdown: EPIC_MD,
@@ -220,8 +221,14 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
     return h;
 }
 
+/** `nexus close --epic <EPIC>` unless a spec names another target. */
 function input(h: Harness, over: Partial<CloseInput> = {}): CloseInput {
-    return { cwd: h.repoRoot, pr: PR, entryPath: null, handoff: null, date: "2026-10-04", ...over };
+    return { cwd: h.repoRoot, target: { epic: EPIC }, entryPath: null, handoff: null, date: "2026-10-04", ...over };
+}
+
+/** `nexus close --pr <ref>`: a bare number unless a repository is named. */
+function viaPr(number: number = PR, repo: string | null = null): Pick<CloseInput, "target"> {
+    return { target: { pr: { repo, number } } };
 }
 
 function text(lines: string[]): string {
@@ -343,7 +350,7 @@ describe("nexus close — an epic with no committed queue entry (AC4, G45)", () 
             asked = true;
             return { ok: true, epic: 1, stories: [] };
         };
-        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { entryPath: path.join(h.repoRoot, rel) })));
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: path.join(h.repoRoot, rel) })));
         expect(rendered.exitCode).toBe(0);
         expect(asked).toBe(false);
         expect(text(rendered.stdout)).toContain(path.join(h.wtPath, ".nexus", "queue", "old-entry"));
@@ -392,7 +399,7 @@ describe("nexus close — resolve stops (AC2, G5, G44)", () => {
 
     it("refuses a pull request that has not merged", () => {
         const h = harness({ readPr: () => ({ ok: true, pr: prInfo({ state: "OPEN", merged: false, mergeCommitOid: null }) }) });
-        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, viaPr())));
         expect(err).toContain(`#${PR}`);
         expect(err).toMatch(/not merged/);
         expect(err).toMatch(/merge it/i);
@@ -402,9 +409,9 @@ describe("nexus close — resolve stops (AC2, G5, G44)", () => {
         const h = harness({
             storiesOfPr: () => ({ ok: false, error: { problem: "story-candidates-multiple-epics", message: "surviving candidates resolve to more than one epic: #1 → epic #2, #3 → epic #4." } }),
         });
-        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, viaPr())));
         expect(err).toMatch(/more than one epic/);
-        expect(err).toContain(`nexus close --pr ${PR} <path`);
+        expect(err).toContain("nexus close --epic <N>");
     });
 
     it("stops when the entry path names no epic issue", () => {
@@ -414,6 +421,233 @@ describe("nexus close — resolve stops (AC2, G5, G44)", () => {
         const err = expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: bad })));
         expect(err).toContain(bad);
         expect(err).toMatch(/link/);
+    });
+});
+
+// Issue #906: close takes the epic. `--pr` stays as a shortcut that resolves the pull request to
+// its epic, then runs exactly as `--epic` does.
+describe("nexus close — keyed by the epic (#906)", () => {
+    it("closes the epic it is given without reading any single pull request", () => {
+        const h = harness({
+            readPr: () => {
+                throw new Error("--epic reads no pull request");
+            },
+            storiesOfPr: () => {
+                throw new Error("--epic resolves no epic from a pull request");
+            },
+        });
+        const { stdout } = closed(h);
+        expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
+    });
+
+    it("reports every merged pull request the close covers, not one", () => {
+        const PR2 = 902;
+        const h = harness({
+            ranges: () => ({
+                ok: true,
+                untrusted: [],
+                ranges: ranges({
+                    range: [
+                        { repo: ISSUES, pr: PR, base: "b".repeat(40), head: "m".repeat(40) },
+                        { repo: "acme/member", pr: PR2, base: "c".repeat(40), head: "n".repeat(40) },
+                    ],
+                }),
+            }),
+        });
+        const { stdout } = closed(h);
+        expect(stdout).toMatch(new RegExp(`Pull requests:.*${ISSUES}#${PR}.*acme/member#${PR2}`));
+    });
+
+    it("stops, creating nothing, when the number it is given is a story, and names its parent", () => {
+        const h = harness();
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 864 } })));
+        expect(err).toMatch(/reason: .*#864.*story/);
+        expect(err).toMatch(new RegExp(`reason: .*parent.*${ISSUES}#${EPIC}`));
+        // Re-running the same command can never pass, so the remedy names the form to fix it with.
+        expect(err).toMatch(/remedy: .*nexus close --epic <N>/);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("stops, creating nothing, on a top-level issue not filed as an epic, or one that does not exist", () => {
+        for (const kind of [{ ok: true, exists: true, kind: "other", parent: null, declared: true }, { ok: true, exists: false, kind: "other", parent: null, declared: true }] as const) {
+            const h = harness({ issueKind: () => kind });
+            const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 50 } })));
+            expect(err).toMatch(kind.exists ? /reason: .*#50 .*not filed as an epic/ : /reason: .*#50 does not exist/);
+            expect(h.writes).toEqual([]);
+        }
+    });
+
+    it("suggests --pr when the number it is given names no issue, since it may be a pull request", () => {
+        const h = harness({ issueKind: () => ({ ok: true, exists: false, kind: "other", parent: null, declared: true }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 905 } })));
+        expect(err).toMatch(/remedy: .*nexus close --pr 905/);
+    });
+
+    it("closes an unmarked top-level epic in a repository that declares no classification, as resolving an epic there does", () => {
+        const h = harness({ issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null, declared: false }) });
+        const { stdout } = closed(h);
+        expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
+    });
+
+    it("stops when the epic a pull request led to is not filed as an epic", () => {
+        const h = harness({ issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null, declared: true }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, viaPr())));
+        expect(err).toMatch(new RegExp(`reason: .*${ISSUES}#${EPIC} .*not filed as an epic`));
+        expect(err).toMatch(/remedy: .*nexus close --epic <N>/);
+        // An older epic filed before its repository labelled epics has a way through.
+        expect(err).toMatch(/remedy: .*file it as one/);
+    });
+
+    it("closes an epic filed as one that has no sub-issues", () => {
+        const h = harness({ subIssues: () => ({ ok: true, facts: new Map() }) });
+        const resolve = h.deps.resolveEpic;
+        h.deps.resolveEpic = (root, repo, epic) => {
+            const r = resolve(root, repo, epic);
+            return r.ok ? { ...r, record: null, resolved: { ...r.resolved, stories: [] } } : r;
+        };
+        h.deps.ranges = () => ({ ok: true, untrusted: [], ranges: ranges({ stories: [], states: [], range: [], merged: [] }) });
+        const { stdout } = closed(h);
+        expect(stdout).toContain("no sub-issues");
+    });
+
+    it("checks the number it is given is an epic before it finishes an earlier close", () => {
+        const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#864"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({
+            issueComments: () => ({ ok: true, comments: [earlier] }),
+            findDistillBranch: () => ({ ok: true, branch: "distill/2026-10-03-epic-864", source: "local" }),
+        });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 864 } })));
+        expect(err).toContain("not an epic");
+        expect(h.writes).toEqual([]);
+    });
+
+    it("stops, creating nothing, when what the number is filed as cannot be read, even with an earlier close comment", () => {
+        const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({
+            issueKind: () => ({ ok: false, message: "HTTP 502" }),
+            issueComments: () => ({ ok: true, comments: [earlier] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain("HTTP 502");
+        expect(err).toContain(`re-run nexus close --epic ${EPIC}`);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("names the entry path's link as what to fix when it names an issue that is not an epic", () => {
+        const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#864"\n---\n`);
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: entry })));
+        expect(err).toMatch(/reason: .*entry path's link/);
+        expect(err).toContain(`item:   ${entry}`);
+        expect(err).toMatch(/remedy: .*link in the entry path's frontmatter/);
+    });
+
+    it("on a re-run, reports a stamped pull request that names no repository rather than claiming none", () => {
+        const mixed = {
+            body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nrange:\n  - { repo: ${ISSUES}, pr: ${PR + 1} }\n  - { pr: ${PR} }\n\`\`\``,
+            authorAssociation: "OWNER",
+        };
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [mixed] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(0);
+        expect(text(rendered.stdout)).toMatch(new RegExp(`Pull requests:.*${ISSUES}#${PR + 1}.*1 stamped without its repository`));
+    });
+
+    it("on a re-run with --pr, finishes the earlier close", () => {
+        const unstamped = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [unstamped] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        expect(renderCloseOutcome(runCloseCommand(h.deps, input(h, viaPr()))).exitCode).toBe(0);
+        expect(h.writes).toEqual([`close #${EPIC}`]);
+    });
+
+    it("keeps --handoff in the re-run hint, so a copied hint still writes the hand-off note", () => {
+        const h = harness({ subIssues: () => ({ ok: true, facts: new Map([[864, facts("OPEN")], [865, facts("CLOSED")], [RECORD, facts("CLOSED")]]) }) });
+        const note = path.join(h.repoRoot, "handoff.txt");
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), handoff: note })));
+        expect(err).toContain(`nexus close --epic ${EPIC} --handoff ${note}`);
+    });
+
+    it("quotes an entry path in the re-run hint so it stays one argument", () => {
+        const h = harness({ subIssues: () => ({ ok: true, facts: new Map([[864, facts("OPEN")], [865, facts("CLOSED")], [RECORD, facts("CLOSED")]]) }) });
+        const dir = path.join(h.repoRoot, "My Repo");
+        fs.mkdirSync(dir);
+        const entry = path.join(dir, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\n---\n`);
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })));
+        expect(err).toContain(`nexus close --epic ${EPIC} '${entry}'`);
+    });
+
+    it("stops when the entry path names a different epic than the one given", () => {
+        const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC + 1}"\n---\n`);
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })));
+        expect(err).toContain(`#${EPIC + 1}`);
+        expect(err).toContain(`#${EPIC}`);
+        expect(err).toContain(entry);
+    });
+
+    it("reads a repository-qualified pull request in the repository it names, and resolves its epic there", () => {
+        const readFrom: (string | null)[] = [];
+        const ladderRepo: string[] = [];
+        const h = harness({
+            readPr: (_root, ref) => {
+                readFrom.push(ref.repo);
+                return { ok: true, pr: prInfo({ number: ref.number, url: `https://github.com/${ref.repo}/pull/${ref.number}` }) };
+            },
+            storiesOfPr: (_root, _issues, _pr, prRepo) => {
+                ladderRepo.push(prRepo);
+                return { ok: true, epic: EPIC, stories: [864] };
+            },
+            ranges: () => ({ ok: true, untrusted: [], ranges: ranges({ range: [{ repo: "acme/member", pr: 704, base: "b".repeat(40), head: "m".repeat(40) }] }) }),
+        });
+        const { stdout } = closed(h, viaPr(704, "acme/member"));
+        expect(readFrom).toEqual(["acme/member"]);
+        expect(ladderRepo).toEqual(["acme/member"]);
+        expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
+    });
+
+    it("takes a bare pull request's repository from the pull request it read, not the checkout's default", () => {
+        // A fork checkout: the checkout's default repository is the fork, the pull request was read
+        // in the repository the canonical remote names.
+        const ladderRepo: string[] = [];
+        const h = harness({
+            issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: "dev/fork" } }),
+            readPr: () => ({ ok: true, pr: prInfo({ url: `https://github.com/acme/code/pull/${PR}` }) }),
+            storiesOfPr: (_root, _issues, _pr, prRepo) => {
+                ladderRepo.push(prRepo);
+                return { ok: true, epic: EPIC, stories: [864] };
+            },
+            ranges: () => ({ ok: true, untrusted: [], ranges: ranges({ range: [{ repo: "acme/code", pr: PR, base: "b".repeat(40), head: "m".repeat(40) }] }) }),
+        });
+        closed(h, viaPr());
+        expect(ladderRepo).toEqual(["acme/code"]);
+    });
+
+    it("names what the lead ran in a stop before the epic is known, and the epic in every stop after", () => {
+        const unreadable = harness({ readPr: () => ({ ok: false, error: { problem: "pr-not-found", message: "no such pull request" } }) });
+        expect(expectStop(unreadable, runCloseCommand(unreadable.deps, input(unreadable, viaPr(704, "acme/member"))))).toContain("nexus close --pr acme/member#704");
+
+        const openStory = harness({ subIssues: () => ({ ok: true, facts: new Map([[864, facts("OPEN")], [865, facts("CLOSED")], [RECORD, facts("CLOSED")]]) }) });
+        const err = expectStop(openStory, runCloseCommand(openStory.deps, input(openStory, viaPr(704, "acme/member"))));
+        expect(err).toContain(`nexus close --epic ${EPIC}`);
+        expect(err).not.toContain("--pr");
+    });
+
+    it("keeps the entry path in the re-run hint when one was given", () => {
+        const h = harness({ subIssues: () => ({ ok: true, facts: new Map([[864, facts("OPEN")], [865, facts("CLOSED")], [RECORD, facts("CLOSED")]]) }) });
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "#${EPIC}"\n---\n`);
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })));
+        expect(err).toContain(`nexus close --epic ${EPIC} ${entry}`);
     });
 });
 
@@ -1026,8 +1260,8 @@ describe("the close record keeps today's shape for distill (story #865, AC2, D4,
             subIssues: () => ({ ok: true, facts: new Map([[864, facts("CLOSED")], [865, facts("CLOSED")]]) }),
         });
         const resolveEpic = h.deps.resolveEpic;
-        h.deps.resolveEpic = (root, epic) => {
-            const r = resolveEpic(root, epic);
+        h.deps.resolveEpic = (root, repo, epic) => {
+            const r = resolveEpic(root, repo, epic);
             return r.ok ? { ...r, record: null } : r;
         };
         const { record, comment } = closed(h);
@@ -1439,7 +1673,7 @@ describe("approved deferred scope is filed as unplanned epic stubs (story #866, 
         const err = text(rendered.stderr);
         expect(err).toContain("HTTP 502");
         expect(err).toContain(`${ISSUES}#1000`);
-        expect(err).toContain(`nexus close --pr ${PR}`);
+        expect(err).toContain(`nexus close --epic ${EPIC}`);
         expect(err).not.toContain("Nothing was created");
         expect(h.commits).toEqual([]);
         expect(h.posted).toEqual([]);
@@ -1614,7 +1848,7 @@ describe("a failed write stops close where a re-run can finish it (story #866, A
         const err = text(rendered.stderr);
         expect(err).toContain("permission denied");
         expect(err).toMatch(/stays open/);
-        expect(err).toContain(`nexus close --pr ${PR}`);
+        expect(err).toContain(`nexus close --epic ${EPIC}`);
         expect(h.posted).toEqual([]);
         expect(h.writes).not.toContain(`close #${EPIC}`);
         expect(fs.existsSync(note)).toBe(false);
@@ -1628,7 +1862,7 @@ describe("a failed write stops close where a re-run can finish it (story #866, A
         const err = text(rendered.stderr);
         expect(err).toMatch(/close comment did not post/);
         expect(err).toMatch(/stays open/);
-        expect(err).toMatch(new RegExp(`remedy: re-run nexus close --pr ${PR}.*posts it`));
+        expect(err).toMatch(new RegExp(`remedy: re-run nexus close --epic ${EPIC}.*posts it`));
         expect(err).toMatch(/committed and pushed the close record/);
         expect(h.writes).not.toContain(`close #${EPIC}`);
         expect(fs.existsSync(note)).toBe(false);
@@ -1696,6 +1930,21 @@ describe("once the close comment exists, a re-run regenerates nothing (story #86
         expect(h.writes).toEqual([`close #${EPIC}`]);
         expect(fs.readFileSync(note, "utf8")).toBe(`epic: ${EPIC}\nbranch: distill/2026-10-03-epic-${EPIC}\nworktree: ${h.wtPath}\n`);
         expect(text(rendered.stdout)).toMatch(/nothing was regenerated or reposted/);
+    });
+
+    it("reports the merged pull requests the earlier run's close comment stamped (#906)", () => {
+        const stamped = {
+            body: `## Close Record\n\n<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nrange:\n  - { repo: ${ISSUES}, pr: ${PR} }\n  - { repo: acme/member, pr: 704 }\n\`\`\``,
+            authorAssociation: "OWNER",
+        };
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [stamped] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+            openWorktree: () => ({ ok: true, wtPath: h.wtPath, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const rendered = renderCloseOutcome(runCloseCommand(h.deps, input(h)));
+        expect(rendered.exitCode).toBe(0);
+        expect(text(rendered.stdout)).toMatch(new RegExp(`Pull requests:.*${ISSUES}#${PR}.*acme/member#704`));
     });
 
     it("handles the epic issue already being closed (G49)", () => {
@@ -1861,6 +2110,20 @@ describe("nexus close — the back-references, the epic close, the marker and th
         };
     }
     const deps = (run: Runner) => closeCommandDeps(run, { singleRepo: () => true });
+
+    it("reads what an issue is filed as, and its parent, in the issues repository (#906)", () => {
+        const root = makeDir();
+        fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });
+        fs.writeFileSync(path.join(root, ".nexus", "config", "settings.yml"), "github:\n  classification: labels\n  project: none\n");
+        const issue = (doc: unknown) => recorder(() => ({ status: 0, stdout: JSON.stringify({ data: { repository: { issue: doc } } }), stderr: "" }));
+
+        const story = issue({ parent: { number: EPIC }, labels: { nodes: [{ name: "story" }] }, state: "OPEN" });
+        expect(deps(story.run).issueKind(root, "acme/issues", 864)).toEqual({ ok: true, exists: true, kind: "story", parent: EPIC, declared: true });
+        expect(story.calls[0]).toEqual(expect.arrayContaining(["owner=acme", "repo=issues", "num=864"]));
+        expect(deps(issue({ labels: { nodes: [{ name: "epic" }] }, state: "OPEN" }).run).issueKind(root, "acme/issues", EPIC)).toEqual({ ok: true, exists: true, kind: "epic", parent: null, declared: true });
+        expect(deps(issue(null).run).issueKind(root, "acme/issues", 50)).toEqual({ ok: true, exists: false, kind: "other", parent: null, declared: true });
+        expect(deps(recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 502" })).run).issueKind(root, "acme/issues", 50).ok).toBe(false);
+    });
 
     it("lists the issues that mention the epic from its timeline's cross-references, never search, with each one's trust", () => {
         const lines = [

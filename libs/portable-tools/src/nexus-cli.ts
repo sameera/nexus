@@ -28,7 +28,7 @@ import * as readline from "node:readline";
 import { resolveAbsDocPath } from "@nexus/abs-doc-path/resolve";
 import { defaultRunner as closeMigrationRunner, git } from "@nexus/workspace/run";
 import { closePreflight } from "@nexus/workspace/close-role";
-import { closeCommandDeps, renderCloseOutcome, runCloseCommand } from "@nexus/epic-verdicts/close-command";
+import { closeCommandDeps, renderCloseOutcome, runCloseCommand, type CloseTarget } from "@nexus/epic-verdicts/close-command";
 import { closeRecoveryDeps, runCloseRecovery } from "@nexus/epic-verdicts/close-recovery";
 import { relocateQueue, renderRelocateFailure, renderRelocateOutcome } from "./queue-relocate.js";
 import { resolveKindClassification } from "@nexus/epic-resolve/classify";
@@ -607,19 +607,25 @@ const REGISTRY: Record<string, VerbEntry> = {
         run: runCloseMigration,
     },
     close: {
-        summary: "Close an epic over its merged pull request, as a plain command that asks nothing.",
+        summary: "Close an epic over its merged pull requests, as a plain command that asks nothing.",
         usage: [
-            "  nexus close --pr <N> [<path to epic.md>] [--handoff <path>]",
-            "      Closes an EPIC (not a worktree or a pull request): the epic of merged pull request <N>.",
-            "      Runs no model and asks no question. Every gate runs before anything is created: the",
-            "      checkout is a single repository or a hub, the pull request merged, the epic is one",
-            "      epic, every sub-issue is closed, every story is current with waivers read only from",
-            "      trusted comments already on the pull request, and each merged pull request's verdict",
+            "  nexus close --epic <N> [<path to epic.md>] [--handoff <path>]",
+            "  nexus close <N> [<path to epic.md>] [--handoff <path>]",
+            "  nexus close --pr <ref> [<path to epic.md>] [--handoff <path>]",
+            "      Closes an EPIC (not a worktree or a pull request): epic <N>, or with --pr the epic of",
+            "      merged pull request <ref> (a number, owner/repo#N or a pull-request URL; a qualified",
+            "      reference is read in the repository it names). The gate and the close record come",
+            "      from the epic's stories and the pull requests that claim them, in whatever repository",
+            "      each merged; --pr only finds the epic, and stops early when that pull request has not",
+            "      merged. Runs no model and asks no question. Every gate runs before anything is",
+            "      created: the checkout is a single repository or a hub, the number is an epic, every",
+            "      sub-issue is closed, every story is current with waivers read only from trusted",
+            "      comments already on its pull requests, and each merged pull request's verdict",
             "      has no open critical or high item and carries its judgments. A failing gate prints one",
             "      block per stop naming the reason, the item and the remedy (a waiver stop prints the",
             "      comment to post) and exits 1. Then it reuses the distill branch an earlier run cut for",
             "      the epic, or cuts one from the trunk, and finds or creates the epic's queue entry.",
-            "      The entry path names the epic when the pull request does not name exactly one.",
+            "      An entry path must link the same epic; with --pr it names the epic directly.",
             "      A story no pull request claims passes on its marker, or on a trusted storyless waiver",
             "      comment on its own issue (a stop prints the exact form). Then, in this order, it files",
             "      each approved deferred-scope proposal as an unplanned epic stub, writes the marker on",
@@ -1547,9 +1553,9 @@ const RETIRED_EPIC_VERDICTS_SUBVERBS: Record<string, string> = {
     // ledger, close no longer requires it, and analyze reports no coverage of its own. Records an
     // epic in flight already carries are still read, by `ranges` and by analyze's aggregate mode.
     record:
-        "Analyze no longer writes a shipped record to the epic issue (epic #828). `/nxs.close --pr <N>` derives each story's range itself; records already on an epic issue are still read.",
+        "Analyze no longer writes a shipped record to the epic issue (epic #828). `nexus close --epic <N>` derives each story's range itself; records already on an epic issue are still read.",
     coverage:
-        "Analyze no longer reports what an epic has shipped (epic #828). `/nxs.close --pr <N>` reports each story's state — current, stale, never-reviewed, unshipped, unknown or excluded — through `nexus epic-verdicts ranges --epic <N>`.",
+        "Analyze no longer reports what an epic has shipped (epic #828). `nexus close --epic <N>` reports each story's state — current, stale, never-reviewed, unshipped, unknown or excluded — through `nexus epic-verdicts ranges --epic <N>`.",
     "close-gate":
         "Close no longer requires a shipped record for every story (epic #828). Its gate is `nexus epic-verdicts ranges --epic <N>`, which still reads a record's stamped range and still blocks on a recorded merge commit that moved.",
     // Epic #829, story #859 (decision record #871, D11): aggregate mode is gone, and with it the
@@ -3006,29 +3012,50 @@ function localDate(now: Date = new Date()): string {
 
 /**
  * `nexus close` — close as a plain command (epic #830, story #864, decision record #872, D1, D3).
- * It takes the arguments `/nxs.close` takes: `--pr <N>`, an optional entry path and `--handoff`.
- * `--recover <epic>` is its recovery mode, addressed at the closed epic (story #867, D13).
+ * It takes the epic (#906): `--epic <N>` or a bare `<N>`, or `--pr <ref>` as a shortcut that
+ * resolves a pull request to its epic. An optional entry path and `--handoff` follow, as
+ * `/nxs.close` passes them. `--recover <epic>` is its recovery mode, addressed at the closed epic
+ * (story #867, D13).
  */
 async function runClose(argv: string[], io: CliIo): Promise<number> {
     const usage =
-        "usage: nexus close --pr <N> [<path to epic.md>] [--handoff <path>]  (closes the epic of merged pull request <N>)\n" +
+        "usage: nexus close --epic <N> [<path to epic.md>] [--handoff <path>]  (closes epic <N>; a bare <N> means the same)\n" +
+        "       nexus close --pr <ref> [<path to epic.md>] [--handoff <path>]  (closes the epic of merged pull request <ref>: N, owner/repo#N or a URL)\n" +
         "       nexus close --recover <epic>  (re-stamps a closed epic whose decision record was revised)";
-    let pr: number | undefined;
+    const refuse = (message: string): number => {
+        io.stderr(`close: ${message}\n${usage}`);
+        return 2;
+    };
+    const got = (value: string | undefined): string => (value === undefined ? "nothing" : `'${value}'`);
+    const issueNumber = (value: string | undefined): number | null => (value !== undefined && /^\d+$/.test(value) && Number(value) > 0 ? Number(value) : null);
+    const targets: { form: string; target: CloseTarget }[] = [];
     let recover: number | undefined;
     let handoff: string | null = null;
-    const positional: string[] = [];
+    const paths: string[] = [];
     for (let i = 0; i < argv.length; i++) {
         const a = argv[i];
-        if (a === "--pr") pr = Number(argv[++i]);
-        else if (a === "--recover") recover = Number(argv[++i]);
+        if (a === "--epic") {
+            const value = argv[++i];
+            const epic = issueNumber(value);
+            if (epic === null) return refuse(`--epic takes an issue number; got ${got(value)}.`);
+            targets.push({ form: `--epic ${value}`, target: { epic } });
+        } else if (a === "--pr") {
+            const value = argv[++i];
+            const ref = value === undefined ? null : parsePrReference(value);
+            if (ref === null || ref.number <= 0) return refuse(`--pr takes a number, owner/repo#N or a pull-request URL; got ${got(value)}.`);
+            targets.push({ form: `--pr ${value}`, target: { pr: ref } });
+        } else if (a === "--recover") recover = Number(argv[++i]);
         else if (a === "--handoff") handoff = argv[++i] ?? "";
-        else if (a.startsWith("--")) {
-            io.stderr(`close: unknown option ${a}\n${usage}`);
-            return 2;
-        } else positional.push(a);
+        else if (a.startsWith("--")) return refuse(`unknown option ${a}`);
+        else if (/^\d+$/.test(a)) {
+            const epic = issueNumber(a);
+            if (epic === null) return refuse(`a bare <N> is the epic's issue number; got ${got(a)}.`);
+            targets.push({ form: a, target: { epic } });
+        }
+        else paths.push(a);
     }
     if (recover !== undefined) {
-        if (!Number.isInteger(recover) || recover <= 0 || pr !== undefined || handoff !== null || positional.length > 0) {
+        if (!Number.isInteger(recover) || recover <= 0 || targets.length > 0 || handoff !== null || paths.length > 0) {
             io.stderr(`close --recover takes only the closed epic's issue number: nexus close --recover <epic>.\n${usage}`);
             return 2;
         }
@@ -3038,8 +3065,16 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
         for (const line of rendered.stderr) io.stderr(line);
         return rendered.exitCode;
     }
-    if (pr === undefined || !Number.isInteger(pr) || pr <= 0 || positional.length > 1 || handoff === "") {
-        io.stderr(`close runs only against a merged pull request: nexus close --pr <N>.\n${usage}`);
+    if (targets.length > 1) {
+        return refuse(`name the epic one way, with one of --epic <N>, a bare <N> or --pr <ref>; got ${targets.map((t) => t.form).join(" and ")}.`);
+    }
+    if (handoff === "") return refuse("--handoff takes the path to write the hand-off note to; got nothing.");
+    if (paths.length > 1) return refuse(`close takes at most one entry path (an epic.md); got ${paths.map((p) => `'${p}'`).join(" and ")}.`);
+    if (targets.length === 0 && paths.length > 0) {
+        return refuse(`an entry path does not name the epic to close; pass --epic <N>, a bare <N> or --pr <ref> with it.`);
+    }
+    if (targets.length === 0) {
+        io.stderr(usage);
         return 2;
     }
     const deps = closeCommandDeps(closeMigrationRunner, {
@@ -3050,8 +3085,8 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     });
     const outcome = runCloseCommand(deps, {
         cwd: io.cwd,
-        pr,
-        entryPath: positional.length === 1 ? path.resolve(io.cwd, positional[0]) : null,
+        target: targets[0].target,
+        entryPath: paths.length === 1 ? path.resolve(io.cwd, paths[0]) : null,
         handoff: handoff === null ? null : path.resolve(io.cwd, handoff),
         date: localDate(),
         nexusVersion: releaseVersion(),

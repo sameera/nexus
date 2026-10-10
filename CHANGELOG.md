@@ -5,6 +5,28 @@ an item says is what a lead running a pipeline stage will experience differently
 commit was called, not which file moved, not which library moved. A release that changes no stage
 behaviour says so.
 
+## 0.94.0
+
+- **Close takes the epic.** `nexus close --epic <N>`, or a bare `nexus close <N>`, closes epic
+  `<N>` in the issues repository the checkout resolves to. Close reads no single pull request: its
+  gate and its close record come from the epic's stories and the pull requests that claim them, in
+  whichever repository each merged. From the hub, an epic whose pull requests merged in a member
+  repository no longer needs one of them named. Whichever form names the epic, an issue that is
+  not filed as an epic, by its label or issue type, stops close before it writes anything. Stops and
+  re-run hints name `nexus close --epic <N>`, and the report lists every merged pull request the
+  close covers.
+- **Close's `--pr` is a shortcut that accepts any pull-request reference.** `nexus close --pr`
+  takes a number, `owner/repo#N` or a pull-request URL, finds the epic from that pull request, then
+  runs as `--epic` does. A qualified reference is read in the repository it names, so a member
+  pull request no longer fails to parse. A pull request that has not merged still stops close
+  early. Scripts that call `nexus close --pr <N>` keep working. Asked what an epic has shipped,
+  analyze now points at `nexus close --epic <epic>`.
+- **Close names what was wrong with its arguments.** A value that does not parse gets its own
+  message saying what close expected and what it got, and missing arguments print the usage. Close
+  no longer answers a typing mistake with "close runs only against a merged pull request".
+  `--epic`, `--pr` and a bare number together are refused. `/nxs.close` relays all three forms
+  unchanged, and its refusal without arguments names `nexus close --epic <N>`.
+
 ## 0.93.1
 
 - **The unattended implement run stops on an answer edited into an existing comment.** After each

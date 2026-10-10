@@ -116,12 +116,12 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
         return stopped({
             reason: `epic ${epicRef} carries no close comment from someone who can speak for ${issuesRepo}, so it was never closed; recovery re-stamps a closed epic`,
             item: `epic ${epicRef}`,
-            remedy: `close it with nexus close --pr <N> on its merged pull request`,
+            remedy: `close it with nexus close --epic ${input.epic}`,
         });
     }
     const block = machineBlock(closeComment);
     if (block === null) {
-        return stopped({ reason: `the close comment on epic ${epicRef} carries no machine block that reads`, item: `epic ${epicRef}`, remedy: `re-close it with nexus close --pr <N> on its merged pull request, which posts one` });
+        return stopped({ reason: `the close comment on epic ${epicRef} carries no machine block that reads`, item: `epic ${epicRef}`, remedy: `re-close it with nexus close --epic ${input.epic}, which posts one` });
     }
     const record = recordNumber(block["record"]);
     if (record === null) {

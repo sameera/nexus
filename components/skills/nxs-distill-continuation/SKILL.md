@@ -1,13 +1,13 @@
 ---
 name: nxs-distill-continuation
-description: The continuation-mode contract of /nxs.distill. Read it only when that stage has resolved its run mode as continuation, the hand-off from a /nxs.close --pr run that already prepared the branch.
+description: The continuation-mode contract of /nxs.distill. Read it only when that stage has resolved its run mode as continuation, the hand-off from a `nexus close` run that already prepared the branch.
 ---
 
 # nxs-distill-continuation
 
 `/nxs.distill` resolves its run mode before it reads any mode-specific instruction. This file is
 what it reads when that mode is **continuation**, and nothing else reads it. Continuation mode is
-the `/nxs.close --pr` hand-off: the close already cut the `distill/*` branch, committed its
+the `nexus close` hand-off: the close already cut the `distill/*` branch, committed its
 artifacts on it, and pushed it, and the drain runs inside the close worktree.
 
 Every rule below is keyed to the base stage's own phase numbering and overrides the base stage at

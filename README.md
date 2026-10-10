@@ -114,7 +114,7 @@ Implementation sits between the decision record and analyze; engineers own it.
     - The conformance gate: does the build do what the planning said?
     - Checks the implemented code against acceptance criteria, success metrics, and the decision record's invariants — and refuses to run against an unapproved record.
 
-7. **Close** (`nexus close --pr <N>`; `/nxs.close` relays to it)
+7. **Close** (`nexus close --epic <N>`; `/nxs.close` relays to it)
     - A plain command that runs no model and asks nothing. It writes the close record from the pull requests' verdicts: what was decided, what deviated and why, what was deferred. Answers and waivers are posted on the pull request and recorded by `/nxs.analyze` before close runs; anything missing is a stop that names its remedy.
     - Approved deferred scope becomes backlog issues, not a forgotten section in a document. The epic issue gets a durable close comment and is closed.
 
