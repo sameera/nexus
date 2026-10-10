@@ -3091,8 +3091,9 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const given: { form: string; target: CloseTarget }[] = [];
     // An issue's URL as the browser shows it: https://host/owner/repo/issues/N.
     const issueUrl = (value: string): { repo: string; number: number } | null => {
-        const m = /^https?:\/\/[^/\s]+\/([^/\s]+)\/([^/\s]+)\/issues\/(\d+)\/?$/i.exec(value.trim());
-        return m === null || Number(m[3]) <= 0 ? null : { repo: `${m[1]}/${m[2]}`.toLowerCase(), number: Number(m[3]) };
+        // The host is kept, so close can tell an issue on another forge from one in the issues repository.
+        const m = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/issues\/(\d+)\/?$/i.exec(value.trim());
+        return m === null || Number(m[4]) <= 0 ? null : { repo: `${m[1]}/${m[2]}/${m[3]}`.toLowerCase(), number: Number(m[4]) };
     };
     let recover: number | undefined;
     let handoff: string | null = null;

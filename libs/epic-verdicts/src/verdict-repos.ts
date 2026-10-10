@@ -105,3 +105,12 @@ export function onIssuesHost<R extends WorkspaceRunner>(run: R, issuesRepo: stri
     if (host === null) return run;
     return ((cmd, args, opts) => (cmd === "gh" && args[0] === "api" && !args.includes("--hostname") ? run(cmd, ["api", "--hostname", host, ...args.slice(1)], opts) : run(cmd, args, opts))) as R;
 }
+
+/**
+ * The issues repository's `owner/repo`, its host left out: the form the shared readers paste into a
+ * `repos/owner/repo/...` path or a slug. The host reaches gh through onIssuesHost instead.
+ */
+export function issuesRepoPath(issuesRepo: string): string {
+    const { owner, repo } = issuesRepoSlug(issuesRepo);
+    return `${owner}/${repo}`;
+}

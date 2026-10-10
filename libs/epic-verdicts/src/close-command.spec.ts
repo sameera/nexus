@@ -2423,6 +2423,15 @@ describe("nexus close — the back-references, the epic close, the marker and th
         }
     });
 
+    it("reads the decision record of an issues repository on a stated host there, with an owner/repo path", () => {
+        const rec = recorder(() => ({ status: 1, stdout: "", stderr: "stop" }));
+        deps(rec.run).recordBody("/repo", "ghe.corp/acme/app", RECORD);
+        const gh = rec.calls.find((c) => c[0] === "gh") ?? [];
+        expect(gh.slice(0, 4)).toEqual(["gh", "api", "--hostname", "ghe.corp"]);
+        expect(gh.join(" ")).toContain(`repos/acme/app/issues/${RECORD}`);
+        expect(gh.join(" ")).not.toContain("repos/ghe.corp");
+    });
+
     it("reads what an issue is filed as, and its parent, in the issues repository (#906)", () => {
         const root = makeDir();
         fs.mkdirSync(path.join(root, ".nexus", "config"), { recursive: true });

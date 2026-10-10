@@ -91,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoHost, issuesRepoSlug, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoHost, issuesRepoPath, issuesRepoSlug, onIssuesHost, resolveVerdictRepos, sameIssuesRepo } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -393,8 +393,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
 
     // One written form for every read, write, key and report that names the issues repository. An
     // earlier run's stub and amendment keys are matched by the repository they name, in any form.
+    const configured = deps.issuesRepo(repoRoot);
     const resolveRepos = (): { ok: true; issuesRepo: string; codeRepo: string } | { ok: false; stop: CloseStop } => {
-        const r = deps.issuesRepo(repoRoot);
+        const r = configured;
         return r.ok
             ? { ok: true, issuesRepo: canonicalIssuesRepo(r.repos.issuesRepo), codeRepo: r.repos.repo }
             : { ok: false, stop: { reason: r.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` } };
@@ -426,7 +427,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // Close reads the epic's issues on the forge the issues repository names, else the checkout's
         // (where an unqualified issues repository comes from), else gh's default. A pull-request URL
         // on another forge would read the pull request on one and the issues on the other.
-        const configured = deps.issuesRepo(repoRoot);
         const issuesForge = (configured.ok ? issuesRepoHost(configured.repos.issuesRepo) : null) ?? deps.checkoutForge(repoRoot) ?? "github.com";
         if (ref.host !== undefined && forgeHost(ref.host) !== issuesForge) {
             const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
@@ -1156,7 +1156,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const kind = classifyIssueKind(kinds.classification, { number: issue, labels: facts.facts.labels, issueType: facts.facts.issueType });
             return kind.ok ? { ok: true, exists: true, kind: kind.kind, parent: facts.facts.parent } : { ok: false, message: kind.error.message };
         },
-        resolveEpic: (root, issuesRepo, epic) => resolveEpic(onIssuesHost(run, issuesRepo), root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
+        resolveEpic: (root, issuesRepo, epic) => resolveEpic(onIssuesHost(run, issuesRepo), root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepoPath(issuesRepo) }),
         subIssues: (root, issuesRepo, epic) => {
             const slug = issuesRepoSlug(issuesRepo);
             const r = fetchSubIssueFacts(onIssuesHost(run, issuesRepo), root, slug, epic);
@@ -1164,12 +1164,12 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         },
         excludedStories: (root, issuesRepo, stories) => {
             const label = resolvePublishingKey(root, "no-pr-label");
-            return label.length > 0 ? stories.filter((s) => storyCarriesLabel(onIssuesHost(run, issuesRepo), root, issuesRepo, s, label)) : [];
+            return label.length > 0 ? stories.filter((s) => storyCarriesLabel(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), s, label)) : [];
         },
         ranges: (root, issuesRepo, epic, input) => {
-            const collected = fetchShippedRecords(onIssuesHost(run, issuesRepo), root, issuesRepo, epic);
+            const collected = fetchShippedRecords(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), epic);
             if (!collected.ok) return { ok: false, problem: "records-unreadable", message: collected.error.message };
-            const derived = deriveCloseRanges(closeRangesDeps(onIssuesHost(run, issuesRepo), root, issuesRepo, input.record), {
+            const derived = deriveCloseRanges(closeRangesDeps(run, root, issuesRepoPath(issuesRepo), input.record), {
                 stories: input.stories,
                 excluded: input.excluded,
                 records: collected.collected.records.map((f) => f.record),
@@ -1205,7 +1205,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         findDistillBranch: (repoRoot, epic) => findEpicDistillBranch(run, repoRoot, epic),
         openWorktree: (repoRoot, epic, date) => openEpicDistillWorktree(run, repoRoot, epic, date),
         recordBody: (root, issuesRepo, record) => {
-            const r = fetchRecord(onIssuesHost(run, issuesRepo), root, record, issuesRepo);
+            const r = fetchRecord(onIssuesHost(run, issuesRepo), root, record, issuesRepoPath(issuesRepo));
             return r.ok ? { ok: true, body: r.record.body, digest: r.record.digest } : { ok: false, message: r.error.message };
         },
         commitEntry: (wtPath, files, message) => {
@@ -1238,7 +1238,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             return r.status === 0 ? { ok: true } : { ok: false, message: r.stderr.trim() || "gh api failed" };
         },
         storyWaivers: (root, issuesRepo, story) => {
-            const r = readStoryWaivers(onIssuesHost(run, issuesRepo), root, issuesRepo, story);
+            const r = readStoryWaivers(onIssuesHost(run, issuesRepo), root, issuesRepoPath(issuesRepo), story);
             return r.ok ? { ok: true, comments: r.value } : { ok: false, message: r.error.message };
         },
         epicMentions: (root, issuesRepo, epic) => {
@@ -1263,9 +1263,9 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             }
             return { ok: true, issues };
         },
-        fileStubs: (root, issuesRepo, epic, stubs) => fileDeferredStubs(root, issuesRepo, `epic-${epic}`, stubs, opts.filerEnv),
+        fileStubs: (root, issuesRepo, epic, stubs) => fileDeferredStubs(root, issuesRepoPath(issuesRepo), `epic-${epic}`, stubs, opts.filerEnv),
         writeMarker: (root, issuesRepo, story) => {
-            const r = waiveStory(onIssuesHost(run, issuesRepo), root, story, resolvePublishingKey(root, "no-pr-label"), issuesRepo);
+            const r = waiveStory(onIssuesHost(run, issuesRepo), root, story, resolvePublishingKey(root, "no-pr-label"), issuesRepoPath(issuesRepo));
             return r.ok ? { ok: true } : { ok: false, message: r.error.message };
         },
         push: (wtPath, branch) => pushEpicDistillBranch(run, wtPath, branch),
