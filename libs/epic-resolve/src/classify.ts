@@ -168,13 +168,16 @@ export function classifySubIssue(classification: RecordClassification, markers: 
 }
 
 /**
- * What an issue is filed as. `other` is a real answer, not a failure: an initiative, a bug, a
- * chore — anything the repository does not mark as epic, story or record. Naming it keeps every
- * caller from inferring a kind from the issue graph's *shape*, which is what a walk up the
- * parent link does, and which reads an epic as a story the moment a repo files epics under
- * initiatives.
+ * What an issue is filed as. `other` is a real answer, not a failure: a bug, a chore — anything the
+ * repository does not mark as initiative, epic, story or record. Naming it keeps every caller from
+ * inferring a kind from the issue graph's *shape*, which is what a walk up the parent link does,
+ * and which reads an epic as a story the moment a repo files epics under initiatives.
+ *
+ * An `initiative` is the planning container a coherent decomposition's stubs are filed under
+ * (decision record #786, D5). It is its own kind so that a stage can refuse it by name and the
+ * filer can allow it as a stub's parent, each from the marker rather than from where it sits.
  */
-export type IssueKind = "epic" | "story" | "record" | "other";
+export type IssueKind = "initiative" | "epic" | "story" | "record" | "other";
 
 /** How this repo marks each kind of issue, under the one declared classification mode. */
 export interface KindClassification {
@@ -185,6 +188,9 @@ export interface KindClassification {
     storyType: string;
     recordLabel: string;
     recordType: string;
+    initiativeLabel: string;
+    /** Empty when the repository declares none: no issue is then an initiative by its type. */
+    initiativeType: string;
 }
 
 /** The classification-relevant markers carried by one issue, with the number to name it by. */
@@ -200,6 +206,9 @@ function kindFrom(c: KindClassification, by: (label: string, type: string) => bo
     if (by(c.epicLabel, c.epicType)) return "epic";
     if (by(c.storyLabel, c.storyType)) return "story";
     if (by(c.recordLabel, c.recordType)) return "record";
+    // Last, so an issue the repository marks as an epic stays one even where the two markers share
+    // a name — a repository whose epic label is `initiative` loses no epic to this kind.
+    if (by(c.initiativeLabel, c.initiativeType)) return "initiative";
     return "other";
 }
 
@@ -249,6 +258,10 @@ export function resolveKindClassification(targetRoot: string): Ok<{ classificati
             storyType,
             recordLabel: record.classification.recordLabel,
             recordType: record.classification.recordType,
+            // Neither is required. A repository that declares no initiative marker has no
+            // initiatives to recognise, which is an answer and not a failure.
+            initiativeLabel: resolveKey(targetRoot, "initiative-label"),
+            initiativeType: resolveKey(targetRoot, "initiative-type"),
         },
     };
 }
@@ -272,7 +285,9 @@ export function classifyIssueKind(c: KindClassification, markers: IssueMarkers):
     const declared: IssueKind = c.mode === "labels" ? byLabel : byType;
     const other: IssueKind = c.mode === "labels" ? byType : byLabel;
     if (declared !== "other") return { ok: true, kind: declared };
-    if (other !== "other") {
+    // An initiative marked the undeclared way was `other` before the kind existed, and stays so:
+    // the mismatch below is about how the repository files epics, stories and records.
+    if (other !== "other" && other !== "initiative") {
         const found: string = c.mode === "labels" ? `issue type '${markers.issueType ?? ""}'` : `label '${other}'`;
         return {
             ok: false,
