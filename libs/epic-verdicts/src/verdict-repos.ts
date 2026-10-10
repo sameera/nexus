@@ -62,17 +62,16 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
 }
 
 /**
- * The issues repository in the one form close reads, writes and compares: `owner/repo`, or
- * `host/owner/repo` on a host other than github.com. A configured epic-repo may be written as a
- * URL, in SSH form (`git@host:owner/repo`), or with a trailing slash or `.git`. A value that does
- * not read is returned as given, so the read that uses it fails and says so.
+ * The issues repository in the one form close reads, writes and compares: `owner/repo`, with the
+ * host in front when the configured form names one (github.com's SSH aliases folded into
+ * github.com). A configured epic-repo may be written as a URL, in SSH form, or with a trailing
+ * slash or `.git`. A value that does not read is returned as given, so the read that uses it fails
+ * and says so.
  */
 export function canonicalIssuesRepo(issuesRepo: string): string {
     const id = parseRepoIdentity(normalizeRemote(issuesRepo));
     if (id === null) return issuesRepo;
-    // github.com's SSH aliases (github.com-work, ssh.github.com) are github.com, as for a pull request.
-    const host = id.host === null ? null : forgeHost(id.host);
-    return host === null || host === "github.com" ? `${id.owner}/${id.name}` : `${host}/${id.owner}/${id.name}`;
+    return id.host === null ? `${id.owner}/${id.name}` : `${forgeHost(id.host)}/${id.owner}/${id.name}`;
 }
 
 /** The issues repository as the slug the epic-resolve reads take, from its canonical form. */
@@ -84,17 +83,14 @@ export function issuesRepoSlug(issuesRepo: string): RepoSlug {
 }
 
 /**
- * Whether two written forms name the same issues repository. A form with no host is on github.com,
- * the host canonicalIssuesRepo leaves out, so github.com/acme/app and ghe.corp/acme/app differ.
+ * Whether two written forms name the same issues repository, by sameRepo's rule over their canonical
+ * forms: a host stated on one side only neither matches nor rejects, two stated hosts must agree.
  */
 export function sameIssuesRepo(a: string, b: string): boolean {
-    const x = parseRepoIdentity(canonicalIssuesRepo(a));
-    const y = parseRepoIdentity(canonicalIssuesRepo(b));
-    if (x === null || y === null) return sameRepo(a, b);
-    return (x.host ?? "github.com") === (y.host ?? "github.com") && x.owner === y.owner && x.name === y.name;
+    return sameRepo(canonicalIssuesRepo(a), canonicalIssuesRepo(b));
 }
 
-/** The forge the issues repository is on: its host, or github.com when its form names none. */
-export function issuesRepoForge(issuesRepo: string): string {
-    return parseRepoIdentity(canonicalIssuesRepo(issuesRepo))?.host ?? "github.com";
+/** The forge the issues repository's written form names, or null when it names none. */
+export function issuesRepoForge(issuesRepo: string): string | null {
+    return parseRepoIdentity(canonicalIssuesRepo(issuesRepo))?.host ?? null;
 }

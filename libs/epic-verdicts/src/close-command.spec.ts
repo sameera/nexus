@@ -157,6 +157,7 @@ function harness(over: Partial<CloseCommandDeps> = {}): Harness {
     let nextStub = 1000;
     h.deps = {
         role: () => ({ ok: true, preflight: { role: "single-repo", repoRoot, repo: { identity: ISSUES, source: "origin" } as never } }),
+        checkoutForge: () => "github.com",
         readPr: () => ({ ok: true, pr: prInfo() }),
         issuesRepo: () => ({ ok: true, repos: { issuesRepo: ISSUES, repo: ISSUES } }),
         storiesOfPr: () => ({ ok: true, epic: EPIC, stories: [864] }),
@@ -515,7 +516,7 @@ describe("nexus close — keyed by the epic (#906)", () => {
             const out = runCloseCommand(h.deps, input(h));
             expect(out.ok && out.resumed, configured).toBe(true);
             // Every read names the issues repository in its one canonical form.
-            expect(new Set(readIn), configured).toEqual(new Set([ISSUES]));
+            expect(new Set(readIn), configured).toEqual(new Set([`github.com/${ISSUES}`]));
         }
     });
 
@@ -867,6 +868,12 @@ describe("nexus close — keyed by the epic (#906)", () => {
         });
         closed(h, viaPr());
         expect(ladderRepo).toEqual(["acme/code"]);
+    });
+
+    it("reads a pull-request URL on an Enterprise checkout whose issues repository names no host", () => {
+        const h = harness({ checkoutForge: () => "ghe.corp" });
+        const { stdout } = closed(h, { target: { pr: { repo: ISSUES, number: PR, host: "ghe.corp" } } });
+        expect(stdout).toContain(`epic ${ISSUES}#${EPIC} passed every gate`);
     });
 
     it("stops, reading nothing, on a pull request on another forge than the issues repository", () => {

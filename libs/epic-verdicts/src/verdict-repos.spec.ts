@@ -120,22 +120,23 @@ describe("issuesRepoSlug — the one parse of the issues repository (#906)", () 
 });
 
 describe("canonicalIssuesRepo — the one written form close uses (#906)", () => {
-    it("writes owner/repo for github.com, host/owner/repo for another host, from any configured form", () => {
-        for (const configured of ["acme/issues", "https://github.com/Acme/Issues", "https://github.com/acme/issues/", "git@github.com:acme/issues.git", "github.com/acme/issues"]) {
-            expect(canonicalIssuesRepo(configured), configured).toBe("acme/issues");
+    it("keeps the host a configured form names, and owner/repo alone when it names none", () => {
+        expect(canonicalIssuesRepo("acme/issues")).toBe("acme/issues");
+        for (const configured of ["https://github.com/Acme/Issues", "https://github.com/acme/issues/", "git@github.com:acme/issues.git", "github.com/acme/issues"]) {
+            expect(canonicalIssuesRepo(configured), configured).toBe("github.com/acme/issues");
         }
         expect(canonicalIssuesRepo("https://ghe.corp/acme/issues")).toBe("ghe.corp/acme/issues");
         expect(canonicalIssuesRepo("ssh://git@ghe.corp:22/acme/issues.git")).toBe("ghe.corp/acme/issues");
         expect(canonicalIssuesRepo("not a repo")).toBe("not a repo");
-        expect(canonicalIssuesRepo("git@github.com-work:acme/issues.git")).toBe("acme/issues");
+        expect(canonicalIssuesRepo("git@github.com-work:acme/issues.git")).toBe("github.com/acme/issues");
     });
 });
 
-describe("sameIssuesRepo — one issues repository in any form, never across forges (#906)", () => {
-    it("matches a form with no host to github.com and not to another forge", () => {
+describe("sameIssuesRepo — one issues repository in any form, never across two stated forges (#906)", () => {
+    it("matches across written forms, and a form with no host either way, but not two stated hosts that differ", () => {
         expect(sameIssuesRepo("acme/app", "https://github.com/acme/app")).toBe(true);
-        expect(sameIssuesRepo("git@github.com-work:acme/app.git", "acme/app")).toBe(true);
-        expect(sameIssuesRepo("acme/app", "ghe.corp/acme/app")).toBe(false);
+        expect(sameIssuesRepo("git@github.com-work:acme/app.git", "github.com/acme/app")).toBe(true);
+        expect(sameIssuesRepo("acme/app", "ghe.corp/acme/app")).toBe(true);
         expect(sameIssuesRepo("github.com/acme/app", "ghe.corp/acme/app")).toBe(false);
     });
 });

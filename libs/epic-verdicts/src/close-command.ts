@@ -151,6 +151,8 @@ export type CloseRangesRead =
 export interface CloseCommandDeps {
     /** The checkout's role, through close's own role gate. */
     role(cwd: string): PreflightResult;
+    /** The forge the checkout's canonical remote is on (github.com's SSH aliases folded), or null when it names none. */
+    checkoutForge(root: string): string | null;
     /** The pull request, merged or not, in the repository a qualified reference names; the gate words the not-merged stop itself. */
     readPr(repoRoot: string, ref: ParsedPrReference): ResolvePrResult;
     /** The issues repository every issue read and write targets. */
@@ -420,12 +422,14 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // A pull request only finds the epic. One that has not merged is the cheap early answer for
         // a lead who ran close too soon.
         const ref = input.target.pr;
-        // Close reads the epic's issues on the issues repository's forge; a pull request on another
+        // Close reads the epic's issues on the issues repository's forge: the one its form names, else
+        // the checkout's, where an unqualified issues repository comes from. A pull request on another
         // forge cannot be closed against them without mixing the two in one run.
-        if (ref.host !== undefined && forgeHost(ref.host) !== issuesRepoForge(issuesRepo)) {
+        const issuesForge = issuesRepoForge(issuesRepo) ?? deps.checkoutForge(repoRoot);
+        if (ref.host !== undefined && issuesForge !== null && forgeHost(ref.host) !== issuesForge) {
             const asked = `pull request ${prRepoName(ref, null)}#${ref.number}`;
             return stopped({
-                reason: `${asked} is on ${forgeHost(ref.host)}, but the issues repository ${issuesRepo} is on ${issuesRepoForge(issuesRepo)}`,
+                reason: `${asked} is on ${forgeHost(ref.host)}, but the issues repository ${issuesRepo} is on ${issuesForge}`,
                 item: asked,
                 remedy: "run close where the issues repository is on the pull request's forge, or name the epic: nexus close --epic <N>",
             });
@@ -1105,6 +1109,10 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
     return {
         role: (cwd) => closePreflight(cwd, run),
+        checkoutForge: (root) => {
+            const host = canonicalRepoRef(run, root)?.split("/")[0];
+            return host === undefined ? null : forgeHost(host);
+        },
         readPr: (repoRoot, ref) => {
             // Every form is read on the forge prRepoOnForge names, github.com's SSH aliases folded; gh's
             // own resolution only when the checkout names no forge and the reference names none either.
