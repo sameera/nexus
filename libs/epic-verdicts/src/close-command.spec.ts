@@ -479,6 +479,13 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).toContain(`nexus close --epic https://ghe/${ISSUES}/issues/${EPIC}`);
     });
 
+    it("stops on a pull-request URL on another forge than the issues repository states, writing nothing", () => {
+        const h = harness({ issuesRepo: () => ({ ok: true, repos: { issuesRepo: `ghe.corp/${ISSUES}`, repo: ISSUES } }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { pr: { repo: ISSUES, number: PR, host: "github.com" } } })));
+        expect(err).toMatch(/on github\.com, but the issues repository .* is on ghe\.corp[\s\S]*remedy: name the epic instead: nexus close --epic <N>/);
+        expect(h.writes).toEqual([]);
+    });
+
     it("takes a github.com URL when the issues repository states no host", () => {
         const epicUrl = harness();
         expect(renderCloseOutcome(runCloseCommand(epicUrl.deps, input(epicUrl, { target: { epic: EPIC, repo: `github.com/${ISSUES}` } }))).exitCode).toBe(0);

@@ -21,7 +21,8 @@ behaviour says so.
   checkout's forge for `owner/repo#N` and on the URL's own host for a URL, so a member pull request
   no longer fails to parse. A URL on a host other than github.com stops close, writing nothing,
   when the configured `epic-repo` states no host: close cannot tell that gh reads the issues there,
-  so the remedy is to state the host in `epic-repo`. A pull request that has not merged still stops
+  so the remedy is to state the host in `epic-repo`. A pull-request URL on another host than the
+  one `epic-repo` states stops close too, naming `--epic` as the way through. A pull request that has not merged still stops
   close early. Scripts
   that call `nexus close --pr <N>` keep working. Asked what an epic has shipped, analyze now points
   at `nexus close --epic <epic>`.

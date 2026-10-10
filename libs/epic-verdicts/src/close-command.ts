@@ -473,6 +473,16 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         ({ issuesRepo, codeRepo } = repos);
         const unstated = ref.host === undefined ? null : unstatedHost(asLabel, ref.host, issuesRepo, rerun);
         if (unstated !== null) return stopped(unstated);
+        // A typed URL on another forge than the one the issues repository states would look the pull
+        // request's story numbers up on the wrong forge, as an --epic URL on it would be refused.
+        const stated = issuesRepoHost(issuesRepo);
+        if (ref.host !== undefined && stated !== null && forgeHost(ref.host) !== stated) {
+            return stopped({
+                reason: `${asLabel} is on ${forgeHost(ref.host)}, but the issues repository ${issuesRepo} is on ${stated}`,
+                item: asLabel,
+                remedy: `name the epic instead: nexus close ${["--epic <N>", ...trailingArgs(input)].join(" ")}`,
+            });
+        }
         const pr = { repo: readIn ?? codeRepo, pr: ref.number };
         const label = `pull request ${pr.repo}#${pr.pr}`;
         // The story ladder finds the epic, and checks it is filed as one. A pull request it cannot

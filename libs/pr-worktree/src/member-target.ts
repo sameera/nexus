@@ -31,19 +31,20 @@ export interface ParsedPrReference {
 const BARE_RE = /^(\d+)$/;
 // A trailing path, query or fragment, as a URL copied from the browser carries (`/files`,
 // `#issuecomment-1`), names nothing more.
-const URL_RE = /^https?:\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/(pull|issues)\/(\d+)(?:[/?#]\S*)?$/i;
+const URL_RE = /^(https?):\/\/([^/\s]+)\/([^/\s]+)\/([^/\s]+)\/(pull|issues)\/(\d+)(?:[/?#]\S*)?$/i;
 
 /** A forge URL naming a pull request or an issue: its repository, number, host and any port. */
 function parseForgeUrl(text: string, kind: "pull" | "issues"): ParsedPrReference | null {
     const url = URL_RE.exec(text);
-    if (url === null || url[4].toLowerCase() !== kind) return null;
-    const authority = /^(?:[^@]*@)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
+    if (url === null || url[5].toLowerCase() !== kind) return null;
+    const authority = /^(?:[^@]*@)?([^:@]+)(?::(\d+))?$/.exec(url[2].toLowerCase());
     if (authority === null) return null;
     // The host as written; forgeHost decides which forge it names.
-    const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[5]), host: authority[1] };
-    // A scheme's default port names nothing the bare host does not.
+    const parsed: ParsedPrReference = { repo: `${url[3]}/${url[4]}`.toLowerCase(), number: Number(url[6]), host: authority[1] };
+    // The scheme's own default port names nothing the bare host does not; any other port is kept.
     const port = authority[2];
-    return port === undefined || port === "443" || port === "80" ? parsed : { ...parsed, port };
+    const schemeDefault = url[1].toLowerCase() === "https" ? "443" : "80";
+    return port === undefined || port === schemeDefault ? parsed : { ...parsed, port };
 }
 
 /** Parse a `--pr` argument into its optional repository qualifier and PR number. */

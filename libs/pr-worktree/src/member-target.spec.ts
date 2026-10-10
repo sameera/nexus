@@ -78,6 +78,10 @@ describe("parsePrReference", () => {
         expect(forgeHost(parsePrReference("https://www.git.corp/acme/widget/pull/7")?.host ?? "")).toBe("www.git.corp");
         expect(parsePrReference("https://me@ghe.corp:8443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "8443" });
         expect(parsePrReference("https://github.com:443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "github.com" });
+        expect(parsePrReference("http://ghe.corp:80/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp" });
+        // Only a scheme's own default port is dropped: 80 under https, or 443 under http, is a port.
+        expect(parsePrReference("https://ghe.corp:80/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "80" });
+        expect(parsePrReference("http://ghe.corp:443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "443" });
     });
 
     it("parses an issue URL by the same rule, and never takes one for a pull request", () => {
