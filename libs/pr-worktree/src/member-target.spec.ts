@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { parsePrReference, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
+import { parsePrReference, prRepoName, prRepoOnForge, resolveAnalyzeTarget } from "./member-target.js";
 import { defaultRunner } from "./run.js";
 import { initRepo, makeParent, writeCommit } from "./git-fixtures.js";
 
@@ -40,6 +40,14 @@ describe("prRepoOnForge — which forge a pull-request reference lives on", () =
     it("leaves the host to the caller when the checkout names no forge", () => {
         expect(prRepoOnForge({ repo: "acme/app", number: 1 }, null)).toBe("acme/app");
         expect(prRepoOnForge({ repo: null, number: 1 }, null)).toBeNull();
+    });
+});
+
+describe("prRepoName — a pull request's repository as close prints it", () => {
+    it("drops github.com and keeps another host", () => {
+        expect(prRepoName({ repo: "acme/app", number: 1, host: "github.com" }, null)).toBe("acme/app");
+        expect(prRepoName({ repo: "acme/app", number: 1, host: "ghe.corp" }, null)).toBe("ghe.corp/acme/app");
+        expect(prRepoName({ repo: null, number: 1 }, null)).toBeNull();
     });
 });
 

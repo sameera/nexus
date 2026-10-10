@@ -18,6 +18,8 @@
 import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { resolveRepoSlug, type RepoSlug } from "@nexus/epic-resolve/gh";
 import { parseRepoIdentity } from "@nexus/workspace/issue-ref";
+import { normalizeRemote } from "@nexus/workspace/remote";
+import { type Runner as WorkspaceRunner } from "@nexus/workspace/run";
 import { type EpicVerdictsDiagnostic } from "./diagnostic.js";
 import { type Runner } from "./run.js";
 
@@ -66,14 +68,7 @@ function unresolved(cwd: string, detail: string): ResolveVerdictReposResult {
  * not read is returned as given, so the read that uses it fails and says so.
  */
 export function canonicalIssuesRepo(issuesRepo: string): string {
-    const bare = issuesRepo
-        .trim()
-        .replace(/\/+$/, "")
-        .replace(/\.git$/i, "")
-        .replace(/^[^@/\s]+@([^:/\s]+):/, "$1/")
-        .replace(/^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]*@)?/i, "")
-        .replace(/^([^/:]+):\d+\//, "$1/");
-    const id = parseRepoIdentity(bare);
+    const id = parseRepoIdentity(normalizeRemote(issuesRepo));
     if (id === null) return issuesRepo;
     return id.host === null || id.host === "github.com" ? `${id.owner}/${id.name}` : `${id.host}/${id.owner}/${id.name}`;
 }
@@ -84,4 +79,20 @@ export function issuesRepoSlug(issuesRepo: string): RepoSlug {
     if (id !== null) return { owner: id.owner, repo: id.name };
     const segments = issuesRepo.split("/").filter((p) => p.length > 0);
     return { owner: segments.at(-2) ?? "", repo: segments.at(-1) ?? "" };
+}
+
+/** The host of the issues repository when it is not github.com, or null: the forge its reads go to. */
+export function issuesRepoHost(issuesRepo: string): string | null {
+    const id = parseRepoIdentity(canonicalIssuesRepo(issuesRepo));
+    return id === null || id.host === null ? null : id.host;
+}
+
+/**
+ * A runner whose `gh api` calls go to the issues repository's host when it is not github.com, so
+ * every read and write of that repository in one run talks to one forge.
+ */
+export function onIssuesHost<R extends WorkspaceRunner>(run: R, issuesRepo: string): R {
+    const host = issuesRepoHost(issuesRepo);
+    if (host === null) return run;
+    return ((cmd, args, opts) => (cmd === "gh" && args[0] === "api" && !args.includes("--hostname") ? run(cmd, ["api", "--hostname", host, ...args.slice(1)], opts) : run(cmd, args, opts))) as R;
 }

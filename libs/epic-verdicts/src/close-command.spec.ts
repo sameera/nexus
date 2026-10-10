@@ -660,6 +660,23 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(err).not.toMatch(/does not read/);
     });
 
+    it("finds an amendment an earlier run keyed with the issues repository in another written form", () => {
+        const amended = { body: `x\n${amendmentKey(`github.com/${ISSUES}`, EPIC)}`, authorAssociation: "OWNER" };
+        const h = harness({
+            verdict: () => present(emptyJudgments({ items: [departure("DV1", { supersedes: { decision: "D2", instead: "x" } })] })),
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === RECORD ? [amended] : [] }),
+        });
+        closed(h);
+        expect(amendments(h)).toEqual([]);
+    });
+
+    it("names both causes when the comments and what the epic is filed as both fail to read", () => {
+        const h = harness({ issueKind: () => ({ ok: false, message: "classification-mode-mismatch" }), issueComments: () => ({ ok: false, message: "HTTP 502" }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain("HTTP 502");
+        expect(err).toContain("classification-mode-mismatch");
+    });
+
     it("finds an amendment and a stub an earlier run keyed with epic-repo as configured", () => {
         const configured = `https://github.com/${ISSUES}`;
         const amended = { body: `x\n${amendmentKey(configured, EPIC)}`, authorAssociation: "OWNER" };
@@ -1722,7 +1739,10 @@ describe("nexus close — the record fetch, the commit and the record-issue comm
         expect(ok.calls).toEqual([["gh", "api", "--method", "POST", `repos/${ISSUES}/issues/${RECORD}/comments`, "-f", "body=## Amended"]]);
         const failing = recorder(() => ({ status: 1, stdout: "", stderr: "HTTP 403" }));
         expect(closeCommandDeps(failing.run, { singleRepo: () => true }).postComment("/repo", ISSUES, RECORD, "x")).toEqual({ ok: false, message: "HTTP 403" });
-        // An issues repository on another forge is posted to on that host.
+        // An issues repository on another forge is posted to, and read, on that host.
+        const gheRead = recorder(() => ({ status: 0, stdout: JSON.stringify({ data: { repository: { issue: null } } }), stderr: "" }));
+        closeCommandDeps(gheRead.run, { singleRepo: () => true }).issueKind(makeDir(), "ghe.corp/acme/app", 5);
+        expect(gheRead.calls[0].slice(0, 4)).toEqual(["gh", "api", "--hostname", "ghe.corp"]);
         const ghe = recorder(() => ({ status: 0, stdout: "{}", stderr: "" }));
         closeCommandDeps(ghe.run, { singleRepo: () => true }).postComment("/repo", "ghe.corp/acme/app", RECORD, "x");
         expect(ghe.calls[0].slice(0, 4)).toEqual(["gh", "api", "--hostname", "ghe.corp"]);

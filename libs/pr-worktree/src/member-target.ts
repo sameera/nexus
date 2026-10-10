@@ -63,6 +63,12 @@ export function prRepoOnForge(ref: ParsedPrReference, own: string | null): strin
     return host === undefined ? ref.repo : `${host}/${ref.repo}`;
 }
 
+/** The repository a pull-request reference names, as close prints and compares it: `owner/repo`, host-qualified only off github.com. */
+export function prRepoName(ref: ParsedPrReference, own: string | null): string | null {
+    const repo = prRepoOnForge(ref, own);
+    return repo === null ? null : repo.toLowerCase().replace(/^github\.com\//, "");
+}
+
 export interface AnalyzeTarget {
     repoRoot: string;
     repoIdentity: string;

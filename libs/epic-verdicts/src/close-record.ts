@@ -536,6 +536,21 @@ export function stubKey(c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<Ap
     return `${CLOSE_STUB_KEY_PREFIX}epic: ${c.issuesRepo.toLowerCase()}#${c.epic} pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`;
 }
 
+const escapeRe = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Whether `body` carries the amendment key for `epic`, naming the issues repository in any written form. */
+export function carriesAmendmentKey(body: string, issuesRepo: string, epic: number): boolean {
+    const re = new RegExp(`${escapeRe(AMENDMENT_KEY_PREFIX)}epic: (\\S+)#${epic} -->`, "g");
+    return [...body.matchAll(re)].some((m) => canonicalIssuesRepo(m[1]).toLowerCase() === canonicalIssuesRepo(issuesRepo).toLowerCase());
+}
+
+/** Whether `body` carries the stub key for a proposal, naming the issues repository in any written form. */
+export function carriesStubKey(body: string, c: Pick<CloseContent, "issuesRepo" | "epic">, p: Pick<ApprovedProposal, "repo" | "pr" | "id">): boolean {
+    const rest = escapeRe(` pr: ${p.repo.toLowerCase()}#${p.pr} proposal: ${p.id} -->`);
+    const re = new RegExp(`${escapeRe(CLOSE_STUB_KEY_PREFIX)}epic: (\\S+)#${c.epic}${rest}`, "g");
+    return [...body.matchAll(re)].some((m) => canonicalIssuesRepo(m[1]).toLowerCase() === canonicalIssuesRepo(c.issuesRepo).toLowerCase());
+}
+
 /**
  * The title and body of the stub an approved proposal is filed as (D9): its goal,
  * the feature path, its provenance and its key. No estimate and no ordering; planning sizes it.

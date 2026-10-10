@@ -56,7 +56,7 @@ import { resolveEpic, type ResolveEpicResult } from "@nexus/epic-resolve/resolve
 import { parseJudgmentsBlock, type Judgments } from "@nexus/pr-acceptance/judgments-block";
 import { verifyReceipt } from "@nexus/pr-acceptance/verify";
 import { WAIVER_MARKER, matchStorylessWaiver, readStoryWaivers, storylessWaiverComment, type RejectedWaiver, type StorylessWaiverComment } from "@nexus/pr-acceptance/waiver";
-import { parsePrReference, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
+import { parsePrReference, prRepoName, prRepoOnForge, type ParsedPrReference } from "@nexus/pr-worktree/member-target";
 import { resolvePr, type PrInfo, type ResolvePrResult } from "@nexus/pr-worktree/pr";
 import { resolveStories, type ResolveStoriesResult } from "@nexus/pr-worktree/story-candidates";
 import { verifyTrunkContainsHeads, type TrunkCheckItem, type VerifyTrunkResult } from "@nexus/pr-worktree/trunk-check";
@@ -69,7 +69,8 @@ import { parseIssueRef, sameRepo } from "@nexus/workspace/issue-ref";
 import { defaultRunner, git } from "@nexus/workspace/run";
 import { fetchRecord } from "@nexus/record-digest/fetch";
 import {
-    amendmentKey,
+    carriesAmendmentKey,
+    carriesStubKey,
     findEpicCloseComment,
     trustedComment,
     assembleCloseContent,
@@ -90,7 +91,7 @@ import { closeRangesDeps, deriveCloseRanges, type CloseRangeBlock, type CloseRan
 import { storyCarriesLabel, waiveStory } from "./exclusion.js";
 import { fetchShippedRecords, type UntrustedRecord } from "./ledger.js";
 import { type Runner } from "./run.js";
-import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, resolveVerdictRepos } from "./verdict-repos.js";
+import { type ResolveVerdictReposResult, canonicalIssuesRepo, issuesRepoSlug, onIssuesHost, resolveVerdictRepos } from "./verdict-repos.js";
 
 /**
  * What close closes (#906): the epic the lead named, or the epic of a pull request. A pull request
@@ -295,11 +296,6 @@ function prReference(ref: ParsedPrReference): string {
     return ref.host === undefined ? `${ref.repo}#${ref.number}` : `https://${ref.host}/${ref.repo}/pull/${ref.number}`;
 }
 
-/** A parsed reference's repository with its host when it names one other than github.com, for display and matching. */
-function hostedRepo(ref: ParsedPrReference | null): string | null {
-    if (ref === null || ref.repo === null) return null;
-    return ref.host === undefined || ref.host === "github.com" ? ref.repo : `${ref.host}/${ref.repo}`;
-}
 
 /** The merged pull requests an earlier close comment stamped, as a re-run reports them. */
 function stampedList(block: Record<string, unknown>): string {
@@ -350,10 +346,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const repos = deps.issuesRepo(repoRoot);
     if (!repos.ok) return stopped({ reason: repos.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` });
     // One written form for every read, write, key and report that names the issues repository. An
-    // earlier run may have keyed its stubs and amendment with the form as configured, so a lookup
-    // tries that spelling too.
+    // earlier run's stub and amendment keys are matched by the repository they name, in any form.
     const issuesRepo = canonicalIssuesRepo(repos.repos.issuesRepo);
-    const spellings = [...new Set([issuesRepo, repos.repos.issuesRepo])];
     const codeRepo = repos.repos.repo;
 
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
@@ -367,12 +361,13 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         const ref = input.target.pr;
         const read = deps.readPr(repoRoot, ref);
         if (!read.ok) {
-            const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${hostedRepo(ref)}#${ref.number}`;
+            const asked = ref.repo === null ? `pull request ${ref.number} of this checkout's repository` : `pull request ${prRepoName(ref, null)}#${ref.number}`;
             return stopped({ reason: `${asked} could not be read: ${read.error.message}`, item: asked, remedy: `check the reference, then re-run ${rerun}` });
         }
         // The repository it was read in, which in a fork checkout can differ from the checkout's
         // default: the platform's URL for it says which.
-        const pr = { repo: hostedRepo(parsePrReference(read.pr.url)) ?? hostedRepo(ref) ?? codeRepo, pr: ref.number };
+        const fromUrl = parsePrReference(read.pr.url);
+        const pr = { repo: (fromUrl === null ? null : prRepoName(fromUrl, null)) ?? prRepoName(ref, null) ?? codeRepo, pr: ref.number };
         const label = `pull request ${pr.repo}#${pr.pr}`;
         if (!read.pr.merged) {
             return stopped({ reason: `${label} is not merged (it is ${read.pr.state.toLowerCase()}); close runs only after the merge`, item: label, remedy: `merge it, then re-run ${rerun}` });
@@ -423,7 +418,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         // With the comments unread, close cannot know of an earlier close that would excuse a lost
         // marking; that read failing is the stop, unless the number names no issue at all.
         if (!epicComments.ok && !(kind.ok && !kind.exists)) {
-            return commentsUnread(epicComments.message);
+            return commentsUnread(kind.ok ? epicComments.message : `${epicComments.message}; what it is filed as could not be determined either: ${kind.message}`);
         }
         if (!kind.ok) {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
@@ -454,7 +449,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     }
     if (earlier.found === "unreadable") return unreadableClose(earlier.why);
     if (earlier.found === "own") {
-        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun, spellings }, earlier.block);
+        return finishClosed(deps, input, { repoRoot, issuesRepo, codeRepo, epic, rerun }, earlier.block);
     }
 
     const resolved = deps.resolveEpic(repoRoot, issuesRepo, epic);
@@ -585,9 +580,8 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
             return stopped({ reason: `the issues that mention epic ${epicRef} could not be read, so close cannot tell which approved proposals an earlier run already filed: ${mentions.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
         }
         for (const p of content.approved) {
-            const keys = spellings.map((repo) => stubKey({ ...content, issuesRepo: repo }, p));
             const found = mentions.issues
-                .filter((i) => !i.pullRequest && i.trusted && sameRepo(i.repo, issuesRepo) && keys.some((k) => i.body.includes(k)))
+                .filter((i) => !i.pullRequest && i.trusted && sameRepo(i.repo, issuesRepo) && carriesStubKey(i.body, content, p))
                 .map((i) => i.number)
                 .sort((a, b) => a - b)[0];
             if (found !== undefined) stubs.set(proposalKey(p), found);
@@ -653,7 +647,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     done.push(`committed and pushed the close record on ${wt.branch}`);
 
     // 7. The record amendment, with find before write. A failed post is reported and stops nothing (G48).
-    const amendment = postAmendment(deps, repoRoot, content, spellings);
+    const amendment = postAmendment(deps, repoRoot, content);
 
     // 8. The close comment: the durable copy. A failed post is a stop, with the epic open (G25).
     const closeComment = renderCloseComment(content, stubs);
@@ -728,7 +722,7 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
 function finishClosed(
     deps: CloseCommandDeps,
     input: CloseInput,
-    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; spellings: string[] },
+    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string },
     block: Record<string, unknown>,
 ): CloseOutcome {
     const epicRef = `${at.issuesRepo}#${at.epic}`;
@@ -778,7 +772,7 @@ function finishClosed(
 function amendOnRerun(
     deps: CloseCommandDeps,
     input: CloseInput,
-    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string; spellings: string[] },
+    at: { repoRoot: string; issuesRepo: string; codeRepo: string; epic: number; rerun: string },
     block: Record<string, unknown>,
 ): { record: string; line: string; byHand: string[] } | null {
     const record = recordNumber(block["record"]);
@@ -788,8 +782,7 @@ function amendOnRerun(
 
     const existing = deps.issueComments(at.repoRoot, at.issuesRepo, record);
     if (!existing.ok) return notChecked(`the comments on ${recordRef} could not be read: ${existing.message}; re-run ${at.rerun} to check again`);
-    const keys = at.spellings.map((repo) => amendmentKey(repo, at.epic));
-    if (existing.comments.some((c) => trustedComment(c) && keys.some((k) => c.body.includes(k)))) return { record: recordRef, line: "already posted by an earlier run", byHand: [] };
+    if (existing.comments.some((c) => trustedComment(c) && carriesAmendmentKey(c.body, at.issuesRepo, at.epic))) return { record: recordRef, line: "already posted by an earlier run", byHand: [] };
 
     const body = deps.recordBody(at.repoRoot, at.issuesRepo, record);
     if (!body.ok) return notChecked(`${recordRef} could not be read: ${body.message}; re-run ${at.rerun} to check again`);
@@ -815,7 +808,7 @@ function amendOnRerun(
         verdicts,
         ranges: { range: [], stories: [], landed: [], waivers: [] },
     });
-    return { record: recordRef, ...postAmendment(deps, at.repoRoot, content, at.spellings) };
+    return { record: recordRef, ...postAmendment(deps, at.repoRoot, content) };
 }
 
 /**
@@ -856,7 +849,7 @@ function frontmatter(markdown: string): Map<string, string> {
  * superseding, nothing when a trusted comment already carries this epic's key. Never edits the
  * record's body, title, labels or state. Returns the report line; a failure never stops close.
  */
-function postAmendment(deps: CloseCommandDeps, root: string, content: CloseContent, spellings: readonly string[]): { line: string; byHand: string[] } {
+function postAmendment(deps: CloseCommandDeps, root: string, content: CloseContent): { line: string; byHand: string[] } {
     if (content.record === null) return { line: "none", byHand: [] };
     const body = renderRecordAmendment(content);
     if (body === null) return { line: "none (no departure is marked as superseding a record decision)", byHand: [] };
@@ -873,10 +866,9 @@ function postAmendment(deps: CloseCommandDeps, root: string, content: CloseConte
             "",
         ],
     });
-    const keys = spellings.map((repo) => amendmentKey(repo, content.epic));
     const existing = deps.issueComments(root, content.issuesRepo, content.record.number);
     if (!existing.ok) return notPosted(`could not check for an earlier amendment: ${existing.message}`, ", unless a comment there already carries its last line");
-    if (existing.comments.some((c) => keys.some((k) => c.body.includes(k)) && trustedComment(c))) {
+    if (existing.comments.some((c) => carriesAmendmentKey(c.body, content.issuesRepo, content.epic) && trustedComment(c))) {
         return { line: `${n} superseding decision(s), already posted by an earlier run`, byHand: [] };
     }
     const posted = deps.postComment(root, content.issuesRepo, content.record.number, body);
@@ -1079,13 +1071,6 @@ export function renderCloseOutcome(outcome: { ok: true; lines: string[] } | { ok
     return { stdout: [], stderr: err, exitCode: 1 };
 }
 
-/** The issues repository as `gh api` addresses it: its owner/repo path, and `--hostname` off github.com. */
-function apiRepo(issuesRepo: string): { host: string[]; path: string } {
-    const parts = issuesRepo.split("/");
-    if (parts.length !== 3) return { host: [], path: issuesRepo };
-    return { host: parts[0].toLowerCase() === "github.com" ? [] : ["--hostname", parts[0]], path: `${parts[1]}/${parts[2]}` };
-}
-
 /** The platform-backed reads, against the checkout at `root`. */
 export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string) => boolean; filerEnv?: FilerEnvironment }): CloseCommandDeps {
     // How the repository files issues, read once per checkout however many reads need it.
@@ -1110,7 +1095,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, error: { problem: "classification-mode-mismatch", message: kinds.error.message } };
             const slug = issuesRepoSlug(issuesRepo);
-            return resolveStories(run, root, slug, kinds.classification, {
+            return resolveStories(onIssuesHost(run, issuesRepo), root, slug, kinds.classification, {
                 prRepo,
                 closingIssues: pr.closingIssues,
                 commitMessages: pr.commitMessages,
@@ -1122,7 +1107,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             const kinds = classificationOf(root);
             if (!kinds.ok) return { ok: false, message: kinds.error.message };
             const slug = issuesRepoSlug(issuesRepo);
-            const facts = fetchIssueFacts(run, root, slug, issue);
+            const facts = fetchIssueFacts(onIssuesHost(run, issuesRepo), root, slug, issue);
             if (!facts.ok) return { ok: false, message: facts.error.message };
             if (!facts.facts.exists) return { ok: true, exists: false, kind: "other", parent: null };
             const kind = classifyIssueKind(kinds.classification, { number: issue, labels: facts.facts.labels, issueType: facts.facts.issueType });
@@ -1131,7 +1116,7 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
         resolveEpic: (root, issuesRepo, epic) => resolveEpic(run, root, epic, { requireEpic: false, singleRepo: opts.singleRepo(root), repo: issuesRepo }),
         subIssues: (root, issuesRepo, epic) => {
             const slug = issuesRepoSlug(issuesRepo);
-            const r = fetchSubIssueFacts(run, root, slug, epic);
+            const r = fetchSubIssueFacts(onIssuesHost(run, issuesRepo), root, slug, epic);
             return r.ok ? { ok: true, facts: r.facts } : { ok: false, message: r.error.message };
         },
         excludedStories: (root, issuesRepo, stories) => {
@@ -1205,8 +1190,8 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             }
         },
         postComment: (root, issuesRepo, issue, body) => {
-            const { host, path: repoPath } = apiRepo(issuesRepo);
-            const r = run("gh", ["api", ...host, "--method", "POST", `repos/${repoPath}/issues/${issue}/comments`, "-f", `body=${body}`], { cwd: root });
+            const { owner, repo } = issuesRepoSlug(issuesRepo);
+            const r = onIssuesHost(run, issuesRepo)("gh", ["api", "--method", "POST", `repos/${owner}/${repo}/issues/${issue}/comments`, "-f", `body=${body}`], { cwd: root });
             return r.status === 0 ? { ok: true } : { ok: false, message: r.stderr.trim() || "gh api failed" };
         },
         storyWaivers: (root, issuesRepo, story) => {
@@ -1214,8 +1199,8 @@ export function closeCommandDeps(run: Runner, opts: { singleRepo: (root: string)
             return r.ok ? { ok: true, comments: r.value } : { ok: false, message: r.error.message };
         },
         epicMentions: (root, issuesRepo, epic) => {
-            const { host, path: repoPath } = apiRepo(issuesRepo);
-            const r = run("gh", ["api", ...host, "--paginate", `repos/${repoPath}/issues/${epic}/timeline`, "--jq", MENTIONS_JQ], { cwd: root });
+            const { owner, repo } = issuesRepoSlug(issuesRepo);
+            const r = onIssuesHost(run, issuesRepo)("gh", ["api", "--paginate", `repos/${owner}/${repo}/issues/${epic}/timeline`, "--jq", MENTIONS_JQ], { cwd: root });
             if (r.status !== 0) return { ok: false, message: r.stderr.trim() || "gh api failed" };
             const issues: MentioningIssue[] = [];
             for (const line of r.stdout.split("\n")) {

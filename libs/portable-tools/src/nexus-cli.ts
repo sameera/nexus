@@ -59,7 +59,7 @@ import { resolvePublishingKey } from "@nexus/delivery-config/resolve";
 import { runCreateEpic } from "@nexus/delivery-config/epic-filer/run";
 import { runCreateStory } from "@nexus/delivery-config/story-filer/run";
 import { resolveRole } from "@nexus/pr-worktree/identity";
-import { parsePrReference, prRepoOnForge, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
+import { parsePrReference, prRepoName, resolveAnalyzeTarget } from "@nexus/pr-worktree/member-target";
 import { resolveStories } from "@nexus/pr-worktree/story-candidates";
 import { resolvePr } from "@nexus/pr-worktree/pr";
 import { deriveRange } from "@nexus/pr-worktree/range";
@@ -3092,8 +3092,7 @@ async function runClose(argv: string[], io: CliIo): Promise<number> {
     const own = given.filter((g) => "pr" in g.target).length > 1 ? canonicalRepoRef(closeMigrationRunner, io.cwd) : null;
     for (const g of given) {
         const t = g.target;
-        // github.com is the host a reference with none falls back to, so it adds nothing to the key.
-        const key = "epic" in t ? `epic ${t.epic}` : `pr ${(prRepoOnForge(t.pr, own) ?? "").toLowerCase().replace(/^github\.com\//, "")}#${t.pr.number}`;
+        const key = "epic" in t ? `epic ${t.epic}` : `pr ${prRepoName(t.pr, own) ?? ""}#${t.pr.number}`;
         if (!targets.has(key)) targets.set(key, g);
     }
     if (targets.size > 1) {
