@@ -62,6 +62,10 @@ describe("parsePrReference", () => {
         expect(parsePrReference("https://me@ghe.corp:8443/acme/widget/pull/7")).toEqual({ repo: "acme/widget", number: 7, host: "ghe.corp", port: "8443" });
     });
 
+    it("rejects a URL whose authority does not read", () => {
+        expect(parsePrReference("https://ghe.corp:abc/acme/widget/pull/5")).toBeNull();
+    });
+
     it("rejects an unrecognized string", () => {
         expect(parsePrReference("not-a-reference")).toBeNull();
     });

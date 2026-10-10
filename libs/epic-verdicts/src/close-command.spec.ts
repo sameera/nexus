@@ -507,6 +507,33 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
+    it("reads a close comment saved with CRLF line endings", () => {
+        const body = `<!-- nexus:close-record -->\r\n\`\`\`yaml\r\nepic: "#${EPIC}"\r\n\`\`\``;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
+    it("stops on a newer close comment that does not read rather than resume from an older one", () => {
+        const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
+        const broken = { body: `<!-- nexus:close-record -->\nhand-edited`, authorAssociation: "OWNER" };
+        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [own, broken] : [] }) });
+        expect(expectStop(h, runCloseCommand(h.deps, input(h)))).toMatch(/reason: .*does not read/);
+    });
+
+    it("names an unread comment list, not a missing epic marking, when the comments cannot be read", () => {
+        const h = harness({
+            issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null }),
+            issueComments: () => ({ ok: false, message: "HTTP 502" }),
+        });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toContain("HTTP 502");
+        expect(err).not.toMatch(/not filed as an epic/);
+    });
+
     it("reads its own machine block when the comment quotes another close comment above it", () => {
         const body = `> <!-- nexus:close-record -->\n> quoted\n\n<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``;
         const h = harness({

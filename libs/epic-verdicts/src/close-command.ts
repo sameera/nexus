@@ -409,6 +409,11 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     // can close it; the story ladder already checked the epic it found from a pull request.
     if ("epic" in input.target) {
         const kind = deps.issueKind(repoRoot, issuesRepo, epic);
+        // With the comments unread, close cannot know of an earlier close that would excuse a lost
+        // marking; that read failing is the stop, unless the number names no issue at all.
+        if (!epicComments.ok && !(kind.ok && !kind.exists)) {
+            return stopped({ reason: `the comments on epic ${epicRef} could not be read, so close cannot tell whether an earlier run already posted its close comment: ${epicComments.message}`, item: `epic ${epicRef}`, remedy: `re-run ${rerun} once the read succeeds` });
+        }
         if (!kind.ok) {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
         }

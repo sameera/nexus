@@ -43,10 +43,10 @@ export function parsePrReference(ref: string): ParsedPrReference | null {
 
     const url = URL_RE.exec(trimmed);
     if (url) {
-        const authority = /^(?:.*@)?(?:www\.)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
-        const host = authority?.[1] ?? url[1].toLowerCase();
-        const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host };
-        return authority?.[2] === undefined ? parsed : { ...parsed, port: authority[2] };
+        const authority = /^(?:[^@]*@)?(?:www\.)?([^:@]+)(?::(\d+))?$/.exec(url[1].toLowerCase());
+        if (authority === null) return null;
+        const parsed: ParsedPrReference = { repo: `${url[2]}/${url[3]}`.toLowerCase(), number: Number(url[4]), host: authority[1] };
+        return authority[2] === undefined ? parsed : { ...parsed, port: authority[2] };
     }
 
     return null;
