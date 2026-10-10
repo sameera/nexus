@@ -118,7 +118,7 @@ export function runCloseRecovery(deps: CloseRecoveryDeps, input: RecoverInput): 
         });
     }
     if (earlier.found === "unreadable") {
-        return stopped({ reason: `the close comment on epic ${epicRef} carries no machine block that reads`, item: `epic ${epicRef}`, remedy: `re-close it with nexus close --epic ${input.epic}, which posts one` });
+        return stopped({ reason: `the close comment on epic ${epicRef} cannot be read as this epic's: ${earlier.why}`, item: `epic ${epicRef}`, remedy: `re-close it with nexus close --epic ${input.epic}, which posts one` });
     }
     const { body: closeComment, block } = earlier;
     const record = recordNumber(block["record"]);

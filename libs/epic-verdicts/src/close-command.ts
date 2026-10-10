@@ -263,12 +263,16 @@ function stubRef(p: Pick<ApprovedProposal, "repo" | "pr" | "id">): string {
 
 /** The epic number an `epic.md`'s `link` names, or null. */
 export function linkedEpic(markdown: string): number | null {
+    return linkedEpicRef(markdown)?.number ?? null;
+}
+
+/** The issue an `epic.md`'s `link` names, with the repository it qualifies it with (null when bare), or null. */
+function linkedEpicRef(markdown: string): { repo: string | null; number: number } | null {
     const fm = /^---\n([\s\S]*?)\n---/.exec(markdown);
     if (fm === null) return null;
     const line = /^link:\s*(.+)$/m.exec(fm[1]);
     if (line === null) return null;
-    const ref = parseIssueRef(line[1].trim().replace(/^["']|["']$/g, ""));
-    return ref?.number ?? null;
+    return parseIssueRef(line[1].trim().replace(/^["']|["']$/g, ""));
 }
 
 /** The arguments a re-run repeats: the target as the lead named it, then the entry path and `--handoff`. */
@@ -312,18 +316,18 @@ function mergedList(prs: readonly { repo: string; pr: number }[]): string {
 }
 
 /** The epic an entry path's frontmatter links, or the stop that says why it names none. */
-function entryLink(entryPath: string): { ok: true; epic: number } | { ok: false; stop: CloseStop } {
+function entryLink(entryPath: string): { ok: true; epic: number; repo: string | null } | { ok: false; stop: CloseStop } {
     let markdown: string;
     try {
         markdown = fs.readFileSync(entryPath, "utf8");
     } catch (e) {
         return { ok: false, stop: { reason: `the entry path cannot be read: ${e instanceof Error ? e.message : String(e)}`, item: entryPath, remedy: "pass the epic's epic.md, or omit the path" } };
     }
-    const linked = linkedEpic(markdown);
+    const linked = linkedEpicRef(markdown);
     if (linked === null) {
         return { ok: false, stop: { reason: "the entry path's frontmatter has no link naming the epic issue", item: entryPath, remedy: 'add link: "#<epic>" to its frontmatter, or omit the path' } };
     }
-    return { ok: true, epic: linked };
+    return { ok: true, epic: linked.number, repo: linked.repo };
 }
 
 /** Run close through the close record and the amendment. Asks nothing; every outcome is returned. */
@@ -349,8 +353,6 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     if (!repos.ok) return stopped({ reason: repos.error.message, item: repoRoot, remedy: `fix the checkout's remote or the configured epic-repo, then re-run ${rerun}` });
     const { issuesRepo, repo: codeRepo } = repos.repos;
 
-    const link = input.entryPath === null ? null : entryLink(input.entryPath);
-    if (link !== null && !link.ok) return stopped(link.stop);
     const entryRel = input.entryPath === null ? null : path.relative(repoRoot, path.resolve(input.entryPath));
 
     let epic: number;
@@ -385,9 +387,12 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
         }
         epic = stories.epic;
     }
-    if (link !== null && link.epic !== epic) {
+    // After the target, so a pull request that has not merged is still the first answer.
+    const link = input.entryPath === null ? null : entryLink(input.entryPath);
+    if (link !== null && !link.ok) return stopped(link.stop);
+    if (link !== null && (link.epic !== epic || (link.repo !== null && !sameRepo(link.repo, issuesRepo)))) {
         return stopped({
-            reason: `the entry path's link names epic ${issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close ${"epic" in input.target ? "was given" : "found from the pull request"}`,
+            reason: `the entry path's link names epic ${link.repo ?? issuesRepo}#${link.epic}, not epic ${issuesRepo}#${epic}, the one close ${"epic" in input.target ? "was given" : "found from the pull request"}`,
             item: input.entryPath ?? "",
             remedy: `pass the epic.md of epic ${issuesRepo}#${epic}, or omit the path`,
         });
@@ -400,16 +405,16 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     const epicComments = deps.issueComments(repoRoot, issuesRepo, epic);
     const earlier = epicComments.ok ? findEpicCloseComment(epicComments.comments, epic, issuesRepo) : ({ found: "none" } as const);
 
-    // A number the lead typed must be filed as an epic, checked before anything, even the re-run
-    // shortcut, can close it; the story ladder already checked the epic it found from a pull
-    // request. A close comment that stamps this very epic is proof enough, so a re-run never depends
-    // on how the issue is labelled today.
-    if ("epic" in input.target && earlier.found !== "own") {
+    // A number the lead typed must be an epic, checked before anything, even the re-run shortcut,
+    // can close it; the story ladder already checked the epic it found from a pull request.
+    if ("epic" in input.target) {
         const kind = deps.issueKind(repoRoot, issuesRepo, epic);
         if (!kind.ok) {
             return stopped({ reason: `what ${epicRef} is filed as could not be determined, so close cannot tell it is an epic: ${kind.message}`, item: `issue ${epicRef}`, remedy: `fix the cause above, then re-run ${rerun}` });
         }
-        if (!kind.exists || !countsAsEpic(kind.kind, kind.parent, { unmarkedTopLevel: false })) {
+        // This epic's own close comment excuses only a missing marking (an epic relabelled since),
+        // never an issue filed as something else.
+        if (!kind.exists || !countsAsEpic(kind.kind, kind.parent, { unmarkedTopLevel: earlier.found === "own" })) {
             const is = !kind.exists ? "does not exist" : kind.kind === "story" || kind.kind === "record" ? `is filed as a ${kind.kind}, not an epic` : "is not filed as an epic";
             const parent = kind.parent === null ? "" : ` (its parent is ${issuesRepo}#${kind.parent})`;
             const prHint = !kind.exists ? `; if ${epic} is a pull request, run nexus close --pr ${epic}, or --pr owner/repo#${epic} when it is in another repository` : "";
@@ -429,9 +434,9 @@ export function runCloseCommand(deps: CloseCommandDeps, input: CloseInput): Clos
     }
     if (earlier.found === "unreadable") {
         return stopped({
-            reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo} whose machine block does not read, so close can neither finish that close nor tell that none happened`,
+            reason: `epic ${epicRef} carries a close comment from someone who can speak for ${issuesRepo}, but ${earlier.why}, so close can neither finish that close nor tell that none happened`,
             item: `epic ${epicRef}`,
-            remedy: `check that comment: restore its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
+            remedy: `check that comment: correct its machine block if it is this epic's close, or remove its marker if it is a copy; then re-run ${rerun}`,
         });
     }
     if (earlier.found === "own") {

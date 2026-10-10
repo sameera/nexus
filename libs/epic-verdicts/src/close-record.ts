@@ -559,7 +559,9 @@ export function renderDeferredStub(c: CloseContent, p: ApprovedProposal): { titl
 
 /** The machine block of a close comment, parsed: null when it carries none that reads. */
 export function machineBlock(comment: string): Record<string, unknown> | null {
-    const at = comment.indexOf(CLOSE_RECORD_MARKER);
+    // The marker that opens a line is the comment's own; a quoted copy earlier in it is not.
+    const own = comment.search(OWN_MARKER_RE);
+    const at = own >= 0 ? own : comment.indexOf(CLOSE_RECORD_MARKER);
     if (at < 0) return null;
     const fence = /^\n```ya?ml\n([\s\S]*?)\n```/.exec(comment.slice(at + CLOSE_RECORD_MARKER.length));
     if (fence === null) return null;
@@ -577,30 +579,36 @@ export function recordNumber(v: unknown): number | null {
 }
 
 /** What an epic's comments say about its own close: the close to resume from, or that one cannot be read. */
-export type EpicCloseComment = { found: "own"; body: string; block: Record<string, unknown> } | { found: "unreadable" } | { found: "none" };
+export type EpicCloseComment = { found: "own"; body: string; block: Record<string, unknown> } | { found: "unreadable"; why: string } | { found: "none" };
 
 /**
  * The epic's own close comment, the one close resumes from and recovery re-stamps: the newest from
  * an author who can speak for the repository, with the marker opening a line (a quoted copy's does
  * not), whose machine block stamps this epic and, where it names one, this issues repository.
  * Another epic's close comment is passed over. `unreadable` is a trusted, unquoted marker whose
- * block does not read or stamps no epic, when no readable one exists: neither a close to resume
- * from nor proof that none happened.
+ * block does not read, stamps no epic, or stamps this epic in another issues repository (a renamed
+ * repository, or a copied comment), when no own one exists: neither a close to resume from nor
+ * proof that none happened, so the caller stops and names why.
  */
 export function findEpicCloseComment(comments: readonly { body: string; authorAssociation: string }[], epic: number, issuesRepo: string): EpicCloseComment {
-    let unreadable = false;
+    let unreadable: string | null = null;
     for (const c of [...comments].reverse()) {
         if (!MAINTAINER_ASSOCIATIONS.includes(c.authorAssociation.toUpperCase()) || !OWN_MARKER_RE.test(c.body)) continue;
         const block = machineBlock(c.body);
         const stamped = block === null ? null : recordNumber(block["epic"]);
         if (block === null || stamped === null) {
-            unreadable = true;
+            unreadable ??= "its machine block does not read";
             continue;
         }
-        if (stamped !== epic || (typeof block["issues_repo"] === "string" && !sameRepo(block["issues_repo"], issuesRepo))) continue;
+        if (stamped !== epic) continue;
+        const repo = block["issues_repo"];
+        if (typeof repo === "string" && !sameRepo(repo, issuesRepo)) {
+            unreadable ??= `it stamps epic #${epic} of ${repo}, not of ${issuesRepo}`;
+            continue;
+        }
         return { found: "own", body: c.body, block };
     }
-    return unreadable ? { found: "unreadable" } : { found: "none" };
+    return unreadable === null ? { found: "none" } : { found: "unreadable", why: unreadable };
 }
 
 /** The close-record marker opening a line, as close writes it; a quoted copy starts with `>`. */

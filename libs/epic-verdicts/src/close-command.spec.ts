@@ -492,17 +492,55 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
-    it("never takes a quoted close comment, or one from another issues repository, as this epic's close", () => {
-        for (const body of [
-            `> <!-- nexus:close-record -->\n> \`\`\`yaml\n> epic: "#${EPIC}"\n> \`\`\``,
-            `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: other/repo\n\`\`\``,
-        ]) {
-            const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
-            const { out } = closed(h);
-            expect(out.resumed, body).toBe(false);
-        }
+    it("never takes a quoted close comment as this epic's close", () => {
+        const body = `> <!-- nexus:close-record -->\n> \`\`\`yaml\n> epic: "#${EPIC}"\n> \`\`\``;
+        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
+        const { out } = closed(h);
+        expect(out.resumed).toBe(false);
     });
 
+    it("stops, creating nothing, on a close comment that stamps this epic in another issues repository, naming both", () => {
+        const body = `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\nissues_repo: acme/old\n\`\`\``;
+        const h = harness({ issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h)));
+        expect(err).toMatch(/reason: .*acme\/old.*acme\/app/);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("reads its own machine block when the comment quotes another close comment above it", () => {
+        const body = `> <!-- nexus:close-record -->\n> quoted\n\n<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === EPIC ? [{ body, authorAssociation: "OWNER" }] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: `distill/2026-10-03-epic-${EPIC}`, source: "local" }),
+        });
+        const out = runCloseCommand(h.deps, input(h));
+        expect(out.ok && out.resumed).toBe(true);
+    });
+
+    it("does not let a close comment pasted onto a story close that story", () => {
+        const body = `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#864"\n\`\`\``;
+        const h = harness({
+            issueComments: (_r, _repo, issue) => ({ ok: true, comments: issue === 864 ? [{ body, authorAssociation: "OWNER" }] : [] }),
+            findDistillBranch: () => ({ ok: true, branch: "distill/2026-10-03-epic-864", source: "local" }),
+        });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { target: { epic: 864 } })));
+        expect(err).toMatch(/reason: .*#864 .*story/);
+        expect(h.writes).toEqual([]);
+    });
+
+    it("stops when the entry path links the same number in another repository", () => {
+        const h = harness();
+        const entry = path.join(h.repoRoot, "epic.md");
+        fs.writeFileSync(entry, `---\nlink: "acme/api#${EPIC}"\n---\n`);
+        expect(expectStop(h, runCloseCommand(h.deps, input(h, { entryPath: entry })))).toMatch(/reason: .*acme\/api#830/);
+    });
+
+    it("answers that a pull request has not merged before it reads the entry path", () => {
+        const h = harness({ readPr: () => ({ ok: true, pr: prInfo({ state: "OPEN", merged: false, mergeCommitOid: null }) }) });
+        const err = expectStop(h, runCloseCommand(h.deps, input(h, { ...viaPr(), entryPath: path.join(h.repoRoot, "missing.md") })));
+        expect(err).toMatch(/not merged/);
+        expect(err).not.toMatch(/cannot be read/);
+    });
     it("finishes from an older close comment of this epic when a newer one quotes another epic's", () => {
         const own = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const quoted = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#99"\n\`\`\``, authorAssociation: "OWNER" };
@@ -558,7 +596,7 @@ describe("nexus close — keyed by the epic (#906)", () => {
         expect(h.writes).toEqual([]);
     });
 
-    it("finishes a close comment that stamps this epic without asking what the issue is filed as today", () => {
+    it("finishes a close comment that stamps this epic though the issue has since lost its epic marking", () => {
         const earlier = { body: `<!-- nexus:close-record -->\n\`\`\`yaml\nepic: "#${EPIC}"\n\`\`\``, authorAssociation: "OWNER" };
         const h = harness({
             issueKind: () => ({ ok: true, exists: true, kind: "other", parent: null }),
